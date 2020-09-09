@@ -152,9 +152,11 @@ pub(crate) async fn worktree(
         let message = base_commit_decoded
             .message
             .to_string()
-            .replace('\n', " ")
+            .lines()
+            .next()
+            .unwrap_or("")
             .chars()
-            .take(50)
+            .take(40)
             .collect::<String>();
         let formatted_date = base_commit_decoded.committer()?.time()?.format_or_unix(DATE_ONLY);
         let author = base_commit_decoded.author()?;
@@ -364,17 +366,12 @@ pub(crate) async fn worktree(
 
     writeln!(
         out,
-        "{} {} (common base) [{}] {} {}{}",
+        "{} {} [{}] {} {}",
         if upstream_state.is_some() { "├╯" } else { "┴" },
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.commit_date.dimmed(),
         common_merge_base_data.message,
-        if upstream_state.is_none() {
-            last_checked_text.dimmed().to_string()
-        } else {
-            String::new()
-        }
     )?;
 
     let not_on_workspace = matches!(mode, gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_));
