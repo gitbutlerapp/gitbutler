@@ -1,8 +1,15 @@
-# Svelte-Kit + Vite
+## prerequisites
 
-This template should help get you started developing with Tauri and Svelte-Kit in Vite.
+[see here](https://tauri.app/v1/guides/getting-started/prerequisites)
 
-## Recommended IDE Setup
+## setup
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+```bash
+$ pnpm install
+```
 
+## development
+
+```bash
+$ pnpm tauri dev
+```
