@@ -1,6 +1,7 @@
 lockfileVersion: 5.4
 
 specifiers:
+  '@automerge/automerge': ^2.0.1
   '@sveltejs/adapter-static': next
   '@sveltejs/kit': next
   '@tauri-apps/api': ^1.2.0
@@ -18,6 +19,7 @@ specifiers:
   vite: ^4.0.0
 
 dependencies:
+  '@automerge/automerge': 2.0.1
   '@tauri-apps/api': 1.2.0
   tauri-plugin-fs-watch-api: github.com/tauri-apps/tauri-plugin-fs-watch/6ba8af302bf10e0312584c2d43f29b02cd063e1d
 
@@ -37,6 +39,17 @@ devDependencies:
   vite: 4.0.4
 
 packages:
+
+  /@automerge/automerge-wasm/0.1.23:
+    resolution: {integrity: sha512-hAKqZgu+GGRwfMJpoEF7JZIpqKo3nnfrkE9WuM8WrHqzGwfVAgLaNjsscdzMNar1kVjuwAZ8f1D+wA7kQZ0vuw==}
+    dev: false
+
+  /@automerge/automerge/2.0.1:
+    resolution: {integrity: sha512-tLfzb+0JBPruWgCKq6mzENHTtmGpKZatmApT8BeCZemzvmR1jkfl+XdoUQtR1PMcYzfWQzwgV4LkoqHxzx9Wxw==}
+    dependencies:
+      '@automerge/automerge-wasm': 0.1.23
+      uuid: 9.0.0
+    dev: false
 
   /@esbuild/android-arm/0.16.17:
     resolution: {integrity: sha512-N9x1CMXVhtWEAMS7pNNONyA14f71VPQN9Cnavj1XQh6T7bskqiLLrSca4O0Vr8Wdcga943eThxnVp3JLnBMYtw==}
@@ -1416,6 +1429,11 @@ packages:
   /util-deprecate/1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
     dev: true
+
+  /uuid/9.0.0:
+    resolution: {integrity: sha512-MXcSTerfPa4uqyzStbRoTgt5XIe3x5+42+q1sDuy3R5MDk66URdLMOZe5aPX/SQd+kuYAh0FdP/pO28IkQyTeg==}
+    hasBin: true
+    dev: false
 
   /vite/4.0.4:
     resolution: {integrity: sha512-xevPU7M8FU0i/80DMR+YhgrzR5KS2ORy1B4xcX/cXLsvnUWvfHuqMmVU6N0YiJ4JWGRJJsLCgjEzKjG9/GKoSw==}

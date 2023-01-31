@@ -12,6 +12,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@automerge/automerge": "^2.0.1",
     "@tauri-apps/api": "^1.2.0",
     "tauri-plugin-fs-watch-api": "github:tauri-apps/tauri-plugin-fs-watch"
   },
@@ -19,15 +20,15 @@
     "@sveltejs/adapter-static": "next",
     "@sveltejs/kit": "next",
     "@tauri-apps/cli": "^1.2.2",
-    "svelte": "^3.54.0",
-    "svelte-check": "^3.0.0",
-    "tslib": "^2.4.1",
-    "typescript": "^4.8.4",
-    "vite": "^4.0.0",
+    "autoprefixer": "^10.4.7",
     "postcss": "^8.4.14",
     "postcss-load-config": "^4.0.1",
+    "svelte": "^3.54.0",
+    "svelte-check": "^3.0.0",
     "svelte-preprocess": "^4.10.7",
-    "autoprefixer": "^10.4.7",
-    "tailwindcss": "^3.1.5"
+    "tailwindcss": "^3.1.5",
+    "tslib": "^2.4.1",
+    "typescript": "^4.8.4",
+    "vite": "^4.0.0"
   }
 }
