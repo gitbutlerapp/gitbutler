@@ -15,6 +15,7 @@
     "@tauri-apps/api": "^1.2.0",
     "diff": "^5.1.0",
     "idb-keyval": "^6.2.0",
+    "mm-jsr": "^3.0.2",
     "tauri-plugin-fs-watch-api": "github:tauri-apps/tauri-plugin-fs-watch",
     "yjs": "^13.5.45"
   },

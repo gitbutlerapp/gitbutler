@@ -2,8 +2,9 @@
     import { open } from "@tauri-apps/api/dialog";
     import { writable } from "svelte/store";
     import { EventType, watch, type Event } from "$lib/watch";
-    import { crdt } from "$lib";
+    import { TextDocument } from "$lib/crdt";
     import { NoSuchFileOrDirectoryError, readFile } from "$lib/tauri";
+    import { File } from "$lib/components";
 
     const selectedPath = writable<string | string[] | null>(null);
 
@@ -13,7 +14,7 @@
             recursive: true,
         }).then(selectedPath.set);
 
-    const docs = writable<Record<string, ReturnType<typeof crdt.text>>>({});
+    const docs = writable<Record<string, TextDocument>>({});
 
     const deleteDocs = (...filepaths: string[]) => {
         $docs = Object.fromEntries(
@@ -28,9 +29,9 @@
             .then((content) => {
                 if (filepath in $docs) {
                     $docs[filepath].update(content);
-                    $docs[filepath] = $docs[filepath];
+                    $docs = $docs;
                 } else {
-                    $docs[filepath] = crdt.text(content);
+                    $docs[filepath] = TextDocument.new(content);
                 }
             })
             .catch((err) => {
@@ -73,19 +74,12 @@
 <ul class="flex flex-col gap-2">
     {#each Object.entries($docs) as [filepath, doc]}
         <li>
-            <figure>
-                <figcaption>{filepath}</figcaption>
+            <details>
+                <summary>{filepath}</summary>
                 <ul>
-                    {#each doc.history() as { time, deltas }}
-                        <li>
-                            <time>{time}</time>
-                            <code>
-                                {JSON.stringify(deltas)}
-                            </code>
-                        </li>
-                    {/each}
+                    <File {doc} />
                 </ul>
-            </figure>
+            </details>
         </li>
     {/each}
 </ul>

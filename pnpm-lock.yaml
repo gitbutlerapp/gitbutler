@@ -9,6 +9,7 @@ specifiers:
   autoprefixer: ^10.4.7
   diff: ^5.1.0
   idb-keyval: ^6.2.0
+  mm-jsr: ^3.0.2
   postcss: ^8.4.14
   postcss-load-config: ^4.0.1
   svelte: ^3.54.0
@@ -25,7 +26,8 @@ dependencies:
   '@tauri-apps/api': 1.2.0
   diff: 5.1.0
   idb-keyval: 6.2.0
-  tauri-plugin-fs-watch-api: github.com/tauri-apps/tauri-plugin-fs-watch/6ba8af302bf10e0312584c2d43f29b02cd063e1d
+  mm-jsr: 3.0.2
+  tauri-plugin-fs-watch-api: github.com/tauri-apps/tauri-plugin-fs-watch/7d63ad9dfd72ae6c2bb05c148f344adb0521ec3a
   yjs: 13.5.45
 
 devDependencies:
@@ -922,6 +924,10 @@ packages:
       minimist: 1.2.7
     dev: true
 
+  /mm-jsr/3.0.2:
+    resolution: {integrity: sha512-ATbSVKgOU9i54eBLPV+QETFKhGODnCDKsi18TLsET7BCJnX00LjcbOZYvw6ODplJpRY7JCrA861mYfViCDnh3w==}
+    dev: false
+
   /mri/1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
     engines: {node: '>=4'}
@@ -1524,8 +1530,8 @@ packages:
       lib0: 0.2.60
     dev: false
 
-  github.com/tauri-apps/tauri-plugin-fs-watch/6ba8af302bf10e0312584c2d43f29b02cd063e1d:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-fs-watch/tar.gz/6ba8af302bf10e0312584c2d43f29b02cd063e1d}
+  github.com/tauri-apps/tauri-plugin-fs-watch/7d63ad9dfd72ae6c2bb05c148f344adb0521ec3a:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-fs-watch/tar.gz/7d63ad9dfd72ae6c2bb05c148f344adb0521ec3a}
     name: tauri-plugin-fs-watch-api
     version: 0.0.0
     dependencies:
