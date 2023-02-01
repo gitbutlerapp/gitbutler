@@ -16,8 +16,9 @@ tauri-build = { version = "1.2", features = [] }
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.2", features = ["dialog-open"] }
+tauri = { version = "1.2", features = ["dialog-open", "window-start-dragging"] }
 tauri-plugin-fs-watch = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev" }
+cocoa = "0.24.1"
 
 [features]
 # by default Tauri runs in production mode

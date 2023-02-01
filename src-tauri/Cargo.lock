@@ -848,6 +848,7 @@ dependencies = [
 name = "git-butler-tauri"
 version = "0.0.0"
 dependencies = [
+ "cocoa",
  "serde",
  "serde_json",
  "tauri",

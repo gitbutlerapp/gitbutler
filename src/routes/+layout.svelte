@@ -1,7 +1,8 @@
 <script>
-  import "../app.postcss";
+    import "../app.postcss";
 </script>
 
-<main class="container">
-  <slot />
+<header data-tauri-drag-region class="h-8" />
+<main>
+    <slot />
 </main>

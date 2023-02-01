@@ -16,6 +16,10 @@
       "dialog": {
         "all": false,
         "open": true
+      },
+      "window": {
+        "all": false,
+        "startDragging": true
       }
     },
     "bundle": {
@@ -63,7 +67,9 @@
         "height": 600,
         "resizable": true,
         "title": "git-butler-tauri",
-        "width": 800
+        "width": 800,
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay"
       }
     ]
   }
