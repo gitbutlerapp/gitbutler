@@ -2,6 +2,8 @@
     import { open } from "@tauri-apps/api/dialog";
     import { writable } from "svelte/store";
     import { EventType, watch, type Event } from "$lib/watch";
+    import { crdt } from "$lib";
+    import { NoSuchFileOrDirectoryError, readFile } from "$lib/tauri";
 
     const selectedPath = writable<string | string[] | null>(null);
 
@@ -11,16 +13,47 @@
             recursive: true,
         }).then(selectedPath.set);
 
-    const events = writable<Event[]>([]);
+    const docs = writable<Record<string, ReturnType<typeof crdt.text>>>({});
+
+    const deleteDocs = (...filepaths: string[]) => {
+        $docs = Object.fromEntries(
+            Object.entries($docs).filter(
+                ([filepath, _]) => !filepaths.includes(filepath)
+            )
+        );
+    };
+
+    const upsertDoc = (filepath: string) =>
+        readFile(filepath)
+            .then((content) => {
+                if (filepath in $docs) {
+                    $docs[filepath].update(content);
+                    $docs[filepath] = $docs[filepath];
+                } else {
+                    $docs[filepath] = crdt.text(content);
+                }
+            })
+            .catch((err) => {
+                if (err instanceof NoSuchFileOrDirectoryError) {
+                    deleteDocs(filepath);
+                } else {
+                    throw err;
+                }
+            });
 
     const onEvent = (event: Event) => {
-        events.update((events) => [...events, event]);
-        if (EventType.isCreate(event.type)) {
-            console.log("create");
-        } else if (EventType.isModify(event.type)) {
-            console.log("modify");
-        } else if (EventType.isRemove(event.type)) {
-            console.log("remove");
+        const isFileCreate =
+            EventType.isCreate(event.type) && event.type.create.kind === "file";
+        const isFileUpdate =
+            EventType.isModify(event.type) && event.type.modify.kind === "data";
+        const isFileRemove = EventType.isRemove(event.type);
+
+        if (isFileCreate) {
+            event.paths.forEach(upsertDoc);
+        } else if (isFileUpdate) {
+            event.paths.forEach(upsertDoc);
+        } else if (isFileRemove) {
+            deleteDocs(...event.paths);
         }
     };
 
@@ -38,7 +71,21 @@
 </form>
 
 <ul class="flex flex-col gap-2">
-    {#each $events as event}
-        <li>{JSON.stringify(event)}</li>
+    {#each Object.entries($docs) as [filepath, doc]}
+        <li>
+            <figure>
+                <figcaption>{filepath}</figcaption>
+                <ul>
+                    {#each doc.history() as { time, deltas }}
+                        <li>
+                            <time>{time}</time>
+                            <code>
+                                {JSON.stringify(deltas)}
+                            </code>
+                        </li>
+                    {/each}
+                </ul>
+            </figure>
+        </li>
     {/each}
 </ul>

@@ -1,4 +1,4 @@
-import { Doc, snapshot } from "yjs";
+import { Doc } from "yjs";
 import { diffChars } from "diff";
 
 export type Delta =
@@ -45,20 +45,15 @@ export const text = (content?: string) => {
     const doc = new Doc();
     const deltas = getDeltaOperations("", content || "");
     doc.getText().applyDelta(deltas);
-    let lastSnapshot = snapshot(doc);
-    const snapshots = [
-        { time: new Date().getTime(), deltas: doc.getText().toDelta() },
-    ];
+    const snapshots = [{ time: new Date().getTime(), deltas }];
     return {
         update: (content: string) => {
             const deltas = getDeltaOperations(doc.getText().toString(), content);
             doc.getText().applyDelta(deltas);
-            const newSnapshot = snapshot(doc);
             snapshots.push({
                 time: new Date().getTime(),
-                deltas: doc.getText().toDelta(newSnapshot, lastSnapshot),
+                deltas,
             });
-            lastSnapshot = newSnapshot;
         },
         history: () => snapshots,
         toString: () => doc.getText().toString(),
