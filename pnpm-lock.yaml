@@ -1,12 +1,14 @@
 lockfileVersion: 5.4
 
 specifiers:
-  '@automerge/automerge': ^2.0.1
   '@sveltejs/adapter-static': next
   '@sveltejs/kit': next
   '@tauri-apps/api': ^1.2.0
   '@tauri-apps/cli': ^1.2.2
+  '@types/diff': ^5.0.2
   autoprefixer: ^10.4.7
+  diff: ^5.1.0
+  idb-keyval: ^6.2.0
   postcss: ^8.4.14
   postcss-load-config: ^4.0.1
   svelte: ^3.54.0
@@ -17,16 +19,20 @@ specifiers:
   tslib: ^2.4.1
   typescript: ^4.8.4
   vite: ^4.0.0
+  yjs: ^13.5.45
 
 dependencies:
-  '@automerge/automerge': 2.0.1
   '@tauri-apps/api': 1.2.0
+  diff: 5.1.0
+  idb-keyval: 6.2.0
   tauri-plugin-fs-watch-api: github.com/tauri-apps/tauri-plugin-fs-watch/6ba8af302bf10e0312584c2d43f29b02cd063e1d
+  yjs: 13.5.45
 
 devDependencies:
   '@sveltejs/adapter-static': 1.0.0-next.50_l5ueyfihz3gpzzvvyo2ean5u3e
   '@sveltejs/kit': 1.0.0-next.589_svelte@3.55.1+vite@4.0.4
   '@tauri-apps/cli': 1.2.3
+  '@types/diff': 5.0.2
   autoprefixer: 10.4.13_postcss@8.4.21
   postcss: 8.4.21
   postcss-load-config: 4.0.1_postcss@8.4.21
@@ -39,17 +45,6 @@ devDependencies:
   vite: 4.0.4
 
 packages:
-
-  /@automerge/automerge-wasm/0.1.23:
-    resolution: {integrity: sha512-hAKqZgu+GGRwfMJpoEF7JZIpqKo3nnfrkE9WuM8WrHqzGwfVAgLaNjsscdzMNar1kVjuwAZ8f1D+wA7kQZ0vuw==}
-    dev: false
-
-  /@automerge/automerge/2.0.1:
-    resolution: {integrity: sha512-tLfzb+0JBPruWgCKq6mzENHTtmGpKZatmApT8BeCZemzvmR1jkfl+XdoUQtR1PMcYzfWQzwgV4LkoqHxzx9Wxw==}
-    dependencies:
-      '@automerge/automerge-wasm': 0.1.23
-      uuid: 9.0.0
-    dev: false
 
   /@esbuild/android-arm/0.16.17:
     resolution: {integrity: sha512-N9x1CMXVhtWEAMS7pNNONyA14f71VPQN9Cnavj1XQh6T7bskqiLLrSca4O0Vr8Wdcga943eThxnVp3JLnBMYtw==}
@@ -451,6 +446,10 @@ packages:
     resolution: {integrity: sha512-COUnqfB2+ckwXXSFInsFdOAWQzCCx+a5hq2ruyj+Vjund94RJQd4LG2u9hnvJrTgunKAaax7ancBYlDrNYxA0g==}
     dev: true
 
+  /@types/diff/5.0.2:
+    resolution: {integrity: sha512-uw8eYMIReOwstQ0QKF0sICefSy8cNO/v7gOTiIy9SbwuHyEecJUm7qlgueOO5S1udZ5I/irVydHVwMchgzbKTg==}
+    dev: true
+
   /@types/node/18.11.18:
     resolution: {integrity: sha512-DHQpWGjyQKSHj3ebjFI/wRKcqQcdR+MoFBygntYOZytCqNfkd2ZC4ARDJ2DQqhjH5p85Nnd3jhUJIXrszFX/JA==}
     dev: true
@@ -649,6 +648,11 @@ packages:
     resolution: {integrity: sha512-gxtyfqMg7GKyhQmb056K7M3xszy/myH8w+B4RT+QXBQsvAOdc3XymqDDPHx1BgPgsdAA5SIifona89YtRATDzw==}
     dev: true
 
+  /diff/5.1.0:
+    resolution: {integrity: sha512-D+mk+qE8VC/PAUrlAU34N+VfXev0ghe5ywmpqrawphmVZc1bEfn56uo9qpyGp1p4xpzOHkSW4ztBd6L7Xx4ACw==}
+    engines: {node: '>=0.3.1'}
+    dev: false
+
   /dlv/1.1.3:
     resolution: {integrity: sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA==}
     dev: true
@@ -788,6 +792,12 @@ packages:
       function-bind: 1.1.1
     dev: true
 
+  /idb-keyval/6.2.0:
+    resolution: {integrity: sha512-uw+MIyQn2jl3+hroD7hF8J7PUviBU7BPKWw4f/ISf32D4LoGu98yHjrzWWJDASu9QNrX10tCJqk9YY0ClWm8Ng==}
+    dependencies:
+      safari-14-idb-fix: 3.0.0
+    dev: false
+
   /import-fresh/3.3.0:
     resolution: {integrity: sha512-veYYhQa+D1QBKznvhUHxb8faxlrwUnxseDAbAp457E0wLNio2bOSKnjYDhMj+YiAq61xrMGhQk9iXVk5FzgQMw==}
     engines: {node: '>=6'}
@@ -837,10 +847,21 @@ packages:
     engines: {node: '>=0.12.0'}
     dev: true
 
+  /isomorphic.js/0.2.5:
+    resolution: {integrity: sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==}
+    dev: false
+
   /kleur/4.1.5:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
     dev: true
+
+  /lib0/0.2.60:
+    resolution: {integrity: sha512-vzhtdUXBV8HyJnJWIZxUSH/aUVo1U4jUFRFDPVY245zFtzCl9Gld/EgvA8Jhnrio7Jn0HmGswErbPjsabYd7ow==}
+    engines: {node: '>=14'}
+    dependencies:
+      isomorphic.js: 0.2.5
+    dev: false
 
   /lilconfig/2.0.6:
     resolution: {integrity: sha512-9JROoBW7pobfsx+Sq2JsASvCo6Pfo6WWoUW79HuB1BCoBXD4PLWJPqDF6fNj67pqBYTbAHkE57M1kS/+L1neOg==}
@@ -1131,6 +1152,10 @@ packages:
     dependencies:
       mri: 1.2.0
     dev: true
+
+  /safari-14-idb-fix/3.0.0:
+    resolution: {integrity: sha512-eBNFLob4PMq8JA1dGyFn6G97q3/WzNtFK4RnzT1fnLq+9RyrGknzYiM/9B12MnKAxuj1IXr7UKYtTNtjyKMBog==}
+    dev: false
 
   /sander/0.5.1:
     resolution: {integrity: sha512-3lVqBir7WuKDHGrKRDn/1Ye3kwpXaDOMsiRP1wd6wpZW56gJhsbp5RqQpA6JG/P+pkXizygnr1dKR8vzWaVsfA==}
@@ -1430,11 +1455,6 @@ packages:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
     dev: true
 
-  /uuid/9.0.0:
-    resolution: {integrity: sha512-MXcSTerfPa4uqyzStbRoTgt5XIe3x5+42+q1sDuy3R5MDk66URdLMOZe5aPX/SQd+kuYAh0FdP/pO28IkQyTeg==}
-    hasBin: true
-    dev: false
-
   /vite/4.0.4:
     resolution: {integrity: sha512-xevPU7M8FU0i/80DMR+YhgrzR5KS2ORy1B4xcX/cXLsvnUWvfHuqMmVU6N0YiJ4JWGRJJsLCgjEzKjG9/GKoSw==}
     engines: {node: ^14.18.0 || >=16.0.0}
@@ -1497,6 +1517,12 @@ packages:
     resolution: {integrity: sha512-e0WHiYql7+9wr4cWMx3TVQrNwejKaEe7/rHNmQmqRjazfOP5W8PB6Jpebb5o6fIapbz9o9+2ipcaTM2ZwDI6lw==}
     engines: {node: '>= 14'}
     dev: true
+
+  /yjs/13.5.45:
+    resolution: {integrity: sha512-9VUNDvb9oJHdYSMdzIpdM/agVm+EEFKRN+843CFqQuq5bo/BP3EAaxofRG9jQut3sqtGQT4A9YdQvOeeAjU6aA==}
+    dependencies:
+      lib0: 0.2.60
+    dev: false
 
   github.com/tauri-apps/tauri-plugin-fs-watch/6ba8af302bf10e0312584c2d43f29b02cd063e1d:
     resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-fs-watch/tar.gz/6ba8af302bf10e0312584c2d43f29b02cd063e1d}
