@@ -10,11 +10,8 @@
     export let min: number,
         max: number,
         step: number = 1,
-        initValue: number,
         value: number | undefined,
         formatter = (value: number): string => `${value}`;
-
-    value = initValue;
 
     const jsr = (
         container: HTMLElement,
@@ -37,12 +34,11 @@
                     min: config.min,
                     max: config.max,
                     step,
-                    initialValues: [initValue],
+                    initialValues: [value ?? config.max],
                     container: container,
                 },
             });
             jsr.onValueChange(({ real }) => {
-                console.log(real);
                 value = real;
             });
         };
