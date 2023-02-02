@@ -4,7 +4,7 @@
     import { EventType, watch, type Event } from "$lib/watch";
     import { TextDocument } from "$lib/crdt";
     import { NoSuchFileOrDirectoryError, readFile } from "$lib/tauri";
-    import { File, Timeline } from "$lib/components";
+    import { Timeline } from "$lib/components";
 
     const selectedPath = writable<string | string[] | null>(null);
 
