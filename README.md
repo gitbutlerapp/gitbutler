@@ -5,6 +5,7 @@
 ## setup
 
 ```bash
+$ cd src-tauri/binaries && make
 $ pnpm install
 ```
 
