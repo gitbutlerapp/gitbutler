@@ -5,6 +5,7 @@
     import { TextDocument } from "$lib/crdt";
     import { NoSuchFileOrDirectoryError, readFile } from "$lib/tauri";
     import { Timeline } from "$lib/components";
+    import { git } from "$lib";
 
     const selectedPath = writable<string | string[] | null>(null);
 
@@ -76,6 +77,8 @@
         [min, max],
         ([min, max]) => isFinite(min) && isFinite(max)
     );
+
+    git.exec("version").then(console.log);
 
     let value: number | undefined;
 </script>

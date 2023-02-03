@@ -13,6 +13,17 @@
   "tauri": {
     "allowlist": {
       "all": false,
+      "shell": {
+        "all": false,
+        "sidecar": true,
+        "scope": [
+          {
+            "name": "binaries/git",
+            "sidecar": true,
+            "args": true
+          }
+        ]
+      },
       "dialog": {
         "all": false,
         "open": true
@@ -40,7 +51,7 @@
       "deb": {
         "depends": []
       },
-      "externalBin": [],
+      "externalBin": ["binaries/git"],
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
