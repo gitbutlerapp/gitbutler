@@ -47,7 +47,7 @@ export class TextDocument {
     private doc: Doc = new Doc();
     private history: HistoryEntry[] = [];
 
-    private constructor(history: HistoryEntry[]) {
+    private constructor(...history: HistoryEntry[]) {
         this.doc
             .getText()
             .applyDelta(
@@ -57,17 +57,16 @@ export class TextDocument {
     }
 
     static new(content?: string) {
-        return new TextDocument([
-            {
-                time: new Date().getTime(),
-                deltas: content ? [{ insert: content }] : [],
-            },
-        ]);
+        return new TextDocument({
+            time: new Date().getTime(),
+            deltas: content ? [{ insert: content }] : [],
+        });
     }
 
     update(content: string) {
         const deltas = getDeltaOperations(this.toString(), content);
         if (deltas.length == 0) return;
+        this.doc.getText().applyDelta(deltas);
         this.history.push({ time: new Date().getTime(), deltas });
     }
 
@@ -80,6 +79,8 @@ export class TextDocument {
     }
 
     at(time: number) {
-        return new TextDocument(this.history.filter((entry) => entry.time <= time));
+        return new TextDocument(
+            ...this.history.filter((entry) => entry.time <= time)
+        );
     }
 }
