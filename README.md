@@ -1,18 +1,34 @@
-## prerequisites
+## development
+
+### prerequisites
 
 [see here](https://tauri.app/v1/guides/getting-started/prerequisites)
+for the list of software required to build / develope the app.
 
-## setup
+### setup
+
+then, make sure to install app dependencies:
 
 ```bash
 $ cd src-tauri/binaries && make
 $ pnpm install
 ```
 
-## development
+### run
+
+now you should be able to run the app in development mode:
 
 ```bash
 $ pnpm tauri dev
+```
+
+## building
+
+to build the app in production mode, run:
+
+```bash
+$ cd src-tauri/binaries && make
+$ pnpm tauri build
 ```
 
 ## releasing
