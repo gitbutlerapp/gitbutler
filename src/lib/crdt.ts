@@ -41,40 +41,33 @@ const getDeltaOperations = (
     return deltas;
 };
 
+export type HistoryEntry = { time: number; deltas: Delta[] };
+
 export class TextDocument {
     private doc: Doc = new Doc();
-    private history: { time: number; deltas: Delta[] }[] = [];
+    private history: HistoryEntry[] = [];
 
-    private constructor({
-        content,
-        history,
-    }: {
-        content?: string;
-        history: { time: number; deltas: Delta[] }[];
-    }) {
-        if (content !== undefined && history.length > 0) {
-            throw new Error("only one of content and history can be set");
-        } else if (content !== undefined) {
-            this.doc.getText().insert(0, content);
-        } else if (history.length > 0) {
-            this.doc
-                .getText()
-                .applyDelta(
-                    history.sort((a, b) => a.time - b.time).flatMap((h) => h.deltas)
-                );
-            this.history = history;
-        }
+    private constructor(history: HistoryEntry[]) {
+        this.doc
+            .getText()
+            .applyDelta(
+                history.sort((a, b) => a.time - b.time).flatMap((h) => h.deltas)
+            );
+        this.history = history;
     }
 
     static new(content?: string) {
-        return new TextDocument({ content, history: [] });
+        return new TextDocument([
+            {
+                time: new Date().getTime(),
+                deltas: content ? [{ insert: content }] : [],
+            },
+        ]);
     }
 
     update(content: string) {
         const deltas = getDeltaOperations(this.toString(), content);
         if (deltas.length == 0) return;
-
-        this.doc.getText().applyDelta(deltas);
         this.history.push({ time: new Date().getTime(), deltas });
     }
 
@@ -87,8 +80,6 @@ export class TextDocument {
     }
 
     at(time: number) {
-        return new TextDocument({
-            history: this.history.filter((entry) => entry.time <= time),
-        });
+        return new TextDocument(this.history.filter((entry) => entry.time <= time));
     }
 }
