@@ -18,6 +18,7 @@ specifiers:
   svelte-preprocess: ^4.10.7
   tailwindcss: ^3.1.5
   tauri-plugin-fs-watch-api: github:tauri-apps/tauri-plugin-fs-watch
+  tauri-plugin-log-api: github:tauri-apps/tauri-plugin-log
   tslib: ^2.4.1
   typescript: ^4.8.4
   vite: ^4.0.0
@@ -30,6 +31,7 @@ dependencies:
   mm-jsr: 3.0.2
   nanoid: 4.0.0
   tauri-plugin-fs-watch-api: github.com/tauri-apps/tauri-plugin-fs-watch/7d63ad9dfd72ae6c2bb05c148f344adb0521ec3a
+  tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/33d9b712e9058ed82c110cb186345215f82b88e2
   yjs: 13.5.45
 
 devDependencies:
@@ -1541,6 +1543,14 @@ packages:
   github.com/tauri-apps/tauri-plugin-fs-watch/7d63ad9dfd72ae6c2bb05c148f344adb0521ec3a:
     resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-fs-watch/tar.gz/7d63ad9dfd72ae6c2bb05c148f344adb0521ec3a}
     name: tauri-plugin-fs-watch-api
+    version: 0.0.0
+    dependencies:
+      '@tauri-apps/api': 1.2.0
+    dev: false
+
+  github.com/tauri-apps/tauri-plugin-log/33d9b712e9058ed82c110cb186345215f82b88e2:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/33d9b712e9058ed82c110cb186345215f82b88e2}
+    name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
       '@tauri-apps/api': 1.2.0

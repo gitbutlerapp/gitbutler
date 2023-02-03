@@ -18,6 +18,7 @@
     "mm-jsr": "^3.0.2",
     "nanoid": "^4.0.0",
     "tauri-plugin-fs-watch-api": "github:tauri-apps/tauri-plugin-fs-watch",
+    "tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
     "yjs": "^13.5.45"
   },
   "devDependencies": {

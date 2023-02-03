@@ -5,6 +5,10 @@
     import type { LayoutData } from "./$types";
     import { nanoid } from "nanoid";
     import { path } from "@tauri-apps/api";
+    import { log } from "$lib";
+    import { onMount } from "svelte";
+
+    onMount(log.setup);
 
     export let data: LayoutData;
     const projects = data.projects;
@@ -35,8 +39,7 @@
     };
 </script>
 
-<header data-tauri-drag-region class="h-6">
-</header>
+<header data-tauri-drag-region class="h-6" />
 
 <main class="p-2">
     <nav class="flex flex-row m-2">
