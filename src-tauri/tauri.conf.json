@@ -7,7 +7,7 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "git-butler-tauri",
+    "productName": "GitButler",
     "version": "0.0.0"
   },
   "tauri": {
@@ -46,11 +46,9 @@
     },
     "bundle": {
       "active": true,
+      "identifier": "com.gitbutler.app",
       "category": "DeveloperTool",
-      "copyright": "",
-      "deb": {
-        "depends": []
-      },
+      "copyright": "Copyright © 2023 GitButler. All rights reserved.",
       "externalBin": ["binaries/git"],
       "icon": [
         "icons/32x32.png",
@@ -59,22 +57,13 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.tauri.dev",
-      "longDescription": "",
+      "targets": ["dmg"],
       "macOS": {
         "entitlements": null,
         "exceptionDomain": "",
         "frameworks": [],
         "providerShortName": null,
         "signingIdentity": null
-      },
-      "resources": [],
-      "shortDescription": "",
-      "targets": "all",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
       }
     },
     "security": {
