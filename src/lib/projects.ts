@@ -10,7 +10,7 @@ export type Project = {
 export const store = async () => {
     const db = await database.json<Project[]>("projects.json");
     const fromDisk = await db.read();
-    const store = writable<Project[]>(fromDisk);
+    const store = writable<Project[]>(fromDisk || []);
     store.subscribe(db.write);
     return store;
 };
