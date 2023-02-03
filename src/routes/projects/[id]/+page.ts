@@ -1,6 +1,8 @@
 import { derived } from "svelte/store";
 import type { PageLoad } from "./$types";
 
+export const prerender = false;
+
 export const load: PageLoad = async ({ parent, params }) => {
     const { projects } = await parent();
     return {

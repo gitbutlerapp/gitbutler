@@ -12,7 +12,10 @@ const config = {
         }),
     ],
     kit: {
-        adapter: staticAdapter(),
+        adapter: staticAdapter({
+            precompress: true,
+            strict: false,
+        }),
     },
 };
 
