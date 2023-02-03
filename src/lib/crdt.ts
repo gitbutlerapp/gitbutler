@@ -55,7 +55,7 @@ export class TextDocument {
         if (content !== undefined && history.length > 0) {
             throw new Error("only one of content and history can be set");
         } else if (content !== undefined) {
-            this.update(content);
+            this.doc.getText().insert(0, content);
         } else if (history.length > 0) {
             this.doc
                 .getText()

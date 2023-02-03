@@ -2,11 +2,14 @@
     import { derived, writable } from "svelte/store";
     import { EventType, watch, type Event } from "$lib/watch";
     import { TextDocument } from "$lib/crdt";
-    import { NoSuchFileOrDirectoryError, readFile } from "$lib/tauri";
+    import { NoSuchFileOrDirectoryError, readFile, readDir } from "$lib/tauri";
     import type { PageData } from "./$types";
     import { Timeline } from "$lib/components";
+    import { onMount } from "svelte";
 
     export let data: PageData;
+
+    const project = data.project;
 
     const docs = writable<Record<string, TextDocument>>({});
 
@@ -18,8 +21,16 @@
         );
     };
 
-    const upsertDoc = (filepath: string) =>
-        readFile(filepath)
+    // TODO
+    const shouldIgnore = (filepath: string) => {
+        if (filepath.includes(".git")) return true;
+        if (filepath.includes("node_modules")) return true;
+        return false;
+    };
+
+    const upsertDoc = async (filepath: string) => {
+        if (shouldIgnore(filepath)) return;
+        return readFile(filepath)
             .then((content) => {
                 if (filepath in $docs) {
                     $docs[filepath].update(content);
@@ -35,26 +46,31 @@
                     throw err;
                 }
             });
+    };
 
-    const onEvent = (event: Event) => {
+    const onEvent = async (event: Event) => {
         const isFileCreate =
             EventType.isCreate(event.type) && event.type.create.kind === "file";
         const isFileUpdate =
             EventType.isModify(event.type) && event.type.modify.kind === "data";
         const isFileRemove = EventType.isRemove(event.type);
 
-        if (isFileCreate) {
-            event.paths.forEach(upsertDoc);
-        } else if (isFileUpdate) {
-            event.paths.forEach(upsertDoc);
+        if (isFileCreate || isFileUpdate) {
+            for (const path of event.paths) {
+                await upsertDoc(path);
+            }
         } else if (isFileRemove) {
             deleteDocs(...event.paths);
         }
     };
 
-    $: data.project?.subscribe(async (project) => {
-        if (project === undefined) return;
-        return await watch(project.path, onEvent);
+    onMount(async () => {
+        if ($project === undefined) return;
+        const filepaths = await readDir($project.path);
+        for (const filepath of filepaths) {
+            await upsertDoc(filepath);
+        }
+        return watch($project.path, onEvent);
     });
 
     const timestamps = derived(docs, (docs) =>
