@@ -3,6 +3,7 @@ import { writable } from "svelte/store";
 
 export type Project = {
     id: string;
+    title: string;
     path: string;
 };
 
