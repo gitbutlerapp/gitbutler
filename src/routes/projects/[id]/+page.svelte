@@ -1,77 +1,13 @@
 <script lang="ts">
-    import { derived, writable } from "svelte/store";
-    import { EventType, watch, type Event } from "$lib/watch";
-    import { TextDocument } from "$lib/crdt";
-    import { NoSuchFileOrDirectoryError, readFile, readDir } from "$lib/tauri";
+    import { derived, readable } from "svelte/store";
     import type { PageData } from "./$types";
     import { Timeline } from "$lib/components";
-    import { onMount } from "svelte";
+    import { projects } from "$lib";
 
     export let data: PageData;
+    const { project } = data;
 
-    const project = data.project;
-
-    const docs = writable<Record<string, TextDocument>>({});
-
-    const deleteDocs = (...filepaths: string[]) => {
-        $docs = Object.fromEntries(
-            Object.entries($docs).filter(
-                ([filepath, _]) => !filepaths.includes(filepath)
-            )
-        );
-    };
-
-    // TODO
-    const shouldIgnore = (filepath: string) => {
-        if (filepath.includes(".git")) return true;
-        if (filepath.includes("node_modules")) return true;
-        return false;
-    };
-
-    const upsertDoc = async (filepath: string) => {
-        if (shouldIgnore(filepath)) return;
-        return readFile(filepath)
-            .then((content) => {
-                if (filepath in $docs) {
-                    $docs[filepath].update(content);
-                    $docs = $docs;
-                } else {
-                    $docs[filepath] = TextDocument.new(content);
-                }
-            })
-            .catch((err) => {
-                if (err instanceof NoSuchFileOrDirectoryError) {
-                    deleteDocs(filepath);
-                } else {
-                    throw err;
-                }
-            });
-    };
-
-    const onEvent = async (event: Event) => {
-        const isFileCreate =
-            EventType.isCreate(event.type) && event.type.create.kind === "file";
-        const isFileUpdate =
-            EventType.isModify(event.type) && event.type.modify.kind === "data";
-        const isFileRemove = EventType.isRemove(event.type);
-
-        if (isFileCreate || isFileUpdate) {
-            for (const path of event.paths) {
-                await upsertDoc(path);
-            }
-        } else if (isFileRemove) {
-            deleteDocs(...event.paths);
-        }
-    };
-
-    onMount(async () => {
-        if ($project === undefined) return;
-        const filepaths = await readDir($project.path);
-        for (const filepath of filepaths) {
-            await upsertDoc(filepath);
-        }
-        return watch($project.path, onEvent);
-    });
+    const docs = $project ? projects.watch($project) : readable({});
 
     const timestamps = derived(docs, (docs) =>
         Object.values(docs).flatMap((doc) =>
