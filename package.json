@@ -12,6 +12,9 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.2.0",
+    "@codemirror/state": "^6.2.0",
+    "@codemirror/view": "^6.7.3",
     "@tauri-apps/api": "^1.2.0",
     "diff": "^5.1.0",
     "idb-keyval": "^6.2.0",

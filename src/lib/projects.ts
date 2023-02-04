@@ -15,10 +15,12 @@ export const watch = (
 ): Readable<Record<string, TextDocument>> => {
     const tree = writable<Record<string, TextDocument>>({});
 
-    // TODO
+    // TODO (NB: we can probably use git ls-files)
     const shouldIgnore = (filepath: string) => {
         if (filepath.includes(".git")) return true;
         if (filepath.includes("node_modules")) return true;
+        if (filepath.includes("env")) return true;
+        if (filepath.includes("__pycache__")) return true;
         return false;
     };
 

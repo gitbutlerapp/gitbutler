@@ -1,7 +1,7 @@
 <script lang="ts">
     import { derived, readable } from "svelte/store";
     import type { PageData } from "./$types";
-    import { Timeline } from "$lib/components";
+    import { Timeline, CodeViewer } from "$lib/components";
     import { projects } from "$lib";
 
     export let data: PageData;
@@ -24,6 +24,7 @@
     );
 
     let value: number | undefined;
+
 </script>
 
 <ul class="flex flex-col gap-2">
@@ -35,9 +36,7 @@
         <li>
             <details open>
                 <summary>{filepath}</summary>
-                <code>
-                    {value ? doc.at(value).toString() : doc.toString()}
-                </code>
+                <CodeViewer doc={value ? doc.at(value) : doc}/>
             </details>
         </li>
     {/each}

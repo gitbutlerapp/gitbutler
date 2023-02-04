@@ -41,7 +41,7 @@
 
 <header data-tauri-drag-region class="h-6" />
 
-<main class="p-2">
+<main class="p-2 text-sm">
     <nav class="flex flex-row m-2">
         <ul class="flex-1 flex flex-row gap-2 overflow-x-scroll">
             {#each $projects as project}
