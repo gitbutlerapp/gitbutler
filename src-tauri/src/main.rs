@@ -1,9 +1,22 @@
+mod projects;
+mod storage;
+mod watch;
+
+use log;
+use projects::Project;
 use std::{fs, path::Path};
-use tauri::InvokeError;
+use storage::Storage;
+use tauri::{InvokeError, Manager, State};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
 };
+use watch::Watchers;
+
+struct AppState {
+    watchers: Watchers,
+    projects_storage: projects::Storage,
+}
 
 // return a list of files in directory recursively
 fn list_files(path: &Path) -> Vec<String> {
@@ -46,6 +59,44 @@ fn read_file(file_path: &str) -> Result<String, InvokeError> {
     }
 }
 
+#[tauri::command]
+fn add_project(state: State<'_, AppState>, path: &str) -> Result<Project, InvokeError> {
+    for project in state.projects_storage.list_projects()? {
+        if project.path == path {
+            return Err("Project already exists".into());
+        }
+    }
+
+    let project = projects::Project::from_path(path.to_string());
+    if project.is_ok() {
+        let project = project.unwrap();
+        state.projects_storage.add_project(&project)?;
+        return Ok(project);
+    } else {
+        return Err(project.err().unwrap().into());
+    }
+}
+
+#[tauri::command]
+fn list_projects(state: State<'_, AppState>) -> Result<Vec<Project>, InvokeError> {
+    state.projects_storage.list_projects().map_err(|e| e.into())
+}
+
+#[tauri::command]
+fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), InvokeError> {
+    let project = state.projects_storage.get_project(id)?;
+    if project.is_some() {
+        let project = project.unwrap();
+        if state.watchers.unwatch(&project).is_err() {
+            log::error!("Failed to unwatch project: {}", project.path)
+        }
+    }
+    state
+        .projects_storage
+        .delete_project(id)
+        .map_err(|e| e.into())
+}
+
 fn main() {
     let colors = ColoredLevelConfig {
         error: Color::Red,
@@ -55,6 +106,31 @@ fn main() {
         trace: Color::Cyan,
     };
     tauri::Builder::default()
+        .setup(move |app| {
+            let resolver = app.path_resolver();
+            let storage = Storage::new(&resolver);
+            let projects_storage = projects::Storage::new(storage);
+            let watchers = Watchers::new();
+
+            let projects = projects_storage.list_projects()?;
+            for project in projects {
+                log::info!("Watching project: {}", project.path);
+                if watchers
+                    .watch(&project, |_project_id: &str, _event: notify::Event| {
+                        log::info!("Project changed: {}", _project_id);
+                    })
+                    .is_err()
+                {
+                    log::error!("Failed to watch project: {}", project.path)
+                }
+            }
+
+            app.manage(AppState {
+                watchers,
+                projects_storage,
+            });
+            Ok(())
+        })
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_fs_watch::init())
         .plugin(
@@ -64,7 +140,13 @@ fn main() {
                 .targets([LogTarget::LogDir, LogTarget::Stdout, LogTarget::Webview])
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![read_file, read_dir])
+        .invoke_handler(tauri::generate_handler![
+            read_file,
+            read_dir,
+            add_project,
+            list_projects,
+            delete_project
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
