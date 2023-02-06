@@ -29,5 +29,3 @@ dist-ssr
 .env
 .env.*
 !.env.example
-
-src-tauri/binaries/git-x86_64-apple-darwin
