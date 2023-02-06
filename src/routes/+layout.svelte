@@ -39,7 +39,7 @@
     };
 </script>
 
-<header data-tauri-drag-region class="h-6" />
+<header data-tauri-drag-region class="h-6 bg-slate-50 sticky top-0"/>
 
 <main class="p-2 text-sm">
     <nav class="flex flex-row m-2">
