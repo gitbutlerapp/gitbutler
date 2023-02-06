@@ -56,17 +56,17 @@ export let dummySessions: Session[] = [
         ],
         [
             new SessionActivity(
-                Math.floor(new Date('2023-01-01T08:30:00.000Z').getTime()),
+                Math.floor(new Date('2023-01-01T08:01:00.000Z').getTime()),
                 ActivityType.COMMIT),
             new SessionActivity(
-                Math.floor(new Date('2023-01-01T08:40:00.000Z').getTime()),
+                Math.floor(new Date('2023-01-01T08:59:00.000Z').getTime()),
                 ActivityType.PUSH),
         ]
     ),
     new Session(
         "2-a1b2c3d4e5f6g7h8i9j0",
         Math.floor(new Date('2023-01-01T14:00:00.000Z').getTime()),
-        Math.floor(new Date('2023-01-01T15:00:00.000Z').getTime()),
+        Math.floor(new Date('2023-01-01T15:30:00.000Z').getTime()),
         "newer-dependencies",
         [
             new SessionFile("package.json", "package.json", 4, 15),

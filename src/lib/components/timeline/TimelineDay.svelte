@@ -2,13 +2,24 @@
     import type { Session } from "$lib/session";
     import TimelineDaySession from "./TimelineDaySession.svelte";
     export let sessions: Session[];
+
+    const sessionDisplayWidth = (session: Session) => {
+        let sessionDurationHours =
+            (session.endTime - session.startTime) / 1000 / 60 / 60;
+        if (sessionDurationHours <= 1) {
+            return "w-40";
+        } else {
+            return "w-60";
+        }
+    };
 </script>
 
-<div>
-    <div class="flex flex-row space-x-2">
+<div class="mt-12">
+    <div class="-mb-5 border border-slate-400 h-1.5 bg-slate-200  z-0" />
+    <div class="flex flex-row space-x-2 z-10">
         {#each sessions as session}
-            <div>
-                <TimelineDaySession session={session}></TimelineDaySession>
+            <div class={sessionDisplayWidth(session)}>
+                <TimelineDaySession {session} />
             </div>
         {/each}
     </div>
