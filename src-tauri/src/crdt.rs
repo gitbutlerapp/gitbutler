@@ -6,7 +6,7 @@ use yrs::{Doc, GetString, Text, Transact};
 #[derive(Debug, Clone)]
 pub struct Event {
     operations: Vec<Operation>,
-    pub timestamp_ms: u64,
+    timestamp_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -45,9 +45,10 @@ fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operation> 
     return deltas;
 }
 
+#[derive(Debug, Clone)]
 pub struct TextDocument {
     doc: Doc,
-    pub history: Vec<Event>,
+    history: Vec<Event>,
 }
 
 const TEXT_DOCUMENT_NAME: &str = "document";

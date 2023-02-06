@@ -3,7 +3,6 @@ mod projects;
 mod storage;
 mod watch;
 
-use crdt::TextDocument;
 use log;
 use projects::Project;
 use std::{fs, path::Path};
