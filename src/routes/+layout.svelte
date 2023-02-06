@@ -7,6 +7,7 @@
     import { path } from "@tauri-apps/api";
     import { log } from "$lib";
     import { onMount } from "svelte";
+    import { BackForwardButtons } from "$lib/components";
 
     onMount(log.setup);
 
@@ -39,7 +40,14 @@
     };
 </script>
 
-<header data-tauri-drag-region class="h-6 bg-slate-50 sticky top-0"/>
+<header
+    data-tauri-drag-region
+    class="h-7 bg-slate-300 sticky top-0 flex items-center z-50"
+>
+    <div class="ml-24">
+        <BackForwardButtons />
+    </div>
+</header>
 
 <main class="p-2 text-sm">
     <nav class="flex flex-row m-2">

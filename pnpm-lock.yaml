@@ -18,6 +18,7 @@ specifiers:
   postcss-load-config: ^4.0.1
   svelte: ^3.54.0
   svelte-check: ^3.0.0
+  svelte-icons: ^2.1.0
   svelte-preprocess: ^4.10.7
   tailwindcss: ^3.1.5
   tauri-plugin-fs-watch-api: github:tauri-apps/tauri-plugin-fs-watch
@@ -36,6 +37,7 @@ dependencies:
   idb-keyval: 6.2.0
   mm-jsr: 3.0.2
   nanoid: 4.0.0
+  svelte-icons: 2.1.0
   tauri-plugin-fs-watch-api: github.com/tauri-apps/tauri-plugin-fs-watch/7d63ad9dfd72ae6c2bb05c148f344adb0521ec3a
   tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/33d9b712e9058ed82c110cb186345215f82b88e2
   yjs: 13.5.45
@@ -1335,6 +1337,10 @@ packages:
     dependencies:
       svelte: 3.55.1
     dev: true
+
+  /svelte-icons/2.1.0:
+    resolution: {integrity: sha512-rHPQjweEc9fGSnvM0/4gA3pDHwyZyYsC5KhttCZRhSMJfLttJST5Uq0B16Czhw+HQ+HbSOk8kLigMlPs7gZtfg==}
+    dev: false
 
   /svelte-preprocess/4.10.7_b25a55hc532q56kmuqlrolam2i:
     resolution: {integrity: sha512-sNPBnqYD6FnmdBrUmBCaqS00RyCsCpj2BG58A1JBswNF7b0OKviwxqVrOL/CKyJrLSClrSeqQv5BXNg2RUbPOw==}
