@@ -1,21 +1,27 @@
 mod crdt;
+mod delta_watchers;
 mod projects;
 mod storage;
-mod watch;
 
+use crdt::TextDocument;
+use delta_watchers::watch;
 use log;
 use projects::Project;
-use std::{fs, path::Path};
+use std::thread;
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 use storage::Storage;
 use tauri::{InvokeError, Manager, State};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
 };
-use watch::Watchers;
 
 struct AppState {
-    watchers: Watchers,
     projects_storage: projects::Storage,
 }
 
@@ -62,6 +68,7 @@ fn read_file(file_path: &str) -> Result<String, InvokeError> {
 
 #[tauri::command]
 fn add_project(state: State<'_, AppState>, path: &str) -> Result<Project, InvokeError> {
+    log::debug!("Adding project from path: {}", path);
     for project in state.projects_storage.list_projects()? {
         if project.path == path {
             return Err("Project already exists".into());
@@ -72,6 +79,7 @@ fn add_project(state: State<'_, AppState>, path: &str) -> Result<Project, Invoke
     if project.is_ok() {
         let project = project.unwrap();
         state.projects_storage.add_project(&project)?;
+        watch_project(&project);
         return Ok(project);
     } else {
         return Err(project.err().unwrap().into());
@@ -80,22 +88,33 @@ fn add_project(state: State<'_, AppState>, path: &str) -> Result<Project, Invoke
 
 #[tauri::command]
 fn list_projects(state: State<'_, AppState>) -> Result<Vec<Project>, InvokeError> {
+    log::debug!("Listing projects");
     state.projects_storage.list_projects().map_err(|e| e.into())
 }
 
 #[tauri::command]
 fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), InvokeError> {
-    let project = state.projects_storage.get_project(id)?;
-    if project.is_some() {
-        let project = project.unwrap();
-        if state.watchers.unwatch(&project).is_err() {
-            log::error!("Failed to unwatch project: {}", project.path)
-        }
-    }
     state
         .projects_storage
         .delete_project(id)
         .map_err(|e| e.into())
+}
+
+#[derive(Default)]
+pub struct CRDTSCollection(Mutex<HashMap<PathBuf, TextDocument>>);
+
+fn watch_project(project: &Project) {
+    log::info!("Watching project: {}", project.path);
+
+    let project = project.clone();
+    thread::spawn(move || {
+        futures::executor::block_on(async {
+            // TODO: figure out how to stop wathchers when project is deleted
+            if let Err(e) = watch(&project).await {
+                log::error!("Failed to watch project {}: {:?}", project.path, e)
+            }
+        });
+    });
 }
 
 fn main() {
@@ -106,30 +125,20 @@ fn main() {
         info: Color::BrightGreen,
         trace: Color::Cyan,
     };
+
     tauri::Builder::default()
         .setup(move |app| {
             let resolver = app.path_resolver();
             let storage = Storage::new(&resolver);
             let projects_storage = projects::Storage::new(storage);
-            let watchers = Watchers::new();
 
             let projects = projects_storage.list_projects()?;
             for project in projects {
-                log::info!("Watching project: {}", project.path);
-                if watchers
-                    .watch(&project, |_project_id: &str, _event: notify::Event| {
-                        log::info!("Project changed: {}", _project_id);
-                    })
-                    .is_err()
-                {
-                    log::error!("Failed to watch project: {}", project.path)
-                }
+                watch_project(&project);
             }
 
-            app.manage(AppState {
-                watchers,
-                projects_storage,
-            });
+            app.manage(AppState { projects_storage });
+
             Ok(())
         })
         .plugin(tauri_plugin_window_state::Builder::default().build())

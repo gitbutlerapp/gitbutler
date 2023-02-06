@@ -8,6 +8,12 @@ pub struct Project {
     pub path: String,
 }
 
+impl AsRef<Project> for Project {
+    fn as_ref(&self) -> &Project {
+        self
+    }
+}
+
 impl Project {
     pub fn from_path(path: String) -> Result<Self, String> {
         // make sure path exists

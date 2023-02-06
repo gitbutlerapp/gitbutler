@@ -1,6 +1,5 @@
-use std::time::SystemTime;
-
 use difference::{Changeset, Difference};
+use std::time::SystemTime;
 use yrs::{Doc, GetString, Text, Transact};
 
 #[derive(Debug, Clone)]
@@ -45,7 +44,7 @@ fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operation> 
     return deltas;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TextDocument {
     doc: Doc,
     history: Vec<Event>,
@@ -74,13 +73,17 @@ impl TextDocument {
         }
     }
 
-    fn from_history(history: Vec<Event>) -> TextDocument {
+    pub fn from_history(history: Vec<Event>) -> TextDocument {
         let doc = Doc::new();
         Self::apply(&doc, &history);
         TextDocument {
             doc: doc.clone(),
             history,
         }
+    }
+
+    pub fn to_history(&self) -> Vec<Event> {
+        self.history.clone()
     }
 
     pub fn from_string(value: &str) -> TextDocument {
