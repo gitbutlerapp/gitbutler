@@ -28,6 +28,10 @@ jobs:
       - name: Setup rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Test rust
+        working-directory: src-tauri
+        run: cargo test
+
       - name: Build tauri
         uses: tauri-apps/tauri-action@v0
         env:
