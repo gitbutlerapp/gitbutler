@@ -162,6 +162,7 @@ fn register_file_change(
 }
 
 fn get_meta_commit(repo: &Repository) -> Commit {
+    // TODO: wrong commit ? 
     let meta_path = repo.path().join(Path::new("gb/session/meta"));
     let meta_commit = meta_path.join(Path::new("commit"));
     let contents = std::fs::read_to_string(meta_commit.clone())
