@@ -1,12 +1,11 @@
-use crate::crdt::{self, TextDocument};
+use crate::crdt::TextDocument;
 use crate::projects::Project;
 use futures::{
     channel::mpsc::{channel, Receiver},
     SinkExt, StreamExt,
 };
-use git2::{Commit, Oid, Repository};
+use git2::{Commit, Repository};
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use path_absolutize::*;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -66,24 +65,18 @@ fn register_file_change(
     kind: EventKind,
     files: Vec<PathBuf>,
 ) {
+    // update meta files every time file change is detected
     write_beginning_meta_files(&repo);
 
-    let project_path = PathBuf::from(&project.path);
     for file_path in files {
         if !file_path.is_file() {
+            // only handle file changes
             continue;
         }
 
-        let relative_file_path = file_path
-            .absolutize()
-            .unwrap()
-            .strip_prefix(project_path.clone())
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-
+        let relative_file_path = Path::new(file_path.strip_prefix(&project.path).unwrap());
         if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
+            // make sure we're not watching ignored files
             continue;
         }
 
@@ -94,23 +87,6 @@ fn register_file_change(
         } else if EventKind::is_remove(&kind) {
             log::info!("File removed: {:?}", file_path);
         }
-
-        let relative_deltas_path = PathBuf::from(".git/gb/session/deltas/");
-        let delta_path = project_path
-            .join(relative_deltas_path)
-            .join(relative_file_path.clone())
-            .clone();
-        std::fs::create_dir_all(delta_path.parent().unwrap()).unwrap();
-
-        let deltas = if delta_path.exists() {
-            let raw_deltas = std::fs::read_to_string(delta_path.clone())
-                .expect(format!("Failed to read {}", delta_path.to_str().unwrap()).as_str());
-            let deltas: Vec<crdt::Delta> = serde_json::from_str(&raw_deltas)
-                .expect(format!("Failed to parse {}", delta_path.to_str().unwrap()).as_str());
-            Some(deltas)
-        } else {
-            None
-        };
 
         // first, we need to check if the file exists in the meta commit
         let meta_commit = get_meta_commit(&repo);
@@ -124,40 +100,34 @@ fn register_file_change(
             None
         };
 
+        // second, get non-flushed file deltas
+        let deltas = project.get_file_deltas(Path::new(&relative_file_path));
+
+        // depending on the above, we can create TextDocument
         let mut text_doc = match (commit_blob, deltas) {
             (Some(contents), Some(deltas)) => {
-                println!("found deltas and commit blob");
                 TextDocument::new(&contents, deltas)
             }
             (Some(contents), None) => {
-                println!("found commit blob, no deltas");
                 TextDocument::new(&contents, vec![])
             }
             (None, Some(deltas)) => {
-                println!("found deltas, no commit blob");
                 TextDocument::from_deltas(deltas)
             }
             (None, None) => {
-                println!("no deltas or commit blob");
                 TextDocument::from_deltas(vec![])
             }
         };
 
+        // update the TextDocument with the new file contents
         let contents = std::fs::read_to_string(file_path.clone())
             .expect(format!("Failed to read {}", file_path.to_str().unwrap()).as_str());
 
-        if !text_doc.update(&contents) {
-            // if the document hasn't changed, we don't need to write a delta.
-            continue;
+        if text_doc.update(&contents) {
+            // if the file was modified, save the deltas
+            let deltas = text_doc.get_deltas();
+            project.save_file_deltas(relative_file_path, deltas);
         }
-
-        let deltas = text_doc.get_deltas();
-
-        log::info!("Writing delta to {}", delta_path.to_str().unwrap());
-
-        let mut file = File::create(delta_path).unwrap();
-        file.write_all(serde_json::to_string(&deltas).unwrap().as_bytes())
-            .unwrap();
     }
 }
 

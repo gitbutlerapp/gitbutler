@@ -274,7 +274,6 @@ fn test_document_complex() {
     assert_eq!(document.to_string(), "held!");
     assert_eq!(document.get_deltas().len(), 3);
     assert_eq!(document.get_deltas()[2].operations.len(), 2);
-    println!("{:?}", document.get_deltas()[2].operations);
     assert_eq!(
         document.get_deltas()[2].operations[0],
         Operation::Delete((3, 7))

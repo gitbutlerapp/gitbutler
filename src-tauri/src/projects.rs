@@ -1,7 +1,9 @@
-use std::path::PathBuf;
-
-use crate::storage;
+use crate::{crdt::Delta, fs::list_files, storage};
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Project {
@@ -37,6 +39,51 @@ impl Project {
                 path: path.to_str().unwrap().to_string(),
             })
             .ok_or("Unable to get title".to_string())
+    }
+
+    fn deltas_path(&self) -> PathBuf {
+        let path = PathBuf::from(&self.path).join(PathBuf::from(".git/gb/session/deltas"));
+        std::fs::create_dir_all(path.clone()).unwrap();
+        path
+    }
+
+    pub fn save_file_deltas(&self, file_path: &Path, deltas: Vec<Delta>) {
+        if deltas.is_empty() {
+            return;
+        }
+        let project_deltas_path = self.deltas_path();
+        let delta_path = project_deltas_path.join(file_path.to_path_buf());
+        log::info!("Writing delta to {}", delta_path.to_str().unwrap());
+        let raw_deltas = serde_json::to_string(&deltas).unwrap();
+        std::fs::write(delta_path, raw_deltas).unwrap();
+    }
+
+    pub fn get_file_deltas(&self, file_path: &Path) -> Option<Vec<Delta>> {
+        let project_deltas_path = self.deltas_path();
+        let delta_path = project_deltas_path.join(file_path.to_path_buf());
+        if delta_path.exists() {
+            let raw_deltas = std::fs::read_to_string(delta_path.clone())
+                .expect(format!("Failed to read {}", delta_path.to_str().unwrap()).as_str());
+            let deltas: Vec<Delta> = serde_json::from_str(&raw_deltas)
+                .expect(format!("Failed to parse {}", delta_path.to_str().unwrap()).as_str());
+            Some(deltas)
+        } else {
+            None
+        }
+    }
+
+    pub fn list_deltas(&self) -> HashMap<String, Vec<Delta>> {
+        let deltas_path = self.deltas_path();
+        let file_paths = list_files(&deltas_path);
+        let mut deltas = HashMap::new();
+        for file_path in file_paths {
+            let file_path = Path::new(&file_path);
+            let file_deltas = self.get_file_deltas(file_path);
+            if let Some(file_deltas) = file_deltas {
+                deltas.insert(file_path.to_str().unwrap().to_string(), file_deltas);
+            }
+        }
+        deltas
     }
 }
 

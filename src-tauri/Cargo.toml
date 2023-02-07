@@ -27,7 +27,6 @@ yrs = "0.16.1"
 difference = "2.0.0"
 futures = "0.3.26"
 git2 = "0.16.1"
-path-absolutize = "3.0.14"
 chrono = "0.4.23"
 
 [features]

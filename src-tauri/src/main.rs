@@ -1,19 +1,17 @@
 mod crdt;
 mod delta_watchers;
+mod fs;
 mod projects;
 mod storage;
 
-use crdt::TextDocument;
+use crdt::Delta;
 use delta_watchers::watch;
+use fs::list_files;
 use log;
 use projects::Project;
+use std::collections::HashMap;
 use std::thread;
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
-    sync::Mutex,
-};
+use std::{fs::read_to_string, path::Path};
 use storage::Storage;
 use tauri::{InvokeError, Manager, State};
 use tauri_plugin_log::{
@@ -23,24 +21,6 @@ use tauri_plugin_log::{
 
 struct AppState {
     projects_storage: projects::Storage,
-}
-
-// return a list of files in directory recursively
-fn list_files(path: &Path) -> Vec<String> {
-    let mut files = Vec::new();
-    if path.is_dir() {
-        for entry in fs::read_dir(path).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.is_dir() {
-                files.append(&mut list_files(&path));
-            } else {
-                files.push(path.to_str().unwrap().to_string());
-            }
-        }
-    }
-    files.sort();
-    files
 }
 
 // returns a list of files in directory recursively
@@ -58,7 +38,7 @@ fn read_dir(path: &str) -> Result<Vec<String>, InvokeError> {
 // reads file contents and returns it
 #[tauri::command]
 fn read_file(file_path: &str) -> Result<String, InvokeError> {
-    let contents = fs::read_to_string(file_path);
+    let contents = read_to_string(file_path);
     if contents.is_ok() {
         return Ok(contents.unwrap());
     } else {
@@ -100,8 +80,17 @@ fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), InvokeErro
         .map_err(|e| e.into())
 }
 
-#[derive(Default)]
-pub struct CRDTSCollection(Mutex<HashMap<PathBuf, TextDocument>>);
+#[tauri::command]
+fn list_deltas(
+    state: State<'_, AppState>,
+    project_id: &str,
+) -> Result<HashMap<String, Vec<Delta>>, InvokeError> {
+    if let Some(project) = state.projects_storage.get_project(project_id)? {
+        Ok(project.list_deltas())
+    } else {
+        Err("Project not found".into())
+    }
+}
 
 fn watch_project(project: &Project) {
     log::info!("Watching project: {}", project.path);
@@ -155,7 +144,8 @@ fn main() {
             read_dir,
             add_project,
             list_projects,
-            delete_project
+            delete_project,
+            list_deltas
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
