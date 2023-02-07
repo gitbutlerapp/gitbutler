@@ -118,16 +118,6 @@ impl TextDocument {
         return true;
     }
 
-    pub fn at(&self, timestamp_ms: u64) -> TextDocument {
-        let mut deltas: Vec<Delta> = vec![];
-        for event in self.deltas.iter() {
-            if event.timestamp_ms <= timestamp_ms {
-                deltas.push(event.clone());
-            }
-        }
-        Self::from_deltas(deltas)
-    }
-
     pub fn to_string(&self) -> String {
         let doc = &self.doc;
         let text = doc.get_or_insert_text(TEXT_DOCUMENT_NAME);

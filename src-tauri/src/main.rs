@@ -5,21 +5,20 @@ mod projects;
 mod storage;
 
 use crdt::Delta;
-use delta_watchers::watch;
 use fs::list_files;
 use log;
 use projects::Project;
 use std::collections::HashMap;
-use std::thread;
 use std::{fs::read_to_string, path::Path};
 use storage::Storage;
-use tauri::{InvokeError, Manager, State};
+use tauri::{InvokeError, Manager, Runtime, State, Window};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
 };
 
 struct AppState {
+    watchers: delta_watchers::WatcherCollection,
     projects_storage: projects::Storage,
 }
 
@@ -47,7 +46,11 @@ fn read_file(file_path: &str) -> Result<String, InvokeError> {
 }
 
 #[tauri::command]
-fn add_project(state: State<'_, AppState>, path: &str) -> Result<Project, InvokeError> {
+fn add_project<R: Runtime>(
+    window: Window<R>,
+    state: State<'_, AppState>,
+    path: &str,
+) -> Result<Project, InvokeError> {
     log::debug!("Adding project from path: {}", path);
     for project in state.projects_storage.list_projects()? {
         if project.path == path {
@@ -59,7 +62,7 @@ fn add_project(state: State<'_, AppState>, path: &str) -> Result<Project, Invoke
     if project.is_ok() {
         let project = project.unwrap();
         state.projects_storage.add_project(&project)?;
-        watch_project(&project);
+        delta_watchers::watch(window, &state.watchers, project.clone())?;
         return Ok(project);
     } else {
         return Err(project.err().unwrap().into());
@@ -74,6 +77,10 @@ fn list_projects(state: State<'_, AppState>) -> Result<Vec<Project>, InvokeError
 
 #[tauri::command]
 fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), InvokeError> {
+    log::debug!("Deleting project with id: {}", id);
+    if let Some(project) = state.projects_storage.get_project(id)? {
+        delta_watchers::unwatch(&state.watchers, project)
+    }
     state
         .projects_storage
         .delete_project(id)
@@ -85,25 +92,12 @@ fn list_deltas(
     state: State<'_, AppState>,
     project_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, InvokeError> {
+    log::debug!("Listing deltas for project with id: {}", project_id);
     if let Some(project) = state.projects_storage.get_project(project_id)? {
         Ok(project.list_deltas())
     } else {
         Err("Project not found".into())
     }
-}
-
-fn watch_project(project: &Project) {
-    log::info!("Watching project: {}", project.path);
-
-    let project = project.clone();
-    thread::spawn(move || {
-        futures::executor::block_on(async {
-            // TODO: figure out how to stop wathchers when project is deleted
-            if let Err(e) = watch(&project).await {
-                log::error!("Failed to watch project {}: {:?}", project.path, e)
-            }
-        });
-    });
 }
 
 fn main() {
@@ -122,11 +116,16 @@ fn main() {
             let projects_storage = projects::Storage::new(storage);
 
             let projects = projects_storage.list_projects()?;
+            let watchers = delta_watchers::WatcherCollection::default();
+
             for project in projects {
-                watch_project(&project);
+                delta_watchers::watch(app.get_window("main").unwrap(), &watchers, project)?;
             }
 
-            app.manage(AppState { projects_storage });
+            app.manage(AppState {
+                watchers,
+                projects_storage,
+            });
 
             Ok(())
         })

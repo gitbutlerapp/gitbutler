@@ -47,7 +47,7 @@ impl Project {
         path
     }
 
-    pub fn save_file_deltas(&self, file_path: &Path, deltas: Vec<Delta>) {
+    pub fn save_file_deltas(&self, file_path: &Path, deltas: &Vec<Delta>) {
         if deltas.is_empty() {
             return;
         }
