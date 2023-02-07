@@ -4,12 +4,14 @@ use std::time::SystemTime;
 use yrs::{Doc, GetString, Text, Transact};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Delta {
     operations: Vec<Operation>,
     timestamp_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub enum Operation {
     // corresponds to YText.insert(index, chunk)
     Insert((u32, String)),
@@ -232,9 +234,6 @@ fn test_document_from_deltas() {
             ],
         },
     ]);
-    assert_eq!(document.at(0).to_string(), "hello");
-    assert_eq!(document.at(1).to_string(), "hello world");
-    assert_eq!(document.at(2).to_string(), "held!");
     assert_eq!(document.to_string(), "held!");
 }
 

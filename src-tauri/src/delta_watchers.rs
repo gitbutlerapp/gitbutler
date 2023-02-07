@@ -22,8 +22,8 @@ pub fn unwatch(watchers: &WatcherCollection, project: Project) {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 struct DeltasEvent {
-    project_id: String,
     file_path: String,
     deltas: Vec<Delta>,
 }
@@ -74,7 +74,6 @@ pub fn watch<R: Runtime>(
                                     &event_name,
                                     &DeltasEvent {
                                         deltas,
-                                        project_id: project.id.clone(),
                                         file_path: relative_file_path.to_string(),
                                     },
                                 )
@@ -162,7 +161,8 @@ fn register_file_change(
 }
 
 // get commit from refs/gitbutler/current or fall back to HEAD
-fn get_meta_commit(repo: &Repository) -> Commit {
+// TODO: make this private as soon as possible
+pub fn get_meta_commit(repo: &Repository) -> Commit {
     match repo.revparse_single("refs/gitbutler/current") {
         Ok(object) => repo.find_commit(object.id()).unwrap(),
         Err(_) => {

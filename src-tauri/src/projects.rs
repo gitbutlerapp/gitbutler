@@ -79,8 +79,12 @@ impl Project {
         for file_path in file_paths {
             let file_path = Path::new(&file_path);
             let file_deltas = self.get_file_deltas(file_path);
+            let relative_file_path = file_path.strip_prefix(&deltas_path).unwrap();
             if let Some(file_deltas) = file_deltas {
-                deltas.insert(file_path.to_str().unwrap().to_string(), file_deltas);
+                deltas.insert(
+                    relative_file_path.to_str().unwrap().to_string(),
+                    file_deltas,
+                );
             }
         }
         deltas

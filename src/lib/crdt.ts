@@ -1,98 +1,84 @@
-import { Doc } from "yjs";
-import { diffChars } from "diff";
+import { invoke } from "@tauri-apps/api";
+import { appWindow } from "@tauri-apps/api/window";
+import { writable, type Subscriber } from "svelte/store";
 
-type DeltaRetain = { retain: number };
-type DeltaDelete = { delete: number };
-type DeltaInsert = { insert: string };
+export type OperationDelete = { delete: [number, number] };
+export type OperationInsert = { insert: [number, string] };
 
-export type Delta = DeltaRetain | DeltaDelete | DeltaInsert;
+export type Operation = OperationDelete | OperationInsert;
 
-export namespace Delta {
-    export const isRetain = (delta: Delta): delta is DeltaRetain =>
-        "retain" in delta;
+export namespace Operation {
+    export const isDelete = (
+        operation: Operation
+    ): operation is OperationDelete => "delete" in operation;
 
-    export const isDelete = (delta: Delta): delta is DeltaDelete =>
-        "delete" in delta;
-
-    export const isInsert = (delta: Delta): delta is DeltaInsert =>
-        "insert" in delta;
+    export const isInsert = (
+        operation: Operation
+    ): operation is OperationInsert => "insert" in operation;
 }
 
-// Compute the set of Yjs delta operations (that is, `insert` and
-// `delete`) required to go from initialText to finalText.
-// Based on https://github.com/kpdecker/jsdiff.
-const getDeltaOperations = (
-    initialText: string,
-    finalText: string
-): Delta[] => {
-    if (initialText === finalText) {
-        return [];
-    }
+export type Delta = { timestampMs: number; operations: Operation[] };
 
-    const edits = diffChars(initialText, finalText);
-    let prevOffset = 0;
-    let deltas: Delta[] = [];
-
-    for (const edit of edits) {
-        if (edit.removed && edit.value) {
-            deltas = [
-                ...deltas,
-                ...[
-                    ...(prevOffset > 0 ? [{ retain: prevOffset }] : []),
-                    { delete: edit.value.length },
-                ],
-            ];
-            prevOffset = 0;
-        } else if (edit.added && edit.value) {
-            deltas = [...deltas, ...[{ retain: prevOffset }, { insert: edit.value }]];
-            prevOffset = edit.value.length;
-        } else {
-            prevOffset = edit.value.length;
-        }
-    }
-    return deltas;
+type DeltasEvent = {
+    deltas: Delta[];
+    filePath: string;
 };
 
-export type HistoryEntry = { time: number; deltas: Delta[] };
+const list = (params: { projectId: string }) =>
+    invoke<Record<string, Delta[]>>("list_deltas", params);
 
-export class TextDocument {
-    private doc: Doc = new Doc();
-    private history: HistoryEntry[] = [];
+export default async (params: { projectId: string }) => {
+    const files = await invoke<string[]>("list_project_files", params);
+    const contents = await Promise.all(
+        files.map((filePath) =>
+            invoke<string>("read_project_file", { ...params, filePath })
+        )
+    );
 
-    private constructor(...history: HistoryEntry[]) {
-        this.doc
-            .getText()
-            .applyDelta(
-                history.sort((a, b) => a.time - b.time).flatMap((h) => h.deltas)
-            );
-        this.history = history;
-    }
+    // this is a temporary workaround to get the initial state of the document
+    // TODO: remove this once sessions api is implemented
+    const tmpState: Record<string, Delta[]> = Object.fromEntries(
+        files.map((filePath, index) => [
+            filePath,
+            [
+                {
+                    timestampMs: 0,
+                    operations: [{ insert: [0, contents[index]] } as OperationInsert],
+                },
+            ],
+        ])
+    );
 
-    static new(content?: string) {
-        return new TextDocument({
-            time: new Date().getTime(),
-            deltas: content ? [{ insert: content }] : [],
-        });
-    }
+    const init = await list(params);
 
-    update(content: string) {
-        const deltas = getDeltaOperations(this.toString(), content);
-        if (deltas.length == 0) return;
-        this.doc.getText().applyDelta(deltas);
-        this.history.push({ time: new Date().getTime(), deltas });
-    }
+    const tmpInit = Object.fromEntries(
+        Object.entries(tmpState).map(([filePath, deltas]) => [
+            filePath,
+            [...deltas, ...(filePath in init ? init[filePath] : [])],
+        ])
+    );
 
-    getHistory() {
-        return this.history.slice();
-    }
-
-    toString() {
-        return this.doc.getText().toString();
-    }
-
-    at(time: number) {
-        return new TextDocument(
-            ...this.history.filter((entry) => entry.time <= time)
-        );
-    }
-}
+    const store = writable<Record<string, Delta[]>>(tmpInit);
+    const eventName = `deltas://${params.projectId}`;
+    const unlisten = await appWindow.listen<DeltasEvent>(eventName, (event) => {
+        store.update((deltas) => ({
+            ...deltas,
+            [event.payload.filePath]: [
+                ...(event.payload.filePath in tmpState
+                    ? tmpState[event.payload.filePath]
+                    : []),
+                ...event.payload.deltas,
+            ],
+        }));
+    });
+    return {
+        subscribe: (
+            run: Subscriber<Record<string, Delta[]>>,
+            invalidate?: (value?: Record<string, Delta[]>) => void
+        ) =>
+            store.subscribe(run, (value) => {
+                if (invalidate) invalidate(value);
+                // unlisten();
+            }),
+    };
+};

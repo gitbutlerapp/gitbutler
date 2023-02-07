@@ -1,17 +1,38 @@
 <script lang="ts">
-    import { derived, readable } from "svelte/store";
+    import { Doc } from "yjs";
+    import { derived, writable } from "svelte/store";
     import type { PageData } from "./$types";
     import { Timeline, CodeViewer } from "$lib/components";
-    import { projects } from "$lib";
+    import { Operation } from "$lib/crdt";
 
     export let data: PageData;
-    const { project } = data;
+    const { deltas } = data;
 
-    const docs = $project ? projects.watch($project) : readable({});
+    const value = writable(new Date().getTime());
 
-    const timestamps = derived(docs, (docs) =>
-        Object.values(docs).flatMap((doc) =>
-            doc.getHistory().map((h) => h.time)
+    const docs = derived([deltas, value], ([deltas, value]) =>
+        Object.fromEntries(
+            Object.entries(deltas).map(([filePath, deltas]) => {
+                const doc = new Doc();
+                const text = doc.getText();
+                const operations = deltas
+                    .filter((delta) => delta.timestampMs <= value)
+                    .flatMap((delta) => delta.operations);
+                operations.forEach((operation) => {
+                    if (Operation.isInsert(operation)) {
+                        text.insert(operation.insert[0], operation.insert[1]);
+                    } else if (Operation.isDelete(operation)) {
+                        text.delete(operation.delete[0], operation.delete[1]);
+                    }
+                });
+                return [filePath, text.toString()];
+            })
+        )
+    );
+
+    const timestamps = derived(deltas, (deltas) =>
+        Object.values(deltas).flatMap((deltas) =>
+            Object.values(deltas).map((delta) => delta.timestampMs)
         )
     );
 
@@ -22,21 +43,18 @@
         [min, max],
         ([min, max]) => isFinite(min) && isFinite(max)
     );
-
-    let value: number | undefined;
-
 </script>
 
 <ul class="flex flex-col gap-2">
     {#if $showTimeline}
-        <Timeline min={$min} max={$max} bind:value />
+        <Timeline min={$min} max={$max} on:value={(e) => value.set(e.detail)} />
     {/if}
 
-    {#each Object.entries($docs) as [filepath, doc]}
+    {#each Object.entries($docs) as [filepath, value]}
         <li>
             <details open>
                 <summary>{filepath}</summary>
-                <CodeViewer doc={value ? doc.at(value) : doc}/>
+                <CodeViewer {value} />
             </details>
         </li>
     {/each}

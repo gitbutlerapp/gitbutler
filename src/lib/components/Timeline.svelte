@@ -6,12 +6,15 @@
         ModuleLabel,
         ModuleGrid,
     } from "mm-jsr";
+    import { createEventDispatcher } from "svelte";
 
     export let min: number,
         max: number,
         step: number = 1,
-        value: number | undefined,
+        value: number | undefined = undefined,
         formatter = (value: number): string => `${value}`;
+
+    const dispatch = createEventDispatcher<{ value: number }>();
 
     const jsr = (
         container: HTMLElement,
@@ -40,6 +43,7 @@
             });
             jsr.onValueChange(({ real }) => {
                 value = real;
+                dispatch("value", real);
             });
         };
 

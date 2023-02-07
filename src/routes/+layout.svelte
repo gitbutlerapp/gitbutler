@@ -3,8 +3,6 @@
 
     import { open } from "@tauri-apps/api/dialog";
     import type { LayoutData } from "./$types";
-    import { nanoid } from "nanoid";
-    import { path } from "@tauri-apps/api";
     import { log } from "$lib";
     import { onMount } from "svelte";
     import { BackForwardButtons } from "$lib/components";
@@ -12,7 +10,7 @@
     onMount(log.setup);
 
     export let data: LayoutData;
-    const projects = data.projects;
+    const { projects } = data;
 
     const onSelectProjectClick = async () => {
         const selectedPath = await open({
@@ -28,15 +26,7 @@
         const projectExists = $projects.some((p) => p.path === projectPath);
         if (projectExists) return;
 
-        const title = await path.basename(projectPath);
-        $projects = [
-            ...$projects,
-            {
-                id: nanoid(),
-                title,
-                path: projectPath,
-            },
-        ];
+        await projects.add({ path: projectPath });
     };
 </script>
 
@@ -70,5 +60,6 @@
             <a href="/wip">wip</a>
         </div>
     </nav>
+
     <slot />
 </main>
