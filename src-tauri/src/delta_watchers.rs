@@ -161,15 +161,15 @@ fn register_file_change(
     }
 }
 
+// get commit from refs/gitbutler/current or fall back to HEAD
 fn get_meta_commit(repo: &Repository) -> Commit {
-    // TODO: wrong commit ? 
-    let meta_path = repo.path().join(Path::new("gb/session/meta"));
-    let meta_commit = meta_path.join(Path::new("commit"));
-    let contents = std::fs::read_to_string(meta_commit.clone())
-        .expect(format!("Failed to read {}", meta_commit.to_str().unwrap()).as_str());
-    let raw_commit = contents.as_str();
-    repo.find_commit(Oid::from_str(raw_commit).unwrap())
-        .unwrap()
+    match repo.revparse_single("refs/gitbutler/current") {
+        Ok(object) => repo.find_commit(object.id()).unwrap(),
+        Err(_) => {
+            let head = repo.head().unwrap();
+            repo.find_commit(head.target().unwrap()).unwrap()
+        }
+    }
 }
 
 // this function is called when the user modifies a file, it writes starting metadata if not there
