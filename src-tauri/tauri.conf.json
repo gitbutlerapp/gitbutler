@@ -13,17 +13,6 @@
   "tauri": {
     "allowlist": {
       "all": false,
-      "shell": {
-        "all": false,
-        "sidecar": true,
-        "scope": [
-          {
-            "name": "binaries/git",
-            "sidecar": true,
-            "args": true
-          }
-        ]
-      },
       "dialog": {
         "all": false,
         "open": true
@@ -49,7 +38,6 @@
       "identifier": "com.gitbutler.app",
       "category": "DeveloperTool",
       "copyright": "Copyright © 2023 GitButler. All rights reserved.",
-      "externalBin": ["binaries/git"],
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",

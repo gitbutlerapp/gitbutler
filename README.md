@@ -10,7 +10,6 @@ for the list of software required to build / develope the app.
 then, make sure to install app dependencies:
 
 ```bash
-$ cd src-tauri/binaries && make
 $ pnpm install
 ```
 
@@ -27,7 +26,6 @@ $ pnpm tauri dev
 to build the app in production mode, run:
 
 ```bash
-$ cd src-tauri/binaries && make
 $ pnpm tauri build
 ```
 

@@ -31,10 +31,6 @@ jobs:
       - name: Setup rust
         uses: dtolnay/rust-toolchain@stable
 
-      # TODO: figure out how to build aarch64 git on x86_64 runner
-      - name: Build git
-        run: cd src-tauri/binaries && make
-
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
