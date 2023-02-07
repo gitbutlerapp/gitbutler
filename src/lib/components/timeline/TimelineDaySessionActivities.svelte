@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { type SessionActivity, ActivityType } from "$lib/session";
+    import type { SessionActivity } from "$lib/session";
     import FaSquare from "svelte-icons/fa/FaSquare.svelte";
     import FaCircle from "svelte-icons/fa/FaCircle.svelte";
     import FaAdjust from "svelte-icons/fa/FaAdjust.svelte";
@@ -39,19 +39,19 @@
                         activity.timestamp
                     )}"
                 >
-                    {#if activity.type === ActivityType.COMMIT}
+                    {#if activity.type === "commit"}
                         <div class="text-sky-500 hover:text-sky-600">
                             <FaSquare />
                         </div>
-                    {:else if activity.type === ActivityType.MERGE}
+                    {:else if activity.type === "merge"}
                         <div class="text-green-500 hover:text-green-600">
                             <FaMapMarker />
                         </div>
-                    {:else if activity.type === ActivityType.REBASE}
+                    {:else if activity.type === "rebase"}
                         <div class="text-orange-500 hover:text-orange-600">
                             <FaAdjust />
                         </div>
-                    {:else if activity.type === ActivityType.PUSH}
+                    {:else if activity.type === "push"}
                         <div class="text-purple-500 hover:text-purple-600">
                             <FaCircle />
                         </div>
