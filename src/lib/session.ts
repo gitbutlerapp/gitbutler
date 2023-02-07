@@ -1,88 +1,90 @@
-export class SessionFile {
+export type SessionFile = {
     name: string;
     path: string;
     linesTouched: number;
     numberOfEdits: number;
-    constructor(name: string, path: string, linesTouched: number, numberOfEdits: number) {
-        this.name = name;
-        this.path = path;
-        this.linesTouched = linesTouched;
-        this.numberOfEdits = numberOfEdits;
-    }
-}
-export enum ActivityType {
-    COMMIT = "commit",
-    MERGE = "merge",
-    REBASE = "rebase",
-    PUSH = "push",
-}
+};
 
-export class SessionActivity {
+export type ActivityType = "commit" | "merge" | "rebase" | "push";
+
+export type SessionActivity = {
     timestamp: number;
     type: ActivityType;
-    constructor(timestamp: number, type: ActivityType) {
-        this.timestamp = timestamp;
-        this.type = type;
-    }
-}
+};
 
-export class Session {
+export type Session = {
     hash: string;
     startTime: number;
     endTime: number;
     branchName: string;
     files: SessionFile[];
     activities: SessionActivity[];
-    constructor(hash: string, startTime: number, endTime: number, branchName: string, files: SessionFile[], activities: SessionActivity[]) {
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.branchName = branchName;
-        this.files = files;
-        this.activities = activities;
-        this.hash = hash;
-    }
-}
+};
 
 // for testing and development only
 export let dummySessions: Session[] = [
-    new Session(
-        "1-a1b2c3d4e5f6g7h8i9j0",
-        Math.floor(new Date('2023-01-01T08:00:00.000Z').getTime()),
-        Math.floor(new Date('2023-01-01T09:00:00.000Z').getTime()),
-        "update-docs",
-        [
-            new SessionFile("README.md", "/README.md", 12, 45),
-            new SessionFile("index.ts", "/src/index.ts", 3, 8),
+    {
+        hash: "1-a1b2c3d4e5f6g7h8i9j0",
+        startTime: Math.floor(new Date("2023-01-01T08:00:00.000Z").getTime()),
+        endTime: Math.floor(new Date("2023-01-01T09:00:00.000Z").getTime()),
+        branchName: "update-docs",
+        files: [
+            {
+                name: "README.md",
+                path: "/README.md",
+                linesTouched: 12,
+                numberOfEdits: 45,
+            },
+            {
+                name: "index.ts",
+                path: "/src/index.ts",
+                linesTouched: 3,
+                numberOfEdits: 8,
+            },
         ],
-        [
-            new SessionActivity(
-                Math.floor(new Date('2023-01-01T08:01:00.000Z').getTime()),
-                ActivityType.COMMIT),
-            new SessionActivity(
-                Math.floor(new Date('2023-01-01T08:59:00.000Z').getTime()),
-                ActivityType.PUSH),
-        ]
-    ),
-    new Session(
-        "2-a1b2c3d4e5f6g7h8i9j0",
-        Math.floor(new Date('2023-01-01T14:00:00.000Z').getTime()),
-        Math.floor(new Date('2023-01-01T15:30:00.000Z').getTime()),
-        "newer-dependencies",
-        [
-            new SessionFile("package.json", "package.json", 4, 15),
-            new SessionFile("tailwind.config.cjs", "tailwind.config.cjs", 23, 92),
+        activities: [
+            {
+                timestamp: Math.floor(new Date("2023-01-01T08:01:00.000Z").getTime()),
+                type: "commit",
+            },
+            {
+                timestamp: Math.floor(new Date("2023-01-01T08:59:00.000Z").getTime()),
+                type: "push",
+            },
         ],
-        [
-            new SessionActivity(
-                Math.floor(new Date('2023-01-01T14:10:00.000Z').getTime()),
-                ActivityType.REBASE),
-            new SessionActivity(
-                Math.floor(new Date('2023-01-01T14:30:00.000Z').getTime()),
-                ActivityType.COMMIT),
-            new SessionActivity(
-                Math.floor(new Date('2023-01-01T14:40:00.000Z').getTime()),
-                ActivityType.PUSH),
-        ]
-    ),
+    },
+    {
+        hash: "2-a1b2c3d4e5f6g7h8i9j0",
+        startTime: Math.floor(new Date("2023-01-01T14:00:00.000Z").getTime()),
+        endTime: Math.floor(new Date("2023-01-01T15:30:00.000Z").getTime()),
+        branchName: "newer-dependencies",
+        files: [
+            {
+                name: "package.json",
+                path: "package.json",
+                linesTouched: 4,
+                numberOfEdits: 15,
+            },
+            {
+                name: "tailwind.config.cjs",
+                path: "tailwind.config.cjs",
+                linesTouched: 23,
+                numberOfEdits: 92,
+            },
+        ],
+        activities: [
+            {
+                timestamp: Math.floor(new Date("2023-01-01T14:10:00.000Z").getTime()),
+                type: "rebase",
+            },
+            {
+                timestamp: Math.floor(new Date("2023-01-01T14:30:00.000Z").getTime()),
+                type: "commit",
+            },
+            {
+                timestamp: Math.floor(new Date("2023-01-01T14:40:00.000Z").getTime()),
+                type: "push",
+            },
+        ],
+    },
 ];
-
