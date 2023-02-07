@@ -10,7 +10,7 @@ use git2::Repository;
 use log;
 use projects::Project;
 use std::collections::HashMap;
-use std::{fs::read_to_string, path::Path};
+use std::path::Path;
 use storage::Storage;
 use tauri::{InvokeError, Manager, Runtime, State, Window};
 use tauri_plugin_log::{
