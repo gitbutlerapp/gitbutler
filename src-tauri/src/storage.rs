@@ -17,22 +17,22 @@ impl Storage {
         }
     }
 
-    pub fn read(&self, path: &str) -> Result<Option<String>, String> {
+    pub fn read(&self, path: &str) -> Result<Option<String>, std::io::Error> {
         let file_path = self.local_data_dir.join(path);
         if !file_path.exists() {
             return Ok(None);
         }
-        let contents = fs::read_to_string(file_path).expect("Unable to read file");
+        let contents = fs::read_to_string(file_path)?;
         Ok(Some(contents))
     }
 
-    pub fn write(&self, path: &str, content: &str) -> Result<(), String> {
+    pub fn write(&self, path: &str, content: &str) -> Result<(), std::io::Error> {
         let file_path = self.local_data_dir.join(path);
         let dir = file_path.parent().unwrap();
         if !dir.exists() {
-            fs::create_dir_all(dir).unwrap();
+            fs::create_dir_all(dir)?;
         }
-        fs::write(file_path, content).expect("Unable to write file");
+        fs::write(file_path, content)?;
         Ok(())
     }
 }

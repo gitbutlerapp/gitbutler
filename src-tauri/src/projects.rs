@@ -18,17 +18,35 @@ impl AsRef<Project> for Project {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ProjectError {
+    pub message: String,
+}
+
 impl Project {
-    pub fn from_path(path: String) -> Result<Self, String> {
+    pub fn from_path(path: String) -> Result<Self, ProjectError> {
         // make sure path exists
         let path = std::path::Path::new(&path);
         if !path.exists() {
-            return Err("Path does not exist".to_string());
+            return Err(ProjectError {
+                message: "Path does not exist".to_string(),
+            });
         }
+
         // make sure path is a directory
         if !path.is_dir() {
-            return Err("Path is not a directory".to_string());
+            return Err(ProjectError {
+                message: "Path is not a directory".to_string(),
+            });
         }
+
+        // make sure it's a git repository
+        if !path.join(".git").exists() {
+            return Err(ProjectError {
+                message: "Path is not a git repository".to_string(),
+            });
+        };
+
         // title is the base name of the file
         path.into_iter()
             .last()
@@ -38,48 +56,56 @@ impl Project {
                 title,
                 path: path.to_str().unwrap().to_string(),
             })
-            .ok_or("Unable to get title".to_string())
+            .ok_or(ProjectError {
+                message: "Could not get title from path".to_string(),
+            })
     }
 
-    fn deltas_path(&self) -> PathBuf {
+    fn deltas_path(&self) -> Result<PathBuf, std::io::Error> {
         let path = PathBuf::from(&self.path).join(PathBuf::from(".git/gb/session/deltas"));
-        std::fs::create_dir_all(path.clone()).unwrap();
-        path
+        std::fs::create_dir_all(path.clone())?;
+        Ok(path)
     }
 
-    pub fn save_file_deltas(&self, file_path: &Path, deltas: &Vec<Delta>) {
+    pub fn save_file_deltas(
+        &self,
+        file_path: &Path,
+        deltas: &Vec<Delta>,
+    ) -> Result<(), std::io::Error> {
         if deltas.is_empty() {
-            return;
+            return Ok(());
         }
-        let project_deltas_path = self.deltas_path();
+        let project_deltas_path = self.deltas_path()?;
         let delta_path = project_deltas_path.join(file_path.to_path_buf());
         log::info!("Writing delta to {}", delta_path.to_str().unwrap());
         let raw_deltas = serde_json::to_string(&deltas).unwrap();
-        std::fs::write(delta_path, raw_deltas).unwrap();
+        std::fs::write(delta_path, raw_deltas)?;
+        Ok(())
     }
 
-    pub fn get_file_deltas(&self, file_path: &Path) -> Option<Vec<Delta>> {
-        let project_deltas_path = self.deltas_path();
+    pub fn get_file_deltas(
+        &self,
+        file_path: &Path,
+    ) -> Result<Option<Vec<Delta>>, Box<dyn std::error::Error>> {
+        let project_deltas_path = self.deltas_path()?;
         let delta_path = project_deltas_path.join(file_path.to_path_buf());
         if delta_path.exists() {
-            let raw_deltas = std::fs::read_to_string(delta_path.clone())
-                .expect(format!("Failed to read {}", delta_path.to_str().unwrap()).as_str());
-            let deltas: Vec<Delta> = serde_json::from_str(&raw_deltas)
-                .expect(format!("Failed to parse {}", delta_path.to_str().unwrap()).as_str());
-            Some(deltas)
+            let raw_deltas = std::fs::read_to_string(delta_path.clone())?;
+            let deltas: Vec<Delta> = serde_json::from_str(&raw_deltas)?;
+            Ok(Some(deltas))
         } else {
-            None
+            Ok(None)
         }
     }
 
-    pub fn list_deltas(&self) -> HashMap<String, Vec<Delta>> {
-        let deltas_path = self.deltas_path();
-        let file_paths = list_files(&deltas_path);
+    pub fn list_deltas(&self) -> Result<HashMap<String, Vec<Delta>>, Box<dyn std::error::Error>> {
+        let deltas_path = self.deltas_path()?;
+        let file_paths = list_files(&deltas_path)?;
         let mut deltas = HashMap::new();
         for file_path in file_paths {
             let file_path = Path::new(&file_path);
-            let file_deltas = self.get_file_deltas(file_path);
-            let relative_file_path = file_path.strip_prefix(&deltas_path).unwrap();
+            let file_deltas = self.get_file_deltas(file_path)?;
+            let relative_file_path = file_path.strip_prefix(&deltas_path)?;
             if let Some(file_deltas) = file_deltas {
                 deltas.insert(
                     relative_file_path.to_str().unwrap().to_string(),
@@ -87,7 +113,7 @@ impl Project {
                 );
             }
         }
-        deltas
+        Ok(deltas)
     }
 }
 
@@ -97,35 +123,62 @@ pub struct Storage {
     storage: storage::Storage,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StorageError {
+    pub message: String,
+}
+
+impl std::fmt::Display for StorageError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl From<std::io::Error> for StorageError {
+    fn from(e: std::io::Error) -> Self {
+        Self {
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<serde_json::Error> for StorageError {
+    fn from(e: serde_json::Error) -> Self {
+        Self {
+            message: e.to_string(),
+        }
+    }
+}
+
 impl Storage {
     pub fn new(storage: storage::Storage) -> Self {
         Self { storage }
     }
 
-    pub fn list_projects(&self) -> Result<Vec<Project>, String> {
+    pub fn list_projects(&self) -> Result<Vec<Project>, StorageError> {
         match self.storage.read(PROJECTS_FILE)? {
-            Some(projects) => serde_json::from_str(&projects).map_err(|e| e.to_string()),
+            Some(projects) => serde_json::from_str(&projects).map_err(|e| e.into()),
             None => Ok(vec![]),
         }
     }
 
-    pub fn get_project(&self, id: &str) -> Result<Option<Project>, String> {
+    pub fn get_project(&self, id: &str) -> Result<Option<Project>, StorageError> {
         let projects = self.list_projects()?;
         Ok(projects.into_iter().find(|p| p.id == id))
     }
 
-    pub fn add_project(&self, project: &Project) -> Result<(), String> {
+    pub fn add_project(&self, project: &Project) -> Result<(), StorageError> {
         let mut projects = self.list_projects()?;
         projects.push(project.clone());
-        let projects = serde_json::to_string(&projects).map_err(|e| e.to_string())?;
+        let projects = serde_json::to_string(&projects)?;
         self.storage.write(PROJECTS_FILE, &projects)?;
         Ok(())
     }
 
-    pub fn delete_project(&self, id: &str) -> Result<(), String> {
+    pub fn delete_project(&self, id: &str) -> Result<(), StorageError> {
         let mut projects = self.list_projects()?;
         projects.retain(|p| p.id != id);
-        let projects = serde_json::to_string(&projects).map_err(|e| e.to_string())?;
+        let projects = serde_json::to_string(&projects)?;
         self.storage.write(PROJECTS_FILE, &projects)?;
         Ok(())
     }

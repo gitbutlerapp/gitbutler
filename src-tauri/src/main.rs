@@ -9,6 +9,7 @@ use fs::list_files;
 use git2::Repository;
 use log;
 use projects::Project;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use storage::Storage;
@@ -24,10 +25,7 @@ struct AppState {
 }
 
 #[tauri::command]
-fn list_project_files(
-    state: State<'_, AppState>,
-    project_id: &str,
-) -> Result<Vec<String>, InvokeError> {
+fn list_project_files(state: State<'_, AppState>, project_id: &str) -> Result<Vec<String>, Error> {
     log::debug!("Listing project files for project: {}", project_id);
     if let Some(project) = state.projects_storage.get_project(project_id)? {
         let project_path = Path::new(&project.path);
@@ -35,13 +33,13 @@ fn list_project_files(
             Ok(repo) => repo,
             Err(e) => panic!("failed to open: {}", e),
         };
-        let files = list_files(project_path);
+        let files = list_files(project_path)?;
         let meta_commit = delta_watchers::get_meta_commit(&repo);
         let tree = meta_commit.tree().unwrap();
         let non_ignored_files: Vec<String> = files
-            .into_iter()
+            .iter()
             .filter_map(|file| {
-                let file_path = Path::new(&file);
+                let file_path = Path::new(file);
                 let relative_file_path = file_path.strip_prefix(project_path).unwrap();
                 let relative_file_path = relative_file_path.to_str().unwrap();
                 if let Ok(_object) = tree.get_path(Path::new(&relative_file_path)) {
@@ -134,10 +132,10 @@ fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), InvokeErro
 fn list_deltas(
     state: State<'_, AppState>,
     project_id: &str,
-) -> Result<HashMap<String, Vec<Delta>>, InvokeError> {
+) -> Result<HashMap<String, Vec<Delta>>, Error> {
     log::debug!("Listing deltas for project with id: {}", project_id);
     if let Some(project) = state.projects_storage.get_project(project_id)? {
-        Ok(project.list_deltas())
+        Ok(project.list_deltas()?)
     } else {
         Err("Project not found".into())
     }
@@ -158,11 +156,14 @@ fn main() {
             let storage = Storage::new(&resolver);
             let projects_storage = projects::Storage::new(storage);
 
-            let projects = projects_storage.list_projects()?;
             let watchers = delta_watchers::WatcherCollection::default();
 
-            for project in projects {
-                delta_watchers::watch(app.get_window("main").unwrap(), &watchers, project)?;
+            if let Ok(projects) = projects_storage.list_projects() {
+                for project in projects {
+                    delta_watchers::watch(app.get_window("main").unwrap(), &watchers, project)?;
+                }
+            } else {
+                log::error!("Failed to list projects");
             }
 
             app.manage(AppState {
@@ -190,4 +191,47 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Error {
+    message: String,
+}
+
+impl From<projects::StorageError> for Error {
+    fn from(error: projects::StorageError) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<String> for Error {
+    fn from(message: String) -> Self {
+        Self { message }
+    }
+}
+
+impl From<&str> for Error {
+    fn from(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for Error {
+    fn from(error: Box<dyn std::error::Error>) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
 }

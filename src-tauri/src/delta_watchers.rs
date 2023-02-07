@@ -61,25 +61,28 @@ pub fn watch<R: Runtime>(
             if let Ok(event) = event {
                 for file_path in event.paths {
                     match register_file_change(&repo, &project, &event.kind, &file_path) {
-                        Some(deltas) => {
+                        Ok(Some(deltas)) => {
                             let relative_file_path = file_path
                                 .strip_prefix(&project.path)
                                 .unwrap()
                                 .to_str()
                                 .unwrap();
                             let event_name = format!("deltas://{}", project.id);
+
                             log::info!("Emitting event: {}", event_name);
-                            window
-                                .emit(
-                                    &event_name,
-                                    &DeltasEvent {
-                                        deltas,
-                                        file_path: relative_file_path.to_string(),
-                                    },
-                                )
-                                .unwrap();
+                            match window.emit(
+                                &event_name,
+                                &DeltasEvent {
+                                    deltas,
+                                    file_path: relative_file_path.to_string(),
+                                },
+                            ) {
+                                Ok(_) => {}
+                                Err(e) => log::error!("Error: {:?}", e),
+                            };
                         }
-                        None => {}
+                        Ok(None) => {}
+                        Err(e) => log::error!("Error: {:?}", e),
                     }
                 }
             } else {
@@ -100,19 +103,19 @@ fn register_file_change(
     project: &Project,
     kind: &EventKind,
     file_path: &PathBuf,
-) -> Option<Vec<Delta>> {
+) -> Result<Option<Vec<Delta>>, Box<dyn std::error::Error>> {
     // update meta files every time file change is detected
-    write_beginning_meta_files(&repo);
+    write_beginning_meta_files(&repo)?;
 
     if !file_path.is_file() {
         // only handle file changes
-        return None;
+        return Ok(None);
     }
 
     let relative_file_path = Path::new(file_path.strip_prefix(&project.path).unwrap());
     if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
         // make sure we're not watching ignored files
-        return None;
+        return Ok(None);
     }
 
     if EventKind::is_modify(&kind) {
@@ -136,7 +139,7 @@ fn register_file_change(
     };
 
     // second, get non-flushed file deltas
-    let deltas = project.get_file_deltas(Path::new(&relative_file_path));
+    let deltas = project.get_file_deltas(Path::new(&relative_file_path))?;
 
     // depending on the above, we can create TextDocument
     let mut text_doc = match (commit_blob, deltas) {
@@ -151,13 +154,13 @@ fn register_file_change(
         .expect(format!("Failed to read {}", file_path.to_str().unwrap()).as_str());
 
     if !text_doc.update(&contents) {
-        return None;
+        return Ok(None);
     }
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
-    project.save_file_deltas(relative_file_path, &deltas);
-    return Some(deltas);
+    project.save_file_deltas(relative_file_path, &deltas)?;
+    return Ok(Some(deltas));
 }
 
 // get commit from refs/gitbutler/current or fall back to HEAD
@@ -174,39 +177,39 @@ pub fn get_meta_commit(repo: &Repository) -> Commit {
 
 // this function is called when the user modifies a file, it writes starting metadata if not there
 // and also touches the last activity timestamp, so we can tell when we are idle
-fn write_beginning_meta_files(repo: &Repository) {
+fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::error::Error>> {
     let meta_path = repo.path().join(Path::new("gb/session/meta"));
     // create the parent directory recurisvely if it doesn't exist
-    std::fs::create_dir_all(meta_path.clone()).unwrap();
+    std::fs::create_dir_all(meta_path.clone())?;
 
     // check if the file .git/gb/meta/start exists and if not, write the current timestamp into it
     let meta_session_start = meta_path.join(Path::new("session-start"));
     if !meta_session_start.exists() {
-        let mut file = File::create(meta_session_start).unwrap();
-        file.write_all(chrono::Local::now().timestamp().to_string().as_bytes())
-            .unwrap();
+        let mut file = File::create(meta_session_start)?;
+        file.write_all(chrono::Local::now().timestamp().to_string().as_bytes())?;
     }
 
     // check if the file .git/gb/session/meta/branch exists and if not, write the current branch name into it
     let meta_branch = meta_path.join(Path::new("branch"));
     if !meta_branch.exists() {
-        let mut file = File::create(meta_branch).unwrap();
-        let branch = repo.head().unwrap();
+        let mut file = File::create(meta_branch)?;
+        let branch = repo.head()?;
         let branch_name = branch.name().unwrap();
-        file.write_all(branch_name.as_bytes()).unwrap();
+        file.write_all(branch_name.as_bytes())?;
     }
 
     // check if the file .git/gb/session/meta/commit exists and if not, write the current commit hash into it
     let meta_commit = meta_path.join(Path::new("commit"));
     if !meta_commit.exists() {
-        let mut file = File::create(meta_commit).unwrap();
-        let commit = repo.head().unwrap().peel_to_commit().unwrap();
-        file.write_all(commit.id().to_string().as_bytes()).unwrap();
+        let mut file = File::create(meta_commit)?;
+        let commit = repo.head().unwrap().peel_to_commit()?;
+        file.write_all(commit.id().to_string().as_bytes())?;
     }
 
     // ALWAYS write the last time we did this
     let meta_session_last = meta_path.join(Path::new("session-last"));
-    let mut file = File::create(meta_session_last).unwrap();
-    file.write_all(chrono::Local::now().timestamp().to_string().as_bytes())
-        .unwrap();
+    let mut file = File::create(meta_session_last)?;
+    file.write_all(chrono::Local::now().timestamp().to_string().as_bytes())?;
+
+    Ok(())
 }
