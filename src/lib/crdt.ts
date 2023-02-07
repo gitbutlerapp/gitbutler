@@ -1,10 +1,22 @@
 import { Doc } from "yjs";
 import { diffChars } from "diff";
 
-export type Delta =
-    | { retain: number }
-    | { delete: number }
-    | { insert: string };
+type DeltaRetain = { retain: number };
+type DeltaDelete = { delete: number };
+type DeltaInsert = { insert: string };
+
+export type Delta = DeltaRetain | DeltaDelete | DeltaInsert;
+
+export namespace Delta {
+    export const isRetain = (delta: Delta): delta is DeltaRetain =>
+        "retain" in delta;
+
+    export const isDelete = (delta: Delta): delta is DeltaDelete =>
+        "delete" in delta;
+
+    export const isInsert = (delta: Delta): delta is DeltaInsert =>
+        "insert" in delta;
+}
 
 // Compute the set of Yjs delta operations (that is, `insert` and
 // `delete`) required to go from initialText to finalText.
