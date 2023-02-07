@@ -56,10 +56,6 @@
         >
             new project
         </button>
-        <div class="flex items-center justify-center">
-            <a href="/wip">wip</a>
-        </div>
     </nav>
-
     <slot />
 </main>

@@ -4,6 +4,9 @@
     import type { PageData } from "./$types";
     import { Timeline, CodeViewer } from "$lib/components";
     import { Operation } from "$lib/crdt";
+    import { TimelineDay } from "$lib/components/timeline";
+    import type { Session } from "$lib/session";
+    import { dummySessions } from "$lib/session";
 
     export let data: PageData;
     const { deltas } = data;
@@ -45,6 +48,16 @@
     );
 </script>
 
+<div class="p-3">
+    <div class="flex flex-row space-x-3 text-slate-400 text-lg">
+        <div>Week</div>
+        <div class="text-slate-700">Day</div>
+        <div>Session</div>
+    </div>
+    <div>
+        <TimelineDay sessions={dummySessions} />
+    </div>
+</div>
 <ul class="flex flex-col gap-2">
     {#if $showTimeline}
         <Timeline min={$min} max={$max} on:value={(e) => value.set(e.detail)} />
