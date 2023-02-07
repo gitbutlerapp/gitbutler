@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 use yrs::{Doc, GetString, Text, Transact};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Delta {
     operations: Vec<Operation>,
     timestamp_ms: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Operation {
     // corresponds to YText.insert(index, chunk)
     Insert((u32, String)),
@@ -29,12 +29,10 @@ fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operation> 
     for edit in changeset.diffs {
         match edit {
             Difference::Rem(text) => {
-                offset -= text.len() as u32;
                 deltas.push(Operation::Delete((offset, text.len() as u32)));
             }
             Difference::Add(text) => {
-                deltas.push(Operation::Insert((offset, text.clone())));
-                offset += text.len() as u32;
+                deltas.push(Operation::Insert((offset, text.to_string())));
             }
             Difference::Same(text) => {
                 offset += text.len() as u32;
@@ -121,13 +119,13 @@ impl TextDocument {
     }
 
     pub fn at(&self, timestamp_ms: u64) -> TextDocument {
-        let mut events: Vec<Delta> = vec![];
+        let mut deltas: Vec<Delta> = vec![];
         for event in self.deltas.iter() {
             if event.timestamp_ms <= timestamp_ms {
-                events.push(event.clone());
+                deltas.push(event.clone());
             }
         }
-        Self::from_deltas(events)
+        Self::from_deltas(deltas)
     }
 
     pub fn to_string(&self) -> String {
@@ -136,4 +134,153 @@ impl TextDocument {
         let txn = doc.transact();
         text.get_string(&txn)
     }
+}
+
+#[test]
+fn test_get_delta_operations_insert_end() {
+    let initial_text = "hello world";
+    let final_text = "hello world!";
+    let operations = get_delta_operations(initial_text, final_text);
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0], Operation::Insert((11, "!".to_string())));
+}
+
+#[test]
+fn test_get_delta_operations_insert_middle() {
+    let initial_text = "hello world";
+    let final_text = "hello, world";
+    let operations = get_delta_operations(initial_text, final_text);
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0], Operation::Insert((5, ",".to_string())));
+}
+
+#[test]
+fn test_get_delta_operations_insert_begin() {
+    let initial_text = "hello world";
+    let final_text = ": hello world";
+    let operations = get_delta_operations(initial_text, final_text);
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0], Operation::Insert((0, ": ".to_string())));
+}
+
+#[test]
+fn test_get_delta_operations_delete_end() {
+    let initial_text = "hello world!";
+    let final_text = "hello world";
+    let operations = get_delta_operations(initial_text, final_text);
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0], Operation::Delete((11, 1)));
+}
+
+#[test]
+fn test_get_delta_operations_delete_middle() {
+    let initial_text = "hello world";
+    let final_text = "helloworld";
+    let operations = get_delta_operations(initial_text, final_text);
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0], Operation::Delete((5, 1)));
+}
+
+#[test]
+fn test_get_delta_operations_delete_begin() {
+    let initial_text = "hello world";
+    let final_text = "ello world";
+    let operations = get_delta_operations(initial_text, final_text);
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0], Operation::Delete((0, 1)));
+}
+
+#[test]
+fn test_document_new() {
+    let document = TextDocument::new("hello world", vec![]);
+    assert_eq!(document.to_string(), "hello world");
+    assert_eq!(document.get_deltas().len(), 0);
+}
+
+#[test]
+fn test_document_update() {
+    let mut document = TextDocument::new("hello world", vec![]);
+    document.update("hello world!");
+    assert_eq!(document.to_string(), "hello world!");
+    assert_eq!(document.get_deltas().len(), 1);
+    assert_eq!(document.get_deltas()[0].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[0].operations[0],
+        Operation::Insert((11, "!".to_string()))
+    );
+}
+
+#[test]
+fn test_document_empty() {
+    let mut document = TextDocument::from_deltas(vec![]);
+    document.update("hello world!");
+    assert_eq!(document.to_string(), "hello world!");
+    assert_eq!(document.get_deltas().len(), 1);
+    assert_eq!(document.get_deltas()[0].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[0].operations[0],
+        Operation::Insert((0, "hello world!".to_string()))
+    );
+}
+
+#[test]
+fn test_document_from_deltas() {
+    let document = TextDocument::from_deltas(vec![
+        Delta {
+            timestamp_ms: 0,
+            operations: vec![Operation::Insert((0, "hello".to_string()))],
+        },
+        Delta {
+            timestamp_ms: 1,
+            operations: vec![Operation::Insert((5, " world".to_string()))],
+        },
+        Delta {
+            timestamp_ms: 2,
+            operations: vec![
+                Operation::Delete((3, 7)),
+                Operation::Insert((4, "!".to_string())),
+            ],
+        },
+    ]);
+    assert_eq!(document.at(0).to_string(), "hello");
+    assert_eq!(document.at(1).to_string(), "hello world");
+    assert_eq!(document.at(2).to_string(), "held!");
+    assert_eq!(document.to_string(), "held!");
+}
+
+#[test]
+fn test_document_complex() {
+    let mut document = TextDocument::from_deltas(vec![]);
+
+    document.update("hello");
+    assert_eq!(document.to_string(), "hello");
+    assert_eq!(document.get_deltas().len(), 1);
+    assert_eq!(document.get_deltas()[0].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[0].operations[0],
+        Operation::Insert((0, "hello".to_string()))
+    );
+
+    document.update("hello world");
+    assert_eq!(document.to_string(), "hello world");
+    assert_eq!(document.get_deltas().len(), 2);
+    assert_eq!(document.get_deltas()[1].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[1].operations[0],
+        Operation::Insert((5, " world".to_string()))
+    );
+
+    document.update("held!");
+    assert_eq!(document.to_string(), "held!");
+    assert_eq!(document.get_deltas().len(), 3);
+    assert_eq!(document.get_deltas()[2].operations.len(), 2);
+    println!("{:?}", document.get_deltas()[2].operations);
+    assert_eq!(
+        document.get_deltas()[2].operations[0],
+        Operation::Delete((3, 7))
+    );
+    assert_eq!(
+        document.get_deltas()[2].operations[1],
+        Operation::Insert((4, "!".to_string())),
+    );
 }
