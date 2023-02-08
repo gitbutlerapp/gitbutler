@@ -34,7 +34,7 @@ jobs:
       - name: Save apple private key
         run: |
           mkdir -p './private_keys'
-          echo -n '${{ APPLE_API_KEY_SECRET }}' > './private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8'
+          echo -n '${{ secrets.APPLE_API_KEY_SECRET }}' > './private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8'
 
       - uses: tauri-apps/tauri-action@v0
         env:
