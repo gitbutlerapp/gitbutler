@@ -2,6 +2,7 @@
     import type { Session } from "$lib/session";
     import TimelineDaySessionActivities from "./TimelineDaySessionActivities.svelte";
     export let session: Session;
+    export let projectId: string;
 
     const toHumanReadableTime = (timestamp: number) => {
         return new Date(timestamp).toLocaleTimeString("en-US", {
@@ -29,12 +30,14 @@
 </script>
 
 <div class="flex flex-col space-y-2">
-    <div
+    <a
         id="block"
-        class="border px-4 py-2 text-slate-50 rounded-lg {colorFromBranchName(session.branchName)}"
+        class="truncate border px-4 py-2 text-slate-50 rounded-lg {colorFromBranchName(session.branchName)}"
+        title={session.branchName}
+        href="/projects/{projectId}/sessions/{session.hash}/"
     >
         {session.branchName}
-    </div>
+</a>
     <div id="activities">
         <div class="my-2 mx-1">
             <TimelineDaySessionActivities

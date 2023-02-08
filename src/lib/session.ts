@@ -1,8 +1,11 @@
+import type { Delta } from "./crdt";
+
 export type SessionFile = {
     name: string;
     path: string;
     linesTouched: number;
     numberOfEdits: number;
+    deltas: Delta[];
 };
 
 export type ActivityType = "commit" | "merge" | "rebase" | "push";
@@ -34,12 +37,14 @@ export let dummySessions: Session[] = [
                 path: "/README.md",
                 linesTouched: 12,
                 numberOfEdits: 45,
+                deltas: [],
             },
             {
                 name: "index.ts",
                 path: "/src/index.ts",
                 linesTouched: 3,
                 numberOfEdits: 8,
+                deltas: [],
             },
         ],
         activities: [
@@ -64,12 +69,14 @@ export let dummySessions: Session[] = [
                 path: "package.json",
                 linesTouched: 4,
                 numberOfEdits: 15,
+                deltas: [],
             },
             {
                 name: "tailwind.config.cjs",
                 path: "tailwind.config.cjs",
                 linesTouched: 23,
                 numberOfEdits: 92,
+                deltas: [],
             },
         ],
         activities: [

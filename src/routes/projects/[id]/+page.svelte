@@ -1,74 +1,17 @@
 <script lang="ts">
-    import { Doc } from "yjs";
-    import { derived, writable } from "svelte/store";
     import type { PageData } from "./$types";
-    import { Timeline, CodeViewer } from "$lib/components";
-    import { Operation } from "$lib/crdt";
     import { TimelineDay } from "$lib/components/timeline";
-    import type { Session } from "$lib/session";
     import { dummySessions } from "$lib/session";
 
     export let data: PageData;
-    const { deltas } = data;
-
-    const value = writable(new Date().getTime());
-
-    const docs = derived([deltas, value], ([deltas, value]) =>
-        Object.fromEntries(
-            Object.entries(deltas).map(([filePath, deltas]) => {
-                const doc = new Doc();
-                const text = doc.getText();
-                const operations = deltas
-                    .filter((delta) => delta.timestampMs <= value)
-                    .flatMap((delta) => delta.operations);
-                operations.forEach((operation) => {
-                    if (Operation.isInsert(operation)) {
-                        text.insert(operation.insert[0], operation.insert[1]);
-                    } else if (Operation.isDelete(operation)) {
-                        text.delete(operation.delete[0], operation.delete[1]);
-                    }
-                });
-                return [filePath, text.toString()];
-            })
-        )
-    );
-
-    const timestamps = derived(deltas, (deltas) =>
-        Object.values(deltas).flatMap((deltas) =>
-            Object.values(deltas).map((delta) => delta.timestampMs)
-        )
-    );
-
-    const min = derived(timestamps, (timestamps) => Math.min(...timestamps));
-    const max = derived(timestamps, (timestamps) => Math.max(...timestamps));
-
-    const showTimeline = derived(
-        [min, max],
-        ([min, max]) => isFinite(min) && isFinite(max)
-    );
+    const { project, sessions } = data;
 </script>
 
-<div class="p-3">
-    <div class="flex flex-row space-x-3 text-slate-400 text-lg">
-        <div>Week</div>
-        <div class="text-slate-700">Day</div>
-        <div>Session</div>
-    </div>
-    <div>
-        <TimelineDay sessions={dummySessions} />
-    </div>
-</div>
-<ul class="flex flex-col gap-2">
-    {#if $showTimeline}
-        <Timeline min={$min} max={$max} on:value={(e) => value.set(e.detail)} />
+<div>
+    {#if $project}
+        <TimelineDay
+            projectId={$project?.id}
+            sessions={Array(2).fill(dummySessions).flat().concat($sessions)}
+        />
     {/if}
-
-    {#each Object.entries($docs) as [filepath, value]}
-        <li>
-            <details open>
-                <summary>{filepath}</summary>
-                <CodeViewer {value} />
-            </details>
-        </li>
-    {/each}
-</ul>
+</div>
