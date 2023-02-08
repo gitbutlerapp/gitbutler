@@ -1,9 +1,10 @@
+use crate::butler::{get_file_deltas, save_file_deltas};
 use crate::crdt::{Delta, TextDocument};
 use crate::projects::Project;
 use git2::{Commit, Repository};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::thread;
 use std::{collections::HashMap, fs::File, sync::Mutex};
 use std::{io::Write, sync::mpsc::channel};
@@ -12,13 +13,23 @@ use tauri::{Runtime, Window};
 #[derive(Default)]
 pub struct WatcherCollection(Mutex<HashMap<String, RecommendedWatcher>>);
 
-pub fn unwatch(watchers: &WatcherCollection, project: Project) {
+#[derive(Debug)]
+pub enum UnwatchError {
+    UnwatchError(notify::Error),
+}
+
+impl From<notify::Error> for UnwatchError {
+    fn from(error: notify::Error) -> Self {
+        UnwatchError::UnwatchError(error)
+    }
+}
+
+pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<(), UnwatchError> {
     let mut watchers = watchers.0.lock().unwrap();
     if let Some(mut watcher) = watchers.remove(&project.path) {
-        watcher
-            .unwatch(Path::new(&project.path))
-            .expect(format!("Failed to unwatch {}", &project.path).as_str());
+        watcher.unwatch(Path::new(&project.path))?;
     }
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -28,45 +39,65 @@ struct DeltasEvent {
     deltas: Vec<Delta>,
 }
 
+#[derive(Debug)]
+pub enum WatchError {
+    GitError(git2::Error),
+    WatchError(notify::Error),
+}
+
+impl std::fmt::Display for WatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WatchError::GitError(e) => write!(f, "Git error: {}", e),
+            WatchError::WatchError(e) => write!(f, "Watch error: {}", e),
+        }
+    }
+}
+
+impl From<notify::Error> for WatchError {
+    fn from(error: notify::Error) -> Self {
+        WatchError::WatchError(error)
+    }
+}
+
+impl From<git2::Error> for WatchError {
+    fn from(error: git2::Error) -> Self {
+        WatchError::GitError(error)
+    }
+}
+
 pub fn watch<R: Runtime>(
     window: Window<R>,
     watchers: &WatcherCollection,
     project: Project,
-) -> Result<(), String> {
-    // Open the repository at this path
-    let path = Path::new(&project.as_ref().path);
-    let repo = match Repository::open(path) {
-        Ok(repo) => repo,
-        Err(e) => panic!("failed to open: {}", e),
-    };
+) -> Result<(), WatchError> {
+    log::info!("Watching deltas for {}", project.path);
+    let project_path = Path::new(&project.path);
 
     let (tx, rx) = channel();
-    let mut watcher =
-        RecommendedWatcher::new(tx, Config::default()).expect("Failed to create watcher");
-
-    log::info!("Watching {}", &project.path);
-
-    watcher
-        .watch(Path::new(&project.path), RecursiveMode::Recursive)
-        .expect(format!("Failed to watch {}", &project.path).as_str());
-
+    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+    watcher.watch(project_path, RecursiveMode::Recursive)?;
     watchers
         .0
         .lock()
         .unwrap()
         .insert(project.path.clone(), watcher);
 
+    let repo = Repository::open(project_path);
     thread::spawn(move || {
+        if repo.is_err() {
+            log::error!("failed to open git repo: {:?}", repo.err());
+            return;
+        }
+        let repo = repo.unwrap();
+
         while let Ok(event) = rx.recv() {
             if let Ok(event) = event {
                 for file_path in event.paths {
-                    match register_file_change(&repo, &project, &event.kind, &file_path) {
+                    let relative_file_path =
+                        file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
+                    match register_file_change(&repo, &event.kind, &relative_file_path) {
                         Ok(Some(deltas)) => {
-                            let relative_file_path = file_path
-                                .strip_prefix(&project.path)
-                                .unwrap()
-                                .to_str()
-                                .unwrap();
                             let event_name = format!("deltas://{}", project.id);
 
                             log::info!("Emitting event: {}", event_name);
@@ -74,7 +105,7 @@ pub fn watch<R: Runtime>(
                                 &event_name,
                                 &DeltasEvent {
                                     deltas,
-                                    file_path: relative_file_path.to_string(),
+                                    file_path: relative_file_path.to_str().unwrap().to_string(),
                                 },
                             ) {
                                 Ok(_) => {}
@@ -100,9 +131,8 @@ pub fn watch<R: Runtime>(
 // returns updated project deltas
 fn register_file_change(
     repo: &Repository,
-    project: &Project,
     kind: &EventKind,
-    file_path: &PathBuf,
+    file_path: &Path,
 ) -> Result<Option<Vec<Delta>>, Box<dyn std::error::Error>> {
     // update meta files every time file change is detected
     write_beginning_meta_files(&repo)?;
@@ -112,8 +142,7 @@ fn register_file_change(
         return Ok(None);
     }
 
-    let relative_file_path = Path::new(file_path.strip_prefix(&project.path).unwrap());
-    if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
+    if repo.is_path_ignored(&file_path).unwrap_or(true) {
         // make sure we're not watching ignored files
         return Ok(None);
     }
@@ -129,7 +158,7 @@ fn register_file_change(
     // first, we need to check if the file exists in the meta commit
     let meta_commit = get_meta_commit(&repo);
     let tree = meta_commit.tree().unwrap();
-    let commit_blob = if let Ok(object) = tree.get_path(Path::new(&relative_file_path)) {
+    let commit_blob = if let Ok(object) = tree.get_path(file_path) {
         // if file found, check if delta file exists
         let blob = object.to_object(&repo).unwrap().into_blob().unwrap();
         let contents = String::from_utf8(blob.content().to_vec()).unwrap();
@@ -139,7 +168,7 @@ fn register_file_change(
     };
 
     // second, get non-flushed file deltas
-    let deltas = project.get_file_deltas(Path::new(&relative_file_path))?;
+    let deltas = get_file_deltas(&repo.workdir().unwrap(), file_path)?;
 
     // depending on the above, we can create TextDocument
     let mut text_doc = match (commit_blob, deltas) {
@@ -150,8 +179,7 @@ fn register_file_change(
     };
 
     // update the TextDocument with the new file contents
-    let contents = std::fs::read_to_string(file_path.clone())
-        .expect(format!("Failed to read {}", file_path.to_str().unwrap()).as_str());
+    let contents = std::fs::read_to_string(file_path.clone())?;
 
     if !text_doc.update(&contents) {
         return Ok(None);
@@ -159,7 +187,7 @@ fn register_file_change(
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
-    project.save_file_deltas(relative_file_path, &deltas)?;
+    save_file_deltas(repo, file_path, &deltas)?;
     return Ok(Some(deltas));
 }
 

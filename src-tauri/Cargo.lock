@@ -996,11 +996,13 @@ version = "0.0.0"
 dependencies = [
  "chrono",
  "difference",
+ "filetime",
  "git2",
  "log",
  "notify",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-log",

@@ -26,6 +26,8 @@ yrs = "0.16.1"
 difference = "2.0.0"
 git2 = "0.16.1"
 chrono = "0.4.23"
+filetime = "0.2.19"
+sha2 = "0.10.6"
 
 [features]
 # by default Tauri runs in production mode
