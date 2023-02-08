@@ -45,14 +45,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "targets": ["dmg"],
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      }
+      "targets": ["dmg"]
     },
     "security": {
       "csp": null
