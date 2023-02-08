@@ -5,9 +5,10 @@ use git2::{Commit, Repository};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::thread;
-use std::{collections::HashMap, fs::File, sync::Mutex};
-use std::{io::Write, sync::mpsc::channel};
+use std::sync::mpsc::channel;
+use std::time::SystemTime;
+use std::{collections::HashMap, sync::Mutex};
+use std::{fs, thread};
 use tauri::{Runtime, Window};
 
 #[derive(Default)]
@@ -203,6 +204,19 @@ pub fn get_meta_commit(repo: &Repository) -> Commit {
     }
 }
 
+fn write_now_to(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    fs::write(
+        path,
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .to_string()
+            .as_bytes(),
+    )?;
+    Ok(())
+}
+
 // this function is called when the user modifies a file, it writes starting metadata if not there
 // and also touches the last activity timestamp, so we can tell when we are idle
 fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::error::Error>> {
@@ -213,31 +227,27 @@ fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::erro
     // check if the file .git/gb/meta/start exists and if not, write the current timestamp into it
     let meta_session_start = meta_path.join(Path::new("session-start"));
     if !meta_session_start.exists() {
-        let mut file = File::create(meta_session_start)?;
-        file.write_all(chrono::Local::now().timestamp().to_string().as_bytes())?;
+        write_now_to(&meta_session_start)?;
     }
 
     // check if the file .git/gb/session/meta/branch exists and if not, write the current branch name into it
     let meta_branch = meta_path.join(Path::new("branch"));
     if !meta_branch.exists() {
-        let mut file = File::create(meta_branch)?;
         let branch = repo.head()?;
         let branch_name = branch.name().unwrap();
-        file.write_all(branch_name.as_bytes())?;
+        fs::write(meta_branch, branch_name)?;
     }
 
     // check if the file .git/gb/session/meta/commit exists and if not, write the current commit hash into it
     let meta_commit = meta_path.join(Path::new("commit"));
     if !meta_commit.exists() {
-        let mut file = File::create(meta_commit)?;
         let commit = repo.head().unwrap().peel_to_commit()?;
-        file.write_all(commit.id().to_string().as_bytes())?;
+        fs::write(meta_commit, commit.id().to_string())?;
     }
 
     // ALWAYS write the last time we did this
     let meta_session_last = meta_path.join(Path::new("session-last"));
-    let mut file = File::create(meta_session_last)?;
-    file.write_all(chrono::Local::now().timestamp().to_string().as_bytes())?;
+    write_now_to(&meta_session_last)?;
 
     Ok(())
 }
