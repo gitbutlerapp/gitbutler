@@ -232,17 +232,16 @@ pub fn get_latest_file_contents(
 // this function is called when the user modifies a file, it writes starting metadata if not there
 // and also touches the last activity timestamp, so we can tell when we are idle
 fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::error::Error>> {
-    let project_path = repo.workdir().unwrap();
     let now_ts = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    match sessions::get_current_session(project_path)
+    match sessions::get_current_session(repo)
         .map_err(|e| format!("Error while getting current session: {}", e.to_string()))?
     {
         Some(mut session) => {
             session.meta.last_ts = now_ts;
-            sessions::update_current_session(project_path, &session)
+            sessions::update_current_session(repo, &session)
                 .map_err(|e| format!("Error while updating current session: {}", e.to_string()))?;
             Ok(())
         }
@@ -256,7 +255,7 @@ fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::erro
                     commit: head.peel_to_commit()?.id().to_string(),
                 },
             };
-            sessions::create_current_session(project_path, &session)
+            sessions::create_current_session(repo, &session)
                 .map_err(|e| format!("Error while creating current session: {}", e.to_string()))?;
             Ok(())
         }

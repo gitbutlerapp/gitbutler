@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api";
+import { writable } from "svelte/store";
 import type { Delta } from "./crdt";
 
 export type SessionFile = {
@@ -95,3 +97,14 @@ export let dummySessions: Session[] = [
         ],
     },
 ];
+
+const list = (params: { projectId: string }) =>
+    invoke<Record<string, Delta[]>>("list_sessions", params);
+
+export default async (params: { projectId: string }) => {
+    const init = await list(params);
+    const store = writable(init);
+    return {
+        subscribe: store.subscribe,
+    };
+};

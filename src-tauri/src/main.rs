@@ -76,6 +76,41 @@ fn list_project_files(state: State<'_, AppState>, project_id: &str) -> Result<Ve
 }
 
 #[tauri::command]
+fn list_sessions(
+    state: State<'_, AppState>,
+    project_id: &str,
+) -> Result<Vec<sessions::Session>, Error> {
+    match state
+        .projects_storage
+        .get_project(project_id)
+        .map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to get project".to_string(),
+            }
+        })? {
+        Some(project) => {
+            let repo = Repository::open(project.path).map_err(|e| {
+                log::error!("{}", e);
+                Error {
+                    message: "Failed to open project".to_string(),
+                }
+            })?;
+            let sessions = sessions::list_sessions(&repo).map_err(|e| {
+                log::error!("{}", e);
+                Error {
+                    message: "Failed to list sessions".to_string(),
+                }
+            })?;
+            Ok(sessions)
+        }
+        None => Err(Error {
+            message: "Project not found".to_string(),
+        }),
+    }
+}
+
+#[tauri::command]
 fn read_project_file(
     state: State<'_, AppState>,
     project_id: &str,
@@ -281,7 +316,8 @@ fn main() {
                     add_project,
                     list_projects,
                     delete_project,
-                    list_deltas
+                    list_deltas,
+                    list_sessions,
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application")

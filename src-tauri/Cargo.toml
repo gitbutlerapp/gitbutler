@@ -29,6 +29,7 @@ filetime = "0.2.19"
 sha2 = "0.10.6"
 sentry-tauri = "0.1.0"
 sentry = "0.27"
+walkdir = "2.3.2"
 
 [features]
 # by default Tauri runs in production mode

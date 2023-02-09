@@ -77,7 +77,7 @@ fn check_for_changes(repo: &Repository) -> Result<(), Box<dyn std::error::Error>
             commit_oid
         );
 
-        sessions::delete_current_session(repo.workdir().unwrap())?;
+        sessions::delete_current_session(repo)?;
     }
 
     Ok(())
@@ -89,7 +89,7 @@ fn check_for_changes(repo: &Repository) -> Result<(), Box<dyn std::error::Error>
 // and that there has been no activity in the last 5 minutes (the session appears to be over)
 // and the start was at most an hour ago
 fn ready_to_commit(repo: &Repository) -> Result<bool, Box<dyn std::error::Error>> {
-    if let Some(current_session) = sessions::get_current_session(repo.workdir().unwrap())? {
+    if let Some(current_session) = sessions::get_current_session(repo)? {
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -98,6 +98,7 @@ fn ready_to_commit(repo: &Repository) -> Result<bool, Box<dyn std::error::Error>
         let elapsed_last = now - current_session.meta.last_ts;
         let elapsed_start = now - current_session.meta.start_ts;
 
+        // TODO: uncomment
         if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {
             Ok(true)
         } else {
@@ -178,7 +179,7 @@ fn add_path(
 
     // something is different, or not found, so we need to create a new entry
 
-    log::debug!("Adding path: {}", file_path.display());
+    log::debug!("Adding wd path: {}", file_path.display());
 
     // look for files that are bigger than 4GB, which are not supported by git
     // insert a pointer as the blob content instead
@@ -216,28 +217,21 @@ fn add_path(
     };
 
     // create a new IndexEntry from the file metadata
-    let new_entry = git2::IndexEntry {
-        ctime: IndexTime::new(
-            ctime.seconds().try_into().unwrap(),
-            ctime.nanoseconds().try_into().unwrap(),
-        ),
-        mtime: IndexTime::new(
-            mtime.seconds().try_into().unwrap(),
-            mtime.nanoseconds().try_into().unwrap(),
-        ),
-        dev: metadata.dev().try_into().unwrap(),
-        ino: metadata.ino().try_into().unwrap(),
+    index.add(&git2::IndexEntry {
+        ctime: IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds().try_into()?),
+        mtime: IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds().try_into()?),
+        dev: metadata.dev().try_into()?,
+        ino: metadata.ino().try_into()?,
         mode: metadata.mode(),
-        uid: metadata.uid().try_into().unwrap(),
-        gid: metadata.gid().try_into().unwrap(),
-        file_size: metadata.len().try_into().unwrap(),
+        uid: metadata.uid().try_into()?,
+        gid: metadata.gid().try_into()?,
+        file_size: metadata.len().try_into()?,
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
         path: rel_file_path.to_str().unwrap().to_string().into(),
         id: blob,
-    };
+    })?;
 
-    index.add(&new_entry)?;
     Ok(())
 }
 
@@ -283,18 +277,16 @@ fn build_gb_tree(
 
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
     let session_dir = repo.path().join("gb/session");
-    for path in fs::list_files(&session_dir)? {
-        let file_path = Path::new(&path);
-        add_simple_path(&repo, session_index, &file_path)?;
+    for session_file in fs::list_files(&session_dir)? {
+        let file_path = Path::new(&session_file);
+        add_session_path(&repo, session_index, &file_path)?;
     }
 
     // write the in-memory index to the repo
-    let session_tree = session_index.write_tree_to(&repo).unwrap();
+    let session_tree = session_index.write_tree_to(&repo)?;
 
     // insert the session tree oid as a subdirectory under the name 'session'
-    tree_builder
-        .insert("session", session_tree, 0o040000)
-        .unwrap();
+    tree_builder.insert("session", session_tree, 0o040000)?;
 
     // write the new tree and return the Oid
     let tree = tree_builder.write().unwrap();
@@ -302,56 +294,35 @@ fn build_gb_tree(
 }
 
 // this is a helper function for build_gb_tree that takes paths under .git/gb/session and adds them to the in-memory index
-fn add_simple_path(
+fn add_session_path(
     repo: &Repository,
     index: &mut git2::Index,
     rel_file_path: &Path,
-) -> Result<(), git2::Error> {
-    let abs_file_path = repo.workdir().unwrap().join(rel_file_path);
-    let file_path = Path::new(&abs_file_path);
+) -> Result<(), Box<dyn std::error::Error>> {
+    let file_path = repo.path().join("gb/session").join(rel_file_path);
 
-    log::debug!("Adding path: {}", file_path.display());
+    log::debug!("Adding session path: {}", file_path.display());
 
-    let blob = repo.blob_path(file_path).unwrap();
+    let blob = repo.blob_path(&file_path)?;
     let metadata = file_path.metadata().unwrap();
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap();
 
     // create a new IndexEntry from the file metadata
-    let new_entry = git2::IndexEntry {
-        ctime: IndexTime::new(
-            ctime
-                .seconds()
-                .try_into()
-                .map_err(|_| git2::Error::from_str("ctime seconds out of range"))?,
-            ctime
-                .nanoseconds()
-                .try_into()
-                .map_err(|_| git2::Error::from_str("ctime nanoseconds out of range"))?,
-        ),
-        mtime: IndexTime::new(
-            mtime
-                .seconds()
-                .try_into()
-                .map_err(|_| git2::Error::from_str("mtime seconds out of range"))?,
-            mtime
-                .nanoseconds()
-                .try_into()
-                .map_err(|_| git2::Error::from_str("mtime nanoseconds out of range"))?,
-        ),
-        dev: metadata.dev().try_into().unwrap(),
-        ino: metadata.ino().try_into().unwrap(),
+    index.add(&git2::IndexEntry {
+        ctime: IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds().try_into()?),
+        mtime: IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds().try_into()?),
+        dev: metadata.dev().try_into()?,
+        ino: metadata.ino().try_into()?,
         mode: metadata.mode(),
-        uid: metadata.uid().try_into().unwrap(),
-        gid: metadata.gid().try_into().unwrap(),
-        file_size: metadata.len().try_into().unwrap(),
+        uid: metadata.uid().try_into()?,
+        gid: metadata.gid().try_into()?,
+        file_size: metadata.len().try_into()?,
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
         path: rel_file_path.to_str().unwrap().into(),
         id: blob,
-    };
-
-    index.add(&new_entry)?;
+    })?;
 
     Ok(())
 }

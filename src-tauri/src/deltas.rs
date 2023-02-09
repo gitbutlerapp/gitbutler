@@ -224,6 +224,10 @@ pub fn save_current_file_deltas(
 
 pub fn list_current_deltas(project_path: &Path) -> Result<HashMap<String, Vec<Delta>>, Error> {
     let deltas_path = project_path.join(".git/gb/session/deltas");
+    if !deltas_path.exists() {
+        return Ok(HashMap::new());
+    }
+
     let file_paths = fs::list_files(&deltas_path).map_err(|e| Error {
         message: format!("Could not list delta files at {}", deltas_path.display()),
         cause: e.into(),
