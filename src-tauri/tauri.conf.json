@@ -61,6 +61,7 @@
         "title": "git-butler-tauri",
         "width": 800,
         "hiddenTitle": true,
+        "theme": "Dark",
         "titleBarStyle": "Overlay"
       }
     ]
