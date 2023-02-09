@@ -19,6 +19,14 @@ pub enum UnwatchError {
     UnwatchError(notify::Error),
 }
 
+impl std::fmt::Display for UnwatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnwatchError::UnwatchError(e) => write!(f, "Unwatch error: {}", e),
+        }
+    }
+}
+
 impl From<notify::Error> for UnwatchError {
     fn from(error: notify::Error) -> Self {
         UnwatchError::UnwatchError(error)

@@ -64,30 +64,33 @@ pub struct Storage {
     storage: storage::Storage,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+pub enum StorageErrorCause {
+    StorageError(storage::Error),
+    JSONError(serde_json::Error),
+}
+
+impl From<storage::Error> for StorageErrorCause {
+    fn from(err: storage::Error) -> Self {
+        StorageErrorCause::StorageError(err)
+    }
+}
+
+impl From<serde_json::Error> for StorageErrorCause {
+    fn from(err: serde_json::Error) -> Self {
+        StorageErrorCause::JSONError(err)
+    }
+}
+
+#[derive(Debug)]
 pub struct StorageError {
-    pub message: String,
+    cause: StorageErrorCause,
+    message: String,
 }
 
 impl std::fmt::Display for StorageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl From<std::io::Error> for StorageError {
-    fn from(e: std::io::Error) -> Self {
-        Self {
-            message: e.to_string(),
-        }
-    }
-}
-
-impl From<serde_json::Error> for StorageError {
-    fn from(e: serde_json::Error) -> Self {
-        Self {
-            message: e.to_string(),
-        }
+        write!(f, "{}: {:?}", self.message, self.cause)
     }
 }
 
@@ -97,8 +100,14 @@ impl Storage {
     }
 
     pub fn list_projects(&self) -> Result<Vec<Project>, StorageError> {
-        match self.storage.read(PROJECTS_FILE)? {
-            Some(projects) => serde_json::from_str(&projects).map_err(|e| e.into()),
+        match self.storage.read(PROJECTS_FILE).map_err(|e| StorageError {
+            cause: e.into(),
+            message: "Could not read projects file".to_string(),
+        })? {
+            Some(projects) => serde_json::from_str(&projects).map_err(|e| StorageError {
+                cause: e.into(),
+                message: "Could not parse projects file".to_string(),
+            }),
             None => Ok(vec![]),
         }
     }
@@ -111,16 +120,32 @@ impl Storage {
     pub fn add_project(&self, project: &Project) -> Result<(), StorageError> {
         let mut projects = self.list_projects()?;
         projects.push(project.clone());
-        let projects = serde_json::to_string(&projects)?;
-        self.storage.write(PROJECTS_FILE, &projects)?;
+        let projects = serde_json::to_string(&projects).map_err(|e| StorageError {
+            cause: e.into(),
+            message: "Could not serialize projects".to_string(),
+        })?;
+        self.storage
+            .write(PROJECTS_FILE, &projects)
+            .map_err(|e| StorageError {
+                cause: e.into(),
+                message: "Could not write projects file".to_string(),
+            })?;
         Ok(())
     }
 
     pub fn delete_project(&self, id: &str) -> Result<(), StorageError> {
         let mut projects = self.list_projects()?;
         projects.retain(|p| p.id != id);
-        let projects = serde_json::to_string(&projects)?;
-        self.storage.write(PROJECTS_FILE, &projects)?;
+        let projects = serde_json::to_string(&projects).map_err(|e| StorageError {
+            cause: e.into(),
+            message: "Could not serialize projects".to_string(),
+        })?;
+        self.storage
+            .write(PROJECTS_FILE, &projects)
+            .map_err(|e| StorageError {
+                cause: e.into(),
+                message: "Could not write projects file".to_string(),
+            })?;
         Ok(())
     }
 }

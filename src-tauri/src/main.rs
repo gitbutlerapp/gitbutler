@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use storage::Storage;
-use tauri::{InvokeError, Manager, Runtime, State, Window};
+use tauri::{Manager, Runtime, State, Window};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
@@ -26,15 +26,34 @@ struct AppState {
     projects_storage: projects::Storage,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Error {
+    pub message: String,
+}
+
 #[tauri::command]
 fn list_project_files(state: State<'_, AppState>, project_id: &str) -> Result<Vec<String>, Error> {
-    if let Some(project) = state.projects_storage.get_project(project_id)? {
+    if let Some(project) = state
+        .projects_storage
+        .get_project(project_id)
+        .map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to get project".to_string(),
+            }
+        })?
+    {
         let project_path = Path::new(&project.path);
         let repo = match Repository::open(project_path) {
             Ok(repo) => repo,
             Err(e) => panic!("failed to open: {}", e),
         };
-        let files = list_files(project_path)?;
+        let files = list_files(project_path).map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to list files".to_string(),
+            }
+        })?;
         let meta_commit = watchers::get_meta_commit(&repo);
         let tree = meta_commit.tree().unwrap();
         let non_ignored_files: Vec<String> = files
@@ -50,7 +69,9 @@ fn list_project_files(state: State<'_, AppState>, project_id: &str) -> Result<Ve
             .collect();
         Ok(non_ignored_files)
     } else {
-        Err("Project not found".into())
+        Err(Error {
+            message: "Project not found".to_string(),
+        })
     }
 }
 
@@ -59,8 +80,17 @@ fn read_project_file(
     state: State<'_, AppState>,
     project_id: &str,
     file_path: &str,
-) -> Result<Option<String>, InvokeError> {
-    if let Some(project) = state.projects_storage.get_project(project_id)? {
+) -> Result<Option<String>, Error> {
+    if let Some(project) = state
+        .projects_storage
+        .get_project(project_id)
+        .map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to get project".to_string(),
+            }
+        })?
+    {
         let project_path = Path::new(&project.path);
         let repo = match Repository::open(project_path) {
             Ok(repo) => repo,
@@ -76,7 +106,9 @@ fn read_project_file(
             Ok(None)
         }
     } else {
-        Err("Project not found".into())
+        Err(Error {
+            message: "Project not found".to_string(),
+        })
     }
 }
 
@@ -85,38 +117,76 @@ fn add_project<R: Runtime>(
     window: Window<R>,
     state: State<'_, AppState>,
     path: &str,
-) -> Result<Project, InvokeError> {
-    for project in state.projects_storage.list_projects()? {
+) -> Result<Project, Error> {
+    for project in state.projects_storage.list_projects().map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to list projects".to_string(),
+        }
+    })? {
         if project.path == path {
-            return Err("Project already exists".into());
+            return Err(Error {
+                message: "Project already exists".to_string(),
+            });
         }
     }
 
     let project = projects::Project::from_path(path.to_string());
     if project.is_ok() {
         let project = project.unwrap();
-        state.projects_storage.add_project(&project)?;
-        watchers::watch(window, &state.watchers, &project)?;
+        state.projects_storage.add_project(&project).map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to add project".to_string(),
+            }
+        })?;
+        watchers::watch(window, &state.watchers, &project).map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to watch project".to_string(),
+            }
+        })?;
         return Ok(project);
     } else {
-        return Err(project.err().unwrap().into());
+        return Err(Error {
+            message: "Failed to add project".to_string(),
+        });
     }
 }
 
 #[tauri::command]
-fn list_projects(state: State<'_, AppState>) -> Result<Vec<Project>, InvokeError> {
-    state.projects_storage.list_projects().map_err(|e| e.into())
+fn list_projects(state: State<'_, AppState>) -> Result<Vec<Project>, Error> {
+    state.projects_storage.list_projects().map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to list projects".to_string(),
+        }
+    })
 }
 
 #[tauri::command]
-fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), InvokeError> {
-    if let Some(project) = state.projects_storage.get_project(id)? {
-        watchers::unwatch(&state.watchers, project)?;
+fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), Error> {
+    if let Some(project) = state.projects_storage.get_project(id).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to get project".to_string(),
+        }
+    })? {
+        watchers::unwatch(&state.watchers, project).map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to unwatch project".to_string(),
+            }
+        })?;
     }
-    state
-        .projects_storage
-        .delete_project(id)
-        .map_err(|e| e.into())
+    state.projects_storage.delete_project(id).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to delete project".to_string(),
+        }
+    })?;
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -124,12 +194,28 @@ fn list_deltas(
     state: State<'_, AppState>,
     project_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    if let Some(project) = state.projects_storage.get_project(project_id)? {
+    if let Some(project) = state
+        .projects_storage
+        .get_project(project_id)
+        .map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to get project".to_string(),
+            }
+        })?
+    {
         let project_path = Path::new(&project.path);
-        let deltas = deltas::list_current_deltas(project_path)?;
+        let deltas = deltas::list_current_deltas(project_path).map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to list deltas".to_string(),
+            }
+        })?;
         Ok(deltas)
     } else {
-        Err("Project not found".into())
+        Err(Error {
+            message: "Project not found".to_string(),
+        })
     }
 }
 
@@ -184,55 +270,4 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Error {
-    message: String,
-}
-
-impl From<deltas::Error> for Error {
-    fn from(error: deltas::Error) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<projects::StorageError> for Error {
-    fn from(error: projects::StorageError) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<String> for Error {
-    fn from(message: String) -> Self {
-        Self { message }
-    }
-}
-
-impl From<&str> for Error {
-    fn from(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
-    }
-}
-
-impl From<Box<dyn std::error::Error>> for Error {
-    fn from(error: Box<dyn std::error::Error>) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
 }

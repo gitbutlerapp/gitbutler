@@ -58,6 +58,14 @@ pub enum UnwatchError {
     DeltaError(delta::UnwatchError),
 }
 
+impl std::fmt::Display for UnwatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnwatchError::DeltaError(error) => write!(f, "unwatch delta error: {}", error),
+        }
+    }
+}
+
 impl From<delta::UnwatchError> for UnwatchError {
     fn from(error: delta::UnwatchError) -> Self {
         UnwatchError::DeltaError(error)
