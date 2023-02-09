@@ -27,6 +27,8 @@ difference = "2.0.0"
 git2 = "0.16.1"
 filetime = "0.2.19"
 sha2 = "0.10.6"
+sentry-tauri = "0.1.0"
+sentry = "0.27"
 
 [features]
 # by default Tauri runs in production mode

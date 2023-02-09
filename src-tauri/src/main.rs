@@ -228,46 +228,61 @@ fn main() {
         trace: Color::Cyan,
     };
 
-    tauri::Builder::default()
-        .setup(move |app| {
-            let resolver = app.path_resolver();
-            let storage = Storage::new(&resolver);
-            let projects_storage = projects::Storage::new(storage);
+    sentry_tauri::init(
+        sentry::release_name!(),
+        |_| {
+            sentry::init((
+                "https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032",
+                sentry::ClientOptions {
+                    release: sentry::release_name!(),
+                    ..Default::default()
+                },
+            ))
+        },
+        |sentry_plugin| {
+            tauri::Builder::default()
+                .setup(move |app| {
+                    let resolver = app.path_resolver();
+                    let storage = Storage::new(&resolver);
+                    let projects_storage = projects::Storage::new(storage);
 
-            let watchers = watchers::WatcherCollection::default();
+                    let watchers = watchers::WatcherCollection::default();
 
-            if let Ok(projects) = projects_storage.list_projects() {
-                for project in projects {
-                    watchers::watch(app.get_window("main").unwrap(), &watchers, &project)
-                        .map_err(|e| e.to_string())?;
-                }
-            } else {
-                log::error!("Failed to list projects");
-            }
+                    if let Ok(projects) = projects_storage.list_projects() {
+                        for project in projects {
+                            watchers::watch(app.get_window("main").unwrap(), &watchers, &project)
+                                .map_err(|e| e.to_string())?;
+                        }
+                    } else {
+                        log::error!("Failed to list projects");
+                    }
 
-            app.manage(AppState {
-                watchers,
-                projects_storage,
-            });
+                    app.manage(AppState {
+                        watchers,
+                        projects_storage,
+                    });
 
-            Ok(())
-        })
-        .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(
-            tauri_plugin_log::Builder::default()
-                .level(log::LevelFilter::Debug)
-                .with_colors(colors)
-                .targets([LogTarget::LogDir, LogTarget::Stdout, LogTarget::Webview])
-                .build(),
-        )
-        .invoke_handler(tauri::generate_handler![
-            read_project_file,
-            list_project_files,
-            add_project,
-            list_projects,
-            delete_project,
-            list_deltas
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+                    Ok(())
+                })
+                .plugin(sentry_plugin)
+                .plugin(tauri_plugin_window_state::Builder::default().build())
+                .plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Debug)
+                        .with_colors(colors)
+                        .targets([LogTarget::LogDir, LogTarget::Stdout, LogTarget::Webview])
+                        .build(),
+                )
+                .invoke_handler(tauri::generate_handler![
+                    read_project_file,
+                    list_project_files,
+                    add_project,
+                    list_projects,
+                    delete_project,
+                    list_deltas
+                ])
+                .run(tauri::generate_context!())
+                .expect("error while running tauri application")
+        },
+    );
 }
