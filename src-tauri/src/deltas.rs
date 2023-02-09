@@ -1,6 +1,7 @@
+use crate::fs;
 use difference::{Changeset, Difference};
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
+use std::{collections::HashMap, path::Path, time::SystemTime};
 use yrs::{Doc, GetString, Text, Transact};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -126,6 +127,119 @@ impl TextDocument {
         let txn = doc.transact();
         text.get_string(&txn)
     }
+}
+
+#[derive(Debug)]
+pub enum ErrorCause {
+    IOError(std::io::Error),
+    ParseJSONError(serde_json::Error),
+}
+
+impl From<std::io::Error> for ErrorCause {
+    fn from(e: std::io::Error) -> Self {
+        ErrorCause::IOError(e)
+    }
+}
+
+impl From<serde_json::Error> for ErrorCause {
+    fn from(e: serde_json::Error) -> Self {
+        ErrorCause::ParseJSONError(e)
+    }
+}
+
+#[derive(Debug)]
+pub struct Error {
+    pub message: String,
+    pub cause: ErrorCause,
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self.cause {
+            ErrorCause::IOError(ref e) => Some(e),
+            ErrorCause::ParseJSONError(ref e) => Some(e),
+        }
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.cause {
+            ErrorCause::IOError(ref e) => write!(f, "{}: {}", self.message, e),
+            ErrorCause::ParseJSONError(ref e) => write!(f, "{}: {}", self.message, e),
+        }
+    }
+}
+
+pub fn get_current_file_deltas(
+    project_path: &Path,
+    file_path: &Path,
+) -> Result<Option<Vec<Delta>>, Error> {
+    let deltas_path = project_path.join(".git/gb/session/deltas");
+    if !deltas_path.exists() {
+        Ok(None)
+    } else {
+        let file_deltas_path = deltas_path.join(file_path);
+        let file_deltas = std::fs::read_to_string(&file_deltas_path).map_err(|e| Error {
+            message: format!(
+                "Could not read delta file at {}",
+                file_deltas_path.display()
+            ),
+            cause: e.into(),
+        });
+        match file_deltas {
+            Ok(file_deltas) => {
+                let file_deltas: Vec<Delta> =
+                    serde_json::from_str(&file_deltas).map_err(|e| Error {
+                        message: format!(
+                            "Could not parse delta file at {}",
+                            file_deltas_path.display()
+                        ),
+                        cause: e.into(),
+                    })?;
+                Ok(Some(file_deltas))
+            }
+            Err(err) => Err(err),
+        }
+    }
+}
+
+pub fn save_current_file_deltas(
+    project_path: &Path,
+    file_path: &Path,
+    deltas: &Vec<Delta>,
+) -> Result<(), std::io::Error> {
+    if deltas.is_empty() {
+        Ok(())
+    } else {
+        let project_deltas_path = project_path.join(".git/gb/session/deltas");
+        std::fs::create_dir_all(&project_deltas_path)?;
+        let delta_path = project_deltas_path.join(file_path);
+        log::info!("Writing deltas to {}", delta_path.to_str().unwrap());
+        let raw_deltas = serde_json::to_string(&deltas)?;
+        std::fs::write(delta_path, raw_deltas)?;
+        Ok(())
+    }
+}
+
+pub fn list_current_deltas(project_path: &Path) -> Result<HashMap<String, Vec<Delta>>, Error> {
+    let deltas_path = project_path.join(".git/gb/session/deltas");
+    let file_paths = fs::list_files(&deltas_path).map_err(|e| Error {
+        message: format!("Could not list delta files at {}", deltas_path.display()),
+        cause: e.into(),
+    })?;
+    let deltas = file_paths
+        .iter()
+        .map_while(|file_path| {
+            let file_deltas = get_current_file_deltas(project_path, Path::new(file_path));
+            match file_deltas {
+                Ok(Some(file_deltas)) => Some(Ok((file_path.to_owned(), file_deltas))),
+                Ok(None) => None,
+                Err(err) => Some(Err(err)),
+            }
+        })
+        .collect::<Result<HashMap<String, Vec<Delta>>, Error>>()?;
+    Ok(deltas)
 }
 
 #[test]

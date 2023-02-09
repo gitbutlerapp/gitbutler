@@ -1,9 +1,9 @@
-use crate::{fs, projects::Project};
+use crate::{fs, projects::Project, sessions};
 use filetime::FileTime;
 use git2::{IndexTime, Repository};
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{read_to_string, File},
+    fs::File,
     io::{BufReader, Read},
     os::unix::prelude::MetadataExt,
     path::Path,
@@ -77,7 +77,7 @@ fn check_for_changes(repo: &Repository) -> Result<(), Box<dyn std::error::Error>
             commit_oid
         );
 
-        clean_up_session(repo)?;
+        sessions::delete_current_session(repo.workdir().unwrap())?;
     }
 
     Ok(())
@@ -85,42 +85,34 @@ fn check_for_changes(repo: &Repository) -> Result<(), Box<dyn std::error::Error>
     // TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
 }
 
-fn read_timestamp(path: &Path) -> Result<u64, Box<dyn std::error::Error>> {
-    let raw = read_to_string(path)?;
-    let ts = raw.trim().parse::<u64>()?;
-    Ok(ts)
-}
-
 // make sure that the .git/gb/session directory exists (a session is in progress)
 // and that there has been no activity in the last 5 minutes (the session appears to be over)
 // and the start was at most an hour ago
 fn ready_to_commit(repo: &Repository) -> Result<bool, Box<dyn std::error::Error>> {
-    let repo_path = repo.path();
-    let last_file = repo_path.join("gb/session/meta/session-last");
-    let start_file = repo_path.join("gb/session/meta/session-start");
-    if !last_file.exists() {
-        log::debug!("{}: no current session", repo_path.display());
-        return Ok(false);
-    };
+    if let Some(current_session) = sessions::get_current_session(repo.workdir().unwrap())? {
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u64;
 
-    let session_start_ts = read_timestamp(&start_file)?;
-    let session_last_ts = read_timestamp(&last_file)?;
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as u64;
+        let elapsed_last = now - current_session.meta.last_ts;
+        let elapsed_start = now - current_session.meta.start_ts;
 
-    let elapsed_last = now - session_last_ts;
-    let elapsed_start = now - session_start_ts;
-
-    if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {
-        Ok(true)
+        if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {
+            Ok(true)
+        } else {
+            log::debug!(
+                "Not ready to commit {} yet. ({} seconds elapsed, {} seconds since start)",
+                repo.workdir().unwrap().display(),
+                elapsed_last,
+                elapsed_start
+            );
+            Ok(false)
+        }
     } else {
         log::debug!(
-            "Not ready to commit {} yet. ({} seconds elapsed, {} seconds since start)",
-            repo.workdir().unwrap().display(),
-            elapsed_last,
-            elapsed_start
+            "No current session for {}",
+            repo.workdir().unwrap().display()
         );
         Ok(false)
     }
@@ -394,12 +386,4 @@ fn write_gb_commit(gb_tree: git2::Oid, repo: &Repository) -> Result<git2::Oid, g
             Ok(new_commit)
         }
     }
-}
-
-// this stops the current session by deleting the .git/gb/session directory
-fn clean_up_session(repo: &git2::Repository) -> Result<(), std::io::Error> {
-    // delete the .git/gb/session directory
-    let session_path = repo.path().join("gb/session");
-    std::fs::remove_dir_all(session_path)?;
-    Ok(())
 }

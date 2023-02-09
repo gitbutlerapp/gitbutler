@@ -1,14 +1,14 @@
-use crate::butler::{get_file_deltas, save_file_deltas};
-use crate::crdt::{Delta, TextDocument};
+use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
 use crate::projects::Project;
+use crate::sessions;
 use git2::{Commit, Repository};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::mpsc::channel;
+use std::thread;
 use std::time::SystemTime;
 use std::{collections::HashMap, sync::Mutex};
-use std::{fs, thread};
 use tauri::{Runtime, Window};
 
 #[derive(Default)]
@@ -77,7 +77,9 @@ pub fn watch<R: Runtime>(
 
     let (tx, rx) = channel();
     let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+
     watcher.watch(project_path, RecursiveMode::Recursive)?;
+
     watchers
         .0
         .lock()
@@ -133,20 +135,17 @@ pub fn watch<R: Runtime>(
 fn register_file_change(
     repo: &Repository,
     kind: &EventKind,
-    file_path: &Path,
+    relative_file_path: &Path,
 ) -> Result<Option<Vec<Delta>>, Box<dyn std::error::Error>> {
-    // update meta files every time file change is detected
-    write_beginning_meta_files(&repo)?;
-
-    if !file_path.is_file() {
-        // only handle file changes
-        return Ok(None);
-    }
-
-    if repo.is_path_ignored(&file_path).unwrap_or(true) {
+    if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
         // make sure we're not watching ignored files
         return Ok(None);
     }
+
+    let file_path = repo.workdir().unwrap().join(relative_file_path);
+
+    // update meta files every time file change is detected
+    write_beginning_meta_files(&repo)?;
 
     if EventKind::is_modify(&kind) {
         log::info!("File modified: {:?}", file_path);
@@ -159,7 +158,7 @@ fn register_file_change(
     // first, we need to check if the file exists in the meta commit
     let meta_commit = get_meta_commit(&repo);
     let tree = meta_commit.tree().unwrap();
-    let commit_blob = if let Ok(object) = tree.get_path(file_path) {
+    let commit_blob = if let Ok(object) = tree.get_path(relative_file_path) {
         // if file found, check if delta file exists
         let blob = object.to_object(&repo).unwrap().into_blob().unwrap();
         let contents = String::from_utf8(blob.content().to_vec()).unwrap();
@@ -169,7 +168,7 @@ fn register_file_change(
     };
 
     // second, get non-flushed file deltas
-    let deltas = get_file_deltas(&repo.workdir().unwrap(), file_path)?;
+    let deltas = get_current_file_deltas(&repo.workdir().unwrap(), relative_file_path)?;
 
     // depending on the above, we can create TextDocument
     let mut text_doc = match (commit_blob, deltas) {
@@ -188,7 +187,7 @@ fn register_file_change(
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
-    save_file_deltas(repo, file_path, &deltas)?;
+    save_current_file_deltas(repo.workdir().unwrap(), relative_file_path, &deltas)?;
     return Ok(Some(deltas));
 }
 
@@ -204,50 +203,36 @@ pub fn get_meta_commit(repo: &Repository) -> Commit {
     }
 }
 
-fn write_now_to(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    fs::write(
-        path,
-        SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            .to_string()
-            .as_bytes(),
-    )?;
-    Ok(())
-}
-
 // this function is called when the user modifies a file, it writes starting metadata if not there
 // and also touches the last activity timestamp, so we can tell when we are idle
 fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::error::Error>> {
-    let meta_path = repo.path().join(Path::new("gb/session/meta"));
-    // create the parent directory recurisvely if it doesn't exist
-    std::fs::create_dir_all(meta_path.clone())?;
-
-    // check if the file .git/gb/meta/start exists and if not, write the current timestamp into it
-    let meta_session_start = meta_path.join(Path::new("session-start"));
-    if !meta_session_start.exists() {
-        write_now_to(&meta_session_start)?;
+    let project_path = repo.workdir().unwrap();
+    let now_ts = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    match sessions::get_current_session(project_path)
+        .map_err(|e| format!("Error while getting current session: {}", e.to_string()))?
+    {
+        Some(mut session) => {
+            session.meta.last_ts = now_ts;
+            sessions::update_current_session(project_path, &session)
+                .map_err(|e| format!("Error while updating current session: {}", e.to_string()))?;
+            Ok(())
+        }
+        None => {
+            let head = repo.head()?;
+            let session = sessions::Session {
+                meta: sessions::Meta {
+                    start_ts: now_ts,
+                    last_ts: now_ts,
+                    branch: head.name().unwrap().to_string(),
+                    commit: head.peel_to_commit()?.id().to_string(),
+                },
+            };
+            sessions::create_current_session(project_path, &session)
+                .map_err(|e| format!("Error while creating current session: {}", e.to_string()))?;
+            Ok(())
+        }
     }
-
-    // check if the file .git/gb/session/meta/branch exists and if not, write the current branch name into it
-    let meta_branch = meta_path.join(Path::new("branch"));
-    if !meta_branch.exists() {
-        let branch = repo.head()?;
-        let branch_name = branch.name().unwrap();
-        fs::write(meta_branch, branch_name)?;
-    }
-
-    // check if the file .git/gb/session/meta/commit exists and if not, write the current commit hash into it
-    let meta_commit = meta_path.join(Path::new("commit"));
-    if !meta_commit.exists() {
-        let commit = repo.head().unwrap().peel_to_commit()?;
-        fs::write(meta_commit, commit.id().to_string())?;
-    }
-
-    // ALWAYS write the last time we did this
-    let meta_session_last = meta_path.join(Path::new("session-last"));
-    write_now_to(&meta_session_last)?;
-
-    Ok(())
 }

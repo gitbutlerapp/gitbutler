@@ -1,11 +1,11 @@
-mod butler;
-mod crdt;
+mod deltas;
 mod fs;
 mod projects;
+mod sessions;
 mod storage;
 mod watchers;
 
-use crdt::Delta;
+use deltas::Delta;
 use fs::list_files;
 use git2::Repository;
 use log;
@@ -125,7 +125,9 @@ fn list_deltas(
     project_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
     if let Some(project) = state.projects_storage.get_project(project_id)? {
-        Ok(butler::list_deltas(Path::new(project.path.as_str()))?)
+        let project_path = Path::new(&project.path);
+        let deltas = deltas::list_current_deltas(project_path)?;
+        Ok(deltas)
     } else {
         Err("Project not found".into())
     }
@@ -187,6 +189,14 @@ fn main() {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Error {
     message: String,
+}
+
+impl From<deltas::Error> for Error {
+    fn from(error: deltas::Error) -> Self {
+        Self {
+            message: error.to_string(),
+        }
+    }
 }
 
 impl From<projects::StorageError> for Error {
