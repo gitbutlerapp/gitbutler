@@ -233,7 +233,7 @@ fn add_path(
         file_size: metadata.len().try_into().unwrap(),
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
-        path: file_path.to_str().unwrap().to_string().into(),
+        path: rel_file_path.to_str().unwrap().to_string().into(),
         id: blob,
     };
 
@@ -347,7 +347,7 @@ fn add_simple_path(
         file_size: metadata.len().try_into().unwrap(),
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
-        path: file_path.to_str().unwrap().into(),
+        path: rel_file_path.to_str().unwrap().into(),
         id: blob,
     };
 

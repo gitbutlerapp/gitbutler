@@ -1,7 +1,7 @@
 mod delta;
 mod git;
 
-pub use self::delta::get_meta_commit;
+pub use self::delta::get_latest_file_contents;
 pub use self::delta::WatcherCollection;
 use crate::projects::Project;
 use serde::Serialize;

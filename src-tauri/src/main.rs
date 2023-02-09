@@ -19,7 +19,7 @@ use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
 };
-use watchers::WatcherCollection;
+use watchers::{get_latest_file_contents, WatcherCollection};
 
 struct AppState {
     watchers: WatcherCollection,
@@ -54,18 +54,18 @@ fn list_project_files(state: State<'_, AppState>, project_id: &str) -> Result<Ve
                 message: "Failed to list files".to_string(),
             }
         })?;
-        let meta_commit = watchers::get_meta_commit(&repo);
-        let tree = meta_commit.tree().unwrap();
         let non_ignored_files: Vec<String> = files
-            .iter()
-            .filter_map(|file| {
-                let file_path = Path::new(file);
-                if let Ok(_object) = tree.get_path(file_path) {
-                    Some(file.to_string())
-                } else {
-                    None
-                }
-            })
+            .into_iter()
+            .filter_map(
+                |file_path| match get_latest_file_contents(&repo, Path::new(&file_path)) {
+                    Ok(Some(_)) => Some(file_path),
+                    Ok(None) => None,
+                    Err(e) => {
+                        log::error!("{}", e);
+                        None
+                    }
+                },
+            )
             .collect();
         Ok(non_ignored_files)
     } else {
@@ -92,19 +92,21 @@ fn read_project_file(
         })?
     {
         let project_path = Path::new(&project.path);
-        let repo = match Repository::open(project_path) {
-            Ok(repo) => repo,
-            Err(e) => panic!("failed to open: {}", e),
-        };
-        let meta_commit = watchers::get_meta_commit(&repo);
-        let tree = meta_commit.tree().unwrap();
-        if let Ok(object) = tree.get_path(Path::new(&file_path)) {
-            let blob = object.to_object(&repo).unwrap().into_blob().unwrap();
-            let contents = String::from_utf8(blob.content().to_vec()).unwrap();
-            Ok(Some(contents))
-        } else {
-            Ok(None)
-        }
+        let repo = Repository::open(project_path).map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to open project".to_string(),
+            }
+        })?;
+
+        let contents = get_latest_file_contents(&repo, Path::new(file_path)).map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to read file".to_string(),
+            }
+        })?;
+
+        Ok(contents)
     } else {
         Err(Error {
             message: "Project not found".to_string(),

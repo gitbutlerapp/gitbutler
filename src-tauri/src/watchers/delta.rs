@@ -1,7 +1,7 @@
 use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
 use crate::projects::Project;
 use crate::sessions;
-use git2::{Commit, Repository};
+use git2::Repository;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -164,22 +164,12 @@ fn register_file_change(
     }
 
     // first, we need to check if the file exists in the meta commit
-    let meta_commit = get_meta_commit(&repo);
-    let tree = meta_commit.tree().unwrap();
-    let commit_blob = if let Ok(object) = tree.get_path(relative_file_path) {
-        // if file found, check if delta file exists
-        let blob = object.to_object(&repo).unwrap().into_blob().unwrap();
-        let contents = String::from_utf8(blob.content().to_vec()).unwrap();
-        Some(contents)
-    } else {
-        None
-    };
-
+    let contents = get_latest_file_contents(repo, relative_file_path)?;
     // second, get non-flushed file deltas
     let deltas = get_current_file_deltas(&repo.workdir().unwrap(), relative_file_path)?;
 
-    // depending on the above, we can create TextDocument
-    let mut text_doc = match (commit_blob, deltas) {
+    // depending on the above, we can create TextDocument suitable for calculating deltas
+    let mut text_doc = match (contents, deltas) {
         (Some(contents), Some(deltas)) => TextDocument::new(&contents, deltas),
         (Some(contents), None) => TextDocument::new(&contents, vec![]),
         (None, Some(deltas)) => TextDocument::from_deltas(deltas),
@@ -199,14 +189,42 @@ fn register_file_change(
     return Ok(Some(deltas));
 }
 
-// get commit from refs/gitbutler/current or fall back to HEAD
-// TODO: make this private as soon as possible
-pub fn get_meta_commit(repo: &Repository) -> Commit {
+// returns last commited file contents from refs/gitbutler/current ref
+// if it doesn't exists, fallsback to HEAD
+// returns None if file doesn't exist in HEAD
+// TODO: make private as soon as session API is in place.
+pub fn get_latest_file_contents(
+    repo: &Repository,
+    relative_file_path: &Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
     match repo.revparse_single("refs/gitbutler/current") {
-        Ok(object) => repo.find_commit(object.id()).unwrap(),
+        Ok(object) => {
+            // refs/gitbutler/current exists, return file contents from wd dir
+            let gitbutler_head = repo.find_commit(object.id())?;
+            let gitbutler_tree = gitbutler_head.tree()?;
+            // files are stored in the wd tree inside gitbutler trees.
+            let gitbutler_tree_path = &Path::new("wd").join(relative_file_path);
+            if let Ok(tree_entry) = gitbutler_tree.get_path(gitbutler_tree_path) {
+                // if file found, check if delta file exists
+                let blob = tree_entry.to_object(&repo)?.into_blob().unwrap();
+                let contents = String::from_utf8(blob.content().to_vec())?;
+                Ok(Some(contents))
+            } else {
+                Ok(None)
+            }
+        }
         Err(_) => {
-            let head = repo.head().unwrap();
-            repo.find_commit(head.target().unwrap()).unwrap()
+            // refs/gitbutler/current doesn't exist, return file contents from HEAD
+            let head = repo.head()?;
+            let tree = head.peel_to_tree()?;
+            if let Ok(tree_entry) = tree.get_path(relative_file_path) {
+                // if file found, check if delta file exists
+                let blob = tree_entry.to_object(&repo)?.into_blob().unwrap();
+                let contents = String::from_utf8(blob.content().to_vec())?;
+                Ok(Some(contents))
+            } else {
+                Ok(None)
+            }
         }
     }
 }

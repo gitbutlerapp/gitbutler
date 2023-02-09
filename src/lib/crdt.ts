@@ -49,7 +49,11 @@ export default async (params: { projectId: string }) => {
         ])
     );
 
+    console.log({ tmpState });
+
     const init = await list(params);
+
+    console.log({ init });
 
     const tmpInit = Object.fromEntries(
         Object.entries(tmpState).map(([filePath, deltas]) => [
@@ -61,6 +65,7 @@ export default async (params: { projectId: string }) => {
     const store = writable<Record<string, Delta[]>>(tmpInit);
     const eventName = `deltas://${params.projectId}`;
     const unlisten = await appWindow.listen<DeltasEvent>(eventName, (event) => {
+        console.log({ event });
         store.update((deltas) => ({
             ...deltas,
             [event.payload.filePath]: [
