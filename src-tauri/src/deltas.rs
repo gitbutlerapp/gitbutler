@@ -227,17 +227,13 @@ pub fn save_current_file_deltas(
     file_path: &Path,
     deltas: &Vec<Delta>,
 ) -> Result<(), std::io::Error> {
-    if deltas.is_empty() {
-        Ok(())
-    } else {
-        let project_deltas_path = project_path.join(".git/gb/session/deltas");
-        std::fs::create_dir_all(&project_deltas_path)?;
-        let delta_path = project_deltas_path.join(file_path);
-        log::info!("Writing deltas to {}", delta_path.to_str().unwrap());
-        let raw_deltas = serde_json::to_string(&deltas)?;
-        std::fs::write(delta_path, raw_deltas)?;
-        Ok(())
-    }
+    let project_deltas_path = project_path.join(".git/gb/session/deltas");
+    std::fs::create_dir_all(&project_deltas_path)?;
+    let delta_path = project_deltas_path.join(file_path);
+    log::info!("Writing deltas to {}", delta_path.to_str().unwrap());
+    let raw_deltas = serde_json::to_string(&deltas)?;
+    std::fs::write(delta_path, raw_deltas)?;
+    Ok(())
 }
 
 pub fn list_current_deltas(project_path: &Path) -> Result<HashMap<String, Vec<Delta>>, Error> {
