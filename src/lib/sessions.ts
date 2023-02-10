@@ -24,6 +24,8 @@ export default async (params: { projectId: string }) => {
     const eventName = `project://${params.projectId}/sessions`;
 
     await appWindow.listen<Session>(eventName, (event) => {
+        console.log("HERE")
+        console.log(event)
         store.update((sessions) => [...sessions, event.payload]);
     });
 

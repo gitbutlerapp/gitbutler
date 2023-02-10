@@ -18,7 +18,7 @@
 
 <div class="mt-12">
     <div class="-mb-5 border border-slate-400 h-1.5 bg-slate-200  z-0" />
-    <div class="flex flex-row space-x-2 z-10 overflow-scroll">
+    <div class="flex flex-row space-x-2 z-10">
         {#each sessions as session}
             <div class={sessionDisplayWidth(session)}>
                 <TimelineDaySession {projectId} {session} />

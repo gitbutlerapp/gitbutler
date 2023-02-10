@@ -44,7 +44,7 @@
 >
   <div class="flex justify-center items-start">
     <button
-      on:click={() => (show = !show)}
+      on:click={() => (projects.length > 0 ? show = !show : null)}
       class="menu focus:outline-none focus:shadow-solid cursor-default flex-grow"
     >
       <div class="text-left px-4">
