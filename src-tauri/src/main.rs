@@ -252,7 +252,7 @@ fn main() {
         },
         |sentry_plugin| {
             let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
-            let hide = tauri::CustomMenuItem::new("hide".to_string(), "Hide GitButler");
+            let hide = tauri::CustomMenuItem::new("toggle".to_string(), "Hide GitButler");
             let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
             let tray = tauri::SystemTray::new().with_menu(tray_menu);
             tauri::Builder::default()
@@ -262,6 +262,13 @@ fn main() {
                     tauri::WindowEvent::CloseRequested { api, .. } => {
                         api.prevent_close();
                         event.window().hide().unwrap();
+                        event
+                            .window()
+                            .app_handle()
+                            .tray_handle()
+                            .get_item("toggle")
+                            .set_title("Show GitButler")
+                            .unwrap();
                     }
                     _ => {}
                 })
@@ -272,7 +279,7 @@ fn main() {
                             "quit" => {
                                 app.exit(0);
                             }
-                            "hide" => {
+                            "toggle" => {
                                 let main_window = app.get_window("main").unwrap();
                                 if main_window.is_visible().unwrap() {
                                     main_window.hide().unwrap();
