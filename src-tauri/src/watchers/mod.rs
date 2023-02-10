@@ -48,7 +48,7 @@ pub fn watch<R: Runtime>(
     project: &Project,
 ) -> Result<(), WatchError> {
     self::delta::watch(window.clone(), watchers, project.clone())?;
-    self::git::watch(window, project.clone())?;
+    self::git::watch(window.clone(), project.clone())?;
     Ok(())
 }
 

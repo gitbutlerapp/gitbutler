@@ -251,7 +251,42 @@ fn main() {
             ))
         },
         |sentry_plugin| {
+            let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
+            let hide = tauri::CustomMenuItem::new("hide".to_string(), "Hide GitButler");
+            let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
+            let tray = tauri::SystemTray::new().with_menu(tray_menu);
             tauri::Builder::default()
+                .system_tray(tray)
+                .on_window_event(|event| match event.event() {
+                    // Hide window instead of closing.
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        event.window().hide().unwrap();
+                    }
+                    _ => {}
+                })
+                .on_system_tray_event(|app, event| match event {
+                    tauri::SystemTrayEvent::MenuItemClick { id, .. } => {
+                        let item_handle = app.tray_handle().get_item(&id);
+                        match id.as_str() {
+                            "quit" => {
+                                app.exit(0);
+                            }
+                            "hide" => {
+                                let main_window = app.get_window("main").unwrap();
+                                if main_window.is_visible().unwrap() {
+                                    main_window.hide().unwrap();
+                                    item_handle.set_title("Show GitButler").unwrap();
+                                } else {
+                                    main_window.show().unwrap();
+                                    item_handle.set_title("Hide GitButler").unwrap();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                })
                 .setup(move |app| {
                     let resolver = app.path_resolver();
                     let storage = Storage::new(&resolver);

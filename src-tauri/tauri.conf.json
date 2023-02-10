@@ -64,6 +64,10 @@
         "theme": "Dark",
         "titleBarStyle": "Overlay"
       }
-    ]
+    ],
+    "systemTray": {
+      "iconPath": "icons/tray.png",
+      "iconAsTemplate": true
+    }
   }
 }
