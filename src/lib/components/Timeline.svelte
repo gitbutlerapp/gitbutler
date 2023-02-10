@@ -25,7 +25,8 @@
     ) => {
         let jsr: JSR | undefined;
         const update = (config: { min: number; max: number }) => {
-            jsr?.destroy();
+            // try{
+                jsr?.destroy();
             jsr = new JSR({
                 modules: [
                     new ModuleSlider(),
@@ -50,7 +51,7 @@
         update(config);
 
         return {
-            destroy: jsr?.destroy,
+            destroy: () => {jsr?.destroy()},
             update: (config: { min: number; max: number }) => update(config),
         };
     };
