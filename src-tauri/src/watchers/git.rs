@@ -81,10 +81,26 @@ fn check_for_changes(
     repo: &Repository,
 ) -> Result<Option<sessions::Session>, Box<dyn std::error::Error>> {
     if ready_to_commit(repo)? {
-        let tree = build_initial_wd_tree(&repo)?;
-        let gb_tree = build_gb_tree(tree, &repo)?;
+        let wd_index = &mut git2::Index::new()?;
+        build_wd_index(&repo, wd_index)?;
+        let wd_tree = wd_index.write_tree_to(&repo)?;
 
-        let commit_oid = write_gb_commit(gb_tree, &repo)?;
+        let session_index = &mut git2::Index::new()?;
+        build_session_index(&repo, session_index)?;
+        let session_tree = session_index.write_tree_to(&repo)?;
+
+        let log_index = &mut git2::Index::new()?;
+        build_log_index(&repo, log_index)?;
+        let log_tree = log_index.write_tree_to(&repo)?;
+
+        let mut tree_builder = repo.treebuilder(None)?;
+        tree_builder.insert("session", session_tree, 0o040000)?;
+        tree_builder.insert("wd", wd_tree, 0o040000)?;
+        tree_builder.insert("logs", log_tree, 0o040000)?;
+
+        let tree = tree_builder.write()?;
+
+        let commit_oid = write_gb_commit(tree, &repo)?;
         log::debug!(
             "{}: wrote gb commit {}",
             repo.workdir().unwrap().display(),
@@ -108,7 +124,7 @@ fn check_for_changes(
 // and that there has been no activity in the last 5 minutes (the session appears to be over)
 // and the start was at most an hour ago
 fn ready_to_commit(repo: &Repository) -> Result<bool, Box<dyn std::error::Error>> {
-    if let Some(current_session) = sessions::get_current_session(repo)? {
+    if let Some(current_session) = sessions::Session::current(repo)? {
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -141,9 +157,11 @@ fn ready_to_commit(repo: &Repository) -> Result<bool, Box<dyn std::error::Error>
 // build the initial tree from the working directory, not taking into account the gitbutler metadata
 // eventually we might just want to run this once and then update it with the files that are changed over time, but right now we're running it every commit
 // it ignores files that are in the .gitignore
-fn build_initial_wd_tree(repo: &Repository) -> Result<git2::Oid, Box<dyn std::error::Error>> {
+fn build_wd_index(
+    repo: &Repository,
+    index: &mut git2::Index,
+) -> Result<(), Box<dyn std::error::Error>> {
     // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
-    let wd_index = &mut git2::Index::new()?;
     let repo_index = &mut repo.index()?;
 
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
@@ -151,13 +169,11 @@ fn build_initial_wd_tree(repo: &Repository) -> Result<git2::Oid, Box<dyn std::er
     for file in all_files {
         let file_path = Path::new(&file);
         if !repo.is_path_ignored(&file).unwrap_or(true) {
-            add_path(wd_index, repo_index, &file_path, &repo)?;
+            add_path(index, repo_index, &file_path, &repo)?;
         }
     }
 
-    // write the in-memory index to the repo
-    let tree = wd_index.write_tree_to(&repo)?;
-    Ok(tree)
+    Ok(())
 }
 
 // take a file path we see and add it to our in-memory index
@@ -275,41 +291,47 @@ fn sha256_digest(path: &Path) -> Result<String, std::io::Error> {
     Ok(format!("{:X}", digest))
 }
 
-// this builds the tree that we're going to link to from our commit.
-// it has two entries, wd and session:
-// - wd: the tree that is the working directory recorded at the end of the session
-// - session/deltas: the tree that contains the crdt data for each file that changed during the session
-// - session/meta: some metadata values like starting time, last touched time, branch, etc
-// returns a tree Oid that can be used to create a commit
-fn build_gb_tree(
-    tree: git2::Oid,
+fn build_log_index(
     repo: &Repository,
-) -> Result<git2::Oid, Box<dyn std::error::Error>> {
-    // create a new, awesome tree with TreeBuilder
-    let mut tree_builder = repo.treebuilder(None)?;
+    index: &mut git2::Index,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let log_path = repo.path().join("logs/HEAD");
+    log::debug!("Adding log path: {}", log_path.display());
 
-    // insert the tree oid as a subdirectory under the name 'wd'
-    tree_builder.insert("wd", tree, 0o040000)?;
+    let metadata = log_path.metadata()?;
+    let mtime = FileTime::from_last_modification_time(&metadata);
+    let ctime = FileTime::from_creation_time(&metadata).unwrap();
 
-    // create a new in-memory git2 index and fill it with the contents of .git/gb/session
-    let session_index = &mut git2::Index::new()?;
+    index.add(&git2::IndexEntry {
+        ctime: IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds().try_into()?),
+        mtime: IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds().try_into()?),
+        dev: metadata.dev().try_into()?,
+        ino: metadata.ino().try_into()?,
+        mode: metadata.mode(),
+        uid: metadata.uid().try_into()?,
+        gid: metadata.gid().try_into()?,
+        file_size: metadata.len().try_into()?,
+        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
+        flags_extended: 0, // no extended flags
+        path: "HEAD".to_string().into(),
+        id: repo.blob_path(&log_path)?,
+    })?;
 
+    Ok(())
+}
+
+fn build_session_index(
+    repo: &Repository,
+    index: &mut git2::Index,
+) -> Result<(), Box<dyn std::error::Error>> {
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
     let session_dir = repo.path().join("gb/session");
     for session_file in fs::list_files(&session_dir)? {
         let file_path = Path::new(&session_file);
-        add_session_path(&repo, session_index, &file_path)?;
+        add_session_path(&repo, index, &file_path)?;
     }
 
-    // write the in-memory index to the repo
-    let session_tree = session_index.write_tree_to(&repo)?;
-
-    // insert the session tree oid as a subdirectory under the name 'session'
-    tree_builder.insert("session", session_tree, 0o040000)?;
-
-    // write the new tree and return the Oid
-    let tree = tree_builder.write().unwrap();
-    Ok(tree)
+    Ok(())
 }
 
 // this is a helper function for build_gb_tree that takes paths under .git/gb/session and adds them to the in-memory index
@@ -323,7 +345,7 @@ fn add_session_path(
     log::debug!("Adding session path: {}", file_path.display());
 
     let blob = repo.blob_path(&file_path)?;
-    let metadata = file_path.metadata().unwrap();
+    let metadata = file_path.metadata()?;
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap();
 

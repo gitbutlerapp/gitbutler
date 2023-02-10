@@ -232,7 +232,7 @@ fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::erro
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    match sessions::get_current_session(repo)
+    match sessions::Session::current(repo)
         .map_err(|e| format!("Error while getting current session: {}", e.to_string()))?
     {
         Some(mut session) => {
@@ -251,6 +251,7 @@ fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::erro
                     branch: head.name().unwrap().to_string(),
                     commit: head.peel_to_commit()?.id().to_string(),
                 },
+                activity: vec![],
             };
             sessions::create_current_session(repo, &session)
                 .map_err(|e| format!("Error while creating current session: {}", e.to_string()))?;

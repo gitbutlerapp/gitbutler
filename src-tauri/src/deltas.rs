@@ -194,31 +194,32 @@ pub fn get_current_file_deltas(
     file_path: &Path,
 ) -> Result<Option<Vec<Delta>>, Error> {
     let deltas_path = project_path.join(".git/gb/session/deltas");
-    if !deltas_path.exists() {
-        Ok(None)
-    } else {
-        let file_deltas_path = deltas_path.join(file_path);
-        let file_deltas = std::fs::read_to_string(&file_deltas_path).map_err(|e| Error {
-            message: format!(
-                "Could not read delta file at {}",
-                file_deltas_path.display()
-            ),
-            cause: e.into(),
-        });
-        match file_deltas {
-            Ok(file_deltas) => {
-                let file_deltas: Vec<Delta> =
-                    serde_json::from_str(&file_deltas).map_err(|e| Error {
-                        message: format!(
-                            "Could not parse delta file at {}",
-                            file_deltas_path.display()
-                        ),
-                        cause: e.into(),
-                    })?;
-                Ok(Some(file_deltas))
-            }
-            Err(err) => Err(err),
+    let file_deltas_path = deltas_path.join(file_path);
+    if !file_deltas_path.exists() {
+        return Ok(None);
+    }
+
+    let file_deltas = std::fs::read_to_string(&file_deltas_path).map_err(|e| Error {
+        message: format!(
+            "Could not read delta file at {}",
+            file_deltas_path.display()
+        ),
+        cause: e.into(),
+    });
+
+    match file_deltas {
+        Ok(file_deltas) => {
+            let file_deltas: Vec<Delta> =
+                serde_json::from_str(&file_deltas).map_err(|e| Error {
+                    message: format!(
+                        "Could not parse delta file at {}",
+                        file_deltas_path.display()
+                    ),
+                    cause: e.into(),
+                })?;
+            Ok(Some(file_deltas))
         }
+        Err(err) => Err(err),
     }
 }
 

@@ -21,9 +21,130 @@ pub struct Session {
     // if hash is not set, the session is not saved aka current
     pub hash: Option<String>,
     pub meta: Meta,
+    pub activity: Vec<Activity>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ActivityType {
+    Commit,
+    Checkout,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Activity {
+    #[serde(rename = "type")]
+    pub activity_type: ActivityType,
+    pub timestamp: u64,
+    pub message: String,
+}
+
+fn parse_reflog_line(line: &str) -> Result<Option<Activity>, Error> {
+    match line.split("\t").collect::<Vec<&str>>()[..] {
+        [meta, message] => {
+            let meta_parts = meta.split_whitespace().collect::<Vec<&str>>();
+            let timestamp = meta_parts[meta_parts.len() - 2]
+                .parse::<u64>()
+                .map_err(|err| Error {
+                    cause: ErrorCause::ParseIntError(err),
+                    message: "Error while parsing reflog timestamp".to_string(),
+                })?;
+
+            match message.split(": ").collect::<Vec<&str>>()[..] {
+                [entry_type, msg] => match entry_type {
+                    "commit" => Ok(Some(Activity {
+                        activity_type: ActivityType::Commit,
+                        message: msg.to_string(),
+                        timestamp,
+                    })),
+                    "checkout" => Ok(Some(Activity {
+                        activity_type: ActivityType::Checkout,
+                        message: msg.to_string(),
+                        timestamp,
+                    })),
+                    _ => Ok(None),
+                },
+                _ => Err(Error {
+                    cause: ErrorCause::ParseActivityError,
+                    message: "Error parsing reflog activity message".to_string(),
+                }),
+            }
+        }
+        _ => Err(Error {
+            cause: ErrorCause::ParseActivityError,
+            message: "Error while parsing reflog activity".to_string(),
+        }),
+    }
 }
 
 impl Session {
+    pub fn current(repo: &git2::Repository) -> Result<Option<Self>, Error> {
+        let session_path = repo.path().join("gb/session");
+        if !session_path.exists() {
+            return Ok(None);
+        }
+
+        let meta_path = session_path.join("meta");
+
+        let start_path = meta_path.join("start");
+        let start_ts = std::fs::read_to_string(start_path)
+            .map_err(|e| Error {
+                cause: e.into(),
+                message: "failed to read session start".to_string(),
+            })?
+            .parse::<u64>()
+            .map_err(|e| Error {
+                cause: e.into(),
+                message: "failed to parse session start".to_string(),
+            })?;
+
+        let last_path = meta_path.join("last");
+        let last_ts = std::fs::read_to_string(last_path)
+            .map_err(|e| Error {
+                cause: e.into(),
+                message: "failed to read session last".to_string(),
+            })?
+            .parse::<u64>()
+            .map_err(|e| Error {
+                cause: e.into(),
+                message: "failed to parse session last".to_string(),
+            })?;
+
+        let branch_path = meta_path.join("branch");
+        let branch = std::fs::read_to_string(branch_path).map_err(|e| Error {
+            cause: e.into(),
+            message: "failed to read branch".to_string(),
+        })?;
+
+        let commit_path = meta_path.join("commit");
+        let commit = std::fs::read_to_string(commit_path).map_err(|e| Error {
+            cause: e.into(),
+            message: "failed to read commit".to_string(),
+        })?;
+
+        let reflog = std::fs::read_to_string(repo.path().join("logs/HEAD")).map_err(|e| Error {
+            cause: e.into(),
+            message: "failed to read reflog".to_string(),
+        })?;
+        let activity = reflog
+            .lines()
+            .filter_map(|line| parse_reflog_line(line).unwrap_or(None))
+            .filter(|activity| activity.timestamp >= start_ts)
+            .collect::<Vec<Activity>>();
+
+        Ok(Some(Session {
+            hash: None,
+            activity,
+            meta: Meta {
+                start_ts,
+                last_ts,
+                branch,
+                commit,
+            },
+        }))
+    }
+
     pub fn from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<Self, Error> {
         let tree = commit.tree().map_err(|err| Error {
             cause: err.into(),
@@ -44,6 +165,13 @@ impl Session {
                 message: "Error while parsing last file".to_string(),
             })?;
 
+        let reflog = read_as_string(repo, &tree, Path::new("logs/HEAD"))?;
+        let activity = reflog
+            .lines()
+            .filter_map(|line| parse_reflog_line(line).unwrap_or(None))
+            .filter(|activity| activity.timestamp >= start)
+            .collect::<Vec<Activity>>();
+
         Ok(Session {
             hash: Some(commit.id().to_string()),
             meta: Meta {
@@ -52,6 +180,7 @@ impl Session {
                 branch: read_as_string(repo, &tree, Path::new("session/meta/branch"))?,
                 commit: read_as_string(repo, &tree, Path::new("session/meta/commit"))?,
             },
+            activity,
         })
     }
 }
@@ -71,6 +200,7 @@ impl std::error::Error for Error {
             ErrorCause::SessionDoesNotExistError => Some(self),
             ErrorCause::GitError(err) => Some(err),
             ErrorCause::ParseUtf8Error(err) => Some(err),
+            ErrorCause::ParseActivityError => Some(self),
         }
     }
 }
@@ -84,6 +214,7 @@ impl std::fmt::Display for Error {
             ErrorCause::SessionDoesNotExistError => write!(f, "{}", self.message),
             ErrorCause::GitError(ref e) => write!(f, "{}: {}", self.message, e),
             ErrorCause::ParseUtf8Error(ref e) => write!(f, "{}: {}", self.message, e),
+            ErrorCause::ParseActivityError => write!(f, "{}", self.message),
         }
     }
 }
@@ -96,6 +227,7 @@ pub enum ErrorCause {
     SessionExistsError,
     SessionDoesNotExistError,
     ParseUtf8Error(std::string::FromUtf8Error),
+    ParseActivityError,
 }
 
 impl From<std::string::FromUtf8Error> for ErrorCause {
@@ -190,61 +322,6 @@ pub fn delete_current_session(repo: &git2::Repository) -> Result<(), std::io::Er
         std::fs::remove_dir_all(session_path)?;
     }
     Ok(())
-}
-
-pub fn get_current_session(repo: &git2::Repository) -> Result<Option<Session>, Error> {
-    let session_path = repo.path().join("gb/session");
-    if !session_path.exists() {
-        return Ok(None);
-    }
-
-    let meta_path = session_path.join("meta");
-
-    let start_path = meta_path.join("start");
-    let start_ts = std::fs::read_to_string(start_path)
-        .map_err(|e| Error {
-            cause: e.into(),
-            message: "failed to read session start".to_string(),
-        })?
-        .parse::<u64>()
-        .map_err(|e| Error {
-            cause: e.into(),
-            message: "failed to parse session start".to_string(),
-        })?;
-
-    let last_path = meta_path.join("last");
-    let last_ts = std::fs::read_to_string(last_path)
-        .map_err(|e| Error {
-            cause: e.into(),
-            message: "failed to read session last".to_string(),
-        })?
-        .parse::<u64>()
-        .map_err(|e| Error {
-            cause: e.into(),
-            message: "failed to parse session last".to_string(),
-        })?;
-
-    let branch_path = meta_path.join("branch");
-    let branch = std::fs::read_to_string(branch_path).map_err(|e| Error {
-        cause: e.into(),
-        message: "failed to read branch".to_string(),
-    })?;
-
-    let commit_path = meta_path.join("commit");
-    let commit = std::fs::read_to_string(commit_path).map_err(|e| Error {
-        cause: e.into(),
-        message: "failed to read commit".to_string(),
-    })?;
-
-    Ok(Some(Session {
-        hash: None,
-        meta: Meta {
-            start_ts,
-            last_ts,
-            branch,
-            commit,
-        },
-    }))
 }
 
 pub fn list_sessions(repo: &git2::Repository) -> Result<Vec<Session>, Error> {

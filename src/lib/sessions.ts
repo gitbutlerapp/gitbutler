@@ -2,6 +2,12 @@ import { invoke } from "@tauri-apps/api";
 import { appWindow } from "@tauri-apps/api/window";
 import { writable } from "svelte/store";
 
+export type Activity = {
+    type: "commit" | "checkout";
+    timestamp: number;
+    message: string;
+};
+
 export type Session = {
     hash: string;
     meta: {
@@ -10,6 +16,7 @@ export type Session = {
         branch: string;
         commit: string;
     };
+    activity: Activity[];
 };
 
 export const listFiles = (params: { projectId: string; sessionId: string }) =>
@@ -24,8 +31,6 @@ export default async (params: { projectId: string }) => {
     const eventName = `project://${params.projectId}/sessions`;
 
     await appWindow.listen<Session>(eventName, (event) => {
-        console.log("HERE")
-        console.log(event)
         store.update((sessions) => [...sessions, event.payload]);
     });
 
