@@ -294,6 +294,9 @@ pub fn list_deltas(
         if !entry_path.starts_with("session/deltas") {
             return git2::TreeWalkResult::Ok;
         }
+        if entry.kind() != Some(git2::ObjectType::Blob) {
+            return git2::TreeWalkResult::Ok;
+        }
         let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
         let content = blob.map(|blob| blob.content().to_vec());
 
@@ -313,7 +316,7 @@ pub fn list_deltas(
                 );
             }
             Err(e) => {
-                log::warn!("Could not get blob for {}: {}", entry_path.display(), e);
+                log::error!("Could not get blob for {}: {}", entry_path.display(), e);
             }
         }
         git2::TreeWalkResult::Ok
