@@ -1,19 +1,23 @@
 <script lang="ts">
-    export let data: PageData;
     import { Doc } from "yjs";
     import { Timeline, CodeViewer } from "$lib/components";
-    import { Operation } from "$lib/crdt";
+    import { Operation } from "$lib/deltas";
     import { derived, writable } from "svelte/store";
-    const { session, deltas } = data; // TODO deltas should be taken from session / files instead of parent
-    const x = $session;
+    import type { PageData } from "./$types";
+
+    export let data: PageData;
+    const { deltas, files } = data;
 
     const value = writable(new Date().getTime());
 
-    const docs = derived([deltas, value], ([deltas, value]) =>
+    const docs = derived(value, (value) =>
         Object.fromEntries(
             Object.entries(deltas).map(([filePath, deltas]) => {
                 const doc = new Doc();
                 const text = doc.getText();
+                if (filePath in files) {
+                    text.insert(0, files[filePath]);
+                }
                 const operations = deltas
                     .filter((delta) => delta.timestampMs <= value)
                     .flatMap((delta) => delta.operations);
@@ -29,23 +33,19 @@
         )
     );
 
-    const timestamps = derived(deltas, (deltas) =>
-        Object.values(deltas).flatMap((deltas) =>
-            Object.values(deltas).map((delta) => delta.timestampMs)
-        )
+    const timestamps = Object.values(deltas).flatMap((deltas) =>
+        Object.values(deltas).map((delta) => delta.timestampMs)
     );
 
-    const min = derived(timestamps, (timestamps) => Math.min(...timestamps));
-    const max = derived(timestamps, (timestamps) => Math.max(...timestamps));
+    const min = Math.min(...timestamps);
+    const max = Math.max(...timestamps);
 
-    const showTimeline = derived(
-        [min, max],
-        ([min, max]) => isFinite(min) && isFinite(max)
-    );
+    const showTimeline = isFinite(min) && isFinite(max);
 </script>
+
 <ul class="flex flex-col gap-2">
-    {#if $showTimeline}
-        <Timeline min={$min} max={$max} on:value={(e) => value.set(e.detail)} />
+    {#if showTimeline}
+        <Timeline {min} {max} on:value={(e) => value.set(e.detail)} />
     {/if}
 
     {#each Object.entries($docs) as [filepath, value]}

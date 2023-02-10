@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use serde::Serialize;
 
@@ -18,6 +18,8 @@ pub struct Meta {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
+    // if hash is not set, the session is not saved aka current
+    pub hash: Option<String>,
     pub meta: Meta,
 }
 
@@ -42,15 +44,13 @@ impl Session {
                 message: "Error while parsing last file".to_string(),
             })?;
 
-        let branch = read_as_string(repo, &tree, Path::new("session/meta/branch"))?;
-        let commit = read_as_string(repo, &tree, Path::new("session/meta/commit"))?;
-
         Ok(Session {
+            hash: Some(commit.id().to_string()),
             meta: Meta {
                 start_ts: start,
                 last_ts: last,
-                branch,
-                commit,
+                branch: read_as_string(repo, &tree, Path::new("session/meta/branch"))?,
+                commit: read_as_string(repo, &tree, Path::new("session/meta/commit"))?,
             },
         })
     }
@@ -237,6 +237,7 @@ pub fn get_current_session(repo: &git2::Repository) -> Result<Option<Session>, E
     })?;
 
     Ok(Some(Session {
+        hash: None,
         meta: Meta {
             start_ts,
             last_ts,
@@ -313,4 +314,57 @@ fn read_as_string(
             })
         }
     }
+}
+
+// return a map of file name -> file content for the given session
+pub fn list_files(
+    repo: &git2::Repository,
+    session_id: &str,
+) -> Result<HashMap<String, String>, Error> {
+    let commit_id = git2::Oid::from_str(session_id).map_err(|e| Error {
+        message: format!("Could not parse commit id {}", session_id),
+        cause: e.into(),
+    })?;
+    let commit = repo.find_commit(commit_id).map_err(|e| Error {
+        message: format!("Could not find commit {}", commit_id),
+        cause: e.into(),
+    })?;
+
+    let tree = commit.tree().map_err(|e| Error {
+        message: format!("Could not get tree for commit {}", commit.id()),
+        cause: e.into(),
+    })?;
+
+    let mut files = HashMap::new();
+
+    tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+        if entry.name().is_none() {
+            return git2::TreeWalkResult::Ok;
+        }
+        let entry_path = Path::new(root).join(entry.name().unwrap());
+        if !entry_path.starts_with("session/wd") {
+            return git2::TreeWalkResult::Ok;
+        }
+        let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
+        let content = blob.map(|blob| blob.content().to_vec());
+
+        files.insert(
+            entry_path
+                .strip_prefix("session/wd")
+                .unwrap()
+                .to_owned()
+                .to_str()
+                .unwrap()
+                .to_owned(),
+            String::from_utf8(content.unwrap_or_default()).unwrap_or_default(),
+        );
+
+        git2::TreeWalkResult::Ok
+    })
+    .map_err(|e| Error {
+        message: format!("Could not walk tree for commit {}", commit.id()),
+        cause: e.into(),
+    })?;
+
+    Ok(files)
 }

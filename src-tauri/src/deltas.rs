@@ -133,6 +133,20 @@ impl TextDocument {
 pub enum ErrorCause {
     IOError(std::io::Error),
     ParseJSONError(serde_json::Error),
+    GitError(git2::Error),
+    StringError(String),
+}
+
+impl From<String> for ErrorCause {
+    fn from(e: String) -> Self {
+        ErrorCause::StringError(e)
+    }
+}
+
+impl From<git2::Error> for ErrorCause {
+    fn from(e: git2::Error) -> Self {
+        ErrorCause::GitError(e)
+    }
 }
 
 impl From<std::io::Error> for ErrorCause {
@@ -158,6 +172,8 @@ impl std::error::Error for Error {
         match self.cause {
             ErrorCause::IOError(ref e) => Some(e),
             ErrorCause::ParseJSONError(ref e) => Some(e),
+            ErrorCause::GitError(ref e) => Some(e),
+            ErrorCause::StringError(_) => None,
         }
     }
 }
@@ -167,6 +183,8 @@ impl std::fmt::Display for Error {
         match self.cause {
             ErrorCause::IOError(ref e) => write!(f, "{}: {}", self.message, e),
             ErrorCause::ParseJSONError(ref e) => write!(f, "{}: {}", self.message, e),
+            ErrorCause::GitError(ref e) => write!(f, "{}: {}", self.message, e),
+            ErrorCause::StringError(ref e) => write!(f, "{}: {}", self.message, e),
         }
     }
 }
@@ -232,6 +250,7 @@ pub fn list_current_deltas(project_path: &Path) -> Result<HashMap<String, Vec<De
         message: format!("Could not list delta files at {}", deltas_path.display()),
         cause: e.into(),
     })?;
+
     let deltas = file_paths
         .iter()
         .map_while(|file_path| {
@@ -243,7 +262,79 @@ pub fn list_current_deltas(project_path: &Path) -> Result<HashMap<String, Vec<De
             }
         })
         .collect::<Result<HashMap<String, Vec<Delta>>, Error>>()?;
+
     Ok(deltas)
+}
+
+pub fn list_deltas(
+    repo: &git2::Repository,
+    session_id: &str,
+) -> Result<HashMap<String, Vec<Delta>>, Error> {
+    let commit_id = git2::Oid::from_str(session_id).map_err(|e| Error {
+        message: format!("Could not parse commit id {}", session_id),
+        cause: e.into(),
+    })?;
+    let commit = repo.find_commit(commit_id).map_err(|e| Error {
+        message: format!("Could not find commit {}", commit_id),
+        cause: e.into(),
+    })?;
+
+    let tree = commit.tree().map_err(|e| Error {
+        message: format!("Could not get tree for commit {}", commit.id()),
+        cause: e.into(),
+    })?;
+
+    let mut blobs = HashMap::new();
+
+    tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+        if entry.name().is_none() {
+            return git2::TreeWalkResult::Ok;
+        }
+        let entry_path = Path::new(root).join(entry.name().unwrap());
+        if !entry_path.starts_with("session/deltas") {
+            return git2::TreeWalkResult::Ok;
+        }
+        let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
+        let content = blob.map(|blob| blob.content().to_vec());
+
+        match content {
+            Ok(content) => {
+                let deltas: Result<Vec<Delta>, Error> =
+                    serde_json::from_slice(&content).map_err(|e| Error {
+                        message: format!("Could not parse delta file at {}", entry_path.display()),
+                        cause: e.into(),
+                    });
+                blobs.insert(
+                    entry_path
+                        .strip_prefix("session/deltas")
+                        .unwrap()
+                        .to_owned(),
+                    deltas,
+                );
+            }
+            Err(e) => {
+                log::warn!("Could not get blob for {}: {}", entry_path.display(), e);
+            }
+        }
+        git2::TreeWalkResult::Ok
+    })
+    .map_err(|e| Error {
+        message: format!("Could not walk tree for commit {}", commit.id()),
+        cause: e.into(),
+    })?;
+
+    if let Some(error) = blobs.values().find_map(|blob| blob.as_ref().err()) {
+        Err(Error {
+            message: "Could not get all deltas".to_owned(),
+            cause: error.to_string().into(),
+        })
+    } else {
+        let deltas = blobs
+            .into_iter()
+            .map(|(path, deltas)| (path.to_str().unwrap().to_owned(), deltas.unwrap()))
+            .collect();
+        Ok(deltas)
+    }
 }
 
 #[test]

@@ -3,13 +3,13 @@
     import { TimelineDay } from "$lib/components/timeline";
 
     export let data: PageData;
-    const { project, sessions, testSessions } = data;
-
-    $: console.log($testSessions);
+    const { project, sessions } = data;
 </script>
 
 <div>
     {#if $project}
         <TimelineDay projectId={$project?.id} sessions={$sessions} />
+    {:else}
+        <p>Project not found</p>
     {/if}
 </div>

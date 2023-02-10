@@ -1,7 +1,6 @@
 mod delta;
 mod git;
 
-pub use self::delta::get_latest_file_contents;
 pub use self::delta::WatcherCollection;
 use crate::projects::Project;
 use serde::Serialize;
@@ -48,8 +47,8 @@ pub fn watch<R: Runtime>(
     watchers: &WatcherCollection,
     project: &Project,
 ) -> Result<(), WatchError> {
-    self::delta::watch(window, watchers, project.clone())?;
-    self::git::watch(project.clone())?;
+    self::delta::watch(window.clone(), watchers, project.clone())?;
+    self::git::watch(window, project.clone())?;
     Ok(())
 }
 

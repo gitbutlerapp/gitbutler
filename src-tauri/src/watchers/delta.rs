@@ -9,7 +9,6 @@ use std::sync::mpsc::channel;
 use std::thread;
 use std::time::SystemTime;
 use std::{collections::HashMap, sync::Mutex};
-use tauri::{Runtime, Window};
 
 #[derive(Default)]
 pub struct WatcherCollection(Mutex<HashMap<String, RecommendedWatcher>>);
@@ -75,8 +74,8 @@ impl From<git2::Error> for WatchError {
     }
 }
 
-pub fn watch<R: Runtime>(
-    window: Window<R>,
+pub fn watch<R: tauri::Runtime>(
+    window: tauri::Window<R>,
     watchers: &WatcherCollection,
     project: Project,
 ) -> Result<(), WatchError> {
@@ -109,9 +108,7 @@ pub fn watch<R: Runtime>(
                         file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
                     match register_file_change(&repo, &event.kind, &relative_file_path) {
                         Ok(Some(deltas)) => {
-                            let event_name = format!("deltas://{}", project.id);
-
-                            log::info!("Emitting event: {}", event_name);
+                            let event_name = format!("project://{}/deltas", project.id);
                             match window.emit(
                                 &event_name,
                                 &DeltasEvent {
@@ -192,8 +189,7 @@ fn register_file_change(
 // returns last commited file contents from refs/gitbutler/current ref
 // if it doesn't exists, fallsback to HEAD
 // returns None if file doesn't exist in HEAD
-// TODO: make private as soon as session API is in place.
-pub fn get_latest_file_contents(
+fn get_latest_file_contents(
     repo: &Repository,
     relative_file_path: &Path,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
@@ -248,6 +244,7 @@ fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::erro
         None => {
             let head = repo.head()?;
             let session = sessions::Session {
+                hash: None,
                 meta: sessions::Meta {
                     start_ts: now_ts,
                     last_ts: now_ts,

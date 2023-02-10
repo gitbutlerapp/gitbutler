@@ -6,7 +6,6 @@ mod storage;
 mod watchers;
 
 use deltas::Delta;
-use fs::list_files;
 use git2::Repository;
 use log;
 use projects::Project;
@@ -19,7 +18,7 @@ use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
 };
-use watchers::{get_latest_file_contents, WatcherCollection};
+use watchers::WatcherCollection;
 
 struct AppState {
     watchers: WatcherCollection,
@@ -29,50 +28,6 @@ struct AppState {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Error {
     pub message: String,
-}
-
-#[tauri::command]
-fn list_project_files(state: State<'_, AppState>, project_id: &str) -> Result<Vec<String>, Error> {
-    if let Some(project) = state
-        .projects_storage
-        .get_project(project_id)
-        .map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to get project".to_string(),
-            }
-        })?
-    {
-        let project_path = Path::new(&project.path);
-        let repo = match Repository::open(project_path) {
-            Ok(repo) => repo,
-            Err(e) => panic!("failed to open: {}", e),
-        };
-        let files = list_files(project_path).map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to list files".to_string(),
-            }
-        })?;
-        let non_ignored_files: Vec<String> = files
-            .into_iter()
-            .filter_map(
-                |file_path| match get_latest_file_contents(&repo, Path::new(&file_path)) {
-                    Ok(Some(_)) => Some(file_path),
-                    Ok(None) => None,
-                    Err(e) => {
-                        log::error!("{}", e);
-                        None
-                    }
-                },
-            )
-            .collect();
-        Ok(non_ignored_files)
-    } else {
-        Err(Error {
-            message: "Project not found".to_string(),
-        })
-    }
 }
 
 #[tauri::command]
@@ -107,45 +62,6 @@ fn list_sessions(
         None => Err(Error {
             message: "Project not found".to_string(),
         }),
-    }
-}
-
-#[tauri::command]
-fn read_project_file(
-    state: State<'_, AppState>,
-    project_id: &str,
-    file_path: &str,
-) -> Result<Option<String>, Error> {
-    if let Some(project) = state
-        .projects_storage
-        .get_project(project_id)
-        .map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to get project".to_string(),
-            }
-        })?
-    {
-        let project_path = Path::new(&project.path);
-        let repo = Repository::open(project_path).map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to open project".to_string(),
-            }
-        })?;
-
-        let contents = get_latest_file_contents(&repo, Path::new(file_path)).map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to read file".to_string(),
-            }
-        })?;
-
-        Ok(contents)
-    } else {
-        Err(Error {
-            message: "Project not found".to_string(),
-        })
     }
 }
 
@@ -227,11 +143,12 @@ fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), Error> {
 }
 
 #[tauri::command]
-fn list_deltas(
+fn list_session_files(
     state: State<'_, AppState>,
     project_id: &str,
-) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    if let Some(project) = state
+    session_id: &str,
+) -> Result<HashMap<String, String>, Error> {
+    match state
         .projects_storage
         .get_project(project_id)
         .map_err(|e| {
@@ -239,20 +156,77 @@ fn list_deltas(
             Error {
                 message: "Failed to get project".to_string(),
             }
-        })?
-    {
-        let project_path = Path::new(&project.path);
-        let deltas = deltas::list_current_deltas(project_path).map_err(|e| {
+        })? {
+        Some(project) => {
+            let repo = Repository::open(&project.path).map_err(|e| {
+                log::error!("{}", e);
+                Error {
+                    message: "Failed to open project".to_string(),
+                }
+            })?;
+
+            let files = sessions::list_files(&repo, session_id).map_err(|e| {
+                log::error!("{}", e);
+                Error {
+                    message: "Failed to list files".to_string(),
+                }
+            })?;
+
+            Ok(files)
+        }
+        None => Err(Error {
+            message: "Project not found".to_string(),
+        }),
+    }
+}
+
+#[tauri::command]
+fn list_deltas(
+    state: State<'_, AppState>,
+    project_id: &str,
+    session_id: Option<&str>,
+) -> Result<HashMap<String, Vec<Delta>>, Error> {
+    match state
+        .projects_storage
+        .get_project(project_id)
+        .map_err(|e| {
             log::error!("{}", e);
             Error {
-                message: "Failed to list deltas".to_string(),
+                message: "Failed to get project".to_string(),
             }
-        })?;
-        Ok(deltas)
-    } else {
-        Err(Error {
+        })? {
+        Some(project) => match session_id {
+            Some(session_id) => {
+                let repo = Repository::open(&project.path).map_err(|e| {
+                    log::error!("{}", e);
+                    Error {
+                        message: "Failed to open project".to_string(),
+                    }
+                })?;
+
+                let deltas = deltas::list_deltas(&repo, &session_id).map_err(|e| {
+                    log::error!("{}", e);
+                    Error {
+                        message: "Failed to list deltas".to_string(),
+                    }
+                })?;
+
+                Ok(deltas)
+            }
+            None => {
+                let project_path = Path::new(&project.path);
+                let deltas = deltas::list_current_deltas(project_path).map_err(|e| {
+                    log::error!("{}", e);
+                    Error {
+                        message: "Failed to list deltas".to_string(),
+                    }
+                })?;
+                Ok(deltas)
+            }
+        },
+        None => Err(Error {
             message: "Project not found".to_string(),
-        })
+        }),
     }
 }
 
@@ -311,13 +285,12 @@ fn main() {
                         .build(),
                 )
                 .invoke_handler(tauri::generate_handler![
-                    read_project_file,
-                    list_project_files,
                     add_project,
                     list_projects,
                     delete_project,
                     list_deltas,
                     list_sessions,
+                    list_session_files,
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application")

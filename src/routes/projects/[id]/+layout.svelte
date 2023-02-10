@@ -4,5 +4,6 @@
         <div class="text-slate-700">Day</div>
         <div title="go to current session">Session</div>
     </div>
+
     <slot />
 </div>

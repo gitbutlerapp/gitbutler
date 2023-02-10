@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Session } from "$lib/session";
+    import type { Session } from "$lib/sessions";
     import TimelineDaySessionActivities from "./TimelineDaySessionActivities.svelte";
     export let session: Session;
     export let projectId: string;
@@ -32,32 +32,34 @@
 <div class="flex flex-col space-y-2">
     <a
         id="block"
-        class="truncate border px-4 py-2 text-slate-50 rounded-lg {colorFromBranchName(session.branchName)}"
-        title={session.branchName}
+        class="truncate border px-4 py-2 text-slate-50 rounded-lg {colorFromBranchName(
+            session.meta.branch
+        )}"
+        title={session.meta.branch}
         href="/projects/{projectId}/sessions/{session.hash}/"
     >
-        {session.branchName}
-</a>
+        {session.meta.branch}
+    </a>
     <div id="activities">
-        <div class="my-2 mx-1">
-            <TimelineDaySessionActivities
-                activities={session.activities}
-                sessionStart={session.startTime}
-                sessionEnd={session.endTime}
-            />
-        </div>
+        <!-- <div class="my-2 mx-1"> -->
+        <!--     <TimelineDaySessionActivities -->
+        <!--         activities={session.activities} -->
+        <!--         sessionStart={session.startTime} -->
+        <!--         sessionEnd={session.endTime} -->
+        <!--     /> -->
+        <!-- </div> -->
     </div>
     <div id="time-range">
-        {toHumanReadableTime(session.startTime)}
+        {toHumanReadableTime(session.meta.lastTs)}
         -
-        {toHumanReadableTime(session.endTime)}
+        {toHumanReadableTime(session.meta.startTs)}
     </div>
-    <div id="files">
-        {#each session.files as file}
-            <div>
-                <span>{file.linesTouched}</span>
-                <span>{file.name}</span>
-            </div>
-        {/each}
-    </div>
+    <!-- <div id="files"> -->
+    <!-- {#each session.files as file} -->
+    <!--     <div> -->
+    <!--         <span>{file.linesTouched}</span> -->
+    <!--         <span>{file.name}</span> -->
+    <!--     </div> -->
+    <!-- {/each} -->
+    <!-- </div> -->
 </div>

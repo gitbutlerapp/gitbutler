@@ -41,11 +41,21 @@ impl From<std::io::Error> for WatchError {
 const FIVE_MINUTES: u64 = Duration::new(5 * 60, 0).as_secs();
 const ONE_HOUR: u64 = Duration::new(60 * 60, 0).as_secs();
 
-pub fn watch(project: Project) -> Result<(), WatchError> {
+pub fn watch<R: tauri::Runtime>(
+    window: tauri::Window<R>,
+    project: Project,
+) -> Result<(), WatchError> {
     let repo = git2::Repository::open(&project.path)?;
     thread::spawn(move || loop {
         match check_for_changes(&repo) {
-            Ok(_) => {}
+            Ok(Some(session)) => {
+                let event_name = format!("project://{}/sessions", project.id);
+                match window.emit(&event_name, &session) {
+                    Ok(_) => {}
+                    Err(e) => log::error!("Error: {:?}", e),
+                };
+            }
+            Ok(None) => {}
             Err(error) => {
                 log::error!(
                     "Error while checking {} for changes: {}",
@@ -65,7 +75,11 @@ pub fn watch(project: Project) -> Result<(), WatchError> {
 // currently it looks at every file in the wd, but we should probably just look at the ones that have changed when we're certain we can get everything
 // - however, it does compare to the git index so we don't actually have to read the contents of every file, so maybe it's not too slow unless in huge repos
 // - also only does the file comparison on commit, so it's not too bad
-fn check_for_changes(repo: &Repository) -> Result<(), Box<dyn std::error::Error>> {
+//
+// returns a commited session if crated
+fn check_for_changes(
+    repo: &Repository,
+) -> Result<Option<sessions::Session>, Box<dyn std::error::Error>> {
     if ready_to_commit(repo)? {
         let tree = build_initial_wd_tree(&repo)?;
         let gb_tree = build_gb_tree(tree, &repo)?;
@@ -76,11 +90,16 @@ fn check_for_changes(repo: &Repository) -> Result<(), Box<dyn std::error::Error>
             repo.workdir().unwrap().display(),
             commit_oid
         );
-
         sessions::delete_current_session(repo)?;
+
+        let commit = repo.find_commit(commit_oid)?;
+        let session = sessions::Session::from_commit(repo, &commit)?;
+
+        Ok(Some(session))
+    } else {
+        Ok(None)
     }
 
-    Ok(())
     // TODO: try to push the new gb history head to the remote
     // TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
 }

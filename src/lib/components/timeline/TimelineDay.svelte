@@ -1,12 +1,13 @@
 <script lang="ts">
-    import type { Session } from "$lib/session";
+    import type { Session } from "$lib/sessions";
     import TimelineDaySession from "./TimelineDaySession.svelte";
+
     export let sessions: Session[];
     export let projectId: string;
 
     const sessionDisplayWidth = (session: Session) => {
         let sessionDurationHours =
-            (session.endTime - session.startTime) / 1000 / 60 / 60;
+            (session.meta.lastTs - session.meta.startTs) / 1000 / 60 / 60;
         if (sessionDurationHours <= 1) {
             return "w-40";
         } else {
