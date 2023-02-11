@@ -65,7 +65,9 @@
     >
       <div class="center">Search GitButler</div>
     </div>
-    <div class="mr-4 font-bold cursor-default">User</div>
+    <div class="mr-4 font-bold cursor-default">
+      <a href="/user">User</a>
+    </div>
   </header>
 
   <main class="text-zinc-400 flex flex-row flex-grow h-screen">

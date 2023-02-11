@@ -315,6 +315,9 @@ fn main() {
                         projects_storage,
                     });
 
+                    let window = app.get_window("main").unwrap();
+                    window.open_devtools();
+
                     Ok(())
                 })
                 .plugin(sentry_plugin)

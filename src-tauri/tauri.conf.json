@@ -21,6 +21,9 @@
         "all": false,
         "startDragging": true
       },
+      "shell": {
+        "open": true
+      },
       "path": {
         "all": true
       },
