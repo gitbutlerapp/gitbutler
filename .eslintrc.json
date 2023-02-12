@@ -1,0 +1,21 @@
+{
+    "env": {
+        "es2022": true
+    },
+    "extends": [
+        "plugin:unicorn/recommended",
+        "plugin:prettier/recommended",
+        "plugin:svelte/recommended",
+    ],
+    "plugins": [
+        "unicorn",
+        "prettier",
+    ],
+    "overrides": [
+        {
+          "files": ["*.svelte"],
+          "processor": "svelte3/svelte3"
+        }
+      ],
+    "root": true
+}

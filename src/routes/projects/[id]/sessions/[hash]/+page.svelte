@@ -8,7 +8,7 @@
     export let data: PageData;
     const { deltas, files } = data;
 
-  const value = writable(new Date().getTime());
+    const value = writable(new Date().getTime());
 
     const docs = derived(value, (value) =>
         Object.fromEntries(
@@ -43,18 +43,17 @@
     const showTimeline = isFinite(min) && isFinite(max);
 </script>
 
-
 <ul class="flex flex-col gap-2">
-  {#if showTimeline}
-    <Timeline min={min} max={max} on:value={(e) => value.set(e.detail)} />
-  {/if}
+    {#if showTimeline}
+        <Timeline {min} {max} on:value={(e) => value.set(e.detail)} />
+    {/if}
 
-  {#each Object.entries($docs) as [filepath, value]}
-    <li>
-      <details open>
-        <summary>{filepath}</summary>
-        <CodeViewer {value} />
-      </details>
-    </li>
-  {/each}
+    {#each Object.entries($docs) as [filepath, value]}
+        <li>
+            <details open>
+                <summary>{filepath}</summary>
+                <CodeViewer {value} />
+            </details>
+        </li>
+    {/each}
 </ul>

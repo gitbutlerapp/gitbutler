@@ -13,7 +13,9 @@ export const load: LayoutLoad = async ({ parent, params }) => {
         : await (await import("$lib/deltas")).default({ projectId: params.id });
     const sessions = building
         ? readable<Session[]>([])
-        : await (await import("$lib/sessions")).default({ projectId: params.id });
+        : await (
+              await import("$lib/sessions")
+          ).default({ projectId: params.id });
     return {
         project: derived(projects, (projects) =>
             projects.find((project) => project.id === params.id)
