@@ -31,10 +31,9 @@
     };
 </script>
 
-<div class="flex flex-col">
-    <header
-        data-tauri-drag-region
-        class="sticky top-0 z-50 flex
+<header
+    data-tauri-drag-region
+    class="sticky top-0 z-50 flex
     h-8
     flex-row
     items-center justify-between overflow-hidden
@@ -43,12 +42,12 @@
     text-zinc-400 
     dark:border-zinc-700 dark:bg-zinc-900
     "
-    >
-        <div class="ml-24">
-            <BackForwardButtons />
-        </div>
-        <div
-            class="
+>
+    <div class="ml-24">
+        <BackForwardButtons />
+    </div>
+    <div
+        class="
         invisible w-1/3
         max-w-[40rem]
         cursor-default rounded-md
@@ -62,68 +61,55 @@
         dark:hover:border-zinc-600
         min-[320px]:visible
     "
-        >
-            <div class="center">Search GitButler</div>
-        </div>
-        <div class="mr-4 cursor-default font-bold">User</div>
-    </header>
+    >
+        <div class="center">Search GitButler</div>
+    </div>
+    <div class="mr-4 cursor-default font-bold">User</div>
+</header>
 
-    <main class="flex h-screen flex-grow flex-row text-zinc-400">
-        <div
-            id="sidebar"
-            class="
-            flex h-screen 
+<div class="flex h-screen flex-grow flex-row text-zinc-400 overflow-hidden">
+    <div
+        id="sidebar"
+        class="
+            overflow-auto
+            flex
             w-1/4 flex-col bg-zinc-50
+            border-r
+            border-zinc-700
             dark:bg-zinc-900"
+    >
+        <div
+            class=" flex h-10 items-center border-b border-zinc-700 hover:bg-zinc-800"
         >
-            <div
-                class="relative flex h-10 flex-none items-center border-b border-zinc-700 hover:bg-zinc-800"
-            >
+            <div class="flex-grow">
+                <DropDown projects={$projects} />
+            </div>
+            <button class="flex-shrink" on:click={onSelectProjectClick}>
                 <div
-                    class="
-            flex-grow"
-                >
-                    <DropDown projects={$projects} />
-                </div>
-                <button class="flex-shrink" on:click={onSelectProjectClick}>
-                    <div
-                        class="absolute -my-2 -mx-8 flex h-5 w-5 cursor-default select-none 
+                    class="absolute -my-2 -mx-8 flex h-5 w-5 cursor-default select-none 
                         items-center
                         justify-center rounded-full bg-zinc-600 text-sm font-bold hover:bg-zinc-300 hover:text-zinc-600"
-                        title="Add new repository"
-                    >
-                        +
-                    </div>
-                </button>
-            </div>
-
-            <footer
-                class="fixed
-                       bottom-0
-                       z-50 flex h-8 w-full
-                       flex-grow border-t bg-zinc-50
-                       text-sm
-                       text-zinc-400
-                       dark:border-zinc-700
-                       dark:bg-zinc-900
-"
-            >
-                <div class="ml-4 flex flex-row items-center space-x-2 text-sm">
-                    <div class="h-2 w-2 rounded-full bg-green-700" />
-                    <div>Up to date</div>
+                    title="Add new repository"
+                >
+                    +
                 </div>
-            </footer>
+            </button>
         </div>
 
-        <div
-            id="main"
-            class="
-    flex-grow
-    border-l
-    dark:border-zinc-700 dark:bg-zinc-800
-        "
-        >
-            <slot />
+        <div class="flex-grow" />
+
+        <div class="border-t border-zinc-700 h-8 flex items-center">
+            <div class="ml-4 flex flex-row items-center space-x-2 text-sm">
+                <div class="h-2 w-2 rounded-full bg-green-700" />
+                <div>Up to date</div>
+            </div>
         </div>
-    </main>
+        <div id="foo" class="h-8" />
+    </div>
+
+    <div
+        class="flex-grow h-full border-ldark:border-zinc-700 dark:bg-zinc-800 overflow-hidden"
+    >
+        <slot />
+    </div>
 </div>

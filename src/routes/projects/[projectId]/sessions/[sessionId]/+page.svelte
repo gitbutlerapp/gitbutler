@@ -49,7 +49,7 @@
     // const showTimeline = isFinite(min) && isFinite(max);
 </script>
 
-<div class="flex flex-col space-y-2">
+<div class="flex flex-col w-full h-full overflow-hidden space-y-2">
     <div class="flex justify-center border-y border-zinc-700 p-2">
         <SessionNav
             project={$project}
@@ -58,16 +58,15 @@
             previousSesssion={$previousSesssion}
         />
     </div>
-    <div class="flex flex-col space-y-4">
+    <div class="overflow-auto h-2/3 mx-4">
         {#each Object.entries(files) as [filepath, filecontent]}
-            <div>
-                <div>
+            <details open>
+                <summary>
                     {filepath}
-                </div>
-                <div>
-                    <CodeViewer value={filecontent} />
-                </div>
-            </div>
+                </summary>
+                <CodeViewer value={filecontent} />
+            </details>
         {/each}
     </div>
+    <div class="flex">Timeline</div>
 </div>
