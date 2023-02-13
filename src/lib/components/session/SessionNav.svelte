@@ -16,7 +16,7 @@
         {#if previousSesssion}
             <a
                 class="w-full"
-                href="/projects/{project?.id}/sessions/{previousSesssion?.hash}"
+                href="/projects/{project?.id}/sessions/{previousSesssion?.id}"
             >
                 <SessionNavBlock hover={true} session={previousSesssion} />
             </a>
@@ -24,7 +24,7 @@
     </div>
     <div class="flex items-center justify-center w-full space-x-1">
         <a
-            href="/projects/{project?.id}/sessions/{previousSesssion?.hash}"
+            href="/projects/{project?.id}/sessions/{previousSesssion?.id}"
             class="text-zinc-500 hover:text-zinc-300 w-8 h-8 {previousSesssion
                 ? ''
                 : 'invisible'}"
@@ -38,7 +38,7 @@
             />
         </div>
         <a
-            href="/projects/{project?.id}/sessions/{nextSession?.hash}"
+            href="/projects/{project?.id}/sessions/{nextSession?.id}"
             class="w-8 h-8 text-zinc-500 hover:text-zinc-300 {nextSession
                 ? 'visible'
                 : 'invisible'}"
@@ -50,7 +50,7 @@
         {#if nextSession}
             <a
                 class="w-full"
-                href="/projects/{project?.id}/sessions/{nextSession?.hash}"
+                href="/projects/{project?.id}/sessions/{nextSession?.id}"
             >
                 <SessionNavBlock hover={true} session={nextSession} />
             </a>

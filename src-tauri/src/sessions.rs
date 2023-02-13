@@ -1,8 +1,8 @@
+use crate::butler;
+use serde::Serialize;
 use std::{collections::HashMap, path::Path};
 
-use serde::Serialize;
-
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     // timestamp of when the session was created
@@ -15,9 +15,10 @@ pub struct Meta {
     pub commit: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
+    pub id: String,
     // if hash is not set, the session is not saved aka current
     pub hash: Option<String>,
     pub meta: Meta,
@@ -65,7 +66,7 @@ fn parse_reflog_line(line: &str) -> Result<Activity, Error> {
 
 impl Session {
     pub fn current(repo: &git2::Repository) -> Result<Option<Self>, Error> {
-        let session_path = repo.path().join("gb/session");
+        let session_path = repo.path().join(butler::dir()).join("session");
         if !session_path.exists() {
             return Ok(None);
         }
@@ -118,7 +119,14 @@ impl Session {
             .filter(|activity| activity.timestamp >= start_ts)
             .collect::<Vec<Activity>>();
 
+        let id_path = meta_path.join("id");
+        let id = std::fs::read_to_string(id_path).map_err(|e| Error {
+            cause: e.into(),
+            message: "failed to read session id".to_string(),
+        })?;
+
         Ok(Some(Session {
+            id,
             hash: None,
             activity,
             meta: Meta {
@@ -135,6 +143,12 @@ impl Session {
             cause: err.into(),
             message: "Error while getting commit tree".to_string(),
         })?;
+
+        let id =
+            read_as_string(repo, &tree, Path::new("session/meta/id")).map_err(|err| Error {
+                cause: err.cause,
+                message: format!("Error while reading session id: {}", err.message),
+            })?;
 
         let start = read_as_string(repo, &tree, Path::new("session/meta/start"))?
             .parse::<u64>()
@@ -158,6 +172,7 @@ impl Session {
             .collect::<Vec<Activity>>();
 
         Ok(Session {
+            id,
             hash: Some(commit.id().to_string()),
             meta: Meta {
                 start_ts: start,
@@ -186,6 +201,7 @@ impl std::error::Error for Error {
             ErrorCause::GitError(err) => Some(err),
             ErrorCause::ParseUtf8Error(err) => Some(err),
             ErrorCause::ParseActivityError => Some(self),
+            ErrorCause::SessionIsNotCurrentError => Some(self),
         }
     }
 }
@@ -197,6 +213,7 @@ impl std::fmt::Display for Error {
             ErrorCause::ParseIntError(ref e) => write!(f, "{}: {}", self.message, e),
             ErrorCause::SessionExistsError => write!(f, "{}", self.message),
             ErrorCause::SessionDoesNotExistError => write!(f, "{}", self.message),
+            ErrorCause::SessionIsNotCurrentError => write!(f, "{}", self.message),
             ErrorCause::GitError(ref e) => write!(f, "{}: {}", self.message, e),
             ErrorCause::ParseUtf8Error(ref e) => write!(f, "{}: {}", self.message, e),
             ErrorCause::ParseActivityError => write!(f, "{}", self.message),
@@ -210,6 +227,7 @@ pub enum ErrorCause {
     ParseIntError(std::num::ParseIntError),
     GitError(git2::Error),
     SessionExistsError,
+    SessionIsNotCurrentError,
     SessionDoesNotExistError,
     ParseUtf8Error(std::string::FromUtf8Error),
     ParseActivityError,
@@ -239,12 +257,25 @@ impl From<std::num::ParseIntError> for ErrorCause {
     }
 }
 
-fn write_current_session(session_path: &Path, session: &Session) -> Result<(), Error> {
+fn write_session(session_path: &Path, session: &Session) -> Result<(), Error> {
+    if session.hash.is_some() {
+        return Err(Error {
+            cause: ErrorCause::SessionIsNotCurrentError,
+            message: "can only write current sessions (without hash)".to_string(),
+        });
+    }
+
     let meta_path = session_path.join("meta");
 
     std::fs::create_dir_all(meta_path.clone()).map_err(|err| Error {
         cause: err.into(),
         message: "Failed to create session directory".to_string(),
+    })?;
+
+    let id_path = meta_path.join("id");
+    std::fs::write(id_path, session.id.clone()).map_err(|err| Error {
+        cause: err.into(),
+        message: "Failed to write session id".to_string(),
     })?;
 
     let start_path = meta_path.join("start");
@@ -274,11 +305,11 @@ fn write_current_session(session_path: &Path, session: &Session) -> Result<(), E
     Ok(())
 }
 
-pub fn update_current_session(repo: &git2::Repository, session: &Session) -> Result<(), Error> {
+pub fn update_session(repo: &git2::Repository, session: &Session) -> Result<(), Error> {
     log::debug!("{}: Updating current session", repo.path().display());
-    let session_path = repo.path().join("gb/session");
+    let session_path = repo.path().join(butler::dir()).join("session");
     if session_path.exists() {
-        write_current_session(&session_path, session)
+        write_session(&session_path, session)
     } else {
         Err(Error {
             cause: ErrorCause::SessionDoesNotExistError,
@@ -287,30 +318,48 @@ pub fn update_current_session(repo: &git2::Repository, session: &Session) -> Res
     }
 }
 
-pub fn create_current_session(repo: &git2::Repository, session: &Session) -> Result<(), Error> {
+pub fn create_session(repo: &git2::Repository, session: &Session) -> Result<(), Error> {
     log::debug!("{}: Creating current session", repo.path().display());
-    let session_path = repo.path().join("gb/session");
+    let session_path = repo.path().join(butler::dir()).join("session");
     if session_path.exists() {
         Err(Error {
             cause: ErrorCause::SessionExistsError,
             message: "Session already exists".to_string(),
         })
     } else {
-        write_current_session(&session_path, session)
+        write_session(&session_path, session)
     }
 }
 
-pub fn delete_current_session(repo: &git2::Repository) -> Result<(), std::io::Error> {
+pub fn delete_session(repo: &git2::Repository) -> Result<(), std::io::Error> {
     log::debug!("{}: Deleting current session", repo.path().display());
-    let session_path = repo.path().join("gb/session");
+    let session_path = repo.path().join(butler::dir()).join("session");
     if session_path.exists() {
         std::fs::remove_dir_all(session_path)?;
     }
     Ok(())
 }
 
-pub fn list_sessions(repo: &git2::Repository) -> Result<Vec<Session>, Error> {
-    match repo.revparse_single("refs/gitbutler/current") {
+pub fn get(repo: &git2::Repository, id: &str) -> Result<Option<Session>, Error> {
+    let list = list(repo)?;
+    for session in list {
+        if session.id == id {
+            return Ok(Some(session));
+        }
+    }
+    Ok(None)
+}
+
+pub fn list(repo: &git2::Repository) -> Result<Vec<Session>, Error> {
+    let mut sessions = list_persistent(repo)?;
+    if let Some(session) = Session::current(repo)? {
+        sessions.push(session);
+    }
+    Ok(sessions)
+}
+
+fn list_persistent(repo: &git2::Repository) -> Result<Vec<Session>, Error> {
+    match repo.revparse_single(format!("refs/{}/current", butler::refname()).as_str()) {
         Err(_) => Ok(vec![]),
         Ok(object) => {
             let gitbutler_head = repo.find_commit(object.id()).map_err(|err| Error {
@@ -343,6 +392,7 @@ pub fn list_sessions(repo: &git2::Repository) -> Result<Vec<Session>, Error> {
                 })?;
                 sessions.push(Session::from_commit(repo, &commit)?);
             }
+
             Ok(sessions)
         }
     }
@@ -383,10 +433,69 @@ pub fn list_files(
     repo: &git2::Repository,
     session_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
-    let commit_id = git2::Oid::from_str(session_id).map_err(|e| Error {
-        message: format!("Could not parse commit id {}", session_id),
+    let session = match get(repo, session_id)? {
+        Some(session) => session,
+        None => Err(Error {
+            message: format!("Could not find session {}", session_id),
+            cause: ErrorCause::SessionDoesNotExistError,
+        })?,
+    };
+
+    match session.hash {
+        // if the session is committed, list the files from the session commit
+        Some(hash) => list_session_files(repo, &hash),
+        // if the session is not committed, list the files from the session base commit
+        None => list_commit_files(repo, &session.meta.commit),
+    }
+}
+
+fn list_commit_files(
+    repo: &git2::Repository,
+    repo_commit_hash: &str,
+) -> Result<HashMap<String, String>, Error> {
+    let commit_id = git2::Oid::from_str(repo_commit_hash).map_err(|e| Error {
+        message: format!("Could not parse commit id {}", repo_commit_hash),
         cause: e.into(),
     })?;
+
+    let commit = repo.find_commit(commit_id).map_err(|e| Error {
+        message: format!("Could not find commit {}", commit_id),
+        cause: e.into(),
+    })?;
+
+    let tree = commit.tree().map_err(|e| Error {
+        message: format!("Could not get tree for commit {}", commit.id()),
+        cause: e.into(),
+    })?;
+
+    let mut files = HashMap::new();
+
+    tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+        if entry.name().is_none() {
+            return git2::TreeWalkResult::Ok;
+        }
+        let path = Path::new(root).join(entry.name().unwrap());
+        let contents = read_as_string(repo, &tree, &path).unwrap();
+        files.insert(path.to_str().unwrap().to_string(), contents);
+        git2::TreeWalkResult::Ok
+    })
+    .map_err(|e| Error {
+        message: format!("Could not walk tree for commit {}", commit.id()),
+        cause: e.into(),
+    })?;
+
+    Ok(files)
+}
+
+fn list_session_files(
+    repo: &git2::Repository,
+    session_hash: &str,
+) -> Result<HashMap<String, String>, Error> {
+    let commit_id = git2::Oid::from_str(session_hash).map_err(|e| Error {
+        message: format!("Could not parse commit id {}", session_hash),
+        cause: e.into(),
+    })?;
+
     let commit = repo.find_commit(commit_id).map_err(|e| Error {
         message: format!("Could not find commit {}", commit_id),
         cause: e.into(),

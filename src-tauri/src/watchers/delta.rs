@@ -1,14 +1,14 @@
 use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
-use crate::projects::Project;
-use crate::sessions;
+use crate::projects::{self, Project};
+use crate::{butler, events, sessions};
 use git2::Repository;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::thread;
 use std::time::SystemTime;
 use std::{collections::HashMap, sync::Mutex};
+use uuid::Uuid;
 
 #[derive(Default)]
 pub struct WatcherCollection(Mutex<HashMap<String, RecommendedWatcher>>);
@@ -38,13 +38,6 @@ pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<(), Unw
         watcher.unwatch(Path::new(&project.path))?;
     }
     Ok(())
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct DeltasEvent {
-    file_path: String,
-    deltas: Vec<Delta>,
 }
 
 #[derive(Debug)]
@@ -106,19 +99,21 @@ pub fn watch<R: tauri::Runtime>(
                 for file_path in event.paths {
                     let relative_file_path =
                         file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
-                    match register_file_change(&repo, &event.kind, &relative_file_path) {
-                        Ok(Some(deltas)) => {
-                            let event_name = format!("project://{}/deltas", project.id);
-                            match window.emit(
-                                &event_name,
-                                &DeltasEvent {
-                                    deltas,
-                                    file_path: relative_file_path.to_str().unwrap().to_string(),
-                                },
-                            ) {
-                                Ok(_) => {}
-                                Err(e) => log::error!("Error: {:?}", e),
-                            };
+                    match register_file_change(
+                        &window,
+                        &project,
+                        &repo,
+                        &event.kind,
+                        &relative_file_path,
+                    ) {
+                        Ok(Some((session, deltas))) => {
+                            events::deltas(
+                                &window,
+                                &project,
+                                &session,
+                                &deltas,
+                                &relative_file_path,
+                            );
                         }
                         Ok(None) => {}
                         Err(e) => log::error!("Error: {:?}", e),
@@ -137,11 +132,13 @@ pub fn watch<R: tauri::Runtime>(
 // it should figure out delta data (crdt) and update the file at .git/gb/session/deltas/path/to/file
 // it also writes the metadata stuff which marks the beginning of a session if a session is not yet started
 // returns updated project deltas
-fn register_file_change(
+fn register_file_change<R: tauri::Runtime>(
+    window: &tauri::Window<R>,
+    project: &projects::Project,
     repo: &Repository,
     kind: &EventKind,
     relative_file_path: &Path,
-) -> Result<Option<Vec<Delta>>, Box<dyn std::error::Error>> {
+) -> Result<Option<(sessions::Session, Vec<Delta>)>, Box<dyn std::error::Error>> {
     if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
         // make sure we're not watching ignored files
         return Ok(None);
@@ -150,7 +147,7 @@ fn register_file_change(
     let file_path = repo.workdir().unwrap().join(relative_file_path);
 
     // update meta files every time file change is detected
-    write_beginning_meta_files(&repo)?;
+    let session = write_beginning_meta_files(&window, &project, &repo)?;
 
     if EventKind::is_modify(&kind) {
         log::info!("File modified: {:?}", file_path);
@@ -163,7 +160,7 @@ fn register_file_change(
     // first, we need to check if the file exists in the meta commit
     let contents = get_latest_file_contents(repo, relative_file_path)?;
     // second, get non-flushed file deltas
-    let deltas = get_current_file_deltas(&repo.workdir().unwrap(), relative_file_path)?;
+    let deltas = get_current_file_deltas(repo, relative_file_path)?;
 
     // depending on the above, we can create TextDocument suitable for calculating deltas
     let mut text_doc = match (contents, deltas) {
@@ -182,8 +179,8 @@ fn register_file_change(
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
-    save_current_file_deltas(repo.workdir().unwrap(), relative_file_path, &deltas)?;
-    return Ok(Some(deltas));
+    save_current_file_deltas(repo, relative_file_path, &deltas)?;
+    return Ok(Some((session, deltas)));
 }
 
 // returns last commited file contents from refs/gitbutler/current ref
@@ -193,7 +190,7 @@ fn get_latest_file_contents(
     repo: &Repository,
     relative_file_path: &Path,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    match repo.revparse_single("refs/gitbutler/current") {
+    match repo.revparse_single(format!("refs/{}/current", butler::refname()).as_str()) {
         Ok(object) => {
             // refs/gitbutler/current exists, return file contents from wd dir
             let gitbutler_head = repo.find_commit(object.id())?;
@@ -227,7 +224,11 @@ fn get_latest_file_contents(
 
 // this function is called when the user modifies a file, it writes starting metadata if not there
 // and also touches the last activity timestamp, so we can tell when we are idle
-fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::error::Error>> {
+fn write_beginning_meta_files<R: tauri::Runtime>(
+    window: &tauri::Window<R>,
+    project: &projects::Project,
+    repo: &Repository,
+) -> Result<sessions::Session, Box<dyn std::error::Error>> {
     let now_ts = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
@@ -237,13 +238,15 @@ fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::erro
     {
         Some(mut session) => {
             session.meta.last_ts = now_ts;
-            sessions::update_current_session(repo, &session)
+            sessions::update_session(repo, &session)
                 .map_err(|e| format!("Error while updating current session: {}", e.to_string()))?;
-            Ok(())
+            events::session(&window, &project, &session);
+            Ok(session)
         }
         None => {
             let head = repo.head()?;
             let session = sessions::Session {
+                id: Uuid::new_v4().to_string(),
                 hash: None,
                 meta: sessions::Meta {
                     start_ts: now_ts,
@@ -253,9 +256,10 @@ fn write_beginning_meta_files(repo: &Repository) -> Result<(), Box<dyn std::erro
                 },
                 activity: vec![],
             };
-            sessions::create_current_session(repo, &session)
+            sessions::create_session(repo, &session)
                 .map_err(|e| format!("Error while creating current session: {}", e.to_string()))?;
-            Ok(())
+            events::session(&window, &project, &session);
+            Ok(session)
         }
     }
 }

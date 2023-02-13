@@ -1,4 +1,6 @@
+mod butler;
 mod deltas;
+mod events;
 mod fs;
 mod projects;
 mod sessions;
@@ -11,7 +13,6 @@ use log;
 use projects::Project;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
 use storage::Storage;
 use tauri::{Manager, Runtime, State, Window};
 use tauri_plugin_log::{
@@ -53,7 +54,7 @@ fn list_sessions(
                     message: "Failed to open project".to_string(),
                 }
             })?;
-            let sessions = sessions::list_sessions(&repo).map_err(|e| {
+            let sessions = sessions::list(&repo).map_err(|e| {
                 log::error!("{}", e);
                 Error {
                     message: "Failed to list sessions".to_string(),
@@ -186,7 +187,7 @@ fn list_session_files(
 fn list_deltas(
     state: State<'_, AppState>,
     project_id: &str,
-    session_id: Option<&str>,
+    session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
     match state
         .projects_storage
@@ -197,35 +198,23 @@ fn list_deltas(
                 message: "Failed to get project".to_string(),
             }
         })? {
-        Some(project) => match session_id {
-            Some(session_id) => {
-                let repo = Repository::open(&project.path).map_err(|e| {
-                    log::error!("{}", e);
-                    Error {
-                        message: "Failed to open project".to_string(),
-                    }
-                })?;
+        Some(project) => {
+            let repo = Repository::open(&project.path).map_err(|e| {
+                log::error!("{}", e);
+                Error {
+                    message: "Failed to open project".to_string(),
+                }
+            })?;
 
-                let deltas = deltas::list_deltas(&repo, &session_id).map_err(|e| {
-                    log::error!("{}", e);
-                    Error {
-                        message: "Failed to list deltas".to_string(),
-                    }
-                })?;
+            let deltas = deltas::list(&repo, session_id).map_err(|e| {
+                log::error!("{}", e);
+                Error {
+                    message: "Failed to list deltas".to_string(),
+                }
+            })?;
 
-                Ok(deltas)
-            }
-            None => {
-                let project_path = Path::new(&project.path);
-                let deltas = deltas::list_current_deltas(project_path).map_err(|e| {
-                    log::error!("{}", e);
-                    Error {
-                        message: "Failed to list deltas".to_string(),
-                    }
-                })?;
-                Ok(deltas)
-            }
-        },
+            Ok(deltas)
+        }
         None => Err(Error {
             message: "Project not found".to_string(),
         }),

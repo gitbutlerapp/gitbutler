@@ -1,4 +1,4 @@
-use crate::fs;
+use crate::{butler, fs, sessions};
 use difference::{Changeset, Difference};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path, time::SystemTime};
@@ -135,6 +135,14 @@ pub enum ErrorCause {
     ParseJSONError(serde_json::Error),
     GitError(git2::Error),
     StringError(String),
+    SessionError(sessions::Error),
+    SessionNotFound,
+}
+
+impl From<sessions::Error> for ErrorCause {
+    fn from(e: sessions::Error) -> Self {
+        ErrorCause::SessionError(e)
+    }
 }
 
 impl From<String> for ErrorCause {
@@ -174,6 +182,8 @@ impl std::error::Error for Error {
             ErrorCause::ParseJSONError(ref e) => Some(e),
             ErrorCause::GitError(ref e) => Some(e),
             ErrorCause::StringError(_) => None,
+            ErrorCause::SessionError(ref e) => Some(e),
+            ErrorCause::SessionNotFound => None,
         }
     }
 }
@@ -185,15 +195,17 @@ impl std::fmt::Display for Error {
             ErrorCause::ParseJSONError(ref e) => write!(f, "{}: {}", self.message, e),
             ErrorCause::GitError(ref e) => write!(f, "{}: {}", self.message, e),
             ErrorCause::StringError(ref e) => write!(f, "{}: {}", self.message, e),
+            ErrorCause::SessionError(ref e) => write!(f, "{}: {}", self.message, e),
+            ErrorCause::SessionNotFound => write!(f, "{}", self.message),
         }
     }
 }
 
 pub fn get_current_file_deltas(
-    project_path: &Path,
+    repo: &git2::Repository,
     file_path: &Path,
 ) -> Result<Option<Vec<Delta>>, Error> {
-    let deltas_path = project_path.join(".git/gb/session/deltas");
+    let deltas_path = repo.path().join(butler::dir()).join("session/deltas");
     let file_deltas_path = deltas_path.join(file_path);
     if !file_deltas_path.exists() {
         return Ok(None);
@@ -224,11 +236,11 @@ pub fn get_current_file_deltas(
 }
 
 pub fn save_current_file_deltas(
-    project_path: &Path,
+    repo: &git2::Repository,
     file_path: &Path,
     deltas: &Vec<Delta>,
 ) -> Result<(), std::io::Error> {
-    let project_deltas_path = project_path.join(".git/gb/session/deltas");
+    let project_deltas_path = repo.path().join(butler::dir()).join("session/deltas");
     std::fs::create_dir_all(&project_deltas_path)?;
     let delta_path = project_deltas_path.join(file_path);
     log::info!("Writing deltas to {}", delta_path.to_str().unwrap());
@@ -237,8 +249,8 @@ pub fn save_current_file_deltas(
     Ok(())
 }
 
-pub fn list_current_deltas(project_path: &Path) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let deltas_path = project_path.join(".git/gb/session/deltas");
+fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<Delta>>, Error> {
+    let deltas_path = repo.path().join(butler::dir()).join("session/deltas");
     if !deltas_path.exists() {
         return Ok(HashMap::new());
     }
@@ -251,7 +263,7 @@ pub fn list_current_deltas(project_path: &Path) -> Result<HashMap<String, Vec<De
     let deltas = file_paths
         .iter()
         .map_while(|file_path| {
-            let file_deltas = get_current_file_deltas(project_path, Path::new(file_path));
+            let file_deltas = get_current_file_deltas(repo, Path::new(file_path));
             match file_deltas {
                 Ok(Some(file_deltas)) => Some(Ok((file_path.to_owned(), file_deltas))),
                 Ok(None) => None,
@@ -263,12 +275,30 @@ pub fn list_current_deltas(project_path: &Path) -> Result<HashMap<String, Vec<De
     Ok(deltas)
 }
 
-pub fn list_deltas(
+pub fn list(
     repo: &git2::Repository,
     session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let commit_id = git2::Oid::from_str(session_id).map_err(|e| Error {
-        message: format!("Could not parse commit id {}", session_id),
+    let session = match sessions::get(repo, session_id).map_err(|e| Error {
+        message: format!("Could not get session {}", session_id),
+        cause: e.into(),
+    })? {
+        Some(session) => session,
+        None => Err(Error {
+            message: format!("Could not find session {}", session_id),
+            cause: ErrorCause::SessionNotFound,
+        })?,
+    };
+
+    if session.hash.is_none() {
+        return list_current_deltas(repo);
+    }
+
+    let commit_id = git2::Oid::from_str(&session.hash.as_ref().unwrap()).map_err(|e| Error {
+        message: format!(
+            "Could not parse commit id {}",
+            &session.hash.as_ref().unwrap()
+        ),
         cause: e.into(),
     })?;
     let commit = repo.find_commit(commit_id).map_err(|e| Error {

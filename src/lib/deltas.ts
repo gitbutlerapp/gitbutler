@@ -24,14 +24,14 @@ type DeltasEvent = {
     filePath: string;
 };
 
-export const list = (params: { projectId: string; sessionId?: string }) =>
+const list = (params: { projectId: string; sessionId: string }) =>
     invoke<Record<string, Delta[]>>("list_deltas", params);
 
-export default async (params: { projectId: string }) => {
+export default async (params: { projectId: string, sessionId: string }) => {
     const init = await list(params);
 
     const store = writable<Record<string, Delta[]>>(init);
-    const eventName = `project://${params.projectId}/deltas`;
+    const eventName = `project://${params.projectId}/sessions/${params.sessionId}/deltas`;
     await appWindow.listen<DeltasEvent>(eventName, (event) => {
         store.update((deltas) => ({
             ...deltas,

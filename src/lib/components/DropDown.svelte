@@ -3,7 +3,6 @@
   import { scale } from "svelte/transition";
   import type { Project } from "$lib/projects";
   import { page } from "$app/stores";
-  import { derived } from "svelte/store";
 
   export let projects: Project[];
 

@@ -10,6 +10,7 @@
     import FaAngleRight from "svelte-icons/fa/FaAngleRight.svelte";
     import SessionNav from "$lib/components/session/SessionNav.svelte";
 
+
     export let data: PageData;
     // const { deltas, files, session, nextSession, previousSesssion, project } = data;
 

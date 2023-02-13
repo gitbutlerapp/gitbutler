@@ -30,7 +30,7 @@
             session.meta.branch
         )}"
         title={session.meta.branch}
-        href="/projects/{projectId}/sessions/{session.hash}/"
+        href="/projects/{projectId}/sessions/{session.id}/"
     >
         {session.meta.branch}
     </a>

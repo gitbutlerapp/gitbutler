@@ -1,4 +1,4 @@
-use crate::{fs, projects::Project, sessions};
+use crate::{butler, events, fs, projects::Project, sessions};
 use filetime::FileTime;
 use git2::{IndexTime, Repository};
 use sha2::{Digest, Sha256};
@@ -49,11 +49,7 @@ pub fn watch<R: tauri::Runtime>(
     thread::spawn(move || loop {
         match check_for_changes(&repo) {
             Ok(Some(session)) => {
-                let event_name = format!("project://{}/sessions", project.id);
-                match window.emit(&event_name, &session) {
-                    Ok(_) => {}
-                    Err(e) => log::error!("Error: {:?}", e),
-                };
+                events::session(&window, &project, &session);
             }
             Ok(None) => {}
             Err(error) => {
@@ -109,7 +105,7 @@ fn check_for_changes(
         repo.workdir().unwrap().display(),
         commit_oid
     );
-    sessions::delete_current_session(repo)?;
+    sessions::delete_session(repo)?;
 
     let commit = repo.find_commit(commit_oid)?;
     let session = sessions::Session::from_commit(repo, &commit)?;
@@ -338,7 +334,7 @@ fn build_session_index(
     index: &mut git2::Index,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
-    let session_dir = repo.path().join("gb/session");
+    let session_dir = repo.path().join(butler::dir()).join("session");
     for session_file in fs::list_files(&session_dir)? {
         let file_path = Path::new(&session_file);
         add_session_path(&repo, index, &file_path)?;
@@ -353,7 +349,11 @@ fn add_session_path(
     index: &mut git2::Index,
     rel_file_path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = repo.path().join("gb/session").join(rel_file_path);
+    let file_path = repo
+        .path()
+        .join(butler::dir())
+        .join("session")
+        .join(rel_file_path);
 
     log::debug!("Adding session path: {}", file_path.display());
 
@@ -385,12 +385,13 @@ fn add_session_path(
 // this is called once we have a tree of deltas, metadata and current wd snapshot
 // and either creates or updates the refs/gitbutler/current ref
 fn write_gb_commit(gb_tree: git2::Oid, repo: &Repository) -> Result<git2::Oid, git2::Error> {
-    // find the Oid of the commit that refs/gitbutler/current points to, none if it doesn't exist
-    match repo.revparse_single("refs/gitbutler/current") {
+    // find the Oid of the commit that refs/.../current points to, none if it doesn't exist
+    let refname = format!("refs/{}/current", butler::refname());
+    match repo.revparse_single(refname.as_str()) {
         Ok(obj) => {
             let last_commit = repo.find_commit(obj.id()).unwrap();
             let new_commit = repo.commit(
-                Some("refs/gitbutler/current"),
+                Some(refname.as_str()),
                 &repo.signature().unwrap(),        // author
                 &repo.signature().unwrap(),        // committer
                 "gitbutler check",                 // commit message
@@ -401,7 +402,7 @@ fn write_gb_commit(gb_tree: git2::Oid, repo: &Repository) -> Result<git2::Oid, g
         }
         Err(_) => {
             let new_commit = repo.commit(
-                Some("refs/gitbutler/current"),
+                Some(refname.as_str()),
                 &repo.signature().unwrap(),        // author
                 &repo.signature().unwrap(),        // committer
                 "gitbutler check",                 // commit message
