@@ -30,7 +30,10 @@
         "writeFile": true,
         "exists": true,
         "createDir": true,
-        "scope": ["$APPLOCALDATA/databases", "$APPLOCALDATA/databases/*.json"]
+        "scope": [
+            "$APPLOCALDATA/user.json",
+            "$APPLOCALDATA/user.dev.json"
+        ]
       }
     },
     "bundle": {
