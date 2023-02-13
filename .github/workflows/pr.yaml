@@ -6,7 +6,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, macos-aarch64]
+        platform: 
+          - ubuntu-latest 
+          # - macos-aarch64
+          # - macos-latest 
 
     runs-on: ${{ matrix.platform }}
     steps:
