@@ -3,7 +3,7 @@ import { appWindow } from "@tauri-apps/api/window";
 import { writable } from "svelte/store";
 
 export type Activity = {
-    type: "commit" | "checkout";
+    type: string;
     timestamp: number;
     message: string;
 };
