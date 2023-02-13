@@ -30,6 +30,8 @@ pub struct Error {
     pub message: String,
 }
 
+const IS_DEV: bool = cfg!(debug_assertions);
+
 #[tauri::command]
 fn list_sessions(
     state: State<'_, AppState>,
@@ -255,6 +257,7 @@ fn main() {
             let hide = tauri::CustomMenuItem::new("toggle".to_string(), "Hide GitButler");
             let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
             let tray = tauri::SystemTray::new().with_menu(tray_menu);
+
             tauri::Builder::default()
                 .system_tray(tray)
                 .on_window_event(|event| match event.event() {
@@ -310,6 +313,9 @@ fn main() {
                         log::error!("Failed to list projects");
                     }
 
+                    #[cfg(debug_assertions)]
+                    app.get_window("main").unwrap().open_devtools();
+
                     app.manage(AppState {
                         watchers,
                         projects_storage,
@@ -321,7 +327,10 @@ fn main() {
                 .plugin(tauri_plugin_window_state::Builder::default().build())
                 .plugin(
                     tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Debug)
+                        .level(match IS_DEV {
+                            true => log::LevelFilter::Debug,
+                            false => log::LevelFilter::Info,
+                        })
                         .with_colors(colors)
                         .targets([LogTarget::LogDir, LogTarget::Stdout, LogTarget::Webview])
                         .build(),
