@@ -440,13 +440,7 @@ pub fn list_files(
             cause: ErrorCause::SessionDoesNotExistError,
         })?,
     };
-
-    match session.hash {
-        // if the session is committed, list the files from the session commit
-        Some(hash) => list_session_files(repo, &hash),
-        // if the session is not committed, list the files from the session base commit
-        None => list_commit_files(repo, &session.meta.commit),
-    }
+    return list_commit_files(repo, &session.meta.commit);
 }
 
 fn list_commit_files(
