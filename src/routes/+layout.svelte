@@ -96,24 +96,6 @@
                     </div>
                 </button>
             </div>
-            <div class="flex w-full flex-grow flex-col space-y-4">
-                <div class="space-y-2 border-b border-zinc-700 py-4">
-                    <div class="cursor-default select-none px-4">Timeline</div>
-                    <div class="">
-                        <span class="cursor-default select-none px-8">Week</span
-                        >
-                    </div>
-                    <div class="hover:bg-zinc-800">
-                        <span class="cursor-default select-none px-8">Day</span>
-                    </div>
-                    <div class="hover:bg-zinc-800">
-                        <span class="cursor-default select-none px-8"
-                            >Session</span
-                        >
-                    </div>
-                </div>
-                <div class="my-4 cursor-default select-none px-4">Branches</div>
-            </div>
 
             <footer
                 class="fixed

@@ -1,15 +1,9 @@
 <script lang="ts">
     import type { Session } from "$lib/sessions";
+    import { toHumanReadableTime } from "$lib/time";
     import TimelineDaySessionActivities from "./TimelineDaySessionActivities.svelte";
     export let session: Session;
     export let projectId: string;
-
-    const toHumanReadableTime = (timestamp: number) => {
-        return new Date(timestamp).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "numeric",
-        });
-    };
 
     const colorFromBranchName = (branchName: string) => {
         const colors = [

@@ -1,7 +1,14 @@
+<script lang="ts">
+    import type { LayoutData, LayoutLoad } from "./$types";
+    export let data: LayoutData;
+
+    $: project = data.project;
+</script>
+
 <div class="p-3">
-    <div class="flex flex-row space-x-3 text-zinc-500 text-lg">
+    <div class="flex flex-row space-x-3 text-zinc-500 text-lg select-none">
         <div>Week</div>
-        <div class="text-zinc-300">Day</div>
+        <a href="/projects/{$project?.id}" class="hover:text-zinc-300">Day</a>
         <div title="go to current session">Session</div>
     </div>
 
