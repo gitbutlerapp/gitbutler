@@ -11,7 +11,7 @@
     export let session: Session | undefined;
 </script>
 
-<div id="session-nav" class="grid grid-cols-3 gap-6 text-sm my-2">
+<div id="session-nav" class="grid grid-cols-3 gap-6 text-sm">
     <div class="flex items-center justify-center">
         {#if previousSesssion}
             <a
@@ -34,7 +34,7 @@
         <div class="w-full">
             <SessionNavBlock
                 session={session}
-                extraClasses="p-4 border-orange-300"
+                extraClasses="py-2 border-orange-300"
             />
         </div>
         <a

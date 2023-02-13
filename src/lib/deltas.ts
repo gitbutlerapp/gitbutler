@@ -27,7 +27,7 @@ type DeltasEvent = {
 const list = (params: { projectId: string; sessionId: string }) =>
     invoke<Record<string, Delta[]>>("list_deltas", params);
 
-export default async (params: { projectId: string, sessionId: string }) => {
+export default async (params: { projectId: string; sessionId: string }) => {
     const init = await list(params);
 
     const store = writable<Record<string, Delta[]>>(init);

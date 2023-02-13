@@ -9,15 +9,15 @@ export const load: PageLoad = async ({ parent, params }) => {
     const deltas = building
         ? readable({} as Record<string, Delta[]>)
         : (await import("$lib/deltas")).default({
-            projectId: params.projectId,
-            sessionId: params.sessionId,
-        });
+              projectId: params.projectId,
+              sessionId: params.sessionId,
+          });
     const files = building
         ? ({} as Record<string, string>)
         : (await import("$lib/sessions")).listFiles({
-            projectId: params.projectId,
-            sessionId: params.sessionId,
-        });
+              projectId: params.projectId,
+              sessionId: params.sessionId,
+          });
     return {
         session: derived(sessions, (sessions) =>
             sessions.find((session) => session.id === params.sessionId)

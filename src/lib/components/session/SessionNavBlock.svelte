@@ -11,7 +11,7 @@
     {#if session}
         <div
             class="cursor-default select-none flex flex-col 
-            border rounded-md p-2 overflow-hidden bg-zinc-700 border-zinc-600 
+            border rounded-md px-2 py-1 overflow-hidden bg-zinc-700 border-zinc-600 
             {hover ? 'hover:border-zinc-400 cursor-auto' : ''} {extraClasses}"
         >
             <div class="font-bold text-zinc-300">

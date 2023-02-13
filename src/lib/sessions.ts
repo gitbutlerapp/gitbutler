@@ -9,7 +9,7 @@ export type Activity = {
 };
 
 export type Session = {
-    id: string
+    id: string;
     hash?: string;
     meta: {
         startTs: number;
