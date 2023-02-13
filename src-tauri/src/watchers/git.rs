@@ -80,41 +80,41 @@ pub fn watch<R: tauri::Runtime>(
 fn check_for_changes(
     repo: &Repository,
 ) -> Result<Option<sessions::Session>, Box<dyn std::error::Error>> {
-    if ready_to_commit(repo)? {
-        let wd_index = &mut git2::Index::new()?;
-        build_wd_index(&repo, wd_index)?;
-        let wd_tree = wd_index.write_tree_to(&repo)?;
-
-        let session_index = &mut git2::Index::new()?;
-        build_session_index(&repo, session_index)?;
-        let session_tree = session_index.write_tree_to(&repo)?;
-
-        let log_index = &mut git2::Index::new()?;
-        build_log_index(&repo, log_index)?;
-        let log_tree = log_index.write_tree_to(&repo)?;
-
-        let mut tree_builder = repo.treebuilder(None)?;
-        tree_builder.insert("session", session_tree, 0o040000)?;
-        tree_builder.insert("wd", wd_tree, 0o040000)?;
-        tree_builder.insert("logs", log_tree, 0o040000)?;
-
-        let tree = tree_builder.write()?;
-
-        let commit_oid = write_gb_commit(tree, &repo)?;
-        log::debug!(
-            "{}: wrote gb commit {}",
-            repo.workdir().unwrap().display(),
-            commit_oid
-        );
-        sessions::delete_current_session(repo)?;
-
-        let commit = repo.find_commit(commit_oid)?;
-        let session = sessions::Session::from_commit(repo, &commit)?;
-
-        Ok(Some(session))
-    } else {
-        Ok(None)
+    if !ready_to_commit(repo)? {
+        return Ok(None);
     }
+
+    let wd_index = &mut git2::Index::new()?;
+    build_wd_index(&repo, wd_index)?;
+    let wd_tree = wd_index.write_tree_to(&repo)?;
+
+    let session_index = &mut git2::Index::new()?;
+    build_session_index(&repo, session_index)?;
+    let session_tree = session_index.write_tree_to(&repo)?;
+
+    let log_index = &mut git2::Index::new()?;
+    build_log_index(&repo, log_index)?;
+    let log_tree = log_index.write_tree_to(&repo)?;
+
+    let mut tree_builder = repo.treebuilder(None)?;
+    tree_builder.insert("session", session_tree, 0o040000)?;
+    tree_builder.insert("wd", wd_tree, 0o040000)?;
+    tree_builder.insert("logs", log_tree, 0o040000)?;
+
+    let tree = tree_builder.write()?;
+
+    let commit_oid = write_gb_commit(tree, &repo)?;
+    log::debug!(
+        "{}: wrote gb commit {}",
+        repo.workdir().unwrap().display(),
+        commit_oid
+    );
+    sessions::delete_current_session(repo)?;
+
+    let commit = repo.find_commit(commit_oid)?;
+    let session = sessions::Session::from_commit(repo, &commit)?;
+
+    Ok(Some(session))
 
     // TODO: try to push the new gb history head to the remote
     // TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
@@ -169,7 +169,7 @@ fn build_wd_index(
     for file in all_files {
         let file_path = Path::new(&file);
         if !repo.is_path_ignored(&file).unwrap_or(true) {
-            add_path(index, repo_index, &file_path, &repo)?;
+            add_wd_path(index, repo_index, &file_path, &repo)?;
         }
     }
 
@@ -180,7 +180,7 @@ fn build_wd_index(
 // we call this from build_initial_wd_tree, which is smart about using the existing index to avoid rehashing files that haven't changed
 // and also looks for large files and puts in a placeholder hash in the LFS format
 // TODO: actually upload the file to LFS
-fn add_path(
+fn add_wd_path(
     index: &mut git2::Index,
     repo_index: &mut git2::Index,
     rel_file_path: &Path,
@@ -295,10 +295,23 @@ fn build_log_index(
     repo: &Repository,
     index: &mut git2::Index,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let log_path = repo.path().join("logs/HEAD");
-    log::debug!("Adding log path: {}", log_path.display());
+    let logs_dir = repo.path().join("logs");
+    for log_file in fs::list_files(&logs_dir)? {
+        let log_file = Path::new(&log_file);
+        add_log_path(repo, index, &log_file)?;
+    }
+    Ok(())
+}
 
-    let metadata = log_path.metadata()?;
+fn add_log_path(
+    repo: &Repository,
+    index: &mut git2::Index,
+    rel_file_path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let file_path = repo.path().join("logs").join(rel_file_path);
+    log::debug!("Adding log path: {}", file_path.display());
+
+    let metadata = file_path.metadata()?;
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap();
 
@@ -313,8 +326,8 @@ fn build_log_index(
         file_size: metadata.len().try_into()?,
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
-        path: "HEAD".to_string().into(),
-        id: repo.blob_path(&log_path)?,
+        path: rel_file_path.to_str().unwrap().to_string().into(),
+        id: repo.blob_path(&file_path)?,
     })?;
 
     Ok(())
