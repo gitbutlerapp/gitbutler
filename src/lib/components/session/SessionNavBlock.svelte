@@ -3,17 +3,21 @@
     import sessions from "$lib/sessions";
     import { toHumanReadableTime } from "$lib/time";
     export let session: Session | undefined;
+    export let hover: boolean = false;
+    export let extraClasses: string = "";
 </script>
 
 <div>
     {#if session}
         <div
-            class="cursor-default select-none flex flex-col border rounded-md p-2 overflow-hidden bg-zinc-700 border-zinc-600"
+            class="cursor-default select-none flex flex-col 
+            border rounded-md p-2 overflow-hidden bg-zinc-700 border-zinc-600 
+            {hover ? 'hover:border-zinc-400 cursor-auto' : ''} {extraClasses}"
         >
-            <div>
+            <div class="font-bold text-zinc-300">
                 {session.meta.branch}
             </div>
-            <div>
+            <div class="mt-1 text-xs">
                 <span>
                     {#if session.meta.startTs}
                         {toHumanReadableTime(session.meta.startTs)}

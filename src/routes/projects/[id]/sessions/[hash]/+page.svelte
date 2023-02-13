@@ -8,6 +8,7 @@
     import SessionNavBlock from "$lib/components/session/SessionNavBlock.svelte";
     import FaAngleLeft from "svelte-icons/fa/FaAngleLeft.svelte";
     import FaAngleRight from "svelte-icons/fa/FaAngleRight.svelte";
+    import SessionNav from "$lib/components/session/SessionNav.svelte";
 
     export let data: PageData;
     // const { deltas, files, session, nextSession, previousSesssion, project } = data;
@@ -54,28 +55,16 @@
     // const showTimeline = isFinite(min) && isFinite(max);
 </script>
 
-<div>
-    <div id="session-nav" class="flex flex-row space-x-4 my-4 items-center">
-        {#if $previousSesssion}
-            <a
-                href="/projects/{$project?.id}/sessions/{$previousSesssion?.hash}"
-            >
-                <SessionNavBlock session={$previousSesssion} />
-            </a>
-        {/if}
-        <div class="w-8 h-8 {$previousSesssion ? 'visible' : 'invisible'}">
-            <FaAngleLeft />
-        </div>
-        <SessionNavBlock session={$session} />
-        <div class="w-8 h-8 {$nextSession ? 'visible' : 'invisible'}">
-            <FaAngleRight />
-        </div>
-        {#if $nextSession}
-            <a href="/projects/{$project?.id}/sessions/{$nextSession?.hash}">
-                <SessionNavBlock session={$nextSession} />
-            </a>
-        {/if}
+<div class="">
+    <div class="flex justify-center border-y border-zinc-700">
+        <SessionNav
+            project={$project}
+            session={$session}
+            nextSession={$nextSession}
+            previousSesssion={$previousSesssion}
+        />
     </div>
+
     <div id="debug" class="mt-24">
         session hash: {$session?.hash}
     </div>
