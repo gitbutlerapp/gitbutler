@@ -32,7 +32,20 @@ export default async (params: { projectId: string }) => {
     const eventName = `project://${params.projectId}/sessions`;
 
     await appWindow.listen<Session>(eventName, (event) => {
-        store.update((sessions) => [...sessions, event.payload]);
+        store.update((sessions) => {
+            const index = sessions.findIndex(
+                (session) => session.id === event.payload.id
+            );
+            if (index === -1) {
+                return [...sessions, event.payload];
+            } else {
+                return [
+                    ...sessions.slice(0, index),
+                    event.payload,
+                    ...sessions.slice(index + 1),
+                ];
+            }
+        });
     });
 
     return {
