@@ -13,6 +13,10 @@
   "tauri": {
     "allowlist": {
       "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+       },
       "dialog": {
         "all": false,
         "open": true
@@ -30,7 +34,9 @@
         "writeFile": true,
         "exists": true,
         "createDir": true,
-        "scope": ["$APPLOCALDATA/databases", "$APPLOCALDATA/databases/*.json"]
+        "scope": [
+            "$APPLOCALDATA/user.json"
+        ]
       }
     },
     "bundle": {
