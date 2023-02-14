@@ -24,7 +24,7 @@ type DeltasEvent = {
     filePath: string;
 };
 
-const list = (params: { projectId: string; sessionId: string }) =>
+export const list = (params: { projectId: string; sessionId: string }) =>
     invoke<Record<string, Delta[]>>("list_deltas", params);
 
 export default async (params: { projectId: string; sessionId: string }) => {
