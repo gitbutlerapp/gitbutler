@@ -1,6 +1,7 @@
 use crate::{butler, fs};
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
+use git2::{PushOptions, RemoteCallbacks, Repository};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -499,10 +500,48 @@ pub fn flush_current_session(repo: &git2::Repository) -> Result<Session> {
     );
     delete_session(repo)?;
 
-    Ok(session.unwrap())
+    push_to_remote(repo);
 
-    // TODO: try to push the new gb history head to the remote
-    // TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
+    Ok(session.unwrap())
+}
+
+// try to push the new gb history head to the remote
+// TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
+fn push_to_remote(repo: &Repository) -> Result<(), git2::Error> {
+    // TODO: only push if the user is logged in and this project is registered
+
+    // TODO: get the remote url from the config for the project
+    let remote_url = "http://localhost:3000/git/e4cd628d-40b6-42d2-a0a9-44af4b7eb5ea";
+
+    // TODO: get the auth token from the users.json
+    let auth_token = "2562659d-4036-45e2-a1a6-c70a135f0253";
+
+    println!("Pushing to remote: {}", remote_url);
+
+    // Create an anonymous remote
+    let mut remote = repo.remote_anonymous(remote_url).unwrap();
+
+    // Set the remote's callbacks
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.push_update_reference(move |refname, message| {
+        println!("Pushing reference '{}': {:?}", refname, message);
+        Ok(())
+    });
+    callbacks.push_transfer_progress(move |one, two, three| {
+        println!("Transferred {}/{}/{} objects", one, two, three);
+    });
+
+    let mut push_options = PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+    let auth_header = format!("Authorization: {}", auth_token);
+    let headers = &[auth_header.as_str()];
+    push_options.custom_headers(headers);
+
+    // Push to the remote
+    let refname = format!("refs/{}/current", butler::refname());
+    remote.push(&[refname], Some(&mut push_options));
+
+    Ok(())
 }
 
 // build the initial tree from the working directory, not taking into account the gitbutler metadata
