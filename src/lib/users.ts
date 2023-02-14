@@ -20,7 +20,7 @@ export default async () => {
 
     store.subscribe(async (user) => {
         if (user) {
-            console.log({ user });
+            console.log("User", user);
             await writeTextFile(userFile, JSON.stringify(user), {
                 dir: BaseDirectory.AppLocalData
             });

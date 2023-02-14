@@ -526,6 +526,7 @@ fn push_to_remote(repo: &Repository, user: &Option<User>) -> Result<(), git2::Er
         }
     }
 
+    // TODO: get the remote url from the config
     let remote_url = "https://test.app.gitbutler.com/git/287bff35-7827-4fc1-aab9-e9732da2b5ec";
 
     println!("Pushing to remote: {}", remote_url);

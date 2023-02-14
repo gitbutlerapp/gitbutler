@@ -21,6 +21,15 @@ export type User = {
     access_token: string,
 }
 
+export type Project = {
+    id: number,
+    name: string,
+    description: string,
+    created_at: string,
+    updated_at: string,
+    git_url: string,
+}
+
 const parseJSON = async (response: Response) => {
     if (response.status === 204 || response.status === 205) {
         return null;
@@ -53,6 +62,18 @@ export default ({ fetch }: { fetch: typeof window.fetch } = { fetch: window.fetc
         user: {
             get: (token: string): Promise<User> => fetch(getUrl(`login/user/${token}.json`), {
                 method: 'GET',
+            }).then(parseJSON),
+        },
+        project: {
+            get: (repoId: string): Promise<Project> => fetch(getUrl(`projects/${repoId}.json`), {
+                method: 'GET',
+            }).then(parseJSON),
+            create: (params: {} = {}): Promise<Project> => fetch(getUrl(`projects.json`), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(params),
             }).then(parseJSON),
         }
     }
