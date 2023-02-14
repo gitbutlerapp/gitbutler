@@ -32,6 +32,14 @@ pub struct Error {
 
 const IS_DEV: bool = cfg!(debug_assertions);
 
+fn app_title() -> String {
+    if IS_DEV {
+        "GitButler (dev)".to_string()
+    } else {
+        "GitButler".to_string()
+    }
+}
+
 #[tauri::command]
 fn list_sessions(
     state: State<'_, AppState>,
@@ -257,7 +265,7 @@ fn main() {
                             .app_handle()
                             .tray_handle()
                             .get_item("toggle")
-                            .set_title("Show GitButler")
+                            .set_title(format!("Show {}", app_title()))
                             .unwrap();
                     }
                     _ => {}
@@ -273,10 +281,14 @@ fn main() {
                                 let main_window = app.get_window("main").unwrap();
                                 if main_window.is_visible().unwrap() {
                                     main_window.hide().unwrap();
-                                    item_handle.set_title("Show GitButler").unwrap();
+                                    item_handle
+                                        .set_title(format!("Show {}", app_title()))
+                                        .unwrap();
                                 } else {
                                     main_window.show().unwrap();
-                                    item_handle.set_title("Hide GitButler").unwrap();
+                                    item_handle
+                                        .set_title(format!("Hide {}", app_title()))
+                                        .unwrap();
                                 }
                             }
                             _ => {}
