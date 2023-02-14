@@ -2,6 +2,7 @@ lockfileVersion: 5.4
 
 specifiers:
   '@codemirror/commands': ^6.2.0
+  '@codemirror/merge': ^0.1.3
   '@codemirror/state': ^6.2.0
   '@codemirror/view': ^6.7.3
   '@sveltejs/adapter-static': next
@@ -35,6 +36,7 @@ specifiers:
 
 dependencies:
   '@codemirror/commands': 6.2.0
+  '@codemirror/merge': 0.1.3
   '@codemirror/state': 6.2.0
   '@codemirror/view': 6.7.3
   '@tauri-apps/api': 1.2.0
@@ -109,6 +111,13 @@ packages:
       '@lezer/highlight': 1.1.3
       '@lezer/lr': 1.3.3
       style-mod: 4.0.0
+    dev: false
+
+  /@codemirror/merge/0.1.3:
+    resolution: {integrity: sha512-TWsHdhezs7WcIn8+sflvjZMS8b7p9N1HIUfKmqx9W/Rnl7vxXnx0ACFS+7IWcVmKpVVsWzXl32HNeYVghHOsbQ==}
+    dependencies:
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
     dev: false
 
   /@codemirror/state/6.2.0:

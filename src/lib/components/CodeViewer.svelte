@@ -3,60 +3,30 @@
 
     import { EditorState, StateField, StateEffect } from "@codemirror/state";
     import { EditorView, lineNumbers, Decoration } from "@codemirror/view";
+    import { MergeView } from "@codemirror/merge";
 
     export let value: string;
-    //$: value = doc?.toString();
-    //$: lastInserts = doc
-    //?.getHistory()
-    //.filter((e) => e.deltas.some((x: any) => x["insert"]))
-    //.slice(1)
-    //.slice(-10)
-    //.map((e) => e["deltas"]);
+    export let newValue: string;
 
     let element: HTMLDivElement;
-    let view: EditorView;
+    let mergeView: MergeView;
 
-    $: view && update(value);
-    //$: view && col(lastInserts, "bg-fuchsia-500");
+    onMount(() => (mergeView = create_merge_view(value, newValue)));
+    onDestroy(() => mergeView?.destroy());
 
-    //function col(inserts: any[] | undefined, c: string) {
-    //if (!inserts) return;
-    //let cs = [
-    //"bg-fuchsia-900",
-    //"bg-fuchsia-800",
-    //"bg-fuchsia-700",
-    //"bg-fuchsia-600",
-    //"bg-fuchsia-500",
-    //"bg-fuchsia-400",
-    //"bg-fuchsia-300",
-    //"bg-fuchsia-200",
-    //"bg-fuchsia-100",
-    //"bg-fuchsia-50",
-    //];
-    //for (let i of inserts.reverse()) {
-    //let op = cs.shift();
-    //let cls = op ? op : "bg-fuchsia-50";
-    //console.log(cls);
-    //colorLastEdit(i, cls);
-    //}
-    //}
+    // $: mergeView && update(value, newValue);
 
-    //function colorLastEdit(e: any[] | undefined, c: string) {
-    //let retain = e?.filter((e) => e["retain"])[0];
-    //let insert = e?.filter((e) => e["insert"])[0];
-    //if (retain && insert) {
-    //let start = retain["retain"];
-    //let end = start + insert["insert"].length;
-    //triggerColor(view, [{ from: start, to: end, c: c }]);
-    //}
-    //}
-
-    onMount(() => (view = create_editor_view()));
-    onDestroy(() => view?.destroy());
-
-    function update(value: string | null | undefined): void {
-        view.setState(create_editor_state(value));
-    }
+    // function update(a: string | null | undefined, b: string | null | undefined): void {
+    // mergeView.a.setState(create_editor_state(a));
+    // mergeView.reconfigure({
+    //     collapseUnchanged: { margin: 3, minSize: 3 },
+    // })
+    // view.setState(create_editor_state(value));
+    // mer
+    // mergeView.setA(create_editor_state(value));
+    // mergeView.setB(create_editor_state(value));
+    // TODO
+    // }
 
     function create_editor_state(
         value: string | null | undefined
@@ -67,63 +37,19 @@
         });
     }
 
-    function create_editor_view(): EditorView {
-        return new EditorView({
+    function create_merge_view(a: string, b: string): MergeView {
+        return new MergeView({
+            a: create_editor_state(a),
+            b: create_editor_state(b),
             parent: element,
-            state: create_editor_state(value),
+            collapseUnchanged: { margin: 3, minSize: 3 },
         });
     }
-
-    const addColor = StateEffect.define<{
-        from: number;
-        to: number;
-        c: string;
-    }>({
-        map: ({ from, to, c }, change) => {
-            return {
-                from: change.mapPos(from),
-                to: change.mapPos(to),
-                c: c,
-            };
-        },
-    });
-
-    const colorField = StateField.define({
-        create() {
-            return Decoration.none;
-        },
-        update(painted, tr) {
-            painted = painted.map(tr.changes);
-            for (let e of tr.effects)
-                if (e.is(addColor)) {
-                    painted = painted.update({
-                        add: [
-                            Decoration.mark({ class: e.value.c }).range(
-                                e.value.from,
-                                e.value.to
-                            ),
-                        ],
-                    });
-                }
-            return painted;
-        },
-        provide: (f) => EditorView.decorations.from(f),
-    });
-
-    //const triggerColor = (view: EditorView, positions: any[]) => {
-    //for (const position of positions) {
-    //const effect = addColor.of(position);
-    //view.dispatch({
-    //effects: [effect],
-    //});
-    //}
-    //};
 
     let state_extensions = [
         EditorView.editable.of(false),
         EditorView.lineWrapping,
         lineNumbers(),
-        colorField,
     ];
 </script>
 

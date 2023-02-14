@@ -85,7 +85,8 @@
                         {filepath}
                     </summary>
                     <CodeViewer
-                        value={contentWithDeltasApplied(
+                        value={contentAtSessionStart}
+                        newValue={contentWithDeltasApplied(
                             contentAtSessionStart,
                             $deltas[filepath]
                         )}

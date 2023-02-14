@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@codemirror/commands": "^6.2.0",
+    "@codemirror/merge": "^0.1.3",
     "@codemirror/state": "^6.2.0",
     "@codemirror/view": "^6.7.3",
     "@tauri-apps/api": "^1.2.0",
