@@ -1,4 +1,5 @@
 use crate::{butler, fs, sessions};
+use anyhow::{anyhow, Context, Result};
 use difference::{Changeset, Difference};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path, time::SystemTime};
@@ -129,83 +130,22 @@ impl TextDocument {
     }
 }
 
-#[derive(Debug)]
-pub enum Error {
-    IOError(std::io::Error),
-    ParseJSONError(serde_json::Error),
-    GitError(git2::Error),
-    StringError(String),
-    SessionError(sessions::Error),
-    SessionNotFound,
-}
-
-impl From<sessions::Error> for Error {
-    fn from(e: sessions::Error) -> Self {
-        Error::SessionError(e)
-    }
-}
-
-impl From<String> for Error {
-    fn from(e: String) -> Self {
-        Error::StringError(e)
-    }
-}
-
-impl From<git2::Error> for Error {
-    fn from(e: git2::Error) -> Self {
-        Error::GitError(e)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
-        Error::IOError(e)
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        Error::ParseJSONError(e)
-    }
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::IOError(e) => write!(f, "IOError: {}", e),
-            Error::ParseJSONError(e) => write!(f, "ParseJSONError: {}", e),
-            Error::GitError(e) => write!(f, "GitError: {}", e),
-            Error::StringError(e) => write!(f, "StringError: {}", e),
-            Error::SessionError(e) => write!(f, "SessionError: {}", e),
-            Error::SessionNotFound => write!(f, "SessionNotFound"),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::IOError(e) => Some(e),
-            Error::ParseJSONError(e) => Some(e),
-            Error::GitError(e) => Some(e),
-            Error::StringError(_) => Some(self),
-            Error::SessionError(e) => Some(e),
-            Error::SessionNotFound => Some(self),
-        }
-    }
-}
-
 pub fn get_current_file_deltas(
     repo: &git2::Repository,
     file_path: &Path,
-) -> Result<Option<Vec<Delta>>, Error> {
+) -> Result<Option<Vec<Delta>>> {
     let deltas_path = repo.path().join(butler::dir()).join("session/deltas");
     let file_deltas_path = deltas_path.join(file_path);
     if !file_deltas_path.exists() {
         return Ok(None);
     }
 
-    let file_deltas = std::fs::read_to_string(&file_deltas_path)?;
+    let file_deltas = std::fs::read_to_string(&file_deltas_path).with_context(|| {
+        format!(
+            "Failed to read file deltas from {}",
+            file_deltas_path.to_str().unwrap()
+        )
+    })?;
     Ok(Some(serde_json::from_str(&file_deltas)?))
 }
 
@@ -213,7 +153,7 @@ pub fn save_current_file_deltas(
     repo: &git2::Repository,
     file_path: &Path,
     deltas: &Vec<Delta>,
-) -> Result<(), std::io::Error> {
+) -> Result<()> {
     let project_deltas_path = repo.path().join(butler::dir()).join("session/deltas");
     let delta_path = project_deltas_path.join(file_path);
     let delta_dir = delta_path.parent().unwrap();
@@ -221,18 +161,24 @@ pub fn save_current_file_deltas(
     log::info!("mkdir {}", delta_path.to_str().unwrap());
     log::info!("Writing deltas to {}", delta_path.to_str().unwrap());
     let raw_deltas = serde_json::to_string(&deltas)?;
-    std::fs::write(delta_path, raw_deltas)?;
+    std::fs::write(delta_path.clone(), raw_deltas).with_context(|| {
+        format!(
+            "Failed to write file deltas to {}",
+            delta_path.to_str().unwrap()
+        )
+    })?;
     Ok(())
 }
 
 // returns deltas for a current session from .gb/session/deltas tree
-fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<Delta>>, Error> {
+fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<Delta>>> {
     let deltas_path = repo.path().join(butler::dir()).join("session/deltas");
     if !deltas_path.exists() {
         return Ok(HashMap::new());
     }
 
-    let file_paths = fs::list_files(&deltas_path)?;
+    let file_paths = fs::list_files(&deltas_path)
+        .with_context(|| format!("Failed to list files in {}", deltas_path.to_str().unwrap()))?;
 
     let deltas = file_paths
         .iter()
@@ -244,24 +190,23 @@ fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<De
                 Err(err) => Some(Err(err)),
             }
         })
-        .collect::<Result<HashMap<String, Vec<Delta>>, Error>>()?;
+        .collect::<Result<HashMap<String, Vec<Delta>>>>()?;
 
     Ok(deltas)
 }
 
-pub fn list(
-    repo: &git2::Repository,
-    session_id: &str,
-) -> Result<HashMap<String, Vec<Delta>>, Error> {
+pub fn list(repo: &git2::Repository, session_id: &str) -> Result<HashMap<String, Vec<Delta>>> {
     let session = match sessions::get(repo, session_id)? {
         Some(session) => Ok(session),
-        None => Err(Error::SessionNotFound),
+        None => Err(anyhow!("Session {} not found", session_id)),
     }?;
 
     if session.hash.is_none() {
         list_current_deltas(repo)
+            .with_context(|| format!("Failed to list current deltas for session {}", session_id))
     } else {
         list_commit_deltas(repo, &session.hash.unwrap())
+            .with_context(|| format!("Failed to list commit deltas for session {}", session_id))
     }
 }
 
@@ -269,7 +214,7 @@ pub fn list(
 pub fn list_commit_deltas(
     repo: &git2::Repository,
     commit_hash: &str,
-) -> Result<HashMap<String, Vec<Delta>>, Error> {
+) -> Result<HashMap<String, Vec<Delta>>> {
     let commit_id = git2::Oid::from_str(commit_hash)?;
     let commit = repo.find_commit(commit_id)?;
     let tree = commit.tree()?;
@@ -291,7 +236,7 @@ pub fn list_commit_deltas(
 
         match content {
             Ok(content) => {
-                let deltas: Result<Vec<Delta>, Error> =
+                let deltas: Result<Vec<Delta>> =
                     serde_json::from_slice(&content).map_err(|e| e.into());
                 blobs.insert(
                     entry_path

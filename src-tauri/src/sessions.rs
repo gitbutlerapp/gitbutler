@@ -1,4 +1,5 @@
 use crate::{butler, fs};
+use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -44,7 +45,7 @@ pub struct Activity {
     pub message: String,
 }
 
-fn parse_reflog_line(line: &str) -> Result<Activity, Error> {
+fn parse_reflog_line(line: &str) -> Result<Activity> {
     match line.split("\t").collect::<Vec<&str>>()[..] {
         [meta, message] => {
             let meta_parts = meta.split_whitespace().collect::<Vec<&str>>();
@@ -56,15 +57,15 @@ fn parse_reflog_line(line: &str) -> Result<Activity, Error> {
                     message: msg.to_string(),
                     timestamp,
                 }),
-                _ => Err(Error::ParseActivityError),
+                _ => Err(anyhow!("failed to parse reflog line: {}", line)),
             }
         }
-        _ => Err(Error::ParseActivityError),
+        _ => Err(anyhow!("failed to parse reflog line: {}", line)),
     }
 }
 
 impl Session {
-    pub fn current(repo: &git2::Repository) -> Result<Option<Self>, Error> {
+    pub fn current(repo: &git2::Repository) -> Result<Option<Self>> {
         let session_path = repo.path().join(butler::dir()).join("session");
         if !session_path.exists() {
             return Ok(None);
@@ -73,18 +74,41 @@ impl Session {
         let meta_path = session_path.join("meta");
 
         let start_path = meta_path.join("start");
-        let start_ts = std::fs::read_to_string(start_path)?.parse::<u64>()?;
+        let start_ts = std::fs::read_to_string(start_path.clone())?
+            .parse::<u64>()
+            .with_context(|| {
+                format!(
+                    "failed to parse start timestamp from {}",
+                    start_path.display()
+                )
+            })?;
 
         let last_path = meta_path.join("last");
-        let last_ts = std::fs::read_to_string(last_path)?.parse::<u64>()?;
+        let last_ts = std::fs::read_to_string(last_path.clone())?
+            .parse::<u64>()
+            .with_context(|| {
+                format!(
+                    "failed to parse last timestamp from {}",
+                    last_path.display()
+                )
+            })?;
 
         let branch_path = meta_path.join("branch");
-        let branch = std::fs::read_to_string(branch_path)?;
+        let branch = std::fs::read_to_string(branch_path.clone()).with_context(|| {
+            format!("failed to read branch name from {}", branch_path.display())
+        })?;
 
         let commit_path = meta_path.join("commit");
-        let commit = std::fs::read_to_string(commit_path)?;
+        let commit = std::fs::read_to_string(commit_path.clone()).with_context(|| {
+            format!("failed to read commit hash from {}", commit_path.display())
+        })?;
 
-        let reflog = std::fs::read_to_string(repo.path().join("logs/HEAD"))?;
+        let reflog = std::fs::read_to_string(repo.path().join("logs/HEAD")).with_context(|| {
+            format!(
+                "failed to read reflog from {}",
+                repo.path().join("logs/HEAD").display()
+            )
+        })?;
         let activity = reflog
             .lines()
             .filter_map(|line| parse_reflog_line(line).ok())
@@ -92,7 +116,8 @@ impl Session {
             .collect::<Vec<Activity>>();
 
         let id_path = meta_path.join("id");
-        let id = std::fs::read_to_string(id_path)?;
+        let id = std::fs::read_to_string(id_path.clone())
+            .with_context(|| format!("failed to read session id from {}", id_path.display()))?;
 
         Ok(Some(Session {
             id,
@@ -107,7 +132,7 @@ impl Session {
         }))
     }
 
-    pub fn from_head(repo: &git2::Repository) -> Result<Self, Error> {
+    pub fn from_head(repo: &git2::Repository) -> Result<Self> {
         let now_ts = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -129,13 +154,26 @@ impl Session {
         Ok(session)
     }
 
-    pub fn from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<Self, Error> {
-        let tree = commit.tree()?;
+    pub fn from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<Self> {
+        let tree = commit.tree().with_context(|| {
+            format!("failed to get tree from commit {}", commit.id().to_string())
+        })?;
 
-        let start_ts =
-            read_as_string(repo, &tree, Path::new("session/meta/start"))?.parse::<u64>()?;
+        let start_ts = read_as_string(repo, &tree, Path::new("session/meta/start"))?
+            .parse::<u64>()
+            .with_context(|| {
+                format!(
+                    "failed to parse start timestamp from commit {}",
+                    commit.id().to_string()
+                )
+            })?;
 
-        let reflog = read_as_string(repo, &tree, Path::new("logs/HEAD"))?;
+        let reflog = read_as_string(repo, &tree, Path::new("logs/HEAD")).with_context(|| {
+            format!(
+                "failed to read reflog from commit {}",
+                commit.id().to_string()
+            )
+        })?;
         let activity = reflog
             .lines()
             .filter_map(|line| parse_reflog_line(line).ok())
@@ -143,68 +181,117 @@ impl Session {
             .collect::<Vec<Activity>>();
 
         Ok(Session {
-            id: read_as_string(repo, &tree, Path::new("session/meta/id"))?,
+            id: read_as_string(repo, &tree, Path::new("session/meta/id")).with_context(|| {
+                format!(
+                    "failed to read session id from commit {}",
+                    commit.id().to_string()
+                )
+            })?,
             hash: Some(commit.id().to_string()),
             meta: Meta {
                 start_ts,
                 last_ts: read_as_string(repo, &tree, Path::new("session/meta/last"))?
-                    .parse::<u64>()?,
-                branch: read_as_string(repo, &tree, Path::new("session/meta/branch"))?,
-                commit: read_as_string(repo, &tree, Path::new("session/meta/commit"))?,
+                    .parse::<u64>()
+                    .with_context(|| {
+                        format!(
+                            "failed to parse last timestamp from commit {}",
+                            commit.id().to_string()
+                        )
+                    })?,
+                branch: read_as_string(repo, &tree, Path::new("session/meta/branch"))
+                    .with_context(|| {
+                        format!(
+                            "failed to read branch name from commit {}",
+                            commit.id().to_string()
+                        )
+                    })?,
+                commit: read_as_string(repo, &tree, Path::new("session/meta/commit"))
+                    .with_context(|| {
+                        format!(
+                            "failed to read commit hash from commit {}",
+                            commit.id().to_string()
+                        )
+                    })?,
             },
             activity,
         })
     }
 }
 
-fn write_session(session_path: &Path, session: &Session) -> Result<(), Error> {
+fn write_session(session_path: &Path, session: &Session) -> Result<()> {
     if session.hash.is_some() {
-        return Err(Error::SessionIsNotCurrentError);
+        return Err(anyhow!("cannot write session that is not current"));
     }
 
     let meta_path = session_path.join("meta");
 
-    std::fs::create_dir_all(meta_path.clone())?;
+    std::fs::create_dir_all(meta_path.clone()).with_context(|| {
+        format!(
+            "failed to create session meta directory {}",
+            meta_path.display()
+        )
+    })?;
 
     let id_path = meta_path.join("id");
-    std::fs::write(id_path, session.id.clone())?;
+    std::fs::write(id_path.clone(), session.id.clone())
+        .with_context(|| format!("failed to write session id to {}", id_path.display()))?;
 
     let start_path = meta_path.join("start");
-    std::fs::write(start_path, session.meta.start_ts.to_string())?;
+    std::fs::write(start_path.clone(), session.meta.start_ts.to_string()).with_context(|| {
+        format!(
+            "failed to write session start timestamp to {}",
+            start_path.display()
+        )
+    })?;
 
     let last_path = meta_path.join("last");
-    std::fs::write(last_path, session.meta.last_ts.to_string())?;
+    std::fs::write(last_path.clone(), session.meta.last_ts.to_string()).with_context(|| {
+        format!(
+            "failed to write session last timestamp to {}",
+            last_path.display()
+        )
+    })?;
 
     let branch_path = meta_path.join("branch");
-    std::fs::write(branch_path, session.meta.branch.clone())?;
+    std::fs::write(branch_path.clone(), session.meta.branch.clone()).with_context(|| {
+        format!(
+            "failed to write session branch to {}",
+            branch_path.display()
+        )
+    })?;
 
     let commit_path = meta_path.join("commit");
-    std::fs::write(commit_path, session.meta.commit.clone())?;
+    std::fs::write(commit_path.clone(), session.meta.commit.clone()).with_context(|| {
+        format!(
+            "failed to write session commit to {}",
+            commit_path.display()
+        )
+    })?;
 
     Ok(())
 }
 
-pub fn update_session(repo: &git2::Repository, session: &Session) -> Result<(), Error> {
+pub fn update_session(repo: &git2::Repository, session: &Session) -> Result<()> {
     log::debug!("{}: Updating current session", repo.path().display());
     let session_path = repo.path().join(butler::dir()).join("session");
     if session_path.exists() {
         write_session(&session_path, session)
     } else {
-        Err(Error::SessionNotFound)
+        Err(anyhow!("session does not exist"))
     }
 }
 
-pub fn create_session(repo: &git2::Repository, session: &Session) -> Result<(), Error> {
+pub fn create_session(repo: &git2::Repository, session: &Session) -> Result<()> {
     log::debug!("{}: Creating current session", repo.path().display());
     let session_path = repo.path().join(butler::dir()).join("session");
     if session_path.exists() {
-        Err(Error::SessionExistsError)
+        Err(anyhow!("session already exists"))
     } else {
         write_session(&session_path, session)
     }
 }
 
-fn delete_session(repo: &git2::Repository) -> Result<(), std::io::Error> {
+fn delete_session(repo: &git2::Repository) -> Result<()> {
     log::debug!("{}: Deleting current session", repo.path().display());
     let session_path = repo.path().join(butler::dir()).join("session");
     if session_path.exists() {
@@ -213,7 +300,7 @@ fn delete_session(repo: &git2::Repository) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-pub fn get(repo: &git2::Repository, id: &str) -> Result<Option<Session>, Error> {
+pub fn get(repo: &git2::Repository, id: &str) -> Result<Option<Session>> {
     let list = list(repo)?;
     for session in list {
         if session.id == id {
@@ -223,7 +310,7 @@ pub fn get(repo: &git2::Repository, id: &str) -> Result<Option<Session>, Error> 
     Ok(None)
 }
 
-pub fn list(repo: &git2::Repository) -> Result<Vec<Session>, Error> {
+pub fn list(repo: &git2::Repository) -> Result<Vec<Session>> {
     let mut sessions = list_persistent(repo)?;
     if let Some(session) = Session::current(repo)? {
         sessions.push(session);
@@ -231,44 +318,46 @@ pub fn list(repo: &git2::Repository) -> Result<Vec<Session>, Error> {
     Ok(sessions)
 }
 
-fn list_persistent(repo: &git2::Repository) -> Result<Vec<Session>, Error> {
-    match repo.revparse_single(format!("refs/{}/current", butler::refname()).as_str()) {
-        Err(_) => Ok(vec![]),
-        Ok(object) => {
-            let gitbutler_head = repo.find_commit(object.id())?;
-            // list all commits from gitbutler head to the first commit
-            let mut walker = repo.revwalk()?;
-            walker.push(gitbutler_head.id())?;
-            walker.set_sorting(git2::Sort::TIME)?;
+fn list_persistent(repo: &git2::Repository) -> Result<Vec<Session>> {
+    let gitbutler_ref =
+        repo.find_reference(format!("refs/{}/current", butler::refname()).as_str())?;
+    let gitbutler_head = repo.find_commit(gitbutler_ref.target().unwrap())?;
 
-            let mut sessions: Vec<Session> = vec![];
-            for id in walker {
-                let id = id?;
-                let commit = repo.find_commit(id)?;
-                sessions.push(Session::from_commit(repo, &commit)?);
-            }
+    // list all commits from gitbutler head to the first commit
+    let mut walker = repo.revwalk()?;
+    walker.push(gitbutler_head.id())?;
+    walker.set_sorting(git2::Sort::TIME)?;
 
-            Ok(sessions)
-        }
+    let mut sessions: Vec<Session> = vec![];
+    for id in walker {
+        let id = id?;
+        let commit = repo.find_commit(id).with_context(|| {
+            format!(
+                "failed to find commit {} in repository {}",
+                id.to_string(),
+                repo.path().display()
+            )
+        })?;
+        sessions.push(Session::from_commit(repo, &commit)?);
     }
+
+    Ok(sessions)
 }
 
-fn read_as_string(
-    repo: &git2::Repository,
-    tree: &git2::Tree,
-    path: &Path,
-) -> Result<String, Error> {
+fn read_as_string(repo: &git2::Repository, tree: &git2::Tree, path: &Path) -> Result<String> {
     let tree_entry = tree.get_path(path)?;
     let blob = tree_entry.to_object(repo)?.into_blob().unwrap();
-    let contents = String::from_utf8(blob.content().to_vec())?;
+    let contents = String::from_utf8(blob.content().to_vec()).with_context(|| {
+        format!(
+            "failed to read file {} as string",
+            path.to_str().unwrap_or("unknown")
+        )
+    })?;
     Ok(contents)
 }
 
 // return a map of file name -> file content for all files in the beginning of a session.
-pub fn list_files(
-    repo: &git2::Repository,
-    session_id: &str,
-) -> Result<HashMap<String, String>, Error> {
+pub fn list_files(repo: &git2::Repository, session_id: &str) -> Result<HashMap<String, String>> {
     let list = list(repo)?;
 
     let mut previous_session = None;
@@ -286,12 +375,13 @@ pub fn list_files(
         (Some(previous_session), Some(_)) => previous_session.hash,
         // if there is no previous session, we use the found session, because it's the first one.
         (None, Some(session)) => session.hash,
-        _ => return Err(Error::SessionNotFound),
+        _ => return Err(anyhow!("session {} not found", session_id)),
     };
 
     if session_hash.is_none() {
-        return Err(Error::SessionNotFound);
+        return Err(anyhow!("session {} has no hash", session_id));
     }
+
     let commit_id = git2::Oid::from_str(&session_hash.clone().unwrap())?;
     let commit = repo.find_commit(commit_id)?;
 
@@ -375,10 +465,10 @@ fn test_parse_reflog_line() {
     }
 }
 
-pub fn flush_current_session(repo: &git2::Repository) -> Result<Session, Error> {
+pub fn flush_current_session(repo: &git2::Repository) -> Result<Session> {
     let session = Session::current(&repo)?;
     if session.is_none() {
-        return Err(Error::SessionNotFound);
+        return Err(anyhow!("session not found"));
     }
 
     let wd_index = &mut git2::Index::new()?;
@@ -418,7 +508,7 @@ pub fn flush_current_session(repo: &git2::Repository) -> Result<Session, Error> 
 // build the initial tree from the working directory, not taking into account the gitbutler metadata
 // eventually we might just want to run this once and then update it with the files that are changed over time, but right now we're running it every commit
 // it ignores files that are in the .gitignore
-fn build_wd_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), Error> {
+fn build_wd_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()> {
     // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
     let repo_index = &mut repo.index()?;
 
@@ -427,7 +517,12 @@ fn build_wd_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()
     for file in all_files {
         let file_path = Path::new(&file);
         if !repo.is_path_ignored(&file).unwrap_or(true) {
-            add_wd_path(index, repo_index, &file_path, &repo)?;
+            add_wd_path(index, repo_index, &file_path, &repo).with_context(|| {
+                format!(
+                    "failed to add working directory path {}",
+                    file_path.display()
+                )
+            })?;
         }
     }
 
@@ -443,7 +538,7 @@ fn add_wd_path(
     repo_index: &mut git2::Index,
     rel_file_path: &Path,
     repo: &git2::Repository,
-) -> Result<(), Error> {
+) -> Result<()> {
     let abs_file_path = repo.workdir().unwrap().join(rel_file_path);
     let file_path = Path::new(&abs_file_path);
 
@@ -555,11 +650,12 @@ fn sha256_digest(path: &Path) -> Result<String, std::io::Error> {
     Ok(format!("{:X}", digest))
 }
 
-fn build_log_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), Error> {
+fn build_log_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()> {
     let logs_dir = repo.path().join("logs");
     for log_file in fs::list_files(&logs_dir)? {
         let log_file = Path::new(&log_file);
-        add_log_path(repo, index, &log_file)?;
+        add_log_path(repo, index, &log_file)
+            .with_context(|| format!("Failed to add log file to index: {}", log_file.display()))?;
     }
     Ok(())
 }
@@ -568,7 +664,7 @@ fn add_log_path(
     repo: &git2::Repository,
     index: &mut git2::Index,
     rel_file_path: &Path,
-) -> Result<(), Error> {
+) -> Result<()> {
     let file_path = repo.path().join("logs").join(rel_file_path);
     log::debug!("Adding log path: {}", file_path.display());
 
@@ -600,12 +696,17 @@ fn add_log_path(
     Ok(())
 }
 
-fn build_session_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), Error> {
+fn build_session_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()> {
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
     let session_dir = repo.path().join(butler::dir()).join("session");
     for session_file in fs::list_files(&session_dir)? {
         let file_path = Path::new(&session_file);
-        add_session_path(&repo, index, &file_path)?;
+        add_session_path(&repo, index, &file_path).with_context(|| {
+            format!(
+                "Failed to add session file to index: {}",
+                file_path.display()
+            )
+        })?;
     }
 
     Ok(())
@@ -616,7 +717,7 @@ fn add_session_path(
     repo: &git2::Repository,
     index: &mut git2::Index,
     rel_file_path: &Path,
-) -> Result<(), Error> {
+) -> Result<()> {
     let file_path = repo
         .path()
         .join(butler::dir())
@@ -684,81 +785,6 @@ fn write_gb_commit(gb_tree: git2::Oid, repo: &git2::Repository) -> Result<git2::
                 &[],                               // parents
             )?;
             Ok(new_commit)
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    IOError(std::io::Error),
-    ParseIntError(std::num::ParseIntError),
-    TryFromIntError(std::num::TryFromIntError),
-    GitError(git2::Error),
-    SessionExistsError,
-    SessionIsNotCurrentError,
-    SessionNotFound,
-    ParseUtf8Error(std::string::FromUtf8Error),
-    ParseActivityError,
-}
-
-impl From<std::num::TryFromIntError> for Error {
-    fn from(err: std::num::TryFromIntError) -> Self {
-        Error::TryFromIntError(err)
-    }
-}
-
-impl From<std::string::FromUtf8Error> for Error {
-    fn from(err: std::string::FromUtf8Error) -> Self {
-        Error::ParseUtf8Error(err)
-    }
-}
-
-impl From<git2::Error> for Error {
-    fn from(err: git2::Error) -> Self {
-        Error::GitError(err)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::IOError(err)
-    }
-}
-
-impl From<std::num::ParseIntError> for Error {
-    fn from(err: std::num::ParseIntError) -> Self {
-        Error::ParseIntError(err)
-    }
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::IOError(e) => write!(f, "IOError: {}", e),
-            Error::ParseIntError(e) => write!(f, "ParseIntError: {}", e),
-            Error::TryFromIntError(e) => write!(f, "TryFromIntError: {}", e),
-            Error::GitError(e) => write!(f, "GitError: {}", e),
-            Error::SessionExistsError => write!(f, "Session already exists"),
-            Error::SessionIsNotCurrentError => write!(f, "Session is not current"),
-            Error::SessionNotFound => write!(f, "Session not found"),
-            Error::ParseUtf8Error(e) => write!(f, "ParseUtf8Error: {}", e),
-            Error::ParseActivityError => write!(f, "ParseActivityError"),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::IOError(e) => Some(e),
-            Error::ParseIntError(e) => Some(e),
-            Error::TryFromIntError(e) => Some(e),
-            Error::GitError(e) => Some(e),
-            Error::SessionExistsError => Some(self),
-            Error::SessionIsNotCurrentError => Some(self),
-            Error::SessionNotFound => Some(self),
-            Error::ParseUtf8Error(e) => Some(e),
-            Error::ParseActivityError => Some(self),
         }
     }
 }

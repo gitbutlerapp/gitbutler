@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use std::{fs, path::PathBuf};
 use tauri::PathResolver;
 
@@ -17,41 +18,25 @@ impl Storage {
         }
     }
 
-    pub fn read(&self, path: &str) -> Result<Option<String>, Error> {
+    pub fn read(&self, path: &str) -> Result<Option<String>> {
         let file_path = self.local_data_dir.join(path);
         if !file_path.exists() {
             return Ok(None);
         }
-        let contents = fs::read_to_string(file_path)?;
+        let contents = fs::read_to_string(file_path.clone())
+            .with_context(|| format!("Failed to read file: {:?}", file_path))?;
         Ok(Some(contents))
     }
 
-    pub fn write(&self, path: &str, content: &str) -> Result<(), Error> {
+    pub fn write(&self, path: &str, content: &str) -> Result<()> {
         let file_path = self.local_data_dir.join(path);
         let dir = file_path.parent().unwrap();
         if !dir.exists() {
-            fs::create_dir_all(dir)?;
+            fs::create_dir_all(dir)
+                .with_context(|| format!("Failed to create directory: {:?}", dir))?;
         }
-        fs::write(file_path, content)?;
+        fs::write(file_path.clone(), content)
+            .with_context(|| format!("Failed to write file: {:?}", file_path))?;
         Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    IOError(std::io::Error),
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::IOError(err)
-    }
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::IOError(err) => write!(f, "IO error: {}", err),
-        }
     }
 }
