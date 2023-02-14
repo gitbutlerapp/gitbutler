@@ -34,11 +34,6 @@ jobs:
       - name: Setup rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Save apple private key
-        run: |
-          mkdir -p "$HOME/private_keys"
-          echo -n '${{ secrets.APPLE_API_KEY_SECRET }}' > "$HOME/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
-
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,14 +41,10 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
-          #
-          # TODO: use api auth when going to production
-          # APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          # APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
         with:
+          args: "--config tauri.conf.release.json"
           tauriScript: "pnpm tauri"
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"

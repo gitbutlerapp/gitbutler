@@ -1,0 +1,9 @@
+{
+  "tauri": {
+    "package": {
+      "productName": "GitButler"
+    },
+    "bundle": {
+      "identifier": "com.gitbutler.app"
+    }
+}
