@@ -241,8 +241,10 @@ pub fn save_current_file_deltas(
     deltas: &Vec<Delta>,
 ) -> Result<(), std::io::Error> {
     let project_deltas_path = repo.path().join(butler::dir()).join("session/deltas");
-    std::fs::create_dir_all(&project_deltas_path)?;
     let delta_path = project_deltas_path.join(file_path);
+    let delta_dir = delta_path.parent().unwrap();
+    std::fs::create_dir_all(&delta_dir)?;
+    log::info!("mkdir {}", delta_path.to_str().unwrap());
     log::info!("Writing deltas to {}", delta_path.to_str().unwrap());
     let raw_deltas = serde_json::to_string(&deltas)?;
     std::fs::write(delta_path, raw_deltas)?;
