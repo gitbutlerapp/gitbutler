@@ -249,6 +249,7 @@ pub fn save_current_file_deltas(
     Ok(())
 }
 
+// returns deltas for a current session from .gb/session/deltas tree
 fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<Delta>>, Error> {
     let deltas_path = repo.path().join(butler::dir()).join("session/deltas");
     if !deltas_path.exists() {
@@ -291,14 +292,19 @@ pub fn list(
     };
 
     if session.hash.is_none() {
-        return list_current_deltas(repo);
+        list_current_deltas(repo)
+    } else {
+        list_commit_deltas(repo, &session.hash.unwrap())
     }
+}
 
-    let commit_id = git2::Oid::from_str(&session.hash.as_ref().unwrap()).map_err(|e| Error {
-        message: format!(
-            "Could not parse commit id {}",
-            &session.hash.as_ref().unwrap()
-        ),
+// returns deltas from gitbutler commit's session/deltas tree
+pub fn list_commit_deltas(
+    repo: &git2::Repository,
+    commit_hash: &str,
+) -> Result<HashMap<String, Vec<Delta>>, Error> {
+    let commit_id = git2::Oid::from_str(commit_hash).map_err(|e| Error {
+        message: format!("Could not parse commit id {}", commit_hash),
         cause: e.into(),
     })?;
     let commit = repo.find_commit(commit_id).map_err(|e| Error {

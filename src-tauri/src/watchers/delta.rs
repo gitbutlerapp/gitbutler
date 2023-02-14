@@ -8,7 +8,6 @@ use std::sync::mpsc::channel;
 use std::thread;
 use std::time::SystemTime;
 use std::{collections::HashMap, sync::Mutex};
-use uuid::Uuid;
 
 #[derive(Default)]
 pub struct WatcherCollection(Mutex<HashMap<String, RecommendedWatcher>>);
@@ -229,14 +228,14 @@ fn write_beginning_meta_files<R: tauri::Runtime>(
     project: &projects::Project,
     repo: &Repository,
 ) -> Result<sessions::Session, Box<dyn std::error::Error>> {
-    let now_ts = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
     match sessions::Session::current(repo)
         .map_err(|e| format!("Error while getting current session: {}", e.to_string()))?
     {
         Some(mut session) => {
+            let now_ts = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
             session.meta.last_ts = now_ts;
             sessions::update_session(repo, &session)
                 .map_err(|e| format!("Error while updating current session: {}", e.to_string()))?;
@@ -244,20 +243,7 @@ fn write_beginning_meta_files<R: tauri::Runtime>(
             Ok(session)
         }
         None => {
-            let head = repo.head()?;
-            let session = sessions::Session {
-                id: Uuid::new_v4().to_string(),
-                hash: None,
-                meta: sessions::Meta {
-                    start_ts: now_ts,
-                    last_ts: now_ts,
-                    branch: head.name().unwrap().to_string(),
-                    commit: head.peel_to_commit()?.id().to_string(),
-                },
-                activity: vec![],
-            };
-            sessions::create_session(repo, &session)
-                .map_err(|e| format!("Error while creating current session: {}", e.to_string()))?;
+            let session = sessions::Session::from_head(repo)?;
             events::session(&window, &project, &session);
             Ok(session)
         }
