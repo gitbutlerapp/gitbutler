@@ -7,8 +7,7 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "GitButler",
-    "version": "0.0.0"
+    "productName": "GitButler Dev"
   },
   "tauri": {
     "allowlist": {
@@ -41,7 +40,7 @@
     },
     "bundle": {
       "active": true,
-      "identifier": "com.gitbutler.app",
+      "identifier": "com.gitbutler.app.dev",
       "category": "DeveloperTool",
       "copyright": "Copyright © 2023 GitButler. All rights reserved.",
       "icon": [
