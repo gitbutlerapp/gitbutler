@@ -130,7 +130,7 @@ impl TextDocument {
 }
 
 #[derive(Debug)]
-pub enum ErrorCause {
+pub enum Error {
     IOError(std::io::Error),
     ParseJSONError(serde_json::Error),
     GitError(git2::Error),
@@ -139,64 +139,58 @@ pub enum ErrorCause {
     SessionNotFound,
 }
 
-impl From<sessions::Error> for ErrorCause {
+impl From<sessions::Error> for Error {
     fn from(e: sessions::Error) -> Self {
-        ErrorCause::SessionError(e)
+        Error::SessionError(e)
     }
 }
 
-impl From<String> for ErrorCause {
+impl From<String> for Error {
     fn from(e: String) -> Self {
-        ErrorCause::StringError(e)
+        Error::StringError(e)
     }
 }
 
-impl From<git2::Error> for ErrorCause {
+impl From<git2::Error> for Error {
     fn from(e: git2::Error) -> Self {
-        ErrorCause::GitError(e)
+        Error::GitError(e)
     }
 }
 
-impl From<std::io::Error> for ErrorCause {
+impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
-        ErrorCause::IOError(e)
+        Error::IOError(e)
     }
 }
 
-impl From<serde_json::Error> for ErrorCause {
+impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
-        ErrorCause::ParseJSONError(e)
-    }
-}
-
-#[derive(Debug)]
-pub struct Error {
-    pub message: String,
-    pub cause: ErrorCause,
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self.cause {
-            ErrorCause::IOError(ref e) => Some(e),
-            ErrorCause::ParseJSONError(ref e) => Some(e),
-            ErrorCause::GitError(ref e) => Some(e),
-            ErrorCause::StringError(_) => None,
-            ErrorCause::SessionError(ref e) => Some(e),
-            ErrorCause::SessionNotFound => None,
-        }
+        Error::ParseJSONError(e)
     }
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.cause {
-            ErrorCause::IOError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::ParseJSONError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::GitError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::StringError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::SessionError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::SessionNotFound => write!(f, "{}", self.message),
+        match self {
+            Error::IOError(e) => write!(f, "IOError: {}", e),
+            Error::ParseJSONError(e) => write!(f, "ParseJSONError: {}", e),
+            Error::GitError(e) => write!(f, "GitError: {}", e),
+            Error::StringError(e) => write!(f, "StringError: {}", e),
+            Error::SessionError(e) => write!(f, "SessionError: {}", e),
+            Error::SessionNotFound => write!(f, "SessionNotFound"),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::IOError(e) => Some(e),
+            Error::ParseJSONError(e) => Some(e),
+            Error::GitError(e) => Some(e),
+            Error::StringError(_) => Some(self),
+            Error::SessionError(e) => Some(e),
+            Error::SessionNotFound => Some(self),
         }
     }
 }
@@ -211,28 +205,8 @@ pub fn get_current_file_deltas(
         return Ok(None);
     }
 
-    let file_deltas = std::fs::read_to_string(&file_deltas_path).map_err(|e| Error {
-        message: format!(
-            "Could not read delta file at {}",
-            file_deltas_path.display()
-        ),
-        cause: e.into(),
-    });
-
-    match file_deltas {
-        Ok(file_deltas) => {
-            let file_deltas: Vec<Delta> =
-                serde_json::from_str(&file_deltas).map_err(|e| Error {
-                    message: format!(
-                        "Could not parse delta file at {}",
-                        file_deltas_path.display()
-                    ),
-                    cause: e.into(),
-                })?;
-            Ok(Some(file_deltas))
-        }
-        Err(err) => Err(err),
-    }
+    let file_deltas = std::fs::read_to_string(&file_deltas_path)?;
+    Ok(Some(serde_json::from_str(&file_deltas)?))
 }
 
 pub fn save_current_file_deltas(
@@ -258,10 +232,7 @@ fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<De
         return Ok(HashMap::new());
     }
 
-    let file_paths = fs::list_files(&deltas_path).map_err(|e| Error {
-        message: format!("Could not list delta files at {}", deltas_path.display()),
-        cause: e.into(),
-    })?;
+    let file_paths = fs::list_files(&deltas_path)?;
 
     let deltas = file_paths
         .iter()
@@ -282,16 +253,10 @@ pub fn list(
     repo: &git2::Repository,
     session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let session = match sessions::get(repo, session_id).map_err(|e| Error {
-        message: format!("Could not get session {}", session_id),
-        cause: e.into(),
-    })? {
-        Some(session) => session,
-        None => Err(Error {
-            message: format!("Could not find session {}", session_id),
-            cause: ErrorCause::SessionNotFound,
-        })?,
-    };
+    let session = match sessions::get(repo, session_id)? {
+        Some(session) => Ok(session),
+        None => Err(Error::SessionNotFound),
+    }?;
 
     if session.hash.is_none() {
         list_current_deltas(repo)
@@ -305,22 +270,11 @@ pub fn list_commit_deltas(
     repo: &git2::Repository,
     commit_hash: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let commit_id = git2::Oid::from_str(commit_hash).map_err(|e| Error {
-        message: format!("Could not parse commit id {}", commit_hash),
-        cause: e.into(),
-    })?;
-    let commit = repo.find_commit(commit_id).map_err(|e| Error {
-        message: format!("Could not find commit {}", commit_id),
-        cause: e.into(),
-    })?;
-
-    let tree = commit.tree().map_err(|e| Error {
-        message: format!("Could not get tree for commit {}", commit.id()),
-        cause: e.into(),
-    })?;
+    let commit_id = git2::Oid::from_str(commit_hash)?;
+    let commit = repo.find_commit(commit_id)?;
+    let tree = commit.tree()?;
 
     let mut blobs = HashMap::new();
-
     tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
         if entry.name().is_none() {
             return git2::TreeWalkResult::Ok;
@@ -338,10 +292,7 @@ pub fn list_commit_deltas(
         match content {
             Ok(content) => {
                 let deltas: Result<Vec<Delta>, Error> =
-                    serde_json::from_slice(&content).map_err(|e| Error {
-                        message: format!("Could not parse delta file at {}", entry_path.display()),
-                        cause: e.into(),
-                    });
+                    serde_json::from_slice(&content).map_err(|e| e.into());
                 blobs.insert(
                     entry_path
                         .strip_prefix("session/deltas")
@@ -355,24 +306,13 @@ pub fn list_commit_deltas(
             }
         }
         git2::TreeWalkResult::Ok
-    })
-    .map_err(|e| Error {
-        message: format!("Could not walk tree for commit {}", commit.id()),
-        cause: e.into(),
     })?;
 
-    if let Some(error) = blobs.values().find_map(|blob| blob.as_ref().err()) {
-        Err(Error {
-            message: "Could not get all deltas".to_owned(),
-            cause: error.to_string().into(),
-        })
-    } else {
-        let deltas = blobs
-            .into_iter()
-            .map(|(path, deltas)| (path.to_str().unwrap().to_owned(), deltas.unwrap()))
-            .collect();
-        Ok(deltas)
-    }
+    let deltas = blobs
+        .into_iter()
+        .map(|(path, deltas)| (path.to_str().unwrap().to_owned(), deltas.unwrap()))
+        .collect();
+    Ok(deltas)
 }
 
 #[test]

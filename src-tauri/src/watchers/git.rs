@@ -1,4 +1,4 @@
-use crate::{butler, events, projects::Project, sessions};
+use crate::{butler, events, projects::project::Project, sessions};
 use git2::Repository;
 use std::{
     thread,

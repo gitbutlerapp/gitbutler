@@ -3,7 +3,7 @@ use serde;
 
 pub fn session<R: tauri::Runtime>(
     window: &tauri::Window<R>,
-    project: &projects::Project,
+    project: &projects::project::Project,
     session: &sessions::Session,
 ) {
     let event_name = format!("project://{}/sessions", project.id);
@@ -22,7 +22,7 @@ struct DeltasEvent {
 
 pub fn deltas<R: tauri::Runtime>(
     window: &tauri::Window<R>,
-    project: &projects::Project,
+    project: &projects::project::Project,
     session: &sessions::Session,
     deltas: &Vec<deltas::Delta>,
     relative_file_path: &std::path::Path,

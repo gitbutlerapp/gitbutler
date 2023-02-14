@@ -6,23 +6,6 @@ pub struct Storage {
     local_data_dir: PathBuf,
 }
 
-#[derive(Debug)]
-pub enum ErrorCause {
-    IOError(std::io::Error),
-}
-
-impl From<std::io::Error> for ErrorCause {
-    fn from(err: std::io::Error) -> Self {
-        ErrorCause::IOError(err)
-    }
-}
-
-#[derive(Debug)]
-pub struct Error {
-    pub cause: ErrorCause,
-    pub message: String,
-}
-
 impl Storage {
     pub fn new(resolver: &PathResolver) -> Self {
         log::info!(
@@ -39,10 +22,7 @@ impl Storage {
         if !file_path.exists() {
             return Ok(None);
         }
-        let contents = fs::read_to_string(file_path).map_err(|e| Error {
-            cause: e.into(),
-            message: "Could not read file".to_string(),
-        })?;
+        let contents = fs::read_to_string(file_path)?;
         Ok(Some(contents))
     }
 
@@ -50,15 +30,28 @@ impl Storage {
         let file_path = self.local_data_dir.join(path);
         let dir = file_path.parent().unwrap();
         if !dir.exists() {
-            fs::create_dir_all(dir).map_err(|e| Error {
-                cause: e.into(),
-                message: "Could not create directory".to_string(),
-            })?;
+            fs::create_dir_all(dir)?;
         }
-        fs::write(file_path, content).map_err(|e| Error {
-            cause: e.into(),
-            message: "Could not write file".to_string(),
-        })?;
+        fs::write(file_path, content)?;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum Error {
+    IOError(std::io::Error),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Error::IOError(err)
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::IOError(err) => write!(f, "IO error: {}", err),
+        }
     }
 }

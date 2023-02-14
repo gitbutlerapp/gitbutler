@@ -2,7 +2,7 @@ mod delta;
 mod git;
 
 pub use self::delta::WatcherCollection;
-use crate::projects::Project;
+use crate::projects::project::Project;
 use serde::Serialize;
 use tauri::{Runtime, Window};
 

@@ -1,5 +1,5 @@
 use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
-use crate::projects::{self, Project};
+use crate::projects::project::Project;
 use crate::{butler, events, sessions};
 use git2::Repository;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -133,7 +133,7 @@ pub fn watch<R: tauri::Runtime>(
 // returns updated project deltas
 fn register_file_change<R: tauri::Runtime>(
     window: &tauri::Window<R>,
-    project: &projects::Project,
+    project: &Project,
     repo: &Repository,
     kind: &EventKind,
     relative_file_path: &Path,
@@ -225,7 +225,7 @@ fn get_latest_file_contents(
 // and also touches the last activity timestamp, so we can tell when we are idle
 fn write_beginning_meta_files<R: tauri::Runtime>(
     window: &tauri::Window<R>,
-    project: &projects::Project,
+    project: &Project,
     repo: &Repository,
 ) -> Result<sessions::Session, Box<dyn std::error::Error>> {
     match sessions::Session::current(repo)

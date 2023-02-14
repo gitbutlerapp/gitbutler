@@ -48,12 +48,7 @@ fn parse_reflog_line(line: &str) -> Result<Activity, Error> {
     match line.split("\t").collect::<Vec<&str>>()[..] {
         [meta, message] => {
             let meta_parts = meta.split_whitespace().collect::<Vec<&str>>();
-            let timestamp = meta_parts[meta_parts.len() - 2]
-                .parse::<u64>()
-                .map_err(|err| Error {
-                    cause: ErrorCause::ParseIntError(err),
-                    message: "Error while parsing reflog timestamp".to_string(),
-                })?;
+            let timestamp = meta_parts[meta_parts.len() - 2].parse::<u64>()?;
 
             match message.split(": ").collect::<Vec<&str>>()[..] {
                 [entry_type, msg] => Ok(Activity {
@@ -61,16 +56,10 @@ fn parse_reflog_line(line: &str) -> Result<Activity, Error> {
                     message: msg.to_string(),
                     timestamp,
                 }),
-                _ => Err(Error {
-                    cause: ErrorCause::ParseActivityError,
-                    message: "Error parsing reflog activity message".to_string(),
-                }),
+                _ => Err(Error::ParseActivityError),
             }
         }
-        _ => Err(Error {
-            cause: ErrorCause::ParseActivityError,
-            message: "Error while parsing reflog activity".to_string(),
-        }),
+        _ => Err(Error::ParseActivityError),
     }
 }
 
@@ -84,45 +73,18 @@ impl Session {
         let meta_path = session_path.join("meta");
 
         let start_path = meta_path.join("start");
-        let start_ts = std::fs::read_to_string(start_path)
-            .map_err(|e| Error {
-                cause: e.into(),
-                message: "failed to read session start".to_string(),
-            })?
-            .parse::<u64>()
-            .map_err(|e| Error {
-                cause: e.into(),
-                message: "failed to parse session start".to_string(),
-            })?;
+        let start_ts = std::fs::read_to_string(start_path)?.parse::<u64>()?;
 
         let last_path = meta_path.join("last");
-        let last_ts = std::fs::read_to_string(last_path)
-            .map_err(|e| Error {
-                cause: e.into(),
-                message: "failed to read session last".to_string(),
-            })?
-            .parse::<u64>()
-            .map_err(|e| Error {
-                cause: e.into(),
-                message: "failed to parse session last".to_string(),
-            })?;
+        let last_ts = std::fs::read_to_string(last_path)?.parse::<u64>()?;
 
         let branch_path = meta_path.join("branch");
-        let branch = std::fs::read_to_string(branch_path).map_err(|e| Error {
-            cause: e.into(),
-            message: "failed to read branch".to_string(),
-        })?;
+        let branch = std::fs::read_to_string(branch_path)?;
 
         let commit_path = meta_path.join("commit");
-        let commit = std::fs::read_to_string(commit_path).map_err(|e| Error {
-            cause: e.into(),
-            message: "failed to read commit".to_string(),
-        })?;
+        let commit = std::fs::read_to_string(commit_path)?;
 
-        let reflog = std::fs::read_to_string(repo.path().join("logs/HEAD")).map_err(|e| Error {
-            cause: e.into(),
-            message: "failed to read reflog".to_string(),
-        })?;
+        let reflog = std::fs::read_to_string(repo.path().join("logs/HEAD"))?;
         let activity = reflog
             .lines()
             .filter_map(|line| parse_reflog_line(line).ok())
@@ -130,10 +92,7 @@ impl Session {
             .collect::<Vec<Activity>>();
 
         let id_path = meta_path.join("id");
-        let id = std::fs::read_to_string(id_path).map_err(|e| Error {
-            cause: e.into(),
-            message: "failed to read session id".to_string(),
-        })?;
+        let id = std::fs::read_to_string(id_path)?;
 
         Ok(Some(Session {
             id,
@@ -154,10 +113,7 @@ impl Session {
             .unwrap()
             .as_secs();
 
-        let head = repo.head().map_err(|err| Error {
-            cause: err.into(),
-            message: "Error while getting HEAD".to_string(),
-        })?;
+        let head = repo.head()?;
         let session = Session {
             id: Uuid::new_v4().to_string(),
             hash: None,
@@ -174,44 +130,25 @@ impl Session {
     }
 
     pub fn from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<Self, Error> {
-        let tree = commit.tree().map_err(|err| Error {
-            cause: err.into(),
-            message: "Error while getting commit tree".to_string(),
-        })?;
+        let tree = commit.tree()?;
 
-        let id =
-            read_as_string(repo, &tree, Path::new("session/meta/id")).map_err(|err| Error {
-                cause: err.cause,
-                message: format!("Error while reading session id: {}", err.message),
-            })?;
-
-        let start = read_as_string(repo, &tree, Path::new("session/meta/start"))?
-            .parse::<u64>()
-            .map_err(|err| Error {
-                cause: ErrorCause::ParseIntError(err),
-                message: "Error while parsing start file".to_string(),
-            })?;
-
-        let last = read_as_string(repo, &tree, Path::new("session/meta/last"))?
-            .parse::<u64>()
-            .map_err(|err| Error {
-                cause: ErrorCause::ParseIntError(err),
-                message: "Error while parsing last file".to_string(),
-            })?;
+        let start_ts =
+            read_as_string(repo, &tree, Path::new("session/meta/start"))?.parse::<u64>()?;
 
         let reflog = read_as_string(repo, &tree, Path::new("logs/HEAD"))?;
         let activity = reflog
             .lines()
             .filter_map(|line| parse_reflog_line(line).ok())
-            .filter(|activity| activity.timestamp >= start)
+            .filter(|activity| activity.timestamp >= start_ts)
             .collect::<Vec<Activity>>();
 
         Ok(Session {
-            id,
+            id: read_as_string(repo, &tree, Path::new("session/meta/id"))?,
             hash: Some(commit.id().to_string()),
             meta: Meta {
-                start_ts: start,
-                last_ts: last,
+                start_ts,
+                last_ts: read_as_string(repo, &tree, Path::new("session/meta/last"))?
+                    .parse::<u64>()?,
                 branch: read_as_string(repo, &tree, Path::new("session/meta/branch"))?,
                 commit: read_as_string(repo, &tree, Path::new("session/meta/commit"))?,
             },
@@ -220,131 +157,29 @@ impl Session {
     }
 }
 
-#[derive(Debug)]
-pub struct Error {
-    pub cause: ErrorCause,
-    pub message: String,
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match &self.cause {
-            ErrorCause::IOError(err) => Some(err),
-            ErrorCause::ParseIntError(err) => Some(err),
-            ErrorCause::TryFromIntError(err) => Some(err),
-            ErrorCause::SessionExistsError => Some(self),
-            ErrorCause::SessionNotFound => Some(self),
-            ErrorCause::GitError(err) => Some(err),
-            ErrorCause::ParseUtf8Error(err) => Some(err),
-            ErrorCause::ParseActivityError => Some(self),
-            ErrorCause::SessionIsNotCurrentError => Some(self),
-        }
-    }
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.cause {
-            ErrorCause::IOError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::ParseIntError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::TryFromIntError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::SessionExistsError => write!(f, "{}", self.message),
-            ErrorCause::SessionNotFound => write!(f, "{}", self.message),
-            ErrorCause::SessionIsNotCurrentError => write!(f, "{}", self.message),
-            ErrorCause::GitError(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::ParseUtf8Error(ref e) => write!(f, "{}: {}", self.message, e),
-            ErrorCause::ParseActivityError => write!(f, "{}", self.message),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum ErrorCause {
-    IOError(std::io::Error),
-    ParseIntError(std::num::ParseIntError),
-    TryFromIntError(std::num::TryFromIntError),
-    GitError(git2::Error),
-    SessionExistsError,
-    SessionIsNotCurrentError,
-    SessionNotFound,
-    ParseUtf8Error(std::string::FromUtf8Error),
-    ParseActivityError,
-}
-
-impl From<std::num::TryFromIntError> for ErrorCause {
-    fn from(err: std::num::TryFromIntError) -> Self {
-        ErrorCause::TryFromIntError(err)
-    }
-}
-
-impl From<std::string::FromUtf8Error> for ErrorCause {
-    fn from(err: std::string::FromUtf8Error) -> Self {
-        ErrorCause::ParseUtf8Error(err)
-    }
-}
-
-impl From<git2::Error> for ErrorCause {
-    fn from(err: git2::Error) -> Self {
-        ErrorCause::GitError(err)
-    }
-}
-
-impl From<std::io::Error> for ErrorCause {
-    fn from(err: std::io::Error) -> Self {
-        ErrorCause::IOError(err)
-    }
-}
-
-impl From<std::num::ParseIntError> for ErrorCause {
-    fn from(err: std::num::ParseIntError) -> Self {
-        ErrorCause::ParseIntError(err)
-    }
-}
-
 fn write_session(session_path: &Path, session: &Session) -> Result<(), Error> {
     if session.hash.is_some() {
-        return Err(Error {
-            cause: ErrorCause::SessionIsNotCurrentError,
-            message: "can only write current sessions (without hash)".to_string(),
-        });
+        return Err(Error::SessionIsNotCurrentError);
     }
 
     let meta_path = session_path.join("meta");
 
-    std::fs::create_dir_all(meta_path.clone()).map_err(|err| Error {
-        cause: err.into(),
-        message: "Failed to create session directory".to_string(),
-    })?;
+    std::fs::create_dir_all(meta_path.clone())?;
 
     let id_path = meta_path.join("id");
-    std::fs::write(id_path, session.id.clone()).map_err(|err| Error {
-        cause: err.into(),
-        message: "Failed to write session id".to_string(),
-    })?;
+    std::fs::write(id_path, session.id.clone())?;
 
     let start_path = meta_path.join("start");
-    std::fs::write(start_path, session.meta.start_ts.to_string()).map_err(|err| Error {
-        cause: err.into(),
-        message: "Failed to write session start".to_string(),
-    })?;
+    std::fs::write(start_path, session.meta.start_ts.to_string())?;
 
     let last_path = meta_path.join("last");
-    std::fs::write(last_path, session.meta.last_ts.to_string()).map_err(|err| Error {
-        cause: err.into(),
-        message: "Failed to write session last".to_string(),
-    })?;
+    std::fs::write(last_path, session.meta.last_ts.to_string())?;
 
     let branch_path = meta_path.join("branch");
-    std::fs::write(branch_path, session.meta.branch.clone()).map_err(|err| Error {
-        cause: err.into(),
-        message: "Failed to write session branch".to_string(),
-    })?;
+    std::fs::write(branch_path, session.meta.branch.clone())?;
 
     let commit_path = meta_path.join("commit");
-    std::fs::write(commit_path, session.meta.commit.clone()).map_err(|err| Error {
-        cause: err.into(),
-        message: "Failed to write session commit".to_string(),
-    })?;
+    std::fs::write(commit_path, session.meta.commit.clone())?;
 
     Ok(())
 }
@@ -355,10 +190,7 @@ pub fn update_session(repo: &git2::Repository, session: &Session) -> Result<(), 
     if session_path.exists() {
         write_session(&session_path, session)
     } else {
-        Err(Error {
-            cause: ErrorCause::SessionNotFound,
-            message: "Session does not exist".to_string(),
-        })
+        Err(Error::SessionNotFound)
     }
 }
 
@@ -366,10 +198,7 @@ pub fn create_session(repo: &git2::Repository, session: &Session) -> Result<(), 
     log::debug!("{}: Creating current session", repo.path().display());
     let session_path = repo.path().join(butler::dir()).join("session");
     if session_path.exists() {
-        Err(Error {
-            cause: ErrorCause::SessionExistsError,
-            message: "Session already exists".to_string(),
-        })
+        Err(Error::SessionExistsError)
     } else {
         write_session(&session_path, session)
     }
@@ -406,34 +235,16 @@ fn list_persistent(repo: &git2::Repository) -> Result<Vec<Session>, Error> {
     match repo.revparse_single(format!("refs/{}/current", butler::refname()).as_str()) {
         Err(_) => Ok(vec![]),
         Ok(object) => {
-            let gitbutler_head = repo.find_commit(object.id()).map_err(|err| Error {
-                cause: err.into(),
-                message: "Failed to find gitbutler head".to_string(),
-            })?;
+            let gitbutler_head = repo.find_commit(object.id())?;
             // list all commits from gitbutler head to the first commit
-            let mut walker = repo.revwalk().map_err(|err| Error {
-                cause: err.into(),
-                message: "Failed to create revwalk".to_string(),
-            })?;
-            walker.push(gitbutler_head.id()).map_err(|err| Error {
-                cause: err.into(),
-                message: "Failed to push gitbutler head".to_string(),
-            })?;
-            walker.set_sorting(git2::Sort::TIME).map_err(|err| Error {
-                cause: err.into(),
-                message: "Failed to set sorting".to_string(),
-            })?;
+            let mut walker = repo.revwalk()?;
+            walker.push(gitbutler_head.id())?;
+            walker.set_sorting(git2::Sort::TIME)?;
 
             let mut sessions: Vec<Session> = vec![];
             for id in walker {
-                let id = id.map_err(|err| Error {
-                    cause: err.into(),
-                    message: "Failed to get commit id".to_string(),
-                })?;
-                let commit = repo.find_commit(id).map_err(|err| Error {
-                    cause: err.into(),
-                    message: "Failed to find commit".to_string(),
-                })?;
+                let id = id?;
+                let commit = repo.find_commit(id)?;
                 sessions.push(Session::from_commit(repo, &commit)?);
             }
 
@@ -447,29 +258,10 @@ fn read_as_string(
     tree: &git2::Tree,
     path: &Path,
 ) -> Result<String, Error> {
-    match tree.get_path(path) {
-        Ok(tree_entry) => {
-            let blob = tree_entry
-                .to_object(repo)
-                .map_err(|err| Error {
-                    cause: err.into(),
-                    message: "Error while getting tree entry object".to_string(),
-                })?
-                .into_blob()
-                .unwrap();
-            let contents = String::from_utf8(blob.content().to_vec()).map_err(|err| Error {
-                cause: err.into(),
-                message: "Error while parsing blob as utf8".to_string(),
-            })?;
-            Ok(contents)
-        }
-        Err(err) => {
-            return Err(Error {
-                cause: err.into(),
-                message: "Error while getting tree entry".to_string(),
-            })
-        }
-    }
+    let tree_entry = tree.get_path(path)?;
+    let blob = tree_entry.to_object(repo)?.into_blob().unwrap();
+    let contents = String::from_utf8(blob.content().to_vec())?;
+    Ok(contents)
 }
 
 // return a map of file name -> file content for all files in the beginning of a session.
@@ -494,38 +286,16 @@ pub fn list_files(
         (Some(previous_session), Some(_)) => previous_session.hash,
         // if there is no previous session, we use the found session, because it's the first one.
         (None, Some(session)) => session.hash,
-        _ => {
-            return Err(Error {
-                message: format!("Could not find session {}", session_id),
-                cause: ErrorCause::SessionNotFound,
-            })
-        }
+        _ => return Err(Error::SessionNotFound),
     };
 
     if session_hash.is_none() {
-        return Err(Error {
-            message: format!("Could not find files for  {}", session_id),
-            cause: ErrorCause::SessionNotFound,
-        });
+        return Err(Error::SessionNotFound);
     }
+    let commit_id = git2::Oid::from_str(&session_hash.clone().unwrap())?;
+    let commit = repo.find_commit(commit_id)?;
 
-    let commit_id = git2::Oid::from_str(&session_hash.clone().unwrap()).map_err(|e| Error {
-        message: format!(
-            "Could not parse commit id {}",
-            session_hash.as_ref().unwrap().to_string()
-        ),
-        cause: e.into(),
-    })?;
-
-    let commit = repo.find_commit(commit_id).map_err(|e| Error {
-        message: format!("Could not find commit {}", commit_id),
-        cause: e.into(),
-    })?;
-
-    let tree = commit.tree().map_err(|e| Error {
-        message: format!("Could not get tree for commit {}", commit.id()),
-        cause: e.into(),
-    })?;
+    let tree = commit.tree()?;
 
     let mut files = HashMap::new();
 
@@ -552,10 +322,6 @@ pub fn list_files(
         );
 
         git2::TreeWalkResult::Ok
-    })
-    .map_err(|e| Error {
-        message: format!("Could not walk tree for commit {}", commit.id()),
-        cause: e.into(),
     })?;
 
     Ok(files)
@@ -612,93 +378,36 @@ fn test_parse_reflog_line() {
 pub fn flush_current_session(repo: &git2::Repository) -> Result<Session, Error> {
     let session = Session::current(&repo)?;
     if session.is_none() {
-        return Err(Error {
-            cause: ErrorCause::SessionNotFound,
-            message: "No current session".to_string(),
-        });
+        return Err(Error::SessionNotFound);
     }
 
-    let wd_index = &mut git2::Index::new().map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to create wd index".to_string(),
-    })?;
+    let wd_index = &mut git2::Index::new()?;
 
-    build_wd_index(&repo, wd_index).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to build wd index".to_string(),
-    })?;
-    let wd_tree = wd_index.write_tree_to(&repo).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to write wd tree".to_string(),
-    })?;
+    build_wd_index(&repo, wd_index)?;
+    let wd_tree = wd_index.write_tree_to(&repo)?;
 
-    let session_index = &mut git2::Index::new().map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to create session index".to_string(),
-    })?;
-    build_session_index(&repo, session_index).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to build session index".to_string(),
-    })?;
-    let session_tree = session_index.write_tree_to(&repo).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to write session tree".to_string(),
-    })?;
+    let session_index = &mut git2::Index::new()?;
+    build_session_index(&repo, session_index)?;
+    let session_tree = session_index.write_tree_to(&repo)?;
 
-    let log_index = &mut git2::Index::new().map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to create log index".to_string(),
-    })?;
-    build_log_index(&repo, log_index).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to build log index".to_string(),
-    })?;
-    let log_tree = log_index.write_tree_to(&repo).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to write log tree".to_string(),
-    })?;
+    let log_index = &mut git2::Index::new()?;
+    build_log_index(&repo, log_index)?;
+    let log_tree = log_index.write_tree_to(&repo)?;
 
-    let mut tree_builder = repo.treebuilder(None).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to create tree builder".to_string(),
-    })?;
-    tree_builder
-        .insert("session", session_tree, 0o040000)
-        .map_err(|e| Error {
-            cause: e.into(),
-            message: "Failed to insert session tree".to_string(),
-        })?;
-    tree_builder
-        .insert("wd", wd_tree, 0o040000)
-        .map_err(|e| Error {
-            cause: e.into(),
-            message: "Failed to insert wd tree".to_string(),
-        })?;
-    tree_builder
-        .insert("logs", log_tree, 0o040000)
-        .map_err(|e| Error {
-            cause: e.into(),
-            message: "Failed to insert log tree".to_string(),
-        })?;
+    let mut tree_builder = repo.treebuilder(None)?;
+    tree_builder.insert("session", session_tree, 0o040000)?;
+    tree_builder.insert("wd", wd_tree, 0o040000)?;
+    tree_builder.insert("logs", log_tree, 0o040000)?;
 
-    let tree = tree_builder.write().map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to write tree".to_string(),
-    })?;
+    let tree = tree_builder.write()?;
 
-    let commit_oid = write_gb_commit(tree, &repo).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to write gb commit".to_string(),
-    })?;
+    let commit_oid = write_gb_commit(tree, &repo)?;
     log::debug!(
         "{}: wrote gb commit {}",
         repo.workdir().unwrap().display(),
         commit_oid
     );
-    delete_session(repo).map_err(|e| Error {
-        cause: e.into(),
-        message: "Failed to delete session".to_string(),
-    })?;
+    delete_session(repo)?;
 
     Ok(session.unwrap())
 
@@ -709,7 +418,7 @@ pub fn flush_current_session(repo: &git2::Repository) -> Result<Session, Error> 
 // build the initial tree from the working directory, not taking into account the gitbutler metadata
 // eventually we might just want to run this once and then update it with the files that are changed over time, but right now we're running it every commit
 // it ignores files that are in the .gitignore
-fn build_wd_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), ErrorCause> {
+fn build_wd_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), Error> {
     // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
     let repo_index = &mut repo.index()?;
 
@@ -734,7 +443,7 @@ fn add_wd_path(
     repo_index: &mut git2::Index,
     rel_file_path: &Path,
     repo: &git2::Repository,
-) -> Result<(), ErrorCause> {
+) -> Result<(), Error> {
     let abs_file_path = repo.workdir().unwrap().join(rel_file_path);
     let file_path = Path::new(&abs_file_path);
 
@@ -846,7 +555,7 @@ fn sha256_digest(path: &Path) -> Result<String, std::io::Error> {
     Ok(format!("{:X}", digest))
 }
 
-fn build_log_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), ErrorCause> {
+fn build_log_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), Error> {
     let logs_dir = repo.path().join("logs");
     for log_file in fs::list_files(&logs_dir)? {
         let log_file = Path::new(&log_file);
@@ -859,7 +568,7 @@ fn add_log_path(
     repo: &git2::Repository,
     index: &mut git2::Index,
     rel_file_path: &Path,
-) -> Result<(), ErrorCause> {
+) -> Result<(), Error> {
     let file_path = repo.path().join("logs").join(rel_file_path);
     log::debug!("Adding log path: {}", file_path.display());
 
@@ -891,7 +600,7 @@ fn add_log_path(
     Ok(())
 }
 
-fn build_session_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), ErrorCause> {
+fn build_session_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<(), Error> {
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
     let session_dir = repo.path().join(butler::dir()).join("session");
     for session_file in fs::list_files(&session_dir)? {
@@ -907,7 +616,7 @@ fn add_session_path(
     repo: &git2::Repository,
     index: &mut git2::Index,
     rel_file_path: &Path,
-) -> Result<(), ErrorCause> {
+) -> Result<(), Error> {
     let file_path = repo
         .path()
         .join(butler::dir())
@@ -975,6 +684,81 @@ fn write_gb_commit(gb_tree: git2::Oid, repo: &git2::Repository) -> Result<git2::
                 &[],                               // parents
             )?;
             Ok(new_commit)
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Error {
+    IOError(std::io::Error),
+    ParseIntError(std::num::ParseIntError),
+    TryFromIntError(std::num::TryFromIntError),
+    GitError(git2::Error),
+    SessionExistsError,
+    SessionIsNotCurrentError,
+    SessionNotFound,
+    ParseUtf8Error(std::string::FromUtf8Error),
+    ParseActivityError,
+}
+
+impl From<std::num::TryFromIntError> for Error {
+    fn from(err: std::num::TryFromIntError) -> Self {
+        Error::TryFromIntError(err)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(err: std::string::FromUtf8Error) -> Self {
+        Error::ParseUtf8Error(err)
+    }
+}
+
+impl From<git2::Error> for Error {
+    fn from(err: git2::Error) -> Self {
+        Error::GitError(err)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Error::IOError(err)
+    }
+}
+
+impl From<std::num::ParseIntError> for Error {
+    fn from(err: std::num::ParseIntError) -> Self {
+        Error::ParseIntError(err)
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::IOError(e) => write!(f, "IOError: {}", e),
+            Error::ParseIntError(e) => write!(f, "ParseIntError: {}", e),
+            Error::TryFromIntError(e) => write!(f, "TryFromIntError: {}", e),
+            Error::GitError(e) => write!(f, "GitError: {}", e),
+            Error::SessionExistsError => write!(f, "Session already exists"),
+            Error::SessionIsNotCurrentError => write!(f, "Session is not current"),
+            Error::SessionNotFound => write!(f, "Session not found"),
+            Error::ParseUtf8Error(e) => write!(f, "ParseUtf8Error: {}", e),
+            Error::ParseActivityError => write!(f, "ParseActivityError"),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::IOError(e) => Some(e),
+            Error::ParseIntError(e) => Some(e),
+            Error::TryFromIntError(e) => Some(e),
+            Error::GitError(e) => Some(e),
+            Error::SessionExistsError => Some(self),
+            Error::SessionIsNotCurrentError => Some(self),
+            Error::SessionNotFound => Some(self),
+            Error::ParseUtf8Error(e) => Some(e),
+            Error::ParseActivityError => Some(self),
         }
     }
 }

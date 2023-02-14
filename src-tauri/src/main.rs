@@ -10,7 +10,6 @@ mod watchers;
 use deltas::Delta;
 use git2::Repository;
 use log;
-use projects::Project;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use storage::Storage;
@@ -23,7 +22,7 @@ use watchers::WatcherCollection;
 
 struct AppState {
     watchers: WatcherCollection,
-    projects_storage: projects::Storage,
+    projects_storage: projects::storage::Storage,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,16 +37,8 @@ fn list_sessions(
     state: State<'_, AppState>,
     project_id: &str,
 ) -> Result<Vec<sessions::Session>, Error> {
-    match state
-        .projects_storage
-        .get_project(project_id)
-        .map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to get project".to_string(),
-            }
-        })? {
-        Some(project) => {
+    match state.projects_storage.get_project(project_id) {
+        Ok(Some(project)) => {
             let repo = Repository::open(project.path).map_err(|e| {
                 log::error!("{}", e);
                 Error {
@@ -62,9 +53,15 @@ fn list_sessions(
             })?;
             Ok(sessions)
         }
-        None => Err(Error {
+        Ok(None) => Err(Error {
             message: "Project not found".to_string(),
         }),
+        Err(e) => {
+            log::error!("{}", e);
+            Err(Error {
+                message: "Failed to get project".to_string(),
+            })
+        }
     }
 }
 
@@ -73,7 +70,7 @@ fn add_project<R: Runtime>(
     window: Window<R>,
     state: State<'_, AppState>,
     path: &str,
-) -> Result<Project, Error> {
+) -> Result<projects::project::Project, Error> {
     for project in state.projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
         Error {
@@ -87,7 +84,7 @@ fn add_project<R: Runtime>(
         }
     }
 
-    let project = projects::Project::from_path(path.to_string());
+    let project = projects::project::Project::from_path(path.to_string());
     if project.is_ok() {
         let project = project.unwrap();
         state.projects_storage.add_project(&project).map_err(|e| {
@@ -111,7 +108,7 @@ fn add_project<R: Runtime>(
 }
 
 #[tauri::command]
-fn list_projects(state: State<'_, AppState>) -> Result<Vec<Project>, Error> {
+fn list_projects(state: State<'_, AppState>) -> Result<Vec<projects::project::Project>, Error> {
     state.projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
         Error {
@@ -122,27 +119,32 @@ fn list_projects(state: State<'_, AppState>) -> Result<Vec<Project>, Error> {
 
 #[tauri::command]
 fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), Error> {
-    if let Some(project) = state.projects_storage.get_project(id).map_err(|e| {
-        log::error!("{}", e);
-        Error {
-            message: "Failed to get project".to_string(),
-        }
-    })? {
-        watchers::unwatch(&state.watchers, project).map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to unwatch project".to_string(),
-            }
-        })?;
-    }
-    state.projects_storage.delete_project(id).map_err(|e| {
-        log::error!("{}", e);
-        Error {
-            message: "Failed to delete project".to_string(),
-        }
-    })?;
+    match state.projects_storage.get_project(id) {
+        Ok(Some(project)) => {
+            watchers::unwatch(&state.watchers, project).map_err(|e| {
+                log::error!("{}", e);
+                Error {
+                    message: "Failed to unwatch project".to_string(),
+                }
+            })?;
 
-    Ok(())
+            state.projects_storage.delete_project(id).map_err(|e| {
+                log::error!("{}", e);
+                Error {
+                    message: "Failed to delete project".to_string(),
+                }
+            })?;
+
+            Ok(())
+        }
+        Ok(None) => Ok(()),
+        Err(e) => {
+            log::error!("{}", e);
+            Err(Error {
+                message: "Failed to get project".to_string(),
+            })
+        }
+    }
 }
 
 #[tauri::command]
@@ -151,16 +153,8 @@ fn list_session_files(
     project_id: &str,
     session_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
-    match state
-        .projects_storage
-        .get_project(project_id)
-        .map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to get project".to_string(),
-            }
-        })? {
-        Some(project) => {
+    match state.projects_storage.get_project(project_id) {
+        Ok(Some(project)) => {
             let repo = Repository::open(&project.path).map_err(|e| {
                 log::error!("{}", e);
                 Error {
@@ -177,9 +171,15 @@ fn list_session_files(
 
             Ok(files)
         }
-        None => Err(Error {
+        Ok(None) => Err(Error {
             message: "Project not found".to_string(),
         }),
+        Err(e) => {
+            log::error!("{}", e);
+            Err(Error {
+                message: "Failed to get project".to_string(),
+            })
+        }
     }
 }
 
@@ -189,16 +189,8 @@ fn list_deltas(
     project_id: &str,
     session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    match state
-        .projects_storage
-        .get_project(project_id)
-        .map_err(|e| {
-            log::error!("{}", e);
-            Error {
-                message: "Failed to get project".to_string(),
-            }
-        })? {
-        Some(project) => {
+    match state.projects_storage.get_project(project_id) {
+        Ok(Some(project)) => {
             let repo = Repository::open(&project.path).map_err(|e| {
                 log::error!("{}", e);
                 Error {
@@ -215,9 +207,15 @@ fn list_deltas(
 
             Ok(deltas)
         }
-        None => Err(Error {
+        Ok(None) => Err(Error {
             message: "Project not found".to_string(),
         }),
+        Err(e) => {
+            log::error!("{}", e);
+            Err(Error {
+                message: "Failed to get project".to_string(),
+            })
+        }
     }
 }
 
@@ -289,7 +287,7 @@ fn main() {
                 .setup(move |app| {
                     let resolver = app.path_resolver();
                     let storage = Storage::new(&resolver);
-                    let projects_storage = projects::Storage::new(storage);
+                    let projects_storage = projects::storage::Storage::new(storage);
 
                     let watchers = watchers::WatcherCollection::default();
 
