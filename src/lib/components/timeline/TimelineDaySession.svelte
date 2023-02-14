@@ -35,13 +35,13 @@
         {session.meta.branch}
     </a>
     <div id="activities">
-        <!-- <div class="my-2 mx-1"> -->
-        <!--     <TimelineDaySessionActivities -->
-        <!--         activities={session.activities} -->
-        <!--         sessionStart={session.startTime} -->
-        <!--         sessionEnd={session.endTime} -->
-        <!--     /> -->
-        <!-- </div> -->
+        <div class="my-2 mx-1">
+            <TimelineDaySessionActivities
+                activities={session.activity}
+                sessionStart={session.meta.startTs}
+                sessionEnd={session.meta.lastTs}
+            />
+        </div>
     </div>
     <div id="time-range">
         {toHumanReadableTime(session.meta.lastTs)}

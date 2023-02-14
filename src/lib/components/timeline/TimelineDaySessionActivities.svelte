@@ -35,7 +35,7 @@
                 <div
                     class="w-3 h-3 text-slate-700 z-50 absolute inset-0"
                     style=""
-                    title="{activity.type} at {toHumanReadableTime(
+                    title="{activity.type}: {activity.message} at {toHumanReadableTime(
                         activity.timestamp
                     )}"
                 >
