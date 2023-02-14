@@ -36,9 +36,7 @@ Go to the link and select `Run workflow` from the desired branch.
 
 ### versioning
 
-There are two ways to define the release app version:
-* set `package.version` in the [tauri.conf.release.json](./src-tauri/tauri.conf.release.json)
-* update version in the [Cargo.toml](./src-tauri/Cargo.toml)
+To update the release app version, update version in the [Cargo.toml](./src-tauri/Cargo.toml).
 
 ### runners
 
