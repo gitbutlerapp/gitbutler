@@ -21,14 +21,6 @@ export type User = {
     access_token: string,
 }
 
-export type Project = {
-    id: number,
-    name: string,
-    description: string,
-    created_at: string,
-    updated_at: string,
-    git_url: string,
-}
 
 const parseJSON = async (response: Response) => {
     if (response.status === 204 || response.status === 205) {
