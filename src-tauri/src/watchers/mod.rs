@@ -3,6 +3,7 @@ mod git;
 
 pub use self::delta::WatcherCollection;
 use crate::projects::project::Project;
+use crate::users::user::User;
 use serde::Serialize;
 use tauri::{Runtime, Window};
 
@@ -46,9 +47,10 @@ pub fn watch<R: Runtime>(
     window: Window<R>,
     watchers: &WatcherCollection,
     project: &Project,
+    user: &Option<User>,
 ) -> Result<(), WatchError> {
     self::delta::watch(window.clone(), watchers, project.clone())?;
-    self::git::watch(window.clone(), project.clone())?;
+    self::git::watch(window.clone(), project.clone(), user.clone())?;
     Ok(())
 }
 

@@ -1,4 +1,4 @@
-use crate::{butler, fs};
+use crate::{butler, fs, users::user::User};
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
 use git2::{PushOptions, RemoteCallbacks, Repository};
@@ -466,7 +466,12 @@ fn test_parse_reflog_line() {
     }
 }
 
-pub fn flush_current_session(repo: &git2::Repository) -> Result<Session> {
+pub fn flush_current_session(repo: &git2::Repository, user: &Option<User>) -> Result<Session> {
+    match user {
+        Some(user) => println!("flushing current session for {}", user.name),
+        None => println!("No logged in user"),
+    }
+
     let session = Session::current(&repo)?;
     if session.is_none() {
         return Err(anyhow!("session not found"));
@@ -500,21 +505,28 @@ pub fn flush_current_session(repo: &git2::Repository) -> Result<Session> {
     );
     delete_session(repo)?;
 
-    push_to_remote(repo);
+    push_to_remote(repo, user)?;
 
     Ok(session.unwrap())
 }
 
 // try to push the new gb history head to the remote
 // TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
-fn push_to_remote(repo: &Repository) -> Result<(), git2::Error> {
-    // TODO: only push if the user is logged in and this project is registered
+fn push_to_remote(repo: &Repository, user: &Option<User>) -> Result<(), git2::Error> {
+    // only push if the user is logged in and this project is registered
+    let auth_token: String;
+    match user {
+        Some(user) => {
+            println!("getting access token for {}", user.email);
+            auth_token = user.access_token.clone();
+        }
+        None => {
+            println!("No logged in user, no push");
+            return Ok(());
+        }
+    }
 
-    // TODO: get the remote url from the config for the project
-    let remote_url = "http://localhost:3000/git/e4cd628d-40b6-42d2-a0a9-44af4b7eb5ea";
-
-    // TODO: get the auth token from the users.json
-    let auth_token = "2562659d-4036-45e2-a1a6-c70a135f0253";
+    let remote_url = "https://test.app.gitbutler.com/git/287bff35-7827-4fc1-aab9-e9732da2b5ec";
 
     println!("Pushing to remote: {}", remote_url);
 

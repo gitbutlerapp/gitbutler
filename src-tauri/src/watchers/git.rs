@@ -1,4 +1,4 @@
-use crate::{butler, events, projects::project::Project, sessions};
+use crate::{butler, events, projects::project::Project, sessions, users::user::User};
 use git2::Repository;
 use std::{
     thread,
@@ -32,12 +32,14 @@ impl From<std::io::Error> for WatchError {
     }
 }
 
-const FIVE_MINUTES: u64 = Duration::new(5 * 60, 0).as_secs();
+//const FIVE_MINUTES: u64 = Duration::new(5 * 60, 0).as_secs();
+const FIVE_MINUTES: u64 = Duration::new(5, 0).as_secs();
 const ONE_HOUR: u64 = Duration::new(60 * 60, 0).as_secs();
 
 pub fn watch<R: tauri::Runtime>(
     window: tauri::Window<R>,
     project: Project,
+    user: Option<User>,
 ) -> Result<(), WatchError> {
     let repo = git2::Repository::open(&project.path)?;
     thread::spawn(move || loop {
@@ -51,7 +53,7 @@ pub fn watch<R: tauri::Runtime>(
                         repo.workdir().unwrap().display()
                     );
                 }
-                if sessions::flush_current_session(&repo).is_err() {
+                if sessions::flush_current_session(&repo, &user).is_err() {
                     log::error!(
                         "Error while flushing current session for {}",
                         repo.workdir().unwrap().display()
@@ -60,7 +62,7 @@ pub fn watch<R: tauri::Runtime>(
             }
         }
 
-        match check_for_changes(&repo) {
+        match check_for_changes(&repo, &user) {
             Ok(Some(session)) => {
                 events::session(&window, &project, &session);
             }
@@ -89,9 +91,10 @@ pub fn watch<R: tauri::Runtime>(
 // returns a commited session if created
 fn check_for_changes(
     repo: &Repository,
+    user: &Option<User>,
 ) -> Result<Option<sessions::Session>, Box<dyn std::error::Error>> {
     if ready_to_commit(repo)? {
-        Ok(Some(sessions::flush_current_session(repo)?))
+        Ok(Some(sessions::flush_current_session(repo, user)?))
     } else {
         Ok(None)
     }

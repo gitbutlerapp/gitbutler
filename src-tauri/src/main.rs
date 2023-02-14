@@ -5,6 +5,7 @@ mod fs;
 mod projects;
 mod sessions;
 mod storage;
+mod users;
 mod watchers;
 
 use deltas::Delta;
@@ -23,6 +24,7 @@ use watchers::WatcherCollection;
 struct AppState {
     watchers: WatcherCollection,
     projects_storage: projects::storage::Storage,
+    user_storage: users::storage::Storage,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -95,13 +97,14 @@ fn add_project<R: Runtime>(
     let project = projects::project::Project::from_path(path.to_string());
     if project.is_ok() {
         let project = project.unwrap();
+        let user = state.user_storage.get_user().unwrap();
         state.projects_storage.add_project(&project).map_err(|e| {
             log::error!("{}", e);
             Error {
                 message: "Failed to add project".to_string(),
             }
         })?;
-        watchers::watch(window, &state.watchers, &project).map_err(|e| {
+        watchers::watch(window, &state.watchers, &project, &user).map_err(|e| {
             log::error!("{}", e);
             Error {
                 message: "Failed to watch project".to_string(),
@@ -299,15 +302,25 @@ fn main() {
                 })
                 .setup(move |app| {
                     let resolver = app.path_resolver();
-                    let storage = Storage::new(&resolver);
-                    let projects_storage = projects::storage::Storage::new(storage);
+
+                    let pstorage = Storage::new(&resolver);
+                    let projects_storage = projects::storage::Storage::new(pstorage);
+
+                    let ustorage = Storage::new(&resolver);
+                    let user_storage = users::storage::Storage::new(ustorage);
+                    let user = user_storage.get_user().unwrap();
 
                     let watchers = watchers::WatcherCollection::default();
 
                     if let Ok(projects) = projects_storage.list_projects() {
                         for project in projects {
-                            watchers::watch(app.get_window("main").unwrap(), &watchers, &project)
-                                .map_err(|e| e.to_string())?;
+                            watchers::watch(
+                                app.get_window("main").unwrap(),
+                                &watchers,
+                                &project,
+                                &user,
+                            )
+                            .map_err(|e| e.to_string())?;
                         }
                     } else {
                         log::error!("Failed to list projects");
@@ -319,6 +332,7 @@ fn main() {
                     app.manage(AppState {
                         watchers,
                         projects_storage,
+                        user_storage,
                     });
 
                     Ok(())
