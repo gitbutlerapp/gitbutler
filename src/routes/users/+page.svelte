@@ -1,6 +1,6 @@
 <script lang="ts">
     import {open} from '@tauri-apps/api/shell'
-    import Authentication, { type LoginToken } from "$lib/authentication";
+    import Authentication from "$lib/authentication";
     import type { PageData } from "./$types";
     
     export let data: PageData;
@@ -8,9 +8,8 @@
 
     const authApi = Authentication();
 
-    const pollForUser = async (token: LoginToken) => {
-        await open (token.url);
-        const apiUser = await authApi.login.user.get(token.token).catch(() => null);
+    const pollForUser = async (token: string) => {
+        const apiUser = await authApi.login.user.get(token).catch(() => null);
         if (apiUser) {
             user.set(apiUser);
             return apiUser;
@@ -30,11 +29,11 @@
 {:else}
     {#await authApi.login.token.create()}
         <div>loading...</div>
-    {:then token}
-        {#await pollForUser(token)}
+    {:then {url, token}}
+        {#await Promise.all([open(url),pollForUser(token)])}
             <div>Log in in your system browser</div>
             <p>If you are not redirected automatically, you can 
-                <button on:click={() => pollForUser(token)}>Try again</button>
+                <button on:click={() => open(url)}>Try again</button>
             </p>
         {/await}
     {/await}
