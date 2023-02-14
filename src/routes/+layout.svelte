@@ -11,7 +11,7 @@
     onMount(log.setup);
 
     export let data: LayoutData;
-    const { projects } = data;
+    const { projects , user} = data;
 
     const onSelectProjectClick = async () => {
         const selectedPath = await open({
@@ -64,7 +64,7 @@
     >
         <div class="center">Search GitButler</div>
     </div>
-    <a href="/users/" class="mr-4 cursor-default font-bold">User</a>
+    <a href="/users/" class="mr-4 cursor-default font-bold">{$user ? $user.name : 'User'}</a>
 </header>
 
 <div class="flex h-screen flex-grow flex-row text-zinc-400 overflow-hidden">
