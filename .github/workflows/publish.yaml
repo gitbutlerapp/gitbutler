@@ -44,7 +44,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
         with:
-          args: "--config tauri.conf.release.json"
+          args: "--config ./src-tauri/tauri.conf.release.json"
           tauriScript: "pnpm tauri"
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"
