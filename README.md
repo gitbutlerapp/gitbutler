@@ -31,7 +31,14 @@ $ pnpm tauri build
 
 ## releasing
 
-Releasing is done via [GitHub Action](https://github.com/gitbutlerapp/gitbutler-client-tauri/actions/workflows/publish.yaml).
+Releasing is done via [GitHub Action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml).
+Go to the link and select `Run workflow` from the desired branch.
+
+### versioning
+
+There are two ways to define the release app version:
+* set `package.version` in the [tauri.conf.release.json](./src-tauri/tauri.conf.release.json)
+* update version in the [Cargo.toml](./src-tauri/Cargo.toml)
 
 ### runners
 
