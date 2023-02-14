@@ -12,6 +12,9 @@ export type Project = {
     created_at: string,
     updated_at: string,
     git_url: string,
+
+    /* settings */
+    sync: boolean,
 }
 
 const list = () => invoke<Project[]>("list_projects");
@@ -28,6 +31,6 @@ export default async () => {
             add(params).then((project) => {
                 store.update((projects) => [...projects, project]);
                 return project;
-            }),
+            })
     };
 };

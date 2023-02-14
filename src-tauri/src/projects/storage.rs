@@ -2,6 +2,7 @@ use crate::projects::project;
 use crate::storage;
 use anyhow::Result;
 
+// this is a comment
 const PROJECTS_FILE: &str = "projects.json";
 
 pub struct Storage {
