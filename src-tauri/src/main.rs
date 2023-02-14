@@ -249,7 +249,8 @@ fn main() {
         },
         |sentry_plugin| {
             let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
-            let hide = tauri::CustomMenuItem::new("toggle".to_string(), "Hide GitButler");
+            let hide =
+                tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title()));
             let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
             let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
