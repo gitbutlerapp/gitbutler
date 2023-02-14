@@ -2,6 +2,7 @@
     import { Doc } from "yjs";
     import { Timeline, CodeViewer } from "$lib/components";
     import { Operation } from "$lib/deltas";
+    import type { Delta } from "$lib/deltas";
     import { derived, writable } from "svelte/store";
     import type { PageData } from "./$types";
     import SessionNav from "$lib/components/session/SessionNav.svelte";
@@ -40,6 +41,24 @@
         )
     );
 
+    const contentWithDeltasApplied = (
+        contentAtSessionStart: string,
+        deltas: Delta[]
+    ) => {
+        const doc = new Doc();
+        const text = doc.getText();
+        text.insert(0, contentAtSessionStart);
+        const operations = deltas.flatMap((delta) => delta.operations);
+        operations.forEach((operation) => {
+            if (Operation.isInsert(operation)) {
+                text.insert(operation.insert[0], operation.insert[1]);
+            } else if (Operation.isDelete(operation)) {
+                text.delete(operation.delete[0], operation.delete[1]);
+            }
+        });
+        return text.toString();
+    };
+
     // const timestamps = Object.values(deltas).flatMap((deltas) =>
     //     Object.values(deltas).map((delta) => delta.timestampMs)
     // );
@@ -59,13 +78,20 @@
         />
     </div>
     <div class="overflow-auto h-2/3 mx-4">
-        {#each Object.entries(files) as [filepath, filecontent]}
-            <details open>
-                <summary>
-                    {filepath}
-                </summary>
-                <CodeViewer value={filecontent} />
-            </details>
+        {#each Object.entries(files) as [filepath, contentAtSessionStart]}
+            {#if $deltas[filepath]}
+                <details open>
+                    <summary>
+                        {filepath}
+                    </summary>
+                    <CodeViewer
+                        value={contentWithDeltasApplied(
+                            contentAtSessionStart,
+                            $deltas[filepath]
+                        )}
+                    />
+                </details>
+            {/if}
         {/each}
     </div>
     <div class="flex">Timeline</div>
