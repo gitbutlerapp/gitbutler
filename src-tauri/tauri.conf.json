@@ -6,9 +6,6 @@
     "distDir": "../build",
     "withGlobalTauri": false
   },
-  "package": {
-    "productName": "GitButler Dev"
-  },
   "tauri": {
     "allowlist": {
       "all": false,
