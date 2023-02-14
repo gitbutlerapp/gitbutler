@@ -12,6 +12,7 @@ export const load: PageLoad = async ({ parent, params }) => {
               projectId: params.projectId,
               sessionId: params.sessionId,
           });
+    console.log('HERE_0', params.projectId, params.sessionId)
     const files = building
         ? ({} as Record<string, string>)
         : (await import("$lib/sessions")).listFiles({

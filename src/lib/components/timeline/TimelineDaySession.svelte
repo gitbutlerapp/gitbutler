@@ -2,6 +2,7 @@
     import type { Session } from "$lib/sessions";
     import { toHumanReadableTime } from "$lib/time";
     import TimelineDaySessionActivities from "./TimelineDaySessionActivities.svelte";
+    import { listFiles } from "$lib/sessions";
     export let session: Session;
     export let projectId: string;
 
@@ -48,12 +49,13 @@
         -
         {toHumanReadableTime(session.meta.startTs)}
     </div>
-    <!-- <div id="files"> -->
-    <!-- {#each session.files as file} -->
-    <!--     <div> -->
-    <!--         <span>{file.linesTouched}</span> -->
-    <!--         <span>{file.name}</span> -->
-    <!--     </div> -->
-    <!-- {/each} -->
-    <!-- </div> -->
+    <div id="files">
+        {#await listFiles( { projectId: projectId, sessionId: session.id } ) then files}
+            {#each Object.keys(files) as file}
+                <div>
+                    <span>{file}</span>
+                </div>
+            {/each}
+        {/await}
+    </div>
 </div>
