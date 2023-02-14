@@ -1,4 +1,5 @@
 import { dev } from '$app/environment'
+import type { Project } from '$lib/projects';
 
 const apiUrl = dev ? new URL('https://test.app.gitbutler.com/api/') : new URL('https://app.gitbutler.com/api/');
 
