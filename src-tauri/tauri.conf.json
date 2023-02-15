@@ -31,10 +31,11 @@
         "all": false,
         "readFile": true,
         "writeFile": true,
+        "removeFile": true,
         "exists": true,
         "createDir": true,
         "scope": [
-            "$APPLOCALDATA/user.json"
+            "$APPLOCALDATA/*.json"
         ]
       }
     },

@@ -2,37 +2,45 @@
     import type { PageData } from "./$types";
     import type { Project } from "$lib/projects";
     import Authentication from "$lib/authentication";
-    import { BaseDirectory, writeTextFile } from '@tauri-apps/api/fs';
-    import Projects from '$lib/projects';
+    import { BaseDirectory, writeTextFile, removeFile, exists } from '@tauri-apps/api/fs';
+  	import { beforeUpdate, afterUpdate } from 'svelte';
 
     const authApi = Authentication();
-    const projectsFile = 'projects.json';
 
     export let data: PageData;
     $: project = data.project;
-    $: projects = data.projects;
     $: user = data.user;
 
-    Projects().then((projectStore) => {
-      projectStore.subscribe((newProjects) => {
-        // write to the disk
-        console.log("Projects Store Updated");
-        console.log(newProjects);
-      })
-    });
+    let projectPath = "project-" + $project?.id.toString() + ".json"
+    $: pathExists = false;
 
-    function updateProject(project: Project) {
-        console.log("Update Project", project);
-        const items = $projects;
-        const newProjects = items.map(item => item.id === project.id ? project : item);
+    afterUpdate(() => {
+      projectPath = "project-" + $project?.id.toString() + ".json"
+      checkExists();
+    })
 
-        console.log(newProjects);
-        // omg
+    function checkExists() {
+      exists(projectPath, {
+          dir: BaseDirectory.AppLocalData
+      }).then((res) => {
+          pathExists = res;
+      }).catch((e) => {
+          console.log("Error checking for file");
+          console.log(e);
+      });
+    }
 
-        writeTextFile(projectsFile, JSON.stringify(newProjects), {
+    function updateProject(project: Project, url) {
+        writeTextFile(projectPath, url, {
             dir: BaseDirectory.AppLocalData
+        }).then(() => {
+            console.log("Wrote URL");
+            projectPath = "project-" + $project?.id.toString() + ".json"
+            checkExists();
+        }).catch((e) => {
+            console.log("Error writing URL");
+            console.log(e);
         });
-        $projects = newProjects;
     };
 
     function enableSync() {
@@ -42,12 +50,8 @@
             console.log(res);
             if($project) {
               console.log("Updating Project");
-              $project.git_url = res.git_url;
-              console.log("Set git url");
-              $project.sync = true;
-              console.log("Set sync");
               console.log($project);
-              updateProject($project);
+              updateProject($project, res.git_url);
             }
         })
         .catch((e) => console.log("error", e));
@@ -56,8 +60,15 @@
     function disableSync() {
       if($project) {
         console.log($project);
-        $project.git_url = null;
-        $project.sync = false;
+        removeFile(projectPath, {
+            dir: BaseDirectory.AppLocalData
+        }).then(() => {
+            console.log("Removed URL");
+            checkExists();
+        }).catch((e) => {
+            console.log("Error removing URL");
+            console.log(e);
+        });
       }
     }
 </script>
@@ -70,8 +81,9 @@
     Title: {$project?.title}
   </div>
   <div>
-    {#if $project?.git_url}
-      Syncing to URL: {$project?.git_url}
+    Exists: {pathExists}<br/>
+    Path: {projectPath}<br/>
+    {#if pathExists}
       <button on:click={disableSync}>Disable Sync</button>
     {:else}
       {#if $user}
