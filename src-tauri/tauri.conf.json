@@ -50,13 +50,10 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "targets": ["dmg"]
+      "targets": ["dmg", "updater"]
     },
     "security": {
       "csp": null
-    },
-    "updater": {
-      "active": false
     },
     "windows": [
       {
