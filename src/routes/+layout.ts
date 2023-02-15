@@ -1,4 +1,4 @@
-import { readable, writable } from "svelte/store";
+import { readable } from "svelte/store";
 import type { LayoutLoad } from "./$types";
 import { building } from "$app/environment";
 import type { Project } from "$lib/projects";
@@ -20,7 +20,15 @@ export const load: LayoutLoad = async () => {
         }
         : await (await import("$lib/projects")).default();
     const user = building
-        ? writable<undefined>(undefined)
+        ? {
+            ...readable<undefined>(undefined),
+            set: () => {
+                throw new Error("not implemented");
+            },
+            delete: () => {
+                throw new Error("not implemented");
+            },
+        }
         : await (await import("$lib/users")).default();
     return { projects, user };
 };

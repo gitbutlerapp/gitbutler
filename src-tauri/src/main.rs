@@ -5,6 +5,7 @@ mod fs;
 mod projects;
 mod sessions;
 mod storage;
+mod users;
 mod watchers;
 
 use deltas::Delta;
@@ -23,6 +24,7 @@ use watchers::WatcherCollection;
 struct AppState {
     watchers: WatcherCollection,
     projects_storage: projects::storage::Storage,
+    users_storage: users::storage::Storage,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -71,6 +73,38 @@ fn list_sessions(
             })
         }
     }
+}
+
+#[tauri::command]
+fn get_user(state: State<'_, AppState>) -> Result<Option<users::user::User>, Error> {
+    state.users_storage.get().map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to get user".to_string(),
+        }
+    })
+}
+
+#[tauri::command]
+fn set_user(state: State<'_, AppState>, user: users::user::User) -> Result<(), Error> {
+    state.users_storage.set(&user).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to save user".to_string(),
+        }
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_user(state: State<'_, AppState>) -> Result<(), Error> {
+    state.users_storage.delete().map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to delete user".to_string(),
+        }
+    })?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -316,7 +350,8 @@ fn main() {
                 .setup(move |app| {
                     let resolver = app.path_resolver();
                     let storage = Storage::new(&resolver);
-                    let projects_storage = projects::storage::Storage::new(storage);
+                    let projects_storage = projects::storage::Storage::new(storage.clone());
+                    let users_storage = users::storage::Storage::new(storage.clone());
 
                     let watchers = watchers::WatcherCollection::default();
 
@@ -335,6 +370,7 @@ fn main() {
                     app.manage(AppState {
                         watchers,
                         projects_storage,
+                        users_storage,
                     });
 
                     Ok(())
@@ -359,6 +395,9 @@ fn main() {
                     list_deltas,
                     list_sessions,
                     list_session_files,
+                    set_user,
+                    delete_user,
+                    get_user
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application")

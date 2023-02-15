@@ -26,16 +26,6 @@
       },
       "path": {
         "all": true
-      },
-      "fs": {
-        "all": false,
-        "readFile": true,
-        "writeFile": true,
-        "exists": true,
-        "createDir": true,
-        "scope": [
-            "$APPLOCALDATA/user.json"
-        ]
       }
     },
     "bundle": {
