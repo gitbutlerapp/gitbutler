@@ -119,6 +119,44 @@ fn add_project<R: Runtime>(
 }
 
 #[tauri::command]
+fn add_git_url(state: State<'_, AppState>, url: &str, path: &str) -> Result<(), Error> {
+    log::info!("ADD GIT URL: {} {}", url, path);
+
+    // add '.git/gb-url' to the path
+    let mut path = std::path::PathBuf::from(path);
+    path.push(".git");
+    path.push("gb-url");
+
+    // write contents to a file under the path
+    std::fs::write(path, url).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to write git url".to_string(),
+        }
+    })?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn remove_git_url(state: State<'_, AppState>, path: &str) -> Result<(), Error> {
+    log::info!("REMOVE GIT URL: {}", path);
+    let mut path = std::path::PathBuf::from(path);
+    path.push(".git");
+    path.push("gb-url");
+
+    // remove file at path
+    std::fs::remove_file(path).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to remove git url".to_string(),
+        }
+    })?;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn list_projects(state: State<'_, AppState>) -> Result<Vec<projects::project::Project>, Error> {
     state.projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
@@ -353,6 +391,8 @@ fn main() {
                     add_project,
                     list_projects,
                     delete_project,
+                    add_git_url,
+                    remove_git_url,
                     list_deltas,
                     list_sessions,
                     list_session_files,

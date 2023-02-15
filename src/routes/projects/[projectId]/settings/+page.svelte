@@ -4,6 +4,7 @@
     import Authentication from "$lib/authentication";
     import { BaseDirectory, writeTextFile, removeFile, exists } from '@tauri-apps/api/fs';
   	import { beforeUpdate, afterUpdate } from 'svelte';
+    import { invoke } from "@tauri-apps/api";
 
     const authApi = Authentication();
 
@@ -17,6 +18,7 @@
     afterUpdate(() => {
       projectPath = "project-" + $project?.id.toString() + ".json"
       checkExists();
+
     })
 
     function checkExists() {
@@ -31,11 +33,18 @@
     }
 
     function updateProject(project: Project, url) {
-        writeTextFile(projectPath, url, {
+        writeTextFile(projectPath, JSON.stringify({url: url}), {
             dir: BaseDirectory.AppLocalData
         }).then(() => {
             console.log("Wrote URL");
             projectPath = "project-" + $project?.id.toString() + ".json"
+            invoke("add_git_url", { url: url, path: $project?.path }).then((res) => {
+              console.log("Added git url");
+              console.log(res);
+            }).catch((e) => {
+              console.log("Error adding git url");
+              console.log(e);
+            })
             checkExists();
         }).catch((e) => {
             console.log("Error writing URL");
@@ -64,6 +73,13 @@
             dir: BaseDirectory.AppLocalData
         }).then(() => {
             console.log("Removed URL");
+            invoke("remove_git_url", { path: $project?.path }).then((res) => {
+              console.log("Removed git url");
+              console.log(res);
+            }).catch((e) => {
+              console.log("Error removing git url");
+              console.log(e);
+            })
             checkExists();
         }).catch((e) => {
             console.log("Error removing URL");

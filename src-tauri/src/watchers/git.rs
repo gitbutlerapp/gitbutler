@@ -53,7 +53,7 @@ pub fn watch<R: tauri::Runtime>(
                         repo.workdir().unwrap().display()
                     );
                 }
-                if sessions::flush_current_session(&repo, &user).is_err() {
+                if sessions::flush_current_session(&repo, &user, &project).is_err() {
                     log::error!(
                         "Error while flushing current session for {}",
                         repo.workdir().unwrap().display()
@@ -62,7 +62,7 @@ pub fn watch<R: tauri::Runtime>(
             }
         }
 
-        match check_for_changes(&repo, &user) {
+        match check_for_changes(&repo, &user, &project) {
             Ok(Some(session)) => {
                 events::session(&window, &project, &session);
             }
@@ -92,9 +92,10 @@ pub fn watch<R: tauri::Runtime>(
 fn check_for_changes(
     repo: &Repository,
     user: &Option<User>,
+    project: &Project,
 ) -> Result<Option<sessions::Session>, Box<dyn std::error::Error>> {
     if ready_to_commit(repo)? {
-        Ok(Some(sessions::flush_current_session(repo, user)?))
+        Ok(Some(sessions::flush_current_session(repo, user, project)?))
     } else {
         Ok(None)
     }

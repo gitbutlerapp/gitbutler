@@ -1,4 +1,4 @@
-use crate::{butler, fs, users::user::User};
+use crate::{butler, fs, projects::project::Project, users::user::User};
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
 use git2::{PushOptions, RemoteCallbacks, Repository};
@@ -466,11 +466,17 @@ fn test_parse_reflog_line() {
     }
 }
 
-pub fn flush_current_session(repo: &git2::Repository, user: &Option<User>) -> Result<Session> {
+pub fn flush_current_session(
+    repo: &git2::Repository,
+    user: &Option<User>,
+    project: &Project,
+) -> Result<Session> {
     match user {
         Some(user) => println!("flushing current session for {}", user.name),
         None => println!("No logged in user"),
     }
+
+    println!("Project: {}", project.path);
 
     let session = Session::current(&repo)?;
     if session.is_none() {
@@ -526,13 +532,24 @@ fn push_to_remote(repo: &Repository, user: &Option<User>) -> Result<(), git2::Er
         }
     }
 
-    // TODO: get the remote url from the config
-    let remote_url = "https://test.app.gitbutler.com/git/287bff35-7827-4fc1-aab9-e9732da2b5ec";
+    // return if there is no .git/gb-url file
+    let mut gb_url_path = repo.path().to_path_buf();
+    gb_url_path.push("gb-url");
+    if !gb_url_path.exists() {
+        println!("No gb-url file, no push");
+        return Ok(());
+    }
+
+    // look in the .git/gb-url file for the remote url
+    let mut gb_url_file = File::open(gb_url_path).unwrap();
+    let mut remote_url = String::new();
+    gb_url_file.read_to_string(&mut remote_url).unwrap();
+    remote_url = remote_url.trim().to_string();
 
     println!("Pushing to remote: {}", remote_url);
 
     // Create an anonymous remote
-    let mut remote = repo.remote_anonymous(remote_url).unwrap();
+    let mut remote = repo.remote_anonymous(remote_url.as_str()).unwrap();
 
     // Set the remote's callbacks
     let mut callbacks = RemoteCallbacks::new();

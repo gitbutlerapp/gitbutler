@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-
+use tauri::PathResolver;
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Project {
     pub id: String,
