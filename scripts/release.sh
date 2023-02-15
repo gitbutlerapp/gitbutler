@@ -72,7 +72,6 @@ VERSION="$(version)"
 ARCH="$(arch)"
 OS="$(os)"
 
-DO_UPLOAD="false"
 DO_SIGN="false"
 DO_BUNDLE_UPDATE="false"
 TAURI_PRIVATE_KEY=""
@@ -188,13 +187,5 @@ info "  - $MACOS_DMG"
 info "  - $MACOS_UPDATER"
 info "  - $MACOS_UPDATER_SIG"
 info
-
-if [ "$DO_UPLOAD" = "true" ]; then
-	info "uploading release to s3"
-
-	aws s3 cp "$MACOS_DMG" "s3://releases.gitbutler.com/release/$VERSION/$OS/$ARCH/GitButler.dmg"
-	aws s3 cp "$MACOS_UPDATER" "s3://releases.gitbutler.com/release/$VERSION/$OS/$ARCH/GitButler.tar.gz"
-	aws s3 cp "$MACOS_UPDATER_SIG" "s3://releases.gitbutler.com/release/$VERSION/$OS/$ARCH/GitButler.tar.gz.sig"
-fi
 
 info "done! bye!"

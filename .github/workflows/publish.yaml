@@ -33,9 +33,6 @@ jobs:
               uses: dtolnay/rust-toolchain@stable
 
             - name: Build and upload
-              env:
-                  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
               run: |
                   ./scripts/release.sh \
                     --sign \
@@ -46,3 +43,12 @@ jobs:
                     --apple-signing-identity     "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
                     --apple-id                   "${{ secrets.APPLE_ID }}" \
                     --apple-password             "${{ secrets.APPLE_PASSWORD }}"
+
+            - uses: shallwefootball/s3-upload-action@master
+              name: Upload To S3
+              id: S3
+              with:
+                aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+                aws_bucket: 'gitbutler-public'
+                source_dir: 'releases'
