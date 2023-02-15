@@ -44,11 +44,17 @@ jobs:
                     --apple-id                   "${{ secrets.APPLE_ID }}" \
                     --apple-password             "${{ secrets.APPLE_PASSWORD }}"
 
+            - name: Set Current Date As Environment Variable
+              run: |
+                output=$(date +"%s")
+                echo "::set-env name=VERSION::$output"
+
             - uses: shallwefootball/s3-upload-action@master
               name: Upload To S3
               id: S3
               with:
                 aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
                 aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
-                aws_bucket: 'gitbutler-public'
-                source_dir: 'releases'
+                aws_bucket: "gitbutler-public"
+                source_dir: 'src-tauri/target/release/bundle/'
+                destination_dir: "releases/${{ env.VERSION }}"
