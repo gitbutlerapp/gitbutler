@@ -74,6 +74,22 @@ fn list_sessions(
 }
 
 #[tauri::command]
+fn update_project(
+    state: State<'_, AppState>,
+    project: projects::storage::UpdateRequest,
+) -> Result<projects::project::Project, Error> {
+    state
+        .projects_storage
+        .update_project(&project)
+        .map_err(|e| {
+            log::error!("{}", e);
+            Error {
+                message: "Failed to update project".to_string(),
+            }
+        })
+}
+
+#[tauri::command]
 fn add_project<R: Runtime>(
     window: Window<R>,
     state: State<'_, AppState>,
@@ -339,6 +355,7 @@ fn main() {
                     add_project,
                     list_projects,
                     delete_project,
+                    update_project,
                     list_deltas,
                     list_sessions,
                     list_session_files,

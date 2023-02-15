@@ -10,11 +10,14 @@ export const csr = true;
 export const load: LayoutLoad = async () => {
     const projects = building
         ? {
-              ...readable<Project[]>([]),
-              add: () => {
-                  throw new Error("not implemented");
-              },
-          }
+            ...readable<Project[]>([]),
+            add: () => {
+                throw new Error("not implemented");
+            },
+            update: () => {
+                throw new Error("not implemented");
+            },
+        }
         : await (await import("$lib/projects")).default();
     const user = building
         ? writable<undefined>(undefined)
