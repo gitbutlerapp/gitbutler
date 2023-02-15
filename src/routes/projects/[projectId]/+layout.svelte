@@ -7,7 +7,7 @@
     $: lastSessionId = $sessions[$sessions.length - 1]?.id;
 </script>
 
-<div class="p-3 flex flex-row space-x-3 text-zinc-500 text-lg select-none">
+<div class="h-12 p-3 flex flex-row space-x-3 text-zinc-500 text-lg select-none border-b border-zinc-700">
     <div>Week</div>
     <a href="/projects/{$project?.id}" class="hover:text-zinc-300">Day</a>
     {#if lastSessionId}

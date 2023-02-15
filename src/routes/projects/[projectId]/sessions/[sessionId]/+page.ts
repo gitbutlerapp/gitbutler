@@ -20,10 +20,11 @@ export const load: PageLoad = async ({ parent, params }) => {
           });
     return {
         session: derived(sessions, (sessions) => {
-            const result = sessions.find((session) => session.id === params.sessionId)
+            const result = sessions.find(
+                (session) => session.id === params.sessionId
+            );
             return result ? result : sessions[0];
-        }
-        ),
+        }),
         previousSesssion: derived(sessions, (sessions) => {
             const currentSessionIndex = sessions.findIndex(
                 (session) => session.id === params.sessionId

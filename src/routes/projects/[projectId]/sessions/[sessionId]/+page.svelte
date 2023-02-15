@@ -56,7 +56,7 @@
 </script>
 
 <div class="flex flex-col w-full h-full overflow-hidden space-y-2">
-    <div class="flex justify-center border-y border-zinc-700 p-2">
+    <div class="flex justify-center border-b border-zinc-700 p-2">
         <SessionNav
             project={$project}
             session={$session}

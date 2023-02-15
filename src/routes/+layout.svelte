@@ -67,19 +67,19 @@
     <a href="/users/" class="mr-4 cursor-default font-bold">{$user ? $user.name : 'User'}</a>
 </header>
 
-<div class="flex h-screen flex-grow flex-row text-zinc-400 overflow-hidden">
+<div class="grid grid-cols-6 h-screen flex-grow flex-row text-zinc-400 overflow-hidden">
     <div
         id="sidebar"
         class="
             overflow-auto
             flex
-            w-1/4 flex-col bg-zinc-50
+            flex-col bg-zinc-50
             border-r
             border-zinc-700
             dark:bg-zinc-900"
     >
         <div
-            class=" flex h-10 items-center border-b border-zinc-700 hover:bg-zinc-800"
+            class=" flex h-12 items-center border-b border-zinc-700 hover:bg-zinc-800"
         >
             <div class="flex-grow">
                 <DropDown projects={$projects} />
@@ -108,7 +108,7 @@
     </div>
 
     <div
-        class="flex-grow h-full border-ldark:border-zinc-700 dark:bg-zinc-800 overflow-hidden"
+        class="h-full col-span-5 border-ldark:border-zinc-700 dark:bg-zinc-800 overflow-hidden"
     >
         <slot />
     </div>
