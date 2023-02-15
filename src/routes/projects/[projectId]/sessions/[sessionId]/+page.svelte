@@ -6,6 +6,7 @@
     import { derived, writable } from "svelte/store";
     import type { PageData } from "./$types";
     import SessionNav from "$lib/components/session/SessionNav.svelte";
+    import { toHumanReadableTime } from "$lib/time";
 
     export let data: PageData;
 
@@ -95,5 +96,18 @@
             {/if}
         {/each}
     </div>
-    <div class="flex">Timeline</div>
+    <div class="flex flex-col border-t border-zinc-700 mt-2">
+        {#each Object.entries($deltas) as [filepath, deltas]}
+            <div class="flex">
+                <div class="w-32">{filepath}</div>
+                <div class="flex space-x-2 items-center">
+                    {#each deltas as delta}
+                        <div class="cursor-pointer text-center items-center justify-center text-xs rounded-full h-4 w-4 bg-zinc-400 text-zinc-600 hover:bg-zinc-200" title="{toHumanReadableTime(delta.timestampMs)}">
+                            <span>{delta.operations.length}</span>
+                        </div>
+                    {/each}
+                </div>
+            </div>
+        {/each}
+    </div>
 </div>
