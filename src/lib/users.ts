@@ -1,5 +1,5 @@
 import { BaseDirectory, exists, readTextFile, writeTextFile } from '@tauri-apps/api/fs';
-import type { User } from '$lib/authentication';
+import type { User } from '$lib/user';
 import { writable } from 'svelte/store';
 
 const userFile = 'user.json';

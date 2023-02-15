@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api";
-import { writable } from "svelte/store";
+import { writable, get } from "svelte/store";
 
 export type Project = {
     id: number,
@@ -17,6 +17,7 @@ export type Project = {
     sync: boolean,
 }
 
+
 const list = () => invoke<Project[]>("list_projects");
 
 const add = (params: { path: string }) =>
@@ -25,6 +26,7 @@ const add = (params: { path: string }) =>
 export default async () => {
     const init = await list();
     const store = writable<Project[]>(init);
+  
     return {
         subscribe: store.subscribe,
         add: (params: { path: string }) =>

@@ -1,5 +1,6 @@
 import { dev } from '$app/environment'
 import type { Project } from '$lib/projects';
+import type { User } from '$lib/user';
 
 const apiUrl = dev ? new URL('https://test.app.gitbutler.com/api/') : new URL('https://app.gitbutler.com/api/');
 
@@ -11,16 +12,6 @@ export type LoginToken = {
     url: string
 }
 
-export type User = {
-    id: number,
-    name: string,
-    email: string,
-    picture: string,
-    locale: string,
-    created_at: string,
-    updated_at: string,
-    access_token: string,
-}
 
 const parseJSON = async (response: Response) => {
     if (response.status === 204 || response.status === 205) {
