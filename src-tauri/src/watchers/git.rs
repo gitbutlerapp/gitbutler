@@ -32,8 +32,7 @@ impl From<std::io::Error> for WatchError {
     }
 }
 
-//const FIVE_MINUTES: u64 = Duration::new(5 * 60, 0).as_secs();
-const FIVE_MINUTES: u64 = Duration::new(5, 0).as_secs();
+const FIVE_MINUTES: u64 = Duration::new(5 * 60, 0).as_secs();
 const ONE_HOUR: u64 = Duration::new(60 * 60, 0).as_secs();
 
 pub fn watch<R: tauri::Runtime>(

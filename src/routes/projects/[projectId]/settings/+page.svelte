@@ -53,7 +53,7 @@
     };
 
     function enableSync() {
-      const apiProject = authApi.project.create($user.access_token, {name: $project?.title})
+      const apiProject = authApi.project.create($user.access_token, {name: $project?.title, uid: $project?.id})
         .then((res) => {
             console.log("Git response");
             console.log(res);

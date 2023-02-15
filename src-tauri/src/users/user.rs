@@ -9,10 +9,4 @@ pub struct User {
     pub access_token: String,
 }
 
-impl AsRef<User> for User {
-    fn as_ref(&self) -> &User {
-        self
-    }
-}
-
 impl User {}

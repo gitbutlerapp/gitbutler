@@ -12,7 +12,6 @@ export type LoginToken = {
     url: string
 }
 
-
 const parseJSON = async (response: Response) => {
     if (response.status === 204 || response.status === 205) {
         return null;
