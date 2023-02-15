@@ -47,7 +47,7 @@ jobs:
             - name: Set Current Date As Environment Variable
               run: |
                 ts=$(date +"%s")
-                echo "version={ts}" >> $GITHUB_ENV
+                echo "version=$ts" >> $GITHUB_ENV
 
             - uses: shallwefootball/s3-upload-action@master
               name: Upload To S3
