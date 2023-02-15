@@ -34,6 +34,8 @@ $ pnpm tauri build
 Releasing is done via [GitHub Action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml).
 Go to the link and select `Run workflow` from the desired branch.
 
+It will upload artifacts to a public S3 bucket.
+
 ### versioning
 
 To update the release app version, update version in the [Cargo.toml](./src-tauri/Cargo.toml).
