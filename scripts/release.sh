@@ -6,14 +6,25 @@ set -o pipefail
 
 PWD="$(dirname $(readlink -f -- $0))"
 
+DO_UPLOAD="false"
+DO_SIGN="false"
+DO_BUNDLE_UPDATE="false"
+TAURI_PRIVATE_KEY=""
+TAURI_KEY_PASSWORD=""
+APPLE_CERTIFICATE=""
+APPLE_CERTIFICATE_PASSWORD=""
+APPLE_SIGNING_IDENTITY=""
+APPLE_ID=""
+APPLE_PASSWORD=""
+
 function help() {
 	local to="$1"
 
 	echo "Usage: $0 <flags>" 1>&$to
 	echo 1>&$to
 	echo "flags:" 1>&$to
-	echo "  --tauri-private-key           path or string of tauri updater private key. (required)" 1>&$to
-	echo "  --tauri-key-password          password for tauri updater private key. (required)" 1>&$to
+	echo "  --tauri-private-key           path or string of tauri updater private key." 1>&$to
+	echo "  --tauri-key-password          password for tauri updater private key." 1>&$to
 	echo "  --apple-certificate           base64 string of the .p12 certificate, exported from the keychain." 1>&$to
 	echo "  --apple-certificate-password  password for the .p12 certificate." 1>&$to
 	echo "  --apple-signing-identity      the name of the keychain entry that contains the signing certificate." 1>&$to
@@ -27,69 +38,18 @@ function help() {
 function error() {
 	echo "error: $@" 1>&2
 	echo 1>&2
-	echo 1>&2
 	help 2
 	exit 1
 }
-
-function os() {
-	local os="$(uname -s)"
-	case "$os" in
-	Darwin)
-		echo "macos"
-		;;
-	*)
-		error "$os: unsupprted"
-		;;
-	esac
-}
-
-function version() {
-	pushd "$PWD/../src-tauri" >/dev/null
-	local pkgid="$(cargo pkgid)"
-	popd >/dev/null
-	local version="$(echo "$pkgid" | cut -d'@' -f2)"
-	echo "$version"
-}
-
-function arch() {
-	local arch="$(uname -m)"
-	case "$arch" in
-	arm64)
-		echo "aarch64"
-		;;
-	x86_64)
-		echo "x86_64"
-		;;
-	*)
-		error "$arch: unsupported architecture"
-		;;
-	esac
-}
-
-BUNDLE_DIR="$(readlink -f "$PWD/../src-tauri/target/release/bundle")"
-VERSION="$(version)"
-ARCH="$(arch)"
-OS="$(os)"
-
-DO_SIGN="false"
-DO_BUNDLE_UPDATE="false"
-TAURI_PRIVATE_KEY=""
-TAURI_KEY_PASSWORD=""
-APPLE_CERTIFICATE=""
-APPLE_CERTIFICATE_PASSWORD=""
-APPLE_SIGNING_IDENTITY=""
-APPLE_ID=""
-APPLE_PASSWORD=""
 
 function info() {
 	echo "$@"
 }
 
 function tauri() {
-	pushd "$PWD/.." >/dev/null
+	pushd "$PWD/.."
 	pnpm tauri "$@"
-	popd >/dev/null
+	popd
 }
 
 while [[ $# -gt 0 ]]; do
@@ -142,7 +102,7 @@ while [[ $# -gt 0 ]]; do
 		shift
 		;;
 	*)
-		error "$1: unknown flag"
+		error "unknown flag $1"
 		;;
 	esac
 done
@@ -152,8 +112,6 @@ done
 
 export TAURI_PRIVATE_KEY="$TAURI_PRIVATE_KEY"
 export TAURI_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
-
-[ "$DO_UPLOAD" = "true" ] && [ "$DO_SIGN" = "false" ] && error "Cannot upload without signing"
 
 if [ "$DO_SIGN" = "true" ]; then
 	[ -z "$APPLE_CERTIFICATE" ] && error "--apple-certificate is not set"
@@ -169,23 +127,4 @@ if [ "$DO_SIGN" = "true" ]; then
 	export APPLE_PASSWORD="$APPLE_PASSWORD"
 fi
 
-info "building release for:"
-info "  os: $OS"
-info "  arch: $ARCH"
-info "  version: $VERSION"
-info
-
 tauri build --config "$PWD/../src-tauri/tauri.conf.release.json"
-
-MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
-MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
-MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
-
-info
-info "release built:"
-info "  - $MACOS_DMG"
-info "  - $MACOS_UPDATER"
-info "  - $MACOS_UPDATER_SIG"
-info
-
-info "done! bye!"
