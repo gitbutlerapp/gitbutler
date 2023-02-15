@@ -1,36 +1,10 @@
 use crate::{butler, events, projects::project::Project, sessions};
 use git2::Repository;
+use anyhow::Result;
 use std::{
     thread,
     time::{Duration, SystemTime},
 };
-
-#[derive(Debug)]
-pub enum WatchError {
-    GitError(git2::Error),
-    IOError(std::io::Error),
-}
-
-impl std::fmt::Display for WatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WatchError::GitError(e) => write!(f, "Git error: {}", e),
-            WatchError::IOError(e) => write!(f, "IO error: {}", e),
-        }
-    }
-}
-
-impl From<git2::Error> for WatchError {
-    fn from(error: git2::Error) -> Self {
-        Self::GitError(error)
-    }
-}
-
-impl From<std::io::Error> for WatchError {
-    fn from(error: std::io::Error) -> Self {
-        Self::IOError(error)
-    }
-}
 
 const FIVE_MINUTES: u64 = Duration::new(5 * 60, 0).as_secs();
 const ONE_HOUR: u64 = Duration::new(60 * 60, 0).as_secs();
@@ -38,7 +12,7 @@ const ONE_HOUR: u64 = Duration::new(60 * 60, 0).as_secs();
 pub fn watch<R: tauri::Runtime>(
     window: tauri::Window<R>,
     project: Project,
-) -> Result<(), WatchError> {
+) -> Result<() > {
     let repo = git2::Repository::open(&project.path)?;
     thread::spawn(move || loop {
         match repo.revparse_single(format!("refs/{}/current", butler::refname()).as_str()) {

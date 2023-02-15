@@ -1,6 +1,7 @@
 use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
 use crate::projects::project::Project;
 use crate::{butler, events, sessions};
+use anyhow::Result;
 use git2::Repository;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
@@ -12,26 +13,7 @@ use std::{collections::HashMap, sync::Mutex};
 #[derive(Default)]
 pub struct WatcherCollection(Mutex<HashMap<String, RecommendedWatcher>>);
 
-#[derive(Debug)]
-pub enum UnwatchError {
-    UnwatchError(notify::Error),
-}
-
-impl std::fmt::Display for UnwatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnwatchError::UnwatchError(e) => write!(f, "Unwatch error: {}", e),
-        }
-    }
-}
-
-impl From<notify::Error> for UnwatchError {
-    fn from(error: notify::Error) -> Self {
-        UnwatchError::UnwatchError(error)
-    }
-}
-
-pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<(), UnwatchError> {
+pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<()> {
     let mut watchers = watchers.0.lock().unwrap();
     if let Some(mut watcher) = watchers.remove(&project.path) {
         watcher.unwatch(Path::new(&project.path))?;
@@ -39,38 +21,11 @@ pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<(), Unw
     Ok(())
 }
 
-#[derive(Debug)]
-pub enum WatchError {
-    GitError(git2::Error),
-    WatchError(notify::Error),
-}
-
-impl std::fmt::Display for WatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WatchError::GitError(e) => write!(f, "Git error: {}", e),
-            WatchError::WatchError(e) => write!(f, "Watch error: {}", e),
-        }
-    }
-}
-
-impl From<notify::Error> for WatchError {
-    fn from(error: notify::Error) -> Self {
-        WatchError::WatchError(error)
-    }
-}
-
-impl From<git2::Error> for WatchError {
-    fn from(error: git2::Error) -> Self {
-        WatchError::GitError(error)
-    }
-}
-
 pub fn watch<R: tauri::Runtime>(
     window: tauri::Window<R>,
     watchers: &WatcherCollection,
     project: Project,
-) -> Result<(), WatchError> {
+) -> Result<()> {
     log::info!("Watching deltas for {}", project.path);
     let project_path = Path::new(&project.path);
 
