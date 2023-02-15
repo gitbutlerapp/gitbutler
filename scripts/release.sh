@@ -127,4 +127,25 @@ if [ "$DO_SIGN" = "true" ]; then
 	export APPLE_PASSWORD="$APPLE_PASSWORD"
 fi
 
+
 tauri build --config "$PWD/../src-tauri/tauri.conf.release.json"
+
+BUNDLE_DIR="$(readlink -f "$PWD/../src-tauri/target/release/bundle")"
+MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
+MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
+MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
+
+info
+info "release built:"
+info "  - $MACOS_DMG"
+info "  - $MACOS_UPDATER"
+info "  - $MACOS_UPDATER_SIG"
+info
+
+RELEASE_DIR="$PWD/../release"
+mkdir -p "$RELEASE_DIR"
+mv "$MACOS_DMG" "$RELEASE_DIR"
+mv "$MACOS_UPDATER" "$RELEASE_DIR"
+mv "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
+
+info "done! bye!"
