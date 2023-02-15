@@ -55,6 +55,6 @@ jobs:
               with:
                 aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
                 aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
-                aws_bucket: "gitbutler-public"
+                aws_bucket: "releases.gitbutler.com"
                 source_dir: 'src-tauri/target/release/bundle/'
                 destination_dir: "releases/${{ env.version }}"
