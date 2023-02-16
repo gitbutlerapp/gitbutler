@@ -11,25 +11,25 @@ export const csr = true;
 export const load: LayoutLoad = async ({ fetch }) => {
     const projects = building
         ? {
-            ...readable<Project[]>([]),
-            add: () => {
-                throw new Error("not implemented");
-            },
-            get: () => {
-                throw new Error("not implemented");
-            },
-        }
+              ...readable<Project[]>([]),
+              add: () => {
+                  throw new Error("not implemented");
+              },
+              get: () => {
+                  throw new Error("not implemented");
+              },
+          }
         : await (await import("$lib/projects")).default();
     const user = building
         ? {
-            ...readable<undefined>(undefined),
-            set: () => {
-                throw new Error("not implemented");
-            },
-            delete: () => {
-                throw new Error("not implemented");
-            },
-        }
+              ...readable<undefined>(undefined),
+              set: () => {
+                  throw new Error("not implemented");
+              },
+              delete: () => {
+                  throw new Error("not implemented");
+              },
+          }
         : await (await import("$lib/users")).default();
     return { projects, user, api: Api({ fetch }) };
 };

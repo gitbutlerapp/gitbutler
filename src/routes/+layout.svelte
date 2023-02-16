@@ -7,11 +7,17 @@
     import { onMount } from "svelte";
     import { BackForwardButtons } from "$lib/components";
     import DropDown from "$lib/components/DropDown.svelte";
+    import { setContext } from "svelte";
+    import { writable } from "svelte/store";
+    import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
+
+    setContext("project", writable(null));
+    setContext("session", writable(null));
 
     onMount(log.setup);
 
     export let data: LayoutData;
-    const { projects , user} = data;
+    const { projects, user } = data;
 
     const onSelectProjectClick = async () => {
         const selectedPath = await open({
@@ -36,38 +42,27 @@
     class="sticky top-0 z-50 flex
     h-8
     flex-row
-    items-center justify-between overflow-hidden
+    items-center overflow-hidden
     border-b bg-zinc-50
     text-sm
     text-zinc-400 
     dark:border-zinc-700 dark:bg-zinc-900
+    select-none
     "
 >
     <div class="ml-24">
         <BackForwardButtons />
     </div>
-    <div
-        class="
-        invisible w-1/3
-        max-w-[40rem]
-        cursor-default rounded-md
-        border
-        text-center text-sm
-        text-zinc-400
-        outline-none
-        hover:border-zinc-200
-        dark:border-zinc-700
-        dark:bg-zinc-800
-        dark:hover:border-zinc-600
-        min-[320px]:visible
-    "
+    <div class="ml-6"><Breadcrumbs /></div>
+    <div class="flex-grow" />
+    <a href="/users/" class="mr-4 font-bold hover:text-zinc-200"
+        >{$user ? $user.name : "User"}</a
     >
-        <div class="center">Search GitButler</div>
-    </div>
-    <a href="/users/" class="mr-4 cursor-default font-bold">{$user ? $user.name : 'User'}</a>
 </header>
 
-<div class="grid grid-cols-6 h-screen flex-grow flex-row text-zinc-400 overflow-hidden">
+<div
+    class="grid grid-cols-6 h-screen flex-grow flex-row text-zinc-400 overflow-hidden"
+>
     <div
         id="sidebar"
         class="

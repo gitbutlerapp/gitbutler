@@ -6,6 +6,10 @@
     import type { PageData } from "./$types";
     import SessionNav from "$lib/components/session/SessionNav.svelte";
     import { toHumanReadableTime } from "$lib/time";
+    import { getContext } from 'svelte';
+    import type { Writable } from "svelte/store";
+    import type { Session } from "$lib/sessions";
+    import { onDestroy } from "svelte";
 
     export let data: PageData;
 
@@ -14,6 +18,12 @@
     $: nextSession = data.nextSession;
     $: session = data.session;
     $: deltas = data.deltas;
+
+    const contextProjectStore: Writable<Session|null|undefined> = getContext('session')
+    $: contextProjectStore.set($session)
+    onDestroy(() => {
+        contextProjectStore.set(null)
+    })
 
     $: selection = {} as Record<string, Record<string, number>>;
 

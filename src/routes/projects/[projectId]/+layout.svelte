@@ -1,10 +1,22 @@
 <script lang="ts">
     import type { LayoutData } from "./$types";
+    import { getContext } from 'svelte';
+    import type { Writable } from "svelte/store";
+    import type { Project } from "$lib/projects";
+    import { onDestroy } from "svelte";
+
     export let data: LayoutData;
 
     $: project = data.project;
     $: sessions = data.sessions;
     $: lastSessionId = $sessions[$sessions.length - 1]?.id;
+
+    const contextProjectStore: Writable<Project|null|undefined> = getContext('project')
+    $: contextProjectStore.set($project)
+    onDestroy(() => {
+        contextProjectStore.set(null)
+    })
+
 </script>
 
 <nav
