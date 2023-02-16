@@ -54,7 +54,9 @@
         "width": 800,
         "hiddenTitle": true,
         "theme": "Dark",
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "minWidth": 600,
+        "minHeight": 300
       }
     ],
     "systemTray": {
