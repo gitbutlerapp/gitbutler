@@ -1,10 +1,10 @@
 name: "Publish"
 on:
-  push:
-    branches:
-      - master
-      - s3-upload
-  workflow_dispatch: {}
+    push:
+        branches:
+            - master
+            - s3-upload
+    workflow_dispatch: {}
 
 jobs:
     publish-tauri:
@@ -35,7 +35,7 @@ jobs:
             - name: Setup rust
               uses: dtolnay/rust-toolchain@stable
 
-            - name: Build binary 
+            - name: Build binary
               run: |
                   ./scripts/release.sh \
                     --sign \
@@ -49,21 +49,20 @@ jobs:
 
             - name: Set Current Date As Environment Variable
               run: |
-                ts=$(date +"%y.%m.%d")
-                echo "version=$ts-${{ github.run_number }}" >> $GITHUB_ENV
+                  ts=$(date +"%y.%m.%d")
+                  echo "version=$ts-${{ github.run_number }}" >> $GITHUB_ENV
 
             - uses: shallwefootball/s3-upload-action@master
               name: Upload To S3
               id: S3
               with:
-                aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
-                aws_bucket: "releases.gitbutler.com"
-                source_dir: 'release/'
-                destination_dir: "releases/${{ env.version }}"
+                  aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+                  aws_bucket: "releases.gitbutler.com"
+                  source_dir: "release/"
+                  destination_dir: "releases/${{ env.version }}"
 
             # tell our server to update with the version number
             - name: Tell our server to update
               run: |
-                curl -X POST 'https://app.gitbutler.com/api/releases' --data '{version: "${{ env.version }}"}' -H 'Content-Type: application/json' -H 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}'
-
+                  curl -X POST 'https://app.gitbutler.com/api/releases' --data '{"version": "${{ env.version }}"}' -H 'Content-Type: application/json' -H 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}'
