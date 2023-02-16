@@ -1,4 +1,4 @@
-use crate::{butler, fs};
+use crate::{butler, fs, projects, users};
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
 use serde::Serialize;
@@ -465,7 +465,11 @@ fn test_parse_reflog_line() {
     }
 }
 
-pub fn flush_current_session(repo: &git2::Repository) -> Result<Session> {
+pub fn flush_current_session(
+    repo: &git2::Repository,
+    user: &Option<users::User>,
+    project: &projects::Project,
+) -> Result<Session> {
     let session = Session::current(&repo)?;
     if session.is_none() {
         return Err(anyhow!("session not found"));
@@ -499,10 +503,67 @@ pub fn flush_current_session(repo: &git2::Repository) -> Result<Session> {
     );
     delete_session(repo)?;
 
-    Ok(session.unwrap())
+    push_to_remote(repo, user, project)?;
 
-    // TODO: try to push the new gb history head to the remote
-    // TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
+    Ok(session.unwrap())
+}
+
+// try to push the new gb history head to the remote
+// TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
+fn push_to_remote(
+    repo: &git2::Repository,
+    user: &Option<users::User>,
+    project: &projects::Project,
+) -> Result<(), git2::Error> {
+    // only push if logged in
+    let access_token = match user {
+        Some(user) => user.access_token.clone(),
+        None => return Ok(()),
+    };
+
+    // only push if project is connected
+    let remote_url = match project.api {
+        Some(ref api) => api.git_url.clone(),
+        None => return Ok(()),
+    };
+
+    log::info!("pushing {} to {}", project.path, remote_url);
+
+    // Create an anonymous remote
+    let mut remote = repo.remote_anonymous(remote_url.as_str()).unwrap();
+
+    // Set the remote's callbacks
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.push_update_reference(move |refname, message| {
+        log::info!(
+            "{}: pushing reference '{}': {:?}",
+            project.path,
+            refname,
+            message
+        );
+        Ok(())
+    });
+    callbacks.push_transfer_progress(move |one, two, three| {
+        log::info!(
+            "{}: transferred {}/{}/{} objects",
+            project.path,
+            one,
+            two,
+            three
+        );
+    });
+
+    let mut push_options = git2::PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+    let auth_header = format!("Authorization: {}", access_token);
+    let headers = &[auth_header.as_str()];
+    push_options.custom_headers(headers);
+
+    // Push to the remote
+    let refname = format!("refs/{}/current", butler::refname());
+    remote.push(&[refname], Some(&mut push_options))?;
+
+    Ok(())
 }
 
 // build the initial tree from the working directory, not taking into account the gitbutler metadata

@@ -9,10 +9,6 @@ pub struct Storage {
 
 impl Storage {
     pub fn new(resolver: &PathResolver) -> Self {
-        log::info!(
-            "Local data dir: {:?}",
-            resolver.app_local_data_dir().unwrap()
-        );
         Self {
             local_data_dir: resolver.app_local_data_dir().unwrap(),
         }

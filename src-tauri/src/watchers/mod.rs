@@ -2,7 +2,7 @@ mod delta;
 mod git;
 
 pub use self::delta::WatcherCollection;
-use crate::projects;
+use crate::{projects, users};
 use anyhow::Result;
 use tauri;
 
@@ -15,8 +15,9 @@ impl<'a> Watcher<'a> {
     pub fn new(
         watchers: &'a delta::WatcherCollection,
         projects_storage: projects::Storage,
+        users_storage: users::Storage,
     ) -> Self {
-        let git_watcher = git::GitWatcher::new(projects_storage);
+        let git_watcher = git::GitWatcher::new(projects_storage, users_storage);
         let delta_watcher = delta::DeltaWatchers::new(watchers);
         Self {
             git_watcher,
