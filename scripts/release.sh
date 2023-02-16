@@ -46,6 +46,37 @@ function info() {
 	echo "$@"
 }
 
+function os() {
+       local os="$(uname -s)"
+       case "$os" in
+       Darwin)
+               echo "macos"
+               ;;
+       *)
+               error "$os: unsupprted"
+               ;;
+       esac
+}
+
+function arch() {
+       local arch="$(uname -m)"
+       case "$arch" in
+       arm64)
+               echo "aarch64"
+               ;;
+       x86_64)
+               echo "x86_64"
+               ;;
+       *)
+               error "$arch: unsupported architecture"
+               ;;
+       esac
+}
+
+BUNDLE_DIR="$(readlink -f "$PWD/../src-tauri/target/release/bundle")"
+ARCH="$(arch)"
+OS="$(os)"
+
 function tauri() {
 	pushd "$PWD/.."
 	pnpm tauri "$@"
@@ -131,7 +162,6 @@ tauri build --config "$PWD/../src-tauri/tauri.conf.release.json"
 
 info "moving artifacts..."
 
-BUNDLE_DIR="$(readlink -f "$PWD/../src-tauri/target/release/bundle")"
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
 MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
@@ -142,6 +172,9 @@ info "release built:"
 info "  - $MACOS_DMG"
 info "  - $MACOS_UPDATER"
 info "  - $MACOS_UPDATER_SIG"
+info 
+info "  - $ARCH"
+info "  - $OS"
 info
 
 RELEASE_DIR="$PWD/../release"
