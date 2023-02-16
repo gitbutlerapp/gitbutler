@@ -9,7 +9,8 @@ jobs:
             fail-fast: false
             matrix:
                 platform:
-                    - macos-latest
+                    # - macos-latest
+                    - macos-aarch64
 
         runs-on: ${{ matrix.platform }}
         steps:
