@@ -73,7 +73,6 @@ function arch() {
        esac
 }
 
-BUNDLE_DIR="$(readlink -f "$PWD/../src-tauri/target/release/bundle")"
 ARCH="$(arch)"
 OS="$(os)"
 
@@ -162,6 +161,7 @@ tauri build --config "$PWD/../src-tauri/tauri.conf.release.json"
 
 info "moving artifacts..."
 
+BUNDLE_DIR="$(readlink -f "$PWD/../src-tauri/target/release/bundle")"
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
 MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"

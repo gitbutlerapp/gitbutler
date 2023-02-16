@@ -17,12 +17,6 @@ jobs:
 
         runs-on: ${{ matrix.platform }}
         steps:
-            - name: Test some commands
-              run: |
-                uname -m
-                uname -s
-                readlink -f
-
             - name: Checkout
               uses: actions/checkout@v3
 
