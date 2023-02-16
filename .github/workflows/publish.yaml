@@ -65,5 +65,5 @@ jobs:
             # tell our server to update with the version number
             - name: Tell our server to update
               run: |
-                curl -X POST 'https://app.gitbutler.com/api/release' --data '{version: "${{ env.version }}"}' -H 'Content-Type: application/json' -H 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}'
+                curl -X POST 'https://app.gitbutler.com/api/releases' --data '{version: "${{ env.version }}"}' -H 'Content-Type: application/json' -H 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}'
 
