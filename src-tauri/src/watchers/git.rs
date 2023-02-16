@@ -1,4 +1,4 @@
-use crate::{butler, events, projects::project::Project, sessions};
+use crate::{butler, events, projects, sessions};
 use git2::Repository;
 use anyhow::Result;
 use std::{
@@ -11,7 +11,7 @@ const ONE_HOUR: u64 = Duration::new(60 * 60, 0).as_secs();
 
 pub fn watch<R: tauri::Runtime>(
     window: tauri::Window<R>,
-    project: Project,
+    project: projects::Project,
 ) -> Result<() > {
     let repo = git2::Repository::open(&project.path)?;
     thread::spawn(move || loop {

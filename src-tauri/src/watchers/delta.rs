@@ -1,5 +1,5 @@
 use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
-use crate::projects::project::Project;
+use crate::projects;
 use crate::{butler, events, sessions};
 use anyhow::Result;
 use git2::Repository;
@@ -13,7 +13,7 @@ use std::{collections::HashMap, sync::Mutex};
 #[derive(Default)]
 pub struct WatcherCollection(Mutex<HashMap<String, RecommendedWatcher>>);
 
-pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<()> {
+pub fn unwatch(watchers: &WatcherCollection, project: projects::Project) -> Result<()> {
     let mut watchers = watchers.0.lock().unwrap();
     if let Some(mut watcher) = watchers.remove(&project.path) {
         watcher.unwatch(Path::new(&project.path))?;
@@ -24,7 +24,7 @@ pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<()> {
 pub fn watch<R: tauri::Runtime>(
     window: tauri::Window<R>,
     watchers: &WatcherCollection,
-    project: Project,
+    project: projects::Project,
 ) -> Result<()> {
     log::info!("Watching deltas for {}", project.path);
     let project_path = Path::new(&project.path);
@@ -88,7 +88,7 @@ pub fn watch<R: tauri::Runtime>(
 // returns updated project deltas
 fn register_file_change<R: tauri::Runtime>(
     window: &tauri::Window<R>,
-    project: &Project,
+    project: &projects::Project,
     repo: &Repository,
     kind: &EventKind,
     relative_file_path: &Path,
@@ -180,7 +180,7 @@ fn get_latest_file_contents(
 // and also touches the last activity timestamp, so we can tell when we are idle
 fn write_beginning_meta_files<R: tauri::Runtime>(
     window: &tauri::Window<R>,
-    project: &Project,
+    project: &projects::Project,
     repo: &Repository,
 ) -> Result<sessions::Session, Box<dyn std::error::Error>> {
     match sessions::Session::current(repo)

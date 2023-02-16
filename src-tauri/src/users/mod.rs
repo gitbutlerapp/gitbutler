@@ -1,2 +1,5 @@
-pub mod user;
-pub mod storage;
+mod user;
+mod storage;
+
+pub use user::User;
+pub use storage::Storage;

@@ -23,8 +23,8 @@ use watchers::WatcherCollection;
 
 struct AppState {
     watchers: WatcherCollection,
-    projects_storage: projects::storage::Storage,
-    users_storage: users::storage::Storage,
+    projects_storage: projects::Storage,
+    users_storage: users::Storage,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -76,7 +76,7 @@ fn list_sessions(
 }
 
 #[tauri::command]
-fn get_user(state: State<'_, AppState>) -> Result<Option<users::user::User>, Error> {
+fn get_user(state: State<'_, AppState>) -> Result<Option<users::User>, Error> {
     state.users_storage.get().map_err(|e| {
         log::error!("{}", e);
         Error {
@@ -86,7 +86,7 @@ fn get_user(state: State<'_, AppState>) -> Result<Option<users::user::User>, Err
 }
 
 #[tauri::command]
-fn set_user(state: State<'_, AppState>, user: users::user::User) -> Result<(), Error> {
+fn set_user(state: State<'_, AppState>, user: users::User) -> Result<(), Error> {
     state.users_storage.set(&user).map_err(|e| {
         log::error!("{}", e);
         Error {
@@ -110,8 +110,8 @@ fn delete_user(state: State<'_, AppState>) -> Result<(), Error> {
 #[tauri::command]
 fn update_project(
     state: State<'_, AppState>,
-    project: projects::storage::UpdateRequest,
-) -> Result<projects::project::Project, Error> {
+    project: projects::UpdateRequest,
+) -> Result<projects::Project, Error> {
     state
         .projects_storage
         .update_project(&project)
@@ -128,7 +128,7 @@ fn add_project<R: Runtime>(
     window: Window<R>,
     state: State<'_, AppState>,
     path: &str,
-) -> Result<projects::project::Project, Error> {
+) -> Result<projects::Project, Error> {
     for project in state.projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
         Error {
@@ -142,7 +142,7 @@ fn add_project<R: Runtime>(
         }
     }
 
-    let project = projects::project::Project::from_path(path.to_string());
+    let project = projects::Project::from_path(path.to_string());
     if project.is_ok() {
         let project = project.unwrap();
         state.projects_storage.add_project(&project).map_err(|e| {
@@ -166,7 +166,7 @@ fn add_project<R: Runtime>(
 }
 
 #[tauri::command]
-fn list_projects(state: State<'_, AppState>) -> Result<Vec<projects::project::Project>, Error> {
+fn list_projects(state: State<'_, AppState>) -> Result<Vec<projects::Project>, Error> {
     state.projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
         Error {
@@ -350,8 +350,8 @@ fn main() {
                 .setup(move |app| {
                     let resolver = app.path_resolver();
                     let storage = Storage::new(&resolver);
-                    let projects_storage = projects::storage::Storage::new(storage.clone());
-                    let users_storage = users::storage::Storage::new(storage.clone());
+                    let projects_storage = projects::Storage::new(storage.clone());
+                    let users_storage = users::Storage::new(storage.clone());
 
                     let watchers = watchers::WatcherCollection::default();
 
