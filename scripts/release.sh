@@ -161,7 +161,9 @@ tauri build --config "$PWD/../src-tauri/tauri.conf.release.json"
 
 info "moving artifacts..."
 
-BUNDLE_DIR="$PWD/../src-tauri/target/release/bundle"
+pushd "$PWD/.."
+
+BUNDLE_DIR="src-tauri/target/release/bundle"
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
 MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
@@ -177,7 +179,7 @@ info "  - $ARCH"
 info "  - $OS"
 info
 
-RELEASE_DIR="$PWD/../release"
+RELEASE_DIR="release/$OS/$ARCH"
 mkdir -p "$RELEASE_DIR"
 mv "$MACOS_DMG" "$RELEASE_DIR"
 mv "$MACOS_UPDATER" "$RELEASE_DIR"
