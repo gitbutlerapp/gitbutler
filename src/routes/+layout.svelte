@@ -6,7 +6,6 @@
     import { log } from "$lib";
     import { onMount } from "svelte";
     import { BackForwardButtons } from "$lib/components";
-    import DropDown from "$lib/components/DropDown.svelte";
     import { setContext } from "svelte";
     import { writable } from "svelte/store";
     import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
@@ -60,51 +59,18 @@
     >
 </header>
 
-<div
-    class="grid grid-cols-6 h-screen flex-grow flex-row text-zinc-400 overflow-hidden"
->
-    <div
-        id="sidebar"
-        class="
-            overflow-auto
-            flex
-            flex-col bg-zinc-50
-            border-r
-            border-zinc-700
-            dark:bg-zinc-900"
-    >
-        <div
-            class=" flex h-12 items-center border-b border-zinc-700 hover:bg-zinc-800"
-        >
-            <div class="flex-grow">
-                <DropDown projects={$projects} />
-            </div>
-            <button class="flex-shrink" on:click={onSelectProjectClick}>
-                <div
-                    class="absolute -my-2 -mx-8 flex h-5 w-5 cursor-default select-none 
-                        items-center
-                        justify-center rounded-full bg-zinc-600 text-sm font-bold hover:bg-zinc-300 hover:text-zinc-600"
-                    title="Add new repository"
-                >
-                    +
-                </div>
-            </button>
-        </div>
-
-        <div class="flex-grow" />
-
-        <div class="border-t border-zinc-700 h-8 flex items-center">
-            <div class="ml-4 flex flex-row items-center space-x-2 text-sm">
-                <div class="h-2 w-2 rounded-full bg-green-700" />
-                <div>Up to date</div>
-            </div>
-        </div>
-        <div id="foo" class="h-8" />
-    </div>
-
-    <div
-        class="h-full col-span-5 border-ldark:border-zinc-700 dark:bg-zinc-800 overflow-hidden"
-    >
+<div class="bg-zinc-800 h-screen text-zinc-400 flex flex-col">
+    <div class="flex-grow">
         <slot />
     </div>
+
+    <div
+        class="border-t border-zinc-700 h-6 flex items-center bg-zinc-900 select-none "
+    >
+        <div class="ml-4 flex flex-row items-center space-x-2 text-xs">
+            <div class="h-2 w-2 rounded-full bg-green-700" />
+            <div>Up to date</div>
+        </div>
+    </div>
+    <div id="foo" class="h-8" />
 </div>
