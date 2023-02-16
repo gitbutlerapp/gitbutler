@@ -76,9 +76,9 @@
                                 on:click={() => {
                                     selection[$session.id][filepath] = i;
                                 }}
-                                class="{selection[$session.id][filepath] == i
-                                    ? 'bg-orange-300'
-                                    : ''} text-center items-center justify-center text-xs rounded-full h-4 w-4 bg-zinc-400 text-zinc-600 hover:bg-zinc-200"
+                                class="text-center items-center justify-center text-xs rounded-full h-4 w-4 text-zinc-600 hover:bg-zinc-200
+{selection[$session.id][filepath] == i ? 'bg-orange-300' : 'bg-zinc-400'}
+                                "
                                 title={toHumanReadableTime(delta.timestampMs)}
                             >
                                 <span>{delta.operations.length}</span>
