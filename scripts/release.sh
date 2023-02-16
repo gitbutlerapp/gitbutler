@@ -163,6 +163,7 @@ info "moving artifacts..."
 
 echo "pwd: $(pwd)"
 
+pushd "gitbutler-client"
 find .
 
 BUNDLE_DIR="./src-tauri/target/release/bundle"
