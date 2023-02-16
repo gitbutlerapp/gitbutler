@@ -1,7 +1,10 @@
 name: "Publish"
 on:
-    workflow_dispatch: {}
-    pull_request: {}
+  push:
+    branches:
+      - master
+      - s3-upload
+  workflow_dispatch: {}
 
 jobs:
     publish-tauri:
