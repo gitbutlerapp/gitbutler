@@ -13,6 +13,7 @@ pub struct Storage {
 pub struct UpdateRequest {
     id: String,
     title: Option<String>,
+    api: Option<project::ApiProject>,
 }
 
 impl Storage {
@@ -38,9 +39,15 @@ impl Storage {
             .iter_mut()
             .find(|p| p.id == update_request.id)
             .ok_or_else(|| anyhow::anyhow!("Project not found"))?;
+
         if let Some(title) = &update_request.title {
             project.title = title.clone();
         }
+
+        if let Some(api) = &update_request.api {
+            project.api = Some(api.clone());
+        }
+
         let projects = serde_json::to_string(&projects)?;
         self.storage.write(PROJECTS_FILE, &projects)?;
         Ok(self.get_project(&update_request.id)?.unwrap())

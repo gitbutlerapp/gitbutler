@@ -43,7 +43,7 @@ dependencies:
   idb-keyval: 6.2.0
   mm-jsr: 3.0.2
   svelte-icons: 2.1.0
-  tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/33d9b712e9058ed82c110cb186345215f82b88e2
+  tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/921afb3366b14ac43e3d8041a7def4b85d4d7192
   yjs: 13.5.45
 
 devDependencies:
@@ -2574,8 +2574,8 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-log/33d9b712e9058ed82c110cb186345215f82b88e2:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/33d9b712e9058ed82c110cb186345215f82b88e2}
+  github.com/tauri-apps/tauri-plugin-log/921afb3366b14ac43e3d8041a7def4b85d4d7192:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/921afb3366b14ac43e3d8041a7def4b85d4d7192}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:

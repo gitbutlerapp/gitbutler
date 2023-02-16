@@ -1,4 +1,4 @@
-import type { User } from "$lib/authentication";
+import type { User } from "$lib/api";
 import { writable } from "svelte/store";
 import { invoke } from "@tauri-apps/api";
 
