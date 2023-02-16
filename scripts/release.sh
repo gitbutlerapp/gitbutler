@@ -162,9 +162,7 @@ tauri build --config "$PWD/../src-tauri/tauri.conf.release.json"
 info "moving artifacts..."
 
 echo "pwd: $(pwd)"
-pushd "../"
 
-echo "pwd: $(pwd)"
 find .
 
 BUNDLE_DIR="./src-tauri/target/release/bundle"
