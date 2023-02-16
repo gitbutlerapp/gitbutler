@@ -1,7 +1,6 @@
 <script lang="ts">
     import "../app.postcss";
 
-    import { open } from "@tauri-apps/api/dialog";
     import type { LayoutData } from "./$types";
     import { log } from "$lib";
     import { onMount } from "svelte";
@@ -16,24 +15,7 @@
     onMount(log.setup);
 
     export let data: LayoutData;
-    const { projects, user } = data;
-
-    const onSelectProjectClick = async () => {
-        const selectedPath = await open({
-            directory: true,
-            recursive: true,
-        });
-        if (selectedPath === null) return;
-        if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-        const projectPath = Array.isArray(selectedPath)
-            ? selectedPath[0]
-            : selectedPath;
-
-        const projectExists = $projects.some((p) => p.path === projectPath);
-        if (projectExists) return;
-
-        await projects.add({ path: projectPath });
-    };
+    const { user } = data;
 </script>
 
 <header
