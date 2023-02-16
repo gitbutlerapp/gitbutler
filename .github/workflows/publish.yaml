@@ -49,8 +49,8 @@ jobs:
 
             - name: Set Current Date As Environment Variable
               run: |
-                ts=$(date +"%s")
-                echo "version=$ts" >> $GITHUB_ENV
+                ts=$(date +"%y.%m.%d")
+                echo "version=$ts-${{ github.run_number }}" >> $GITHUB_ENV
 
             - uses: shallwefootball/s3-upload-action@master
               name: Upload To S3
@@ -61,3 +61,9 @@ jobs:
                 aws_bucket: "releases.gitbutler.com"
                 source_dir: 'release/'
                 destination_dir: "releases/${{ env.version }}"
+
+            # tell our server to update with the version number
+            - name: Tell our server to update
+              run: |
+                curl -X POST 'https://app.gitbutler.com/api/release' --data '{version: "${{ env.version }}"}' -H 'Content-Type: application/json' -H 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}'
+
