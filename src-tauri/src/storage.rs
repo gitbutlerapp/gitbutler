@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::{fs, path::PathBuf};
 use tauri::PathResolver;
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Storage {
     local_data_dir: PathBuf,
 }

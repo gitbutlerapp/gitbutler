@@ -42,7 +42,7 @@ fn list_sessions(
 ) -> Result<Vec<sessions::Session>, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(&storage);
+    let projects_storage = projects::Storage::new(storage);
 
     match projects_storage.get_project(project_id) {
         Ok(Some(project)) => {
@@ -123,7 +123,7 @@ fn update_project(
 ) -> Result<projects::Project, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(&storage);
+    let projects_storage = projects::Storage::new(storage);
 
     projects_storage.update_project(&project).map_err(|e| {
         log::error!("{}", e);
@@ -141,10 +141,10 @@ fn add_project(
 ) -> Result<projects::Project, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(&storage);
+    let projects_storage = projects::Storage::new(storage);
 
     let watchers_collection = handle.state::<watchers::WatcherCollection>();
-    let watchers = watchers::Watcher::new(&watchers_collection);
+    let watchers = watchers::Watcher::new(&watchers_collection, projects_storage.clone());
 
     for project in projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
@@ -186,7 +186,7 @@ fn add_project(
 fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(&storage);
+    let projects_storage = projects::Storage::new(storage);
 
     projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
@@ -200,10 +200,10 @@ fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Err
 fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(&storage);
+    let projects_storage = projects::Storage::new(storage);
 
     let watchers_collection = handle.state::<watchers::WatcherCollection>();
-    let watchers = watchers::Watcher::new(&watchers_collection);
+    let watchers = watchers::Watcher::new(&watchers_collection, projects_storage.clone());
 
     match projects_storage.get_project(id) {
         Ok(Some(project)) => {
@@ -241,7 +241,7 @@ fn list_session_files(
 ) -> Result<HashMap<String, String>, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(&storage);
+    let projects_storage = projects::Storage::new(storage);
 
     match projects_storage.get_project(project_id) {
         Ok(Some(project)) => {
@@ -281,7 +281,7 @@ fn list_deltas(
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(&storage);
+    let projects_storage = projects::Storage::new(storage);
 
     match projects_storage.get_project(project_id) {
         Ok(Some(project)) => {
@@ -386,10 +386,11 @@ fn main() {
                 .setup(move |app| {
                     let resolver = app.path_resolver();
                     let storage = Storage::new(&resolver);
-                    let projects_storage = projects::Storage::new(&storage);
+                    let projects_storage = projects::Storage::new(storage);
 
                     let watcher_collection = watchers::WatcherCollection::default();
-                    let watchers = watchers::Watcher::new(&watcher_collection);
+                    let watchers =
+                        watchers::Watcher::new(&watcher_collection, projects_storage.clone());
 
                     if let Ok(projects) = projects_storage.list_projects() {
                         for project in projects {

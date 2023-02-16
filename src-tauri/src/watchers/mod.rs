@@ -12,8 +12,11 @@ pub struct Watcher<'a> {
 }
 
 impl<'a> Watcher<'a> {
-    pub fn new(watchers: &'a delta::WatcherCollection) -> Self {
-        let git_watcher = git::GitWatcher {};
+    pub fn new(
+        watchers: &'a delta::WatcherCollection,
+        projects_storage: projects::Storage,
+    ) -> Self {
+        let git_watcher = git::GitWatcher::new(projects_storage);
         let delta_watcher = delta::DeltaWatchers::new(watchers);
         Self {
             git_watcher,
@@ -23,7 +26,7 @@ impl<'a> Watcher<'a> {
 
     pub fn watch(&self, window: tauri::Window, project: &projects::Project) -> Result<()> {
         self.delta_watcher.watch(window.clone(), project.clone())?;
-        self.git_watcher.watch(window.clone(), project.clone())?;
+        self.git_watcher.watch(window.clone(), project.id.clone())?;
         Ok(())
     }
 
