@@ -1,6 +1,6 @@
 use crate::{butler, events, projects, sessions};
-use git2::Repository;
 use anyhow::Result;
+use git2::Repository;
 use std::{
     thread,
     time::{Duration, SystemTime},
@@ -9,48 +9,49 @@ use std::{
 const FIVE_MINUTES: u64 = Duration::new(5 * 60, 0).as_secs();
 const ONE_HOUR: u64 = Duration::new(60 * 60, 0).as_secs();
 
-pub fn watch<R: tauri::Runtime>(
-    window: tauri::Window<R>,
-    project: projects::Project,
-) -> Result<() > {
-    let repo = git2::Repository::open(&project.path)?;
-    thread::spawn(move || loop {
-        match repo.revparse_single(format!("refs/{}/current", butler::refname()).as_str()) {
-            Ok(_) => {}
-            Err(_) => {
-                // make sure all the files are tracked by gitbutler session
-                if sessions::Session::from_head(&repo).is_err() {
+pub struct GitWatcher {}
+
+impl GitWatcher {
+    pub fn watch(&self, window: tauri::Window, project: projects::Project) -> Result<()> {
+        let repo = git2::Repository::open(&project.path)?;
+        thread::spawn(move || loop {
+            match repo.revparse_single(format!("refs/{}/current", butler::refname()).as_str()) {
+                Ok(_) => {}
+                Err(_) => {
+                    // make sure all the files are tracked by gitbutler session
+                    if sessions::Session::from_head(&repo).is_err() {
+                        log::error!(
+                            "Error while creating session for {}",
+                            repo.workdir().unwrap().display()
+                        );
+                    }
+                    if sessions::flush_current_session(&repo).is_err() {
+                        log::error!(
+                            "Error while flushing current session for {}",
+                            repo.workdir().unwrap().display()
+                        );
+                    }
+                }
+            }
+
+            match check_for_changes(&repo) {
+                Ok(Some(session)) => {
+                    events::session(&window, &project, &session);
+                }
+                Ok(None) => {}
+                Err(error) => {
                     log::error!(
-                        "Error while creating session for {}",
-                        repo.workdir().unwrap().display()
+                        "Error while checking {} for changes: {}",
+                        repo.workdir().unwrap().display(),
+                        error
                     );
                 }
-                if sessions::flush_current_session(&repo).is_err() {
-                    log::error!(
-                        "Error while flushing current session for {}",
-                        repo.workdir().unwrap().display()
-                    );
-                }
             }
-        }
+            thread::sleep(Duration::from_secs(10));
+        });
 
-        match check_for_changes(&repo) {
-            Ok(Some(session)) => {
-                events::session(&window, &project, &session);
-            }
-            Ok(None) => {}
-            Err(error) => {
-                log::error!(
-                    "Error while checking {} for changes: {}",
-                    repo.workdir().unwrap().display(),
-                    error
-                );
-            }
-        }
-        thread::sleep(Duration::from_secs(10));
-    });
-
-    Ok(())
+        Ok(())
+    }
 }
 
 // main thing called in a loop to check for changes and write our custom commit data

@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 const PROJECTS_FILE: &str = "projects.json";
 
-pub struct Storage {
-    storage: storage::Storage,
+pub struct Storage<'a> {
+    storage: &'a storage::Storage,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -16,8 +16,8 @@ pub struct UpdateRequest {
     api: Option<project::ApiProject>,
 }
 
-impl Storage {
-    pub fn new(storage: storage::Storage) -> Self {
+impl<'a> Storage<'a> {
+    pub fn new(storage: &'a storage::Storage) -> Self {
         Self { storage }
     }
 

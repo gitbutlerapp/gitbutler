@@ -4,12 +4,12 @@ use anyhow::Result;
 
 const USER_FILE: &str = "user.json";
 
-pub struct Storage {
-    storage: storage::Storage,
+pub struct Storage<'a> {
+    storage: &'a storage::Storage,
 }
 
-impl Storage {
-    pub fn new(storage: storage::Storage) -> Self {
+impl<'a> Storage<'a> {
+    pub fn new(storage: &'a storage::Storage) -> Self {
         Self { storage }
     }
 
