@@ -1,57 +1,67 @@
 name: "Publish"
 on:
-  workflow_dispatch: {}
+    push:
+        branches:
+            - build
+    workflow_dispatch: {}
 
 jobs:
-  publish-tauri:
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: 
-          # - macos-latest 
-          - macos-aarch64
+    publish-tauri:
+        strategy:
+            fail-fast: false
+            matrix:
+                platform:
+                    # - macos-latest
+                    - macos-aarch64
 
+        runs-on: ${{ matrix.platform }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
 
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+            - name: Setup node
+              uses: actions/setup-node@v3
+              with:
+                  node-version: 18
 
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v2
+              with:
+                  version: 7.x.x
+                  run_install: |
+                      args: ["--frozen-lockfile"]
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 7.x.x
-          run_install: |
-            args: ["--frozen-lockfile"]
+            - name: Setup rust
+              uses: dtolnay/rust-toolchain@stable
 
-      - name: Setup rust
-        uses: dtolnay/rust-toolchain@stable
+            - name: Build binary
+              run: |
+                  ./scripts/release.sh \
+                    --sign \
+                    --tauri-private-key          "${{ secrets.TAURI_PRIVATE_KEY }}"  \
+                    --tauri-key-password         "${{ secrets.TAURI_KEY_PASSWORD }}" \
+                    --apple-certificate          "${{ secrets.APPLE_CERTIFICATE }}" \
+                    --apple-certificate-password "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" \
+                    --apple-signing-identity     "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+                    --apple-id                   "${{ secrets.APPLE_ID }}" \
+                    --apple-password             "${{ secrets.APPLE_PASSWORD }}"
 
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ENABLE_CODE_SIGNING: ${{ secrets.APPLE_CERTIFICATE }}
-          # apple codesign
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          # updater keys
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        with:
-          args: "--config ./src-tauri/tauri.conf.release.json"
-          tauriScript: "pnpm tauri"
-          tagName: gitbutler-v__VERSION__
-          releaseName: "GitButler v__VERSION__"
-          releaseBody: "See the assets to download this version and install."
-          releaseDraft: true
-          prerelease: false
+            - name: Set Current Date As Environment Variable
+              run: |
+                  ts=$(date +"%y.%m.%d")
+                  echo "version=$ts-${{ github.run_number }}" >> $GITHUB_ENV
+
+            - uses: shallwefootball/s3-upload-action@master
+              name: Upload To S3
+              id: S3
+              with:
+                  aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+                  aws_bucket: "releases.gitbutler.com"
+                  source_dir: "release/"
+                  destination_dir: "releases/${{ env.version }}"
+
+            # tell our server to update with the version number
+            - name: Tell our server to update
+              run: |
+                  curl -X POST 'https://app.gitbutler.com/api/releases' --data '{"version": "${{ env.version }}"}' -H 'Content-Type: application/json' -H 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}'
