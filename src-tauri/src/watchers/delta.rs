@@ -1,6 +1,7 @@
 use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
-use crate::projects::project::Project;
+use crate::projects;
 use crate::{butler, events, sessions};
+use anyhow::Result;
 use git2::Repository;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
@@ -12,119 +13,79 @@ use std::{collections::HashMap, sync::Mutex};
 #[derive(Default)]
 pub struct WatcherCollection(Mutex<HashMap<String, RecommendedWatcher>>);
 
-#[derive(Debug)]
-pub enum UnwatchError {
-    UnwatchError(notify::Error),
+pub struct DeltaWatchers<'a> {
+    watchers: &'a WatcherCollection,
 }
 
-impl std::fmt::Display for UnwatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnwatchError::UnwatchError(e) => write!(f, "Unwatch error: {}", e),
-        }
+impl<'a> DeltaWatchers<'a> {
+    pub fn new(watchers: &'a WatcherCollection) -> Self {
+        Self { watchers }
     }
-}
 
-impl From<notify::Error> for UnwatchError {
-    fn from(error: notify::Error) -> Self {
-        UnwatchError::UnwatchError(error)
-    }
-}
+    pub fn watch(&self, window: tauri::Window, project: projects::Project) -> Result<()> {
+        log::info!("Watching deltas for {}", project.path);
+        let project_path = Path::new(&project.path);
 
-pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<(), UnwatchError> {
-    let mut watchers = watchers.0.lock().unwrap();
-    if let Some(mut watcher) = watchers.remove(&project.path) {
-        watcher.unwatch(Path::new(&project.path))?;
-    }
-    Ok(())
-}
+        let (tx, rx) = channel();
+        let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
 
-#[derive(Debug)]
-pub enum WatchError {
-    GitError(git2::Error),
-    WatchError(notify::Error),
-}
+        watcher.watch(project_path, RecursiveMode::Recursive)?;
 
-impl std::fmt::Display for WatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WatchError::GitError(e) => write!(f, "Git error: {}", e),
-            WatchError::WatchError(e) => write!(f, "Watch error: {}", e),
-        }
-    }
-}
+        self.watchers
+            .0
+            .lock()
+            .unwrap()
+            .insert(project.path.clone(), watcher);
 
-impl From<notify::Error> for WatchError {
-    fn from(error: notify::Error) -> Self {
-        WatchError::WatchError(error)
-    }
-}
-
-impl From<git2::Error> for WatchError {
-    fn from(error: git2::Error) -> Self {
-        WatchError::GitError(error)
-    }
-}
-
-pub fn watch<R: tauri::Runtime>(
-    window: tauri::Window<R>,
-    watchers: &WatcherCollection,
-    project: Project,
-) -> Result<(), WatchError> {
-    log::info!("Watching deltas for {}", project.path);
-    let project_path = Path::new(&project.path);
-
-    let (tx, rx) = channel();
-    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
-
-    watcher.watch(project_path, RecursiveMode::Recursive)?;
-
-    watchers
-        .0
-        .lock()
-        .unwrap()
-        .insert(project.path.clone(), watcher);
-
-    let repo = Repository::open(project_path);
-    thread::spawn(move || {
-        if repo.is_err() {
-            log::error!("failed to open git repo: {:?}", repo.err());
-            return;
-        }
-        let repo = repo.unwrap();
-
-        while let Ok(event) = rx.recv() {
-            if let Ok(event) = event {
-                for file_path in event.paths {
-                    let relative_file_path =
-                        file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
-                    match register_file_change(
-                        &window,
-                        &project,
-                        &repo,
-                        &event.kind,
-                        &relative_file_path,
-                    ) {
-                        Ok(Some((session, deltas))) => {
-                            events::deltas(
-                                &window,
-                                &project,
-                                &session,
-                                &deltas,
-                                &relative_file_path,
-                            );
-                        }
-                        Ok(None) => {}
-                        Err(e) => log::error!("Error: {:?}", e),
-                    }
-                }
-            } else {
-                log::error!("Error: {:?}", event);
+        let repo = Repository::open(project_path);
+        thread::spawn(move || {
+            if repo.is_err() {
+                log::error!("failed to open git repo: {:?}", repo.err());
+                return;
             }
-        }
-    });
+            let repo = repo.unwrap();
 
-    Ok(())
+            while let Ok(event) = rx.recv() {
+                if let Ok(event) = event {
+                    for file_path in event.paths {
+                        let relative_file_path =
+                            file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
+                        match register_file_change(
+                            &window,
+                            &project,
+                            &repo,
+                            &event.kind,
+                            &relative_file_path,
+                        ) {
+                            Ok(Some((session, deltas))) => {
+                                events::deltas(
+                                    &window,
+                                    &project,
+                                    &session,
+                                    &deltas,
+                                    &relative_file_path,
+                                );
+                            }
+                            Ok(None) => {}
+                            Err(e) => log::error!("Error: {:?}", e),
+                        }
+                    }
+                } else {
+                    log::error!("Error: {:?}", event);
+                }
+            }
+        });
+
+        Ok(())
+    }
+
+    pub fn unwatch(&self, project: projects::Project) -> Result<()> {
+        let mut watchers = self.watchers.0.lock().unwrap();
+        if let Some(mut watcher) = watchers.remove(&project.path) {
+            watcher.unwatch(Path::new(&project.path))?;
+        }
+        Ok(())
+    }
 }
 
 // this is what is called when the FS watcher detects a change
@@ -133,7 +94,7 @@ pub fn watch<R: tauri::Runtime>(
 // returns updated project deltas
 fn register_file_change<R: tauri::Runtime>(
     window: &tauri::Window<R>,
-    project: &Project,
+    project: &projects::Project,
     repo: &Repository,
     kind: &EventKind,
     relative_file_path: &Path,
@@ -225,7 +186,7 @@ fn get_latest_file_contents(
 // and also touches the last activity timestamp, so we can tell when we are idle
 fn write_beginning_meta_files<R: tauri::Runtime>(
     window: &tauri::Window<R>,
-    project: &Project,
+    project: &projects::Project,
     repo: &Repository,
 ) -> Result<sessions::Session, Box<dyn std::error::Error>> {
     match sessions::Session::current(repo)

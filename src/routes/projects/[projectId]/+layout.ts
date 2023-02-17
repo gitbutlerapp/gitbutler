@@ -1,4 +1,4 @@
-import { derived, readable } from "svelte/store";
+import { readable } from "svelte/store";
 import type { LayoutLoad } from "./$types";
 import { building } from "$app/environment";
 import type { Session } from "$lib/sessions";
@@ -13,9 +13,7 @@ export const load: LayoutLoad = async ({ parent, params }) => {
               await import("$lib/sessions")
           ).default({ projectId: params.projectId });
     return {
-        project: derived(projects, (projects) =>
-            projects.find((project) => project.id === params.projectId)
-        ),
+        project: projects.get(params.projectId),
         sessions,
     };
 };

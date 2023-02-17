@@ -2,17 +2,13 @@ use anyhow::{Context, Result};
 use std::{fs, path::PathBuf};
 use tauri::PathResolver;
 
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Storage {
     local_data_dir: PathBuf,
 }
 
 impl Storage {
     pub fn new(resolver: &PathResolver) -> Self {
-        log::info!(
-            "Local data dir: {:?}",
-            resolver.app_local_data_dir().unwrap()
-        );
         Self {
             local_data_dir: resolver.app_local_data_dir().unwrap(),
         }
@@ -37,6 +33,16 @@ impl Storage {
         }
         fs::write(file_path.clone(), content)
             .with_context(|| format!("Failed to write file: {:?}", file_path))?;
+        Ok(())
+    }
+
+    pub fn delete(&self, path: &str) -> Result<()> {
+        let file_path = self.local_data_dir.join(path);
+        if !file_path.exists() {
+            return Ok(());
+        }
+        fs::remove_file(file_path.clone())
+            .with_context(|| format!("Failed to delete file: {:?}", file_path))?;
         Ok(())
     }
 }

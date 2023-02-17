@@ -2,86 +2,38 @@ mod delta;
 mod git;
 
 pub use self::delta::WatcherCollection;
-use crate::projects::project::Project;
-use serde::Serialize;
-use tauri::{Runtime, Window};
+use crate::{projects, users};
+use anyhow::Result;
+use tauri;
 
-#[derive(Debug)]
-pub enum WatchError {
-    WatchDeltaError(delta::WatchError),
-    WatchGitError(git::WatchError),
+pub struct Watcher<'a> {
+    git_watcher: git::GitWatcher,
+    delta_watcher: delta::DeltaWatchers<'a>,
 }
 
-impl From<delta::WatchError> for WatchError {
-    fn from(error: delta::WatchError) -> Self {
-        WatchError::WatchDeltaError(error)
-    }
-}
-
-impl From<git::WatchError> for WatchError {
-    fn from(error: git::WatchError) -> Self {
-        WatchError::WatchGitError(error)
-    }
-}
-
-impl Serialize for WatchError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&format!("{:?}", self))
-    }
-}
-
-impl std::fmt::Display for WatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WatchError::WatchDeltaError(error) => write!(f, "watch delta error: {}", error),
-            WatchError::WatchGitError(error) => write!(f, "watch git error: {}", error),
+impl<'a> Watcher<'a> {
+    pub fn new(
+        watchers: &'a delta::WatcherCollection,
+        projects_storage: projects::Storage,
+        users_storage: users::Storage,
+    ) -> Self {
+        let git_watcher = git::GitWatcher::new(projects_storage, users_storage);
+        let delta_watcher = delta::DeltaWatchers::new(watchers);
+        Self {
+            git_watcher,
+            delta_watcher,
         }
     }
-}
 
-pub fn watch<R: Runtime>(
-    window: Window<R>,
-    watchers: &WatcherCollection,
-    project: &Project,
-) -> Result<(), WatchError> {
-    self::delta::watch(window.clone(), watchers, project.clone())?;
-    self::git::watch(window.clone(), project.clone())?;
-    Ok(())
-}
-
-#[derive(Debug)]
-pub enum UnwatchError {
-    DeltaError(delta::UnwatchError),
-}
-
-impl std::fmt::Display for UnwatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnwatchError::DeltaError(error) => write!(f, "unwatch delta error: {}", error),
-        }
+    pub fn watch(&self, window: tauri::Window, project: &projects::Project) -> Result<()> {
+        self.delta_watcher.watch(window.clone(), project.clone())?;
+        self.git_watcher.watch(window.clone(), project.id.clone())?;
+        Ok(())
     }
-}
 
-impl From<delta::UnwatchError> for UnwatchError {
-    fn from(error: delta::UnwatchError) -> Self {
-        UnwatchError::DeltaError(error)
+    pub fn unwatch(&self, project: projects::Project) -> Result<()> {
+        self.delta_watcher.unwatch(project)?;
+        // TODO: how to unwatch git ?
+        Ok(())
     }
-}
-
-impl Serialize for UnwatchError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&format!("{:?}", self))
-    }
-}
-
-pub fn unwatch(watchers: &WatcherCollection, project: Project) -> Result<(), UnwatchError> {
-    delta::unwatch(watchers, project)?;
-    // TODO: how to unwatch git ?
-    Ok(())
 }

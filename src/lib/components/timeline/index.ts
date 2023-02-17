@@ -1,1 +1,1 @@
-export { default as TimelineDay } from "./TimelineDay.svelte";
+export { default as TimelineDaySession } from "./TimelineDaySession.svelte";

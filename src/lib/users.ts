@@ -1,32 +1,27 @@
-import { BaseDirectory, exists, readTextFile, writeTextFile } from '@tauri-apps/api/fs';
-import type { User } from '$lib/authentication';
-import { writable } from 'svelte/store';
+import type { User } from "$lib/api";
+import { writable } from "svelte/store";
+import { invoke } from "@tauri-apps/api";
 
-const userFile = 'user.json';
+const get = () => invoke<User | undefined>("get_user");
 
-const isLoggedIn = () => exists(userFile, {
-    dir: BaseDirectory.AppLocalData
-})
+const set = (params: { user: User }) => invoke<void>("set_user", params);
+
+const del = () => invoke<void>("delete_user");
 
 export default async () => {
     const store = writable<User | undefined>(undefined);
 
-    if (await isLoggedIn()) {
-        const user = JSON.parse(await readTextFile(userFile, {
-            dir: BaseDirectory.AppLocalData
-        })) as User;
-        store.set(user);
-    }
-
-    store.subscribe(async (user) => {
-        if (user) {
-            console.log({ user });
-            await writeTextFile(userFile, JSON.stringify(user), {
-                dir: BaseDirectory.AppLocalData
-            });
-        }
-    })
-
-    return store;
-}
-
+    const init = await get();
+    store.set(init);
+    return {
+        subscribe: store.subscribe,
+        set: async (user: User) => {
+            await set({ user });
+            store.set(user);
+        },
+        delete: async () => {
+            await del();
+            store.set(undefined);
+        },
+    };
+};

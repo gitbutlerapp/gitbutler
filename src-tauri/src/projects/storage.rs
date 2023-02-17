@@ -1,11 +1,20 @@
 use crate::projects::project;
 use crate::storage;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 const PROJECTS_FILE: &str = "projects.json";
 
+#[derive(Debug, Clone)]
 pub struct Storage {
     storage: storage::Storage,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateRequest {
+    id: String,
+    title: Option<String>,
+    api: Option<project::ApiProject>,
 }
 
 impl Storage {
@@ -23,6 +32,26 @@ impl Storage {
     pub fn get_project(&self, id: &str) -> Result<Option<project::Project>> {
         let projects = self.list_projects()?;
         Ok(projects.into_iter().find(|p| p.id == id))
+    }
+
+    pub fn update_project(&self, update_request: &UpdateRequest) -> Result<project::Project> {
+        let mut projects = self.list_projects()?;
+        let project = projects
+            .iter_mut()
+            .find(|p| p.id == update_request.id)
+            .ok_or_else(|| anyhow::anyhow!("Project not found"))?;
+
+        if let Some(title) = &update_request.title {
+            project.title = title.clone();
+        }
+
+        if let Some(api) = &update_request.api {
+            project.api = Some(api.clone());
+        }
+
+        let projects = serde_json::to_string(&projects)?;
+        self.storage.write(PROJECTS_FILE, &projects)?;
+        Ok(self.get_project(&update_request.id)?.unwrap())
     }
 
     pub fn add_project(&self, project: &project::Project) -> Result<()> {

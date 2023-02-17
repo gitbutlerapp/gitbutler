@@ -14,19 +14,13 @@
     onMount(() => (mergeView = create_merge_view(value, newValue)));
     onDestroy(() => mergeView?.destroy());
 
-    // $: mergeView && update(value, newValue);
+    $: mergeView && update(value, newValue);
 
-    // function update(a: string | null | undefined, b: string | null | undefined): void {
-    // mergeView.a.setState(create_editor_state(a));
-    // mergeView.reconfigure({
-    //     collapseUnchanged: { margin: 3, minSize: 3 },
-    // })
-    // view.setState(create_editor_state(value));
-    // mer
-    // mergeView.setA(create_editor_state(value));
-    // mergeView.setB(create_editor_state(value));
-    // TODO
-    // }
+    // There may be a more graceful way to update the two editors
+    function update(a: string, b: string): void {
+        mergeView?.destroy()
+        mergeView = create_merge_view(a, b)
+    }
 
     function create_editor_state(
         value: string | null | undefined

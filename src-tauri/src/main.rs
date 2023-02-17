@@ -5,6 +5,7 @@ mod fs;
 mod projects;
 mod sessions;
 mod storage;
+mod users;
 mod watchers;
 
 use deltas::Delta;
@@ -13,17 +14,11 @@ use log;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use storage::Storage;
-use tauri::{Manager, Runtime, State, Window};
+use tauri::{Manager, Window};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
 };
-use watchers::WatcherCollection;
-
-struct AppState {
-    watchers: WatcherCollection,
-    projects_storage: projects::storage::Storage,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Error {
@@ -42,10 +37,14 @@ fn app_title() -> String {
 
 #[tauri::command]
 fn list_sessions(
-    state: State<'_, AppState>,
+    handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<Vec<sessions::Session>, Error> {
-    match state.projects_storage.get_project(project_id) {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let projects_storage = projects::Storage::new(storage);
+
+    match projects_storage.get_project(project_id) {
         Ok(Some(project)) => {
             let repo = Repository::open(project.path).map_err(|e| {
                 log::error!("{}", e);
@@ -74,12 +73,84 @@ fn list_sessions(
 }
 
 #[tauri::command]
-fn add_project<R: Runtime>(
-    window: Window<R>,
-    state: State<'_, AppState>,
+fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let users_storage = users::Storage::new(storage);
+
+    users_storage.get().map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to get user".to_string(),
+        }
+    })
+}
+
+#[tauri::command]
+fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let users_storage = users::Storage::new(storage);
+
+    users_storage.set(&user).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to save user".to_string(),
+        }
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let users_storage = users::Storage::new(storage);
+
+    users_storage.delete().map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to delete user".to_string(),
+        }
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+fn update_project(
+    handle: tauri::AppHandle,
+    project: projects::UpdateRequest,
+) -> Result<projects::Project, Error> {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let projects_storage = projects::Storage::new(storage);
+
+    projects_storage.update_project(&project).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to update project".to_string(),
+        }
+    })
+}
+
+#[tauri::command]
+fn add_project(
+    handle: tauri::AppHandle,
+    window: Window,
     path: &str,
-) -> Result<projects::project::Project, Error> {
-    for project in state.projects_storage.list_projects().map_err(|e| {
+) -> Result<projects::Project, Error> {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let projects_storage = projects::Storage::new(storage.clone());
+    let users_storage = users::Storage::new(storage);
+    let watchers_collection = handle.state::<watchers::WatcherCollection>();
+    let watchers = watchers::Watcher::new(
+        &watchers_collection,
+        projects_storage.clone(),
+        users_storage.clone(),
+    );
+
+    for project in projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
         Error {
             message: "Failed to list projects".to_string(),
@@ -92,16 +163,16 @@ fn add_project<R: Runtime>(
         }
     }
 
-    let project = projects::project::Project::from_path(path.to_string());
+    let project = projects::Project::from_path(path.to_string());
     if project.is_ok() {
         let project = project.unwrap();
-        state.projects_storage.add_project(&project).map_err(|e| {
+        projects_storage.add_project(&project).map_err(|e| {
             log::error!("{}", e);
             Error {
                 message: "Failed to add project".to_string(),
             }
         })?;
-        watchers::watch(window, &state.watchers, &project).map_err(|e| {
+        watchers.watch(window, &project).map_err(|e| {
             log::error!("{}", e);
             Error {
                 message: "Failed to watch project".to_string(),
@@ -116,8 +187,12 @@ fn add_project<R: Runtime>(
 }
 
 #[tauri::command]
-fn list_projects(state: State<'_, AppState>) -> Result<Vec<projects::project::Project>, Error> {
-    state.projects_storage.list_projects().map_err(|e| {
+fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let projects_storage = projects::Storage::new(storage);
+
+    projects_storage.list_projects().map_err(|e| {
         log::error!("{}", e);
         Error {
             message: "Failed to list projects".to_string(),
@@ -126,17 +201,28 @@ fn list_projects(state: State<'_, AppState>) -> Result<Vec<projects::project::Pr
 }
 
 #[tauri::command]
-fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), Error> {
-    match state.projects_storage.get_project(id) {
+fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let projects_storage = projects::Storage::new(storage.clone());
+    let watchers_collection = handle.state::<watchers::WatcherCollection>();
+    let users_storage = users::Storage::new(storage);
+    let watchers = watchers::Watcher::new(
+        &watchers_collection,
+        projects_storage.clone(),
+        users_storage.clone(),
+    );
+
+    match projects_storage.get_project(id) {
         Ok(Some(project)) => {
-            watchers::unwatch(&state.watchers, project).map_err(|e| {
+            watchers.unwatch(project).map_err(|e| {
                 log::error!("{}", e);
                 Error {
                     message: "Failed to unwatch project".to_string(),
                 }
             })?;
 
-            state.projects_storage.delete_project(id).map_err(|e| {
+            projects_storage.delete_project(id).map_err(|e| {
                 log::error!("{}", e);
                 Error {
                     message: "Failed to delete project".to_string(),
@@ -157,11 +243,15 @@ fn delete_project(state: State<'_, AppState>, id: &str) -> Result<(), Error> {
 
 #[tauri::command]
 fn list_session_files(
-    state: State<'_, AppState>,
+    handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
-    match state.projects_storage.get_project(project_id) {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let projects_storage = projects::Storage::new(storage);
+
+    match projects_storage.get_project(project_id) {
         Ok(Some(project)) => {
             let repo = Repository::open(&project.path).map_err(|e| {
                 log::error!("{}", e);
@@ -193,11 +283,15 @@ fn list_session_files(
 
 #[tauri::command]
 fn list_deltas(
-    state: State<'_, AppState>,
+    handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    match state.projects_storage.get_project(project_id) {
+    let path_resolver = handle.path_resolver();
+    let storage = storage::Storage::new(&path_resolver);
+    let projects_storage = projects::Storage::new(storage);
+
+    match projects_storage.get_project(project_id) {
         Ok(Some(project)) => {
             let repo = Repository::open(&project.path).map_err(|e| {
                 log::error!("{}", e);
@@ -299,14 +393,25 @@ fn main() {
                 })
                 .setup(move |app| {
                     let resolver = app.path_resolver();
-                    let storage = Storage::new(&resolver);
-                    let projects_storage = projects::storage::Storage::new(storage);
+                    log::info!(
+                        "Local data dir: {:?}",
+                        resolver.app_local_data_dir().unwrap()
+                    );
 
-                    let watchers = watchers::WatcherCollection::default();
+                    let storage = Storage::new(&resolver);
+                    let projects_storage = projects::Storage::new(storage.clone());
+                    let users_storage = users::Storage::new(storage);
+                    let watcher_collection = watchers::WatcherCollection::default();
+                    let watchers = watchers::Watcher::new(
+                        &watcher_collection,
+                        projects_storage.clone(),
+                        users_storage.clone(),
+                    );
 
                     if let Ok(projects) = projects_storage.list_projects() {
                         for project in projects {
-                            watchers::watch(app.get_window("main").unwrap(), &watchers, &project)
+                            watchers
+                                .watch(app.get_window("main").unwrap(), &project)
                                 .map_err(|e| e.to_string())?;
                         }
                     } else {
@@ -316,10 +421,7 @@ fn main() {
                     #[cfg(debug_assertions)]
                     app.get_window("main").unwrap().open_devtools();
 
-                    app.manage(AppState {
-                        watchers,
-                        projects_storage,
-                    });
+                    app.manage(watcher_collection);
 
                     Ok(())
                 })
@@ -339,9 +441,13 @@ fn main() {
                     add_project,
                     list_projects,
                     delete_project,
+                    update_project,
                     list_deltas,
                     list_sessions,
                     list_session_files,
+                    set_user,
+                    delete_user,
+                    get_user
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application")
