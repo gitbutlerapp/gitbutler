@@ -6,7 +6,6 @@ set -o pipefail
 
 PWD="$(dirname $(readlink -f -- $0))"
 
-DO_UPLOAD="false"
 DO_SIGN="false"
 DO_BUNDLE_UPDATE="false"
 TAURI_PRIVATE_KEY=""
@@ -23,6 +22,7 @@ function help() {
 	echo "Usage: $0 <flags>" 1>&$to
 	echo 1>&$to
 	echo "flags:" 1>&$to
+	echo "  --dist                        path to store artifacts in." 1>&$to
 	echo "  --tauri-private-key           path or string of tauri updater private key." 1>&$to
 	echo "  --tauri-key-password          password for tauri updater private key." 1>&$to
 	echo "  --apple-certificate           base64 string of the .p12 certificate, exported from the keychain." 1>&$to
@@ -31,7 +31,6 @@ function help() {
 	echo "  --apple-id                    the apple id to use for signing." 1>&$to
 	echo "  --apple-password              the password for the apple id." 1>&$to
 	echo "  --sign                        if set, will sign the app." 1>&$to
-	echo "  --upload                      if set, will upload artifacts to S3." 1>&$to
 	echo "  --help                        display this message." 1>&$to
 }
 
@@ -47,39 +46,40 @@ function info() {
 }
 
 function os() {
-       local os="$(uname -s)"
-       case "$os" in
-       Darwin)
-               echo "macos"
-               ;;
-       *)
-               error "$os: unsupprted"
-               ;;
-       esac
+	local os="$(uname -s)"
+	case "$os" in
+	Darwin)
+		echo "macos"
+		;;
+	*)
+		error "$os: unsupprted"
+		;;
+	esac
 }
 
 function arch() {
-       local arch="$(uname -m)"
-       case "$arch" in
-       arm64)
-               echo "aarch64"
-               ;;
-       x86_64)
-               echo "x86_64"
-               ;;
-       *)
-               error "$arch: unsupported architecture"
-               ;;
-       esac
+	local arch="$(uname -m)"
+	case "$arch" in
+	arm64)
+		echo "aarch64"
+		;;
+	x86_64)
+		echo "x86_64"
+		;;
+	*)
+		error "$arch: unsupported architecture"
+		;;
+	esac
 }
 
 ARCH="$(arch)"
 OS="$(os)"
+DIST="release/$OS/$ARCH"
 
 function tauri() {
-	pushd "$PWD/.."
+	pushd "$PWD/.." >/dev/null
 	pnpm tauri "$@"
-	popd
+	popd >/dev/null
 }
 
 while [[ $# -gt 0 ]]; do
@@ -88,8 +88,9 @@ while [[ $# -gt 0 ]]; do
 		help 1
 		exit 1
 		;;
-	--upload)
-		DO_UPLOAD="true"
+	--dist)
+		DIST="$2"
+		shift
 		shift
 		;;
 	--tauri-private-key)
@@ -157,32 +158,25 @@ if [ "$DO_SIGN" = "true" ]; then
 	export APPLE_PASSWORD="$APPLE_PASSWORD"
 fi
 
-tauri build --config "$PWD/../src-tauri/tauri.conf.release.json"
+function version() {
+	"$PWD/version.sh"
+}
 
-info "moving artifacts..."
+info "building:"
+info "  version: $(version)"
+info "  os: $OS"
+info "  arch: $ARCH"
 
-echo "pwd: $(pwd)"
+tauri build --config $(readlink -f "$PWD/../src-tauri/tauri.conf.release.json")
 
 BUNDLE_DIR="src-tauri/target/release/bundle"
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
 MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
 
-info "dir: $BUNDLE_DIR"
-info
-info "release built:"
-info "  - $MACOS_DMG"
-info "  - $MACOS_UPDATER"
-info "  - $MACOS_UPDATER_SIG"
-info 
-info "  - $ARCH"
-info "  - $OS"
-info
-
-RELEASE_DIR="release/$OS/$ARCH"
-mkdir -p "$RELEASE_DIR"
-mv "$MACOS_DMG" "$RELEASE_DIR"
-mv "$MACOS_UPDATER" "$RELEASE_DIR"
-mv "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
+mkdir -p "$DIST"
+cp "$MACOS_DMG" "$DIST"
+cp "$MACOS_UPDATER" "$DIST"
+cp "$MACOS_UPDATER_SIG" "$DIST"
 
 info "done! bye!"
