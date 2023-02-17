@@ -4,6 +4,7 @@ use crate::{events, sessions};
 use anyhow::{Context, Result};
 use git2::Repository;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::fs;
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::thread;
@@ -105,6 +106,20 @@ fn register_file_change<R: tauri::Runtime>(
     }
 
     let file_path = repo.workdir().unwrap().join(relative_file_path);
+    let file_contents = match fs::read_to_string(&file_path) {
+        Ok(contents) => contents,
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                // file doesn't exist, use empty string
+                String::new()
+            } else {
+                // file exists, but content is not utf-8, it's a noop
+                // TODO: support binary files
+                log::info!("File is not utf-8, ignoring: {:?}", file_path);
+                return Ok(None);
+            }
+        }
+    };
 
     // update meta files every time file change is detected
     let session = write_beginning_meta_files(&window, &project, &repo)?;
@@ -118,8 +133,8 @@ fn register_file_change<R: tauri::Runtime>(
     }
 
     // first, we need to check if the file exists in the meta commit
-    let contents =
-        get_latest_file_contents(repo, project, relative_file_path).with_context(|| {
+    let latest_contents = get_latest_file_contents(repo, project, relative_file_path)
+        .with_context(|| {
             format!(
                 "Failed to get latest file contents for {}",
                 relative_file_path.display()
@@ -135,25 +150,14 @@ fn register_file_change<R: tauri::Runtime>(
     })?;
 
     // depending on the above, we can create TextDocument suitable for calculating deltas
-    let mut text_doc = match (contents, deltas) {
-        (Some(contents), Some(deltas)) => TextDocument::new(&contents, deltas),
-        (Some(contents), None) => TextDocument::new(&contents, vec![]),
+    let mut text_doc = match (latest_contents, deltas) {
+        (Some(latest_contents), Some(deltas)) => TextDocument::new(&latest_contents, deltas),
+        (Some(latest_contents), None) => TextDocument::new(&latest_contents, vec![]),
         (None, Some(deltas)) => TextDocument::from_deltas(deltas),
         (None, None) => TextDocument::from_deltas(vec![]),
     };
 
-    // update the TextDocument with the new file contents
-    let contents = match file_path.exists() {
-        true => std::fs::read_to_string(file_path.clone()).with_context(|| {
-            format!(
-                "Failed to read file contents for {}",
-                relative_file_path.display()
-            )
-        })?,
-        false => "".to_string(),
-    };
-
-    if !text_doc.update(&contents) {
+    if !text_doc.update(&file_contents) {
         return Ok(None);
     }
 
@@ -166,38 +170,54 @@ fn register_file_change<R: tauri::Runtime>(
 // returns last commited file contents from refs/gitbutler/current ref
 // if it doesn't exists, fallsback to HEAD
 // returns None if file doesn't exist in HEAD
+// returns None if file is not UTF-8
+// TODO: handle binary files
 fn get_latest_file_contents(
     repo: &Repository,
     project: &projects::Project,
     relative_file_path: &Path,
 ) -> Result<Option<String>> {
-    match repo.revparse_single(&project.refname()) {
-        Ok(object) => {
-            // refs/gitbutler/current exists, return file contents from wd dir
-            let gitbutler_head = repo.find_commit(object.id())?;
-            let gitbutler_tree = gitbutler_head.tree()?;
-            // files are stored in the wd tree inside gitbutler trees.
+    let tree_entry = match repo.find_reference(&project.refname()) {
+        Ok(reference) => {
+            let gitbutler_tree = reference.peel_to_tree()?;
             let gitbutler_tree_path = &Path::new("wd").join(relative_file_path);
-            if let Ok(tree_entry) = gitbutler_tree.get_path(gitbutler_tree_path) {
-                // if file found, check if delta file exists
-                let blob = tree_entry.to_object(&repo)?.into_blob().unwrap();
-                let contents = String::from_utf8(blob.content().to_vec())?;
-                Ok(Some(contents))
+            let tree_entry = gitbutler_tree.get_path(gitbutler_tree_path);
+            tree_entry
+        }
+        Err(e) => {
+            if e.code() == git2::ErrorCode::NotFound {
+                let head = repo.head()?;
+                let tree = head.peel_to_tree()?;
+                let tree_entry = tree.get_path(relative_file_path);
+                tree_entry
             } else {
-                Ok(None)
+                Err(e)
             }
         }
-        Err(_) => {
-            // refs/gitbutler/current doesn't exist, return file contents from HEAD
-            let head = repo.head()?;
-            let tree = head.peel_to_tree()?;
-            if let Ok(tree_entry) = tree.get_path(relative_file_path) {
-                // if file found, check if delta file exists
-                let blob = tree_entry.to_object(&repo)?.into_blob().unwrap();
-                let contents = String::from_utf8(blob.content().to_vec())?;
-                Ok(Some(contents))
-            } else {
+    };
+
+    match tree_entry {
+        Ok(tree_entry) => {
+            // if file found, check if delta file exists
+            let blob = tree_entry.to_object(&repo)?.into_blob().unwrap();
+            // parse blob as utf-8.
+            // if it's not utf8, return None
+            let contents = match String::from_utf8(blob.content().to_vec()) {
+                Ok(contents) => Some(contents),
+                Err(_) => {
+                    log::info!("File is not utf-8, ignoring: {:?}", relative_file_path);
+                    None
+                }
+            };
+
+            Ok(contents)
+        }
+        Err(e) => {
+            if e.code() == git2::ErrorCode::NotFound {
+                // file not found, return None
                 Ok(None)
+            } else {
+                Err(e.into())
             }
         }
     }
