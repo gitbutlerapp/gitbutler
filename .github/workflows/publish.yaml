@@ -6,9 +6,10 @@ on:
                 type: choice
                 description: Release type
                 options:
-                    - major
-                    - minor
+                    - undefined
                     - patch
+                    - minor
+                    - major
 
 jobs:
     publish-tauri:
