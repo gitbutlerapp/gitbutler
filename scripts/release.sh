@@ -15,6 +15,7 @@ APPLE_CERTIFICATE_PASSWORD=""
 APPLE_SIGNING_IDENTITY=""
 APPLE_ID=""
 APPLE_PASSWORD=""
+VERSION=""
 
 function help() {
 	local to="$1"
@@ -22,6 +23,7 @@ function help() {
 	echo "Usage: $0 <flags>" 1>&$to
 	echo 1>&$to
 	echo "flags:" 1>&$to
+	echo "  --version                     release version." 1>&$to
 	echo "  --dist                        path to store artifacts in." 1>&$to
 	echo "  --tauri-private-key           path or string of tauri updater private key." 1>&$to
 	echo "  --tauri-key-password          password for tauri updater private key." 1>&$to
@@ -88,6 +90,11 @@ while [[ $# -gt 0 ]]; do
 		help 1
 		exit 1
 		;;
+	--version)
+		VERSION="$2"
+		shift
+		shift
+		;;
 	--dist)
 		DIST="$2"
 		shift
@@ -138,6 +145,8 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+[ -z "$VERSION" ] && error "--version is not set"
+
 [ -z "$TAURI_PRIVATE_KEY" ] && error "--tauri-private-key is not set"
 [ -z "$TAURI_KEY_PASSWORD" ] && error "--tauri-key-password is not set"
 
@@ -158,25 +167,34 @@ if [ "$DO_SIGN" = "true" ]; then
 	export APPLE_PASSWORD="$APPLE_PASSWORD"
 fi
 
-function version() {
-	"$PWD/version.sh"
-}
-
 info "building:"
-info "  version: $(version)"
+info "  version: $VERSION"
 info "  os: $OS"
 info "  arch: $ARCH"
 
-tauri build --config $(readlink -f "$PWD/../src-tauri/tauri.conf.release.json")
+TMP_DIR="$(mktemp -d)"
+trap "rm -rf '$TMP_DIR'" exit
+
+# update the version in the tauri config
+jq '.package.version="'"$VERSION"'"' "$PWD/../src-tauri/tauri.conf.json" >"$TMP_DIR/tauri.conf.json"
+
+# build the app
+tauri build --config "$TMP_DIR/tauri.conf.json"
 
 BUNDLE_DIR="src-tauri/target/release/bundle"
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
 MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
 
-mkdir -p "$DIST"
-cp "$MACOS_DMG" "$DIST"
-cp "$MACOS_UPDATER" "$DIST"
-cp "$MACOS_UPDATER_SIG" "$DIST"
+RELEASE_DIR="$DIST/$OS/$ARCH"
+mkdir -p "$RELEASE_DIR"
+cp "$MACOS_DMG" "$RELEASE_DIR"
+cp "$MACOS_UPDATER" "$RELEASE_DIR"
+cp "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
+
+info "built:"
+info "  - $RELEASE_DIR/$(basename "$MACOS_DMG")"
+info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
+info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
 
 info "done! bye!"
