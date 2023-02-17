@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +30,21 @@ impl AsRef<Project> for Project {
 }
 
 impl Project {
+    pub fn refname(&self) -> String {
+        format!("refs/gitbutler-{}/current", self.id)
+    }
+
+    pub fn session_path(&self) -> PathBuf {
+        PathBuf::from(&self.path)
+            .join(".git")
+            .join(format!("gb-{}", self.id))
+            .join("session")
+    }
+
+    pub fn deltas_path(&self) -> PathBuf {
+        self.session_path().join("deltas")
+    }
+
     pub fn from_path(path: String) -> Result<Self> {
         // make sure path exists
         let path = std::path::Path::new(&path);

@@ -1,6 +1,6 @@
 use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
 use crate::projects;
-use crate::{butler, events, sessions};
+use crate::{events, sessions};
 use anyhow::Result;
 use git2::Repository;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -118,9 +118,9 @@ fn register_file_change<R: tauri::Runtime>(
     }
 
     // first, we need to check if the file exists in the meta commit
-    let contents = get_latest_file_contents(repo, relative_file_path)?;
+    let contents = get_latest_file_contents(repo, project, relative_file_path)?;
     // second, get non-flushed file deltas
-    let deltas = get_current_file_deltas(repo, relative_file_path)?;
+    let deltas = get_current_file_deltas(project, relative_file_path)?;
 
     // depending on the above, we can create TextDocument suitable for calculating deltas
     let mut text_doc = match (contents, deltas) {
@@ -139,7 +139,7 @@ fn register_file_change<R: tauri::Runtime>(
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
-    save_current_file_deltas(repo, relative_file_path, &deltas)?;
+    save_current_file_deltas(project, relative_file_path, &deltas)?;
     return Ok(Some((session, deltas)));
 }
 
@@ -148,9 +148,10 @@ fn register_file_change<R: tauri::Runtime>(
 // returns None if file doesn't exist in HEAD
 fn get_latest_file_contents(
     repo: &Repository,
+    project: &projects::Project,
     relative_file_path: &Path,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    match repo.revparse_single(format!("refs/{}/current", butler::refname()).as_str()) {
+    match repo.revparse_single(&project.refname()) {
         Ok(object) => {
             // refs/gitbutler/current exists, return file contents from wd dir
             let gitbutler_head = repo.find_commit(object.id())?;
@@ -189,7 +190,7 @@ fn write_beginning_meta_files<R: tauri::Runtime>(
     project: &projects::Project,
     repo: &Repository,
 ) -> Result<sessions::Session, Box<dyn std::error::Error>> {
-    match sessions::Session::current(repo)
+    match sessions::Session::current(repo, project)
         .map_err(|e| format!("Error while getting current session: {}", e.to_string()))?
     {
         Some(mut session) => {
@@ -198,13 +199,13 @@ fn write_beginning_meta_files<R: tauri::Runtime>(
                 .unwrap()
                 .as_secs();
             session.meta.last_ts = now_ts;
-            sessions::update_session(repo, &session)
+            sessions::update_session(project, &session)
                 .map_err(|e| format!("Error while updating current session: {}", e.to_string()))?;
             events::session(&window, &project, &session);
             Ok(session)
         }
         None => {
-            let session = sessions::Session::from_head(repo)?;
+            let session = sessions::Session::from_head(repo, project)?;
             events::session(&window, &project, &session);
             Ok(session)
         }

@@ -1,5 +1,5 @@
-use crate::{butler, events, projects, sessions, users};
-use anyhow::Result;
+use crate::{events, projects, sessions, users};
+use anyhow::{Context, Result};
 use git2::Repository;
 use std::{
     thread,
@@ -24,8 +24,6 @@ impl GitWatcher {
     }
 
     pub fn watch(&self, window: tauri::Window, project_id: String) -> Result<()> {
-        self.init(project_id.clone())?;
-
         let shared_self = std::sync::Arc::new(self.clone());
         let self_copy = shared_self.clone();
 
@@ -79,27 +77,6 @@ impl GitWatcher {
         Ok(())
     }
 
-    // if the repo is new to gitbutler, we need to make sure that all the files are tracked by gitbutler
-    fn init(&self, project_id: String) -> Result<()> {
-        let project = match self.projects_storage.get_project(&project_id)? {
-            Some(project) => Ok(project),
-            None => Err(anyhow::anyhow!("Project {} not found", project_id)),
-        }?;
-        let repo = git2::Repository::open(&project.path)?;
-        let user = self.users_storage.get()?;
-
-        if repo
-            .revparse_single(format!("refs/{}/current", butler::refname()).as_str())
-            .is_err()
-        {
-            // make sure all the files are tracked by gitbutler session
-            sessions::Session::from_head(&repo)?;
-            sessions::flush_current_session(&repo, &user, &project)?;
-        };
-
-        Ok(())
-    }
-
     // main thing called in a loop to check for changes and write our custom commit data
     // it will commit only if there are changes and the session is either idle for 5 minutes or is over an hour old
     // or if the repository is new to gitbutler.
@@ -114,12 +91,15 @@ impl GitWatcher {
         user: &Option<users::User>,
     ) -> Result<Option<sessions::Session>> {
         let repo = git2::Repository::open(project.path.clone())?;
-        if ready_to_commit(&repo)? {
-            Ok(Some(sessions::flush_current_session(
-                &repo, &user, &project,
-            )?))
-        } else {
-            Ok(None)
+        match session_to_commit(&repo, project)
+            .with_context(|| "Error while checking for session to commit")?
+        {
+            None => Ok(None),
+            Some(mut session) => {
+                sessions::flush_session(&repo, user, project, &mut session)
+                    .with_context(|| "Error while flushing session")?;
+                Ok(Some(session))
+            }
         }
     }
 }
@@ -127,33 +107,39 @@ impl GitWatcher {
 // make sure that the .git/gb/session directory exists (a session is in progress)
 // and that there has been no activity in the last 5 minutes (the session appears to be over)
 // and the start was at most an hour ago
-fn ready_to_commit(repo: &Repository) -> Result<bool> {
-    if let Some(current_session) = sessions::Session::current(repo)? {
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u64;
-
-        let elapsed_last = now - current_session.meta.last_ts;
-        let elapsed_start = now - current_session.meta.start_ts;
-
-        // TODO: uncomment
-        if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {
-            Ok(true)
-        } else {
+fn session_to_commit(
+    repo: &Repository,
+    project: &projects::Project,
+) -> Result<Option<sessions::Session>> {
+    match sessions::Session::current(repo, project)? {
+        None => {
             log::debug!(
-                "Not ready to commit {} yet. ({} seconds elapsed, {} seconds since start)",
-                repo.workdir().unwrap().display(),
-                elapsed_last,
-                elapsed_start
+                "No current session to commit for {}",
+                repo.workdir().unwrap().display()
             );
-            Ok(false)
+            Ok(None)
         }
-    } else {
-        log::debug!(
-            "No current session for {}",
-            repo.workdir().unwrap().display()
-        );
-        Ok(false)
+        Some(current_session) => {
+            let now = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as u64;
+
+            let elapsed_last = now - current_session.meta.last_ts;
+            let elapsed_start = now - current_session.meta.start_ts;
+
+            // TODO: uncomment
+            if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {
+                Ok(Some(current_session))
+            } else {
+                log::debug!(
+                    "Not ready to commit {} yet. ({} seconds elapsed, {} seconds since start)",
+                    repo.workdir().unwrap().display(),
+                    elapsed_last,
+                    elapsed_start
+                );
+                Ok(None)
+            }
+        }
     }
 }

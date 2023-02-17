@@ -1,4 +1,4 @@
-use crate::{butler, fs, projects, users};
+use crate::{fs, projects, users};
 use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
 use serde::Serialize;
@@ -65,8 +65,8 @@ fn parse_reflog_line(line: &str) -> Result<Activity> {
 }
 
 impl Session {
-    pub fn current(repo: &git2::Repository) -> Result<Option<Self>> {
-        let session_path = repo.path().join(butler::dir()).join("session");
+    pub fn current(repo: &git2::Repository, project: &projects::Project) -> Result<Option<Self>> {
+        let session_path = project.session_path();
         if !session_path.exists() {
             return Ok(None);
         }
@@ -132,7 +132,7 @@ impl Session {
         }))
     }
 
-    pub fn from_head(repo: &git2::Repository) -> Result<Self> {
+    pub fn from_head(repo: &git2::Repository, project: &projects::Project) -> Result<Self> {
         let now_ts = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -150,7 +150,7 @@ impl Session {
             },
             activity: vec![],
         };
-        create_session(repo, &session)?;
+        create_session(project, &session)?;
         Ok(session)
     }
 
@@ -271,9 +271,9 @@ fn write_session(session_path: &Path, session: &Session) -> Result<()> {
     Ok(())
 }
 
-pub fn update_session(repo: &git2::Repository, session: &Session) -> Result<()> {
-    log::debug!("{}: Updating current session", repo.path().display());
-    let session_path = repo.path().join(butler::dir()).join("session");
+pub fn update_session(project: &projects::Project, session: &Session) -> Result<()> {
+    let session_path = project.session_path();
+    log::debug!("{}: Updating current session", session_path.display());
     if session_path.exists() {
         write_session(&session_path, session)
     } else {
@@ -281,9 +281,9 @@ pub fn update_session(repo: &git2::Repository, session: &Session) -> Result<()> 
     }
 }
 
-pub fn create_session(repo: &git2::Repository, session: &Session) -> Result<()> {
-    log::debug!("{}: Creating current session", repo.path().display());
-    let session_path = repo.path().join(butler::dir()).join("session");
+pub fn create_session(project: &projects::Project, session: &Session) -> Result<()> {
+    let session_path = project.session_path();
+    log::debug!("{}: Creating current session", session_path.display());
     if session_path.exists() {
         Err(anyhow!("session already exists"))
     } else {
@@ -291,17 +291,22 @@ pub fn create_session(repo: &git2::Repository, session: &Session) -> Result<()> 
     }
 }
 
-fn delete_session(repo: &git2::Repository) -> Result<()> {
-    log::debug!("{}: Deleting current session", repo.path().display());
-    let session_path = repo.path().join(butler::dir()).join("session");
+fn delete_session(project: &projects::Project) -> Result<()> {
+    let session_path = project.session_path();
+    log::debug!("{}: Deleting current session", session_path.display());
     if session_path.exists() {
         std::fs::remove_dir_all(session_path)?;
     }
     Ok(())
 }
 
-pub fn get(repo: &git2::Repository, id: &str) -> Result<Option<Session>> {
-    let list = list(repo)?;
+pub fn get(
+    repo: &git2::Repository,
+    project: &projects::Project,
+    reference: &git2::Reference,
+    id: &str,
+) -> Result<Option<Session>> {
+    let list = list(repo, project, reference)?;
     for session in list {
         if session.id == id {
             return Ok(Some(session));
@@ -310,22 +315,24 @@ pub fn get(repo: &git2::Repository, id: &str) -> Result<Option<Session>> {
     Ok(None)
 }
 
-pub fn list(repo: &git2::Repository) -> Result<Vec<Session>> {
-    let mut sessions = list_persistent(repo)?;
-    if let Some(session) = Session::current(repo)? {
+pub fn list(
+    repo: &git2::Repository,
+    project: &projects::Project,
+    reference: &git2::Reference,
+) -> Result<Vec<Session>> {
+    let mut sessions = list_persistent(repo, reference)?;
+    if let Some(session) = Session::current(repo, project)? {
         sessions.push(session);
     }
     Ok(sessions)
 }
 
-fn list_persistent(repo: &git2::Repository) -> Result<Vec<Session>> {
-    let gitbutler_ref =
-        repo.find_reference(format!("refs/{}/current", butler::refname()).as_str())?;
-    let gitbutler_head = repo.find_commit(gitbutler_ref.target().unwrap())?;
+fn list_persistent(repo: &git2::Repository, reference: &git2::Reference) -> Result<Vec<Session>> {
+    let head = repo.find_commit(reference.target().unwrap())?;
 
     // list all commits from gitbutler head to the first commit
     let mut walker = repo.revwalk()?;
-    walker.push(gitbutler_head.id())?;
+    walker.push(head.id())?;
     walker.set_sorting(git2::Sort::TIME)?;
 
     let mut sessions: Vec<Session> = vec![];
@@ -357,8 +364,13 @@ fn read_as_string(repo: &git2::Repository, tree: &git2::Tree, path: &Path) -> Re
 }
 
 // return a map of file name -> file content for all files in the beginning of a session.
-pub fn list_files(repo: &git2::Repository, session_id: &str) -> Result<HashMap<String, String>> {
-    let list = list(repo)?;
+pub fn list_files(
+    repo: &git2::Repository,
+    project: &projects::Project,
+    reference: &git2::Reference,
+    session_id: &str,
+) -> Result<HashMap<String, String>> {
+    let list = list(repo, project, reference)?;
 
     let mut previous_session = None;
     let mut session = None;
@@ -465,47 +477,76 @@ fn test_parse_reflog_line() {
     }
 }
 
-pub fn flush_current_session(
+pub fn flush_session(
     repo: &git2::Repository,
     user: &Option<users::User>,
     project: &projects::Project,
-) -> Result<Session> {
-    let session = Session::current(&repo)?;
-    if session.is_none() {
-        return Err(anyhow!("session not found"));
+    session: &mut Session,
+) -> Result<()> {
+    if session.hash.is_some() {
+        return Err(anyhow!(
+            "refuse to flush {} because it already has a hash",
+            session.id
+        ));
     }
 
-    let wd_index = &mut git2::Index::new()?;
+    let wd_index = &mut git2::Index::new()
+        .with_context(|| format!("failed to create index for working directory"))?;
+    build_wd_index(&repo, wd_index).with_context(|| format!("failed to build wd index"))?;
+    let wd_tree = wd_index
+        .write_tree_to(&repo)
+        .with_context(|| format!("failed to write wd tree"))?;
 
-    build_wd_index(&repo, wd_index)?;
-    let wd_tree = wd_index.write_tree_to(&repo)?;
+    let session_index =
+        &mut git2::Index::new().with_context(|| format!("failed to create session index"))?;
+    build_session_index(&repo, project, session_index)
+        .with_context(|| format!("failed to build session index"))?;
+    let session_tree = session_index
+        .write_tree_to(&repo)
+        .with_context(|| format!("failed to write session tree"))?;
 
-    let session_index = &mut git2::Index::new()?;
-    build_session_index(&repo, session_index)?;
-    let session_tree = session_index.write_tree_to(&repo)?;
+    let log_index =
+        &mut git2::Index::new().with_context(|| format!("failed to create log index"))?;
+    build_log_index(&repo, log_index).with_context(|| format!("failed to build log index"))?;
+    let log_tree = log_index
+        .write_tree_to(&repo)
+        .with_context(|| format!("failed to write log tree"))?;
 
-    let log_index = &mut git2::Index::new()?;
-    build_log_index(&repo, log_index)?;
-    let log_tree = log_index.write_tree_to(&repo)?;
+    let mut tree_builder = repo
+        .treebuilder(None)
+        .with_context(|| format!("failed to create tree builder"))?;
+    tree_builder
+        .insert("session", session_tree, 0o040000)
+        .with_context(|| format!("failed to insert session tree"))?;
+    tree_builder
+        .insert("wd", wd_tree, 0o040000)
+        .with_context(|| format!("failed to insert wd tree"))?;
+    tree_builder
+        .insert("logs", log_tree, 0o040000)
+        .with_context(|| format!("failed to insert log tree"))?;
 
-    let mut tree_builder = repo.treebuilder(None)?;
-    tree_builder.insert("session", session_tree, 0o040000)?;
-    tree_builder.insert("wd", wd_tree, 0o040000)?;
-    tree_builder.insert("logs", log_tree, 0o040000)?;
+    let tree = tree_builder
+        .write()
+        .with_context(|| format!("failed to write tree"))?;
 
-    let tree = tree_builder.write()?;
-
-    let commit_oid = write_gb_commit(tree, &repo)?;
+    let commit_oid = write_gb_commit(tree, &repo, project).with_context(|| {
+        format!(
+            "failed to write gb commit for {}",
+            repo.workdir().unwrap().display()
+        )
+    })?;
     log::debug!(
         "{}: wrote gb commit {}",
         repo.workdir().unwrap().display(),
         commit_oid
     );
-    delete_session(repo)?;
+    session.hash = Some(commit_oid.to_string());
+    delete_session(project).with_context(|| format!("failed to delete session"))?;
 
-    push_to_remote(repo, user, project)?;
+    push_to_remote(repo, user, project)
+        .with_context(|| format!("failed to push gb commit {} to remote", commit_oid))?;
 
-    Ok(session.unwrap())
+    Ok(())
 }
 
 // try to push the new gb history head to the remote
@@ -560,8 +601,7 @@ fn push_to_remote(
     push_options.custom_headers(headers);
 
     // Push to the remote
-    let refname = format!("refs/{}/current", butler::refname());
-    remote.push(&[refname], Some(&mut push_options))?;
+    remote.push(&[project.refname()], Some(&mut push_options))?;
 
     Ok(())
 }
@@ -757,12 +797,16 @@ fn add_log_path(
     Ok(())
 }
 
-fn build_session_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()> {
+fn build_session_index(
+    repo: &git2::Repository,
+    project: &projects::Project,
+    index: &mut git2::Index,
+) -> Result<()> {
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
-    let session_dir = repo.path().join(butler::dir()).join("session");
+    let session_dir = project.session_path();
     for session_file in fs::list_files(&session_dir)? {
         let file_path = Path::new(&session_file);
-        add_session_path(&repo, index, &file_path).with_context(|| {
+        add_session_path(&repo, index, project, &file_path).with_context(|| {
             format!(
                 "Failed to add session file to index: {}",
                 file_path.display()
@@ -777,13 +821,10 @@ fn build_session_index(repo: &git2::Repository, index: &mut git2::Index) -> Resu
 fn add_session_path(
     repo: &git2::Repository,
     index: &mut git2::Index,
+    project: &projects::Project,
     rel_file_path: &Path,
 ) -> Result<()> {
-    let file_path = repo
-        .path()
-        .join(butler::dir())
-        .join("session")
-        .join(rel_file_path);
+    let file_path = project.session_path().join(rel_file_path);
 
     log::debug!("Adding session path: {}", file_path.display());
 
@@ -820,9 +861,13 @@ fn add_session_path(
 // write a new commit object to the repo
 // this is called once we have a tree of deltas, metadata and current wd snapshot
 // and either creates or updates the refs/gitbutler/current ref
-fn write_gb_commit(gb_tree: git2::Oid, repo: &git2::Repository) -> Result<git2::Oid, git2::Error> {
+fn write_gb_commit(
+    gb_tree: git2::Oid,
+    repo: &git2::Repository,
+    project: &projects::Project,
+) -> Result<git2::Oid, git2::Error> {
     // find the Oid of the commit that refs/.../current points to, none if it doesn't exist
-    let refname = format!("refs/{}/current", butler::refname());
+    let refname = project.refname();
     match repo.revparse_single(refname.as_str()) {
         Ok(obj) => {
             let last_commit = repo.find_commit(obj.id()).unwrap();

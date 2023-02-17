@@ -1,15 +1,14 @@
-mod butler;
 mod deltas;
 mod events;
 mod fs;
 mod projects;
+mod repositories;
 mod sessions;
 mod storage;
 mod users;
 mod watchers;
 
 use deltas::Delta;
-use git2::Repository;
 use log;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -42,34 +41,25 @@ fn list_sessions(
 ) -> Result<Vec<sessions::Session>, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(storage);
+    let projects_storage = projects::Storage::new(storage.clone());
+    let users_storage = users::Storage::new(storage);
 
-    match projects_storage.get_project(project_id) {
-        Ok(Some(project)) => {
-            let repo = Repository::open(project.path).map_err(|e| {
-                log::error!("{}", e);
-                Error {
-                    message: "Failed to open project".to_string(),
-                }
-            })?;
-            let sessions = sessions::list(&repo).map_err(|e| {
-                log::error!("{}", e);
-                Error {
-                    message: "Failed to list sessions".to_string(),
-                }
-            })?;
-            Ok(sessions)
-        }
-        Ok(None) => Err(Error {
-            message: "Project not found".to_string(),
-        }),
-        Err(e) => {
+    let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
+        .map_err(|e| {
             log::error!("{}", e);
-            Err(Error {
-                message: "Failed to get project".to_string(),
-            })
+            Error {
+                message: "Failed to open project".to_string(),
+            }
+        })?;
+
+    let sessions = repo.sessions().map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to list sessions".to_string(),
         }
-    }
+    })?;
+
+    Ok(sessions)
 }
 
 #[tauri::command]
@@ -249,36 +239,25 @@ fn list_session_files(
 ) -> Result<HashMap<String, String>, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(storage);
+    let projects_storage = projects::Storage::new(storage.clone());
+    let users_storage = users::Storage::new(storage);
 
-    match projects_storage.get_project(project_id) {
-        Ok(Some(project)) => {
-            let repo = Repository::open(&project.path).map_err(|e| {
-                log::error!("{}", e);
-                Error {
-                    message: "Failed to open project".to_string(),
-                }
-            })?;
-
-            let files = sessions::list_files(&repo, session_id).map_err(|e| {
-                log::error!("{}", e);
-                Error {
-                    message: "Failed to list files".to_string(),
-                }
-            })?;
-
-            Ok(files)
-        }
-        Ok(None) => Err(Error {
-            message: "Project not found".to_string(),
-        }),
-        Err(e) => {
+    let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
+        .map_err(|e| {
             log::error!("{}", e);
-            Err(Error {
-                message: "Failed to get project".to_string(),
-            })
+            Error {
+                message: "Failed to open project".to_string(),
+            }
+        })?;
+
+    let files = repo.files(session_id).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to list files".to_string(),
         }
-    }
+    })?;
+
+    Ok(files)
 }
 
 #[tauri::command]
@@ -289,36 +268,25 @@ fn list_deltas(
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::new(&path_resolver);
-    let projects_storage = projects::Storage::new(storage);
+    let projects_storage = projects::Storage::new(storage.clone());
+    let users_storage = users::Storage::new(storage);
 
-    match projects_storage.get_project(project_id) {
-        Ok(Some(project)) => {
-            let repo = Repository::open(&project.path).map_err(|e| {
-                log::error!("{}", e);
-                Error {
-                    message: "Failed to open project".to_string(),
-                }
-            })?;
-
-            let deltas = deltas::list(&repo, session_id).map_err(|e| {
-                log::error!("{}", e);
-                Error {
-                    message: "Failed to list deltas".to_string(),
-                }
-            })?;
-
-            Ok(deltas)
-        }
-        Ok(None) => Err(Error {
-            message: "Project not found".to_string(),
-        }),
-        Err(e) => {
+    let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
+        .map_err(|e| {
             log::error!("{}", e);
-            Err(Error {
-                message: "Failed to get project".to_string(),
-            })
+            Error {
+                message: "Failed to open project".to_string(),
+            }
+        })?;
+
+    let deltas = repo.deltas(session_id).map_err(|e| {
+        log::error!("{}", e);
+        Error {
+            message: "Failed to list deltas".to_string(),
         }
-    }
+    })?;
+
+    Ok(deltas)
 }
 
 fn main() {

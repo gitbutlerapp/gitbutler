@@ -1,4 +1,4 @@
-use crate::{butler, fs, sessions};
+use crate::{fs, projects, sessions};
 use anyhow::{anyhow, Context, Result};
 use difference::{Changeset, Difference};
 use serde::{Deserialize, Serialize};
@@ -131,11 +131,10 @@ impl TextDocument {
 }
 
 pub fn get_current_file_deltas(
-    repo: &git2::Repository,
+    project: &projects::Project,
     file_path: &Path,
 ) -> Result<Option<Vec<Delta>>> {
-    let deltas_path = repo.path().join(butler::dir()).join("session/deltas");
-    let file_deltas_path = deltas_path.join(file_path);
+    let file_deltas_path = project.deltas_path().join(file_path);
     if !file_deltas_path.exists() {
         return Ok(None);
     }
@@ -150,12 +149,11 @@ pub fn get_current_file_deltas(
 }
 
 pub fn save_current_file_deltas(
-    repo: &git2::Repository,
+    project: &projects::Project,
     file_path: &Path,
     deltas: &Vec<Delta>,
 ) -> Result<()> {
-    let project_deltas_path = repo.path().join(butler::dir()).join("session/deltas");
-    let delta_path = project_deltas_path.join(file_path);
+    let delta_path = project.deltas_path().join(file_path);
     let delta_dir = delta_path.parent().unwrap();
     std::fs::create_dir_all(&delta_dir)?;
     log::info!("mkdir {}", delta_path.to_str().unwrap());
@@ -171,8 +169,8 @@ pub fn save_current_file_deltas(
 }
 
 // returns deltas for a current session from .gb/session/deltas tree
-fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<Delta>>> {
-    let deltas_path = repo.path().join(butler::dir()).join("session/deltas");
+fn list_current_deltas(project: &projects::Project) -> Result<HashMap<String, Vec<Delta>>> {
+    let deltas_path = project.deltas_path();
     if !deltas_path.exists() {
         return Ok(HashMap::new());
     }
@@ -183,7 +181,7 @@ fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<De
     let deltas = file_paths
         .iter()
         .map_while(|file_path| {
-            let file_deltas = get_current_file_deltas(repo, Path::new(file_path));
+            let file_deltas = get_current_file_deltas(project, Path::new(file_path));
             match file_deltas {
                 Ok(Some(file_deltas)) => Some(Ok((file_path.to_owned(), file_deltas))),
                 Ok(None) => None,
@@ -195,14 +193,19 @@ fn list_current_deltas(repo: &git2::Repository) -> Result<HashMap<String, Vec<De
     Ok(deltas)
 }
 
-pub fn list(repo: &git2::Repository, session_id: &str) -> Result<HashMap<String, Vec<Delta>>> {
-    let session = match sessions::get(repo, session_id)? {
+pub fn list(
+    repo: &git2::Repository,
+    project: &projects::Project,
+    reference: &git2::Reference,
+    session_id: &str,
+) -> Result<HashMap<String, Vec<Delta>>> {
+    let session = match sessions::get(repo, project, reference, session_id)? {
         Some(session) => Ok(session),
         None => Err(anyhow!("Session {} not found", session_id)),
     }?;
 
     if session.hash.is_none() {
-        list_current_deltas(repo)
+        list_current_deltas(project)
             .with_context(|| format!("Failed to list current deltas for session {}", session_id))
     } else {
         list_commit_deltas(repo, &session.hash.unwrap())
