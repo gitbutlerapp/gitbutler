@@ -20,16 +20,7 @@
 
 <header
     data-tauri-drag-region
-    class="sticky top-0 z-50 flex
-    h-8
-    flex-row
-    items-center overflow-hidden
-    border-b bg-zinc-50
-    text-sm
-    text-zinc-400 
-    dark:border-zinc-700 dark:bg-zinc-900
-    select-none
-    "
+    class="sticky top-0 z-50 flex flex-row items-center h-8 overflow-hidden text-sm border-b select-none bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 "
 >
     <div class="ml-24">
         <BackForwardButtons />
@@ -41,16 +32,16 @@
     >
 </header>
 
-<div class="bg-zinc-800 h-screen text-zinc-400 flex flex-col">
-    <div class="flex-grow">
+<div class="flex flex-col h-screen bg-zinc-800 text-zinc-400 min-h-">
+    <div class="flex-1 overflow-y-auto">
         <slot />
     </div>
 
     <div
-        class="border-t border-zinc-700 h-6 flex items-center bg-zinc-900 select-none "
+        class="flex items-center flex-shrink-0 h-6 border-t select-none border-zinc-700 bg-zinc-900 "
     >
-        <div class="ml-4 flex flex-row items-center space-x-2 text-xs">
-            <div class="h-2 w-2 rounded-full bg-green-700" />
+        <div class="flex flex-row items-center ml-4 space-x-2 text-xs">
+            <div class="w-2 h-2 bg-green-700 rounded-full" />
             <div>Up to date</div>
         </div>
     </div>
