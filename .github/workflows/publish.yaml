@@ -1,9 +1,10 @@
 name: "Publish"
 on:
+    pull_request: {}
+    workflow_dispatch: {}
     push:
         branches:
             - build
-    workflow_dispatch: {}
 
 jobs:
     publish-tauri:
@@ -46,10 +47,9 @@ jobs:
                     --apple-id                   "${{ secrets.APPLE_ID }}" \
                     --apple-password             "${{ secrets.APPLE_PASSWORD }}"
 
-            - name: Set Current Date As Environment Variable
+            - name: Set env variable with version
               run: |
-                  ts=$(date +"%y.%m.%d")
-                  echo "version=$ts-${{ github.run_number }}" >> $GITHUB_ENV
+                  ./scripts/version.sh >> $GITHUB_ENV
 
             - uses: shallwefootball/s3-upload-action@master
               name: Upload To S3
@@ -64,4 +64,8 @@ jobs:
             # tell our server to update with the version number
             - name: Tell our server to update
               run: |
-                  curl -X POST 'https://app.gitbutler.com/api/releases' --data '{"version": "${{ env.version }}"}' -H 'Content-Type: application/json' -H 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}'
+                  curl 'https://app.gitbutler.com/api/releases' \
+                    --request POST \
+                    --header 'Content-Type: application/json' \
+                    --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
+                    --data '{"version":"${{ env.version }}"}'
