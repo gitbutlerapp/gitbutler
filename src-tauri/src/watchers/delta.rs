@@ -1,7 +1,7 @@
 use crate::deltas::{get_current_file_deltas, save_current_file_deltas, Delta, TextDocument};
 use crate::projects;
 use crate::{events, sessions};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use git2::Repository;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
@@ -118,9 +118,21 @@ fn register_file_change<R: tauri::Runtime>(
     }
 
     // first, we need to check if the file exists in the meta commit
-    let contents = get_latest_file_contents(repo, project, relative_file_path)?;
+    let contents =
+        get_latest_file_contents(repo, project, relative_file_path).with_context(|| {
+            format!(
+                "Failed to get latest file contents for {}",
+                relative_file_path.display()
+            )
+        })?;
+
     // second, get non-flushed file deltas
-    let deltas = get_current_file_deltas(project, relative_file_path)?;
+    let deltas = get_current_file_deltas(project, relative_file_path).with_context(|| {
+        format!(
+            "Failed to get current file deltas for {}",
+            relative_file_path.display()
+        )
+    })?;
 
     // depending on the above, we can create TextDocument suitable for calculating deltas
     let mut text_doc = match (contents, deltas) {
@@ -131,7 +143,15 @@ fn register_file_change<R: tauri::Runtime>(
     };
 
     // update the TextDocument with the new file contents
-    let contents = std::fs::read_to_string(file_path.clone())?;
+    let contents = match file_path.exists() {
+        true => std::fs::read_to_string(file_path.clone()).with_context(|| {
+            format!(
+                "Failed to read file contents for {}",
+                relative_file_path.display()
+            )
+        })?,
+        false => "".to_string(),
+    };
 
     if !text_doc.update(&contents) {
         return Ok(None);
@@ -150,7 +170,7 @@ fn get_latest_file_contents(
     repo: &Repository,
     project: &projects::Project,
     relative_file_path: &Path,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
+) -> Result<Option<String>> {
     match repo.revparse_single(&project.refname()) {
         Ok(object) => {
             // refs/gitbutler/current exists, return file contents from wd dir
