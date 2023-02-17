@@ -1,10 +1,14 @@
 name: "Publish"
 on:
-    pull_request: {}
-    workflow_dispatch: {}
-    push:
-        branches:
-            - build
+    workflow_dispatch:
+        inputs:
+            type:
+                type: choice
+                description: Release type
+                options:
+                    - major
+                    - minor
+                    - patch
 
 jobs:
     publish-tauri:
@@ -35,10 +39,18 @@ jobs:
             - name: Setup rust
               uses: dtolnay/rust-toolchain@stable
 
+            - name: Set env variable with version
+              run: |
+                  CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases" | jq -r '.version')"
+                  NEXT_VERSION=$(./scripts/next.sh "$CURRENT_VERSION" "${{ github.event.inputs.type }}")
+                  echo "version=$NEXT_VERSION-${{ github.run_number }}" >> $GITHUB_ENV
+
             - name: Build binary
               run: |
                   ./scripts/release.sh \
                     --sign \
+                    --dist                       "./release" \
+                    --version                    "${{ env.version }}" \
                     --tauri-private-key          "${{ secrets.TAURI_PRIVATE_KEY }}"  \
                     --tauri-key-password         "${{ secrets.TAURI_KEY_PASSWORD }}" \
                     --apple-certificate          "${{ secrets.APPLE_CERTIFICATE }}" \
@@ -46,10 +58,6 @@ jobs:
                     --apple-signing-identity     "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
                     --apple-id                   "${{ secrets.APPLE_ID }}" \
                     --apple-password             "${{ secrets.APPLE_PASSWORD }}"
-
-            - name: Set env variable with version
-              run: |
-                  ./scripts/version.sh >> $GITHUB_ENV
 
             - uses: shallwefootball/s3-upload-action@master
               name: Upload To S3
