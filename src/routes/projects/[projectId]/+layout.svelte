@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { LayoutData } from "./$types";
-    import { getContext } from 'svelte';
+    import { getContext } from "svelte";
     import type { Writable } from "svelte/store";
     import type { Project } from "$lib/projects";
     import { onDestroy } from "svelte";
@@ -11,20 +11,22 @@
     $: sessions = data.sessions;
     $: lastSessionId = $sessions[$sessions.length - 1]?.id;
 
-    const contextProjectStore: Writable<Project|null|undefined> = getContext('project')
-    $: contextProjectStore.set($project)
+    const contextProjectStore: Writable<Project | null | undefined> =
+        getContext("project");
+    $: contextProjectStore.set($project);
     onDestroy(() => {
-        contextProjectStore.set(null)
-    })
-
+        contextProjectStore.set(null);
+    });
 </script>
 
 <nav
-    class="h-12 p-3 flex justify-between space-x-3 text-zinc-500 text-lg select-none border-b border-zinc-700"
+    class="flex flex-none justify-between h-12 p-3 space-x-3 text-lg border-b select-none text-zinc-500 border-zinc-700"
 >
     <ul class="flex gap-2">
         <li>
-            <div>Week</div>
+            <div>
+                <a class="hover:text-zinc-300" href="/projects/{$project?.id}/week">Week</a>
+            </div>
         </li>
         <li>
             <a href="/projects/{$project?.id}" class="hover:text-zinc-300"
