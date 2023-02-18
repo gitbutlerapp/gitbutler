@@ -10,19 +10,17 @@
         let sessionDurationHours =
             (session.meta.lastTs - session.meta.startTs) / 1000 / 60 / 60;
         if (sessionDurationHours <= 1) {
-            return "w-40";
+            return "w-40 min-w-40";
         } else {
-            return "w-60";
+            return "w-60 min-w-60";
         }
     };
 </script>
 
-<div class="w-full h-full mx-2 flex">
+<div class="w-full h-full overflow-scroll mx-2 flex">
     {#if $project}
         <div class="flex-grow items-center justify-center mt-4">
-            <div
-                class="justify-center overflow-auto flex flex-row space-x-2 pt-2"
-            >
+            <div class="justify-center flex flex-row space-x-2 pt-2">
                 {#each $sessions as session}
                     <div class={sessionDisplayWidth(session)}>
                         <TimelineDaySession projectId={$project.id} {session} />

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { themeIcons } from "seti-icons";
     import type { Session } from "$lib/sessions";
-    import { toHumanReadableTime } from "$lib/time";
+    import { toHumanReadableTime, toHumanReadableDate } from "$lib/time";
     import { toHumanBranchName } from "$lib/branch";
     import TimelineDaySessionActivities from "./TimelineDaySessionActivities.svelte";
     import { list } from "$lib/deltas";
@@ -68,10 +68,12 @@
             />
         </div>
     </div>
-    <div id="time-range">
-        {toHumanReadableTime(session.meta.lastTs)}
-        -
+    <div id="time-range" class="text-xs">
+        {toHumanReadableDate(session.meta.startTs)},
         {toHumanReadableTime(session.meta.startTs)}
+        <div class="text-xs text-zinc-600">
+            {Math.round((session.meta.lastTs - session.meta.startTs) / 60)} min
+        </div>
     </div>
     <div id="files">
         {#await list( { projectId: projectId, sessionId: session.id } ) then deltas}

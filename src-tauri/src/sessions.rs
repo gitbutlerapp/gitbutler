@@ -323,6 +323,7 @@ pub fn list(
     let mut sessions = list_persistent(repo, reference)?;
     if let Some(session) = Session::current(repo, project)? {
         sessions.push(session);
+        sessions.sort_by(|a, b| b.meta.start_ts.cmp(&a.meta.start_ts));
     }
     Ok(sessions)
 }
