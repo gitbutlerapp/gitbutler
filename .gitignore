@@ -27,7 +27,3 @@ dist-ssr
 /.svelte-kit
 /package
 .env
-.env.*
-!.env.*.example
-!.env.*.public
-!.env.*.public
