@@ -33,7 +33,7 @@
         title={session.meta.branch}
         href="/projects/{projectId}/sessions/{session.id}/"
     >
-        {session.meta.branch}
+        {session.meta.branch.replace("refs/heads/", "")}
     </a>
     <div id="activities">
         <div class="my-2 mx-1">
