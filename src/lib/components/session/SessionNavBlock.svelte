@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { Session } from "$lib/sessions";
-    import sessions from "$lib/sessions";
     import { toHumanReadableTime } from "$lib/time";
+    import { toHumanBranchName } from "$lib/branch";
     export let session: Session | undefined;
     export let hover: boolean = false;
     export let extraClasses: string = "";
@@ -15,7 +15,7 @@
             {hover ? 'hover:border-zinc-400 cursor-auto' : ''} {extraClasses}"
         >
             <div class="font-bold text-zinc-300">
-                {session.meta.branch}
+                {toHumanBranchName(session.meta.branch)}
             </div>
             <div class="mt-1 text-xs">
                 <span>

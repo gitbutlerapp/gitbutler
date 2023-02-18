@@ -1,11 +1,35 @@
 <script lang="ts">
+    import { themeIcons } from "seti-icons";
     import type { Session } from "$lib/sessions";
     import { toHumanReadableTime } from "$lib/time";
+    import { toHumanBranchName } from "$lib/branch";
     import TimelineDaySessionActivities from "./TimelineDaySessionActivities.svelte";
     import { list } from "$lib/deltas";
     export let session: Session;
     export let projectId: string;
 
+    const getIcon = themeIcons({
+        blue: "#268bd2",
+        grey: "#657b83",
+        "grey-light": "#839496",
+        green: "#859900",
+        orange: "#cb4b16",
+        pink: "#d33682",
+        purple: "#6c71c4",
+        red: "#dc322f",
+        white: "#fdf6e3",
+        yellow: "#b58900",
+        ignore: "#586e75",
+    });
+
+    function pathToName(path: string) {
+        return path.split("/").slice(-1)[0];
+    }
+    function pathToIconSvg(path: string) {
+        let name: string = pathToName(path);
+        let { svg, color } = getIcon(name);
+        return svg;
+    }
     const colorFromBranchName = (branchName: string) => {
         const colors = [
             "bg-red-500 border-red-700",
@@ -15,7 +39,7 @@
             "bg-purple-500 border-purple-700",
             "bg-pink-500 border-pink-700",
             "bg-indigo-500 border-indigo-700",
-            "bg-gray-500 border-gray-700",
+            "bg-orange-500 border-orange-700",
         ];
         const hash = branchName.split("").reduce((acc, char) => {
             return acc + char.charCodeAt(0);
@@ -33,7 +57,7 @@
         title={session.meta.branch}
         href="/projects/{projectId}/sessions/{session.id}/"
     >
-        {session.meta.branch.replace("refs/heads/", "")}
+        {toHumanBranchName(session.meta.branch)}
     </a>
     <div id="activities">
         <div class="my-2 mx-1">
@@ -52,8 +76,13 @@
     <div id="files">
         {#await list( { projectId: projectId, sessionId: session.id } ) then deltas}
             {#each Object.keys(deltas) as delta}
-                <div>
-                    <span>{delta}</span>
+                <div class="flex flex-row w-32 items-center">
+                    <div class="w-6 h-6 text-white fill-blue-400">
+                        {@html pathToIconSvg(delta)}
+                    </div>
+                    <div class="text-xs text-white w-24 truncate">
+                        {pathToName(delta)}
+                    </div>
                 </div>
             {/each}
         {/await}

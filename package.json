@@ -19,6 +19,7 @@
     "@tauri-apps/api": "^1.2.0",
     "idb-keyval": "^6.2.0",
     "mm-jsr": "^3.0.2",
+    "seti-icons": "^0.0.4",
     "svelte-icons": "^2.1.0",
     "tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
     "yjs": "^13.5.45"

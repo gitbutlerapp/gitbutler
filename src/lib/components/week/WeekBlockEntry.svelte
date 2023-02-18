@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { toHumanBranchName } from "$lib/branch";
+
     export let startTime: Date;
     export let endTime: Date;
     export let label: string;
@@ -39,10 +41,10 @@
     <a
         {href}
         title={startTime.toLocaleTimeString()}
-        class="group absolute inset-1 flex flex-col items-center justify-center rounded-lg bg-zinc-300 p-2 text-xs leading-5 hover:bg-zinc-200"
+        class="group absolute inset-1 flex flex-col items-center justify-center rounded-lg bg-zinc-300 p-3 text-xs leading-5 hover:bg-zinc-200 shadow"
     >
         <p class="order-1 font-semibold text-zinc-800">
-            {label.replace("refs/heads/", "")}
+            {toHumanBranchName(label)}
         </p>
     </a>
 </li>
