@@ -13,6 +13,14 @@ then, make sure to install app dependencies:
 $ pnpm install
 ```
 
+### setup the env
+
+You need to have some env variables set, so copy the example and modify whatever you want.
+
+```bash
+$ cp .env.dev.example .env
+```
+
 ### run
 
 now you should be able to run the app in development mode:

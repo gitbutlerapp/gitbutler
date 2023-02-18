@@ -28,4 +28,6 @@ dist-ssr
 /package
 .env
 .env.*
-!.env.example
+!.env.*.example
+!.env.*.public
+!.env.*.public

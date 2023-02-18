@@ -1,9 +1,6 @@
-import { dev } from "$app/environment";
 import { PUBLIC_BUTLER_URL } from '$env/static/public'
 
-const apiUrl = dev
-    ? new URL(PUBLIC_BUTLER_URL + "/api/")
-    : new URL("https://app.gitbutler.com/api/");
+const apiUrl = new URL(PUBLIC_BUTLER_URL + "/api/");
 
 const getUrl = (path: string) => new URL(path, apiUrl).toString();
 
