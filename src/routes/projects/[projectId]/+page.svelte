@@ -7,9 +7,9 @@
     const { project, sessions } = data;
 
     const sessionDisplayWidth = (session: Session) => {
-        let sessionDurationHours =
-            (session.meta.lastTs - session.meta.startTs) / 1000 / 60 / 60;
-        if (sessionDurationHours <= 1) {
+        let sessionDurationMinutes =
+            (session.meta.lastTs - session.meta.startTs) / 60;
+        if (sessionDurationMinutes <= 10) {
             return "w-40 min-w-40";
         } else {
             return "w-60 min-w-60";
