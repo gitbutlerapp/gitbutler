@@ -17,18 +17,16 @@
     };
 </script>
 
-<div class="w-full h-full overflow-scroll mx-2 flex">
-    {#if $project}
-        <div class="flex-grow items-center justify-center mt-4">
-            <div class="justify-center flex flex-row space-x-2 pt-2">
-                {#each $sessions as session}
-                    <div class={sessionDisplayWidth(session)}>
-                        <TimelineDaySession projectId={$project.id} {session} />
-                    </div>
-                {/each}
-            </div>
-        </div>
-    {:else}
-        <p>Project not found</p>
-    {/if}
+<div class="flex flex-col mt-12">
+    <h1 class="text-zinc-200 text-2xl flex justify-center">
+        Overview of {$project?.title}
+    </h1>
+    <div class="flex justify-center space-x-2">
+        <a class="hover:text-zinc-200" href="/projects/{$project?.id}/week"
+            >Week</a
+        >
+        <a href="/projects/{$project?.id}/day" class="hover:text-zinc-200"
+            >Day</a
+        >
+    </div>
 </div>

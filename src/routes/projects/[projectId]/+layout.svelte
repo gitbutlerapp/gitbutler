@@ -26,13 +26,13 @@
         <li>
             <div>
                 <a
-                    class="hover:text-zinc-300"
+                    class="hover:text-zinc-200"
                     href="/projects/{$project?.id}/week">Week</a
                 >
             </div>
         </li>
         <li>
-            <a href="/projects/{$project?.id}/day" class="hover:text-zinc-300"
+            <a href="/projects/{$project?.id}/day" class="hover:text-zinc-200"
                 >Day</a
             >
         </li>
@@ -40,7 +40,7 @@
             <li>
                 <a
                     href="/projects/{$project?.id}/sessions/{lastSessionId}"
-                    class="hover:text-zinc-300"
+                    class="hover:text-zinc-200"
                     title="go to current session">Session</a
                 >
             </li>
