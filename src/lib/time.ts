@@ -6,5 +6,7 @@ export const toHumanReadableTime = (timestamp: number) => {
 };
 
 export const toHumanReadableDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString("en-US", { dateStyle: "short"})
+    return new Date(timestamp * 1000).toLocaleDateString("en-US", {
+        dateStyle: "short",
+    });
 };

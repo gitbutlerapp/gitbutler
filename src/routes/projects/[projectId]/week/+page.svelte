@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount, onDestroy } from "svelte";
     import { Week } from "$lib/week";
     import type { PageData } from "./$types";
     import { WeekBlockEntry } from "$lib/components/week";

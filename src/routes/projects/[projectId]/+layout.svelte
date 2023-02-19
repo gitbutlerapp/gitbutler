@@ -32,7 +32,7 @@
             </div>
         </li>
         <li>
-            <a href="/projects/{$project?.id}" class="hover:text-zinc-300"
+            <a href="/projects/{$project?.id}/day" class="hover:text-zinc-300"
                 >Day</a
             >
         </li>
