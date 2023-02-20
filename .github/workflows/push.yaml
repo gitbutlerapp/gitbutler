@@ -2,16 +2,8 @@ name: "Test"
 on: [push]
 
 jobs:
-    test-tauri:
-        strategy:
-            fail-fast: false
-            matrix:
-                platform:
-                    - ubuntu-latest
-                    # - macos-aarch64
-                    # - macos-latest
-
-        runs-on: ${{ matrix.platform }}
+    test:
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v3
@@ -30,6 +22,9 @@ jobs:
 
             - name: Setup rust
               uses: dtolnay/rust-toolchain@stable
+              run: |
+                  # required to run tests
+                  sudo apt-get install libgtk-3-dev
 
             - name: Test rust
               working-directory: src-tauri
