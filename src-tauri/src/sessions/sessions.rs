@@ -831,13 +831,16 @@ fn write_gb_commit(
 ) -> Result<git2::Oid, git2::Error> {
     // find the Oid of the commit that refs/.../current points to, none if it doesn't exist
     let refname = project.refname();
+
+    let signature = git2::Signature::now("gitbutler", "gitbutler@localhost")?;
+
     match repo.revparse_single(refname.as_str()) {
         Ok(obj) => {
             let last_commit = repo.find_commit(obj.id()).unwrap();
             let new_commit = repo.commit(
                 Some(refname.as_str()),
-                &repo.signature().unwrap(),        // author
-                &repo.signature().unwrap(),        // committer
+                &signature,                        // author
+                &signature,                        // committer
                 "gitbutler check",                 // commit message
                 &repo.find_tree(gb_tree).unwrap(), // tree
                 &[&last_commit],                   // parents
@@ -847,8 +850,8 @@ fn write_gb_commit(
         Err(_) => {
             let new_commit = repo.commit(
                 Some(refname.as_str()),
-                &repo.signature().unwrap(),        // author
-                &repo.signature().unwrap(),        // committer
+                &signature,                        // author
+                &signature,                        // committer
                 "gitbutler check",                 // commit message
                 &repo.find_tree(gb_tree).unwrap(), // tree
                 &[],                               // parents
