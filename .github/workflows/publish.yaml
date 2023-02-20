@@ -44,7 +44,7 @@ jobs:
             - name: Set env variable with version
               run: |
                   CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases" | jq -r '.version')"
-                  NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ inputs.bump }}")
+                  NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ github.event.inputs.bump }}")
                   echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
             - name: Build binary
