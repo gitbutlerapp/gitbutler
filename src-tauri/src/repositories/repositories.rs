@@ -11,16 +11,18 @@ impl Repository {
     pub fn open(
         projects_storage: &projects::Storage,
         users_storage: &users::Storage,
-        repository_id: &str,
+        project_id: &str,
     ) -> Result<Self> {
         let project = projects_storage
-            .get_project(repository_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", repository_id))?;
-        let user = users_storage.get().context("failed to get user")?;
+            .get_project(project_id)
+            .with_context(|| "failed to get project")?
+            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let user = users_storage
+            .get()
+            .with_context(|| "failed to get user for project")?;
         let git_repository =
-            git2::Repository::open(&project.path).context("failed to open repository")?;
-        init(&git_repository, &project, &user)?;
+            git2::Repository::open(&project.path).with_context(|| "failed to open repository")?;
+        init(&git_repository, &project, &user).with_context(|| "failed to init repository")?;
         Ok(Repository {
             project,
             git_repository,

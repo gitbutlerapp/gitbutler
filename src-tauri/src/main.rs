@@ -40,7 +40,7 @@ fn list_sessions(
     project_id: &str,
 ) -> Result<Vec<sessions::Session>, Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage.clone());
     let users_storage = users::Storage::new(storage);
 
@@ -65,7 +65,7 @@ fn list_sessions(
 #[tauri::command]
 fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let users_storage = users::Storage::new(storage);
 
     users_storage.get().map_err(|e| {
@@ -79,7 +79,7 @@ fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
 #[tauri::command]
 fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let users_storage = users::Storage::new(storage);
 
     users_storage.set(&user).map_err(|e| {
@@ -94,7 +94,7 @@ fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
 #[tauri::command]
 fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let users_storage = users::Storage::new(storage);
 
     users_storage.delete().map_err(|e| {
@@ -112,7 +112,7 @@ fn update_project(
     project: projects::UpdateRequest,
 ) -> Result<projects::Project, Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage);
 
     projects_storage.update_project(&project).map_err(|e| {
@@ -130,7 +130,7 @@ fn add_project(
     path: &str,
 ) -> Result<projects::Project, Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage.clone());
     let users_storage = users::Storage::new(storage);
     let watchers_collection = handle.state::<watchers::WatcherCollection>();
@@ -179,7 +179,7 @@ fn add_project(
 #[tauri::command]
 fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage);
 
     projects_storage.list_projects().map_err(|e| {
@@ -193,7 +193,7 @@ fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Err
 #[tauri::command]
 fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage.clone());
     let watchers_collection = handle.state::<watchers::WatcherCollection>();
     let users_storage = users::Storage::new(storage);
@@ -238,7 +238,7 @@ fn list_session_files(
     session_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage.clone());
     let users_storage = users::Storage::new(storage);
 
@@ -267,7 +267,7 @@ fn list_deltas(
     session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
     let path_resolver = handle.path_resolver();
-    let storage = storage::Storage::new(&path_resolver);
+    let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage.clone());
     let users_storage = users::Storage::new(storage);
 
@@ -366,7 +366,7 @@ fn main() {
                         resolver.app_local_data_dir().unwrap()
                     );
 
-                    let storage = Storage::new(&resolver);
+                    let storage = Storage::from_path_resolver(&resolver);
                     let projects_storage = projects::Storage::new(storage.clone());
                     let users_storage = users::Storage::new(storage);
                     let watcher_collection = watchers::WatcherCollection::default();
