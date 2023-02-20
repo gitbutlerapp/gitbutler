@@ -18,14 +18,18 @@ export const load: PageLoad = async ({ parent, params }) => {
               projectId: params.projectId,
               sessionId: params.sessionId,
           });
+    const orderedSessions = derived(sessions, (sessions) =>{
+        return sessions.slice().sort((a, b) => a.meta.startTs - b.meta.startTs);
+    });
     return {
-        session: derived(sessions, (sessions) => {
+        orderedSessions,
+        session: derived(orderedSessions, (sessions) => {
             const result = sessions.find(
                 (session) => session.id === params.sessionId
             );
             return result ? result : sessions[0];
         }),
-        previousSesssion: derived(sessions, (sessions) => {
+        previousSesssion: derived(orderedSessions, (sessions) => {
             const currentSessionIndex = sessions.findIndex(
                 (session) => session.id === params.sessionId
             );
@@ -35,7 +39,7 @@ export const load: PageLoad = async ({ parent, params }) => {
                 return undefined;
             }
         }),
-        nextSession: derived(sessions, (sessions) => {
+        nextSession: derived(orderedSessions, (sessions) => {
             const currentSessionIndex = sessions.findIndex(
                 (session) => session.id === params.sessionId
             );
