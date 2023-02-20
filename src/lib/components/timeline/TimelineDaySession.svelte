@@ -49,16 +49,28 @@
 </script>
 
 <div class="flex flex-col space-y-2">
-    <a
-        id="block"
-        class="truncate border px-4 py-2 text-slate-50 rounded-lg {colorFromBranchName(
-            session.meta.branch
-        )}"
-        title={session.meta.branch}
-        href="/projects/{projectId}/sessions/{session.id}/"
-    >
-        {toHumanBranchName(session.meta.branch)}
-    </a>
+    <span class="relative inline-flex">
+        <a
+            id="block"
+            class="inline-flex flex-grow items-center truncate transition ease-in-out duration-150 border px-4 py-2 text-slate-50 rounded-lg {colorFromBranchName(
+                session.meta.branch
+            )}"
+            title={session.meta.branch}
+            href="/projects/{projectId}/sessions/{session.id}/"
+        >
+            {toHumanBranchName(session.meta.branch)}
+        </a>
+        {#if !session.hash}
+            <span class="flex absolute h-3 w-3 top-0 right-0 -mt-1 -mr-1" title="Current session">
+                <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"
+                />
+                <span
+                    class="relative inline-flex rounded-full h-3 w-3 bg-orange-600"
+                />
+            </span>
+        {/if}
+    </span>
     <div id="activities">
         <div class="my-2 mx-1">
             <TimelineDaySessionActivities
@@ -72,7 +84,10 @@
         {toHumanReadableDate(session.meta.startTimestampMs)},
         {toHumanReadableTime(session.meta.startTimestampMs)}
         <div class="text-xs text-zinc-600">
-            {Math.round((session.meta.lastTimestampMs - session.meta.startTimestampMs) / 60)} min
+            {Math.round(
+                (session.meta.lastTimestampMs - session.meta.startTimestampMs) /
+                    60
+            )} min
         </div>
     </div>
     <div id="files">
