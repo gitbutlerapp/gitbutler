@@ -3,7 +3,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-set -x
 
 PWD="$(dirname $(readlink -f -- $0))"
 
