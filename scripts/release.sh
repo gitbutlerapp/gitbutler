@@ -24,7 +24,6 @@ function help() {
 	echo 1>&$to
 	echo "flags:" 1>&$to
 	echo "  --version                     release version." 1>&$to
-	echo "  --dist                        path to store artifacts in." 1>&$to
 	echo "  --tauri-private-key           path or string of tauri updater private key." 1>&$to
 	echo "  --tauri-key-password          password for tauri updater private key." 1>&$to
 	echo "  --apple-certificate           base64 string of the .p12 certificate, exported from the keychain." 1>&$to
@@ -76,7 +75,7 @@ function arch() {
 
 ARCH="$(arch)"
 OS="$(os)"
-DIST="release/$OS/$ARCH"
+DIST="release"
 
 function tauri() {
 	pushd "$PWD/.." >/dev/null
@@ -92,11 +91,6 @@ while [[ $# -gt 0 ]]; do
 		;;
 	--version)
 		VERSION="$2"
-		shift
-		shift
-		;;
-	--dist)
-		DIST="$2"
 		shift
 		shift
 		;;
@@ -171,6 +165,7 @@ info "building:"
 info "  version: $VERSION"
 info "  os: $OS"
 info "  arch: $ARCH"
+info "  dist: $DIST"
 
 TMP_DIR="$(mktemp -d)"
 trap "rm -rf '$TMP_DIR'" exit
@@ -187,7 +182,6 @@ MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
 
 RELEASE_DIR="$DIST/$OS/$ARCH"
-mkdir -p "$RELEASE_DIR"
 cp "$MACOS_DMG" "$RELEASE_DIR"
 cp "$MACOS_UPDATER" "$RELEASE_DIR"
 cp "$MACOS_UPDATER_SIG" "$RELEASE_DIR"

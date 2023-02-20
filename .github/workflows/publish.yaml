@@ -51,7 +51,6 @@ jobs:
               run: |
                   ./scripts/release.sh \
                     --sign \
-                    --dist                       "./release" \
                     --version                    "${{ env.version }}" \
                     --tauri-private-key          "${{ secrets.TAURI_PRIVATE_KEY }}"  \
                     --tauri-key-password         "${{ secrets.TAURI_KEY_PASSWORD }}" \
