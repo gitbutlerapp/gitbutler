@@ -39,8 +39,8 @@
         const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
         return sessions.filter((session) => {
             return (
-                start <= new Date(session.meta.startTimestampMs * 1000) &&
-                new Date(session.meta.startTimestampMs * 1000) <= end
+                start <= new Date(session.meta.startTimestampMs) &&
+                new Date(session.meta.startTimestampMs) <= end
             );
         });
     });
