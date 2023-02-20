@@ -31,6 +31,7 @@ sentry-tauri = "0.1.0"
 sentry = "0.27"
 walkdir = "2.3.2"
 anyhow = "1.0.69"
+tempfile = "3.3.0"
 
 [features]
 # by default Tauri runs in production mode
