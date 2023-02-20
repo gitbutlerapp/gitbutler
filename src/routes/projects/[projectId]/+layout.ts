@@ -13,7 +13,9 @@ export const load: LayoutLoad = async ({ parent, params }) => {
               await import("$lib/sessions")
           ).default({ projectId: params.projectId });
     const orderedSessions = derived(sessions, (sessions) => {
-        return sessions.slice().sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
+        return sessions
+            .slice()
+            .sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
     });
     return {
         project: projects.get(params.projectId),
