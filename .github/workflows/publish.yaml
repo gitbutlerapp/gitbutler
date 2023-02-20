@@ -4,6 +4,7 @@ on:
         inputs:
             type:
                 type: choice
+                required: true
                 description: Release type
                 options:
                     - undefined
@@ -43,7 +44,7 @@ jobs:
             - name: Set env variable with version
               run: |
                   CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases" | jq -r '.version')"
-                  NEXT_VERSION=$(./scripts/next.sh "$CURRENT_VERSION" "${{ github.event.inputs.type }}")
+                  NEXT_VERSION=$(./scripts/next.sh "$CURRENT_VERSION" "${{ inputs.print_tags }}")
                   echo "version=$NEXT_VERSION-${{ github.run_number }}" >> $GITHUB_ENV
 
             - name: Build binary
