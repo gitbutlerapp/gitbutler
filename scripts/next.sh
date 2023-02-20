@@ -28,9 +28,9 @@ function info() {
 VERSION="$1"
 BUMP="$2"
 
-if [[ -z "$VERSION" ]]; then
-	error "no version specified"
-fi
+# https://semver.org/
+SEMVER_REGEX="^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+(echo "$VERSION" | grep -Eq "$SEMVER_REGEX") || error "'$VERSION' not a semver"
 
 case "$BUMP" in
 major)
