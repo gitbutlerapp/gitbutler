@@ -14,7 +14,7 @@ use std::{
 };
 use uuid::Uuid;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     // timestamp of when the session was created
@@ -27,7 +27,7 @@ pub struct Meta {
     pub commit: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
     pub id: String,
@@ -111,6 +111,19 @@ impl Session {
             .as_millis();
 
         let head = repo.head()?;
+
+        let reflog = std::fs::read_to_string(repo.path().join("logs/HEAD")).with_context(|| {
+            format!(
+                "failed to read reflog from {}",
+                repo.path().join("logs/HEAD").display()
+            )
+        })?;
+        let activity = reflog
+            .lines()
+            .filter_map(|line| activity::parse_reflog_line(line).ok())
+            .filter(|activity| activity.timestamp_ms >= now_ts)
+            .collect::<Vec<activity::Activity>>();
+
         let session = Session {
             id: Uuid::new_v4().to_string(),
             hash: None,
@@ -120,7 +133,7 @@ impl Session {
                 branch: head.name().unwrap().to_string(),
                 commit: head.peel_to_commit().unwrap().id().to_string(),
             },
-            activity: vec![],
+            activity,
         };
         create(project, &session)?;
         Ok(session)
@@ -315,7 +328,7 @@ pub fn list(
 ) -> Result<Vec<Session>> {
     let mut sessions = list_persistent(repo, reference)?;
     if let Some(session) = Session::current(repo, project)? {
-        sessions.push(session);
+        sessions.insert(0, session);
     }
     Ok(sessions)
 }
