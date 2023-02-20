@@ -63,10 +63,10 @@
         {#if !session.hash}
             <span class="flex absolute h-3 w-3 top-0 right-0 -mt-1 -mr-1" title="Current session">
                 <span
-                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-200 opacity-75"
                 />
                 <span
-                    class="relative inline-flex rounded-full h-3 w-3 bg-orange-600"
+                    class="relative inline-flex rounded-full h-3 w-3 bg-zinc-200 border border-orange-200"
                 />
             </span>
         {/if}
