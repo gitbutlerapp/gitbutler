@@ -44,8 +44,8 @@ jobs:
             - name: Set env variable with version
               run: |
                   CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases" | jq -r '.version')"
-                  NEXT_VERSION=$(./scripts/next.sh "$CURRENT_VERSION" "${{ inputs.bump }}")
-                  echo "version=$NEXT_VERSION-${{ github.run_number }}" >> $GITHUB_ENV
+                  NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ inputs.bump }}")
+                  echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
             - name: Build binary
               run: |
@@ -69,7 +69,7 @@ jobs:
                   aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
                   aws_bucket: "releases.gitbutler.com"
                   source_dir: "release/"
-                  destination_dir: "releases/${{ env.version }}"
+                  destination_dir: "releases/${{ env.version }}-${{ github.run_number }}"
 
             # tell our server to update with the version number
             - name: Tell our server to update
@@ -78,4 +78,4 @@ jobs:
                     --request POST \
                     --header 'Content-Type: application/json' \
                     --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
-                    --data '{"version":"${{ env.version }}"}'
+                    --data '{"version":"${{ env.version }}-${{ github.run_number }}"}'
