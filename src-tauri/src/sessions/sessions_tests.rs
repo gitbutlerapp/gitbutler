@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::projects;
 use anyhow::Result;
 use tempfile::tempdir;
@@ -6,7 +8,6 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
     std::fs::create_dir_all(&path)?;
     let repo = git2::Repository::init(&path)?;
-    // make init commit to the repo
     let mut index = repo.index()?;
     let oid = index.write_tree()?;
     let sig = repo.signature()?;
@@ -143,4 +144,90 @@ fn test_list() {
     assert_eq!(sessions[0], current);
     assert_eq!(sessions[1], second);
     assert_eq!(sessions[2], first);
+}
+
+#[test]
+fn test_list_files_from_first_presistent_session() {
+    let (repo, project) = test_project().unwrap();
+
+    let file_path = Path::new(&project.path).join("test.txt");
+    std::fs::write(file_path.clone(), "zero").unwrap();
+
+    let first = super::sessions::Session::from_head(&repo, &project);
+    assert!(first.is_ok());
+    let mut first = first.unwrap();
+    first.flush(&repo, &None, &project).unwrap();
+    assert!(first.hash.is_some());
+
+    let file_path = Path::new(&project.path).join("test.txt");
+    std::fs::write(file_path.clone(), "one").unwrap();
+
+    let reference = repo.find_reference(&project.refname()).unwrap();
+    let files = super::sessions::list_files(&repo, &project, &reference, &first.id);
+    assert!(files.is_ok());
+    let files = files.unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files["test.txt"], "zero");
+}
+
+#[test]
+fn test_list_files_from_second_current_session() {
+    let (repo, project) = test_project().unwrap();
+
+    let file_path = Path::new(&project.path).join("test.txt");
+    std::fs::write(file_path.clone(), "zero").unwrap();
+
+    let first = super::sessions::Session::from_head(&repo, &project);
+    assert!(first.is_ok());
+    let mut first = first.unwrap();
+    first.flush(&repo, &None, &project).unwrap();
+    assert!(first.hash.is_some());
+
+    std::thread::sleep(std::time::Duration::from_millis(1));
+
+    std::fs::write(file_path.clone(), "one").unwrap();
+
+    let second = super::sessions::Session::from_head(&repo, &project);
+    assert!(second.is_ok());
+    let second = second.unwrap();
+
+    let reference = repo.find_reference(&project.refname()).unwrap();
+    let files = super::sessions::list_files(&repo, &project, &reference, &second.id);
+    assert!(files.is_ok());
+    let files = files.unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files["test.txt"], "zero");
+}
+
+#[test]
+fn test_list_files_from_second_presistent_session() {
+    let (repo, project) = test_project().unwrap();
+
+    let file_path = Path::new(&project.path).join("test.txt");
+    std::fs::write(file_path.clone(), "zero").unwrap();
+
+    let first = super::sessions::Session::from_head(&repo, &project);
+    assert!(first.is_ok());
+    let mut first = first.unwrap();
+    first.flush(&repo, &None, &project).unwrap();
+    assert!(first.hash.is_some());
+
+    std::thread::sleep(std::time::Duration::from_millis(1));
+
+    std::fs::write(file_path.clone(), "one").unwrap();
+
+    let second = super::sessions::Session::from_head(&repo, &project);
+    assert!(second.is_ok());
+    let mut second = second.unwrap();
+    second.flush(&repo, &None, &project).unwrap();
+    assert!(second.hash.is_some());
+
+    std::fs::write(file_path.clone(), "two").unwrap();
+
+    let reference = repo.find_reference(&project.refname()).unwrap();
+    let files = super::sessions::list_files(&repo, &project, &reference, &second.id);
+    assert!(files.is_ok());
+    let files = files.unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files["test.txt"], "zero");
 }

@@ -321,6 +321,7 @@ pub fn get(
     Ok(None)
 }
 
+// returns list of sessions in reverse chronological order
 pub fn list(
     repo: &git2::Repository,
     project: &projects::Project,
@@ -376,7 +377,8 @@ pub fn list_files(
     reference: &git2::Reference,
     session_id: &str,
 ) -> Result<HashMap<String, String>> {
-    let list = list(repo, project, reference)?;
+    let mut list = list(repo, project, reference)?;
+    list.reverse();
 
     let mut previous_session = None;
     let mut session = None;
@@ -413,6 +415,9 @@ pub fn list_files(
         }
         let entry_path = Path::new(root).join(entry.name().unwrap());
         if !entry_path.starts_with("wd") {
+            return git2::TreeWalkResult::Ok;
+        }
+        if "wd".eq(entry_path.to_str().unwrap()) {
             return git2::TreeWalkResult::Ok;
         }
         let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
