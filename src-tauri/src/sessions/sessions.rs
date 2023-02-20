@@ -734,7 +734,7 @@ fn add_log_path(
 
     let metadata = file_path.metadata()?;
     let mtime = FileTime::from_last_modification_time(&metadata);
-    let ctime = FileTime::from_creation_time(&metadata).unwrap();
+    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
     index.add(&git2::IndexEntry {
         ctime: git2::IndexTime::new(
