@@ -47,7 +47,15 @@ fn test_create_current() {
         current_session.as_ref().unwrap().meta.branch,
         "refs/heads/master"
     );
-    assert!(current_session.as_ref().unwrap().meta.commit.len() > 0);
+    assert_eq!(
+        current_session.as_ref().unwrap().meta.commit,
+        repo.head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .to_string(),
+    );
     assert_eq!(current_session.as_ref().unwrap().activity.len(), 0);
 }
 
@@ -82,6 +90,25 @@ fn test_flush() {
     assert!(current_session.is_ok());
     let current_session = current_session.unwrap();
     assert!(current_session.is_none());
+}
+
+#[test]
+fn test_get_persistent() {
+    let (repo, project) = test_project().unwrap();
+    let created_session = super::sessions::Session::from_head(&repo, &project);
+    assert!(created_session.is_ok());
+    let mut created_session = created_session.unwrap();
+
+    created_session.flush(&repo, &None, &project).unwrap();
+
+    let commid_oid = git2::Oid::from_str(&created_session.hash.as_ref().unwrap()).unwrap();
+    let commit = repo.find_commit(commid_oid).unwrap();
+
+    let reconstructed = super::sessions::Session::from_commit(&repo, &commit);
+    assert!(reconstructed.is_ok());
+    let reconstructed = reconstructed.unwrap();
+
+    assert_eq!(reconstructed, created_session);
 }
 
 #[test]
