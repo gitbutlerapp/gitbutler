@@ -17,6 +17,7 @@
     "@codemirror/state": "^6.2.0",
     "@codemirror/view": "^6.7.3",
     "@tauri-apps/api": "^1.2.0",
+    "date-fns": "^2.29.3",
     "idb-keyval": "^6.2.0",
     "mm-jsr": "^3.0.2",
     "seti-icons": "^0.0.4",

@@ -11,6 +11,7 @@ specifiers:
   '@tauri-apps/cli': ^1.2.2
   '@types/diff': ^5.0.2
   autoprefixer: ^10.4.7
+  date-fns: ^2.29.3
   eslint: ^8.34.0
   eslint-config-prettier: ^8.6.0
   eslint-plugin-prettier: ^4.2.1
@@ -41,6 +42,7 @@ dependencies:
   '@codemirror/state': 6.2.0
   '@codemirror/view': 6.7.3
   '@tauri-apps/api': 1.2.0
+  date-fns: 2.29.3
   idb-keyval: 6.2.0
   mm-jsr: 3.0.2
   seti-icons: 0.0.4
@@ -950,6 +952,11 @@ packages:
     engines: {node: '>=8.0.0'}
     dependencies:
       css-tree: 1.1.3
+    dev: false
+
+  /date-fns/2.29.3:
+    resolution: {integrity: sha512-dDCnyH2WnnKusqvZZ6+jA1O51Ibt8ZMRNkDZdyAyK4YfbDwa/cEmuztzG5pk6hqlp9aSBPYcjOlktquahGwGeA==}
+    engines: {node: '>=0.11'}
     dev: false
 
   /debug/4.3.4:
