@@ -22,8 +22,9 @@ jobs:
 
             - name: Setup rust
               uses: dtolnay/rust-toolchain@stable
+        
+            - name: Setup system dependencies
               run: |
-                  # required to run tests
                   sudo apt-get install libgtk-3-dev
 
             - name: Test rust
