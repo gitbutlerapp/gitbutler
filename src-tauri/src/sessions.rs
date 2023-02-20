@@ -67,11 +67,10 @@ fn parse_reflog_line(line: &str) -> Result<Activity> {
 impl Session {
     pub fn current(repo: &git2::Repository, project: &projects::Project) -> Result<Option<Self>> {
         let session_path = project.session_path();
-        if !session_path.exists() {
+        let meta_path = session_path.join("meta");
+        if !meta_path.exists() {
             return Ok(None);
         }
-
-        let meta_path = session_path.join("meta");
 
         let start_path = meta_path.join("start");
         let start_ts = std::fs::read_to_string(start_path.clone())?
