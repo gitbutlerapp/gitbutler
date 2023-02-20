@@ -1,5 +1,5 @@
 import type { PageLoad } from "./$types";
-import { derived, readable, writable } from "svelte/store";
+import { derived, readable } from "svelte/store";
 import { building } from "$app/environment";
 import type { Delta } from "$lib/deltas";
 
@@ -18,18 +18,14 @@ export const load: PageLoad = async ({ parent, params }) => {
               projectId: params.projectId,
               sessionId: params.sessionId,
           });
-    const orderedSessions = derived(sessions, (sessions) =>{
-        return sessions.slice().sort((a, b) => a.meta.startTs - b.meta.startTs);
-    });
     return {
-        orderedSessions,
-        session: derived(orderedSessions, (sessions) => {
+        session: derived(sessions, (sessions) => {
             const result = sessions.find(
                 (session) => session.id === params.sessionId
             );
             return result ? result : sessions[0];
         }),
-        previousSesssion: derived(orderedSessions, (sessions) => {
+        previousSesssion: derived(sessions, (sessions) => {
             const currentSessionIndex = sessions.findIndex(
                 (session) => session.id === params.sessionId
             );
@@ -39,7 +35,7 @@ export const load: PageLoad = async ({ parent, params }) => {
                 return undefined;
             }
         }),
-        nextSession: derived(orderedSessions, (sessions) => {
+        nextSession: derived(sessions, (sessions) => {
             const currentSessionIndex = sessions.findIndex(
                 (session) => session.id === params.sessionId
             );
