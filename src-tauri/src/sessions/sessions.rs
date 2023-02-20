@@ -608,7 +608,7 @@ fn add_wd_path(
 
     let metadata = file_path.metadata()?;
     let mtime = FileTime::from_last_modification_time(&metadata);
-    let ctime = FileTime::from_creation_time(&metadata).unwrap();
+    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
     // if we find the entry in the index, we can just use it
     match repo_index.get_path(rel_file_path, 0) {
@@ -794,7 +794,7 @@ fn add_session_path(
     let blob = repo.blob_path(&file_path)?;
     let metadata = file_path.metadata()?;
     let mtime = FileTime::from_last_modification_time(&metadata);
-    let ctime = FileTime::from_creation_time(&metadata).unwrap();
+    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
     // create a new IndexEntry from the file metadata
     index.add(&git2::IndexEntry {
