@@ -75,6 +75,7 @@ jobs:
             - name: Tell our server to update
               run: |
                   curl 'https://app.gitbutler.com/api/releases' \
+                    --fail \
                     --request POST \
                     --header 'Content-Type: application/json' \
                     --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
