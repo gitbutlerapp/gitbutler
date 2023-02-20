@@ -175,10 +175,10 @@ info "  dist: $DIST"
 TMP_DIR="$(mktemp -d)"
 trap "rm -rf '$TMP_DIR'" exit
 
-# update the version in the tauri config
-jq '.package.version="'"$VERSION"'"' "$PWD/../src-tauri/tauri.conf.json" >"$TMP_DIR/tauri.conf.json"
+# update the version in the tauri release config
+jq '.package.version="'"$VERSION"'"' "$PWD/../src-tauri/tauri.conf.release.json" >"$TMP_DIR/tauri.conf.json"
 
-# build the app
+# build the app with release config
 tauri build --config "$TMP_DIR/tauri.conf.json"
 
 BUNDLE_DIR="$PWD/../src-tauri/target/release/bundle"
