@@ -1,30 +1,28 @@
 use crate::{deltas::operations::Operation, projects};
+use anyhow::Result;
 use std::path::Path;
 use tempfile::tempdir;
 
+fn test_project() -> Result<projects::Project> {
+    let path = tempdir()?.path().to_str().unwrap().to_string();
+    std::fs::create_dir_all(&path)?;
+    git2::Repository::init(&path)?;
+    let project = projects::Project::from_path(path)?;
+    Ok(project)
+}
+
 #[test]
 fn test_read_none() {
-    let project = projects::Project {
-        id: "test".to_string(),
-        path: tempdir().unwrap().path().to_str().unwrap().to_string(),
-        title: "Test".to_string(),
-        api: None,
-    };
+    let project = test_project().unwrap();
     let file_path = Path::new("test.txt");
     let deltas = super::read(&project, file_path);
-    println!("{:?}", deltas);
     assert!(deltas.is_ok());
     assert!(deltas.unwrap().is_none());
 }
 
 #[test]
 fn test_read_invalid() {
-    let project = projects::Project {
-        id: "test".to_string(),
-        path: tempdir().unwrap().path().to_str().unwrap().to_string(),
-        title: "Test".to_string(),
-        api: None,
-    };
+    let project = test_project().unwrap();
     let file_path = Path::new("test.txt");
     let full_file_path = project.deltas_path().join(file_path);
 
@@ -37,16 +35,8 @@ fn test_read_invalid() {
 
 #[test]
 fn test_write_read() {
-    let project = projects::Project {
-        id: "test".to_string(),
-        path: tempdir().unwrap().path().to_str().unwrap().to_string(),
-        title: "Test".to_string(),
-        api: None,
-    };
+    let project = test_project().unwrap();
     let file_path = Path::new("test.txt");
-    let full_file_path = project.deltas_path().join(file_path);
-
-    std::fs::create_dir_all(full_file_path.parent().unwrap()).unwrap();
 
     let deltas = vec![super::Delta {
         operations: vec![Operation::Insert((0, "Hello, world!".to_string()))],
