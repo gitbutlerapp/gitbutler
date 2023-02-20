@@ -136,8 +136,8 @@ fn session_to_commit(
                 log::debug!(
                     "Not ready to commit {} yet. ({} seconds elapsed, {} seconds since start)",
                     repo.workdir().unwrap().display(),
-                    elapsed_last,
-                    elapsed_start
+                    elapsed_last / 1000,
+                    elapsed_start / 1000
                 );
                 Ok(None)
             }
