@@ -37,7 +37,7 @@ jobs:
             - name: Install test dependencies
               uses: daaku/gh-action-apt-install@v4
               with:
-                  packages: libgtk-3-dev libsoup2.4-dev
+                  packages: libgtk-3-dev libsoup2.4-dev libjavascriptcoregtk-4.0-dev
 
             - name: Test rust
               working-directory: src-tauri
