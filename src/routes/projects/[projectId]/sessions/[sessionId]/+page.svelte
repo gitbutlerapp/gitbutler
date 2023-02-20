@@ -73,6 +73,7 @@
             nextSession={$nextSession}
             previousSesssion={$previousSesssion}
         />
+        <a href="/projects/{$project?.id}/sessionv2/{$session?.id}">v2</a>
     </div>
 
     <div class="overflow-auto h-2/3 mx-4">
