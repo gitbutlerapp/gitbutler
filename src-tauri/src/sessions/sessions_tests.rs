@@ -10,7 +10,7 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
     let repo = git2::Repository::init(&path)?;
     let mut index = repo.index()?;
     let oid = index.write_tree()?;
-    let sig = repo.signature()?;
+    let sig = git2::Signature::now("test", "test@email.com").unwrap();
     let _commit = repo.commit(
         Some("HEAD"),
         &sig,
