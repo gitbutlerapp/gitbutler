@@ -182,7 +182,6 @@ MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
 
 RELEASE_DIR="$DIST/$OS/$ARCH"
-mkdir -p "$RELEASE_DIR"
 cp "$MACOS_DMG" "$RELEASE_DIR"
 cp "$MACOS_UPDATER" "$RELEASE_DIR"
 cp "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
