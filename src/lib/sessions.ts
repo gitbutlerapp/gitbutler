@@ -4,7 +4,7 @@ import { writable } from "svelte/store";
 
 export type Activity = {
     type: string;
-    timestamp: number;
+    timestampMs: number;
     message: string;
 };
 
@@ -12,8 +12,8 @@ export type Session = {
     id: string;
     hash?: string;
     meta: {
-        startTs: number;
-        lastTs: number;
+        startTimestampMs: number;
+        lastTimestampMs: number;
         branch: string;
         commit: string;
     };

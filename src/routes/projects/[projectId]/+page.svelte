@@ -8,7 +8,7 @@
 
     const sessionDisplayWidth = (session: Session) => {
         let sessionDurationMinutes =
-            (session.meta.lastTs - session.meta.startTs) / 60;
+            (session.meta.lastTimestampMs - session.meta.startTimestampMs) / 60;
         if (sessionDurationMinutes <= 10) {
             return "w-40 min-w-40";
         } else {

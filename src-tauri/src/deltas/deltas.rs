@@ -8,7 +8,7 @@ use std::{collections::HashMap, path::Path};
 #[serde(rename_all = "camelCase")]
 pub struct Delta {
     pub operations: Vec<operations::Operation>,
-    pub timestamp_ms: u64,
+    pub timestamp_ms: u128,
 }
 
 pub fn read(project: &projects::Project, file_path: &Path) -> Result<Option<Vec<Delta>>> {

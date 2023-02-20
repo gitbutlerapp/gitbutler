@@ -19,14 +19,14 @@
             </div>
             <div class="mt-1 text-xs">
                 <span>
-                    {#if session.meta.startTs}
-                        {toHumanReadableTime(session.meta.startTs)}
+                    {#if session.meta.startTimestampMs}
+                        {toHumanReadableTime(session.meta.startTimestampMs)}
                     {/if}
                 </span>
                 <span>—</span>
                 <span>
-                    {#if session.meta.lastTs}
-                        {toHumanReadableTime(session.meta.lastTs)}
+                    {#if session.meta.lastTimestampMs}
+                        {toHumanReadableTime(session.meta.lastTimestampMs)}
                     {/if}
                 </span>
             </div>

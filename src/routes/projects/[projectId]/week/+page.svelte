@@ -23,8 +23,8 @@
     $: sessionsInWeek = derived([sessions], ([sessions]) => {
         return sessions.filter((session) => {
             return (
-                week.start <= new Date(session.meta.startTs * 1000) &&
-                new Date(session.meta.startTs * 1000) <= week.end
+                week.start <= new Date(session.meta.startTimestampMs * 1000) &&
+                new Date(session.meta.startTimestampMs * 1000) <= week.end
             );
         });
     });
@@ -256,8 +256,8 @@
                     >
                       {#each $sessionsInWeek as session}
                         <WeekBlockEntry
-                            startTime={new Date(session.meta.startTs * 1000)}
-                            endTime={new Date(session.meta.startTs * 1000)}
+                            startTime={new Date(session.meta.startTimestampMs * 1000)}
+                            endTime={new Date(session.meta.startTimestampMs * 1000)}
                             label={session.meta.branch}
                             href="/projects/{$project?.id}/sessions/{session.id}/"
                         />

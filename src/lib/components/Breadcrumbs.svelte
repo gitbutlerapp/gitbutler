@@ -35,8 +35,8 @@
             class="hover:text-zinc-200"
             href="/projects/{$project.id}/sessions/{$session.id}"
         >
-            {toHumanReadableTime($session.meta.startTs)}
-            {toHumanReadableTime($session.meta.lastTs)}
+            {toHumanReadableTime($session.meta.startTimestampMs)}
+            {toHumanReadableTime($session.meta.lastTimestampMs)}
         </a>
     {/if}
 </div>

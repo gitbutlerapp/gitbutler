@@ -18,9 +18,9 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     // timestamp of when the session was created
-    pub start_ts: u64,
+    pub start_timestamp_ms: u128,
     // timestamp of when the session was last active
-    pub last_ts: u64,
+    pub last_timestamp_ms: u128,
     // session branch name
     pub branch: String,
     // session commit hash
@@ -47,7 +47,7 @@ impl Session {
 
         let start_path = meta_path.join("start");
         let start_ts = std::fs::read_to_string(start_path.clone())?
-            .parse::<u64>()
+            .parse::<u128>()
             .with_context(|| {
                 format!(
                     "failed to parse start timestamp from {}",
@@ -57,7 +57,7 @@ impl Session {
 
         let last_path = meta_path.join("last");
         let last_ts = std::fs::read_to_string(last_path.clone())?
-            .parse::<u64>()
+            .parse::<u128>()
             .with_context(|| {
                 format!(
                     "failed to parse last timestamp from {}",
@@ -84,7 +84,7 @@ impl Session {
         let activity = reflog
             .lines()
             .filter_map(|line| activity::parse_reflog_line(line).ok())
-            .filter(|activity| activity.timestamp >= start_ts)
+            .filter(|activity| activity.timestamp_ms >= start_ts)
             .collect::<Vec<activity::Activity>>();
 
         let id_path = meta_path.join("id");
@@ -96,8 +96,8 @@ impl Session {
             hash: None,
             activity,
             meta: Meta {
-                start_ts,
-                last_ts,
+                start_timestamp_ms: start_ts,
+                last_timestamp_ms: last_ts,
                 branch,
                 commit,
             },
@@ -108,15 +108,15 @@ impl Session {
         let now_ts = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_secs();
+            .as_millis();
 
         let head = repo.head()?;
         let session = Session {
             id: Uuid::new_v4().to_string(),
             hash: None,
             meta: Meta {
-                start_ts: now_ts,
-                last_ts: now_ts,
+                start_timestamp_ms: now_ts,
+                last_timestamp_ms: now_ts,
                 branch: head.name().unwrap().to_string(),
                 commit: head.peel_to_commit().unwrap().id().to_string(),
             },
@@ -131,8 +131,8 @@ impl Session {
             format!("failed to get tree from commit {}", commit.id().to_string())
         })?;
 
-        let start_ts = read_as_string(repo, &tree, Path::new("session/meta/start"))?
-            .parse::<u64>()
+        let start_timestamp_ms = read_as_string(repo, &tree, Path::new("session/meta/start"))?
+            .parse::<u128>()
             .with_context(|| {
                 format!(
                     "failed to parse start timestamp from commit {}",
@@ -149,7 +149,7 @@ impl Session {
         let activity = reflog
             .lines()
             .filter_map(|line| activity::parse_reflog_line(line).ok())
-            .filter(|activity| activity.timestamp >= start_ts)
+            .filter(|activity| activity.timestamp_ms >= start_timestamp_ms)
             .collect::<Vec<activity::Activity>>();
 
         Ok(Session {
@@ -161,9 +161,9 @@ impl Session {
             })?,
             hash: Some(commit.id().to_string()),
             meta: Meta {
-                start_ts,
-                last_ts: read_as_string(repo, &tree, Path::new("session/meta/last"))?
-                    .parse::<u64>()
+                start_timestamp_ms,
+                last_timestamp_ms: read_as_string(repo, &tree, Path::new("session/meta/last"))?
+                    .parse::<u128>()
                     .with_context(|| {
                         format!(
                             "failed to parse last timestamp from commit {}",
@@ -222,7 +222,11 @@ fn write(session_path: &Path, session: &Session) -> Result<()> {
         .with_context(|| format!("failed to write session id to {}", id_path.display()))?;
 
     let start_path = meta_path.join("start");
-    std::fs::write(start_path.clone(), session.meta.start_ts.to_string()).with_context(|| {
+    std::fs::write(
+        start_path.clone(),
+        session.meta.start_timestamp_ms.to_string(),
+    )
+    .with_context(|| {
         format!(
             "failed to write session start timestamp to {}",
             start_path.display()
@@ -230,7 +234,11 @@ fn write(session_path: &Path, session: &Session) -> Result<()> {
     })?;
 
     let last_path = meta_path.join("last");
-    std::fs::write(last_path.clone(), session.meta.last_ts.to_string()).with_context(|| {
+    std::fs::write(
+        last_path.clone(),
+        session.meta.last_timestamp_ms.to_string(),
+    )
+    .with_context(|| {
         format!(
             "failed to write session last timestamp to {}",
             last_path.display()

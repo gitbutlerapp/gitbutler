@@ -237,8 +237,8 @@ fn write_beginning_meta_files<R: tauri::Runtime>(
             let now_ts = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
-                .as_secs();
-            session.meta.last_ts = now_ts;
+                .as_millis();
+            session.meta.last_timestamp_ms = now_ts;
             session
                 .update(project)
                 .with_context(|| "failed to update session")?;

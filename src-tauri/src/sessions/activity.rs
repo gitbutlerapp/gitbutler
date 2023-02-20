@@ -6,7 +6,7 @@ use serde::Serialize;
 pub struct Activity {
     #[serde(rename = "type")]
     pub activity_type: String,
-    pub timestamp: u64,
+    pub timestamp_ms: u128,
     pub message: String,
 }
 
@@ -14,13 +14,13 @@ pub fn parse_reflog_line(line: &str) -> Result<Activity> {
     match line.split("\t").collect::<Vec<&str>>()[..] {
         [meta, message] => {
             let meta_parts = meta.split_whitespace().collect::<Vec<&str>>();
-            let timestamp = meta_parts[meta_parts.len() - 2].parse::<u64>()?;
+            let timestamp_ms = meta_parts[meta_parts.len() - 2].parse::<u128>()?;
 
             match message.split(": ").collect::<Vec<&str>>()[..] {
                 [entry_type, msg] => Ok(Activity {
                     activity_type: entry_type.to_string(),
                     message: msg.to_string(),
-                    timestamp,
+                    timestamp_ms,
                 }),
                 _ => Err(anyhow!("failed to parse reflog line: {}", line)),
             }

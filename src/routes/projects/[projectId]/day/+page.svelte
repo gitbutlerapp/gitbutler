@@ -22,7 +22,7 @@
 
     const sessionDisplayWidth = (session: Session) => {
         let sessionDurationMinutes =
-            (session.meta.lastTs - session.meta.startTs) / 60;
+            (session.meta.lastTimestampMs - session.meta.startTimestampMs) / 60;
         if (sessionDurationMinutes <= 10) {
             return "w-40 min-w-40";
         } else {
@@ -39,8 +39,8 @@
         const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
         return sessions.filter((session) => {
             return (
-                start <= new Date(session.meta.startTs * 1000) &&
-                new Date(session.meta.startTs * 1000) <= end
+                start <= new Date(session.meta.startTimestampMs * 1000) &&
+                new Date(session.meta.startTimestampMs * 1000) <= end
             );
         });
     });

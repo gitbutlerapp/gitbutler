@@ -6,8 +6,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-const FIVE_MINUTES: u64 = Duration::new(5 * 60, 0).as_secs();
-const ONE_HOUR: u64 = Duration::new(60 * 60, 0).as_secs();
+const FIVE_MINUTES: u128 = Duration::new(5 * 60, 0).as_millis();
+const ONE_HOUR: u128 = Duration::new(60 * 60, 0).as_millis();
 
 #[derive(Debug, Clone)]
 pub struct GitWatcher {
@@ -124,10 +124,10 @@ fn session_to_commit(
             let now = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
-                .as_secs() as u64;
+                .as_millis();
 
-            let elapsed_last = now - current_session.meta.last_ts;
-            let elapsed_start = now - current_session.meta.start_ts;
+            let elapsed_last = now - current_session.meta.last_timestamp_ms;
+            let elapsed_start = now - current_session.meta.start_timestamp_ms;
 
             // TODO: uncomment
             if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {

@@ -63,16 +63,16 @@
         <div class="my-2 mx-1">
             <TimelineDaySessionActivities
                 activities={session.activity}
-                sessionStart={session.meta.startTs}
-                sessionEnd={session.meta.lastTs}
+                sessionStart={session.meta.startTimestampMs}
+                sessionEnd={session.meta.lastTimestampMs}
             />
         </div>
     </div>
     <div id="time-range" class="text-xs">
-        {toHumanReadableDate(session.meta.startTs)},
-        {toHumanReadableTime(session.meta.startTs)}
+        {toHumanReadableDate(session.meta.startTimestampMs)},
+        {toHumanReadableTime(session.meta.startTimestampMs)}
         <div class="text-xs text-zinc-600">
-            {Math.round((session.meta.lastTs - session.meta.startTs) / 60)} min
+            {Math.round((session.meta.lastTimestampMs - session.meta.startTimestampMs) / 60)} min
         </div>
     </div>
     <div id="files">

@@ -68,7 +68,7 @@ impl TextDocument {
             timestamp_ms: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
-                .as_millis() as u64,
+                .as_millis(),
         };
         if event.operations.len() == 0 {
             return false;
