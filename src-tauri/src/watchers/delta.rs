@@ -239,8 +239,9 @@ fn write_beginning_meta_files<R: tauri::Runtime>(
                 .unwrap()
                 .as_secs();
             session.meta.last_ts = now_ts;
-            sessions::update_session(project, &session)
-                .map_err(|e| format!("Error while updating current session: {}", e.to_string()))?;
+            session
+                .update(project)
+                .with_context(|| "failed to update session")?;
             events::session(&window, &project, &session);
             Ok(session)
         }

@@ -96,7 +96,8 @@ impl GitWatcher {
         {
             None => Ok(None),
             Some(mut session) => {
-                sessions::flush_session(&repo, user, project, &mut session)
+                session
+                    .flush(&repo, user, project)
                     .with_context(|| "Error while flushing session")?;
                 Ok(Some(session))
             }

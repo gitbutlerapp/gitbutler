@@ -82,7 +82,7 @@ fn init(
                     Some(session) => session,
                     None => sessions::Session::from_head(git_repository, project)?,
                 };
-                sessions::flush_session(git_repository, user, project, &mut current_session)?;
+                current_session.flush(git_repository, user, project)?;
                 Ok(())
             } else {
                 Err(error).with_context(|| {
