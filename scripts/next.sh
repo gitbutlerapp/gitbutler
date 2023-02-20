@@ -11,7 +11,7 @@ function help() {
 	echo 1>&$to
 	echo "where:" 1>&$to
 	echo "  <version> is a current semver version." 1>&$to
-	echo "  <bump> is either patch, major or 'minor'." 1>&$to
+	echo "  <bump> is either 'patch', 'major' or 'minor'." 1>&$to
 }
 
 function error() {

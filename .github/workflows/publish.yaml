@@ -2,10 +2,10 @@ name: "Publish"
 on:
     workflow_dispatch:
         inputs:
-            type:
+            bump:
                 type: choice
                 required: true
-                description: Release type
+                description: update type
                 options:
                     - undefined
                     - patch
@@ -44,7 +44,7 @@ jobs:
             - name: Set env variable with version
               run: |
                   CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases" | jq -r '.version')"
-                  NEXT_VERSION=$(./scripts/next.sh "$CURRENT_VERSION" "${{ inputs.print_tags }}")
+                  NEXT_VERSION=$(./scripts/next.sh "$CURRENT_VERSION" "${{ inputs.bump }}")
                   echo "version=$NEXT_VERSION-${{ github.run_number }}" >> $GITHUB_ENV
 
             - name: Build binary
