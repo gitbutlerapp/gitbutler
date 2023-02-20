@@ -22,10 +22,22 @@ jobs:
 
             - name: Setup rust
               uses: dtolnay/rust-toolchain@stable
-        
-            - name: Setup system dependencies
-              run: |
-                  sudo apt-get install libgtk-3-dev
+
+            - name: Cache rust dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      target/
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+            - name: Install test dependencies
+              uses: daaku/gh-action-apt-install@v4
+              with:
+                  packages: libgtk-3-dev
 
             - name: Test rust
               working-directory: src-tauri
