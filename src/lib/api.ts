@@ -1,8 +1,7 @@
-import { dev } from "$app/environment";
+import { PUBLIC_API_BASE_URL } from "$env/static/public";
+import * as log from "$lib/log";
 
-const apiUrl = dev
-    ? new URL("https://test.app.gitbutler.com/api/")
-    : new URL("https://app.gitbutler.com/api/");
+const apiUrl = new URL("/api/", new URL(PUBLIC_API_BASE_URL));
 
 const getUrl = (path: string) => new URL(path, apiUrl).toString();
 
