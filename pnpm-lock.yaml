@@ -19,6 +19,7 @@ specifiers:
   eslint-plugin-unicorn: ^45.0.2
   idb-keyval: ^6.2.0
   mm-jsr: ^3.0.2
+  nanoid: ^4.0.1
   postcss: ^8.4.14
   postcss-load-config: ^4.0.1
   prettier: ^2.8.4
@@ -45,6 +46,7 @@ dependencies:
   date-fns: 2.29.3
   idb-keyval: 6.2.0
   mm-jsr: 3.0.2
+  nanoid: 4.0.1
   seti-icons: 0.0.4
   svelte-icons: 2.1.0
   tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/921afb3366b14ac43e3d8041a7def4b85d4d7192
@@ -1989,6 +1991,12 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
     dev: true
+
+  /nanoid/4.0.1:
+    resolution: {integrity: sha512-udKGtCCUafD3nQtJg9wBhRP3KMbPglUsgV5JVsXhvyBs/oefqb4sqMEhKBBgqZncYowu58p1prsZQBYvAj/Gww==}
+    engines: {node: ^14 || ^16 || >=18}
+    hasBin: true
+    dev: false
 
   /natural-compare/1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}

@@ -1,5 +1,6 @@
 import { PUBLIC_API_BASE_URL } from "$env/static/public";
 import * as log from "$lib/log";
+import { nanoid } from "nanoid";
 
 const apiUrl = new URL("/api/", new URL(PUBLIC_API_BASE_URL));
 
@@ -45,11 +46,28 @@ const parseResponseJSON = async (response: Response) => {
 
 type FetchMiddleware = (f: typeof fetch) => typeof fetch;
 
-const fetchWithLog: FetchMiddleware = (fetch) => async (url, options) => {
+const fetchWith = (
+    fetch: typeof window.fetch,
+    ...middlewares: FetchMiddleware[]
+) => middlewares.reduce((f, middleware) => middleware(f), fetch);
+
+const withRequestId: FetchMiddleware = (fetch) => async (url, options) => {
+    const requestId = nanoid();
+    if (!options) options = {};
+    options.headers = {
+        ...options?.headers,
+        "X-Request-Id": requestId,
+    };
+    return fetch(url, options);
+};
+
+const withLog: FetchMiddleware = (fetch) => async (url, options) => {
     log.info("fetch", url, options);
     try {
-        return await fetch(url, options);
-    } catch (e) {
+        const resp = await fetch(url, options);
+        log.info(resp);
+        return resp;
+    } catch (e: any) {
         log.error("fetch", e);
         throw e;
     }
@@ -60,7 +78,7 @@ export default (
         fetch: window.fetch,
     }
 ) => {
-    const fetch = fetchWithLog(realFetch);
+    const fetch = fetchWith(realFetch, withRequestId, withLog);
     return {
         login: {
             token: {
