@@ -2,9 +2,8 @@
     import MdKeyboardArrowLeft from "svelte-icons/md/MdKeyboardArrowLeft.svelte";
     import MdKeyboardArrowRight from "svelte-icons/md/MdKeyboardArrowRight.svelte";
     import type { PageData } from "./$types";
-    import { add, format, differenceInSeconds } from "date-fns";
+    import { add, format, differenceInSeconds, addSeconds } from "date-fns";
     import { page } from "$app/stores";
-    import { fi } from "date-fns/esm/locale";
 
     export let data: PageData;
     $: session = data.session;
@@ -13,7 +12,7 @@
     $: deltas = data.deltas;
 
     $: start = new Date($session.meta.startTimestampMs);
-    $: end = new Date($session.meta.lastTimestampMs);
+    $: end = addSeconds(new Date($session.meta.lastTimestampMs), 10); // For some reason, some deltas are stamped a few seconds after the session end
     $: midpoint = add(start, {
         seconds: differenceInSeconds(end, start) * 0.5,
     });
@@ -37,8 +36,8 @@
         const col = Math.floor(rat * 63 + 17);
         return col;
     };
-
 </script>
+
 <div class="flex flex-col h-full  text-zinc-400">
     <header
         class="flex items-center justify-between flex-none px-6 py-4 border-b border-zinc-700"
