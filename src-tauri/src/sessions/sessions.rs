@@ -10,7 +10,7 @@ use std::{
     io::{BufReader, Read},
     os::unix::prelude::MetadataExt,
     path::Path,
-    time::SystemTime,
+    time,
 };
 use uuid::Uuid;
 
@@ -105,8 +105,8 @@ impl Session {
     }
 
     pub fn from_head(repo: &git2::Repository, project: &projects::Project) -> Result<Self> {
-        let now_ts = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
+        let now_ts = time::SystemTime::now()
+            .duration_since(time::UNIX_EPOCH)
             .unwrap()
             .as_millis();
 
@@ -202,7 +202,7 @@ impl Session {
         })
     }
 
-    pub fn update(&self, project: &projects::Project) -> Result<()> {
+    pub fn update(&mut self, project: &projects::Project) -> Result<()> {
         update(project, self)
     }
 
@@ -277,7 +277,12 @@ fn write(session_path: &Path, session: &Session) -> Result<()> {
     Ok(())
 }
 
-fn update(project: &projects::Project, session: &Session) -> Result<()> {
+fn update(project: &projects::Project, session: &mut Session) -> Result<()> {
+    session.meta.last_timestamp_ms = time::SystemTime::now()
+        .duration_since(time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
     let session_path = project.session_path();
     log::debug!("{}: Updating current session", session_path.display());
     if session_path.exists() {
@@ -452,6 +457,10 @@ fn flush(
             session.id
         ));
     }
+
+    session
+        .update(project)
+        .with_context(|| format!("failed to update session"))?;
 
     let wd_index = &mut git2::Index::new()
         .with_context(|| format!("failed to create index for working directory"))?;

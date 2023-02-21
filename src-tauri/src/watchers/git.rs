@@ -129,7 +129,6 @@ fn session_to_commit(
             let elapsed_last = now - current_session.meta.last_timestamp_ms;
             let elapsed_start = now - current_session.meta.start_timestamp_ms;
 
-            // TODO: uncomment
             if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {
                 Ok(Some(current_session))
             } else {

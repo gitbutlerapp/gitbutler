@@ -8,7 +8,6 @@ use std::fs;
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::thread;
-use std::time::SystemTime;
 use std::{collections::HashMap, sync::Mutex};
 
 #[derive(Default)]
@@ -234,11 +233,6 @@ fn write_beginning_meta_files<R: tauri::Runtime>(
         .map_err(|e| format!("Error while getting current session: {}", e.to_string()))?
     {
         Some(mut session) => {
-            let now_ts = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis();
-            session.meta.last_timestamp_ms = now_ts;
             session
                 .update(project)
                 .with_context(|| "failed to update session")?;
