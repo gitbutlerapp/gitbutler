@@ -311,18 +311,51 @@ fn delete(project: &projects::Project) -> Result<()> {
     Ok(())
 }
 
+fn is_current_session_id(project: &projects::Project, session_id: &str) -> Result<bool> {
+    let current_id_path = project.session_path().join("meta").join("id");
+    if !current_id_path.exists() {
+        return Ok(false);
+    }
+    let current_id = std::fs::read_to_string(current_id_path)?;
+    return Ok(current_id == session_id);
+}
+
+fn is_commit_session_id(
+    repo: &git2::Repository,
+    commit: &git2::Commit,
+    session_id: &str,
+) -> Result<bool> {
+    let tree = commit.tree().unwrap();
+    let session_id_path = Path::new("session/meta/id");
+    if !tree.get_path(session_id_path).is_ok() {
+        return Ok(false);
+    }
+    let id = read_as_string(repo, &tree, session_id_path)?;
+    return Ok(id == session_id);
+}
+
 pub fn get(
     repo: &git2::Repository,
     project: &projects::Project,
     reference: &git2::Reference,
     id: &str,
 ) -> Result<Option<Session>> {
-    let list = list(repo, project, reference)?;
-    for session in list {
-        if session.id == id {
-            return Ok(Some(session));
+    if is_current_session_id(project, id)? {
+        return Session::current(repo, project);
+    }
+
+    let head = repo.find_commit(reference.target().unwrap())?;
+    let mut walker = repo.revwalk()?;
+    walker.push(head.id())?;
+    walker.set_sorting(git2::Sort::TIME)?;
+
+    for commit_id in walker {
+        let commit = repo.find_commit(commit_id?)?;
+        if is_commit_session_id(repo, &commit, id)? {
+            return Ok(Some(Session::from_commit(repo, &commit)?));
         }
     }
+
     Ok(None)
 }
 
@@ -382,38 +415,42 @@ pub fn list_files(
     reference: &git2::Reference,
     session_id: &str,
 ) -> Result<HashMap<String, String>> {
-    let mut list = list(repo, project, reference)?;
-    list.reverse();
+    let commit = if is_current_session_id(project, session_id)? {
+        let head_commit = reference.peel_to_commit()?;
+        Some(head_commit)
+    } else {
+        let head_commit = reference.peel_to_commit()?;
+        let mut walker = repo.revwalk()?;
+        walker.push(head_commit.id())?;
+        walker.set_sorting(git2::Sort::TIME | git2::Sort::REVERSE)?;
 
-    let mut previous_session = None;
-    let mut session = None;
-    for s in list {
-        if s.id == session_id {
-            session = Some(s);
-            break;
+        let mut session_commit = None;
+        let mut previous_session_commit = None;
+        for commit_id in walker {
+            let commit = repo.find_commit(commit_id?)?;
+            if is_commit_session_id(repo, &commit, session_id)? {
+                session_commit = Some(commit);
+                break;
+            }
+            previous_session_commit = Some(commit.clone());
         }
-        previous_session = Some(s);
-    }
 
-    let session_hash = match (previous_session, session) {
-        // if there is a previous session, we want to list the files from the previous session
-        (Some(previous_session), Some(_)) => previous_session.hash,
-        // if there is no previous session, we use the found session, because it's the first one.
-        (None, Some(session)) => session.hash,
-        _ => return Err(anyhow!("session {} not found", session_id)),
+        match (previous_session_commit, session_commit) {
+            // if there is a previous session, we want to list the files from the previous session
+            (Some(previous_session_commit), Some(_)) => Some(previous_session_commit),
+            // if there is no previous session, we use the found session, because it's the first one.
+            (None, Some(session_commit)) => Some(session_commit),
+            _ => None,
+        }
     };
 
-    if session_hash.is_none() {
+    if commit.is_none() {
         return Err(anyhow!("session {} has no hash", session_id));
     }
-
-    let commit_id = git2::Oid::from_str(&session_hash.clone().unwrap())?;
-    let commit = repo.find_commit(commit_id)?;
+    let commit = commit.unwrap();
 
     let tree = commit.tree()?;
-
     let mut files = HashMap::new();
-
     tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
         if entry.name().is_none() {
             return git2::TreeWalkResult::Ok;
