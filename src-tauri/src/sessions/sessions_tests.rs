@@ -1,8 +1,21 @@
 use std::path::Path;
 
-use crate::projects;
+use crate::{projects, users};
 use anyhow::Result;
 use tempfile::tempdir;
+
+fn test_user() -> users::User {
+    users::User {
+        id: 0,
+        name: "test".to_string(),
+        email: "test@email.com".to_string(),
+        picture: "test".to_string(),
+        locale: None,
+        created_at: "0".to_string(),
+        updated_at: "0".to_string(),
+        access_token: "0".to_string(),
+    }
+}
 
 fn test_project() -> Result<(git2::Repository, projects::Project)> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -86,6 +99,49 @@ fn test_flush() {
     let flush_result = created_session.flush(&repo, &None, &project);
     assert!(flush_result.is_ok());
     assert!(created_session.hash.is_some());
+
+    let head_commit = repo
+        .find_reference(&project.refname())
+        .unwrap()
+        .peel_to_commit()
+        .unwrap();
+    assert_eq!(head_commit.author().name().unwrap(), "gitbutler");
+    assert_eq!(head_commit.author().email().unwrap(), "gitbutler@localhost");
+    assert_eq!(head_commit.committer().name().unwrap(), "gitbutler");
+    assert_eq!(
+        head_commit.committer().email().unwrap(),
+        "gitbutler@localhost"
+    );
+
+    let current_session = super::sessions::Session::current(&repo, &project);
+    assert!(current_session.is_ok());
+    let current_session = current_session.unwrap();
+    assert!(current_session.is_none());
+}
+
+#[test]
+fn test_flush_with_user() {
+    let (repo, project) = test_project().unwrap();
+    let created_session = super::sessions::Session::from_head(&repo, &project);
+    assert!(created_session.is_ok());
+    let mut created_session = created_session.unwrap();
+
+    let flush_result = created_session.flush(&repo, &Some(test_user()), &project);
+    assert!(flush_result.is_ok());
+    assert!(created_session.hash.is_some());
+
+    let head_commit = repo
+        .find_reference(&project.refname())
+        .unwrap()
+        .peel_to_commit()
+        .unwrap();
+    assert_eq!(head_commit.author().name().unwrap(), "test");
+    assert_eq!(head_commit.author().email().unwrap(), "test@email.com");
+    assert_eq!(head_commit.committer().name().unwrap(), "gitbutler");
+    assert_eq!(
+        head_commit.committer().email().unwrap(),
+        "gitbutler@localhost"
+    );
 
     let current_session = super::sessions::Session::current(&repo, &project);
     assert!(current_session.is_ok());

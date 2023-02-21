@@ -501,7 +501,7 @@ fn flush(
         .write()
         .with_context(|| format!("failed to write tree"))?;
 
-    let commit_oid = write_gb_commit(tree, &repo, project).with_context(|| {
+    let commit_oid = write_gb_commit(tree, &repo, user, project).with_context(|| {
         format!(
             "failed to write gb commit for {}",
             repo.workdir().unwrap().display()
@@ -836,20 +836,26 @@ fn add_session_path(
 fn write_gb_commit(
     gb_tree: git2::Oid,
     repo: &git2::Repository,
+    user: &Option<users::User>,
     project: &projects::Project,
 ) -> Result<git2::Oid, git2::Error> {
     // find the Oid of the commit that refs/.../current points to, none if it doesn't exist
     let refname = project.refname();
 
-    let signature = git2::Signature::now("gitbutler", "gitbutler@localhost")?;
+    let comitter = git2::Signature::now("gitbutler", "gitbutler@localhost")?;
+
+    let author = match user {
+        None => comitter.clone(),
+        Some(user) => git2::Signature::now(user.name.as_str(), user.email.as_str())?,
+    };
 
     match repo.revparse_single(refname.as_str()) {
         Ok(obj) => {
             let last_commit = repo.find_commit(obj.id()).unwrap();
             let new_commit = repo.commit(
                 Some(refname.as_str()),
-                &signature,                        // author
-                &signature,                        // committer
+                &author,                           // author
+                &comitter,                         // committer
                 "gitbutler check",                 // commit message
                 &repo.find_tree(gb_tree).unwrap(), // tree
                 &[&last_commit],                   // parents
@@ -859,8 +865,8 @@ fn write_gb_commit(
         Err(_) => {
             let new_commit = repo.commit(
                 Some(refname.as_str()),
-                &signature,                        // author
-                &signature,                        // committer
+                &author,                           // author
+                &comitter,                         // committer
                 "gitbutler check",                 // commit message
                 &repo.find_tree(gb_tree).unwrap(), // tree
                 &[],                               // parents
