@@ -23,12 +23,14 @@ impl GitWatcher {
         }
     }
 
-    pub fn watch(&self, window: tauri::Window, project_id: String) -> Result<()> {
+    pub fn watch(&self, window: tauri::Window, project: projects::Project) -> Result<()> {
+        log::info!("Watching git for {}", project.path);
+
         let shared_self = std::sync::Arc::new(self.clone());
         let self_copy = shared_self.clone();
+        let project_id = project.id;
 
         thread::spawn(move || loop {
-            log::info!("Watching git for {}", project.path);
             let local_self = &self_copy;
 
             let project = local_self.projects_storage.get_project(&project_id);

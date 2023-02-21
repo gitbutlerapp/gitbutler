@@ -27,7 +27,7 @@ impl<'a> Watcher<'a> {
 
     pub fn watch(&self, window: tauri::Window, project: &projects::Project) -> Result<()> {
         self.delta_watcher.watch(window.clone(), project.clone())?;
-        self.git_watcher.watch(window.clone(), project.id.clone())?;
+        self.git_watcher.watch(window.clone(), project.clone())?;
         Ok(())
     }
 
