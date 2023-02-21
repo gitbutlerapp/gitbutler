@@ -46,9 +46,6 @@ jobs:
                   NEXT_VERSION=$(./scripts/next.sh "$CURRENT_VERSION" "${{ github.event.inputs.type }}")
                   echo "version=$NEXT_VERSION-${{ github.run_number }}" >> $GITHUB_ENV
 
-            - name: Copy public env file
-              run: cp .env.production.public .env
-
             - name: Build binary
               run: |
                   ./scripts/release.sh \

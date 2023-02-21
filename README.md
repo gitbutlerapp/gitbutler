@@ -13,12 +13,12 @@ then, make sure to install app dependencies:
 $ pnpm install
 ```
 
-### setup the env
+### override the server
 
-You need to have some env variables set, so copy the example and modify whatever you want.
+By default the server is set to https://app.gitbutler.com.  If you want to override this setting in development mode, you can add the following line to a `.env.local` file:
 
 ```bash
-$ cp .env.dev.example .env
+PUBLIC_BUTLER_URL=https://test.app.gitbutler.com
 ```
 
 ### run
