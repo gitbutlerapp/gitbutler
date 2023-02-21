@@ -43,69 +43,86 @@ const parseResponseJSON = async (response: Response) => {
     }
 };
 
+type FetchMiddleware = (f: typeof fetch) => typeof fetch;
+
+const fetchWithLog: FetchMiddleware = (fetch) => async (url, options) => {
+    log.info("fetch", url, options);
+    try {
+        return await fetch(url, options);
+    } catch (e) {
+        log.error("fetch", e);
+        throw e;
+    }
+};
+
 export default (
-    { fetch }: { fetch: typeof window.fetch } = { fetch: window.fetch }
-) => ({
-    login: {
-        token: {
-            create: (params: {} = {}): Promise<LoginToken> =>
-                fetch(getUrl("login/token.json"), {
+    { fetch: realFetch }: { fetch: typeof window.fetch } = {
+        fetch: window.fetch,
+    }
+) => {
+    const fetch = fetchWithLog(realFetch);
+    return {
+        login: {
+            token: {
+                create: (params: {} = {}): Promise<LoginToken> =>
+                    fetch(getUrl("login/token.json"), {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(params),
+                    })
+                        .then(parseResponseJSON)
+                        .then((token) => {
+                            const url = new URL(token.url);
+                            url.host = apiUrl.host;
+                            return {
+                                ...token,
+                                url: url.toString(),
+                            };
+                        }),
+            },
+            user: {
+                get: (token: string): Promise<User> =>
+                    fetch(getUrl(`login/user/${token}.json`), {
+                        method: "GET",
+                    }).then(parseResponseJSON),
+            },
+        },
+        projects: {
+            create: (
+                token: string,
+                params: { name: string; uid?: string }
+            ): Promise<Project> =>
+                fetch(getUrl("projects.json"), {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
+                        "X-Auth-Token": token,
                     },
                     body: JSON.stringify(params),
-                })
-                    .then(parseResponseJSON)
-                    .then((token) => {
-                        const url = new URL(token.url);
-                        url.host = apiUrl.host;
-                        return {
-                            ...token,
-                            url: url.toString(),
-                        };
-                    }),
-        },
-        user: {
-            get: (token: string): Promise<User> =>
-                fetch(getUrl(`login/user/${token}.json`), {
+                }).then(parseResponseJSON),
+            list: (token: string): Promise<Project[]> =>
+                fetch(getUrl("projects.json"), {
                     method: "GET",
+                    headers: {
+                        "X-Auth-Token": token,
+                    },
+                }).then(parseResponseJSON),
+            get: (token: string, repositoryId: string): Promise<Project> =>
+                fetch(getUrl(`projects/${repositoryId}.json`), {
+                    method: "GET",
+                    headers: {
+                        "X-Auth-Token": token,
+                    },
+                }).then(parseResponseJSON),
+            delete: (token: string, repositoryId: string): Promise<void> =>
+                fetch(getUrl(`projects/${repositoryId}.json`), {
+                    method: "DELETE",
+                    headers: {
+                        "X-Auth-Token": token,
+                    },
                 }).then(parseResponseJSON),
         },
-    },
-    projects: {
-        create: (
-            token: string,
-            params: { name: string; uid?: string }
-        ): Promise<Project> =>
-            fetch(getUrl("projects.json"), {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Auth-Token": token,
-                },
-                body: JSON.stringify(params),
-            }).then(parseResponseJSON),
-        list: (token: string): Promise<Project[]> =>
-            fetch(getUrl("projects.json"), {
-                method: "GET",
-                headers: {
-                    "X-Auth-Token": token,
-                },
-            }).then(parseResponseJSON),
-        get: (token: string, repositoryId: string): Promise<Project> =>
-            fetch(getUrl(`projects/${repositoryId}.json`), {
-                method: "GET",
-                headers: {
-                    "X-Auth-Token": token,
-                },
-            }).then(parseResponseJSON),
-        delete: (token: string, repositoryId: string): Promise<void> =>
-            fetch(getUrl(`projects/${repositoryId}.json`), {
-                method: "DELETE",
-                headers: {
-                    "X-Auth-Token": token,
-                },
-            }).then(parseResponseJSON),
-    },
-});
+    };
+};
