@@ -349,6 +349,7 @@ fn main() {
                                         .unwrap();
                                 } else {
                                     main_window.show().unwrap();
+                                    main_window.set_focus().unwrap();
                                     item_handle
                                         .set_title(format!("Hide {}", app_title()))
                                         .unwrap();
