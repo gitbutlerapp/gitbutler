@@ -1,67 +1,67 @@
 {
-  "build": {
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build",
-    "devPath": "http://localhost:1420",
-    "distDir": "../build",
-    "withGlobalTauri": false
-  },
-  "package": {
-    "productName": "GitButler"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-       },
-      "dialog": {
-        "all": false,
-        "open": true
-      },
-      "window": {
-        "all": false,
-        "startDragging": true
-      },
-      "path": {
-        "all": true
-      }
+    "build": {
+        "beforeDevCommand": "pnpm dev",
+        "beforeBuildCommand": "pnpm build",
+        "devPath": "http://localhost:1420",
+        "distDir": "../build",
+        "withGlobalTauri": false
     },
-    "bundle": {
-      "active": true,
-      "identifier": "com.gitbutler.app.dev",
-      "category": "DeveloperTool",
-      "copyright": "Copyright © 2023 GitButler. All rights reserved.",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "targets": ["dmg", "updater"]
+    "package": {
+        "productName": "GitButler"
     },
-    "security": {
-      "csp": null
-    },
-    "windows": [
-      {
-        "fullscreen": false,
-        "height": 600,
-        "resizable": true,
-        "title": "git-butler-tauri",
-        "width": 800,
-        "hiddenTitle": true,
-        "theme": "Dark",
-        "titleBarStyle": "Overlay",
-        "minWidth": 600,
-        "minHeight": 300
-      }
-    ],
-    "systemTray": {
-      "iconPath": "icons/tray.png",
-      "iconAsTemplate": true
+    "tauri": {
+        "allowlist": {
+            "all": false,
+            "shell": {
+                "all": false,
+                "open": "^https://test.app.gitbutler.com/"
+            },
+            "dialog": {
+                "all": false,
+                "open": true
+            },
+            "window": {
+                "all": false,
+                "startDragging": true
+            },
+            "path": {
+                "all": true
+            }
+        },
+        "bundle": {
+            "active": true,
+            "identifier": "com.gitbutler.app.dev",
+            "category": "DeveloperTool",
+            "copyright": "Copyright © 2023 GitButler. All rights reserved.",
+            "icon": [
+                "icons/32x32.png",
+                "icons/128x128.png",
+                "icons/128x128@2x.png",
+                "icons/icon.icns",
+                "icons/icon.ico"
+            ],
+            "targets": ["dmg", "updater"]
+        },
+        "security": {
+            "csp": null
+        },
+        "windows": [
+            {
+                "fullscreen": false,
+                "height": 600,
+                "resizable": true,
+                "title": "git-butler-tauri",
+                "width": 800,
+                "hiddenTitle": true,
+                "theme": "Dark",
+                "titleBarStyle": "Overlay",
+                "minWidth": 600,
+                "minHeight": 300
+            }
+        ],
+        "systemTray": {
+            "iconPath": "icons/tray.png",
+            "iconAsTemplate": true
+        }
     }
-  }
 }

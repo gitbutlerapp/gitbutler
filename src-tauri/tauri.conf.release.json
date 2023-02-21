@@ -3,6 +3,11 @@
         "bundle": {
             "identifier": "com.gitbutler.app"
         },
+        "allowlist": {
+            "shell": {
+                "open": "^https://test.app.gitbutler.com/"
+            }
+        },
         "updater": {
             "active": true,
             "dialog": true,
