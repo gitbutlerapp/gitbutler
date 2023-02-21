@@ -46,7 +46,7 @@ fn test_current_none() {
 }
 
 #[test]
-fn test_create_current_no_deltas() {
+fn test_create_current() {
     let (repo, project) = test_project().unwrap();
     let current_session = super::sessions::Session::from_head(&repo, &project);
     assert!(current_session.is_ok());
