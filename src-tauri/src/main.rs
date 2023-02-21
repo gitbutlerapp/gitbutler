@@ -383,6 +383,7 @@ fn main() {
                     _ => {}
                 })
                 .setup(move |app| {
+                    #[cfg(target_os = "macos")]
                     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
                     let resolver = app.path_resolver();
