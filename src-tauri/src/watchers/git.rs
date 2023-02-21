@@ -28,6 +28,7 @@ impl GitWatcher {
         let self_copy = shared_self.clone();
 
         thread::spawn(move || loop {
+            log::info!("Watching git for {}", project.path);
             let local_self = &self_copy;
 
             let project = local_self.projects_storage.get_project(&project_id);
