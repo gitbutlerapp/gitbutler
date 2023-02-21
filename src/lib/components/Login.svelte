@@ -27,7 +27,10 @@
 
 <div>
     {#if $user}
-        <button on:click={() => user.delete()}>Log out</button>
+        <button
+            class="py-1 px-3 rounded text-white bg-blue-400"
+            on:click={() => user.delete()}>Log out</button
+        >
     {:else if $token !== null}
         {#await Promise.all([open($token.url), pollForUser($token.token)])}
             <div>Log in in your system browser</div>
@@ -39,8 +42,10 @@
             if you are not redirected automatically, you can
         </p>
     {:else}
-        <button on:click={() => api.login.token.create().then(token.set)}
-            >Log in</button
+        <button
+            class="py-1 px-3 rounded text-white bg-blue-400"
+            on:click={() => api.login.token.create().then(token.set)}
+            >Sign up or Log in</button
         >
     {/if}
 </div>
