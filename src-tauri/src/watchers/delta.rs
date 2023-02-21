@@ -2,7 +2,7 @@ use crate::deltas::{read, write, Delta, TextDocument};
 use crate::projects;
 use crate::{events, sessions};
 use anyhow::{Context, Result};
-use git2::Repository;
+use git2;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs;
 use std::path::Path;
@@ -37,7 +37,7 @@ impl<'a> DeltaWatchers<'a> {
             .unwrap()
             .insert(project.path.clone(), watcher);
 
-        let repo = Repository::open(project_path);
+        let repo = git2::Repository::open(project_path);
         thread::spawn(move || {
             if repo.is_err() {
                 log::error!("failed to open git repo: {:?}", repo.err());
@@ -95,7 +95,7 @@ impl<'a> DeltaWatchers<'a> {
 fn register_file_change<R: tauri::Runtime>(
     window: &tauri::Window<R>,
     project: &projects::Project,
-    repo: &Repository,
+    repo: &git2::Repository,
     kind: &EventKind,
     relative_file_path: &Path,
 ) -> Result<Option<(sessions::Session, Vec<Delta>)>, Box<dyn std::error::Error>> {
@@ -162,7 +162,7 @@ fn register_file_change<R: tauri::Runtime>(
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
-    write(project, relative_file_path, &deltas)?;
+    write(repo, project, relative_file_path, &deltas)?;
     return Ok(Some((session, deltas)));
 }
 
@@ -172,7 +172,7 @@ fn register_file_change<R: tauri::Runtime>(
 // returns None if file is not UTF-8
 // TODO: handle binary files
 fn get_latest_file_contents(
-    repo: &Repository,
+    repo: &git2::Repository,
     project: &projects::Project,
     relative_file_path: &Path,
 ) -> Result<Option<String>> {
@@ -227,7 +227,7 @@ fn get_latest_file_contents(
 fn write_beginning_meta_files<R: tauri::Runtime>(
     window: &tauri::Window<R>,
     project: &projects::Project,
-    repo: &Repository,
+    repo: &git2::Repository,
 ) -> Result<sessions::Session, Box<dyn std::error::Error>> {
     match sessions::Session::current(repo, project)
         .map_err(|e| format!("Error while getting current session: {}", e.to_string()))?

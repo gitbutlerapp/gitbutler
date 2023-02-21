@@ -27,7 +27,16 @@ pub fn read(project: &projects::Project, file_path: &Path) -> Result<Option<Vec<
     Ok(Some(serde_json::from_str(&file_deltas)?))
 }
 
-pub fn write(project: &projects::Project, file_path: &Path, deltas: &Vec<Delta>) -> Result<()> {
+pub fn write(
+    repo: &git2::Repository,
+    project: &projects::Project,
+    file_path: &Path,
+    deltas: &Vec<Delta>,
+) -> Result<()> {
+    if sessions::Session::current(repo, project)?.is_none() {
+        sessions::Session::from_head(repo, project)?;
+    }
+
     let delta_path = project.deltas_path().join(file_path);
     let delta_dir = delta_path.parent().unwrap();
     std::fs::create_dir_all(&delta_dir)?;
