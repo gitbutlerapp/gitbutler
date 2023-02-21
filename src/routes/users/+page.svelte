@@ -9,18 +9,44 @@
 <div class="p-4 mx-auto">
     <div class="max-w-xl mx-auto p-4">
         {#if $user}
-            <div>Welcome, {$user.name}!</div>
-            <Login {user} {api} />
-        {:else}
-            <div class="text-2xl text-white text-center p-4">
-                Connect to GitButler Cloud
+            <div class="flex flex-col text-zinc-100 space-y-6">
+                <!-- cloud account -->
+                <div class="space-y-2">
+                    <div class="text-lg font-medium">
+                        GitButler Cloud Account
+                    </div>
+                    <div
+                        class="flex flex-row justify-between border border-zinc-600 rounded-lg p-2 items-center"
+                    >
+                        <div class="flex flex-row space-x-3">
+                            <img
+                                class="h-12 w-12 rounded-full border-2 border-zinc-300"
+                                src={$user.picture}
+                                alt="avatar"
+                            />
+                            <div>
+                                <div>{$user.name}</div>
+                                <div class="text-zinc-400">{$user.email}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <Login {user} {api} />
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="text-white space-y-4">
+        {:else}
+            <div
+                class="flex flex-col text-white space-y-6 items-center justify-items-center"
+            >
+                <div class="text-3xl font-bold text-white">
+                    Connect to GitButler Cloud
+                </div>
                 <div>
                     Sign up or log in to GitButler Cloud for more tools and
                     features:
                 </div>
-                <ul class="text-zinc-400 pb-4 space-y-1">
+                <ul class="text-zinc-400 pb-4 space-y-2">
                     <li class="flex flex-row space-x-3">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -76,8 +102,13 @@
                         <span>AI commit message automated suggestions</span>
                     </li>
                 </ul>
-                <div class="mt-8">
+                <div class="mt-8 text-center">
                     <Login {user} {api} />
+                </div>
+                <div class="text-sm text-zinc-300 text-center">
+                    You will still need to give us permission for each project
+                    before we transfer any data to our servers. You can revoke
+                    this permission at any time.
                 </div>
             </div>
         {/if}

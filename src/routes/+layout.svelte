@@ -27,14 +27,14 @@
     </div>
     <div class="ml-6"><Breadcrumbs /></div>
     <div class="flex-grow" />
-    <a href="/users/" class="mr-4 font-bold hover:text-zinc-200"
-        >{$user ? $user.name : "User"}</a
+    <a href="/users/" class="mr-4 font-medium hover:text-zinc-200"
+        >{$user ? $user.email : "Login"}</a
     >
 </header>
 
 <div class="h-0 min-h-full bg-zinc-800 text-zinc-400">
     <!-- <div class="flex-1"> -->
-        <slot />
+    <slot />
     <!-- </div> -->
 
     <!-- <div
