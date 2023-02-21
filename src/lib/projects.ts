@@ -22,6 +22,8 @@ const update = (params: {
 const add = (params: { path: string }) =>
     invoke<Project>("add_project", params);
 
+const del = (params: { id: string }) => invoke("delete_project", params);
+
 export default async () => {
     const init = await list();
     const store = writable<Project[]>(init);
@@ -54,6 +56,12 @@ export default async () => {
             add(params).then((project) => {
                 store.update((projects) => [...projects, project]);
                 return project;
+            }),
+        delete: (params: { id: string }) =>
+            del(params).then(() => {
+                store.update((projects) =>
+                    projects.filter((p) => p.id !== params.id)
+                );
             }),
     };
 };

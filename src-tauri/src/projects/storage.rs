@@ -10,11 +10,12 @@ pub struct Storage {
     storage: storage::Storage,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateRequest {
-    id: String,
-    title: Option<String>,
-    api: Option<project::ApiProject>,
+    pub id: String,
+    pub title: Option<String>,
+    pub deleted: Option<bool>,
+    pub api: Option<project::ApiProject>,
 }
 
 impl Storage {
@@ -24,14 +25,28 @@ impl Storage {
 
     pub fn list_projects(&self) -> Result<Vec<project::Project>> {
         match self.storage.read(PROJECTS_FILE)? {
-            Some(projects) => Ok(serde_json::from_str(&projects)?),
+            Some(projects) => {
+                let all_projects: Vec<project::Project> = serde_json::from_str(&projects)?;
+                let non_deleted_projects = all_projects
+                    .into_iter()
+                    .filter(|p: &project::Project| !p.deleted)
+                    .collect();
+                Ok(non_deleted_projects)
+            }
             None => Ok(vec![]),
         }
     }
 
     pub fn get_project(&self, id: &str) -> Result<Option<project::Project>> {
         let projects = self.list_projects()?;
-        Ok(projects.into_iter().find(|p| p.id == id))
+        let project = projects.into_iter().find(|p| p.id == id);
+        match project {
+            Some(p) => match p.deleted {
+                true => Ok(None),
+                false => Ok(Some(p)),
+            },
+            None => Ok(None),
+        }
     }
 
     pub fn update_project(&self, update_request: &UpdateRequest) -> Result<project::Project> {
@@ -49,6 +64,10 @@ impl Storage {
             project.api = Some(api.clone());
         }
 
+        if let Some(deleted) = &update_request.deleted {
+            project.deleted = *deleted;
+        }
+
         let projects = serde_json::to_string(&projects)?;
         self.storage.write(PROJECTS_FILE, &projects)?;
         Ok(self.get_project(&update_request.id)?.unwrap())
@@ -57,14 +76,6 @@ impl Storage {
     pub fn add_project(&self, project: &project::Project) -> Result<()> {
         let mut projects = self.list_projects()?;
         projects.push(project.clone());
-        let projects = serde_json::to_string(&projects)?;
-        self.storage.write(PROJECTS_FILE, &projects)?;
-        Ok(())
-    }
-
-    pub fn delete_project(&self, id: &str) -> Result<()> {
-        let mut projects = self.list_projects()?;
-        projects.retain(|p| p.id != id);
         let projects = serde_json::to_string(&projects)?;
         self.storage.write(PROJECTS_FILE, &projects)?;
         Ok(())

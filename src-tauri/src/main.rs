@@ -147,9 +147,25 @@ fn add_project(
         }
     })? {
         if project.path == path {
-            return Err(Error {
-                message: "Project already exists".to_string(),
-            });
+            if !project.deleted {
+                return Err(Error {
+                    message: "Project already exists".to_string(),
+                });
+            } else {
+                projects_storage
+                    .update_project(&projects::UpdateRequest {
+                        id: project.id.clone(),
+                        deleted: Some(false),
+                        ..Default::default()
+                    })
+                    .map_err(|e| {
+                        log::error!("{}", e);
+                        Error {
+                            message: "Failed to undelete project".to_string(),
+                        }
+                    })?;
+                return Ok(project);
+            }
         }
     }
 
@@ -212,12 +228,18 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
                 }
             })?;
 
-            projects_storage.delete_project(id).map_err(|e| {
-                log::error!("{}", e);
-                Error {
-                    message: "Failed to delete project".to_string(),
-                }
-            })?;
+            projects_storage
+                .update_project(&projects::UpdateRequest {
+                    id: id.to_string(),
+                    deleted: Some(true),
+                    ..Default::default()
+                })
+                .map_err(|e| {
+                    log::error!("{}", e);
+                    Error {
+                        message: "Failed to delete project".to_string(),
+                    }
+                })?;
 
             Ok(())
         }

@@ -20,6 +20,8 @@ pub struct Project {
     pub id: String,
     pub title: String,
     pub path: String,
+    #[serde(default)]
+    pub deleted: bool,
     pub api: Option<ApiProject>,
 }
 
@@ -68,6 +70,7 @@ impl Project {
             .map(|p| p.to_str().unwrap().to_string())
             .map(|title| Self {
                 id: uuid::Uuid::new_v4().to_string(),
+                deleted: false,
                 title,
                 path: path.to_str().unwrap().to_string(),
                 api: None,
