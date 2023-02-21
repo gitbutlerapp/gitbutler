@@ -361,6 +361,8 @@ fn main() {
                     _ => {}
                 })
                 .setup(move |app| {
+                    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
                     let resolver = app.path_resolver();
                     log::info!(
                         "Local data dir: {:?}",
