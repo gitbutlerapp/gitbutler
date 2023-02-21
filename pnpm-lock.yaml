@@ -17,6 +17,7 @@ specifiers:
   eslint-plugin-prettier: ^4.2.1
   eslint-plugin-svelte: ^2.18.0
   eslint-plugin-unicorn: ^45.0.2
+  fluent-svelte: ^1.6.0
   idb-keyval: ^6.2.0
   mm-jsr: ^3.0.2
   nanoid: ^4.0.1
@@ -63,6 +64,7 @@ devDependencies:
   eslint-plugin-prettier: 4.2.1_u5wnrdwibbfomslmnramz52buy
   eslint-plugin-svelte: 2.18.0_dbthnr4b2bdkhyiebwn7su3hnq
   eslint-plugin-unicorn: 45.0.2_eslint@8.34.0
+  fluent-svelte: 1.6.0
   postcss: 8.4.21
   postcss-load-config: 4.0.1_postcss@8.4.21
   prettier: 2.8.4
@@ -1442,6 +1444,19 @@ packages:
 
   /flatted/3.2.7:
     resolution: {integrity: sha512-5nqDSxl8nn5BSNxyR3n4I6eDmbolI6WT+QqR547RwxQapgjQBmtktdP+HTBb/a/zLsbzERTONyUB5pefh5TtjQ==}
+    dev: true
+
+  /fluent-svelte/1.6.0:
+    resolution: {integrity: sha512-z+QUvfAzh3t0bpiURO6f2eciZPnPPwl1pZe+sAYM8A8vUDSAHH8D0U4+VT+OHA16PEAd2DYVdPyJqM27ly5lxQ==}
+    dependencies:
+      focus-trap: 6.9.4
+      tabbable: 5.3.3
+    dev: true
+
+  /focus-trap/6.9.4:
+    resolution: {integrity: sha512-v2NTsZe2FF59Y+sDykKY+XjqZ0cPfhq/hikWVL88BqLivnNiEffAsac6rP6H45ff9wG9LL5ToiDqrLEP9GX9mw==}
+    dependencies:
+      tabbable: 5.3.3
     dev: true
 
   /for-each/0.3.3:
@@ -2880,6 +2895,10 @@ packages:
       unquote: 1.1.1
       util.promisify: 1.0.1
     dev: false
+
+  /tabbable/5.3.3:
+    resolution: {integrity: sha512-QD9qKY3StfbZqWOPLp0++pOrAVb/HbUi5xCc8cUo4XjP19808oaMiDzn0leBY5mCespIBM0CIZePzZjgzR83kA==}
+    dev: true
 
   /tailwindcss/3.2.4_postcss@8.4.21:
     resolution: {integrity: sha512-AhwtHCKMtR71JgeYDaswmZXhPcW9iuI9Sp2LvZPo9upDZ7231ZJ7eA9RaURbhpXGVlrjX4cFNlB4ieTetEb7hQ==}

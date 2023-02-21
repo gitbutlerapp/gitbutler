@@ -37,6 +37,7 @@
     "eslint-plugin-prettier": "^4.2.1",
     "eslint-plugin-svelte": "^2.18.0",
     "eslint-plugin-unicorn": "^45.0.2",
+    "fluent-svelte": "^1.6.0",
     "postcss": "^8.4.14",
     "postcss-load-config": "^4.0.1",
     "prettier": "^2.8.4",
