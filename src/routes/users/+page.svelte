@@ -19,11 +19,13 @@
                         class="flex flex-row justify-between border border-zinc-600 rounded-lg p-2 items-center"
                     >
                         <div class="flex flex-row space-x-3">
-                            <img
-                                class="h-12 w-12 rounded-full border-2 border-zinc-300"
-                                src={$user.picture}
-                                alt="avatar"
-                            />
+                            {#if $user.picture}
+                                <img
+                                    class="h-12 w-12 rounded-full border-2 border-zinc-300"
+                                    src={$user.picture}
+                                    alt="avatar"
+                                />
+                            {/if}
                             <div>
                                 <div>{$user.name}</div>
                                 <div class="text-zinc-400">{$user.email}</div>
