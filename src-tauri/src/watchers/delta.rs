@@ -41,24 +41,17 @@ impl<'a> DeltaWatchers<'a> {
             .unwrap()
             .insert(project.path.clone(), watcher);
 
-        let repo = git2::Repository::open(project_path);
-
+        let repo = git2::Repository::open(project_path)?;
         thread::spawn(move || {
-            if repo.is_err() {
-                log::error!("failed to open git repo: {:?}", repo.err());
-                return;
-            }
-            let repo = repo.unwrap();
-
             while let Ok(event) = rx.recv() {
-                if let Ok(event) = event {
-                    for file_path in event.paths {
+                if let Ok(notify_event) = event {
+                    for file_path in notify_event.paths {
                         let relative_file_path =
                             file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
                         match register_file_change(
                             &project,
                             &repo,
-                            &event.kind,
+                            &notify_event.kind,
                             &relative_file_path,
                         ) {
                             Ok(Some((session, deltas))) => {
@@ -75,7 +68,7 @@ impl<'a> DeltaWatchers<'a> {
                                             &relative_file_path,
                                         )) {
                                             Err(e) => {
-                                                log::error!("filed to send deltas event: {:?}", e)
+                                                log::error!("failed to send deltas event: {:?}", e)
                                             }
                                             Ok(_) => {}
                                         }
@@ -84,11 +77,11 @@ impl<'a> DeltaWatchers<'a> {
                                 }
                             }
                             Ok(None) => {}
-                            Err(e) => log::error!("Error: {:?}", e),
+                            Err(e) => log::error!("failed to register file change: {:?}", e),
                         }
                     }
                 } else {
-                    log::error!("Error: {:?}", event);
+                    log::error!("notify event error: {:?}", event);
                 }
             }
         });
