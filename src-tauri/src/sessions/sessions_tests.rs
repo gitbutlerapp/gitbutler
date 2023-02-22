@@ -46,6 +46,28 @@ fn test_current_none() {
 }
 
 #[test]
+fn test_create_current_fails_when_meta_path_exists() {
+    let (repo, project) = test_project().unwrap();
+
+    let meta_path = project.session_path().join("meta");
+    std::fs::create_dir_all(&meta_path).unwrap();
+
+    let current_session = super::sessions::Session::from_head(&repo, &project);
+    assert!(current_session.is_err());
+}
+
+#[test]
+fn test_create_current_when_session_dir_exists() {
+    let (repo, project) = test_project().unwrap();
+
+    let session_dir = project.session_path();
+    std::fs::create_dir_all(&session_dir).unwrap();
+
+    let current_session = super::sessions::Session::from_head(&repo, &project);
+    assert!(current_session.is_ok());
+}
+
+#[test]
 fn test_create_current() {
     let (repo, project) = test_project().unwrap();
     let current_session = super::sessions::Session::from_head(&repo, &project);

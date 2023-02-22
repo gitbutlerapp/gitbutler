@@ -295,7 +295,8 @@ fn update(project: &projects::Project, session: &mut Session) -> Result<()> {
 fn create(project: &projects::Project, session: &Session) -> Result<()> {
     let session_path = project.session_path();
     log::debug!("{}: Creating current session", session_path.display());
-    if session_path.exists() {
+    let meta_path = session_path.join("meta");
+    if meta_path.exists() {
         Err(anyhow!("session already exists"))
     } else {
         write(&session_path, session)
@@ -547,11 +548,13 @@ fn flush(
             repo.workdir().unwrap().display()
         )
     })?;
+
     log::debug!(
         "{}: wrote gb commit {}",
         repo.workdir().unwrap().display(),
         commit_oid
     );
+
     session.hash = Some(commit_oid.to_string());
     delete(project).with_context(|| format!("failed to delete session"))?;
 

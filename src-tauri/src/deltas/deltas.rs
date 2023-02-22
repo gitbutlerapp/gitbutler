@@ -118,6 +118,7 @@ fn list_commit_deltas(
         if entry.kind() != Some(git2::ObjectType::Blob) {
             return git2::TreeWalkResult::Ok;
         }
+
         let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
         let content = blob.map(|blob| blob.content().to_vec());
 
