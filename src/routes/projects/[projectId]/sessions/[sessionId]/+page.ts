@@ -45,7 +45,7 @@ export const load: PageLoad = async ({ parent, params }) => {
                 return undefined;
             }
         }),
-        deltas,
-        files,
-    };
-};
+        files: files,
+        deltas: deltas,
+    }
+}
