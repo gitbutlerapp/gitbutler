@@ -14,7 +14,7 @@
             "all": false,
             "shell": {
                 "all": false,
-                "open": "^https://test.app.gitbutler.com/"
+                "open": true
             },
             "dialog": {
                 "all": false,
