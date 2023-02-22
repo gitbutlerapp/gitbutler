@@ -20,7 +20,10 @@
 
     user.subscribe((user) => {
         if (user) {
-            posthog.identify("user_" + user.id.toString());
+            posthog.identify("user_" + user.id.toString(), {
+                email: user.email,
+                name: user.name,
+            });
         }
     });
 </script>
