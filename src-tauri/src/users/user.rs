@@ -11,3 +11,14 @@ pub struct User {
     pub updated_at: String,
     pub access_token: String,
 }
+
+impl Into<sentry::User> for User {
+    fn into(self) -> sentry::User {
+        sentry::User {
+            id: Some(self.id.to_string()),
+            username: Some(self.name),
+            email: Some(self.email),
+            ..Default::default()
+        }
+    }
+}

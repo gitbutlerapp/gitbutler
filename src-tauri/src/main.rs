@@ -89,6 +89,9 @@ fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
             message: "Failed to save user".to_string(),
         }
     })?;
+
+    sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
+
     Ok(())
 }
 
@@ -104,6 +107,9 @@ fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
             message: "Failed to delete user".to_string(),
         }
     })?;
+
+    sentry::configure_scope(|scope| scope.set_user(None));
+
     Ok(())
 }
 
@@ -401,6 +407,17 @@ fn main() {
                 projects_storage.clone(),
                 users_storage.clone(),
             );
+
+            users_storage
+                .get()
+                .and_then(|user| match user {
+                    Some(user) => {
+                        sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
+                        Ok(())
+                    }
+                    None => Ok(()),
+                })
+                .expect("Failed to set user");
 
             let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
                 mpsc::channel();
