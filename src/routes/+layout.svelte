@@ -8,6 +8,7 @@
     import { setContext } from "svelte";
     import { writable } from "svelte/store";
     import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
+    import posthog from "posthog-js";
 
     setContext("project", writable(null));
     setContext("session", writable(null));
@@ -16,6 +17,11 @@
 
     export let data: LayoutData;
     const { user } = data;
+
+    if ($user) {
+        console.log("ID USER", $user.id);
+        posthog.identify("user_" + $user.id.toString());
+    }
 </script>
 
 <header
