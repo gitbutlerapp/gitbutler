@@ -152,7 +152,7 @@
                                     : ''}"
                             >
                                 <button
-                                    class="flex justify-end items-center overflow-hidden sticky left-0 z-20   w-1/6 text-xs leading-5 
+                                    class="z-20 flex justify-end items-center overflow-hidden sticky left-0 w-1/6 text-xs leading-5 
                                     {selectedFileIdx == i
                                         ? 'text-zinc-200 cursor-default'
                                         : 'text-zinc-400 hover:text-zinc-200 cursor-pointer'}"
@@ -165,6 +165,7 @@
                         {/each}
                     </div>
 
+                    <!-- col selection -->
                     <div
                         class="col-start-1 col-end-2 row-start-1 grid"
                         style="grid-template-columns: repeat(88, minmax(0, 1fr));"
@@ -204,14 +205,20 @@
                                         new Date(delta.timestampMs)
                                     )} / span 1;"
                                 >
-                                    <a
-                                        href="/"
-                                        class="flex flex-col items-center justify-center  text-xs "
-                                    >
-                                        <p class="font-semibold text-zinc-800">
-                                            <!-- foo -->
-                                        </p>
-                                    </a>
+                                    <button
+                                        class="z-20 h-full flex flex-col w-full items-center justify-center  text-xs "
+                                        on:click={() => {
+                                            console.log(
+                                                timeStampToCol(
+                                                    new Date(delta.timestampMs)
+                                                )
+                                            );
+                                            value = timeStampToCol(
+                                                new Date(delta.timestampMs)
+                                            );
+                                            selectedFileIdx = idx;
+                                        }}
+                                    />
                                 </li>
                             {/each}
                         {/each}
