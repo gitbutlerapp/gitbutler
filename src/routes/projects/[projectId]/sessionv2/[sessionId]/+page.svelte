@@ -41,6 +41,15 @@
         return col;
     };
 
+    const colToTimestamp = (col: number) => {
+        const totalDiff = differenceInSeconds(end, start);
+        const colDiff = col - 17;
+        const rat = colDiff / 63;
+        const eventDiff = totalDiff * rat;
+        const timestamp = addSeconds(start, eventDiff);
+        return timestamp;
+    };
+
     let selectedFileIdx = 0;
 
     let value = 0;
@@ -114,13 +123,14 @@
                 <!-- needle -->
                 <div class="grid grid-cols-11">
                     <div class="col-span-2 flex items-center justify-center" />
-                    <div class="-mx-1 col-span-8 flex items-center justify-center">
-                        <Slider
-                            min={17}
-                            max={80}
-                            step={1}
-                            bind:value
-                        />
+                    <div
+                        class="-mx-1 col-span-8 flex items-center justify-center"
+                    >
+                        <Slider min={17} max={80} step={1} bind:value>
+                            <svelte:fragment slot="tooltip" let:value>
+                                {format(colToTimestamp(value), "hh:mm")}
+                            </svelte:fragment>
+                        </Slider>
                     </div>
                     <div class="col-span-1 flex items-center justify-center" />
                 </div>
@@ -155,15 +165,14 @@
                         {/each}
                     </div>
 
-
                     <div
                         class="col-start-1 col-end-2 row-start-1 grid"
                         style="grid-template-columns: repeat(88, minmax(0, 1fr));"
                     >
-                        <div class="bg-sky-400/60 "
-                        style=" grid-column: {value};"
-                        >
-                        </div>
+                        <div
+                            class="bg-sky-400/60 "
+                            style=" grid-column: {value};"
+                        />
                     </div>
                     <!-- time vertical lines -->
                     <div
