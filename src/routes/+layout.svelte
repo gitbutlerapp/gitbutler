@@ -24,6 +24,9 @@
                 email: user.email,
                 name: user.name,
             });
+        } else {
+            posthog.capture("log-out");
+            posthog.reset();
         }
     });
 </script>
