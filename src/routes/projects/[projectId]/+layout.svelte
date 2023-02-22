@@ -11,6 +11,16 @@
     $: sessions = data.sessions;
     $: lastSessionId = $sessions[$sessions.length - 1]?.id;
 
+    function projectUrl(project: Project) {
+        const gitUrl = project.api?.git_url;
+        // get host from git url
+        const url = new URL(gitUrl);
+        const host = url.origin;
+        const projectId = gitUrl.split("/").pop();
+
+        return `${host}/projects/${projectId}`;
+    }
+
     const contextProjectStore: Writable<Project | null | undefined> =
         getContext("project");
     $: contextProjectStore.set($project);
@@ -78,3 +88,38 @@
 </nav>
 
 <slot />
+
+<div class="absolute bottom-0 left-0 w-full">
+    <div
+        class="flex items-center flex-shrink-0 h-6 border-t select-none border-zinc-700 bg-zinc-900 "
+    >
+        <div
+            class="flex flex-row mx-4 items-center space-x-2 text-xs justify-between w-full"
+        >
+            {#if $project?.api?.sync}
+                <a
+                    href="/projects/{$project?.id}/settings"
+                    class="text-zinc-400 hover:text-zinc-300"
+                >
+                    <div class="flex flex-row items-center space-x-2 text-xs">
+                        <div class="w-2 h-2 bg-green-700 rounded-full" />
+                        <div class="text-zinc-200">Up to date</div>
+                    </div>
+                </a>
+                <a target="_blank" href={projectUrl($project)}
+                    >Open in GitButler Cloud</a
+                >
+            {:else}
+                <a
+                    href="/projects/{$project?.id}/settings"
+                    class="text-zinc-400 hover:text-zinc-300"
+                >
+                    <div class="flex flex-row items-center space-x-2 text-xs">
+                        <div class="w-2 h-2 bg-red-700 rounded-full" />
+                        <div class="text-zinc-200">Offline</div>
+                    </div>
+                </a>
+            {/if}
+        </div>
+    </div>
+</div>

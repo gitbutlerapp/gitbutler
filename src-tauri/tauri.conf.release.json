@@ -8,7 +8,7 @@
         },
         "allowlist": {
             "shell": {
-                "open": "^https://test.app.gitbutler.com/"
+                "open": true
             }
         },
         "updater": {
