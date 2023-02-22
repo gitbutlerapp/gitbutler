@@ -15,7 +15,10 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::mpsc, thread};
 use storage::Storage;
 use tauri::{generate_context, Manager};
-use tauri_plugin_log::{fern::colors::ColoredLevelConfig, LogTarget};
+use tauri_plugin_log::{
+    fern::colors::{Color, ColoredLevelConfig},
+    LogTarget,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Error {
@@ -442,7 +445,13 @@ fn main() {
                     true => log::LevelFilter::Debug,
                     false => log::LevelFilter::Info,
                 })
-                .with_colors(ColoredLevelConfig::default())
+                .with_colors(ColoredLevelConfig {
+                    error: Color::Red,
+                    warn: Color::Yellow,
+                    debug: Color::Blue,
+                    info: Color::BrightGreen,
+                    trace: Color::Cyan,
+                })
                 .targets(targets)
                 .build()
         })
