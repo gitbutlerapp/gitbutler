@@ -5,7 +5,6 @@
     import { add, format, differenceInSeconds, addSeconds } from "date-fns";
     import { page } from "$app/stores";
     import { onMount } from 'svelte';
-    import { Doc } from "yjs";
     import { derived } from "svelte/store";
     import { Operation } from "$lib/deltas";
     import { Slider } from "fluent-svelte";
@@ -72,12 +71,10 @@
     let value = 0;
 
     $: doc = derived([data.deltas], ([allDeltas]) => {
-        const doc = new Doc();
-        const text = doc.getText();
         const filePath = Object.keys(allDeltas)[selectedFileIdx];
         const deltas = allDeltas[filePath];
 
-        text.insert(0, data.files[filePath] || "");
+        let text = data.files[filePath] || "";
 
         const sliderValueTimestampMs =
             colToTimestamp(value).getTime() + tickSizeMs; // Include the tick size so that the slider value is always in the future
@@ -93,13 +90,13 @@
 
         operations.forEach((operation) => {
             if (Operation.isInsert(operation)) {
-                text.insert(operation.insert[0], operation.insert[1]);
+                text = text.slice(0, operation.insert[0]) + operation.insert[1] + text.slice(operation.insert[0]);
             } else if (Operation.isDelete(operation)) {
-                text.delete(operation.delete[0], operation.delete[1]);
+                text = text.slice(0, operation.delete[0]) + text.slice(operation.delete[0] + operation.delete[1]);
             }
         });
 
-        return text.toString();
+        return text;
     });
 </script>
 
