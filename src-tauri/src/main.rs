@@ -354,6 +354,7 @@ fn main() {
                                     .unwrap();
                             } else {
                                 window.show().unwrap();
+                                window.set_focus().unwrap();
                                 item_handle
                                     .set_title(format!("Hide {}", app_title()))
                                     .unwrap();
