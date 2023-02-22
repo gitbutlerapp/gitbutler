@@ -258,6 +258,7 @@ fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
+    paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, String>, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::from_path_resolver(&path_resolver);
@@ -272,7 +273,7 @@ fn list_session_files(
             }
         })?;
 
-    let files = repo.files(session_id).map_err(|e| {
+    let files = repo.files(session_id, paths).map_err(|e| {
         log::error!("{}", e);
         Error {
             message: "Failed to list files".to_string(),

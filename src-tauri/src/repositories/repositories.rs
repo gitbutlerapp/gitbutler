@@ -47,12 +47,17 @@ impl Repository {
         sessions::list(&self.git_repository, &self.project, &self.reference()?)
     }
 
-    pub fn files(&self, session_id: &str) -> Result<HashMap<String, String>> {
+    pub fn files(
+        &self,
+        session_id: &str,
+        files: Option<Vec<&str>>,
+    ) -> Result<HashMap<String, String>> {
         sessions::list_files(
             &self.git_repository,
             &self.project,
             &self.reference()?,
             session_id,
+            files,
         )
     }
 

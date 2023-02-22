@@ -414,6 +414,7 @@ pub fn list_files(
     project: &projects::Project,
     reference: &git2::Reference,
     session_id: &str,
+    paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, String>> {
     let commit = if is_current_session_id(project, session_id)? {
         let head_commit = reference.peel_to_commit()?;
@@ -465,14 +466,16 @@ pub fn list_files(
         let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
         let content = blob.map(|blob| blob.content().to_vec());
 
+        let relpath = entry_path.strip_prefix("wd").unwrap();
+
+        if let Some(paths) = paths.as_ref() {
+            if !paths.contains(&relpath.to_str().unwrap()) {
+                return git2::TreeWalkResult::Ok;
+            }
+        }
+
         files.insert(
-            entry_path
-                .strip_prefix("wd")
-                .unwrap()
-                .to_owned()
-                .to_str()
-                .unwrap()
-                .to_owned(),
+            relpath.to_owned().to_str().unwrap().to_owned(),
             String::from_utf8(content.unwrap_or_default()).unwrap_or_default(),
         );
 

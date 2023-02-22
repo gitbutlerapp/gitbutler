@@ -219,7 +219,7 @@ fn test_list_files_from_first_presistent_session() {
     std::fs::write(file_path.clone(), "one").unwrap();
 
     let reference = repo.find_reference(&project.refname()).unwrap();
-    let files = super::sessions::list_files(&repo, &project, &reference, &first.id);
+    let files = super::sessions::list_files(&repo, &project, &reference, &first.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
@@ -248,7 +248,7 @@ fn test_list_files_from_second_current_session() {
     let second = second.unwrap();
 
     let reference = repo.find_reference(&project.refname()).unwrap();
-    let files = super::sessions::list_files(&repo, &project, &reference, &second.id);
+    let files = super::sessions::list_files(&repo, &project, &reference, &second.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
@@ -281,7 +281,7 @@ fn test_list_files_from_second_presistent_session() {
     std::fs::write(file_path.clone(), "two").unwrap();
 
     let reference = repo.find_reference(&project.refname()).unwrap();
-    let files = super::sessions::list_files(&repo, &project, &reference, &second.id);
+    let files = super::sessions::list_files(&repo, &project, &reference, &second.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
