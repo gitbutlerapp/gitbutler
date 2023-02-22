@@ -14,7 +14,7 @@ use log;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::mpsc, thread};
 use storage::Storage;
-use tauri::Manager;
+use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
@@ -325,148 +325,153 @@ fn main() {
         trace: Color::Cyan,
     };
 
+    let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
+    let hide = tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title()));
+    let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
+    let tray = tauri::SystemTray::new().with_menu(tray_menu);
+
+    let tauri_app_builder = tauri::Builder::default()
+        .system_tray(tray)
+        .on_system_tray_event(|app_handle, event| match event {
+            tauri::SystemTrayEvent::MenuItemClick { id, .. } => {
+                let item_handle = app_handle.tray_handle().get_item(&id);
+                match id.as_str() {
+                    "quit" => {
+                        app_handle.exit(0);
+                    }
+                    "toggle" => match get_window(&app_handle) {
+                        Some(window) => {
+                            if window.is_visible().unwrap() {
+                                window.hide().unwrap();
+                                item_handle
+                                    .set_title(format!("Show {}", app_title()))
+                                    .unwrap();
+                            } else {
+                                window.show().unwrap();
+                                item_handle
+                                    .set_title(format!("Hide {}", app_title()))
+                                    .unwrap();
+                            }
+                        }
+                        None => {
+                            create_window(&app_handle).expect("Failed to create window");
+                            item_handle
+                                .set_title(format!("Hide {}", app_title()))
+                                .unwrap();
+                        }
+                    },
+                    _ => {}
+                }
+            }
+            _ => {}
+        })
+        .on_window_event(|event| match event.event() {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                api.prevent_close();
+                let window = event.window();
+
+                window
+                    .app_handle()
+                    .tray_handle()
+                    .get_item("toggle")
+                    .set_title(format!("Show {}", app_title()))
+                    .expect("Failed to set tray item title");
+
+                window.hide().expect("Failed to hide window");
+            }
+            _ => {}
+        })
+        .setup(move |app| {
+            let window = create_window(&app.handle()).expect("Failed to create window");
+            #[cfg(debug_assertions)]
+            window.open_devtools();
+
+            let resolver = app.path_resolver();
+            log::info!(
+                "Local data dir: {:?}",
+                resolver.app_local_data_dir().unwrap()
+            );
+
+            let storage = Storage::from_path_resolver(&resolver);
+            let projects_storage = projects::Storage::new(storage.clone());
+            let users_storage = users::Storage::new(storage);
+            let watcher_collection = watchers::WatcherCollection::default();
+            let watchers = watchers::Watcher::new(
+                &watcher_collection,
+                projects_storage.clone(),
+                users_storage.clone(),
+            );
+
+            let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
+                mpsc::channel();
+
+            if let Ok(projects) = projects_storage.list_projects() {
+                for project in projects {
+                    watchers
+                        .watch(tx.clone(), &project)
+                        .map_err(|e| e.to_string())?;
+                }
+            } else {
+                log::error!("Failed to list projects");
+            }
+
+            watch_events(app.handle(), rx);
+
+            app.manage(watcher_collection);
+
+            Ok(())
+        })
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_log::Builder::default()
+                .level(match IS_DEV {
+                    true => log::LevelFilter::Debug,
+                    false => log::LevelFilter::Info,
+                })
+                .with_colors(colors)
+                .targets([LogTarget::LogDir, LogTarget::Stdout, LogTarget::Webview])
+                .build(),
+        )
+        .invoke_handler(tauri::generate_handler![
+            add_project,
+            list_projects,
+            delete_project,
+            update_project,
+            list_deltas,
+            list_sessions,
+            list_session_files,
+            set_user,
+            delete_user,
+            get_user
+        ]);
+
+    let tauri_context = generate_context!();
+    let app_version = tauri_context.package_info().version.to_string();
+
     sentry_tauri::init(
-        sentry::release_name!(),
+        app_version.clone(),
         |_| {
             sentry::init((
                 "https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032",
                 sentry::ClientOptions {
-                    release: sentry::release_name!(),
+                    release: Some(std::borrow::Cow::from(app_version)),
                     ..Default::default()
                 },
             ))
         },
         |sentry_plugin| {
-            let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
-            let hide =
-                tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title()));
-            let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
-            let tray = tauri::SystemTray::new().with_menu(tray_menu);
-
-            tauri::Builder::default()
-                .system_tray(tray)
-                .on_system_tray_event(|app_handle, event| match event {
-                    tauri::SystemTrayEvent::MenuItemClick { id, .. } => {
-                        let item_handle = app_handle.tray_handle().get_item(&id);
-                        match id.as_str() {
-                            "quit" => {
-                                app_handle.exit(0);
-                            }
-                            "toggle" => match get_window(&app_handle) {
-                                Some(window) => {
-                                    if window.is_visible().unwrap() {
-                                        window.hide().unwrap();
-                                        item_handle
-                                            .set_title(format!("Show {}", app_title()))
-                                            .unwrap();
-                                    } else {
-                                        window.show().unwrap();
-                                        item_handle
-                                            .set_title(format!("Hide {}", app_title()))
-                                            .unwrap();
-                                    }
-                                }
-                                None => {
-                                    create_window(&app_handle).expect("Failed to create window");
-                                    item_handle
-                                        .set_title(format!("Hide {}", app_title()))
-                                        .unwrap();
-                                }
-                            },
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                })
-                .on_window_event(|event| match event.event() {
-                    tauri::WindowEvent::CloseRequested { api, .. } => {
-                        api.prevent_close();
-                        let window = event.window();
-
-                        window
-                            .app_handle()
-                            .tray_handle()
-                            .get_item("toggle")
-                            .set_title(format!("Show {}", app_title()))
-                            .expect("Failed to set tray item title");
-
-                        window.hide().expect("Failed to hide window");
-                    }
-                    _ => {}
-                })
-                .setup(move |app| {
-                    let window = create_window(&app.handle()).expect("Failed to create window");
-                    #[cfg(debug_assertions)]
-                    window.open_devtools();
-
-                    let resolver = app.path_resolver();
-                    log::info!(
-                        "Local data dir: {:?}",
-                        resolver.app_local_data_dir().unwrap()
-                    );
-
-                    let storage = Storage::from_path_resolver(&resolver);
-                    let projects_storage = projects::Storage::new(storage.clone());
-                    let users_storage = users::Storage::new(storage);
-                    let watcher_collection = watchers::WatcherCollection::default();
-                    let watchers = watchers::Watcher::new(
-                        &watcher_collection,
-                        projects_storage.clone(),
-                        users_storage.clone(),
-                    );
-
-                    let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
-                        mpsc::channel();
-
-                    if let Ok(projects) = projects_storage.list_projects() {
-                        for project in projects {
-                            watchers
-                                .watch(tx.clone(), &project)
-                                .map_err(|e| e.to_string())?;
-                        }
-                    } else {
-                        log::error!("Failed to list projects");
-                    }
-
-                    watch_events(app.handle(), rx);
-
-                    app.manage(watcher_collection);
-
-                    Ok(())
-                })
+            let tauri_app = tauri_app_builder
                 .plugin(sentry_plugin)
-                .plugin(tauri_plugin_window_state::Builder::default().build())
-                .plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(match IS_DEV {
-                            true => log::LevelFilter::Debug,
-                            false => log::LevelFilter::Info,
-                        })
-                        .with_colors(colors)
-                        .targets([LogTarget::LogDir, LogTarget::Stdout, LogTarget::Webview])
-                        .build(),
-                )
-                .invoke_handler(tauri::generate_handler![
-                    add_project,
-                    list_projects,
-                    delete_project,
-                    update_project,
-                    list_deltas,
-                    list_sessions,
-                    list_session_files,
-                    set_user,
-                    delete_user,
-                    get_user
-                ])
-                .build(tauri::generate_context!())
-                .expect("error while running tauri application")
-                .run(|app_handle, event| match event {
-                    tauri::RunEvent::ExitRequested { api, .. } => {
-                        hide_window(&app_handle).expect("Failed to hide window");
-                        api.prevent_exit();
-                    }
-                    _ => {}
-                });
+                .build(tauri_context)
+                .expect("Failed to build tauri app");
+
+            tauri_app.run(|app_handle, event| match event {
+                tauri::RunEvent::ExitRequested { api, .. } => {
+                    hide_window(&app_handle).expect("Failed to hide window");
+                    api.prevent_exit();
+                }
+                _ => {}
+            });
         },
     );
 }
