@@ -4,9 +4,11 @@
     import type { PageData } from "./$types";
     import { add, format, differenceInSeconds, addSeconds } from "date-fns";
     import { page } from "$app/stores";
-    import { onMount } from "svelte";
-    import { slide } from "svelte/transition";
+    import { Doc } from "yjs";
+    import { derived } from "svelte/store";
+    import { Operation } from "$lib/deltas";
     import { Slider } from "fluent-svelte";
+    import { CodeViewerNext } from "$lib/components";
     import "fluent-svelte/theme.css";
 
     export let data: PageData;
@@ -50,11 +52,40 @@
         return timestamp;
     };
 
+    $: tickSizeMs = Math.floor((end.getTime() - start.getTime()) / 63); // how many ms each column represents
     let selectedFileIdx = 0;
-
     let value = 0;
-    // onMount(() => (value = end.getTime()));
-    // $: sliderDate = new Date(value);
+
+    $: doc = derived([data.deltas], ([allDeltas]) => {
+        const doc = new Doc();
+        const text = doc.getText();
+        const filePath = Object.keys(allDeltas)[selectedFileIdx];
+        const deltas = allDeltas[filePath];
+
+        text.insert(0, data.files[filePath] || "");
+
+        const sliderValueTimestampMs = colToTimestamp(value).getTime() + tickSizeMs; // Include the tick size so that the slider value is always in the future
+        // Filter operations based on the current slider value
+        const operations = deltas
+            .filter(
+                (delta) =>
+                    delta.timestampMs >= start.getTime() &&
+                    delta.timestampMs <= sliderValueTimestampMs
+            )
+            .sort((a, b) => a.timestampMs - b.timestampMs)
+            .flatMap((delta) => delta.operations);
+
+        operations.forEach((operation) => {
+            if (Operation.isInsert(operation)) {
+                text.insert(operation.insert[0], operation.insert[1]);
+            } else if (Operation.isDelete(operation)) {
+                text.delete(operation.delete[0], operation.delete[1]);
+            }
+        });
+
+        return text.toString();
+    });
+
 </script>
 
 <div class="flex flex-col h-full  text-zinc-400">
@@ -208,11 +239,6 @@
                                     <button
                                         class="z-20 h-full flex flex-col w-full items-center justify-center  text-xs "
                                         on:click={() => {
-                                            console.log(
-                                                timeStampToCol(
-                                                    new Date(delta.timestampMs)
-                                                )
-                                            );
                                             value = timeStampToCol(
                                                 new Date(delta.timestampMs)
                                             );
@@ -223,6 +249,14 @@
                             {/each}
                         {/each}
                     </ol>
+
+                    <div class="grid grid-cols-11 mt-6">
+                        <div class="col-span-2" />
+                        <div class="col-span-8 p-1 bg-zinc-500/70 rounded">
+                            <CodeViewerNext value={$doc} />
+                        </div>
+                        <div class="" />
+                    </div>
                 </div>
             </div>
         </div>
