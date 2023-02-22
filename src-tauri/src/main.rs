@@ -15,10 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::mpsc, thread};
 use storage::Storage;
 use tauri::{generate_context, Manager};
-use tauri_plugin_log::{
-    fern::colors::{Color, ColoredLevelConfig},
-    LogTarget,
-};
+use tauri_plugin_log::{fern::colors::ColoredLevelConfig, LogTarget};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Error {
@@ -323,14 +320,6 @@ fn list_deltas(
 }
 
 fn main() {
-    let colors = ColoredLevelConfig {
-        error: Color::Red,
-        warn: Color::Yellow,
-        debug: Color::Blue,
-        info: Color::BrightGreen,
-        trace: Color::Cyan,
-    };
-
     let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
     let hide = tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title()));
     let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
@@ -440,16 +429,23 @@ fn main() {
             Ok(())
         })
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(
+        .plugin({
+            let targets = [
+                LogTarget::LogDir,
+                #[cfg(debug_assertions)]
+                LogTarget::Stdout,
+                #[cfg(debug_assertions)]
+                LogTarget::Webview,
+            ];
             tauri_plugin_log::Builder::default()
                 .level(match IS_DEV {
                     true => log::LevelFilter::Debug,
                     false => log::LevelFilter::Info,
                 })
-                .with_colors(colors)
-                .targets([LogTarget::LogDir, LogTarget::Stdout, LogTarget::Webview])
-                .build(),
-        )
+                .with_colors(ColoredLevelConfig::default())
+                .targets(targets)
+                .build()
+        })
         .invoke_handler(tauri::generate_handler![
             add_project,
             list_projects,
