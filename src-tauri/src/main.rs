@@ -510,24 +510,30 @@ fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
     handle.get_window("main")
 }
 
+#[cfg(not(target_os = "macos"))]
 fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
     log::info!("Creating window");
-    let window_builder =
-        tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
-            .resizable(true)
-            .title(app_title())
-            .theme(Some(tauri::Theme::Dark))
-            .min_inner_size(600.0, 300.0)
-            .inner_size(800.0, 600.0);
+    tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
+        .resizable(true)
+        .title(app_title())
+        .theme(Some(tauri::Theme::Dark))
+        .min_inner_size(600.0, 300.0)
+        .inner_size(800.0, 600.0)
+        .build()
+}
 
-    if cfg!(target_os = "macos") {
-        window_builder
-            .hidden_title(true)
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .build()
-    } else {
-        window_builder.build()
-    }
+#[cfg(target_os = "macos")]
+fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
+    log::info!("Creating window");
+    tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
+        .resizable(true)
+        .title(app_title())
+        .theme(Some(tauri::Theme::Dark))
+        .min_inner_size(600.0, 300.0)
+        .inner_size(800.0, 600.0)
+        .hidden_title(true)
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .build()
 }
 
 fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
