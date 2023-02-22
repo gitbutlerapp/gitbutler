@@ -21,10 +21,10 @@ impl Event {
         deltas: &Vec<deltas::Delta>,
         relative_file_path: &std::path::Path,
     ) -> Self {
-        let event_name = format!("project://{}/deltas/{}", project.id, session.id);
+        let event_name = format!("project://{}/sessions/{}/deltas", project.id, session.id);
         let payload = serde_json::json!({
             "deltas": deltas,
-            "relative_file_path": relative_file_path,
+            "filePath": relative_file_path,
         });
         Event {
             name: event_name,
