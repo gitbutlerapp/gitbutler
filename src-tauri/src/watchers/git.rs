@@ -2,6 +2,7 @@ use crate::{events, projects, sessions, users};
 use anyhow::{Context, Result};
 use git2::Repository;
 use std::{
+    sync::mpsc,
     thread,
     time::{Duration, SystemTime},
 };
@@ -23,7 +24,11 @@ impl GitWatcher {
         }
     }
 
-    pub fn watch(&self, window: tauri::Window, project: projects::Project) -> Result<()> {
+    pub fn watch(
+        &self,
+        sender: mpsc::Sender<events::Event>,
+        project: projects::Project,
+    ) -> Result<()> {
         log::info!("Watching git for {}", project.path);
 
         let shared_self = std::sync::Arc::new(self.clone());
@@ -62,7 +67,10 @@ impl GitWatcher {
 
             match local_self.check_for_changes(&project, &user) {
                 Ok(Some(session)) => {
-                    events::session(&window, &project, &session);
+                    match sender.send(events::Event::session(&project, &session)) {
+                        Err(e) => log::error!("filed to send session event: {:?}", e),
+                        Ok(_) => {}
+                    }
                 }
                 Ok(None) => {}
                 Err(error) => {

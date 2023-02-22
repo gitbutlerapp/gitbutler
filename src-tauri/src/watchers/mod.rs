@@ -2,9 +2,9 @@ mod delta;
 mod git;
 
 pub use self::delta::WatcherCollection;
-use crate::{projects, users};
+use crate::{events, projects, users};
 use anyhow::Result;
-use tauri;
+use std::sync::mpsc;
 
 pub struct Watcher<'a> {
     git_watcher: git::GitWatcher,
@@ -25,9 +25,13 @@ impl<'a> Watcher<'a> {
         }
     }
 
-    pub fn watch(&self, window: tauri::Window, project: &projects::Project) -> Result<()> {
-        self.delta_watcher.watch(window.clone(), project.clone())?;
-        self.git_watcher.watch(window.clone(), project.clone())?;
+    pub fn watch(
+        &self,
+        sender: mpsc::Sender<events::Event>,
+        project: &projects::Project,
+    ) -> Result<()> {
+        self.delta_watcher.watch(sender.clone(), project.clone())?;
+        self.git_watcher.watch(sender.clone(), project.clone())?;
         Ok(())
     }
 

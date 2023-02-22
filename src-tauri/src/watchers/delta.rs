@@ -6,7 +6,7 @@ use git2;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs;
 use std::path::Path;
-use std::sync::mpsc::channel;
+use std::sync::mpsc;
 use std::thread;
 use std::{collections::HashMap, sync::Mutex};
 
@@ -22,11 +22,15 @@ impl<'a> DeltaWatchers<'a> {
         Self { watchers }
     }
 
-    pub fn watch(&self, window: tauri::Window, project: projects::Project) -> Result<()> {
+    pub fn watch(
+        &self,
+        sender: mpsc::Sender<events::Event>,
+        project: projects::Project,
+    ) -> Result<()> {
         log::info!("Watching deltas for {}", project.path);
         let project_path = Path::new(&project.path);
 
-        let (tx, rx) = channel();
+        let (tx, rx) = mpsc::channel();
         let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
 
         watcher.watch(project_path, RecursiveMode::Recursive)?;
@@ -38,6 +42,7 @@ impl<'a> DeltaWatchers<'a> {
             .insert(project.path.clone(), watcher);
 
         let repo = git2::Repository::open(project_path);
+
         thread::spawn(move || {
             if repo.is_err() {
                 log::error!("failed to open git repo: {:?}", repo.err());
@@ -51,20 +56,32 @@ impl<'a> DeltaWatchers<'a> {
                         let relative_file_path =
                             file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
                         match register_file_change(
-                            &window,
                             &project,
                             &repo,
                             &event.kind,
                             &relative_file_path,
                         ) {
                             Ok(Some((session, deltas))) => {
-                                events::deltas(
-                                    &window,
-                                    &project,
-                                    &session,
-                                    &deltas,
-                                    &relative_file_path,
-                                );
+                                match sender.send(events::Event::session(&project, &session)) {
+                                    Err(e) => log::error!("filed to send session event: {:?}", e),
+                                    Ok(_) => {}
+                                }
+                                match deltas {
+                                    Some(deltas) => {
+                                        match sender.send(events::Event::detlas(
+                                            &project,
+                                            &session,
+                                            &deltas,
+                                            &relative_file_path,
+                                        )) {
+                                            Err(e) => {
+                                                log::error!("filed to send deltas event: {:?}", e)
+                                            }
+                                            Ok(_) => {}
+                                        }
+                                    }
+                                    None => {}
+                                }
                             }
                             Ok(None) => {}
                             Err(e) => log::error!("Error: {:?}", e),
@@ -92,13 +109,12 @@ impl<'a> DeltaWatchers<'a> {
 // it should figure out delta data (crdt) and update the file at .git/gb/session/deltas/path/to/file
 // it also writes the metadata stuff which marks the beginning of a session if a session is not yet started
 // returns updated project deltas
-fn register_file_change<R: tauri::Runtime>(
-    window: &tauri::Window<R>,
+fn register_file_change(
     project: &projects::Project,
     repo: &git2::Repository,
     kind: &EventKind,
     relative_file_path: &Path,
-) -> Result<Option<(sessions::Session, Vec<Delta>)>, Box<dyn std::error::Error>> {
+) -> Result<Option<(sessions::Session, Option<Vec<Delta>>)>, Box<dyn std::error::Error>> {
     if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
         // make sure we're not watching ignored files
         return Ok(None);
@@ -121,7 +137,7 @@ fn register_file_change<R: tauri::Runtime>(
     };
 
     // update meta files every time file change is detected
-    let session = write_beginning_meta_files(&window, &project, &repo)?;
+    let session = write_beginning_meta_files(&project, &repo)?;
 
     if EventKind::is_modify(&kind) {
         log::info!("File modified: {:?}", file_path);
@@ -157,13 +173,13 @@ fn register_file_change<R: tauri::Runtime>(
     };
 
     if !text_doc.update(&file_contents) {
-        return Ok(None);
+        return Ok(Some((session, None)));
     }
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
     write(repo, project, relative_file_path, &deltas)?;
-    return Ok(Some((session, deltas)));
+    return Ok(Some((session, Some(deltas))));
 }
 
 // returns last commited file contents from refs/gitbutler/current ref
@@ -224,8 +240,7 @@ fn get_latest_file_contents(
 
 // this function is called when the user modifies a file, it writes starting metadata if not there
 // and also touches the last activity timestamp, so we can tell when we are idle
-fn write_beginning_meta_files<R: tauri::Runtime>(
-    window: &tauri::Window<R>,
+fn write_beginning_meta_files(
     project: &projects::Project,
     repo: &git2::Repository,
 ) -> Result<sessions::Session, Box<dyn std::error::Error>> {
@@ -236,12 +251,10 @@ fn write_beginning_meta_files<R: tauri::Runtime>(
             session
                 .update(project)
                 .with_context(|| "failed to update session")?;
-            events::session(&window, &project, &session);
             Ok(session)
         }
         None => {
             let session = sessions::Session::from_head(repo, project)?;
-            events::session(&window, &project, &session);
             Ok(session)
         }
     }

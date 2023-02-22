@@ -45,20 +45,6 @@
         "security": {
             "csp": null
         },
-        "windows": [
-            {
-                "fullscreen": false,
-                "height": 600,
-                "resizable": true,
-                "title": "git-butler-tauri",
-                "width": 800,
-                "hiddenTitle": true,
-                "theme": "Dark",
-                "titleBarStyle": "Overlay",
-                "minWidth": 600,
-                "minHeight": 300
-            }
-        ],
         "systemTray": {
             "iconPath": "icons/tray.png",
             "iconAsTemplate": true

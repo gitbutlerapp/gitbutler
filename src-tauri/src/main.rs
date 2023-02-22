@@ -8,12 +8,13 @@ mod storage;
 mod users;
 mod watchers;
 
+use anyhow::Result;
 use deltas::Delta;
 use log;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc, thread};
 use storage::Storage;
-use tauri::{Manager, Window};
+use tauri::Manager;
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
@@ -124,11 +125,7 @@ fn update_project(
 }
 
 #[tauri::command]
-fn add_project(
-    handle: tauri::AppHandle,
-    window: Window,
-    path: &str,
-) -> Result<projects::Project, Error> {
+fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
     let path_resolver = handle.path_resolver();
     let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage.clone());
@@ -178,12 +175,19 @@ fn add_project(
                 message: "Failed to add project".to_string(),
             }
         })?;
-        watchers.watch(window, &project).map_err(|e| {
+
+        let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
+            mpsc::channel();
+
+        watchers.watch(tx, &project).map_err(|e| {
             log::error!("{}", e);
             Error {
                 message: "Failed to watch project".to_string(),
             }
         })?;
+
+        watch_events(handle, rx);
+
         return Ok(project);
     } else {
         return Err(Error {
@@ -341,51 +345,59 @@ fn main() {
 
             tauri::Builder::default()
                 .system_tray(tray)
-                .on_window_event(|event| match event.event() {
-                    // Hide window instead of closing.
-                    tauri::WindowEvent::CloseRequested { api, .. } => {
-                        api.prevent_close();
-                        event.window().hide().unwrap();
-                        event
-                            .window()
-                            .app_handle()
-                            .tray_handle()
-                            .get_item("toggle")
-                            .set_title(format!("Show {}", app_title()))
-                            .unwrap();
-                    }
-                    _ => {}
-                })
-                .on_system_tray_event(|app, event| match event {
+                .on_system_tray_event(|app_handle, event| match event {
                     tauri::SystemTrayEvent::MenuItemClick { id, .. } => {
-                        let item_handle = app.tray_handle().get_item(&id);
+                        let item_handle = app_handle.tray_handle().get_item(&id);
                         match id.as_str() {
                             "quit" => {
-                                app.exit(0);
+                                app_handle.exit(0);
                             }
-                            "toggle" => {
-                                let main_window = app.get_window("main").unwrap();
-                                if main_window.is_visible().unwrap() {
-                                    main_window.hide().unwrap();
-                                    item_handle
-                                        .set_title(format!("Show {}", app_title()))
-                                        .unwrap();
-                                } else {
-                                    main_window.show().unwrap();
-                                    main_window.set_focus().unwrap();
+                            "toggle" => match get_window(&app_handle) {
+                                Some(window) => {
+                                    if window.is_visible().unwrap() {
+                                        window.hide().unwrap();
+                                        item_handle
+                                            .set_title(format!("Show {}", app_title()))
+                                            .unwrap();
+                                    } else {
+                                        window.show().unwrap();
+                                        item_handle
+                                            .set_title(format!("Hide {}", app_title()))
+                                            .unwrap();
+                                    }
+                                }
+                                None => {
+                                    create_window(&app_handle).expect("Failed to create window");
                                     item_handle
                                         .set_title(format!("Hide {}", app_title()))
                                         .unwrap();
                                 }
-                            }
+                            },
                             _ => {}
                         }
                     }
                     _ => {}
                 })
+                .on_window_event(|event| match event.event() {
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        let window = event.window();
+
+                        window
+                            .app_handle()
+                            .tray_handle()
+                            .get_item("toggle")
+                            .set_title(format!("Show {}", app_title()))
+                            .expect("Failed to set tray item title");
+
+                        window.hide().expect("Failed to hide window");
+                    }
+                    _ => {}
+                })
                 .setup(move |app| {
-                    #[cfg(target_os = "macos")]
-                    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                    let window = create_window(&app.handle()).expect("Failed to create window");
+                    #[cfg(debug_assertions)]
+                    window.open_devtools();
 
                     let resolver = app.path_resolver();
                     log::info!(
@@ -403,18 +415,20 @@ fn main() {
                         users_storage.clone(),
                     );
 
+                    let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
+                        mpsc::channel();
+
                     if let Ok(projects) = projects_storage.list_projects() {
                         for project in projects {
                             watchers
-                                .watch(app.get_window("main").unwrap(), &project)
+                                .watch(tx.clone(), &project)
                                 .map_err(|e| e.to_string())?;
                         }
                     } else {
                         log::error!("Failed to list projects");
                     }
 
-                    #[cfg(debug_assertions)]
-                    app.get_window("main").unwrap().open_devtools();
+                    watch_events(app.handle(), rx);
 
                     app.manage(watcher_collection);
 
@@ -444,8 +458,62 @@ fn main() {
                     delete_user,
                     get_user
                 ])
-                .run(tauri::generate_context!())
+                .build(tauri::generate_context!())
                 .expect("error while running tauri application")
+                .run(|app_handle, event| match event {
+                    tauri::RunEvent::ExitRequested { api, .. } => {
+                        hide_window(&app_handle).expect("Failed to hide window");
+                        api.prevent_exit();
+                    }
+                    _ => {}
+                });
         },
     );
+}
+
+fn watch_events(handle: tauri::AppHandle, rx: mpsc::Receiver<events::Event>) {
+    thread::spawn(move || {
+        while let Ok(event) = rx.recv() {
+            if let Some(window) = handle.get_window("main") {
+                match window.emit(&event.name, event.payload) {
+                    Err(e) => log::error!("Failed to emit event: {}", e),
+                    _ => {}
+                }
+            }
+        }
+    });
+}
+
+fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
+    handle.get_window("main")
+}
+
+fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
+    log::info!("Creating window");
+    tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
+        .resizable(true)
+        .hidden_title(true)
+        .theme(Some(tauri::Theme::Dark))
+        .min_inner_size(600.0, 300.0)
+        .inner_size(800.0, 600.0)
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .build()
+}
+
+fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
+    handle
+        .tray_handle()
+        .get_item("toggle")
+        .set_title(format!("Show {}", app_title()))?;
+
+    match get_window(handle) {
+        Some(window) => {
+            if window.is_visible()? {
+                window.hide()
+            } else {
+                Ok(())
+            }
+        }
+        None => Ok(()),
+    }
 }

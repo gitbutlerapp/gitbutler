@@ -1,41 +1,34 @@
 use crate::{deltas, projects, sessions};
-use serde;
 
-pub fn session<R: tauri::Runtime>(
-    window: &tauri::Window<R>,
-    project: &projects::Project,
-    session: &sessions::Session,
-) {
-    let event_name = format!("project://{}/sessions", project.id);
-    match window.emit(&event_name, &session) {
-        Ok(_) => {}
-        Err(e) => log::error!("Error: {:?}", e),
-    };
+#[derive(Debug)]
+pub struct Event {
+    pub name: String,
+    pub payload: serde_json::Value,
 }
 
-#[derive(serde::Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct DeltasEvent {
-    file_path: String,
-    deltas: Vec<deltas::Delta>,
-}
+impl Event {
+    pub fn session(project: &projects::Project, session: &sessions::Session) -> Self {
+        let event_name = format!("project://{}/sessions", project.id);
+        Event {
+            name: event_name,
+            payload: serde_json::to_value(session).unwrap(),
+        }
+    }
 
-pub fn deltas<R: tauri::Runtime>(
-    window: &tauri::Window<R>,
-    project: &projects::Project,
-    session: &sessions::Session,
-    deltas: &Vec<deltas::Delta>,
-    relative_file_path: &std::path::Path,
-) {
-    let event_name = format!("project://{}/deltas/{}", project.id, session.id);
-    match window.emit(
-        &event_name,
-        &DeltasEvent {
-            deltas: deltas.clone(),
-            file_path: relative_file_path.to_str().unwrap().to_string(),
-        },
-    ) {
-        Ok(_) => {}
-        Err(e) => log::error!("Error: {:?}", e),
-    };
+    pub fn detlas(
+        project: &projects::Project,
+        session: &sessions::Session,
+        deltas: &Vec<deltas::Delta>,
+        relative_file_path: &std::path::Path,
+    ) -> Self {
+        let event_name = format!("project://{}/deltas/{}", project.id, session.id);
+        let payload = serde_json::json!({
+            "deltas": deltas,
+            "relative_file_path": relative_file_path,
+        });
+        Event {
+            name: event_name,
+            payload,
+        }
+    }
 }
