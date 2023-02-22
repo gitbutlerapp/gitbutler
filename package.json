@@ -21,6 +21,7 @@
     "idb-keyval": "^6.2.0",
     "mm-jsr": "^3.0.2",
     "nanoid": "^4.0.1",
+    "posthog-js": "^1.46.1",
     "seti-icons": "^0.0.4",
     "svelte-icons": "^2.1.0",
     "tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
