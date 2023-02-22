@@ -1,3 +1,4 @@
+import { log } from "$lib";
 import { invoke } from "@tauri-apps/api";
 import { appWindow } from "@tauri-apps/api/window";
 import { writable, type Readable } from "svelte/store";
@@ -33,6 +34,7 @@ export default async (params: { projectId: string; sessionId: string }) => {
     const store = writable<Record<string, Delta[]>>(init);
     const eventName = `project://${params.projectId}/sessions/${params.sessionId}/deltas`;
     await appWindow.listen<DeltasEvent>(eventName, (event) => {
+        log.info(`Received deltas event ${eventName}`);
         store.update((deltas) => ({
             ...deltas,
             [event.payload.filePath]: event.payload.deltas,

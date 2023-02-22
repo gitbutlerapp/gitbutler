@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api";
 import { appWindow } from "@tauri-apps/api/window";
 import { writable } from "svelte/store";
+import { log } from "$lib";
 
 export type Activity = {
     type: string;
@@ -32,6 +33,7 @@ export default async (params: { projectId: string }) => {
     const eventName = `project://${params.projectId}/sessions`;
 
     await appWindow.listen<Session>(eventName, (event) => {
+        log.info(`Received sessions event ${eventName}`);
         store.update((sessions) => {
             const index = sessions.findIndex(
                 (session) => session.id === event.payload.id
