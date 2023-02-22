@@ -503,6 +503,7 @@ fn watch_events(handle: tauri::AppHandle, rx: mpsc::Receiver<events::Event>) {
     thread::spawn(move || {
         while let Ok(event) = rx.recv() {
             if let Some(window) = handle.get_window("main") {
+                log::info!("Emitting event: {}", event.name);
                 match window.emit(&event.name, event.payload) {
                     Err(e) => log::error!("Failed to emit event: {}", e),
                     _ => {}
