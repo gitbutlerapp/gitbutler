@@ -115,7 +115,7 @@
     };
 </script>
 
-<div class="flex flex-col h-full  text-zinc-400">
+<div class="flex flex-col h-full  text-zinc-400 overflow-hidden">
     <header
         class="flex items-center justify-between flex-none px-8 py-1.5 border-b border-zinc-700"
     >
@@ -148,9 +148,9 @@
 
     <!-- main part -->
     <div
-        class="flex flex-col flex-none max-w-full select-none border-b border-zinc-700"
+        class="flex flex-col flex-none max-w-full select-none border-b border-zinc-700 h-full overflow-auto"
     >
-        <div class="flex flex-col flex-none max-w-full">
+        <div class="flex flex-col flex-none max-w-full mb-40">
             <!-- sticky header -->
             <div
                 class="overflow-hidden sticky top-0 z-30 bg-zinc-800 flex-none shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1"
@@ -281,17 +281,16 @@
                             {/each}
                         {/each}
                     </ol>
-
-                    <div class="grid grid-cols-11 mt-6">
-                        <div class="col-span-2" />
-                        <div class="col-span-8 p-1 bg-zinc-500/70 rounded select-text">
-                            {#if $doc}
-                                <CodeViewerNext value={$doc} />
-                            {/if}
-                        </div>
-                        <div class="" />
-                    </div>
                 </div>
+            </div>
+            <div class="grid grid-cols-11 mt-6">
+                <div class="col-span-2" />
+                <div class="col-span-8 p-1 bg-zinc-500/70 rounded select-text">
+                    {#if $doc}
+                        <CodeViewerNext value={$doc} />
+                    {/if}
+                </div>
+                <div class="" />
             </div>
         </div>
     </div>
