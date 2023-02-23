@@ -2,33 +2,18 @@
     import "../app.postcss";
 
     import type { LayoutData } from "./$types";
-    import { log } from "$lib";
-    import { onMount } from "svelte";
     import { BackForwardButtons } from "$lib/components";
     import { setContext } from "svelte";
     import { writable } from "svelte/store";
     import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
-    import posthog from "posthog-js";
+
+    export let data: LayoutData;
+    const { user, posthog } = data;
 
     setContext("project", writable(null));
     setContext("session", writable(null));
 
-    onMount(log.setup);
-
-    export let data: LayoutData;
-    const { user } = data;
-
-    user.subscribe((user) => {
-        if (user) {
-            posthog.identify("user_" + user.id.toString(), {
-                email: user.email,
-                name: user.name,
-            });
-        } else {
-            posthog.capture("log-out");
-            posthog.reset();
-        }
-    });
+    user.subscribe(posthog.identify);
 </script>
 
 <header
