@@ -8,7 +8,7 @@ mod storage;
 mod users;
 mod watchers;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use deltas::Delta;
 use log;
 use serde::{Deserialize, Serialize};
@@ -47,14 +47,14 @@ fn list_sessions(
 
     let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
         .map_err(|e| {
-            log::error!("{}", e);
+            log::error!("{:#}", e);
             Error {
                 message: "Failed to open project".to_string(),
             }
         })?;
 
     let sessions = repo.sessions().map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to list sessions".to_string(),
         }
@@ -70,7 +70,7 @@ fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let users_storage = users::Storage::new(storage);
 
     users_storage.get().map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to get user".to_string(),
         }
@@ -84,7 +84,7 @@ fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     let users_storage = users::Storage::new(storage);
 
     users_storage.set(&user).map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to save user".to_string(),
         }
@@ -102,7 +102,7 @@ fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     let users_storage = users::Storage::new(storage);
 
     users_storage.delete().map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to delete user".to_string(),
         }
@@ -123,7 +123,7 @@ fn update_project(
     let projects_storage = projects::Storage::new(storage);
 
     projects_storage.update_project(&project).map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to update project".to_string(),
         }
@@ -144,7 +144,7 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
     );
 
     for project in projects_storage.list_projects().map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to list projects".to_string(),
         }
@@ -162,7 +162,7 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
                         ..Default::default()
                     })
                     .map_err(|e| {
-                        log::error!("{}", e);
+                        log::error!("{:#}", e);
                         Error {
                             message: "Failed to undelete project".to_string(),
                         }
@@ -176,7 +176,7 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
     if project.is_ok() {
         let project = project.unwrap();
         projects_storage.add_project(&project).map_err(|e| {
-            log::error!("{}", e);
+            log::error!("{:#}", e);
             Error {
                 message: "Failed to add project".to_string(),
             }
@@ -186,7 +186,7 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
             mpsc::channel();
 
         watchers.watch(tx, &project).map_err(|e| {
-            log::error!("{}", e);
+            log::error!("{:#}", e);
             Error {
                 message: "Failed to watch project".to_string(),
             }
@@ -209,7 +209,7 @@ fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Err
     let projects_storage = projects::Storage::new(storage);
 
     projects_storage.list_projects().map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to list projects".to_string(),
         }
@@ -232,7 +232,7 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     match projects_storage.get_project(id) {
         Ok(Some(project)) => {
             watchers.unwatch(project).map_err(|e| {
-                log::error!("{}", e);
+                log::error!("{:#}", e);
                 Error {
                     message: "Failed to unwatch project".to_string(),
                 }
@@ -245,7 +245,7 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
                     ..Default::default()
                 })
                 .map_err(|e| {
-                    log::error!("{}", e);
+                    log::error!("{:#}", e);
                     Error {
                         message: "Failed to delete project".to_string(),
                     }
@@ -255,7 +255,7 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
         }
         Ok(None) => Ok(()),
         Err(e) => {
-            log::error!("{}", e);
+            log::error!("{:#}", e);
             Err(Error {
                 message: "Failed to get project".to_string(),
             })
@@ -277,14 +277,14 @@ fn list_session_files(
 
     let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
         .map_err(|e| {
-            log::error!("{}", e);
+            log::error!("{:#}", e);
             Error {
                 message: "Failed to open project".to_string(),
             }
         })?;
 
     let files = repo.files(session_id, paths).map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to list files".to_string(),
         }
@@ -306,14 +306,14 @@ fn list_deltas(
 
     let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
         .map_err(|e| {
-            log::error!("{}", e);
+            log::error!("{:#}", e);
             Error {
                 message: "Failed to open project".to_string(),
             }
         })?;
 
     let deltas = repo.deltas(session_id).map_err(|e| {
-        log::error!("{}", e);
+        log::error!("{:#}", e);
         Error {
             message: "Failed to list deltas".to_string(),
         }
@@ -415,14 +415,15 @@ fn main() {
             let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
                 mpsc::channel();
 
-            if let Ok(projects) = projects_storage.list_projects() {
-                for project in projects {
-                    watchers
-                        .watch(tx.clone(), &project)
-                        .map_err(|e| e.to_string())?;
+            match projects_storage.list_projects() {
+                Ok(projects) => {
+                    for project in projects {
+                        watchers
+                            .watch(tx.clone(), &project)
+                            .with_context(|| format!("Failed to watch project: {}", project.id))?
+                    }
                 }
-            } else {
-                log::error!("Failed to list projects");
+                Err(e) => log::error!("Failed to list projects: {:#}", e),
             }
 
             watch_events(app.handle(), rx);
@@ -505,7 +506,7 @@ fn watch_events(handle: tauri::AppHandle, rx: mpsc::Receiver<events::Event>) {
             if let Some(window) = handle.get_window("main") {
                 log::info!("Emitting event: {}", event.name);
                 match window.emit(&event.name, event.payload) {
-                    Err(e) => log::error!("Failed to emit event: {}", e),
+                    Err(e) => log::error!("Failed to emit event: {:#}", e),
                     _ => {}
                 }
             }

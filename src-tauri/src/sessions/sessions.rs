@@ -570,7 +570,7 @@ fn push_to_remote(
     repo: &git2::Repository,
     user: &Option<users::User>,
     project: &projects::Project,
-) -> Result<(), git2::Error> {
+) -> Result<()> {
     // only push if logged in
     let access_token = match user {
         Some(user) => user.access_token.clone(),
@@ -586,7 +586,14 @@ fn push_to_remote(
     log::info!("pushing {} to {}", project.path, remote_url);
 
     // Create an anonymous remote
-    let mut remote = repo.remote_anonymous(remote_url.as_str()).unwrap();
+    let mut remote = repo
+        .remote_anonymous(remote_url.as_str())
+        .with_context(|| {
+            format!(
+                "failed to create anonymous remote for {}",
+                remote_url.as_str()
+            )
+        })?;
 
     // Set the remote's callbacks
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -616,7 +623,15 @@ fn push_to_remote(
     push_options.custom_headers(headers);
 
     // Push to the remote
-    remote.push(&[project.refname()], Some(&mut push_options))?;
+    remote
+        .push(&[project.refname()], Some(&mut push_options))
+        .with_context(|| {
+            format!(
+                "failed to push {} to {}",
+                project.refname(),
+                remote_url.as_str()
+            )
+        })?;
 
     Ok(())
 }
@@ -747,7 +762,7 @@ fn add_wd_path(
 
 /// calculates sha256 digest of a large file as lowercase hex string via streaming buffer
 /// used to calculate the hash of large files that are not supported by git
-fn sha256_digest(path: &Path) -> Result<String, std::io::Error> {
+fn sha256_digest(path: &Path) -> Result<String> {
     let input = File::open(path)?;
     let mut reader = BufReader::new(input);
 
@@ -881,7 +896,7 @@ fn write_gb_commit(
     repo: &git2::Repository,
     user: &Option<users::User>,
     project: &projects::Project,
-) -> Result<git2::Oid, git2::Error> {
+) -> Result<git2::Oid> {
     // find the Oid of the commit that refs/.../current points to, none if it doesn't exist
     let refname = project.refname();
 

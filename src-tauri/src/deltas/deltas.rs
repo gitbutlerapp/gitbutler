@@ -135,7 +135,7 @@ fn list_commit_deltas(
                 );
             }
             Err(e) => {
-                log::error!("Could not get blob for {}: {}", entry_path.display(), e);
+                log::error!("Could not get blob for {}: {:#}", entry_path.display(), e);
             }
         }
         git2::TreeWalkResult::Ok

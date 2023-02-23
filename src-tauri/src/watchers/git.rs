@@ -41,7 +41,7 @@ impl GitWatcher {
             let project = local_self.projects_storage.get_project(&project_id);
             if project.is_err() {
                 log::error!(
-                    "Error while getting project {} for git watcher: {}",
+                    "Error while getting project {} for git watcher: {:#}",
                     project_id,
                     project.err().unwrap()
                 );
@@ -58,7 +58,7 @@ impl GitWatcher {
             let user = local_self.users_storage.get();
             if user.is_err() {
                 log::error!(
-                    "Error while getting user for git watcher: {}",
+                    "Error while getting user for git watcher: {:#}",
                     user.err().unwrap()
                 );
                 continue;
@@ -68,14 +68,14 @@ impl GitWatcher {
             match local_self.check_for_changes(&project, &user) {
                 Ok(Some(session)) => {
                     match sender.send(events::Event::session(&project, &session)) {
-                        Err(e) => log::error!("filed to send session event: {:?}", e),
+                        Err(e) => log::error!("filed to send session event: {:#}", e),
                         Ok(_) => {}
                     }
                 }
                 Ok(None) => {}
                 Err(error) => {
                     log::error!(
-                        "Error while checking {} for changes: {}",
+                        "Error while checking {} for changes: {:#}",
                         project.path,
                         error
                     );

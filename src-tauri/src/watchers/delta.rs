@@ -44,44 +44,50 @@ impl<'a> DeltaWatchers<'a> {
         let repo = git2::Repository::open(project_path)?;
         thread::spawn(move || {
             while let Ok(event) = rx.recv() {
-                if let Ok(notify_event) = event {
-                    for file_path in notify_event.paths {
-                        let relative_file_path =
-                            file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
-                        match register_file_change(
-                            &project,
-                            &repo,
-                            &notify_event.kind,
-                            &relative_file_path,
-                        ) {
-                            Ok(Some((session, deltas))) => {
-                                match sender.send(events::Event::session(&project, &session)) {
-                                    Err(e) => log::error!("filed to send session event: {:?}", e),
-                                    Ok(_) => {}
-                                }
-                                match deltas {
-                                    Some(deltas) => {
-                                        match sender.send(events::Event::detlas(
-                                            &project,
-                                            &session,
-                                            &deltas,
-                                            &relative_file_path,
-                                        )) {
-                                            Err(e) => {
-                                                log::error!("failed to send deltas event: {:?}", e)
-                                            }
-                                            Ok(_) => {}
+                match event {
+                    Ok(notify_event) => {
+                        for file_path in notify_event.paths {
+                            let relative_file_path =
+                                file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
+                            match register_file_change(
+                                &project,
+                                &repo,
+                                &notify_event.kind,
+                                &relative_file_path,
+                            ) {
+                                Ok(Some((session, deltas))) => {
+                                    match sender.send(events::Event::session(&project, &session)) {
+                                        Err(e) => {
+                                            log::error!("filed to send session event: {:#}", e)
                                         }
+                                        Ok(_) => {}
                                     }
-                                    None => {}
+                                    match deltas {
+                                        Some(deltas) => {
+                                            match sender.send(events::Event::detlas(
+                                                &project,
+                                                &session,
+                                                &deltas,
+                                                &relative_file_path,
+                                            )) {
+                                                Err(e) => {
+                                                    log::error!(
+                                                        "failed to send deltas event: {:#}",
+                                                        e
+                                                    )
+                                                }
+                                                Ok(_) => {}
+                                            }
+                                        }
+                                        None => {}
+                                    }
                                 }
+                                Ok(None) => {}
+                                Err(e) => log::error!("failed to register file change: {:#}", e),
                             }
-                            Ok(None) => {}
-                            Err(e) => log::error!("failed to register file change: {:?}", e),
                         }
                     }
-                } else {
-                    log::error!("notify event error: {:?}", event);
+                    Err(e) => log::error!("notify event error: {:#}", e),
                 }
             }
         });
@@ -238,7 +244,7 @@ fn write_beginning_meta_files(
     repo: &git2::Repository,
 ) -> Result<sessions::Session, Box<dyn std::error::Error>> {
     match sessions::Session::current(repo, project)
-        .map_err(|e| format!("Error while getting current session: {}", e.to_string()))?
+        .with_context(|| "failed to get current session")?
     {
         Some(mut session) => {
             session
