@@ -4,7 +4,7 @@ import { building } from "$app/environment";
 import type { Project } from "$lib/projects";
 import Api from "$lib/api";
 import Posthog from "$lib/posthog";
-import { log } from "$lib";
+import * as log from "$lib/log";
 
 export const ssr = false;
 export const prerender = true;
@@ -34,5 +34,10 @@ export const load: LayoutLoad = async ({ fetch }) => {
         }
         : await (await import("$lib/users")).default();
     await log.setup();
-    return { projects, user, api: Api({ fetch }), posthog: Posthog() };
+    return {
+        projects,
+        user,
+        api: Api({ fetch }),
+        posthog: Posthog(),
+    };
 };
