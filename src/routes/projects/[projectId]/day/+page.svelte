@@ -48,21 +48,21 @@
 
 <div class="flex flex-col h-full select-none text-zinc-400">
     <header
-        class="flex items-center justify-between flex-none px-6 py-4 border-b border-zinc-700"
+        class="flex items-center justify-between flex-none px-8 py-1.5 border-b border-zinc-700"
     >
-        <div class="flex items-center justify-start  w-72">
+        <div class="flex items-center justify-start w-64">
             <button
-                class="w-8 h-8 hover:text-zinc-200"
+                class="-ml-2 w-8 h-8 hover:text-zinc-100"
                 on:click={() =>
                     (date = new Date(date.getTime() - 24 * 60 * 60 * 1000))}
             >
                 <MdKeyboardArrowLeft />
             </button>
-            <div class="flex-grow w-4/5 text-center">
+            <div class="flex-grow text-center">
                 {formatDate(date)}
             </div>
             <button
-                class="w-8 h-8 hover:text-zinc-200 disabled:text-zinc-600"
+                class="-mr-2 w-8 h-8 hover:text-zinc-100 disabled:text-zinc-700"
                 disabled={!canNavigateForwad}
                 on:click={() => {
                     if (canNavigateForwad) {

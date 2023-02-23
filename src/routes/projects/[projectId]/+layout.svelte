@@ -41,20 +41,20 @@
         <a
             class="
        {selection === 'week' ? 'bg-zinc-600/70 text-zinc-100' : ''}
-       rounded-lg h-7 flex items-center justify-center p-3 text-centerhover:text-zinc-100"
+       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100"
             href="/projects/{$project?.id}/week">Week</a
         >
         <a
             href="/projects/{$project?.id}/day"
             class="
        {selection === 'day' ? 'bg-zinc-600/70 text-zinc-100' : ''}
-       rounded-lg h-7 flex items-center justify-center p-3 text-centerhover:text-zinc-100">Day</a
+       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100">Day</a
         >
         <a
             href="/projects/{$project?.id}/sessions/{lastSessionId}"
             class="
        {selection === 'sessions' ? 'bg-zinc-600/70 text-zinc-100' : ''}
-       rounded-lg h-7 flex items-center justify-center p-3 text-centerhover:text-zinc-100"
+       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100"
             title="go to current session">Session</a
         >
     </div>
