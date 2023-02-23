@@ -114,7 +114,6 @@ fn test_multiline_add() {
     );
 
     document.update("first line\nline two");
-    println!("{:?}", document.get_deltas());
     assert_eq!(document.to_string(), "first line\nline two");
     assert_eq!(document.get_deltas().len(), 3);
     assert_eq!(document.get_deltas()[2].operations.len(), 2);
@@ -125,5 +124,50 @@ fn test_multiline_add() {
     assert_eq!(
         document.get_deltas()[2].operations[1],
         Operation::Insert((11, "line ".to_string()))
+    );
+}
+
+#[test]
+fn test_multiline_remove() {
+    let mut document = TextDocument::from_deltas(vec![]);
+
+    document.update("first line\nline two");
+    assert_eq!(document.to_string(), "first line\nline two");
+    assert_eq!(document.get_deltas().len(), 1);
+    assert_eq!(document.get_deltas()[0].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[0].operations[0],
+        Operation::Insert((0, "first line\nline two".to_string()))
+    );
+
+    document.update("first\ntwo");
+    assert_eq!(document.to_string(), "first\ntwo");
+    assert_eq!(document.get_deltas().len(), 2);
+    assert_eq!(document.get_deltas()[1].operations.len(), 2);
+    assert_eq!(
+        document.get_deltas()[1].operations[0],
+        Operation::Delete((5, 5))
+    );
+    assert_eq!(
+        document.get_deltas()[1].operations[1],
+        Operation::Delete((6, 5))
+    );
+
+    document.update("first");
+    assert_eq!(document.to_string(), "first");
+    assert_eq!(document.get_deltas().len(), 3);
+    assert_eq!(document.get_deltas()[2].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[2].operations[0],
+        Operation::Delete((5, 4))
+    );
+
+    document.update("");
+    assert_eq!(document.to_string(), "");
+    assert_eq!(document.get_deltas().len(), 4);
+    assert_eq!(document.get_deltas()[3].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[3].operations[0],
+        Operation::Delete((0, 5))
     );
 }
