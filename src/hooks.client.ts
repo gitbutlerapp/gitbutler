@@ -7,7 +7,6 @@ async function setupPostHog() {
         api_host: "https://eu.posthog.com",
         capture_performance: false,
     });
-    console.log("HERE");
 }
 
 // Initialize the database *once*

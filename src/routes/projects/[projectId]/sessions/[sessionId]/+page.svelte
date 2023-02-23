@@ -75,6 +75,7 @@
         const deltas = allDeltas[filePath];
 
         let text = data.files[filePath] || "";
+        if (!deltas) return text;
 
         const sliderValueTimestampMs =
             colToTimestamp(value).getTime() + tickSizeMs; // Include the tick size so that the slider value is always in the future
@@ -265,7 +266,9 @@
                     <div class="grid grid-cols-11 mt-6">
                         <div class="col-span-2" />
                         <div class="col-span-8 p-1 bg-zinc-500/70 rounded">
-                            <CodeViewerNext value={$doc} />
+                            {#if $doc}
+                                <CodeViewerNext value={$doc} />
+                            {/if}
                         </div>
                         <div class="" />
                     </div>
