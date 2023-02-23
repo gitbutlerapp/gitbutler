@@ -56,7 +56,7 @@ fn test_from_deltas() {
 }
 
 #[test]
-fn test_complex() {
+fn test_complex_line() {
     let mut document = TextDocument::from_deltas(vec![]);
 
     document.update("hello");
@@ -88,5 +88,42 @@ fn test_complex() {
     assert_eq!(
         document.get_deltas()[2].operations[1],
         Operation::Insert((4, "!".to_string())),
+    );
+}
+
+#[test]
+fn test_multiline_add() {
+    let mut document = TextDocument::from_deltas(vec![]);
+
+    document.update("first");
+    assert_eq!(document.to_string(), "first");
+    assert_eq!(document.get_deltas().len(), 1);
+    assert_eq!(document.get_deltas()[0].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[0].operations[0],
+        Operation::Insert((0, "first".to_string()))
+    );
+
+    document.update("first\ntwo");
+    assert_eq!(document.to_string(), "first\ntwo");
+    assert_eq!(document.get_deltas().len(), 2);
+    assert_eq!(document.get_deltas()[1].operations.len(), 1);
+    assert_eq!(
+        document.get_deltas()[1].operations[0],
+        Operation::Insert((5, "\ntwo".to_string()))
+    );
+
+    document.update("first line\nline two");
+    println!("{:?}", document.get_deltas());
+    assert_eq!(document.to_string(), "first line\nline two");
+    assert_eq!(document.get_deltas().len(), 3);
+    assert_eq!(document.get_deltas()[2].operations.len(), 2);
+    assert_eq!(
+        document.get_deltas()[2].operations[0],
+        Operation::Insert((5, " line".to_string()))
+    );
+    assert_eq!(
+        document.get_deltas()[2].operations[1],
+        Operation::Insert((11, "line ".to_string()))
     );
 }

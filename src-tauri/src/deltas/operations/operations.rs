@@ -26,6 +26,7 @@ pub fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operati
             }
             Difference::Add(text) => {
                 deltas.push(Operation::Insert((offset, text.to_string())));
+                offset += text.len() as u32;
             }
             Difference::Same(text) => {
                 offset += text.len() as u32;
