@@ -61,7 +61,10 @@
             {toHumanBranchName(session.meta.branch)}
         </a>
         {#if !session.hash}
-            <span class="flex absolute h-3 w-3 top-0 right-0 -mt-1 -mr-1" title="Current session">
+            <span
+                class="flex absolute h-3 w-3 top-0 right-0 -mt-1 -mr-1"
+                title="Current session"
+            >
                 <span
                     class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-200 opacity-75"
                 />
@@ -86,7 +89,8 @@
         <div class=" text-zinc-600">
             {Math.round(
                 (session.meta.lastTimestampMs - session.meta.startTimestampMs) /
-                    60
+                    60 /
+                    1000
             )} min
         </div>
     </div>
