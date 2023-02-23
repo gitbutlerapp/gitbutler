@@ -9,7 +9,7 @@
     $: saving = false;
 
     let userName = $user?.name;
-    let userAvatar = $user?.picture;
+    let userPicture = $user?.picture;
 
     const fileTypes = [
         "image/apng",
@@ -26,14 +26,14 @@
 
     const validFileType = (file: File) => fileTypes.includes(file.type);
 
-    const onAvatarChange = (e: Event) => {
+    const onPictureChange = (e: Event) => {
         const target = e.target as HTMLInputElement;
         const file = target.files?.[0];
 
         if (file && validFileType(file)) {
-            userAvatar = URL.createObjectURL(file);
+            userPicture = URL.createObjectURL(file);
         } else {
-            userAvatar = $user?.picture;
+            userPicture = $user?.picture;
         }
     };
 
@@ -43,26 +43,15 @@
 
         const target = e.target as HTMLFormElement;
         const formData = new FormData(target);
-        const name = formData.get("name") as string;
-        const avatar = formData.get("avatar") as File;
+        const name = formData.get("name") as string | undefined;
+        const picture = formData.get("picture") as File | undefined;
 
-        {
-            // TODO: do actual api call
-            await new Promise((resolve) => setTimeout(resolve, 300));
-            if (name?.length > 0) {
-                userName = name;
-                $user.name = name;
-            } else {
-                userName = $user.name;
-            }
+        const updatedUser = await api.users.update($user.access_token, {
+            name,
+            picture: picture,
+        });
 
-            if (validFileType(avatar)) {
-                userAvatar = URL.createObjectURL(avatar);
-                $user.picture = userAvatar;
-            } else {
-                userAvatar = $user.picture;
-            }
-        }
+        $user = updatedUser;
 
         saving = false;
     };
@@ -133,21 +122,21 @@
                         {#if $user.picture}
                             <img
                                 class="h-28 w-28 rounded-full border-zinc-300"
-                                src={userAvatar}
-                                alt="avatar"
+                                src={userPicture}
+                                alt="Your avatar"
                             />
                         {/if}
 
                         <label
-                            for="avatar"
+                            for="picture"
                             class="px-2 -mt-6 -ml-16 cursor-pointer text-center font-sm text-zinc-300 bg-zinc-800 border border-zinc-600 rounded-lg"
                         >
                             Edit
                             <input
-                                on:change={onAvatarChange}
+                                on:change={onPictureChange}
                                 type="file"
-                                id="avatar"
-                                name="avatar"
+                                id="picture"
+                                name="picture"
                                 accept={fileTypes.join(",")}
                                 class="hidden"
                             />

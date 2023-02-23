@@ -107,6 +107,27 @@ export default (
                     }).then(parseResponseJSON),
             },
         },
+        users: {
+            update: async (
+                token: string,
+                params: { name?: string; picture?: File }
+            ) => {
+                const formData = new FormData();
+                if (params.name) {
+                    formData.append("name", params.name);
+                }
+                if (params.picture) {
+                    formData.append("data", params.picture);
+                }
+                return fetch(getUrl(`users.json`), {
+                    method: "PUT",
+                    headers: {
+                        "X-Auth-Token": token,
+                    },
+                    body: formData,
+                }).then(parseResponseJSON);
+            },
+        },
         projects: {
             create: (
                 token: string,
