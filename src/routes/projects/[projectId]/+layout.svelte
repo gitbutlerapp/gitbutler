@@ -94,14 +94,14 @@
         class="flex items-center flex-shrink-0 h-6 border-t select-none border-zinc-700 bg-zinc-900 "
     >
         <div
-            class="flex flex-row mx-4 items-center space-x-2 text-xs justify-between w-full"
+            class="flex flex-row mx-4 items-center space-x-2 justify-between w-full"
         >
             {#if $project?.api?.sync}
                 <a
                     href="/projects/{$project?.id}/settings"
                     class="text-zinc-400 hover:text-zinc-300"
                 >
-                    <div class="flex flex-row items-center space-x-2 text-xs">
+                    <div class="flex flex-row items-center space-x-2 ">
                         <div class="w-2 h-2 bg-green-700 rounded-full" />
                         <div class="text-zinc-200">Syncing</div>
                     </div>
@@ -114,7 +114,7 @@
                     href="/projects/{$project?.id}/settings"
                     class="text-zinc-400 hover:text-zinc-300"
                 >
-                    <div class="flex flex-row items-center space-x-2 text-xs">
+                    <div class="flex flex-row items-center space-x-2 ">
                         <div class="w-2 h-2 bg-red-700 rounded-full" />
                         <div class="text-zinc-200">Offline</div>
                     </div>

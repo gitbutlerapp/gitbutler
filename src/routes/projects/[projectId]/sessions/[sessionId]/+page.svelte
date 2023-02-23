@@ -136,7 +136,7 @@
             <div
                 class="overflow-hidden sticky top-0 z-30 bg-zinc-800 flex-none shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1"
             >
-                <div class="grid-cols-11 -mr-px text-sm  border-zinc-700  grid">
+                <div class="grid-cols-11 -mr-px  border-zinc-700  grid">
                     <div />
                     <div
                         class="col-span-2 flex items-center justify-center py-2"
@@ -196,7 +196,7 @@
                                     : ''}"
                             >
                                 <button
-                                    class="z-20 flex justify-end items-center overflow-hidden sticky left-0 w-1/6 text-xs leading-5 
+                                    class="z-20 flex justify-end items-center overflow-hidden sticky left-0 w-1/6 leading-5 
                                     {selectedFileIdx == i
                                         ? 'text-zinc-200 cursor-default'
                                         : 'text-zinc-400 hover:text-zinc-200 cursor-pointer'}"
@@ -250,7 +250,7 @@
                                     )} / span 1;"
                                 >
                                     <button
-                                        class="z-20 h-full flex flex-col w-full items-center justify-center  text-xs "
+                                        class="z-20 h-full flex flex-col w-full items-center justify-center"
                                         on:click={() => {
                                             value = timeStampToCol(
                                                 new Date(delta.timestampMs)

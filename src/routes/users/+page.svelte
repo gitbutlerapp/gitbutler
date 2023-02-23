@@ -107,7 +107,7 @@
                 <div class="mt-8 text-center">
                     <Login {user} {api} />
                 </div>
-                <div class="text-sm text-zinc-300 text-center">
+                <div class="text-zinc-300 text-center">
                     You will still need to give us permission for each project
                     before we transfer any data to our servers. You can revoke
                     this permission at any time.

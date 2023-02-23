@@ -80,10 +80,10 @@
             />
         </div>
     </div>
-    <div id="time-range" class="text-xs">
+    <div id="time-range" class="">
         {toHumanReadableDate(session.meta.startTimestampMs)},
         {toHumanReadableTime(session.meta.startTimestampMs)}
-        <div class="text-xs text-zinc-600">
+        <div class=" text-zinc-600">
             {Math.round(
                 (session.meta.lastTimestampMs - session.meta.startTimestampMs) /
                     60
@@ -97,7 +97,7 @@
                     <div class="w-6 h-6 text-white fill-blue-400">
                         {@html pathToIconSvg(delta)}
                     </div>
-                    <div class="text-xs text-white w-24 truncate">
+                    <div class="text-white w-24 truncate">
                         {pathToName(delta)}
                     </div>
                 </div>

@@ -41,7 +41,7 @@
     <a
         {href}
         title={startTime.toLocaleTimeString()}
-        class="group absolute inset-1 flex flex-col items-center justify-center rounded-lg bg-zinc-300 p-3 text-xs leading-5 hover:bg-zinc-200 shadow"
+        class="group absolute inset-1 flex flex-col items-center justify-center rounded-lg bg-zinc-300 p-3 leading-5 hover:bg-zinc-200 shadow"
     >
         <p class="order-1 font-semibold text-zinc-800">
             {toHumanBranchName(label)}

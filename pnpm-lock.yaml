@@ -19,6 +19,7 @@ specifiers:
   eslint-plugin-unicorn: ^45.0.2
   fluent-svelte: ^1.6.0
   idb-keyval: ^6.2.0
+  inter-ui: ^3.19.3
   mm-jsr: ^3.0.2
   nanoid: ^4.0.1
   postcss: ^8.4.14
@@ -47,6 +48,7 @@ dependencies:
   date-fns: 2.29.3
   fluent-svelte: 1.6.0
   idb-keyval: 6.2.0
+  inter-ui: 3.19.3
   mm-jsr: 3.0.2
   nanoid: 4.0.1
   posthog-js: 1.46.1
@@ -1664,6 +1666,10 @@ packages:
   /inherits/2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
     dev: true
+
+  /inter-ui/3.19.3:
+    resolution: {integrity: sha512-5FG9fjuYOXocIfjzcCBhICL5cpvwEetseL3FU6tP3d6Bn7g8wODhB+I9RNGRTizCT7CUG4GOK54OPxqq3msQgg==}
+    dev: false
 
   /internal-slot/1.0.5:
     resolution: {integrity: sha512-Y+R5hJrzs52QCG2laLn4udYVnxsfny9CpOhNhUvk/SSSVyF6T27FzRbF0sroPidSu3X8oEAkOn2K804mjpt6UQ==}

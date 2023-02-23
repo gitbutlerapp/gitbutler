@@ -17,7 +17,7 @@
             <div class="font-bold text-zinc-300">
                 {toHumanBranchName(session.meta.branch)}
             </div>
-            <div class="mt-1 text-xs">
+            <div class="mt-1">
                 <span>
                     {#if session.meta.startTimestampMs}
                         {toHumanReadableTime(session.meta.startTimestampMs)}

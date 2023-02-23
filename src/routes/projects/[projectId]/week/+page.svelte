@@ -65,7 +65,7 @@
                 class="overflow-hidden sticky top-0 z-30 bg-zinc-800 flex-none shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 pr-8"
             >
                 <div
-                    class="grid-cols-7 -mr-px text-sm leading-6 border-r border-zinc-700 divide-x divide-zinc-700 grid"
+                    class="grid-cols-7 -mr-px  leading-6 border-r border-zinc-700 divide-x divide-zinc-700 grid"
                 >
                     <div class="col-end-1 w-14" />
                     <div class="flex items-center justify-center py-3">
@@ -139,7 +139,7 @@
                         <div class="row-end-1 h-7" />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 12AM
                             </div>
@@ -147,7 +147,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 2AM
                             </div>
@@ -155,7 +155,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 4AM
                             </div>
@@ -163,7 +163,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 6AM
                             </div>
@@ -171,7 +171,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 8AM
                             </div>
@@ -179,7 +179,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 10AM
                             </div>
@@ -187,7 +187,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 12PM
                             </div>
@@ -195,7 +195,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 2PM
                             </div>
@@ -203,7 +203,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 4PM
                             </div>
@@ -211,7 +211,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 6PM
                             </div>
@@ -219,7 +219,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 8PM
                             </div>
@@ -227,7 +227,7 @@
                         <div />
                         <div>
                             <div
-                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right text-xs leading-5 text-zinc-500"
+                                class="sticky left-0 z-20 -mt-2.5 -ml-14 w-14 pr-2 text-right  leading-5 text-zinc-500"
                             >
                                 10PM
                             </div>

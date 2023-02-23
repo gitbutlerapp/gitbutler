@@ -11,7 +11,7 @@
     export let session: Session | undefined;
 </script>
 
-<div id="session-nav" class="grid grid-cols-3 gap-6 text-sm">
+<div id="session-nav" class="grid grid-cols-3 gap-6">
     <div class="flex items-center justify-center">
         {#if previousSesssion}
             <a

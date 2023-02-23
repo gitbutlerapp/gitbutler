@@ -44,7 +44,7 @@
         <div class="flex flex-col text-zinc-100 space-y-6">
             <div class="space-y-0">
                 <div class="text-lg font-medium">Project Settings</div>
-                <div class="text-sm text-zinc-400">
+                <div class="text-zinc-400">
                     Manage your project settings for <strong
                         >{$project?.title}</strong
                     >
@@ -79,7 +79,7 @@
                                             Git Host
                                         </div>
                                         <div
-                                            class="text-sm text-zinc-400 font-mono"
+                                            class="text-zinc-400 font-mono"
                                         >
                                             {hostname($project?.api?.git_url)}
                                         </div>
@@ -87,7 +87,7 @@
                                             Repository ID
                                         </div>
                                         <div
-                                            class="text-sm text-zinc-400 font-mono"
+                                            class="text-zinc-400 font-mono"
                                         >
                                             {repo_id($project?.api?.git_url)}
                                         </div>
@@ -115,7 +115,7 @@
                 <div class="space-y-2">
                     <div class="flex flex-row space-x-2 items-end">
                         <div class="">GitButler Cloud</div>
-                        <div class="text-xs text-zinc-400">
+                        <div class="text-zinc-400">
                             backup your work and access advanced features
                         </div>
                     </div>
@@ -126,7 +126,7 @@
             {/if}
             <div class="space-y-2">
                 <div class="ml-1">Path</div>
-                <div class="text-sm text-zinc-400 font-mono">
+                <div class="text-zinc-400 font-mono">
                     {$project?.path}
                 </div>
             </div>
