@@ -30,32 +30,31 @@
 </script>
 
 <nav
-    class="flex flex-none justify-between h-12 p-2 px-4 space-x-3 text-lg border-b select-none text-zinc-300 border-zinc-700"
+    class="flex items-center flex-none justify-between py-2 px-8 space-x-3 border-b select-none text-zinc-300 border-zinc-700"
 >
-    <ul class="flex gap-4">
-        <li>
-            <div>
-                <a
-                    class="hover:text-zinc-200"
-                    href="/projects/{$project?.id}/week">Week</a
-                >
-            </div>
-        </li>
-        <li>
-            <a href="/projects/{$project?.id}/day" class="hover:text-zinc-200"
-                >Day</a
-            >
-        </li>
-        {#if lastSessionId}
-            <li>
-                <a
-                    href="/projects/{$project?.id}/sessions/{lastSessionId}"
-                    class="hover:text-zinc-200"
-                    title="go to current session">Session</a
-                >
-            </li>
-        {/if}
-    </ul>
+    <div
+        class="text-zinc-400 font-medium grid grid-cols-3 items-center bg-zinc-700/50 rounded-lg h-7 px-3 gap-1"
+    >
+        <a
+            class="
+       text-center
+        hover:text-zinc-100"
+            href="/projects/{$project?.id}/week">Week</a
+        >
+        <a
+            href="/projects/{$project?.id}/day"
+            class="
+        text-center
+        hover:text-zinc-100">Day</a
+        >
+        <a
+            href="/projects/{$project?.id}/sessions/{lastSessionId}"
+            class="
+            text-center
+            hover:text-zinc-100"
+            title="go to current session">Session</a
+        >
+    </div>
 
     <ul>
         <li>
