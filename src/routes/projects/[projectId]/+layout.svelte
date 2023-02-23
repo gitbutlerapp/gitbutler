@@ -103,7 +103,7 @@
                 >
                     <div class="flex flex-row items-center space-x-2 text-xs">
                         <div class="w-2 h-2 bg-green-700 rounded-full" />
-                        <div class="text-zinc-200">Up to date</div>
+                        <div class="text-zinc-200">Syncing</div>
                     </div>
                 </a>
                 <a target="_blank" href={projectUrl($project)}
