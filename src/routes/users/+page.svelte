@@ -6,94 +6,154 @@
     export let data: PageData;
     const { user, api } = data;
 
-    $: editing = false;
     $: saving = false;
 
     let userName = $user?.name;
+    let userAvatar = $user?.picture;
 
-    const onEditClicked = () => {
-        editing = true;
+    const fileTypes = [
+        "image/apng",
+        "image/bmp",
+        "image/gif",
+        "image/jpeg",
+        "image/pjpeg",
+        "image/png",
+        "image/svg+xml",
+        "image/tiff",
+        "image/webp",
+        "image/x-icon",
+    ];
+
+    const validFileType = (file: File) => fileTypes.includes(file.type);
+
+    const onAvatarChange = (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        const file = target.files?.[0];
+
+        if (file && validFileType(file)) {
+            userAvatar = URL.createObjectURL(file);
+        } else {
+            userAvatar = $user?.picture;
+        }
     };
 
-    const onSaveClicked = async () => {
-        if (!$user) {
-            return;
-        } else {
-            saving = true;
+    const onSubmit = async (e: SubmitEvent) => {
+        if (!$user) return;
+        saving = true;
 
+        const target = e.target as HTMLFormElement;
+        const formData = new FormData(target);
+        const name = formData.get("name") as string;
+        const avatar = formData.get("avatar") as File;
+
+        {
             // TODO: do actual api call
             await new Promise((resolve) => setTimeout(resolve, 300));
-            if (userName) {
-                $user.name = userName;
+            if (name?.length > 0) {
+                userName = name;
+                $user.name = name;
+            } else {
+                userName = $user.name;
             }
 
-            saving = false;
-            editing = false;
+            if (validFileType(avatar)) {
+                userAvatar = URL.createObjectURL(avatar);
+                $user.picture = userAvatar;
+            } else {
+                userAvatar = $user.picture;
+            }
         }
+
+        saving = false;
     };
 </script>
 
 <div class="p-4 mx-auto">
     <div class="max-w-xl mx-auto p-4">
         {#if $user}
-            <div class="flex flex-col text-zinc-100 space-y-6">
-                <!-- cloud account -->
-                <div class="space-y-2">
-                    <div class="text-lg font-medium">
+            <div class="flex flex-col gap-6 text-zinc-100">
+                <header class="flex items-center justify-between">
+                    <h2 class="text-2xl font-medium">
                         GitButler Cloud Account
-                    </div>
-                    <div
-                        class="flex flex-row justify-between border border-zinc-600 rounded-lg p-2 items-center"
-                    >
-                        <div class="flex flex-row space-x-3">
-                            {#if $user.picture}
-                                <img
-                                    class="h-12 w-12 rounded-full border-2 border-zinc-300"
-                                    src={$user.picture}
-                                    alt="avatar"
-                                />
-                            {/if}
-                            <div>
-                                {#if editing}
-                                    <input
-                                        bind:value={userName}
-                                        type="text"
-                                        class="px-1 ring ring-zinc-600 rounded-lg bg-inherit"
-                                    />
-                                {:else}
-                                    <div class="px-1">{$user.name}</div>
-                                {/if}
-                                <div class="px-1 text-zinc-400">
-                                    {$user.email}
-                                </div>
-                            </div>
+                    </h2>
+                    <Login {user} {api} />
+                </header>
+
+                <form
+                    on:submit={onSubmit}
+                    class="flex flex-row gap-12 justify-between rounded-lg p-2 items-start"
+                >
+                    <fields id="left" class="flex flex-1 flex-col gap-3">
+                        <div class="flex flex-col gap-1">
+                            <label for="name" class="text-zinc-400">Name</label>
+                            <input
+                                id="name"
+                                name="name"
+                                bind:value={userName}
+                                type="text"
+                                class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+                            />
                         </div>
-                        <div class="flex gap-2">
+
+                        <div class="flex flex-col gap-1">
+                            <label for="email" class="text-zinc-400"
+                                >Email</label
+                            >
+                            <input
+                                disabled
+                                id="email"
+                                name="email"
+                                bind:value={$user.email}
+                                type="text"
+                                class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+                            />
+                        </div>
+
+                        <footer class="pt-4">
                             {#if saving}
                                 <div
-                                    class="flex items-center py-1 px-6 rounded text-white bg-blue-400"
+                                    class="flex w-32 flex-row w-content items-center gap-1 justify-center py-1 px-3 rounded text-white bg-blue-400"
                                 >
                                     <div class="animate-spin w-5 h-5">
                                         <MdAutorenew />
                                     </div>
+                                    <span>Updating...</span>
                                 </div>
-                            {:else if editing}
-                                <button
-                                    on:click={onSaveClicked}
-                                    class="py-1 px-3 rounded text-white bg-blue-400"
-                                    >Save</button
-                                >
                             {:else}
                                 <button
-                                    on:click={onEditClicked}
+                                    type="submit"
                                     class="py-1 px-3 rounded text-white bg-blue-400"
-                                    >Edit profile</button
+                                    >Update profile</button
                                 >
                             {/if}
-                            <Login {user} {api} />
-                        </div>
-                    </div>
-                </div>
+                        </footer>
+                    </fields>
+
+                    <fields id="right" class="flex flex-col gap-2 items-center">
+                        {#if $user.picture}
+                            <img
+                                class="h-28 w-28 rounded-full border-zinc-300"
+                                src={userAvatar}
+                                alt="avatar"
+                            />
+                        {/if}
+
+                        <label
+                            for="avatar"
+                            class="px-2 -mt-6 -ml-16 cursor-pointer text-center font-sm text-zinc-300 bg-zinc-800 border border-zinc-600 rounded-lg"
+                        >
+                            Edit
+                            <input
+                                on:change={onAvatarChange}
+                                type="file"
+                                id="avatar"
+                                name="avatar"
+                                accept={fileTypes.join(",")}
+                                class="hidden"
+                            />
+                        </label>
+                    </fields>
+                </form>
             </div>
         {:else}
             <div
