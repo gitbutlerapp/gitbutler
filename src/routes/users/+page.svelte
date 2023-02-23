@@ -1,9 +1,36 @@
 <script lang="ts">
     import { Login } from "$lib/components";
     import type { PageData } from "./$types";
+    import MdAutorenew from "svelte-icons/md/MdAutorenew.svelte";
 
     export let data: PageData;
     const { user, api } = data;
+
+    $: editing = false;
+    $: saving = false;
+
+    let userName = $user?.name;
+
+    const onEditClicked = () => {
+        editing = true;
+    };
+
+    const onSaveClicked = async () => {
+        if (!$user) {
+            return;
+        } else {
+            saving = true;
+
+            // TODO: do actual api call
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            if (userName) {
+                $user.name = userName;
+            }
+
+            saving = false;
+            editing = false;
+        }
+    };
 </script>
 
 <div class="p-4 mx-auto">
@@ -27,11 +54,42 @@
                                 />
                             {/if}
                             <div>
-                                <div>{$user.name}</div>
-                                <div class="text-zinc-400">{$user.email}</div>
+                                {#if editing}
+                                    <input
+                                        bind:value={userName}
+                                        type="text"
+                                        class="px-1 ring ring-zinc-600 rounded-lg bg-inherit"
+                                    />
+                                {:else}
+                                    <div class="px-1">{$user.name}</div>
+                                {/if}
+                                <div class="px-1 text-zinc-400">
+                                    {$user.email}
+                                </div>
                             </div>
                         </div>
-                        <div>
+                        <div class="flex gap-2">
+                            {#if saving}
+                                <div
+                                    class="flex items-center py-1 px-6 rounded text-white bg-blue-400"
+                                >
+                                    <div class="animate-spin w-5 h-5">
+                                        <MdAutorenew />
+                                    </div>
+                                </div>
+                            {:else if editing}
+                                <button
+                                    on:click={onSaveClicked}
+                                    class="py-1 px-3 rounded text-white bg-blue-400"
+                                    >Save</button
+                                >
+                            {:else}
+                                <button
+                                    on:click={onEditClicked}
+                                    class="py-1 px-3 rounded text-white bg-blue-400"
+                                    >Edit profile</button
+                                >
+                            {/if}
                             <Login {user} {api} />
                         </div>
                     </div>
