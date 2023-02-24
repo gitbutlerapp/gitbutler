@@ -8,7 +8,7 @@
     import { derived } from "svelte/store";
     import { Operation } from "$lib/deltas";
     import { Slider } from "fluent-svelte";
-    import { CodeViewerNext } from "$lib/components";
+    import { CodeViewer } from "$lib/components";
     import "fluent-svelte/theme.css";
 
     export let data: PageData;
@@ -287,7 +287,7 @@
                 <div class="col-span-2" />
                 <div class="col-span-8 p-1 bg-zinc-500/70 rounded select-text">
                     {#if $doc}
-                        <CodeViewerNext value={$doc} />
+                        <CodeViewer value={$doc} />
                     {/if}
                 </div>
                 <div class="" />
