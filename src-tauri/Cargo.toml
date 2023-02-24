@@ -34,6 +34,7 @@ tempfile = "3.3.0"
 reqwest = "0.11.14"
 md5 = "0.7.0"
 urlencoding = "2.1.2"
+thiserror = "1.0.38"
 
 [features]
 # by default Tauri runs in production mode

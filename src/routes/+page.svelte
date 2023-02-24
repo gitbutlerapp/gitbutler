@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { open } from '@tauri-apps/api/dialog';
 	import type { LayoutData } from './$types';
+	import { toasts } from '$lib';
+
 	export let data: LayoutData;
 
 	const { projects } = data;
@@ -14,10 +16,11 @@
 		if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
 		const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
 
-		const projectExists = $projects.some((p) => p.path === projectPath);
-		if (projectExists) return;
-
-		await projects.add({ path: projectPath });
+		try {
+			await projects.add({ path: projectPath });
+		} catch (e: any) {
+			toasts.error(e.message);
+		}
 	};
 </script>
 

@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use thiserror::Error;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ApiProject {
@@ -31,6 +31,16 @@ impl AsRef<Project> for Project {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum CreateError {
+    #[error("{0} does not exist")]
+    PathNotFound(String),
+    #[error("{0} is not a directory")]
+    NotADirectory(String),
+    #[error("{0} is not a git repository")]
+    NotAGitRepository(String),
+}
+
 impl Project {
     pub fn refname(&self) -> String {
         format!("refs/gitbutler-{}/current", self.id)
@@ -47,34 +57,40 @@ impl Project {
         self.session_path().join("deltas")
     }
 
-    pub fn from_path(path: String) -> Result<Self> {
+    pub fn from_path(fpath: String) -> Result<Self, CreateError> {
         // make sure path exists
-        let path = std::path::Path::new(&path);
+        let path = std::path::Path::new(&fpath);
         if !path.exists() {
-            return Err(anyhow!("path {} does not exist", path.display()));
+            return Err(CreateError::PathNotFound(fpath).into());
         }
 
         // make sure path is a directory
         if !path.is_dir() {
-            return Err(anyhow!("path {} is not a directory", path.display()));
+            return Err(CreateError::NotADirectory(fpath).into());
         }
 
         // make sure it's a git repository
         if !path.join(".git").exists() {
-            return Err(anyhow!("path {} is not a git repository", path.display()));
+            return Err(CreateError::NotAGitRepository(fpath).into());
         };
 
+        let id = uuid::Uuid::new_v4().to_string();
+
         // title is the base name of the file
-        path.into_iter()
+        let title = path
+            .into_iter()
             .last()
             .map(|p| p.to_str().unwrap().to_string())
-            .map(|title| Self {
-                id: uuid::Uuid::new_v4().to_string(),
-                deleted: false,
-                title,
-                path: path.to_str().unwrap().to_string(),
-                api: None,
-            })
-            .ok_or_else(|| anyhow!("failed to get title from path"))
+            .unwrap_or_else(|| id.clone());
+
+        let project = Project {
+            id: uuid::Uuid::new_v4().to_string(),
+            deleted: false,
+            title,
+            path: path.to_str().unwrap().to_string(),
+            api: None,
+        };
+
+        Ok(project)
     }
 }
