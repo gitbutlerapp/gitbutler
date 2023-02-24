@@ -1,1 +1,1 @@
-export { default as WeekBlockEntry } from "./WeekBlockEntry.svelte";
+export { default as WeekBlockEntry } from './WeekBlockEntry.svelte';
