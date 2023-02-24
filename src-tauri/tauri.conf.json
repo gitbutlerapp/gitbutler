@@ -20,6 +20,13 @@
                 "all": false,
                 "open": true
             },
+            "protocol": {
+                "all": false,
+                "asset": true,
+                "assetScope": [
+                    "$APPCACHE/images/*"
+                ]
+            },
             "window": {
                 "all": false,
                 "startDragging": true
@@ -43,7 +50,7 @@
             "targets": ["dmg", "updater"]
         },
         "security": {
-            "csp": null
+            "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost"
         },
         "systemTray": {
             "iconPath": "icons/tray.png",
