@@ -1,41 +1,147 @@
 <script lang="ts">
     import { Login } from "$lib/components";
     import type { PageData } from "./$types";
+    import MdAutorenew from "svelte-icons/md/MdAutorenew.svelte";
+    import { log, toasts } from "$lib";
 
     export let data: PageData;
     const { user, api } = data;
+
+    $: saving = false;
+
+    let userName = $user?.name;
+    let userPicture = $user?.picture;
+
+    const fileTypes = ["image/jpeg", "image/png"];
+
+    const validFileType = (file: File) => {
+        return fileTypes.includes(file.type);
+    };
+
+    const onPictureChange = (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        const file = target.files?.[0];
+
+        if (file && validFileType(file)) {
+            userPicture = URL.createObjectURL(file);
+        } else {
+            userPicture = $user?.picture;
+            toasts.error("Please use a valid image file");
+        }
+    };
+
+    const onSubmit = async (e: SubmitEvent) => {
+        if (!$user) return;
+        saving = true;
+
+        const target = e.target as HTMLFormElement;
+        const formData = new FormData(target);
+        const name = formData.get("name") as string | undefined;
+        const picture = formData.get("picture") as File | undefined;
+
+        try {
+            $user = await api.user.update($user.access_token, {
+                name,
+                picture: picture,
+            });
+            toasts.success("Profile updated");
+        } catch (e) {
+            log.error(e);
+            toasts.error("Failed to update user");
+        }
+
+        saving = false;
+    };
 </script>
 
 <div class="p-4 mx-auto">
     <div class="max-w-xl mx-auto p-4">
         {#if $user}
-            <div class="flex flex-col text-zinc-100 space-y-6">
-                <!-- cloud account -->
-                <div class="space-y-2">
-                    <div class="text-lg font-medium">
+            <div class="flex flex-col gap-6 text-zinc-100">
+                <header class="flex items-center justify-between">
+                    <h2 class="text-2xl font-medium">
                         GitButler Cloud Account
-                    </div>
-                    <div
-                        class="flex flex-row justify-between border border-zinc-600 rounded-lg p-2 items-center"
-                    >
-                        <div class="flex flex-row space-x-3">
-                            {#if $user.picture}
-                                <img
-                                    class="h-12 w-12 rounded-full border-2 border-zinc-300"
-                                    src={$user.picture}
-                                    alt="avatar"
-                                />
+                    </h2>
+                    <Login {user} {api} />
+                </header>
+
+                <form
+                    on:submit={onSubmit}
+                    class="flex flex-row gap-12 justify-between rounded-lg p-2 items-start"
+                >
+                    <fields id="left" class="flex flex-1 flex-col gap-3">
+                        <div class="flex flex-col gap-1">
+                            <label for="name" class="text-zinc-400">Name</label>
+                            <input
+                                id="name"
+                                name="name"
+                                bind:value={userName}
+                                type="text"
+                                class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+                                required
+                            />
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <label for="email" class="text-zinc-400"
+                                >Email</label
+                            >
+                            <input
+                                disabled
+                                id="email"
+                                name="email"
+                                bind:value={$user.email}
+                                type="text"
+                                class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+                            />
+                        </div>
+
+                        <footer class="pt-4">
+                            {#if saving}
+                                <div
+                                    class="flex w-32 flex-row w-content items-center gap-1 justify-center py-1 px-3 rounded text-white bg-blue-400"
+                                >
+                                    <div class="animate-spin w-5 h-5">
+                                        <MdAutorenew />
+                                    </div>
+                                    <span>Updating...</span>
+                                </div>
+                            {:else}
+                                <button
+                                    type="submit"
+                                    class="py-1 px-3 rounded text-white bg-blue-400"
+                                    >Update profile</button
+                                >
                             {/if}
-                            <div>
-                                <div>{$user.name}</div>
-                                <div class="text-zinc-400">{$user.email}</div>
-                            </div>
-                        </div>
-                        <div>
-                            <Login {user} {api} />
-                        </div>
-                    </div>
-                </div>
+                        </footer>
+                    </fields>
+
+                    <fields id="right" class="flex flex-col gap-2 items-center">
+                        {#if $user.picture}
+                            <img
+                                class="h-28 w-28 rounded-full border-zinc-300"
+                                src={userPicture}
+                                alt="Your avatar"
+                                required
+                            />
+                        {/if}
+
+                        <label
+                            for="picture"
+                            class="px-2 -mt-6 -ml-16 cursor-pointer text-center font-sm text-zinc-300 bg-zinc-800 border border-zinc-600 rounded-lg"
+                        >
+                            Edit
+                            <input
+                                on:change={onPictureChange}
+                                type="file"
+                                id="picture"
+                                name="picture"
+                                accept={fileTypes.join("")}
+                                class="hidden"
+                            />
+                        </label>
+                    </fields>
+                </form>
             </div>
         {:else}
             <div

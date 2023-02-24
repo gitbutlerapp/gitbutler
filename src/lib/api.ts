@@ -107,6 +107,34 @@ export default (
                     }).then(parseResponseJSON),
             },
         },
+        user: {
+            get: async (token: string): Promise<User> =>
+                fetch(getUrl(`user.json`), {
+                    method: "GET",
+                    headers: {
+                        "X-Auth-Token": token,
+                    },
+                }).then(parseResponseJSON),
+            update: async (
+                token: string,
+                params: { name?: string; picture?: File }
+            ) => {
+                const formData = new FormData();
+                if (params.name) {
+                    formData.append("name", params.name);
+                }
+                if (params.picture) {
+                    formData.append("avatar", params.picture);
+                }
+                return fetch(getUrl(`user.json`), {
+                    method: "PUT",
+                    headers: {
+                        "X-Auth-Token": token,
+                    },
+                    body: formData,
+                }).then(parseResponseJSON);
+            },
+        },
         projects: {
             create: (
                 token: string,

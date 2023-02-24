@@ -4,11 +4,11 @@
     import type { PageData } from "./$types";
     import { add, format, differenceInSeconds, addSeconds } from "date-fns";
     import { page } from "$app/stores";
-    import { onMount } from 'svelte';
+    import { onMount } from "svelte";
     import { derived } from "svelte/store";
     import { Operation } from "$lib/deltas";
     import { Slider } from "fluent-svelte";
-    import { CodeViewerNext } from "$lib/components";
+    import { CodeViewer } from "$lib/components";
     import "fluent-svelte/theme.css";
 
     export let data: PageData;
@@ -25,14 +25,14 @@
     // Also, if the session is current, the end time moves.
 
     onMount(() => {
-		const interval = setInterval(() => {
-			time = new Date();
-		}, 10000);
+        const interval = setInterval(() => {
+            time = new Date();
+        }, 10000);
 
-		return () => {
-			clearInterval(interval);
-		};
-	});
+        return () => {
+            clearInterval(interval);
+        };
+    });
     $: midpoint = add(start, {
         seconds: differenceInSeconds(end, start) * 0.5,
     });
@@ -91,36 +91,55 @@
 
         operations.forEach((operation) => {
             if (Operation.isInsert(operation)) {
-                text = text.slice(0, operation.insert[0]) + operation.insert[1] + text.slice(operation.insert[0]);
+                text =
+                    text.slice(0, operation.insert[0]) +
+                    operation.insert[1] +
+                    text.slice(operation.insert[0]);
             } else if (Operation.isDelete(operation)) {
-                text = text.slice(0, operation.delete[0]) + text.slice(operation.delete[0] + operation.delete[1]);
+                text =
+                    text.slice(0, operation.delete[0]) +
+                    text.slice(operation.delete[0] + operation.delete[1]);
             }
         });
 
         return text;
     });
+
+    const formatDate = (date: Date) => {
+        return new Intl.DateTimeFormat("default", {
+            weekday: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "numeric",
+        }).format(date);
+    };
 </script>
 
-<div class="flex flex-col h-full  text-zinc-400">
+<div class="flex flex-col h-full  text-zinc-400 overflow-hidden">
     <header
-        class="flex items-center justify-between flex-none px-6 py-4 border-b border-zinc-700"
+        class="flex items-center justify-between flex-none px-8 py-1.5 border-b border-zinc-700"
     >
-        <div class="flex items-center justify-start  w-72">
+        <div class="flex items-center justify-start  w-64">
             <a
                 href="/projects/{$page.params
                     .projectId}/sessions/{$previousSesssion?.id}"
-                class="w-8 h-8 hover:text-zinc-200 {$previousSesssion
+                class="-ml-2 w-8 h-8 hover:text-zinc-100 {$previousSesssion
                     ? ''
                     : 'opacity-50 pointer-events-none cursor-not-allowed'}"
             >
                 <MdKeyboardArrowLeft />
             </a>
+            <div class="flex-grow text-center cursor-default grid grid-cols-7">
+                <span class="col-span-3">{formatDate(start)}</span>
+                <span>&mdash;</span>
+                <span class="col-span-3">{formatDate(end)}</span>
+            </div>
             <a
                 href="/projects/{$page.params
                     .projectId}/sessions/{$nextSession?.id}"
-                class="w-8 h-8 hover:text-zinc-200 {$nextSession
+                class="-mr-2 w-8 h-8 hover:text-zinc-100 {$nextSession
                     ? ''
-                    : 'opacity-50 pointer-events-none cursor-not-allowed'}"
+                    : 'text-zinc-700 pointer-events-none cursor-not-allowed'}"
             >
                 <MdKeyboardArrowRight />
             </a>
@@ -129,9 +148,9 @@
 
     <!-- main part -->
     <div
-        class="flex flex-col flex-none max-w-full select-none border-b border-zinc-700"
+        class="flex flex-col flex-none max-w-full select-none border-b border-zinc-700 h-full overflow-auto"
     >
-        <div class="flex flex-col flex-none max-w-full">
+        <div class="flex flex-col flex-none max-w-full mb-40">
             <!-- sticky header -->
             <div
                 class="overflow-hidden sticky top-0 z-30 bg-zinc-800 flex-none shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1"
@@ -262,17 +281,16 @@
                             {/each}
                         {/each}
                     </ol>
-
-                    <div class="grid grid-cols-11 mt-6">
-                        <div class="col-span-2" />
-                        <div class="col-span-8 p-1 bg-zinc-500/70 rounded">
-                            {#if $doc}
-                                <CodeViewerNext value={$doc} />
-                            {/if}
-                        </div>
-                        <div class="" />
-                    </div>
                 </div>
+            </div>
+            <div class="grid grid-cols-11 mt-6">
+                <div class="col-span-2" />
+                <div class="col-span-8 p-1 bg-zinc-500/70 rounded select-text">
+                    {#if $doc}
+                        <CodeViewer value={$doc} />
+                    {/if}
+                </div>
+                <div class="" />
             </div>
         </div>
     </div>

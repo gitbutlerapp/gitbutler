@@ -28,7 +28,7 @@
 <div>
     {#if $user}
         <button
-            class="py-1 px-3 rounded text-white bg-blue-400"
+            class="text-zinc-400 hover:underline"
             on:click={() => user.delete()}>Log out</button
         >
     {:else if $token !== null}

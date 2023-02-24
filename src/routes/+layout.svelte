@@ -1,6 +1,7 @@
 <script lang="ts">
     import "../app.postcss";
 
+    import { Toaster } from "svelte-french-toast";
     import type { LayoutData } from "./$types";
     import { BackForwardButtons } from "$lib/components";
     import { setContext } from "svelte";
@@ -26,14 +27,27 @@
         </div>
         <div class="ml-6"><Breadcrumbs /></div>
         <div class="flex-grow" />
-        <a href="/users/" class="mr-4 font-medium hover:text-zinc-200"
-            >{$user ? $user.email : "Login"}</a
+        <a
+            href="/users/"
+            class="flex items-center gap-2 mr-4 font-medium hover:text-zinc-200"
         >
+            {#if $user}
+                {#if $user.picture}
+                    <img
+                        class="inline-block w-6 h-6 rounded-full"
+                        src={$user.picture}
+                        alt="Avatar"
+                    />
+                {/if}
+                <span>{$user.name}</span>
+            {:else}
+                <span>Connect to GitButler Cloud</span>
+            {/if}
+        </a>
     </header>
 
     <div class="flex-grow bg-zinc-800 text-zinc-400">
-        <!-- <div class="flex-1"> -->
         <slot />
-        <!-- </div> -->
     </div>
+    <Toaster />
 </div>

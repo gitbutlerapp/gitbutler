@@ -3,23 +3,49 @@
 
     import { EditorState, StateField, StateEffect } from "@codemirror/state";
     import { EditorView, lineNumbers, Decoration } from "@codemirror/view";
-    import { MergeView } from "@codemirror/merge";
+
+    let editorTheme = EditorView.theme(
+        {
+            "&": {
+                color: "#d4d4d8",
+                backgroundColor: "#18181b",
+            },
+            ".cm-content": {
+                caretColor: "#0e9",
+            },
+            "&.cm-focused .cm-cursor": {
+                borderLeftColor: "#0e9",
+            },
+            "&.cm-focused .cm-selectionBackground, ::selection": {
+                backgroundColor: "#0284c7",
+            },
+            ".cm-gutters": {
+                backgroundColor: "#18181b",
+                color: "#3f3f46",
+                border: "none",
+            },
+        },
+        { dark: true }
+    );
+    const fixedHeightEditor = EditorView.theme({
+        "&": { height: "600px" },
+        ".cm-scroller": { overflow: "auto" },
+    });
 
     export let value: string;
-    export let newValue: string;
 
     let element: HTMLDivElement;
-    let mergeView: MergeView;
+    let editorView: EditorView;
 
-    onMount(() => (mergeView = create_merge_view(value, newValue)));
-    onDestroy(() => mergeView?.destroy());
+    onMount(() => (editorView = create_editor_view(value)));
+    onDestroy(() => editorView?.destroy());
 
-    $: mergeView && update(value, newValue);
+    $: editorView && update(value);
 
     // There may be a more graceful way to update the two editors
-    function update(a: string, b: string): void {
-        mergeView?.destroy()
-        mergeView = create_merge_view(a, b)
+    function update(value: string): void {
+        editorView?.destroy();
+        editorView = create_editor_view(value);
     }
 
     function create_editor_state(
@@ -31,12 +57,10 @@
         });
     }
 
-    function create_merge_view(a: string, b: string): MergeView {
-        return new MergeView({
-            a: create_editor_state(a),
-            b: create_editor_state(b),
+    function create_editor_view(value: string): EditorView {
+        return new EditorView({
+            state: create_editor_state(value),
             parent: element,
-            collapseUnchanged: { margin: 3, minSize: 3 },
         });
     }
 
@@ -44,6 +68,8 @@
         EditorView.editable.of(false),
         EditorView.lineWrapping,
         lineNumbers(),
+        editorTheme,
+        fixedHeightEditor,
     ];
 </script>
 

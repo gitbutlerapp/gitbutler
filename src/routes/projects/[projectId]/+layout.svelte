@@ -4,6 +4,7 @@
     import type { Writable } from "svelte/store";
     import type { Project } from "$lib/projects";
     import { onDestroy } from "svelte";
+    import { page } from "$app/stores";
 
     export let data: LayoutData;
 
@@ -27,31 +28,33 @@
     onDestroy(() => {
         contextProjectStore.set(null);
     });
+
+    $: selection = $page?.route?.id?.split("/")?.[3];
 </script>
 
 <nav
     class="flex items-center flex-none justify-between py-2 px-8 space-x-3 border-b select-none text-zinc-300 border-zinc-700"
 >
     <div
-        class="text-zinc-400 font-medium grid grid-cols-3 items-center bg-zinc-700/50 rounded-lg h-7 px-3 gap-1"
+        class="text-zinc-400 w-64 font-medium grid grid-cols-3 items-center bg-zinc-700/50 rounded-lg h-7 px-4 gap-1"
     >
         <a
             class="
-       text-center
-        hover:text-zinc-100"
+       {selection === 'week' ? 'bg-zinc-600/70 text-zinc-100' : ''}
+       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100"
             href="/projects/{$project?.id}/week">Week</a
         >
         <a
             href="/projects/{$project?.id}/day"
             class="
-        text-center
-        hover:text-zinc-100">Day</a
+       {selection === 'day' ? 'bg-zinc-600/70 text-zinc-100' : ''}
+       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100">Day</a
         >
         <a
             href="/projects/{$project?.id}/sessions/{lastSessionId}"
             class="
-            text-center
-            hover:text-zinc-100"
+       {selection === 'sessions' ? 'bg-zinc-600/70 text-zinc-100' : ''}
+       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100"
             title="go to current session">Session</a
         >
     </div>
