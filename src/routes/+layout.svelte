@@ -1,6 +1,7 @@
 <script lang="ts">
     import "../app.postcss";
 
+    import { Toaster } from "svelte-french-toast";
     import type { LayoutData } from "./$types";
     import { BackForwardButtons } from "$lib/components";
     import { setContext } from "svelte";
@@ -44,4 +45,5 @@
         </div>
     </div>
     <div id="foo" class="h-8" /> -->
+    <Toaster />
 </div>

@@ -25,6 +25,7 @@
     "nanoid": "^4.0.1",
     "posthog-js": "^1.46.1",
     "seti-icons": "^0.0.4",
+    "svelte-french-toast": "^1.0.3",
     "svelte-icons": "^2.1.0",
     "tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log"
   },

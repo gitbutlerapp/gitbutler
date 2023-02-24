@@ -2,6 +2,7 @@
     import { Login } from "$lib/components";
     import type { PageData } from "./$types";
     import MdAutorenew from "svelte-icons/md/MdAutorenew.svelte";
+    import { log, toasts } from "$lib";
 
     export let data: PageData;
     const { user, api } = data;
@@ -11,20 +12,11 @@
     let userName = $user?.name;
     let userPicture = $user?.picture;
 
-    const fileTypes = [
-        "image/apng",
-        "image/bmp",
-        "image/gif",
-        "image/jpeg",
-        "image/pjpeg",
-        "image/png",
-        "image/svg+xml",
-        "image/tiff",
-        "image/webp",
-        "image/x-icon",
-    ];
+    const fileTypes = ["image/jpeg", "image/png"];
 
-    const validFileType = (file: File) => fileTypes.includes(file.type);
+    const validFileType = (file: File) => {
+        return fileTypes.includes(file.type);
+    };
 
     const onPictureChange = (e: Event) => {
         const target = e.target as HTMLInputElement;
@@ -34,6 +26,7 @@
             userPicture = URL.createObjectURL(file);
         } else {
             userPicture = $user?.picture;
+            toasts.error("Please use a valid image file");
         }
     };
 
@@ -46,12 +39,16 @@
         const name = formData.get("name") as string | undefined;
         const picture = formData.get("picture") as File | undefined;
 
-        const updatedUser = await api.users.update($user.access_token, {
-            name,
-            picture: picture,
-        });
-
-        $user = updatedUser;
+        try {
+            $user = await api.user.update($user.access_token, {
+                name,
+                picture: picture,
+            });
+            toasts.success("Profile updated");
+        } catch (e) {
+            log.error(e);
+            toasts.error("Failed to update user");
+        }
 
         saving = false;
     };
@@ -81,6 +78,7 @@
                                 bind:value={userName}
                                 type="text"
                                 class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+                                required
                             />
                         </div>
 
@@ -124,6 +122,7 @@
                                 class="h-28 w-28 rounded-full border-zinc-300"
                                 src={userPicture}
                                 alt="Your avatar"
+                                required
                             />
                         {/if}
 
@@ -137,7 +136,7 @@
                                 type="file"
                                 id="picture"
                                 name="picture"
-                                accept={fileTypes.join(",")}
+                                accept={fileTypes.join("")}
                                 class="hidden"
                             />
                         </label>
