@@ -60,8 +60,11 @@ fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
 
     let resp = reqwest::blocking::get(src)?;
     if !resp.status().is_success() {
-        log::error!("Failed to download picture {}", src);
-        return Ok(src.to_string());
+        return Err(anyhow::anyhow!(
+            "Failed to download image {}: {}",
+            src,
+            resp.status()
+        ));
     }
 
     let bytes = resp.bytes()?;
