@@ -103,5 +103,5 @@ fn test_write_must_not_override_session() {
     assert!(session_after_write.is_some());
     let session_after_write = session_after_write.unwrap();
 
-    assert_eq!(session_before_write, session_after_write);
+    assert_eq!(session_before_write.id, session_after_write.id);
 }

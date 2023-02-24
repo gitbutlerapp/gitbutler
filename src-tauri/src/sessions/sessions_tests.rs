@@ -17,10 +17,16 @@ fn test_user() -> users::User {
     }
 }
 
-fn test_project() -> Result<(git2::Repository, projects::Project)> {
+fn test_project_empty() -> Result<(git2::Repository, projects::Project)> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
     std::fs::create_dir_all(&path)?;
     let repo = git2::Repository::init(&path)?;
+    let project = projects::Project::from_path(path)?;
+    Ok((repo, project))
+}
+
+fn test_project() -> Result<(git2::Repository, projects::Project)> {
+    let (repo, project) = test_project_empty()?;
     let mut index = repo.index()?;
     let oid = index.write_tree()?;
     let sig = git2::Signature::now("test", "test@email.com").unwrap();
@@ -32,8 +38,6 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
         &repo.find_tree(oid)?,
         &[],
     )?;
-
-    let project = projects::Project::from_path(path)?;
     Ok((repo, project))
 }
 
@@ -68,6 +72,23 @@ fn test_create_current_when_session_dir_exists() {
 }
 
 #[test]
+fn test_create_current_empty() {
+    let (repo, project) = test_project_empty().unwrap();
+    let current_session = super::sessions::Session::from_head(&repo, &project);
+    assert!(current_session.is_ok());
+    assert!(current_session.as_ref().unwrap().id.len() > 0);
+    assert_eq!(current_session.as_ref().unwrap().hash, None);
+    assert!(current_session.as_ref().unwrap().meta.start_timestamp_ms > 0);
+    assert_eq!(
+        current_session.as_ref().unwrap().meta.last_timestamp_ms,
+        current_session.as_ref().unwrap().meta.start_timestamp_ms
+    );
+    assert!(current_session.as_ref().unwrap().meta.branch.is_none());
+    assert!(current_session.as_ref().unwrap().meta.commit.is_none());
+    assert_eq!(current_session.as_ref().unwrap().activity.len(), 0);
+}
+
+#[test]
 fn test_create_current() {
     let (repo, project) = test_project().unwrap();
     let current_session = super::sessions::Session::from_head(&repo, &project);
@@ -79,18 +100,33 @@ fn test_create_current() {
         current_session.as_ref().unwrap().meta.last_timestamp_ms,
         current_session.as_ref().unwrap().meta.start_timestamp_ms
     );
+    assert!(current_session.as_ref().unwrap().meta.branch.is_some());
     assert_eq!(
-        current_session.as_ref().unwrap().meta.branch,
+        current_session
+            .as_ref()
+            .unwrap()
+            .meta
+            .branch
+            .as_ref()
+            .unwrap(),
         "refs/heads/master"
     );
+    assert!(current_session.as_ref().unwrap().meta.commit.is_some());
     assert_eq!(
-        current_session.as_ref().unwrap().meta.commit,
+        current_session
+            .as_ref()
+            .unwrap()
+            .meta
+            .commit
+            .as_ref()
+            .unwrap(),
         repo.head()
             .unwrap()
             .peel_to_commit()
             .unwrap()
             .id()
-            .to_string(),
+            .to_string()
+            .as_str()
     );
     assert_eq!(current_session.as_ref().unwrap().activity.len(), 0);
 }
