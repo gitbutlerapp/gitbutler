@@ -22,9 +22,9 @@ pub struct Meta {
     // timestamp of when the session was last active
     pub last_timestamp_ms: u128,
     // session branch name
-    pub branch: String,
+    pub branch: Option<String>,
     // session commit hash
-    pub commit: String,
+    pub commit: Option<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -66,26 +66,40 @@ impl Session {
             })?;
 
         let branch_path = meta_path.join("branch");
-        let branch = std::fs::read_to_string(branch_path.clone()).with_context(|| {
-            format!("failed to read branch name from {}", branch_path.display())
-        })?;
+        let branch = match branch_path.exists() {
+            true => std::fs::read_to_string(branch_path.clone())
+                .with_context(|| {
+                    format!("failed to read branch name from {}", branch_path.display())
+                })?
+                .into(),
+            false => None,
+        };
 
         let commit_path = meta_path.join("commit");
-        let commit = std::fs::read_to_string(commit_path.clone()).with_context(|| {
-            format!("failed to read commit hash from {}", commit_path.display())
-        })?;
+        let commit = match commit_path.exists() {
+            true => std::fs::read_to_string(commit_path.clone())
+                .with_context(|| {
+                    format!("failed to read commit hash from {}", commit_path.display())
+                })?
+                .into(),
+            false => None,
+        };
 
-        let reflog = std::fs::read_to_string(repo.path().join("logs/HEAD")).with_context(|| {
-            format!(
-                "failed to read reflog from {}",
-                repo.path().join("logs/HEAD").display()
-            )
-        })?;
-        let activity = reflog
-            .lines()
-            .filter_map(|line| activity::parse_reflog_line(line).ok())
-            .filter(|activity| activity.timestamp_ms >= start_ts)
-            .collect::<Vec<activity::Activity>>();
+        let activity_path = repo.path().join("logs/HEAD");
+        let activity = match activity_path.exists() {
+            true => std::fs::read_to_string(activity_path)
+                .with_context(|| {
+                    format!(
+                        "failed to read reflog from {}",
+                        repo.path().join("logs/HEAD").display()
+                    )
+                })?
+                .lines()
+                .filter_map(|line| activity::parse_reflog_line(line).ok())
+                .filter(|activity| activity.timestamp_ms >= start_ts)
+                .collect::<Vec<activity::Activity>>(),
+            false => Vec::new(),
+        };
 
         let id_path = meta_path.join("id");
         let id = std::fs::read_to_string(id_path.clone())
@@ -110,29 +124,34 @@ impl Session {
             .unwrap()
             .as_millis();
 
-        let head = repo.head()?;
+        let activity = match std::fs::read_to_string(repo.path().join("logs/HEAD")) {
+            Ok(reflog) => reflog
+                .lines()
+                .filter_map(|line| activity::parse_reflog_line(line).ok())
+                .filter(|activity| activity.timestamp_ms >= now_ts)
+                .collect::<Vec<activity::Activity>>(),
+            Err(_) => Vec::new(),
+        };
 
-        let reflog = std::fs::read_to_string(repo.path().join("logs/HEAD")).with_context(|| {
-            format!(
-                "failed to read reflog from {}",
-                repo.path().join("logs/HEAD").display()
-            )
-        })?;
-        let activity = reflog
-            .lines()
-            .filter_map(|line| activity::parse_reflog_line(line).ok())
-            .filter(|activity| activity.timestamp_ms >= now_ts)
-            .collect::<Vec<activity::Activity>>();
+        let meta = match repo.head() {
+            Ok(head) => Meta {
+                start_timestamp_ms: now_ts,
+                last_timestamp_ms: now_ts,
+                branch: Some(head.name().unwrap().to_string()),
+                commit: Some(head.peel_to_commit().unwrap().id().to_string()),
+            },
+            Err(_) => Meta {
+                start_timestamp_ms: now_ts,
+                last_timestamp_ms: now_ts,
+                branch: None,
+                commit: None,
+            },
+        };
 
         let session = Session {
             id: Uuid::new_v4().to_string(),
             hash: None,
-            meta: Meta {
-                start_timestamp_ms: now_ts,
-                last_timestamp_ms: now_ts,
-                branch: head.name().unwrap().to_string(),
-                commit: head.peel_to_commit().unwrap().id().to_string(),
-            },
+            meta,
             activity,
         };
         create(project, &session)?;
@@ -153,17 +172,47 @@ impl Session {
                 )
             })?;
 
-        let reflog = read_as_string(repo, &tree, Path::new("logs/HEAD")).with_context(|| {
-            format!(
-                "failed to read reflog from commit {}",
-                commit.id().to_string()
-            )
-        })?;
-        let activity = reflog
-            .lines()
-            .filter_map(|line| activity::parse_reflog_line(line).ok())
-            .filter(|activity| activity.timestamp_ms >= start_timestamp_ms)
-            .collect::<Vec<activity::Activity>>();
+        let logs_path = Path::new("logs/HEAD");
+        let activity = match tree.get_path(logs_path).is_ok() {
+            true => read_as_string(repo, &tree, logs_path)
+                .with_context(|| {
+                    format!(
+                        "failed to read reflog from commit {}",
+                        commit.id().to_string()
+                    )
+                })?
+                .lines()
+                .filter_map(|line| activity::parse_reflog_line(line).ok())
+                .filter(|activity| activity.timestamp_ms >= start_timestamp_ms)
+                .collect::<Vec<activity::Activity>>(),
+            false => Vec::new(),
+        };
+
+        let branch_path = Path::new("session/meta/branch");
+        let session_branch = match tree.get_path(branch_path).is_ok() {
+            true => read_as_string(repo, &tree, branch_path)
+                .with_context(|| {
+                    format!(
+                        "failed to read branch name from commit {}",
+                        commit.id().to_string()
+                    )
+                })?
+                .into(),
+            false => None,
+        };
+
+        let commit_path = Path::new("session/meta/commit");
+        let session_commit = match tree.get_path(commit_path).is_ok() {
+            true => read_as_string(repo, &tree, commit_path)
+                .with_context(|| {
+                    format!(
+                        "failed to read branch name from commit {}",
+                        commit.id().to_string()
+                    )
+                })?
+                .into(),
+            false => None,
+        };
 
         Ok(Session {
             id: read_as_string(repo, &tree, Path::new("session/meta/id")).with_context(|| {
@@ -183,20 +232,8 @@ impl Session {
                             commit.id().to_string()
                         )
                     })?,
-                branch: read_as_string(repo, &tree, Path::new("session/meta/branch"))
-                    .with_context(|| {
-                        format!(
-                            "failed to read branch name from commit {}",
-                            commit.id().to_string()
-                        )
-                    })?,
-                commit: read_as_string(repo, &tree, Path::new("session/meta/commit"))
-                    .with_context(|| {
-                        format!(
-                            "failed to read commit hash from commit {}",
-                            commit.id().to_string()
-                        )
-                    })?,
+                branch: session_branch,
+                commit: session_commit,
             },
             activity,
         })
@@ -258,21 +295,25 @@ fn write(session_path: &Path, session: &Session) -> Result<()> {
         )
     })?;
 
-    let branch_path = meta_path.join("branch");
-    std::fs::write(branch_path.clone(), session.meta.branch.clone()).with_context(|| {
-        format!(
-            "failed to write session branch to {}",
-            branch_path.display()
-        )
-    })?;
+    if let Some(branch) = session.meta.branch.clone() {
+        let branch_path = meta_path.join("branch");
+        std::fs::write(branch_path.clone(), branch).with_context(|| {
+            format!(
+                "failed to write session branch to {}",
+                branch_path.display()
+            )
+        })?;
+    }
 
-    let commit_path = meta_path.join("commit");
-    std::fs::write(commit_path.clone(), session.meta.commit.clone()).with_context(|| {
-        format!(
-            "failed to write session commit to {}",
-            commit_path.display()
-        )
-    })?;
+    if let Some(commit) = session.meta.commit.clone() {
+        let commit_path = meta_path.join("commit");
+        std::fs::write(commit_path.clone(), commit).with_context(|| {
+            format!(
+                "failed to write session commit to {}",
+                commit_path.display()
+            )
+        })?;
+    }
 
     Ok(())
 }
@@ -784,6 +825,9 @@ fn sha256_digest(path: &Path) -> Result<String> {
 
 fn build_log_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()> {
     let logs_dir = repo.path().join("logs");
+    if !logs_dir.exists() {
+        return Ok(());
+    }
     for log_file in fs::list_files(&logs_dir)? {
         let log_file = Path::new(&log_file);
         add_log_path(repo, index, &log_file)
