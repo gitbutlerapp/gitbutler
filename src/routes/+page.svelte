@@ -1,25 +1,27 @@
 <script lang="ts">
-	import FaFolderOpen from 'svelte-icons/fa/FaFolderOpen.svelte';
-	import { open } from '@tauri-apps/api/dialog';
-	import type { LayoutData } from './$types';
-	export let data: LayoutData;
+    import FaFolderOpen from "svelte-icons/fa/FaFolderOpen.svelte";
+    import { open } from "@tauri-apps/api/dialog";
+    import type { LayoutData } from "./$types";
+    export let data: LayoutData;
 
-	const { projects } = data;
+    const { projects } = data;
 
-	const onAddLocalRepositoryClick = async () => {
-		const selectedPath = await open({
-			directory: true,
-			recursive: true
-		});
-		if (selectedPath === null) return;
-		if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-		const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+    const onAddLocalRepositoryClick = async () => {
+        const selectedPath = await open({
+            directory: true,
+            recursive: true,
+        });
+        if (selectedPath === null) return;
+        if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
+        const projectPath = Array.isArray(selectedPath)
+            ? selectedPath[0]
+            : selectedPath;
 
-		const projectExists = $projects.some((p) => p.path === projectPath);
-		if (projectExists) return;
+        const projectExists = $projects.some((p) => p.path === projectPath);
+        if (projectExists) return;
 
-		await projects.add({ path: projectPath });
-	};
+        await projects.add({ path: projectPath });
+    };
 </script>
 
 <div class="w-full h-full p-8">
@@ -103,30 +105,137 @@
                                 />
                             </svg>
 
-    <div class="flex flex-row">
-        <div class="w-1/2">
-            <div class="text-xl text-zinc-200 mb-1">Start</div>
-            <div class="flex items-center space-x-2">
-                <div class="w-4 h-4"><FaFolderOpen /></div>
-                <button
-                    on:click={onAddLocalRepositoryClick}
-                    class="hover:text-zinc-200">Add a local repository...</button
-                >
-            </div>
-        </div>
-        <div class="w-1/2">
-            <div class="text-xl text-zinc-200 mb-1">Recent</div>
-            <div class="flex flex-col space-y-1">
-                {#each $projects as project}
-                    <div class="space-x-2">
+                            <span class="text-zinc-200"
+                                >Helping you not just search for strings or past
+                                commits, but find useful context in the story of
+                                your code.
+                            </span>
+                        </li>
+                    </ul>
+                    <div class="pt-6">
                         <a
-                            class="hover:text-zinc-200"
-                            href="/projects/{project.id}/">{project.title}</a
+                            target="_blank"
+                            href="https://help.gitbutler.com"
+                            class="text-base font-semibold leading-7 text-white bg-zinc-700 px-4 py-3 rounded-lg mt-4"
                         >
-                        <span class="text-zinc-500">{project.path}</span>
+                            Learn more <span aria-hidden="true">→</span></a
+                        >
                     </div>
-                {/each}
+                </div>
+                <!-- left box, add a new project -->
+                <div class="text-center">
+                    <svg
+                        class="mx-auto h-12 w-12 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        aria-hidden="true"
+                    >
+                        <path
+                            vector-effect="non-scaling-stroke"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                        />
+                    </svg>
+                    <h3 class="mt-2 text-lg font-semibold text-zinc-300">
+                        No projects
+                    </h3>
+                    <p class="mt-1 text-gray-500">
+                        Get started by tracking a project you're working on.
+                    </p>
+                    <div class="mt-6">
+                        <button
+                            on:click={onAddLocalRepositoryClick}
+                            type="button"
+                            class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                            Start Tracking a Project
+                        </button>
+                    </div>
+                </div>
             </div>
-        </div>
+        {:else}
+            <div class="select-none p-8">
+                <div class="flex flex-col">
+                    <div class="flex flex-row justify-between">
+                        <div class="text-xl text-zinc-300 mb-1">
+                            My Projects
+                            <div class="text-lg text-zinc-500 mb-1">
+                                All the projects that I am currently helping you
+                                with.
+                            </div>
+                        </div>
+                        <div>
+                            <button
+                                on:click={onAddLocalRepositoryClick}
+                                type="button"
+                                class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            >
+                                Track a New Project
+                            </button>
+                        </div>
+                    </div>
+                    <div class="h-full max-h-screen overflow-auto">
+                        <div
+                            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4"
+                        >
+                            {#each $projects as project}
+                                <div
+                                    class="flex flex-col justify-between space-y-1 bg-zinc-700 rounded-lg shadow"
+                                >
+                                    <div class="px-4 py-4 flex-grow-0">
+                                        <a
+                                            class="hover:text-zinc-200 text-zinc-300 text-lg"
+                                            href="/projects/{project.id}/"
+                                            >{project.title}</a
+                                        >
+                                        <div class="text-zinc-500 font-mono">
+                                            {project.path}
+                                        </div>
+                                    </div>
+                                    <div
+                                        class="flex-grow-0 text-zinc-500 font-mono border-t border-zinc-600 bg-zinc-600 rounded-b-lg px-3 py-1"
+                                    >
+                                        {#if project.api}
+                                            <div
+                                                class="flex flex-row items-center space-x-2 "
+                                            >
+                                                <div
+                                                    class="w-2 h-2 bg-green-700 rounded-full"
+                                                />
+                                                <div class="text-zinc-400">
+                                                    syncing
+                                                </div>
+                                            </div>
+                                        {:else}
+                                            <div
+                                                class="flex flex-row items-center space-x-2 "
+                                            >
+                                                <div
+                                                    class="w-2 h-2 bg-gray-400 rounded-full"
+                                                />
+                                                <div class="text-zinc-400">
+                                                    offline
+                                                </div>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-0 left-0 w-full">
+                <div
+                    class="flex items-center flex-shrink-0 p-4 h-18 border-t select-none border-zinc-700 bg-zinc-900"
+                >
+                    <div class="text-sm text-zinc-300">Timeline</div>
+                </div>
+            </div>
+        {/if}
     </div>
 </div>
