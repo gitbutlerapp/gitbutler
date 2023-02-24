@@ -558,8 +558,9 @@ fn flush(
     session.hash = Some(commit_oid.to_string());
     delete(project).with_context(|| format!("failed to delete session"))?;
 
-    push_to_remote(repo, user, project)
-        .with_context(|| format!("failed to push gb commit {} to remote", commit_oid))?;
+    if let Err(e) = push_to_remote(repo, user, project) {
+        log::error!("failed to push gb commit {} to remote: {:#}", commit_oid, e);
+    }
 
     Ok(())
 }
