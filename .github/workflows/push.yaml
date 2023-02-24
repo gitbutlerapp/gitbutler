@@ -20,6 +20,11 @@ jobs:
                   run_install: |
                       args: ["--frozen-lockfile"]
 
+            - name: Lint and check frontend
+              run: |
+                pnpm lint
+                pnpm check
+
             - name: Setup rust
               uses: dtolnay/rust-toolchain@stable
 
