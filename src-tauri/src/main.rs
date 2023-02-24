@@ -11,7 +11,7 @@ mod watchers;
 use anyhow::{Context, Result};
 use deltas::Delta;
 use log;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeMap, Serialize};
 use std::{collections::HashMap, sync::mpsc, thread};
 use storage::Storage;
 use tauri::{generate_context, Manager};
@@ -19,10 +19,40 @@ use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
 };
+use thiserror::Error;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Error {
-    pub message: String,
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("{0}")]
+    ProjectError(projects::CreateError),
+    #[error("Project already exists")]
+    ProjectAlreadyExists,
+    #[error("Something went wrong")]
+    Unknown,
+}
+
+impl Serialize for Error {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(1))?;
+        map.serialize_entry("message", &self.to_string())?;
+        map.end()
+    }
+}
+
+impl From<projects::CreateError> for Error {
+    fn from(e: projects::CreateError) -> Self {
+        Error::ProjectError(e)
+    }
+}
+
+impl From<anyhow::Error> for Error {
+    fn from(e: anyhow::Error) -> Self {
+        log::error!("{:#}", e);
+        Error::Unknown
+    }
 }
 
 const IS_DEV: bool = cfg!(debug_assertions);
@@ -85,19 +115,11 @@ fn list_sessions(
     let users_storage = users::Storage::new(storage);
 
     let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
-        .map_err(|e| {
-            log::error!("{:#}", e);
-            Error {
-                message: "Failed to open project".to_string(),
-            }
-        })?;
+        .with_context(|| format!("Failed to open repository for project {}", project_id))?;
 
-    let sessions = repo.sessions().map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to list sessions".to_string(),
-        }
-    })?;
+    let sessions = repo
+        .sessions()
+        .with_context(|| format!("Failed to list sessions for project {}", project_id))?;
 
     Ok(sessions)
 }
@@ -108,12 +130,10 @@ fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let storage = storage::Storage::from_path_resolver(&path_resolver);
     let users_storage = users::Storage::new(storage);
 
-    match users_storage.get().map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to get user".to_string(),
-        }
-    })? {
+    match users_storage
+        .get()
+        .with_context(|| "Failed to get user".to_string())?
+    {
         Some(user) => {
             let local_picture = match proxy_image(handle, &user.picture) {
                 Ok(picture) => picture,
@@ -140,12 +160,9 @@ fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     let storage = storage::Storage::from_path_resolver(&path_resolver);
     let users_storage = users::Storage::new(storage);
 
-    users_storage.set(&user).map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to save user".to_string(),
-        }
-    })?;
+    users_storage
+        .set(&user)
+        .with_context(|| "Failed to set user".to_string())?;
 
     sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
 
@@ -158,12 +175,9 @@ fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     let storage = storage::Storage::from_path_resolver(&path_resolver);
     let users_storage = users::Storage::new(storage);
 
-    users_storage.delete().map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to delete user".to_string(),
-        }
-    })?;
+    users_storage
+        .delete()
+        .with_context(|| "Failed to delete user".to_string())?;
 
     sentry::configure_scope(|scope| scope.set_user(None));
 
@@ -179,12 +193,11 @@ fn update_project(
     let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage);
 
-    projects_storage.update_project(&project).map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to update project".to_string(),
-        }
-    })
+    let project = projects_storage
+        .update_project(&project)
+        .with_context(|| format!("Failed to update project {}", project.id))?;
+
+    Ok(project)
 }
 
 #[tauri::command]
@@ -200,63 +213,32 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
         users_storage.clone(),
     );
 
-    for project in projects_storage.list_projects().map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to list projects".to_string(),
-        }
-    })? {
+    for project in projects_storage
+        .list_projects()
+        .with_context(|| "Failed to list projects".to_string())?
+    {
         if project.path == path {
             if !project.deleted {
-                return Err(Error {
-                    message: "Project already exists".to_string(),
-                });
+                return Err(Error::ProjectAlreadyExists);
             } else {
-                projects_storage
-                    .update_project(&projects::UpdateRequest {
-                        id: project.id.clone(),
-                        deleted: Some(false),
-                        ..Default::default()
-                    })
-                    .map_err(|e| {
-                        log::error!("{:#}", e);
-                        Error {
-                            message: "Failed to undelete project".to_string(),
-                        }
-                    })?;
+                projects_storage.update_project(&projects::UpdateRequest {
+                    id: project.id.clone(),
+                    deleted: Some(false),
+                    ..Default::default()
+                })?;
                 return Ok(project);
             }
         }
     }
 
-    let project = projects::Project::from_path(path.to_string());
-    if project.is_ok() {
-        let project = project.unwrap();
-        projects_storage.add_project(&project).map_err(|e| {
-            log::error!("{:#}", e);
-            Error {
-                message: "Failed to add project".to_string(),
-            }
-        })?;
+    let project = projects::Project::from_path(path.to_string())?;
+    projects_storage.add_project(&project)?;
 
-        let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
-            mpsc::channel();
+    let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
+    watchers.watch(tx, &project)?;
+    watch_events(handle, rx);
 
-        watchers.watch(tx, &project).map_err(|e| {
-            log::error!("{:#}", e);
-            Error {
-                message: "Failed to watch project".to_string(),
-            }
-        })?;
-
-        watch_events(handle, rx);
-
-        return Ok(project);
-    } else {
-        return Err(Error {
-            message: "Failed to add project".to_string(),
-        });
-    }
+    Ok(project)
 }
 
 #[tauri::command]
@@ -265,12 +247,9 @@ fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Err
     let storage = storage::Storage::from_path_resolver(&path_resolver);
     let projects_storage = projects::Storage::new(storage);
 
-    projects_storage.list_projects().map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to list projects".to_string(),
-        }
-    })
+    let projects = projects_storage.list_projects()?;
+
+    Ok(projects)
 }
 
 #[tauri::command]
@@ -286,37 +265,19 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
         users_storage.clone(),
     );
 
-    match projects_storage.get_project(id) {
-        Ok(Some(project)) => {
-            watchers.unwatch(project).map_err(|e| {
-                log::error!("{:#}", e);
-                Error {
-                    message: "Failed to unwatch project".to_string(),
-                }
-            })?;
+    match projects_storage.get_project(id)? {
+        Some(project) => {
+            watchers.unwatch(project)?;
 
-            projects_storage
-                .update_project(&projects::UpdateRequest {
-                    id: id.to_string(),
-                    deleted: Some(true),
-                    ..Default::default()
-                })
-                .map_err(|e| {
-                    log::error!("{:#}", e);
-                    Error {
-                        message: "Failed to delete project".to_string(),
-                    }
-                })?;
+            projects_storage.update_project(&projects::UpdateRequest {
+                id: id.to_string(),
+                deleted: Some(true),
+                ..Default::default()
+            })?;
 
             Ok(())
         }
-        Ok(None) => Ok(()),
-        Err(e) => {
-            log::error!("{:#}", e);
-            Err(Error {
-                message: "Failed to get project".to_string(),
-            })
-        }
+        None => Ok(()),
     }
 }
 
@@ -332,20 +293,9 @@ fn list_session_files(
     let projects_storage = projects::Storage::new(storage.clone());
     let users_storage = users::Storage::new(storage);
 
-    let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
-        .map_err(|e| {
-            log::error!("{:#}", e);
-            Error {
-                message: "Failed to open project".to_string(),
-            }
-        })?;
+    let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)?;
 
-    let files = repo.files(session_id, paths).map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to list files".to_string(),
-        }
-    })?;
+    let files = repo.files(session_id, paths)?;
 
     Ok(files)
 }
@@ -361,20 +311,9 @@ fn list_deltas(
     let projects_storage = projects::Storage::new(storage.clone());
     let users_storage = users::Storage::new(storage);
 
-    let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)
-        .map_err(|e| {
-            log::error!("{:#}", e);
-            Error {
-                message: "Failed to open project".to_string(),
-            }
-        })?;
+    let repo = repositories::Repository::open(&projects_storage, &users_storage, project_id)?;
 
-    let deltas = repo.deltas(session_id).map_err(|e| {
-        log::error!("{:#}", e);
-        Error {
-            message: "Failed to list deltas".to_string(),
-        }
-    })?;
+    let deltas = repo.deltas(session_id)?;
 
     Ok(deltas)
 }
