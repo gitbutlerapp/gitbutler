@@ -116,7 +116,6 @@
 								class="h-28 w-28 rounded-full border-zinc-300"
 								src={userPicture}
 								alt="Your avatar"
-								required
 							/>
 						{/if}
 

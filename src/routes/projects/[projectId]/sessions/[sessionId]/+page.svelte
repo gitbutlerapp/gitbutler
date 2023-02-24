@@ -1,7 +1,6 @@
 <script lang="ts">
 	import MdKeyboardArrowLeft from 'svelte-icons/md/MdKeyboardArrowLeft.svelte';
 	import MdKeyboardArrowRight from 'svelte-icons/md/MdKeyboardArrowRight.svelte';
-	import type { PageData } from './$types';
 	import { add, format, differenceInSeconds, addSeconds } from 'date-fns';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
@@ -10,6 +9,7 @@
 	import { Slider } from 'fluent-svelte';
 	import { CodeViewer } from '$lib/components';
 	import 'fluent-svelte/theme.css';
+	import type { PageData } from './$types';
 
 	export let data: PageData;
 	$: session = data.session;

@@ -78,13 +78,13 @@ export default (
 	return {
 		login: {
 			token: {
-				create: (params: {} = {}): Promise<LoginToken> =>
+				create: (): Promise<LoginToken> =>
 					fetch(getUrl('login/token.json'), {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json'
 						},
-						body: JSON.stringify(params)
+						body: JSON.stringify({})
 					})
 						.then(parseResponseJSON)
 						.then((token) => {

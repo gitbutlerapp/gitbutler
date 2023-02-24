@@ -9,9 +9,9 @@ export const setup = async () => {
 const logger = async () =>
 	building
 		? {
-				debug: (..._: any[]) => {},
-				info: (..._: any[]) => {},
-				error: (..._: any[]) => {}
+				debug: () => {},
+				info: () => {},
+				error: () => {}
 		  }
 		: import('tauri-plugin-log-api').then((tauri) => ({
 				debug: tauri.debug,

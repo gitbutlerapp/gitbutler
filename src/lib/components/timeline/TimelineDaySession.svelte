@@ -27,7 +27,7 @@
 	}
 	function pathToIconSvg(path: string) {
 		let name: string = pathToName(path);
-		let { svg, color } = getIcon(name);
+		let { svg } = getIcon(name);
 		return svg;
 	}
 	const colorFromBranchName = (branchName: string) => {

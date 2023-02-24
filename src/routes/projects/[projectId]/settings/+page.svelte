@@ -83,7 +83,7 @@
 									</div>
 								{/if}
 								<div>
-									<form disabled={$user === undefined}>
+									<form>
 										<input
 											class="mr-1"
 											disabled={$user === undefined}

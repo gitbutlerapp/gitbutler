@@ -16,5 +16,10 @@ module.exports = {
 		browser: true,
 		es2017: true,
 		node: true
+	},
+	rules: {
+		'@typescript-eslint/no-namespace': 'off',
+		'@typescript-eslint/no-empty-function': 'off',
+		'@typescript-eslint/no-explicit-any': 'off'
 	}
 };
