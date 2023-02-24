@@ -55,6 +55,8 @@ impl GitWatcher {
             }
             let project = project.unwrap();
 
+            log::info!("Checking for session to commit in {}", project.path);
+
             let user = local_self.users_storage.get();
             if user.is_err() {
                 log::error!(

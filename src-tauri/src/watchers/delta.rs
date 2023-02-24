@@ -49,12 +49,21 @@ impl<'a> DeltaWatchers<'a> {
                         for file_path in notify_event.paths {
                             let relative_file_path =
                                 file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
-                            match register_file_change(
-                                &project,
-                                &repo,
-                                &notify_event.kind,
-                                &relative_file_path,
-                            ) {
+
+                            match notify_event.kind {
+                                EventKind::Modify(_) => {
+                                    log::info!("File modified: {}", file_path.display());
+                                }
+                                EventKind::Create(_) => {
+                                    log::info!("File created: {}", file_path.display());
+                                }
+                                EventKind::Remove(_) => {
+                                    log::info!("File removed: {}", file_path.display());
+                                }
+                                _ => {}
+                            }
+
+                            match register_file_change(&project, &repo, &relative_file_path) {
                                 Ok(Some((session, deltas))) => {
                                     if let Err(e) =
                                         sender.send(events::Event::session(&project, &session))
@@ -96,11 +105,10 @@ impl<'a> DeltaWatchers<'a> {
 // this is what is called when the FS watcher detects a change
 // it should figure out delta data (crdt) and update the file at .git/gb/session/deltas/path/to/file
 // it also writes the metadata stuff which marks the beginning of a session if a session is not yet started
-// returns updated project deltas
+// returns updated project deltas and sessions to which they belong
 fn register_file_change(
     project: &projects::Project,
     repo: &git2::Repository,
-    kind: &EventKind,
     relative_file_path: &Path,
 ) -> Result<Option<(sessions::Session, Vec<Delta>)>, Box<dyn std::error::Error>> {
     if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
@@ -123,14 +131,6 @@ fn register_file_change(
             }
         }
     };
-
-    if EventKind::is_modify(&kind) {
-        log::info!("File modified: {:?}", file_path);
-    } else if EventKind::is_create(&kind) {
-        log::info!("File created: {:?}", file_path);
-    } else if EventKind::is_remove(&kind) {
-        log::info!("File removed: {:?}", file_path);
-    }
 
     // first, we need to check if the file exists in the meta commit
     let latest_contents = get_latest_file_contents(repo, project, relative_file_path)
