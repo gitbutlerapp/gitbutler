@@ -32,10 +32,12 @@ pub fn write(
     project: &projects::Project,
     file_path: &Path,
     deltas: &Vec<Delta>,
-) -> Result<()> {
-    if sessions::Session::current(repo, project)?.is_none() {
-        sessions::Session::from_head(repo, project)?;
-    }
+) -> Result<sessions::Session> {
+    // make sure we always have a session before writing deltas
+    let mut session = match sessions::Session::current(repo, project)? {
+        Some(session) => Ok(session),
+        None => sessions::Session::from_head(repo, project),
+    }?;
 
     let delta_path = project.deltas_path().join(file_path);
     let delta_dir = delta_path.parent().unwrap();
@@ -49,7 +51,11 @@ pub fn write(
             delta_path.to_str().unwrap()
         )
     })?;
-    Ok(())
+
+    // update last session activity timestamp
+    session.update(project)?;
+
+    Ok(session)
 }
 
 // returns deltas for a current session from .gb/session/deltas tree

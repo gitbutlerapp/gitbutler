@@ -56,30 +56,19 @@ impl<'a> DeltaWatchers<'a> {
                                 &relative_file_path,
                             ) {
                                 Ok(Some((session, deltas))) => {
-                                    match sender.send(events::Event::session(&project, &session)) {
-                                        Err(e) => {
-                                            log::error!("filed to send session event: {:#}", e)
-                                        }
-                                        Ok(_) => {}
+                                    if let Err(e) =
+                                        sender.send(events::Event::session(&project, &session))
+                                    {
+                                        log::error!("filed to send session event: {:#}", e)
                                     }
-                                    match deltas {
-                                        Some(deltas) => {
-                                            match sender.send(events::Event::detlas(
-                                                &project,
-                                                &session,
-                                                &deltas,
-                                                &relative_file_path,
-                                            )) {
-                                                Err(e) => {
-                                                    log::error!(
-                                                        "failed to send deltas event: {:#}",
-                                                        e
-                                                    )
-                                                }
-                                                Ok(_) => {}
-                                            }
-                                        }
-                                        None => {}
+
+                                    if let Err(e) = sender.send(events::Event::detlas(
+                                        &project,
+                                        &session,
+                                        &deltas,
+                                        &relative_file_path,
+                                    )) {
+                                        log::error!("failed to send deltas event: {:#}", e)
                                     }
                                 }
                                 Ok(None) => {}
@@ -113,7 +102,7 @@ fn register_file_change(
     repo: &git2::Repository,
     kind: &EventKind,
     relative_file_path: &Path,
-) -> Result<Option<(sessions::Session, Option<Vec<Delta>>)>, Box<dyn std::error::Error>> {
+) -> Result<Option<(sessions::Session, Vec<Delta>)>, Box<dyn std::error::Error>> {
     if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
         // make sure we're not watching ignored files
         return Ok(None);
@@ -134,9 +123,6 @@ fn register_file_change(
             }
         }
     };
-
-    // update meta files every time file change is detected
-    let session = write_beginning_meta_files(&project, &repo)?;
 
     if EventKind::is_modify(&kind) {
         log::info!("File modified: {:?}", file_path);
@@ -172,13 +158,13 @@ fn register_file_change(
     };
 
     if !text_doc.update(&file_contents) {
-        return Ok(Some((session, None)));
+        return Ok(None);
+    } else {
+        // if the file was modified, save the deltas
+        let deltas = text_doc.get_deltas();
+        let session = write(repo, project, relative_file_path, &deltas)?;
+        Ok(Some((session, deltas)))
     }
-
-    // if the file was modified, save the deltas
-    let deltas = text_doc.get_deltas();
-    write(repo, project, relative_file_path, &deltas)?;
-    return Ok(Some((session, Some(deltas))));
 }
 
 // returns last commited file contents from refs/gitbutler/current ref
@@ -233,28 +219,6 @@ fn get_latest_file_contents(
             } else {
                 Err(e.into())
             }
-        }
-    }
-}
-
-// this function is called when the user modifies a file, it writes starting metadata if not there
-// and also touches the last activity timestamp, so we can tell when we are idle
-fn write_beginning_meta_files(
-    project: &projects::Project,
-    repo: &git2::Repository,
-) -> Result<sessions::Session, Box<dyn std::error::Error>> {
-    match sessions::Session::current(repo, project)
-        .with_context(|| "failed to get current session")?
-    {
-        Some(mut session) => {
-            session
-                .update(project)
-                .with_context(|| "failed to update session")?;
-            Ok(session)
-        }
-        None => {
-            let session = sessions::Session::from_head(repo, project)?;
-            Ok(session)
         }
     }
 }
