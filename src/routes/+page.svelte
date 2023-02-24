@@ -1,5 +1,4 @@
 <script lang="ts">
-	import FaFolderOpen from 'svelte-icons/fa/FaFolderOpen.svelte';
 	import { open } from '@tauri-apps/api/dialog';
 	import type { LayoutData } from './$types';
 	export let data: LayoutData;
@@ -105,6 +104,7 @@
 					</ul>
 					<div class="pt-6">
 						<a
+							rel="noreferrer"
 							target="_blank"
 							href="https://help.gitbutler.com"
 							class="text-base font-semibold leading-7 text-white bg-zinc-700 px-4 py-3 rounded-lg mt-4"
