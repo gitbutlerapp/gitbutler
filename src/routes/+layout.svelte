@@ -46,18 +46,7 @@
 </header>
 
 <div class="h-0 min-h-full bg-zinc-800 text-zinc-400">
-    <!-- <div class="flex-1"> -->
     <slot />
-    <!-- </div> -->
 
-    <!-- <div
-        class="flex items-center flex-shrink-0 h-6 border-t select-none border-zinc-700 bg-zinc-900 "
-    >
-        <div class="flex flex-row items-center ml-4 space-x-2">
-            <div class="w-2 h-2 bg-green-700 rounded-full" />
-            <div>Up to date</div>
-        </div>
-    </div>
-    <div id="foo" class="h-8" /> -->
     <Toaster />
 </div>

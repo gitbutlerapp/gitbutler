@@ -2,7 +2,6 @@
     import { derived } from "svelte/store";
     import { Login } from "$lib/components";
     import type { PageData } from "./$types";
-    import hi from "date-fns/locale/hi";
 
     export let data: PageData;
     const { project, user, api } = data;
@@ -78,17 +77,13 @@
                                         <div class="text-zinc-300">
                                             Git Host
                                         </div>
-                                        <div
-                                            class="text-zinc-400 font-mono"
-                                        >
+                                        <div class="text-zinc-400 font-mono">
                                             {hostname($project?.api?.git_url)}
                                         </div>
                                         <div class="text-zinc-300 mt-3">
                                             Repository ID
                                         </div>
-                                        <div
-                                            class="text-zinc-400 font-mono"
-                                        >
+                                        <div class="text-zinc-400 font-mono">
                                             {repo_id($project?.api?.git_url)}
                                         </div>
                                     </div>

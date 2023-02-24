@@ -1,11 +1,11 @@
 <script lang="ts">
-    import type { SessionActivity } from "$lib/session";
+    import type { Activity } from "$lib/sessions";
     import FaSquare from "svelte-icons/fa/FaSquare.svelte";
     import FaCircle from "svelte-icons/fa/FaCircle.svelte";
     import FaAdjust from "svelte-icons/fa/FaAdjust.svelte";
     import FaMapMarker from "svelte-icons/fa/FaMapMarker.svelte";
 
-    export let activities: SessionActivity[];
+    export let activities: Activity[];
     export let sessionStart: number;
     export let sessionEnd: number;
 

@@ -1,20 +1,8 @@
 <script lang="ts">
     import type { PageData } from "./$types";
-    import type { Session } from "$lib/sessions";
-    import { TimelineDaySession } from "$lib/components/timeline";
 
     export let data: PageData;
-    const { project, sessions } = data;
-
-    const sessionDisplayWidth = (session: Session) => {
-        let sessionDurationMinutes =
-            (session.meta.lastTimestampMs - session.meta.startTimestampMs) / 60;
-        if (sessionDurationMinutes <= 10) {
-            return "w-40 min-w-40";
-        } else {
-            return "w-60 min-w-60";
-        }
-    };
+    const { project } = data;
 </script>
 
 <div class="flex flex-col mt-12">

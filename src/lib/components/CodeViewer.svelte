@@ -1,8 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
-
-    import { EditorState, StateField, StateEffect } from "@codemirror/state";
-    import { EditorView, lineNumbers, Decoration } from "@codemirror/view";
+    import { EditorState } from "@codemirror/state";
+    import { EditorView, lineNumbers } from "@codemirror/view";
 
     let editorTheme = EditorView.theme(
         {
