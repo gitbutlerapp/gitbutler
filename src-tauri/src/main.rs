@@ -35,6 +35,42 @@ fn app_title() -> String {
     }
 }
 
+fn build_asset_url(path: &str) -> String {
+    format!("asset://localhost/{}", urlencoding::encode(path))
+}
+
+fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
+    if src.starts_with("asset://") {
+        return Ok(src.to_string());
+    }
+
+    let images_dir = handle
+        .path_resolver()
+        .app_cache_dir()
+        .unwrap()
+        .join("images");
+
+    let hash = md5::compute(src);
+    let ext = src.split('.').last().unwrap_or("jpg");
+    let save_to = images_dir.join(format!("{:X}.{}", hash, ext));
+
+    if save_to.exists() {
+        return Ok(build_asset_url(&save_to.display().to_string()));
+    }
+
+    let resp = reqwest::blocking::get(src)?;
+    if !resp.status().is_success() {
+        log::error!("Failed to download picture {}", src);
+        return Ok(src.to_string());
+    }
+
+    let bytes = resp.bytes()?;
+    std::fs::create_dir_all(&images_dir)?;
+    std::fs::write(&save_to, bytes)?;
+
+    Ok(build_asset_url(&save_to.display().to_string()))
+}
+
 #[tauri::command]
 fn list_sessions(
     handle: tauri::AppHandle,
@@ -69,12 +105,30 @@ fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let storage = storage::Storage::from_path_resolver(&path_resolver);
     let users_storage = users::Storage::new(storage);
 
-    users_storage.get().map_err(|e| {
+    match users_storage.get().map_err(|e| {
         log::error!("{:#}", e);
         Error {
             message: "Failed to get user".to_string(),
         }
-    })
+    })? {
+        Some(user) => {
+            let local_picture = match proxy_image(handle, &user.picture) {
+                Ok(picture) => picture,
+                Err(e) => {
+                    log::error!("{:#}", e);
+                    user.picture
+                }
+            };
+
+            let user = users::User {
+                picture: local_picture.to_string(),
+                ..user
+            };
+
+            Ok(Some(user))
+        }
+        None => Ok(None),
+    }
 }
 
 #[tauri::command]
