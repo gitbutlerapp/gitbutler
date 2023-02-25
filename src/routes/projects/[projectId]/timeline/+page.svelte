@@ -7,6 +7,10 @@
     import { startOfDay } from "date-fns";
     import { list as listDeltas } from "$lib/deltas";
     import type { Delta } from "$lib/deltas";
+    import { toHumanBranchName } from "$lib/branch";
+    import { fly } from "svelte/transition";
+    import { quintOut } from "svelte/easing";
+    import { crossfade } from "svelte/transition";
 
     export let data: PageData;
     const { project, sessions } = data;
@@ -92,13 +96,17 @@
         selection = {} as Selection;
     };
 
-    function scrollExpandedIntoView() {
-        new Promise((r) => setTimeout(r, 100)).then(() => {
-            document.getElementById("expanded").scrollIntoView({
-                behavior: "smooth",
+    function scrollExpandedIntoView(dateMilliseconds: string) {
+        new Promise((r) => setTimeout(r, 10)).then(() => {
+            document.getElementById(dateMilliseconds).scrollIntoView({
+                // behavior: "smooth",
+                block: "center",
+                inline: "center",
             });
         });
     }
+
+    let animatingOut = false;
 </script>
 
 <div class="h-full">
@@ -108,192 +116,135 @@
                 <span>Loading...</span>
             {:else}
                 <div
-                    class="h-full flex-auto flex flex-row overflow-x-auto space-x-12 px-4 py-4"
+                    class="h-full flex-auto flex flex-row overflow-x-auto space-x-12 px-4 py-4 pb-6"
                 >
                     {#each Object.entries($dateSessions) as [dateMilliseconds, uiSessions]}
-                        {#if selection.dateMilliseconds == +dateMilliseconds}
-                            <!-- Day expanded -->
+                        <!-- Day -->
+                        <div
+                            id={dateMilliseconds}
+                            class="bg-zinc-800/50 rounded-xl border border-zinc-700 flex flex-col space-y-2
+                                {selection.dateMilliseconds == +dateMilliseconds
+                                ? 'min-w-full overflow-x-hidden'
+                                : ''}
+                                "
+                        >
                             <div
-                                class="bg-zinc-600 py-1 min-w-full overflow-x-hidden"
+                                class="font-medium border-b border-zinc-700 bg-zinc-700/30 h-6 flex items-center pl-4"
                             >
-                                <div>
+                                <span
+                                    class={animatingOut
+                                        ? "animate-pulse text-orange-300"
+                                        : ""}
+                                >
                                     {formatDate(new Date(+dateMilliseconds))}
-                                </div>
-                                <div class="flex space-x-2 " id="expanded">
-                                    {#each uiSessions as uiSession, i}
-                                        <!-- Session (overview) -->
-                                        <!-- Only show nearest neighbors -->
-                                        {#if Math.abs(i - selection.sessionIdx) < 2}
-                                            {#if i === selection.sessionIdx}
-                                                <!-- content here -->
-
-                                                <div
-                                                    class="bg-zinc-700 {i ==
-                                                    selection.sessionIdx
-                                                        ? 'flex-grow'
-                                                        : 'w-4'}"
-                                                >
-                                                    <div
-                                                        class="text-sm rounded borded bg-orange-500 text-zinc-200"
-                                                    >
-                                                        {formatTime(
-                                                            new Date(
-                                                                uiSession.session.meta.startTimestampMs
-                                                            )
-                                                        )}
-                                                        -
-                                                        {formatTime(
-                                                            new Date(
-                                                                uiSession.session.meta.lastTimestampMs
-                                                            )
-                                                        )}
-                                                    </div>
-                                                    <button
-                                                        on:click={resetSelection}
-                                                        >close</button
-                                                    >
-                                                </div>
-                                            {:else}
-                                                <div
-                                                    class="bg-zinc-700 {i ==
-                                                    selection.sessionIdx
-                                                        ? 'flex-grow'
-                                                        : 'w-4'}"
-                                                >
-                                                    <div
-                                                        class="text-sm rounded borded bg-orange-500 text-zinc-200"
-                                                    >
-                                                        {formatTime(
-                                                            new Date(
-                                                                uiSession.session.meta.startTimestampMs
-                                                            )
-                                                        )}
-                                                        -
-                                                        {formatTime(
-                                                            new Date(
-                                                                uiSession.session.meta.lastTimestampMs
-                                                            )
-                                                        )}
-                                                    </div>
-                                                    <div
-                                                        title="Session duration"
-                                                    >
-                                                        {Math.round(
-                                                            (uiSession.session
-                                                                .meta
-                                                                .lastTimestampMs -
-                                                                uiSession
-                                                                    .session
-                                                                    .meta
-                                                                    .startTimestampMs) /
-                                                                1000 /
-                                                                60
-                                                        )} min
-                                                    </div>
-                                                    <div title="Session files">
-                                                        {#each Object.keys(uiSession.deltas) as filePath}
-                                                            <div
-                                                                class="flex flex-row w-32 items-center"
-                                                            >
-                                                                <div
-                                                                    class="w-6 h-6 text-white fill-blue-400"
-                                                                >
-                                                                    {@html pathToIconSvg(
-                                                                        filePath
-                                                                    )}
-                                                                </div>
-                                                                <div
-                                                                    class="text-white w-24 truncate"
-                                                                >
-                                                                    {pathToName(
-                                                                        filePath
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        {/each}
-                                                    </div>
-                                                </div>
-                                            {/if}
-                                        {/if}
-                                    {/each}
-                                </div>
+                                </span>
                             </div>
-                        {:else}
-                            <!-- Day -->
-                            <div class="bg-zinc-600 py-1 flex flex-col">
-                                <div>
-                                    {formatDate(new Date(+dateMilliseconds))}
-                                </div>
-                                <div class="h-2/3 flex space-x-2">
+                            <div
+                                class="h-2/3 flex space-x-2 border-b border-zinc-700 px-4"
+                            >
+                                {#if selection.dateMilliseconds !== +dateMilliseconds}
                                     {#each uiSessions as uiSession, i}
                                         <!-- Session (overview) -->
+
                                         <div
-                                            class="bg-zinc-700 overflow-y-auto"
+                                            out:fly={{
+                                                x: i <= 3 ? -800 : 800,
+                                                duration: 900,
+                                            }}
+                                            on:outrostart={() =>
+                                                (animatingOut = true)}
+                                            on:outroend={() =>
+                                                (animatingOut = false)}
+                                            class="flex flex-col py-2 w-40"
                                         >
                                             <!-- svelte-ignore a11y-click-events-have-key-events -->
                                             <div
-                                                class="text-sm rounded borded bg-orange-500 text-zinc-200"
+                                                class="
+                                                cursor-pointer
+                                                text-sm text-center font-medium rounded borded  text-zinc-800 p-1 border bg-orange-400 border-orange-400 hover:bg-[#fdbc87]"
                                                 on:click={() => {
                                                     selection = {
                                                         sessionIdx: i,
                                                         dateMilliseconds:
                                                             +dateMilliseconds,
                                                     };
-                                                    scrollExpandedIntoView();
+                                                    scrollExpandedIntoView(
+                                                        dateMilliseconds
+                                                    );
                                                 }}
                                             >
-                                                {formatTime(
-                                                    new Date(
-                                                        uiSession.session.meta.startTimestampMs
-                                                    )
-                                                )}
-                                                -
-                                                {formatTime(
-                                                    new Date(
-                                                        uiSession.session.meta.lastTimestampMs
-                                                    )
+                                                {i}
+                                                {toHumanBranchName(
+                                                    uiSession.session.meta
+                                                        .branch
                                                 )}
                                             </div>
-                                            <div title="Session duration">
-                                                {Math.round(
-                                                    (uiSession.session.meta
-                                                        .lastTimestampMs -
-                                                        uiSession.session.meta
-                                                            .startTimestampMs) /
-                                                        1000 /
-                                                        60
-                                                )} min
-                                            </div>
-                                            <div class="" title="Session files">
-                                                {#each Object.keys(uiSession.deltas) as filePath}
-                                                    <div
-                                                        class="flex flex-row w-32 items-center"
-                                                    >
+
+                                            <div
+                                                class="flex flex-col h-full overflow-y-hidden p-1"
+                                                id="sessions-details"
+                                            >
+                                                <div
+                                                    class="text-zinc-400 font-medium"
+                                                >
+                                                    {formatTime(
+                                                        new Date(
+                                                            uiSession.session.meta.startTimestampMs
+                                                        )
+                                                    )}
+                                                    -
+                                                    {formatTime(
+                                                        new Date(
+                                                            uiSession.session.meta.lastTimestampMs
+                                                        )
+                                                    )}
+                                                </div>
+                                                <div
+                                                    class="text-zinc-500 text-sm"
+                                                    title="Session duration"
+                                                >
+                                                    {Math.round(
+                                                        (uiSession.session.meta
+                                                            .lastTimestampMs -
+                                                            uiSession.session
+                                                                .meta
+                                                                .startTimestampMs) /
+                                                            1000 /
+                                                            60
+                                                    )} min
+                                                </div>
+                                                <div
+                                                    class="overflow-y-auto overflow-x-hidden"
+                                                    title="Session files"
+                                                >
+                                                    {#each Object.keys(uiSession.deltas) as filePath}
                                                         <div
-                                                            class="w-6 h-6 text-white fill-blue-400"
+                                                            class="flex flex-row w-32 items-center"
                                                         >
-                                                            {@html pathToIconSvg(
-                                                                filePath
-                                                            )}
+                                                            <div
+                                                                class="w-6 h-6 text-zinc-200 fill-blue-400"
+                                                            >
+                                                                {@html pathToIconSvg(
+                                                                    filePath
+                                                                )}
+                                                            </div>
+                                                            <div
+                                                                class="text-zinc-300 w-24 truncate"
+                                                            >
+                                                                {pathToName(
+                                                                    filePath
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        <div
-                                                            class="text-white w-24 truncate"
-                                                        >
-                                                            {pathToName(
-                                                                filePath
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                {/each}
+                                                    {/each}
+                                                </div>
                                             </div>
                                         </div>
                                     {/each}
-                                </div>
-                                <div class="flex-grow border border-green-700">
-                                    Day summary
-                                </div>
+                                {/if}
                             </div>
-                        {/if}
+                            <div class="flex-grow  px-4">Day summary</div>
+                        </div>
                     {/each}
                 </div>
             {/if}

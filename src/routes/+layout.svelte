@@ -39,7 +39,7 @@
 		</a>
 	</header>
 
-	<div class="flex-auto overflow-auto bg-zinc-800 text-zinc-400">
+	<div class="flex-auto overflow-auto bg-zinc-900 text-zinc-400">
 		<slot />
 	</div>
 	<Toaster />
