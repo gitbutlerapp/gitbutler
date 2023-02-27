@@ -21,7 +21,6 @@ specifiers:
   fluent-svelte: ^1.6.0
   idb-keyval: ^6.2.0
   inter-ui: ^3.19.3
-  mm-jsr: ^3.0.2
   nanoid: ^4.0.1
   postcss: ^8.4.14
   postcss-load-config: ^4.0.1
@@ -50,7 +49,6 @@ dependencies:
   fluent-svelte: 1.6.0
   idb-keyval: 6.2.0
   inter-ui: 3.19.3
-  mm-jsr: 3.0.2
   nanoid: 4.0.1
   posthog-js: 1.46.1
   seti-icons: 0.0.4
@@ -1981,10 +1979,6 @@ packages:
     hasBin: true
     dependencies:
       minimist: 1.2.7
-
-  /mm-jsr/3.0.2:
-    resolution: {integrity: sha512-ATbSVKgOU9i54eBLPV+QETFKhGODnCDKsi18TLsET7BCJnX00LjcbOZYvw6ODplJpRY7JCrA861mYfViCDnh3w==}
-    dev: false
 
   /mri/1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}

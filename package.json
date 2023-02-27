@@ -23,7 +23,6 @@
 		"fluent-svelte": "^1.6.0",
 		"idb-keyval": "^6.2.0",
 		"inter-ui": "^3.19.3",
-		"mm-jsr": "^3.0.2",
 		"nanoid": "^4.0.1",
 		"posthog-js": "^1.46.1",
 		"seti-icons": "^0.0.4",
