@@ -7,7 +7,6 @@ use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs;
 use std::path::Path;
 use std::sync::mpsc;
-use std::thread;
 use std::{collections::HashMap, sync::Mutex};
 
 #[derive(Default)]
@@ -42,7 +41,7 @@ impl<'a> DeltaWatchers<'a> {
             .insert(project.path.clone(), watcher);
 
         let repo = git2::Repository::open(project_path)?;
-        thread::spawn(move || {
+        tauri::async_runtime::spawn_blocking(move || {
             while let Ok(event) = rx.recv() {
                 match event {
                     Ok(notify_event) => {

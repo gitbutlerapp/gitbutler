@@ -24,6 +24,44 @@ impl GitWatcher {
         }
     }
 
+    fn run(&self, project_id: &str, sender: mpsc::Sender<events::Event>) -> Result<()> {
+        match self
+            .projects_storage
+            .get_project(&project_id)
+            .with_context(|| {
+                format!("Error while getting project {} for git watcher", project_id)
+            })? {
+            Some(project) => {
+                log::info!("Checking for session to commit in {}", project.path);
+
+                let user = self.users_storage.get().with_context(|| {
+                    format!(
+                        "Error while getting user for git watcher in {}",
+                        project.path
+                    )
+                })?;
+                match self.check_for_changes(&project, &user)? {
+                    Some(session) => {
+                        sender
+                            .send(events::Event::session(&project, &session))
+                            .with_context(|| {
+                                format!(
+                                    "Error while sending session event for git watcher in {}",
+                                    project.path
+                                )
+                            })?;
+                        Ok(())
+                    }
+                    None => Ok(()),
+                }
+            }
+            None => {
+                log::error!("Project {} not found for git watcher", project_id);
+                Ok(())
+            }
+        }
+    }
+
     pub fn watch(
         &self,
         sender: mpsc::Sender<events::Event>,
@@ -35,55 +73,11 @@ impl GitWatcher {
         let self_copy = shared_self.clone();
         let project_id = project.id;
 
-        thread::spawn(move || loop {
+        tauri::async_runtime::spawn_blocking(move || loop {
             let local_self = &self_copy;
-
-            let project = local_self.projects_storage.get_project(&project_id);
-            if project.is_err() {
-                log::error!(
-                    "Error while getting project {} for git watcher: {:#}",
-                    project_id,
-                    project.err().unwrap()
-                );
-                continue;
-            };
-            let project = project.unwrap();
-
-            if project.is_none() {
-                log::error!("Project {} not found", project_id);
-                continue;
+            if let Err(e) = local_self.run(&project_id, sender.clone()) {
+                log::error!("Error while running git watcher: {:#}", e);
             }
-            let project = project.unwrap();
-
-            log::info!("Checking for session to commit in {}", project.path);
-
-            let user = local_self.users_storage.get();
-            if user.is_err() {
-                log::error!(
-                    "Error while getting user for git watcher: {:#}",
-                    user.err().unwrap()
-                );
-                continue;
-            };
-            let user = user.unwrap();
-
-            match local_self.check_for_changes(&project, &user) {
-                Ok(Some(session)) => {
-                    match sender.send(events::Event::session(&project, &session)) {
-                        Err(e) => log::error!("filed to send session event: {:#}", e),
-                        Ok(_) => {}
-                    }
-                }
-                Ok(None) => {}
-                Err(error) => {
-                    log::error!(
-                        "Error while checking {} for changes: {:#}",
-                        project.path,
-                        error
-                    );
-                }
-            }
-
             thread::sleep(Duration::from_secs(10));
         });
 
