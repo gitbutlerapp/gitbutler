@@ -47,7 +47,7 @@
 				class="-ml-2 hover:text-zinc-100"
 				on:click={() => (date = new Date(date.getTime() - 24 * 60 * 60 * 1000))}
 			>
-                <IconChevronLeft class="w-8 h-8" />
+				<IconChevronLeft class="w-8 h-8" />
 			</button>
 			<div class="flex-grow text-center">
 				{formatDate(date)}
@@ -61,7 +61,7 @@
 					}
 				}}
 			>
-                <IconChevronRight class="w-8 h-8" />
+				<IconChevronRight class="w-8 h-8" />
 			</button>
 		</div>
 	</header>
