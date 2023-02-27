@@ -12,7 +12,7 @@ use anyhow::{Context, Result};
 use deltas::Delta;
 use log;
 use serde::{ser::SerializeMap, Serialize};
-use std::{collections::HashMap, sync::mpsc, thread};
+use std::{collections::HashMap, sync::mpsc};
 use storage::Storage;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
@@ -497,7 +497,7 @@ fn main() {
 }
 
 fn watch_events(handle: tauri::AppHandle, rx: mpsc::Receiver<events::Event>) {
-    thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         while let Ok(event) = rx.recv() {
             if let Some(window) = handle.get_window("main") {
                 log::info!("Emitting event: {}", event.name);
