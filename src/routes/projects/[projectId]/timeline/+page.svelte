@@ -129,9 +129,9 @@
 		selection = {} as Selection;
 	};
 
-	function scrollExpandedIntoView(dateMilliseconds: string) {
+	function scrollExpandedIntoView(dateMilliseconds: number) {
 		new Promise((r) => setTimeout(r, 10)).then(() => {
-			document.getElementById(dateMilliseconds).scrollIntoView({
+			document.getElementById(dateMilliseconds.toString()).scrollIntoView({
 				behavior: 'smooth',
 				block: 'center',
 				inline: 'center'
@@ -211,6 +211,29 @@
 		});
 		return shortened.join('/');
 	};
+
+	const expandSession = (
+		idx: number,
+		uiSession: UISession,
+		dateMilliseconds: number,
+		selectedFilePath?: string
+	) => {
+		selection = {
+			sessionIdx: idx,
+			dateMilliseconds: dateMilliseconds,
+			branch: uiSession.session.meta.branch,
+			start: new Date(uiSession.earliestDeltaTimestampMs),
+			end: new Date(uiSession.latestDeltaTimestampMs),
+			deltas: uiSession.deltas,
+			files: listFiles({
+				projectId: $project?.id,
+				sessionId: uiSession.session.id,
+				paths: Object.keys(uiSession.deltas)
+			}),
+			selectedFilePath: selectedFilePath || Object.keys(uiSession.deltas)[0]
+		};
+		scrollExpandedIntoView(dateMilliseconds);
+	};
 </script>
 
 <div class="h-full">
@@ -250,23 +273,7 @@
 													class="
                                                 cursor-pointer
                                                 text-sm text-center font-medium rounded borded  text-zinc-800 p-1 border bg-orange-400 border-orange-400 hover:bg-[#fdbc87]"
-													on:click={() => {
-														selection = {
-															sessionIdx: i,
-															dateMilliseconds: +dateMilliseconds,
-															branch: uiSession.session.meta.branch,
-															start: new Date(uiSession.earliestDeltaTimestampMs),
-															end: new Date(uiSession.latestDeltaTimestampMs),
-															deltas: uiSession.deltas,
-															files: listFiles({
-																projectId: $project?.id,
-																sessionId: uiSession.session.id,
-																paths: Object.keys(uiSession.deltas)
-															}),
-															selectedFilePath: Object.keys(uiSession.deltas)[0]
-														};
-														scrollExpandedIntoView(dateMilliseconds);
-													}}
+													on:click={() => expandSession(i, uiSession, +dateMilliseconds)}
 												>
 													{toHumanBranchName(uiSession.session.meta.branch)}
 												</div>
@@ -291,23 +298,8 @@
 													<div class="overflow-y-auto overflow-x-hidden" title="Session files">
 														{#each Object.keys(uiSession.deltas) as filePath}
 															<button
-																on:click={() => {
-																	selection = {
-																		sessionIdx: i,
-																		dateMilliseconds: +dateMilliseconds,
-																		branch: uiSession.session.meta.branch,
-																		start: new Date(uiSession.earliestDeltaTimestampMs),
-																		end: new Date(uiSession.latestDeltaTimestampMs),
-																		deltas: uiSession.deltas,
-																		files: listFiles({
-																			projectId: $project?.id,
-																			sessionId: uiSession.session.id,
-																			paths: Object.keys(uiSession.deltas)
-																		}),
-																		selectedFilePath: filePath
-																	};
-																	scrollExpandedIntoView(dateMilliseconds);
-																}}
+																on:click={() =>
+																	expandSession(i, uiSession, +dateMilliseconds, filePath)}
 																class="cursor-pointer flex flex-row w-32 items-center"
 															>
 																<div class="w-6 h-6 text-zinc-200 fill-blue-400">
@@ -328,11 +320,22 @@
 							{:else}
 								<div class="mt-2 h-full flex flex-row space-x-2">
 									<div class="">
-										<div
-											class="rounded-r bg-orange-400 border border-orange-400 text-zinc-800 p-1 text-center text-sm font-medium cursor-pointer hover:bg-[#fdbc87]"
+										<button
+											on:click={() => {
+												if (selection.sessionIdx > 0) {
+													expandSession(
+														selection.sessionIdx - 1,
+														uiSessions[selection.sessionIdx - 1],
+														+dateMilliseconds
+													);
+												}
+											}}
+											class="{selection.sessionIdx == 0
+												? 'disabled cursor-default brightness-50'
+												: 'hover:bg-[#fdbc87]'} rounded-r bg-orange-400 border border-orange-400 text-zinc-800 p-1 text-center text-sm font-medium "
 										>
 											‹
-										</div>
+										</button>
 									</div>
 									<div class="flex-grow border-t border-l border-r rounded-t border-orange-400">
 										<div
@@ -523,11 +526,22 @@
 										</div>
 									</div>
 									<div class="">
-										<div
-											class="rounded-l bg-orange-400 border border-orange-400 text-zinc-800 p-1 text-center text-sm font-medium cursor-pointer hover:bg-[#fdbc87]"
+										<button
+											on:click={() => {
+												if (selection.sessionIdx < uiSessions.length - 1) {
+													expandSession(
+														selection.sessionIdx + 1,
+														uiSessions[selection.sessionIdx + 1],
+														+dateMilliseconds
+													);
+												}
+											}}
+											class="{selection.sessionIdx < uiSessions.length - 1
+												? 'hover:bg-[#fdbc87]'
+												: 'disabled cursor-default brightness-50'} rounded-r bg-orange-400 border border-orange-400 text-zinc-800 p-1 text-center text-sm font-medium "
 										>
 											›
-										</div>
+										</button>
 									</div>
 								</div>
 							{/if}
