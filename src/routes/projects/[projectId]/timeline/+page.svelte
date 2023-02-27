@@ -57,7 +57,12 @@
 		return svg;
 	}
 
-	type UISession = { session: Session; deltas: Record<string, Delta[]> };
+	type UISession = {
+		session: Session;
+		deltas: Record<string, Delta[]>;
+		earliestDeltaTimestampMs: number;
+		latestDeltaTimestampMs: number;
+	};
 
 	$: dateSessions = asyncDerived([sessions], async ([sessions]) => {
 		const deltas = await Promise.all(
@@ -68,6 +73,12 @@
 				});
 			})
 		);
+		// Sort deltas by timestamp
+		deltas.forEach((delta) => {
+			Object.keys(delta).forEach((key) => {
+				delta[key].sort((a, b) => a.timestampMs - b.timestampMs);
+			});
+		});
 
 		const uiSessions = sessions
 			.map((session, i) => {
@@ -85,6 +96,17 @@
 			} else {
 				dateSessions[date.getTime()] = [uiSession];
 			}
+		});
+
+		// For each UISession in dateSessions, set the earliestDeltaTimestampMs and latestDeltaTimestampMs
+		Object.keys(dateSessions).forEach((date) => {
+			dateSessions[date].forEach((uiSession) => {
+				const deltaTimestamps = Object.keys(uiSession.deltas).reduce((acc, key) => {
+					return acc.concat(uiSession.deltas[key].map((delta) => delta.timestampMs));
+				}, []);
+				uiSession.earliestDeltaTimestampMs = Math.min(...deltaTimestamps);
+				uiSession.latestDeltaTimestampMs = Math.max(...deltaTimestamps);
+			});
 		});
 
 		return dateSessions;
@@ -220,8 +242,8 @@
 															sessionIdx: i,
 															dateMilliseconds: +dateMilliseconds,
 															branch: uiSession.session.meta.branch,
-															start: new Date(uiSession.session.meta.startTimestampMs),
-															end: addSeconds(new Date(uiSession.session.meta.lastTimestampMs), 60),
+															start: new Date(uiSession.earliestDeltaTimestampMs),
+															end: new Date(uiSession.latestDeltaTimestampMs),
 															deltas: uiSession.deltas,
 															files: listFiles({
 																projectId: $project?.id,
@@ -241,14 +263,14 @@
 													id="sessions-details"
 												>
 													<div class="text-zinc-400 font-medium">
-														{formatTime(new Date(uiSession.session.meta.startTimestampMs))}
+														{formatTime(new Date(uiSession.earliestDeltaTimestampMs))}
 														-
-														{formatTime(new Date(uiSession.session.meta.lastTimestampMs))}
+														{formatTime(new Date(uiSession.latestDeltaTimestampMs))}
 													</div>
 													<div class="text-zinc-500 text-sm" title="Session duration">
 														{Math.round(
-															(uiSession.session.meta.lastTimestampMs -
-																uiSession.session.meta.startTimestampMs) /
+															(uiSession.latestDeltaTimestampMs -
+																uiSession.earliestDeltaTimestampMs) /
 																1000 /
 																60
 														)} min
@@ -449,7 +471,13 @@
 													<div class="col-span-8  bg-zinc-500/70 rounded select-text">
 														{#await selection.files then files}
 															{#if selection.selectedFilePath}
-																<CodeViewer value={files[selection.selectedFilePath]} />
+																<!-- {JSON.stringify(selection.deltas[selection.selectedFilePath])} -->
+																<CodeViewer
+																	value={deriveDoc(
+																		selection.deltas[selection.selectedFilePath],
+																		files[selection.selectedFilePath]
+																	)}
+																/>
 															{/if}
 														{/await}
 													</div>
