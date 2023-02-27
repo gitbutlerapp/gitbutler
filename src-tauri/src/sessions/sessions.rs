@@ -785,7 +785,7 @@ fn add_wd_path(
         ),
         dev: metadata.dev().try_into()?,
         ino: metadata.ino().try_into()?,
-        mode: metadata.mode(),
+        mode: 33188,
         uid: metadata.uid().try_into().unwrap(),
         gid: metadata.gid().try_into().unwrap(),
         file_size: metadata.len().try_into().unwrap(),
