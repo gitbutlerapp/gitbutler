@@ -201,6 +201,16 @@
 	$: doc = selection?.files?.then((files) =>
 		deriveDoc(selection.deltas[selection.selectedFilePath], files[selection.selectedFilePath])
 	);
+
+	// Returns a shortened version of the file path where each directory is shortened to the first three characters, except for the last directory
+	const shortenFilePath = (filePath: string) => {
+		const split = filePath.split('/');
+		const shortened = split.map((dir, i) => {
+			if (i === split.length - 1) return dir;
+			return dir.slice(0, 3);
+		});
+		return shortened.join('/');
+	};
 </script>
 
 <div class="h-full">
@@ -343,12 +353,14 @@
 												<div
 													class="overflow-hidden sticky top-0 z-30 bg-zinc-800 flex-none shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1"
 												>
-													<div class="grid-cols-11 -mr-px  border-zinc-700  grid">
+													<div
+														class="grid-cols-11 -mr-px  border-zinc-700  grid text-xs font-medium"
+													>
 														<div />
-														<div class="col-span-2 flex items-center justify-center py-2">
+														<div class="col-span-2 flex items-center justify-center py-1">
 															<span>{format(selection.start, 'hh:mm')}</span>
 														</div>
-														<div class="col-span-2 flex items-center justify-center py-2">
+														<div class="col-span-2 flex items-center justify-center py-1">
 															<span
 																>{format(
 																	add(selection.start, {
@@ -359,7 +371,7 @@
 																)}</span
 															>
 														</div>
-														<div class="col-span-2 flex items-center justify-center py-2">
+														<div class="col-span-2 flex items-center justify-center py-1">
 															<span
 																>{format(
 																	add(selection.start, {
@@ -370,7 +382,7 @@
 																)}</span
 															>
 														</div>
-														<div class="col-span-2 flex items-center justify-center py-2">
+														<div class="col-span-2 flex items-center justify-center py-1">
 															<span
 																>{format(
 																	add(selection.start, {
@@ -381,7 +393,7 @@
 																)}</span
 															>
 														</div>
-														<div class="col-span-2 flex items-center justify-center py-2">
+														<div class="col-span-2 flex items-center justify-center py-1">
 															<span>{format(selection.end, 'hh:mm')}</span>
 														</div>
 													</div>
@@ -412,7 +424,7 @@
 														<div
 															class="bg-col-start-1 col-end-2 row-start-1 grid divide-y divide-zinc-700/20"
 															style="grid-template-rows: repeat({Object.keys(selection.deltas)
-																.length}, minmax(2rem, 1fr));"
+																.length}, minmax(1rem, 1fr));"
 														>
 															<!-- <div class="row-end-1 h-7" /> -->
 
@@ -423,7 +435,7 @@
 																		: ''}"
 																>
 																	<button
-																		class="z-20 flex justify-end items-center overflow-hidden sticky left-0 w-1/6 leading-5 
+																		class="text-xs z-20 flex justify-end items-center overflow-hidden sticky left-0 w-1/6 leading-5 
                                                                         {selection.selectedFilePath ===
 																		filePath
 																			? 'text-zinc-200 cursor-default'
@@ -431,7 +443,7 @@
 																		on:click={() => (selection.selectedFilePath = filePath)}
 																		title={filePath}
 																	>
-																		{filePath.split('/').pop()}
+																		{shortenFilePath(filePath)}
 																	</button>
 																</div>
 															{/each}
@@ -463,17 +475,19 @@
 														<ol
 															class="col-start-1 col-end-2 row-start-1 grid"
 															style="
-                        grid-template-columns: repeat(88, minmax(0, 1fr));
-                        grid-template-rows: repeat({Object.keys(selection.deltas)
-																.length}, minmax(0px, 1fr)) auto;"
+                                                                grid-template-columns: repeat(88, minmax(0, 1fr));
+                                                                grid-template-rows: repeat({Object.keys(
+																selection.deltas
+															).length}, minmax(0px, 1fr)) auto;"
 														>
 															{#each Object.entries(selection.deltas) as [filePath, fileDeltas], idx}
 																{#each fileDeltas as delta}
 																	<li
 																		class="relative flex items-center bg-zinc-300 hover:bg-zinc-100 rounded m-0.5 cursor-pointer"
 																		style="
-                                grid-row: {idx + 1} / span 1;
-                                grid-column: {timeStampToCol(
+                                                                            grid-row: {idx +
+																			1} / span 1;
+                                                                            grid-column: {timeStampToCol(
 																			new Date(delta.timestampMs),
 																			selection.start,
 																			selection.end
