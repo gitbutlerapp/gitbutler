@@ -715,28 +715,24 @@ fn add_wd_path(
     let abs_file_path = repo.workdir().unwrap().join(rel_file_path);
     let file_path = Path::new(&abs_file_path);
 
-    let metadata = file_path.metadata()?;
+    let metadata = file_path
+        .metadata()
+        .with_context(|| "failed to get metadata for".to_string())?;
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
-    // if we find the entry in the index, we can just use it
-    match repo_index.get_path(rel_file_path, 0) {
+    if let Some(entry) = repo_index.get_path(rel_file_path, 0) {
         // if we find the entry and the metadata of the file has not changed, we can just use the existing entry
-        Some(entry) => {
-            if entry.mtime.seconds() == i32::try_from(mtime.seconds())?
-                && entry.mtime.nanoseconds() == u32::try_from(mtime.nanoseconds()).unwrap()
-                && entry.file_size == u32::try_from(metadata.len())?
-                && entry.mode == metadata.mode()
-            {
-                log::debug!("Using existing entry for {}", file_path.display());
-                index.add(&entry).unwrap();
-                return Ok(());
-            }
+        if entry.mtime.seconds() == i32::try_from(mtime.seconds())?
+            && entry.mtime.nanoseconds() == u32::try_from(mtime.nanoseconds()).unwrap()
+            && entry.file_size == u32::try_from(metadata.len())?
+            && entry.mode == metadata.mode()
+        {
+            log::debug!("Using existing entry for {}", file_path.display());
+            index.add(&entry).unwrap();
+            return Ok(());
         }
-        None => {
-            log::debug!("No entry found for {}", file_path.display());
-        }
-    };
+    }
 
     // something is different, or not found, so we need to create a new entry
 
@@ -778,7 +774,7 @@ fn add_wd_path(
     };
 
     // create a new IndexEntry from the file metadata
-    index.add(&git2::IndexEntry {
+    match index.add(&git2::IndexEntry {
         ctime: git2::IndexTime::new(
             ctime.seconds().try_into()?,
             ctime.nanoseconds().try_into().unwrap(),
@@ -797,9 +793,18 @@ fn add_wd_path(
         flags_extended: 0, // no extended flags
         path: rel_file_path.to_str().unwrap().to_string().into(),
         id: blob,
-    })?;
-
-    Ok(())
+    }) {
+        Ok(_) => Ok(()),
+        Err(e) => match e.message() {
+            "invalid entry mode" => {
+                log::warn!("ignoring invalid entry mode for {}", file_path.display());
+                // this happens when we try to add a file that is not a regular file or a symlink
+                // or we don't have permission to read it
+                Ok(())
+            }
+            _ => Err(e).with_context(|| "failed to add working directory path".to_string()),
+        },
+    }
 }
 
 /// calculates sha256 digest of a large file as lowercase hex string via streaming buffer
