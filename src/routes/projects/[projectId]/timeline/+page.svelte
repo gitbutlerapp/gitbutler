@@ -9,99 +9,104 @@
     import type { Delta } from "$lib/deltas";
     import { toHumanBranchName } from "$lib/branch";
 
-	export let data: PageData;
-	const { project, sessions } = data;
+    export let data: PageData;
+    const { project, sessions } = data;
 
-	const formatDate = (date: Date) => {
-		return new Intl.DateTimeFormat('default', {
-			weekday: 'short',
-			day: 'numeric',
-			month: 'short'
-		}).format(date);
-	};
+    const formatDate = (date: Date) => {
+        return new Intl.DateTimeFormat("default", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+        }).format(date);
+    };
 
-	const formatTime = (date: Date) => {
-		return new Intl.DateTimeFormat('default', {
-			hour: 'numeric',
-			minute: 'numeric'
-		}).format(date);
-	};
+    const formatTime = (date: Date) => {
+        return new Intl.DateTimeFormat("default", {
+            hour: "numeric",
+            minute: "numeric",
+        }).format(date);
+    };
 
-	function pathToName(path: string) {
-		return path.split('/').slice(-1)[0];
-	}
+    function pathToName(path: string) {
+        return path.split("/").slice(-1)[0];
+    }
 
-	const getIcon = themeIcons({
-		blue: '#268bd2',
-		grey: '#657b83',
-		'grey-light': '#839496',
-		green: '#859900',
-		orange: '#cb4b16',
-		pink: '#d33682',
-		purple: '#6c71c4',
-		red: '#dc322f',
-		white: '#fdf6e3',
-		yellow: '#b58900',
-		ignore: '#586e75'
-	});
+    const getIcon = themeIcons({
+        blue: "#268bd2",
+        grey: "#657b83",
+        "grey-light": "#839496",
+        green: "#859900",
+        orange: "#cb4b16",
+        pink: "#d33682",
+        purple: "#6c71c4",
+        red: "#dc322f",
+        white: "#fdf6e3",
+        yellow: "#b58900",
+        ignore: "#586e75",
+    });
 
-	function pathToIconSvg(path: string) {
-		let name: string = pathToName(path);
-		let { svg } = getIcon(name);
-		return svg;
-	}
+    function pathToIconSvg(path: string) {
+        let name: string = pathToName(path);
+        let { svg } = getIcon(name);
+        return svg;
+    }
 
-	type UISession = { session: Session; deltas: Record<string, Delta[]> };
+    type UISession = { session: Session; deltas: Record<string, Delta[]> };
 
-	$: dateSessions = asyncDerived([sessions], async ([sessions]) => {
-		const deltas = await Promise.all(
-			sessions.map((session) => {
-				return listDeltas({
-					projectId: $project?.id,
-					sessionId: session.id
-				});
-			})
-		);
+    $: dateSessions = asyncDerived([sessions], async ([sessions]) => {
+        const deltas = await Promise.all(
+            sessions.map((session) => {
+                return listDeltas({
+                    projectId: $project?.id,
+                    sessionId: session.id,
+                });
+            })
+        );
 
-		const uiSessions = sessions
-			.map((session, i) => {
-				return { session, deltas: deltas[i] } as UISession;
-			})
-			.filter((uiSession) => {
-				return Object.keys(uiSession.deltas).length > 0;
-			});
+        const uiSessions = sessions
+            .map((session, i) => {
+                return { session, deltas: deltas[i] } as UISession;
+            })
+            .filter((uiSession) => {
+                return Object.keys(uiSession.deltas).length > 0;
+            });
 
-		const dateSessions: Record<number, UISession[]> = {};
-		uiSessions.forEach((uiSession) => {
-			const date = startOfDay(new Date(uiSession.session.meta.startTimestampMs));
-			if (dateSessions[date.getTime()]) {
-				dateSessions[date.getTime()]?.push(uiSession);
-			} else {
-				dateSessions[date.getTime()] = [uiSession];
-			}
-		});
+        const dateSessions: Record<number, UISession[]> = {};
+        uiSessions.forEach((uiSession) => {
+            const date = startOfDay(
+                new Date(uiSession.session.meta.startTimestampMs)
+            );
+            if (dateSessions[date.getTime()]) {
+                dateSessions[date.getTime()]?.push(uiSession);
+            } else {
+                dateSessions[date.getTime()] = [uiSession];
+            }
+        });
 
-		return dateSessions;
-	});
+        return dateSessions;
+    });
 
-	type Selection = { sessionIdx: number; dateMilliseconds: number };
-	let selection = {} as Selection;
+    type Selection = { sessionIdx: number; dateMilliseconds: number };
+    let selection = {
+        sessionIdx: 3,
+        dateMilliseconds: 1677106800000,
+    } as Selection;
 
-	const resetSelection = () => {
-		selection = {} as Selection;
-	};
+    const resetSelection = () => {
+        selection = {} as Selection;
+    };
 
-	function scrollExpandedIntoView(dateMilliseconds: string) {
-		new Promise((r) => setTimeout(r, 10)).then(() => {
-			document.getElementById(dateMilliseconds).scrollIntoView({
-				// behavior: "smooth",
-				block: 'center',
-				inline: 'center'
-			});
-		});
-	}
+    function scrollExpandedIntoView(dateMilliseconds: string) {
+        new Promise((r) => setTimeout(r, 10)).then(() => {
+            document.getElementById(dateMilliseconds).scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+                inline: "center",
+            });
+        });
+    }
 
-	let animatingOut = false;
+    let animatingOut = false;
 </script>
 
 <div class="h-full">
@@ -118,9 +123,10 @@
                         <div
                             id={dateMilliseconds}
                             class="bg-zinc-800/50 rounded-xl border border-zinc-700 
+                                flex flex-col h-full
                                 {selection.dateMilliseconds == +dateMilliseconds
-								? 'min-w-full overflow-x-hidden'
-								: ''}
+                                ? 'min-w-full overflow-x-hidden'
+                                : ''}
                                 "
                         >
                             <div
@@ -159,7 +165,6 @@
                                                         );
                                                     }}
                                                 >
-                                                    {i}
                                                     {toHumanBranchName(
                                                         uiSession.session.meta
                                                             .branch
@@ -237,10 +242,30 @@
                                     </div>
                                 </div>
                             {:else}
-                                <div class="bg-zinc-500 border h-full w-full">
-                                    <button on:click={resetSelection}
-                                        >Close</button
+                                <div
+                                    class="mt-2 h-full flex flex-row space-x-2"
+                                >
+                                    <div class="">
+                                        <div
+                                            class="rounded-r bg-orange-400 border border-orange-400 text-zinc-800 p-1 text-center text-sm font-medium cursor-pointer hover:bg-[#fdbc87]"
+                                        >
+                                            ‹
+                                        </div>
+                                    </div>
+                                    <div
+                                        class="flex-grow bg-orange-400/1 border-t border-l border-r rounded-t border-orange-400/50"
                                     >
+                                        <button on:click={resetSelection}
+                                            >Close</button
+                                        >
+                                    </div>
+                                    <div class="">
+                                        <div
+                                            class="rounded-l bg-orange-400 border border-orange-400 text-zinc-800 p-1 text-center text-sm font-medium cursor-pointer hover:bg-[#fdbc87]"
+                                        >
+                                            ›
+                                        </div>
+                                    </div>
                                 </div>
                             {/if}
                         </div>
