@@ -795,15 +795,7 @@ fn add_wd_path(
         id: blob,
     }) {
         Ok(_) => Ok(()),
-        Err(e) => match e.message() {
-            "invalid entry mode" => {
-                log::warn!("ignoring invalid entry mode for {}", file_path.display());
-                // this happens when we try to add a file that is not a regular file or a symlink
-                // or we don't have permission to read it
-                Ok(())
-            }
-            _ => Err(e).with_context(|| "failed to add working directory path".to_string()),
-        },
+        Err(e) => Err(e).with_context(|| "failed to add working directory path".to_string()),
     }
 }
 
