@@ -27,10 +27,10 @@
 		</div>
 		<div class="ml-6"><Breadcrumbs /></div>
 		<div class="flex-grow" />
-		<a href="/users/" class="flex items-center gap-2 mr-4 font-medium hover:text-zinc-200">
+		<a href="/users/" class="flex items-center gap-1 mr-4 font-medium hover:text-zinc-200">
 			{#if $user}
 				{#if $user.picture}
-					<img class="inline-block w-6 h-6 rounded-full" src={$user.picture} alt="Avatar" />
+					<img class="inline-block w-5 h-5 rounded-full" src={$user.picture} alt="Avatar" />
 				{/if}
 				<span>{$user.name}</span>
 			{:else}
