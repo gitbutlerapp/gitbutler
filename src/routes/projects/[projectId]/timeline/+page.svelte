@@ -68,7 +68,7 @@
 		const deltas = await Promise.all(
 			sessions.map((session) => {
 				return listDeltas({
-					projectId: $project?.id,
+					projectId: $project?.id ?? '',
 					sessionId: session.id
 				});
 			})
@@ -99,10 +99,10 @@
 		});
 
 		// For each UISession in dateSessions, set the earliestDeltaTimestampMs and latestDeltaTimestampMs
-		Object.keys(dateSessions).forEach((date) => {
-			dateSessions[date].forEach((uiSession) => {
+		Object.keys(dateSessions).forEach((date: any) => {
+			dateSessions[date].forEach((uiSession: any) => {
 				const deltaTimestamps = Object.keys(uiSession.deltas).reduce((acc, key) => {
-					return acc.concat(uiSession.deltas[key].map((delta) => delta.timestampMs));
+					return acc.concat(uiSession.deltas[key].map((delta: Delta) => delta.timestampMs));
 				}, []);
 				uiSession.earliestDeltaTimestampMs = Math.min(...deltaTimestamps);
 				uiSession.latestDeltaTimestampMs = Math.max(...deltaTimestamps);
@@ -131,11 +131,14 @@
 
 	function scrollExpandedIntoView(dateMilliseconds: number) {
 		new Promise((r) => setTimeout(r, 10)).then(() => {
-			document.getElementById(dateMilliseconds.toString()).scrollIntoView({
-				behavior: 'smooth',
-				block: 'center',
-				inline: 'center'
-			});
+			const element = document.getElementById(dateMilliseconds.toString());
+			if (element) {
+				element.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center',
+					inline: 'center'
+				});
+			}
 		});
 	}
 
@@ -221,16 +224,17 @@
 		selection = {
 			sessionIdx: idx,
 			dateMilliseconds: dateMilliseconds,
-			branch: uiSession.session.meta.branch,
+			branch: uiSession.session.meta.branch || 'master',
 			start: new Date(uiSession.earliestDeltaTimestampMs),
 			end: new Date(uiSession.latestDeltaTimestampMs),
 			deltas: uiSession.deltas,
 			files: listFiles({
-				projectId: $project?.id,
+				projectId: $project?.id || '',
 				sessionId: uiSession.session.id,
 				paths: Object.keys(uiSession.deltas)
 			}),
-			selectedFilePath: selectedFilePath || Object.keys(uiSession.deltas)[0]
+			selectedFilePath: selectedFilePath || Object.keys(uiSession.deltas)[0],
+			selectedColumn: 0
 		};
 		scrollExpandedIntoView(dateMilliseconds);
 	};
