@@ -32,6 +32,23 @@
 	});
 
 	export let value: string;
+	export let scrollToChar = 0;
+
+	$: characterLineNumber = getLineNumber(value, scrollToChar);
+
+	function getLineNumber(value: string, characterIndex: number): number {
+		const lines = value.split('\n');
+
+		let totalCharacters = 0;
+		for (let i = 0; i < lines.length; i++) {
+			const lineLength = lines[i].length + 1;
+			if (characterIndex < totalCharacters + lineLength) {
+				return i + 1;
+			}
+			totalCharacters += lineLength;
+		}
+		return -1;
+	}
 
 	let element: HTMLDivElement;
 	let editorView: EditorView;
@@ -55,10 +72,13 @@
 	}
 
 	function create_editor_view(value: string): EditorView {
-		return new EditorView({
+		const view = new EditorView({
 			state: create_editor_state(value),
 			parent: element
 		});
+
+		view.scrollDOM.scrollTo(0, view.lineBlockAtHeight(0).height * (characterLineNumber - 5));
+		return view;
 	}
 
 	let state_extensions = [

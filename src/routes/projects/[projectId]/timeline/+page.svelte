@@ -521,7 +521,14 @@
 													<div class="col-span-2" />
 													<div class="col-span-8  bg-zinc-500/70 rounded select-text">
 														{#await doc then dd}
-															<CodeViewer value={dd} />
+															<CodeViewer
+																value={dd}
+																scrollToChar={Object.values(
+																	Object.values(selection.deltas[selection.selectedFilePath])
+																		.pop()
+																		?.['operations'].slice(-1)?.[0] || {}
+																)[0][0]}
+															/>
 														{/await}
 													</div>
 													<div class="" />
