@@ -121,6 +121,7 @@
 		deltas: Record<string, Delta[]>;
 		files: Promise<Record<string, string>>;
 		selectedFilePath: string;
+		selectedColumn: number;
 	};
 	let selection = {} as Selection;
 
@@ -139,8 +140,6 @@
 	}
 
 	let animatingOut = false;
-
-	let value = 0; // TODO: rename
 
 	const timeStampToCol = (deltaTimestamp: Date, start: Date, end: Date) => {
 		if (deltaTimestamp < start || deltaTimestamp > end) {
@@ -165,14 +164,14 @@
 		const timestamp = addSeconds(start, eventDiff);
 		return timestamp;
 	};
-	let doc = null;
 
 	const deriveDoc = (deltas: Delta[], text: string) => {
 		if (!deltas) return text;
 
 		const tickSizeMs = Math.floor((selection.end.getTime() - selection.start.getTime()) / 63); // how many ms each column represents
 		const sliderValueTimestampMs =
-			colToTimestamp(value, selection.start, selection.end).getTime() + tickSizeMs; // Include the tick size so that the slider value is always in the future
+			colToTimestamp(selection.selectedColumn, selection.start, selection.end).getTime() +
+			tickSizeMs; // Include the tick size so that the slider value is always in the future
 		// Filter operations based on the current slider value
 		const operations = deltas
 			.filter(
@@ -198,6 +197,10 @@
 
 		return text;
 	};
+
+	$: doc = selection?.files?.then((files) =>
+		deriveDoc(selection.deltas[selection.selectedFilePath], files[selection.selectedFilePath])
+	);
 </script>
 
 <div class="h-full">
@@ -367,7 +370,12 @@
 													<div class="grid grid-cols-11">
 														<div class="col-span-2 flex items-center justify-center" />
 														<div class="-mx-1 col-span-8 flex items-center justify-center">
-															<Slider min={17} max={80} step={1} bind:value>
+															<Slider
+																min={17}
+																max={80}
+																step={1}
+																bind:value={selection.selectedColumn}
+															>
 																<svelte:fragment slot="tooltip" let:value>
 																	{format(
 																		colToTimestamp(value, selection.start, selection.end),
@@ -415,7 +423,10 @@
 															class="col-start-1 col-end-2 row-start-1 grid"
 															style="grid-template-columns: repeat(88, minmax(0, 1fr));"
 														>
-															<div class="bg-orange-400/40 " style=" grid-column: {value};" />
+															<div
+																class="bg-orange-400/40 "
+																style=" grid-column: {selection.selectedColumn};"
+															/>
 														</div>
 														<!-- time vertical lines -->
 														<div
@@ -452,7 +463,7 @@
 																		<button
 																			class="z-20 h-full flex flex-col w-full items-center justify-center"
 																			on:click={() => {
-																				value = timeStampToCol(
+																				selection.selectedColumn = timeStampToCol(
 																					new Date(delta.timestampMs),
 																					selection.start,
 																					selection.end
@@ -469,16 +480,8 @@
 												<div class="grid grid-cols-11 mt-6">
 													<div class="col-span-2" />
 													<div class="col-span-8  bg-zinc-500/70 rounded select-text">
-														{#await selection.files then files}
-															{#if selection.selectedFilePath}
-																<!-- {JSON.stringify(selection.deltas[selection.selectedFilePath])} -->
-																<CodeViewer
-																	value={deriveDoc(
-																		selection.deltas[selection.selectedFilePath],
-																		files[selection.selectedFilePath]
-																	)}
-																/>
-															{/if}
+														{#await doc then dd}
+															<CodeViewer value={dd} />
 														{/await}
 													</div>
 													<div class="" />
