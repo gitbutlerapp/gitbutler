@@ -1,6 +1,5 @@
 <script lang="ts">
-	import MdKeyboardArrowLeft from 'svelte-icons/md/MdKeyboardArrowLeft.svelte';
-	import MdKeyboardArrowRight from 'svelte-icons/md/MdKeyboardArrowRight.svelte';
+	import { IconChevronLeft, IconChevronRight } from '@tabler/icons-svelte';
 	import { add, format, differenceInSeconds, addSeconds } from 'date-fns';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
@@ -116,11 +115,11 @@
 		<div class="flex items-center justify-start  w-64">
 			<a
 				href="/projects/{$page.params.projectId}/sessions/{$previousSesssion?.id}"
-				class="-ml-2 w-8 h-8 hover:text-zinc-100 {$previousSesssion
+				class="-ml-2  hover:text-zinc-100 {$previousSesssion
 					? ''
 					: 'opacity-50 pointer-events-none cursor-not-allowed'}"
 			>
-				<MdKeyboardArrowLeft />
+				<IconChevronLeft class="w-8 h-8" />
 			</a>
 			<div class="flex-grow text-center cursor-default grid grid-cols-7">
 				<span class="col-span-3">{formatDate(start)}</span>
@@ -129,11 +128,11 @@
 			</div>
 			<a
 				href="/projects/{$page.params.projectId}/sessions/{$nextSession?.id}"
-				class="-mr-2 w-8 h-8 hover:text-zinc-100 {$nextSession
+				class="-mr-2 hover:text-zinc-100 {$nextSession
 					? ''
 					: 'text-zinc-700 pointer-events-none cursor-not-allowed'}"
 			>
-				<MdKeyboardArrowRight />
+				<IconChevronRight class="w-8 h-8" />
 			</a>
 		</div>
 	</header>

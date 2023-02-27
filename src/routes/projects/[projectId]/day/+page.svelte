@@ -1,6 +1,5 @@
 <script lang="ts">
-	import MdKeyboardArrowLeft from 'svelte-icons/md/MdKeyboardArrowLeft.svelte';
-	import MdKeyboardArrowRight from 'svelte-icons/md/MdKeyboardArrowRight.svelte';
+	import { IconChevronRight, IconChevronLeft } from '@tabler/icons-svelte';
 	import { TimelineDaySession } from '$lib/components/timeline';
 	import type { PageData } from './$types';
 	import type { Session } from '$lib/sessions';
@@ -45,16 +44,16 @@
 	<header class="flex items-center justify-between flex-none px-8 py-1.5 border-b border-zinc-700">
 		<div class="flex items-center justify-start w-64">
 			<button
-				class="-ml-2 w-8 h-8 hover:text-zinc-100"
+				class="-ml-2 hover:text-zinc-100"
 				on:click={() => (date = new Date(date.getTime() - 24 * 60 * 60 * 1000))}
 			>
-				<MdKeyboardArrowLeft />
+                <IconChevronLeft class="w-8 h-8" />
 			</button>
 			<div class="flex-grow text-center">
 				{formatDate(date)}
 			</div>
 			<button
-				class="-mr-2 w-8 h-8 hover:text-zinc-100 disabled:text-zinc-700"
+				class="-mr-2 hover:text-zinc-100 disabled:text-zinc-700"
 				disabled={!canNavigateForwad}
 				on:click={() => {
 					if (canNavigateForwad) {
@@ -62,7 +61,7 @@
 					}
 				}}
 			>
-				<MdKeyboardArrowRight />
+                <IconChevronRight class="w-8 h-8" />
 			</button>
 		</div>
 	</header>

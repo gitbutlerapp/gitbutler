@@ -4,8 +4,7 @@
 	import { toHumanReadableTime } from '$lib/time';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import IoIosBowtie from 'svelte-icons/io/IoIosBowtie.svelte';
-	import MdKeyboardArrowRight from 'svelte-icons/md/MdKeyboardArrowRight.svelte';
+	import { IconHome, IconChevronRight } from '@tabler/icons-svelte';
 
 	let project: Writable<Project | null | undefined> = getContext('project');
 	let session: Writable<Session | null | undefined> = getContext('session');
@@ -13,20 +12,14 @@
 
 <div class="flex flex-row items-center space-x-1 bg-zinc-900 text-zinc-400 h-8">
 	<a class="hover:text-zinc-200" href="/">
-		<div class="w-6 h-6">
-			<IoIosBowtie />
-		</div>
+		<IconHome class="w-5 h-5" />
 	</a>
 	{#if $project}
-		<div class="w-8 h-8 text-zinc-700">
-			<MdKeyboardArrowRight />
-		</div>
+		<IconChevronRight class="w-5 h-5 text-zinc-700" />
 		<a class="hover:text-zinc-200" href="/projects/{$project.id}">{$project.title}</a>
 	{/if}
 	{#if $project && $session}
-		<div class="w-8 h-8 text-zinc-700">
-			<MdKeyboardArrowRight />
-		</div>
+		<IconChevronRight class="w-5 h-5 text-zinc-700" />
 		<a class="hover:text-zinc-200" href="/projects/{$project.id}/sessions/{$session.id}">
 			{toHumanReadableTime($session.meta.startTimestampMs)}
 			{toHumanReadableTime($session.meta.lastTimestampMs)}

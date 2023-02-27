@@ -18,6 +18,7 @@
 		"@codemirror/state": "^6.2.0",
 		"@codemirror/view": "^6.7.3",
 		"@square/svelte-store": "^1.0.14",
+		"@tabler/icons-svelte": "^2.6.0",
 		"@tauri-apps/api": "^1.2.0",
 		"date-fns": "^2.29.3",
 		"fluent-svelte": "^1.6.0",
@@ -27,7 +28,6 @@
 		"posthog-js": "^1.46.1",
 		"seti-icons": "^0.0.4",
 		"svelte-french-toast": "^1.0.3",
-		"svelte-icons": "^2.1.0",
 		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log"
 	},
 	"devDependencies": {

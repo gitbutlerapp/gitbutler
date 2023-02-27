@@ -8,6 +8,7 @@ specifiers:
   '@square/svelte-store': ^1.0.14
   '@sveltejs/adapter-static': next
   '@sveltejs/kit': next
+  '@tabler/icons-svelte': ^2.6.0
   '@tauri-apps/api': ^1.2.0
   '@tauri-apps/cli': ^1.2.2
   '@types/diff': ^5.0.2
@@ -31,7 +32,6 @@ specifiers:
   svelte: ^3.55.1
   svelte-check: ^3.0.1
   svelte-french-toast: ^1.0.3
-  svelte-icons: ^2.1.0
   tailwindcss: ^3.1.5
   tauri-plugin-log-api: github:tauri-apps/tauri-plugin-log
   tslib: ^2.4.1
@@ -44,6 +44,7 @@ dependencies:
   '@codemirror/state': 6.2.0
   '@codemirror/view': 6.7.3
   '@square/svelte-store': 1.0.14
+  '@tabler/icons-svelte': 2.6.0_svelte@3.55.1
   '@tauri-apps/api': 1.2.0
   date-fns: 2.29.3
   fluent-svelte: 1.6.0
@@ -53,7 +54,6 @@ dependencies:
   posthog-js: 1.46.1
   seti-icons: 0.0.4
   svelte-french-toast: 1.0.3_svelte@3.55.1
-  svelte-icons: 2.1.0
   tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/921afb3366b14ac43e3d8041a7def4b85d4d7192
 
 devDependencies:
@@ -472,6 +472,19 @@ packages:
     transitivePeerDependencies:
       - supports-color
     dev: true
+
+  /@tabler/icons-svelte/2.6.0_svelte@3.55.1:
+    resolution: {integrity: sha512-ehUpaAO15KtWP9RCGJI5UDFiHgH8HvmjjD4dGpPPhvb0/Yhb8sWfob181Wq95mCCXPa4e8rRebks5vXZh9c01Q==}
+    peerDependencies:
+      svelte: ^3.49.0
+    dependencies:
+      '@tabler/icons': 2.6.0
+      svelte: 3.55.1
+    dev: false
+
+  /@tabler/icons/2.6.0:
+    resolution: {integrity: sha512-rflJyQSsu2iV6QgrA7ZdGaikSTdIVpXlem0jBIcx18OKg0ZJmLojmrhNo7DpOW7bCT4Hr2r6jcpq8uSYrinqZw==}
+    dev: false
 
   /@tauri-apps/api/1.2.0:
     resolution: {integrity: sha512-lsI54KI6HGf7VImuf/T9pnoejfgkNoXveP14pVV7XarrQ46rOejIVJLFqHI9sRReJMGdh2YuCoI3cc/yCWCsrw==}
@@ -2586,10 +2599,6 @@ packages:
     dependencies:
       svelte: 3.55.1
     dev: true
-
-  /svelte-icons/2.1.0:
-    resolution: {integrity: sha512-rHPQjweEc9fGSnvM0/4gA3pDHwyZyYsC5KhttCZRhSMJfLttJST5Uq0B16Czhw+HQ+HbSOk8kLigMlPs7gZtfg==}
-    dev: false
 
   /svelte-preprocess/5.0.1_b25a55hc532q56kmuqlrolam2i:
     resolution: {integrity: sha512-0HXyhCoc9rsW4zGOgtInylC6qj259E1hpFnJMJWTf+aIfeqh4O/QHT31KT2hvPEqQfdjmqBR/kO2JDkkciBLrQ==}

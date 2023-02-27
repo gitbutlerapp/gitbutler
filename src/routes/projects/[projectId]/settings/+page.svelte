@@ -3,7 +3,7 @@
 	import { Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts } from '$lib';
-	import MdAutorenew from 'svelte-icons/md/MdAutorenew.svelte';
+	import { IconRotateClockwise2 } from '@tabler/icons-svelte';
 
 	export let data: PageData;
 	const { project, user, api } = data;
@@ -190,9 +190,7 @@
 						<div
 							class="flex w-32 flex-row w-content items-center gap-1 justify-center py-1 px-3 rounded text-white bg-blue-400"
 						>
-							<div class="animate-spin w-5 h-5">
-								<MdAutorenew />
-							</div>
+							<IconRotateClockwise2 class="w-5 h-5 animate-spin" />
 							<span>Updating...</span>
 						</div>
 					{:else}

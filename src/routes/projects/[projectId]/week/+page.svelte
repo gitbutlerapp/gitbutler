@@ -2,8 +2,7 @@
 	import { Week } from '$lib/week';
 	import type { PageData } from './$types';
 	import { WeekBlockEntry } from '$lib/components/week';
-	import MdKeyboardArrowLeft from 'svelte-icons/md/MdKeyboardArrowLeft.svelte';
-	import MdKeyboardArrowRight from 'svelte-icons/md/MdKeyboardArrowRight.svelte';
+	import { IconChevronLeft, IconChevronRight } from '@tabler/icons-svelte';
 	import { derived } from 'svelte/store';
 	import { toHumanBranchName } from '$lib/branch';
 
@@ -34,11 +33,8 @@
 <div class="flex flex-col h-full select-none text-zinc-400">
 	<header class="flex items-center justify-between flex-none px-8 py-1.5  border-b border-zinc-700">
 		<div class="flex items-center justify-start  w-64">
-			<button
-				class="-ml-2 w-8 h-8 hover:text-zinc-100"
-				on:click={() => (week = Week.previous(week))}
-			>
-				<MdKeyboardArrowLeft />
+			<button class="-ml-2 hover:text-zinc-100" on:click={() => (week = Week.previous(week))}>
+				<IconChevronLeft class="w-8 h-8" />
 			</button>
 			<div class="flex-grow text-center cursor-default grid grid-cols-7">
 				<span class="col-span-3">{formatDate(Week.nThDay(week, 0))}</span>
@@ -46,7 +42,7 @@
 				<span class="col-span-3">{formatDate(Week.nThDay(week, 6))}</span>
 			</div>
 			<button
-				class="-mr-2 w-8 h-8 hover:text-zinc-100 disabled:text-zinc-700"
+				class="-mr-2 hover:text-zinc-100 disabled:text-zinc-700"
 				disabled={!canNavigateForwad}
 				on:click={() => {
 					if (canNavigateForwad) {
@@ -54,7 +50,7 @@
 					}
 				}}
 			>
-				<MdKeyboardArrowRight />
+				<IconChevronRight class="w-8 h-8" />
 			</button>
 		</div>
 	</header>
