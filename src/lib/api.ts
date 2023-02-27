@@ -138,6 +138,19 @@ export default (
 					},
 					body: JSON.stringify(params)
 				}).then(parseResponseJSON),
+			update: (
+				token: string,
+				repositoryId: string,
+				params: { name: string; description?: string }
+			): Promise<Project> =>
+				fetch(getUrl(`projects/${repositoryId}.json`), {
+					method: 'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-Auth-Token': token
+					},
+					body: JSON.stringify(params)
+				}).then(parseResponseJSON),
 			list: (token: string): Promise<Project[]> =>
 				fetch(getUrl('projects.json'), {
 					method: 'GET',

@@ -2,20 +2,22 @@
 	import { derived } from 'svelte/store';
 	import { Login } from '$lib/components';
 	import type { PageData } from './$types';
+	import { log, toasts } from '$lib';
+	import MdAutorenew from 'svelte-icons/md/MdAutorenew.svelte';
 
 	export let data: PageData;
 	const { project, user, api } = data;
 
-	function repo_id(url: string) {
+	const repo_id = (url: string) => {
 		const hurl = new URL(url);
 		const path = hurl.pathname.split('/');
 		return path[path.length - 1];
-	}
+	};
 
-	function hostname(url: string) {
+	const hostname = (url: string) => {
 		const hurl = new URL(url);
 		return hurl.hostname;
-	}
+	};
 
 	const isSyncing = derived(project, (project) => project?.api?.sync);
 
@@ -26,15 +28,53 @@
 		const target = event.target as HTMLInputElement;
 		const sync = target.checked;
 
-		if (!$project.api) {
-			const apiProject = await api.projects.create($user.access_token, {
-				name: $project.title,
-				uid: $project.id
-			});
-			await project.update({ api: { ...apiProject, sync } });
-		} else {
-			await project.update({ api: { ...$project.api, sync } });
+		try {
+			if (!$project.api) {
+				const apiProject = await api.projects.create($user.access_token, {
+					name: $project.title,
+					uid: $project.id
+				});
+				await project.update({ api: { ...apiProject, sync } });
+			} else {
+				await project.update({ api: { ...$project.api, sync } });
+			}
+		} catch (error) {
+			target.checked = $project.api?.sync || false;
+			log.error(`Failed to update project sync status: ${error}`);
+			toasts.error('Failed to update project sync status');
 		}
+	};
+
+	$: saving = false;
+	const onSubmit = async (e: SubmitEvent) => {
+		if (!$project) return;
+		if (!$user) return;
+		saving = true;
+
+		const target = e.target as HTMLFormElement;
+		const formData = new FormData(target);
+		const name = formData.get('name') as string | undefined;
+		const description = formData.get('description') as string | undefined;
+
+		console.log({ name, description });
+		try {
+			if (name) {
+				const updated = await api.projects.update($user.access_token, $project?.api.repository_id, {
+					name,
+					description
+				});
+				await project.update({
+					title: name,
+					api: { ...updated, sync: $project?.api.sync || false }
+				});
+			}
+			toasts.success('Project updated');
+		} catch (e) {
+			log.error(e);
+			toasts.error('Failed to update project');
+		}
+
+		saving = false;
 	};
 </script>
 
@@ -109,30 +149,59 @@
 					</div>
 				</div>
 			{/if}
-			<div class="space-y-2">
-				<div class="ml-1">Path</div>
-				<div class="text-zinc-400 font-mono">
-					{$project?.path}
-				</div>
-			</div>
-			<div class="space-y-2">
-				<div class="ml-1">Project Name</div>
-				<!-- text box -->
-				<input
-					type="text"
-					class="p-2 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
-					value={$project?.title}
-				/>
-			</div>
-			<div class="space-y-2">
-				<div class="ml-1">Project Description</div>
-				<!-- text box -->
-				<textarea
-					rows="3"
-					class="p-2 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
-					value={$project?.api?.description}
-				/>
-			</div>
+			<form on:submit={onSubmit} class="flex flex-col gap-3">
+				<fieldset class="flex flex-col gap-2">
+					<div class="flex flex-col gap-2">
+						<label for="path" class="ml-1">Path</label>
+						<input
+							disabled
+							id="path"
+							name="path"
+							type="text"
+							class="p-2 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+							value={$project?.path}
+						/>
+					</div>
+					<div class="flex flex-col gap-2">
+						<label for="name" class="ml-1">Project Name</label>
+						<input
+							id="name"
+							name="name"
+							type="text"
+							class="p-2 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+							value={$project?.title}
+							required
+						/>
+					</div>
+					<div class="flex flex-col gap-2">
+						<label for="description" class="ml-1">Project Description</label>
+						<textarea
+							id="description"
+							name="description"
+							rows="3"
+							class="p-2 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+							value={$project?.api?.description}
+						/>
+					</div>
+				</fieldset>
+
+				<footer>
+					{#if saving}
+						<div
+							class="flex w-32 flex-row w-content items-center gap-1 justify-center py-1 px-3 rounded text-white bg-blue-400"
+						>
+							<div class="animate-spin w-5 h-5">
+								<MdAutorenew />
+							</div>
+							<span>Updating...</span>
+						</div>
+					{:else}
+						<button type="submit" class="py-1 px-3 rounded text-white bg-blue-400"
+							>Update profile</button
+						>
+					{/if}
+				</footer>
+			</form>
 		</div>
 	</div>
 </div>
