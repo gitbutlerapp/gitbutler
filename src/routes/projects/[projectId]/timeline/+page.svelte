@@ -226,7 +226,7 @@
 			dateMilliseconds: dateMilliseconds,
 			branch: uiSession.session.meta.branch || 'master',
 			start: new Date(uiSession.earliestDeltaTimestampMs),
-			end: new Date(uiSession.latestDeltaTimestampMs),
+			end: addSeconds(new Date(uiSession.latestDeltaTimestampMs), 60),
 			deltas: uiSession.deltas,
 			files: listFiles({
 				projectId: $project?.id || '',
