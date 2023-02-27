@@ -256,9 +256,11 @@
                                     in:fade={{
                                         duration: 100,
                                     }}
-                                    class="bg-red-500 border h-full w-full"
+                                    class="bg-zinc-600 border h-full w-full"
                                 >
-                                    HERE
+                                    <button on:click={resetSelection}
+                                        >Close</button
+                                    >
                                 </div>
                             {/if}
                         </div>
