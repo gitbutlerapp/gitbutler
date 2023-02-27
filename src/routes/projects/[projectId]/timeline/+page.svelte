@@ -11,6 +11,7 @@
 	import { add, format, differenceInSeconds, addSeconds } from 'date-fns';
 	import { Slider } from 'fluent-svelte';
 	import { CodeViewer } from '$lib/components';
+	import 'fluent-svelte/theme.css';
 
 	export let data: PageData;
 	const { project, sessions } = data;
@@ -90,16 +91,12 @@
 	type Selection = {
 		sessionIdx: number;
 		dateMilliseconds: number;
+		branch: string;
 		start: Date;
 		end: Date;
 		deltas: Record<string, Delta[]>;
 	};
-	let selection = {
-		// sessionIdx: 3,
-		// dateMilliseconds: 1677106800000,
-		// start: new Date(1677106800000),
-		// deltas: {} as Record<string, Delta[]>,
-	} as Selection;
+	let selection = {} as Selection;
 
 	const resetSelection = () => {
 		selection = {} as Selection;
@@ -192,8 +189,9 @@
 														selection = {
 															sessionIdx: i,
 															dateMilliseconds: +dateMilliseconds,
+															branch: uiSession.session.meta.branch,
 															start: new Date(uiSession.session.meta.startTimestampMs),
-															end: new Date(uiSession.session.meta.lastTimestampMs), // TODO: maybe use last delta timestamp?
+															end: addSeconds(new Date(uiSession.session.meta.lastTimestampMs), 60),
 															deltas: uiSession.deltas
 														};
 														scrollExpandedIntoView(dateMilliseconds);
@@ -246,13 +244,19 @@
 											‹
 										</div>
 									</div>
-									<div
-										class="flex-grow bg-orange-400/1 border-t border-l border-r rounded-t border-orange-400/50"
-									>
-										<button on:click={resetSelection}>Close</button>
+									<div class="flex-grow border-t border-l border-r rounded-t border-orange-400">
+										<div
+											class="px-4 bg-orange-400 border-t border-l border-orange-400 p-1 rounded-t-sm text-zinc-800 text-sm font-medium flex items-center justify-between"
+										>
+											<span class="cursor-default"
+												>{format(selection.start, 'hh:mm')} - {format(selection.end, 'hh:mm')}</span
+											>
+											<span>{toHumanBranchName(selection.branch)}</span>
+											<button on:click={resetSelection}>Close</button>
+										</div>
 
 										<div
-											class="flex flex-col flex-none max-w-full select-none border-b border-zinc-700 h-full overflow-auto"
+											class="flex flex-col flex-none max-w-full select-none h-full overflow-auto"
 										>
 											<div class="flex flex-col flex-none max-w-full mb-40">
 												<!-- sticky header -->
