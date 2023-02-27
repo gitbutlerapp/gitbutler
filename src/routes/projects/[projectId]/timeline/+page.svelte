@@ -280,14 +280,33 @@
 													</div>
 													<div class="overflow-y-auto overflow-x-hidden" title="Session files">
 														{#each Object.keys(uiSession.deltas) as filePath}
-															<div class="flex flex-row w-32 items-center">
+															<button
+																on:click={() => {
+																	selection = {
+																		sessionIdx: i,
+																		dateMilliseconds: +dateMilliseconds,
+																		branch: uiSession.session.meta.branch,
+																		start: new Date(uiSession.earliestDeltaTimestampMs),
+																		end: new Date(uiSession.latestDeltaTimestampMs),
+																		deltas: uiSession.deltas,
+																		files: listFiles({
+																			projectId: $project?.id,
+																			sessionId: uiSession.session.id,
+																			paths: Object.keys(uiSession.deltas)
+																		}),
+																		selectedFilePath: filePath
+																	};
+																	scrollExpandedIntoView(dateMilliseconds);
+																}}
+																class="cursor-pointer flex flex-row w-32 items-center"
+															>
 																<div class="w-6 h-6 text-zinc-200 fill-blue-400">
 																	{@html pathToIconSvg(filePath)}
 																</div>
-																<div class="text-zinc-300 w-24 truncate">
+																<div class="text-zinc-400 hover:text-zinc-200 w-24 truncate">
 																	{pathToName(filePath)}
 																</div>
-															</div>
+															</button>
 														{/each}
 													</div>
 												</div>
