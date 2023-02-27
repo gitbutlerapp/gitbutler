@@ -5,6 +5,7 @@
 	import MdKeyboardArrowLeft from 'svelte-icons/md/MdKeyboardArrowLeft.svelte';
 	import MdKeyboardArrowRight from 'svelte-icons/md/MdKeyboardArrowRight.svelte';
 	import { derived } from 'svelte/store';
+	import { toHumanBranchName } from '$lib/branch';
 
 	export let data: PageData;
 	const { project, sessions } = data;
@@ -309,7 +310,7 @@
 							<WeekBlockEntry
 								startTime={new Date(session.meta.startTimestampMs)}
 								endTime={new Date(session.meta.startTimestampMs)}
-								label={session.meta.branch}
+								label={toHumanBranchName(session.meta.branch)}
 								href="/projects/{$project?.id}/sessions/{session.id}/"
 							/>
 						{/each}

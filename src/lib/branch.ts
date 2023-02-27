@@ -1,3 +1,2 @@
-export const toHumanBranchName = (branch: string) => {
-	return branch.replace('refs/heads/', '');
-};
+export const toHumanBranchName = (branch: string | undefined) =>
+	branch ? branch.replace('refs/heads/', '') : 'master';

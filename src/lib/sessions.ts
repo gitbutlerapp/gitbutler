@@ -15,8 +15,8 @@ export type Session = {
 	meta: {
 		startTimestampMs: number;
 		lastTimestampMs: number;
-		branch: string;
-		commit: string;
+		branch?: string;
+		commit?: string;
 	};
 	activity: Activity[];
 };

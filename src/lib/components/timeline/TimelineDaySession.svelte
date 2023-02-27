@@ -30,7 +30,8 @@
 		let { svg } = getIcon(name);
 		return svg;
 	}
-	const colorFromBranchName = (branchName: string) => {
+	const colorFromBranchName = (branchName: string | undefined) => {
+		branchName = branchName || 'master';
 		const colors = [
 			'bg-red-500 border-red-700',
 			'bg-green-500 border-green-700',
