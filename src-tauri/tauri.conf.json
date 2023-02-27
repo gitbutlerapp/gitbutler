@@ -50,7 +50,13 @@
             "targets": ["dmg", "updater"]
         },
         "security": {
-            "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost"
+            "csp": {
+                "default-src": "'self'",
+                "img-src": "'self' asset: https://asset.localhost",
+                "connect-src": "'self' https://eu.posthog.com",
+                "script-src": "'self' https://eu.posthog.com",
+                "style-src": "'self' 'unsafe-inline'"
+            }
         },
         "systemTray": {
             "iconPath": "icons/tray.png",
