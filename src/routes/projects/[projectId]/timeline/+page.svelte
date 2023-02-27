@@ -8,9 +8,6 @@
     import { list as listDeltas } from "$lib/deltas";
     import type { Delta } from "$lib/deltas";
     import { toHumanBranchName } from "$lib/branch";
-    import { fly, fade } from "svelte/transition";
-    import { quintOut } from "svelte/easing";
-    import { crossfade } from "svelte/transition";
 
 	export let data: PageData;
 	const { project, sessions } = data;
@@ -144,14 +141,6 @@
                                             <!-- Session (overview) -->
 
                                             <div
-                                                out:fly={{
-                                                    x: i <= 3 ? -800 : 800,
-                                                    duration: 600,
-                                                }}
-                                                on:outrostart={() =>
-                                                    (animatingOut = true)}
-                                                on:outroend={() =>
-                                                    (animatingOut = false)}
                                                 class="flex flex-col py-2 w-40"
                                             >
                                                 <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -242,22 +231,13 @@
                                         {/each}
                                     </div>
                                     <div
-                                        out:fly={{
-                                            y: 350,
-                                            duration: 600,
-                                        }}
                                         class="h-1/3 flex-grow  px-4 border-t border-zinc-700 "
                                     >
                                         Day summary
                                     </div>
                                 </div>
                             {:else}
-                                <div
-                                    in:fade={{
-                                        duration: 100,
-                                    }}
-                                    class="bg-zinc-600 border h-full w-full"
-                                >
+                                <div class="bg-zinc-500 border h-full w-full">
                                     <button on:click={resetSelection}
                                         >Close</button
                                     >
