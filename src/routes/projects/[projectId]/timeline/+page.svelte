@@ -6,6 +6,8 @@
 	import type { Session } from '$lib/sessions';
 	import { startOfDay } from 'date-fns';
 	import { list as listDeltas } from '$lib/deltas';
+	import { listFiles } from '$lib/sessions';
+	import { Operation } from '$lib/deltas';
 	import type { Delta } from '$lib/deltas';
 	import { toHumanBranchName } from '$lib/branch';
 	import { add, format, differenceInSeconds, addSeconds } from 'date-fns';
@@ -95,6 +97,7 @@
 		start: Date;
 		end: Date;
 		deltas: Record<string, Delta[]>;
+		files: Promise<Record<string, string>>;
 	};
 	let selection = {} as Selection;
 
@@ -114,13 +117,8 @@
 
 	let animatingOut = false;
 
-	// $: start = new Date($session.meta.startTimestampMs);
-
-	// $: end = $session.hash ? addSeconds(new Date($session.meta.lastTimestampMs), 10) : time; // For some reason, some deltas are stamped a few seconds after the session end.
-	// Also, if the session is current, the end time moves.
-
-	// $: tickSizeMs = Math.floor((end.getTime() - start.getTime()) / 63); // how many ms each column represents
-	let selectedFileIdx = 0;
+	// let selectedFileIdx = 0;
+	let selectedFilePath = '';
 	let value = 0; // TODO: rename
 
 	const timeStampToCol = (deltaTimestamp: Date, start: Date, end: Date) => {
@@ -145,6 +143,39 @@
 		const eventDiff = totalDiff * rat;
 		const timestamp = addSeconds(start, eventDiff);
 		return timestamp;
+	};
+	let doc = null;
+
+	const deriveDoc = (deltas: Delta[], text: string) => {
+		if (!deltas) return text;
+
+		const tickSizeMs = Math.floor((selection.end.getTime() - selection.start.getTime()) / 63); // how many ms each column represents
+		const sliderValueTimestampMs =
+			colToTimestamp(value, selection.start, selection.end).getTime() + tickSizeMs; // Include the tick size so that the slider value is always in the future
+		// Filter operations based on the current slider value
+		const operations = deltas
+			.filter(
+				(delta) =>
+					delta.timestampMs >= selection.start.getTime() &&
+					delta.timestampMs <= sliderValueTimestampMs
+			)
+			.sort((a, b) => a.timestampMs - b.timestampMs)
+			.flatMap((delta) => delta.operations);
+
+		operations.forEach((operation) => {
+			if (Operation.isInsert(operation)) {
+				text =
+					text.slice(0, operation.insert[0]) +
+					operation.insert[1] +
+					text.slice(operation.insert[0]);
+			} else if (Operation.isDelete(operation)) {
+				text =
+					text.slice(0, operation.delete[0]) +
+					text.slice(operation.delete[0] + operation.delete[1]);
+			}
+		});
+
+		return text;
 	};
 </script>
 
@@ -192,7 +223,11 @@
 															branch: uiSession.session.meta.branch,
 															start: new Date(uiSession.session.meta.startTimestampMs),
 															end: addSeconds(new Date(uiSession.session.meta.lastTimestampMs), 60),
-															deltas: uiSession.deltas
+															deltas: uiSession.deltas,
+															files: listFiles({
+																projectId: $project?.id,
+																sessionId: uiSession.session.id
+															})
 														};
 														scrollExpandedIntoView(dateMilliseconds);
 													}}
@@ -331,14 +366,19 @@
 														>
 															<!-- <div class="row-end-1 h-7" /> -->
 
-															{#each Object.keys(selection.deltas) as filePath, i}
-																<div class="flex {i == selectedFileIdx ? 'bg-zinc-500/70' : ''}">
+															{#each Object.keys(selection.deltas) as filePath}
+																<div
+																	class="flex {filePath === selectedFilePath
+																		? 'bg-zinc-500/70'
+																		: ''}"
+																>
 																	<button
 																		class="z-20 flex justify-end items-center overflow-hidden sticky left-0 w-1/6 leading-5 
-                                                                        {selectedFileIdx == i
+                                                                        {selectedFilePath ===
+																		filePath
 																			? 'text-zinc-200 cursor-default'
 																			: 'text-zinc-400 hover:text-zinc-200 cursor-pointer'}"
-																		on:click={() => (selectedFileIdx = i)}
+																		on:click={() => (selectedFilePath = filePath)}
 																		title={filePath}
 																	>
 																		{filePath.split('/').pop()}
@@ -394,7 +434,7 @@
 																					selection.start,
 																					selection.end
 																				);
-																				selectedFileIdx = idx;
+																				selectedFilePath = filePath;
 																			}}
 																		/>
 																	</li>
@@ -403,15 +443,17 @@
 														</ol>
 													</div>
 												</div>
-												<!-- <div class="grid grid-cols-11 mt-6">
-				<div class="col-span-2" />
-				<div class="col-span-8 p-1 bg-zinc-500/70 rounded select-text">
-					{#if $doc}
-						<CodeViewer value={$doc} />
-					{/if}
-				</div>
-				<div class="" />
-			</div> -->
+												<div class="grid grid-cols-11 mt-6">
+													<div class="col-span-2" />
+													<div class="col-span-8  bg-zinc-500/70 rounded select-text">
+														{#await selection.files then files}
+															{#if selectedFilePath}
+																<CodeViewer value={files[selectedFilePath]} />
+															{/if}
+														{/await}
+													</div>
+													<div class="" />
+												</div>
 											</div>
 										</div>
 									</div>
