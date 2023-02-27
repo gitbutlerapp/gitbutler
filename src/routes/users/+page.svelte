@@ -2,6 +2,7 @@
 	import { Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import MdAutorenew from 'svelte-icons/md/MdAutorenew.svelte';
+	import {} from 'iconify-icon';
 	import { log, toasts } from '$lib';
 
 	export let data: PageData;

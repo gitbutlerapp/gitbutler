@@ -6,7 +6,7 @@
 </script>
 
 <div class="flex flex-col mt-12">
-	<h1 class="text-zinc-200 text-2xl flex justify-center">
+	<h1 class="text-zinc-200 text-xl flex justify-center">
 		Overview of {$project?.title}
 	</h1>
 	<div class="flex justify-center space-x-2">
