@@ -21,7 +21,7 @@ export type Session = {
 	activity: Activity[];
 };
 
-export const listFiles = (params: { projectId: string; sessionId: string }) =>
+export const listFiles = (params: { projectId: string; sessionId: string; paths?: string[] }) =>
 	invoke<Record<string, string>>('list_session_files', params);
 
 const list = (params: { projectId: string }) => invoke<Session[]>('list_sessions', params);

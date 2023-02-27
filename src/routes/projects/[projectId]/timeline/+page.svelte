@@ -226,7 +226,8 @@
 															deltas: uiSession.deltas,
 															files: listFiles({
 																projectId: $project?.id,
-																sessionId: uiSession.session.id
+																sessionId: uiSession.session.id,
+																paths: Object.keys(uiSession.deltas)
 															})
 														};
 														scrollExpandedIntoView(dateMilliseconds);
