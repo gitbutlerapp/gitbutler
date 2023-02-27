@@ -98,6 +98,7 @@
 		end: Date;
 		deltas: Record<string, Delta[]>;
 		files: Promise<Record<string, string>>;
+		selectedFilePath: string;
 	};
 	let selection = {} as Selection;
 
@@ -117,8 +118,6 @@
 
 	let animatingOut = false;
 
-	// let selectedFileIdx = 0;
-	let selectedFilePath = '';
 	let value = 0; // TODO: rename
 
 	const timeStampToCol = (deltaTimestamp: Date, start: Date, end: Date) => {
@@ -228,7 +227,8 @@
 																projectId: $project?.id,
 																sessionId: uiSession.session.id,
 																paths: Object.keys(uiSession.deltas)
-															})
+															}),
+															selectedFilePath: Object.keys(uiSession.deltas)[0]
 														};
 														scrollExpandedIntoView(dateMilliseconds);
 													}}
@@ -369,17 +369,17 @@
 
 															{#each Object.keys(selection.deltas) as filePath}
 																<div
-																	class="flex {filePath === selectedFilePath
+																	class="flex {filePath === selection.selectedFilePath
 																		? 'bg-zinc-500/70'
 																		: ''}"
 																>
 																	<button
 																		class="z-20 flex justify-end items-center overflow-hidden sticky left-0 w-1/6 leading-5 
-                                                                        {selectedFilePath ===
+                                                                        {selection.selectedFilePath ===
 																		filePath
 																			? 'text-zinc-200 cursor-default'
 																			: 'text-zinc-400 hover:text-zinc-200 cursor-pointer'}"
-																		on:click={() => (selectedFilePath = filePath)}
+																		on:click={() => (selection.selectedFilePath = filePath)}
 																		title={filePath}
 																	>
 																		{filePath.split('/').pop()}
@@ -435,7 +435,7 @@
 																					selection.start,
 																					selection.end
 																				);
-																				selectedFilePath = filePath;
+																				selection.selectedFilePath = filePath;
 																			}}
 																		/>
 																	</li>
@@ -448,8 +448,8 @@
 													<div class="col-span-2" />
 													<div class="col-span-8  bg-zinc-500/70 rounded select-text">
 														{#await selection.files then files}
-															{#if selectedFilePath}
-																<CodeViewer value={files[selectedFilePath]} />
+															{#if selection.selectedFilePath}
+																<CodeViewer value={files[selection.selectedFilePath]} />
 															{/if}
 														{/await}
 													</div>
