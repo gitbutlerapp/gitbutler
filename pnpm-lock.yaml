@@ -1,10 +1,30 @@
 lockfileVersion: 5.4
 
 specifiers:
+  '@codemirror/autocomplete': ^6.4.2
   '@codemirror/commands': ^6.2.0
+  '@codemirror/lang-angular': github:codemirror/lang-angular
+  '@codemirror/lang-css': github:codemirror/lang-css
+  '@codemirror/lang-html': github:codemirror/lang-html
+  '@codemirror/lang-java': github:codemirror/lang-java
+  '@codemirror/lang-javascript': ^6.1.4
+  '@codemirror/lang-json': github:codemirror/lang-json
+  '@codemirror/lang-markdown': github:codemirror/lang-markdown
+  '@codemirror/lang-php': github:codemirror/lang-php
+  '@codemirror/lang-python': github:codemirror/lang-python
+  '@codemirror/lang-rust': github:codemirror/lang-rust
+  '@codemirror/lang-vue': github:codemirror/lang-vue
+  '@codemirror/language': ^6.6.0
   '@codemirror/merge': ^0.1.3
   '@codemirror/state': ^6.2.0
   '@codemirror/view': ^6.7.3
+  '@lezer/common': ^1.0.2
+  '@lezer/highlight': ^1.1.3
+  '@lezer/javascript': ^1.4.1
+  '@lezer/lr': ^1.3.3
+  '@nextjournal/lang-clojure': ^1.0.0
+  '@replit/codemirror-lang-csharp': ^6.1.0
+  '@replit/codemirror-lang-svelte': ^6.0.0
   '@square/svelte-store': ^1.0.14
   '@sveltejs/adapter-static': next
   '@sveltejs/kit': next
@@ -39,10 +59,30 @@ specifiers:
   vite: ^4.0.0
 
 dependencies:
+  '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
   '@codemirror/commands': 6.2.0
+  '@codemirror/lang-angular': github.com/codemirror/lang-angular/ee6151b55668b2941c71b0d1db9f5a526ef29710
+  '@codemirror/lang-css': github.com/codemirror/lang-css/9f5b41703dff289d94731c5caba72cf3b57fff43_nzpoxphwgc7witc3f5hdaoweju
+  '@codemirror/lang-html': github.com/codemirror/lang-html/0420487e1ac04bfd59129c243e3b7b802ffca30c
+  '@codemirror/lang-java': github.com/codemirror/lang-java/834c534e7d689b0d88c15e3af55b0ee551d985d2
+  '@codemirror/lang-javascript': 6.1.4
+  '@codemirror/lang-json': github.com/codemirror/lang-json/fdc00c1dba5db7c997c215a7ab3d0d0a73a8eb5a
+  '@codemirror/lang-markdown': github.com/codemirror/lang-markdown/1b5592cb25d3013b9e5bb9fd6312b7a7bfc0e1bb
+  '@codemirror/lang-php': github.com/codemirror/lang-php/9534a075585aaef53d8b0203fb520ef14c129f7b
+  '@codemirror/lang-python': github.com/codemirror/lang-python/e4e2540c4acbc40d055c08c4bdf0f79b78dcf1ed_gmyi65uhzwvxi3jypseoerg22u
+  '@codemirror/lang-rust': github.com/codemirror/lang-rust/8db1b921b85db410107b6a29e8c8c0e6e0db9d4a
+  '@codemirror/lang-vue': github.com/codemirror/lang-vue/013c3e7f8a699f2fedb002387276877dabbfc388
+  '@codemirror/language': 6.6.0
   '@codemirror/merge': 0.1.3
   '@codemirror/state': 6.2.0
   '@codemirror/view': 6.7.3
+  '@lezer/common': 1.0.2
+  '@lezer/highlight': 1.1.3
+  '@lezer/javascript': 1.4.1
+  '@lezer/lr': 1.3.3
+  '@nextjournal/lang-clojure': 1.0.0
+  '@replit/codemirror-lang-csharp': 6.1.0_dbd6aqsmfpystthdbxnrle4dwe
+  '@replit/codemirror-lang-svelte': 6.0.0_zlhskyhbzw2pn2yfpaeuivpmfu
   '@square/svelte-store': 1.0.14
   '@tabler/icons-svelte': 2.6.0_svelte@3.55.1
   '@tauri-apps/api': 1.2.0
@@ -80,17 +120,69 @@ devDependencies:
 
 packages:
 
-  /@codemirror/commands/6.2.0:
-    resolution: {integrity: sha512-+00smmZBradoGFEkRjliN7BjqPh/Hx0KCHWOEibUmflUqZz2RwBTU0MrVovEEHozhx3AUSGcO/rl3/5f9e9Biw==}
+  /@codemirror/autocomplete/6.4.2_yom6siklgbeshd7shgtg2sdiku:
+    resolution: {integrity: sha512-8WE2xp+D0MpWEv5lZ6zPW1/tf4AGb358T5GWYiKEuCP8MvFfT3tH2mIF9Y2yr2e3KbHuSvsVhosiEyqCpiJhZQ==}
+    peerDependencies:
+      '@codemirror/language': ^6.0.0
+      '@codemirror/state': ^6.0.0
+      '@codemirror/view': ^6.0.0
+      '@lezer/common': ^1.0.0
     dependencies:
-      '@codemirror/language': 6.4.0
+      '@codemirror/language': 6.6.0
       '@codemirror/state': 6.2.0
       '@codemirror/view': 6.7.3
       '@lezer/common': 1.0.2
     dev: false
 
-  /@codemirror/language/6.4.0:
-    resolution: {integrity: sha512-Wzb7GnNj8vnEtbPWiOy9H0m1fBtE28kepQNGLXekU2EEZv43BF865VKITUn+NoV8OpW6gRtvm29YEhqm46927Q==}
+  /@codemirror/commands/6.2.0:
+    resolution: {integrity: sha512-+00smmZBradoGFEkRjliN7BjqPh/Hx0KCHWOEibUmflUqZz2RwBTU0MrVovEEHozhx3AUSGcO/rl3/5f9e9Biw==}
+    dependencies:
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
+      '@lezer/common': 1.0.2
+    dev: false
+
+  /@codemirror/lang-css/6.0.2_nzpoxphwgc7witc3f5hdaoweju:
+    resolution: {integrity: sha512-4V4zmUOl2Glx0GWw0HiO1oGD4zvMlIQ3zx5hXOE6ipCjhohig2bhWRAasrZylH9pRNTcl1VMa59Lsl8lZWlTzw==}
+    dependencies:
+      '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@lezer/css': 1.1.1
+    transitivePeerDependencies:
+      - '@codemirror/view'
+      - '@lezer/common'
+    dev: false
+
+  /@codemirror/lang-html/6.4.2:
+    resolution: {integrity: sha512-bqCBASkteKySwtIbiV/WCtGnn/khLRbbiV5TE+d9S9eQJD7BA4c5dTRm2b3bVmSpilff5EYxvB4PQaZzM/7cNw==}
+    dependencies:
+      '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
+      '@codemirror/lang-css': 6.0.2_nzpoxphwgc7witc3f5hdaoweju
+      '@codemirror/lang-javascript': 6.1.4
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
+      '@lezer/common': 1.0.2
+      '@lezer/css': 1.1.1
+      '@lezer/html': 1.3.3
+    dev: false
+
+  /@codemirror/lang-javascript/6.1.4:
+    resolution: {integrity: sha512-OxLf7OfOZBTMRMi6BO/F72MNGmgOd9B0vetOLvHsDACFXayBzW8fm8aWnDM0yuy68wTK03MBf4HbjSBNRG5q7A==}
+    dependencies:
+      '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
+      '@codemirror/language': 6.6.0
+      '@codemirror/lint': 6.2.0
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
+      '@lezer/common': 1.0.2
+      '@lezer/javascript': 1.4.1
+    dev: false
+
+  /@codemirror/language/6.6.0:
+    resolution: {integrity: sha512-cwUd6lzt3MfNYOobdjf14ZkLbJcnv4WtndYaoBkbor/vF+rCNguMPK0IRtvZJG4dsWiaWPcK8x1VijhvSxnstg==}
     dependencies:
       '@codemirror/state': 6.2.0
       '@codemirror/view': 6.7.3
@@ -98,6 +190,14 @@ packages:
       '@lezer/highlight': 1.1.3
       '@lezer/lr': 1.3.3
       style-mod: 4.0.0
+    dev: false
+
+  /@codemirror/lint/6.2.0:
+    resolution: {integrity: sha512-KVCECmR2fFeYBr1ZXDVue7x3q5PMI0PzcIbA+zKufnkniMBo1325t0h1jM85AKp8l3tj67LRxVpZfgDxEXlQkg==}
+    dependencies:
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
+      crelt: 1.0.5
     dev: false
 
   /@codemirror/merge/0.1.3:
@@ -374,16 +474,93 @@ packages:
     resolution: {integrity: sha512-SVgiGtMnMnW3ActR8SXgsDhw7a0w0ChHSYAyAUxxrOiJ1OqYWEKk/xJd84tTSPo1mo6DXLObAJALNnd0Hrv7Ng==}
     dev: false
 
+  /@lezer/css/1.1.1:
+    resolution: {integrity: sha512-mSjx+unLLapEqdOYDejnGBokB5+AiJKZVclmud0MKQOKx3DLJ5b5VTCstgDDknR6iIV4gVrN6euzsCnj0A2gQA==}
+    dependencies:
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
   /@lezer/highlight/1.1.3:
     resolution: {integrity: sha512-3vLKLPThO4td43lYRBygmMY18JN3CPh9w+XS2j8WC30vR4yZeFG4z1iFe4jXE43NtGqe//zHW5q8ENLlHvz9gw==}
     dependencies:
       '@lezer/common': 1.0.2
     dev: false
 
+  /@lezer/html/1.3.3:
+    resolution: {integrity: sha512-04Fyvu66DjV2EjhDIG1kfDdktn5Pfw56SXPrzKNQH5B2m7BDfc6bDsz+ZJG8dLS3kIPEKbyyq1Sm2/kjeG0+AA==}
+    dependencies:
+      '@lezer/common': 1.0.2
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
+  /@lezer/java/1.0.3:
+    resolution: {integrity: sha512-kKN17wmgP1cgHb8juR4pwVSPMKkDMzY/lAPbBsZ1fpXwbk2sg3N1kIrf0q+LefxgrANaQb/eNO7+m2QPruTFng==}
+    dependencies:
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
+  /@lezer/javascript/1.4.1:
+    resolution: {integrity: sha512-Hqx36DJeYhKtdpc7wBYPR0XF56ZzIp0IkMO/zNNj80xcaFOV4Oj/P7TQc/8k2TxNhzl7tV5tXS8ZOCPbT4L3nA==}
+    dependencies:
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
+  /@lezer/json/1.0.0:
+    resolution: {integrity: sha512-zbAuUY09RBzCoCA3lJ1+ypKw5WSNvLqGMtasdW6HvVOqZoCpPr8eWrsGnOVWGKGn8Rh21FnrKRVlJXrGAVUqRw==}
+    dependencies:
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
   /@lezer/lr/1.3.3:
     resolution: {integrity: sha512-JPQe3mwJlzEVqy67iQiiGozhcngbO8QBgpqZM6oL1Wj/dXckrEexpBLeFkq0edtW5IqnPRFxA24BHJni8Js69w==}
     dependencies:
       '@lezer/common': 1.0.2
+    dev: false
+
+  /@lezer/markdown/1.0.2:
+    resolution: {integrity: sha512-8CY0OoZ6V5EzPjSPeJ4KLVbtXdLBd8V6sRCooN5kHnO28ytreEGTyrtU/zUwo/XLRzGr/e1g44KlzKi3yWGB5A==}
+    dependencies:
+      '@lezer/common': 1.0.2
+      '@lezer/highlight': 1.1.3
+    dev: false
+
+  /@lezer/php/1.0.1:
+    resolution: {integrity: sha512-aqdCQJOXJ66De22vzdwnuC502hIaG9EnPK2rSi+ebXyUd+j7GAX1mRjWZOVOmf3GST1YUfUCu6WXDiEgDGOVwA==}
+    dependencies:
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
+  /@lezer/python/1.1.2:
+    resolution: {integrity: sha512-ukm4VhDasFX7/9BUYHTyUNXH0xQ5B7/QBlZD8P51+dh6GtXRSCQqNxloez5d+MxVb2Sg+31S8E/33qoFREfkpA==}
+    dependencies:
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
+  /@lezer/rust/1.0.0:
+    resolution: {integrity: sha512-IpGAxIjNxYmX9ra6GfQTSPegdCAWNeq23WNmrsMMQI7YNSvKtYxO4TX5rgZUmbhEucWn0KTBMeDEPXg99YKtTA==}
+    dependencies:
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
+  /@nextjournal/lang-clojure/1.0.0:
+    resolution: {integrity: sha512-gOCV71XrYD0DhwGoPMWZmZ0r92/lIHsqQu9QWdpZYYBwiChNwMO4sbVMP7eTuAqffFB2BTtCSC+1skSH9d3bNg==}
+    dependencies:
+      '@codemirror/language': 6.6.0
+      '@nextjournal/lezer-clojure': 1.0.0
+    dev: false
+
+  /@nextjournal/lezer-clojure/1.0.0:
+    resolution: {integrity: sha512-VZyuGu4zw5mkTOwQBTaGVNWmsOZAPw5ZRxu1/Knk/Xfs7EDBIogwIs5UXTYkuECX5ZQB8eOB+wKA2pc7VyqaZQ==}
+    dependencies:
+      '@lezer/lr': 1.3.3
     dev: false
 
   /@nodelib/fs.scandir/2.1.5:
@@ -410,6 +587,54 @@ packages:
   /@polka/url/1.0.0-next.21:
     resolution: {integrity: sha512-a5Sab1C4/icpTZVzZc5Ghpz88yQtGOyNqYXcZgOssB2uuAr+wF/MvN6bgtW32q7HHrvBki+BsZ0OuNv6EV3K9g==}
     dev: true
+
+  /@replit/codemirror-lang-csharp/6.1.0_dbd6aqsmfpystthdbxnrle4dwe:
+    resolution: {integrity: sha512-Dtyk9WVrdPPgkgTp8MUX9HyXd87O7UZnFrE647gjHUZY8p0UN+z0m6dPfk6rJMsTTvMcl7YbDUykxfeqB6EQOQ==}
+    peerDependencies:
+      '@codemirror/autocomplete': ^6.0.0
+      '@codemirror/language': ^6.0.0
+      '@codemirror/state': ^6.0.0
+      '@codemirror/view': ^6.0.0
+      '@lezer/common': ^1.0.0
+      '@lezer/highlight': ^1.0.0
+      '@lezer/lr': ^1.0.0
+    dependencies:
+      '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
+      '@lezer/common': 1.0.2
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
+  /@replit/codemirror-lang-svelte/6.0.0_zlhskyhbzw2pn2yfpaeuivpmfu:
+    resolution: {integrity: sha512-U2OqqgMM6jKelL0GNWbAmqlu1S078zZNoBqlJBW+retTc5M4Mha6/Y2cf4SVg6ddgloJvmcSpt4hHrVoM4ePRA==}
+    peerDependencies:
+      '@codemirror/autocomplete': ^6.0.0
+      '@codemirror/lang-css': ^6.0.1
+      '@codemirror/lang-html': ^6.2.0
+      '@codemirror/lang-javascript': ^6.1.1
+      '@codemirror/language': ^6.0.0
+      '@codemirror/state': ^6.0.0
+      '@codemirror/view': ^6.0.0
+      '@lezer/common': ^1.0.0
+      '@lezer/highlight': ^1.0.0
+      '@lezer/javascript': ^1.2.0
+      '@lezer/lr': ^1.0.0
+    dependencies:
+      '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
+      '@codemirror/lang-css': github.com/codemirror/lang-css/9f5b41703dff289d94731c5caba72cf3b57fff43_nzpoxphwgc7witc3f5hdaoweju
+      '@codemirror/lang-html': github.com/codemirror/lang-html/0420487e1ac04bfd59129c243e3b7b802ffca30c
+      '@codemirror/lang-javascript': 6.1.4
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
+      '@lezer/common': 1.0.2
+      '@lezer/highlight': 1.1.3
+      '@lezer/javascript': 1.4.1
+      '@lezer/lr': 1.3.3
+    dev: false
 
   /@square/svelte-store/1.0.14:
     resolution: {integrity: sha512-kNaSpEec2JevfOB9XaWkq00oAOvm2fq8/0yotg++UVEHuHXQqM6pW602ByjBwFHn1gTRSdb568BAtkEDBt5uKQ==}
@@ -1020,6 +1245,10 @@ packages:
     resolution: {integrity: sha512-YZ3GUyn/o8gfKJlnlX7g7xq4gyO6OSuhGPKaaGssGB2qgDUS0gPgtTvoyZLTt9Ab6dC4hfc9dV5arkvc/OCmrw==}
     engines: {node: '>= 0.6'}
     dev: true
+
+  /crelt/1.0.5:
+    resolution: {integrity: sha512-+BO9wPPi+DWTDcNYhr/W90myha8ptzftZT+LwcmUbbok0rcP/fequmFYCw8NMoH7pkAZQzU78b3kYrlua5a9eA==}
+    dev: false
 
   /cross-spawn/7.0.3:
     resolution: {integrity: sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==}
@@ -2948,6 +3177,149 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
     dev: true
+
+  github.com/codemirror/lang-angular/ee6151b55668b2941c71b0d1db9f5a526ef29710:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-angular/tar.gz/ee6151b55668b2941c71b0d1db9f5a526ef29710}
+    name: '@codemirror/lang-angular'
+    version: 0.1.0
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/lang-html': 6.4.2
+      '@codemirror/lang-javascript': 6.1.4
+      '@codemirror/language': 6.6.0
+      '@lezer/common': 1.0.2
+      '@lezer/highlight': 1.1.3
+    dev: false
+
+  github.com/codemirror/lang-css/9f5b41703dff289d94731c5caba72cf3b57fff43_nzpoxphwgc7witc3f5hdaoweju:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-css/tar.gz/9f5b41703dff289d94731c5caba72cf3b57fff43}
+    id: github.com/codemirror/lang-css/9f5b41703dff289d94731c5caba72cf3b57fff43
+    name: '@codemirror/lang-css'
+    version: 6.0.2
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@lezer/css': 1.1.1
+    transitivePeerDependencies:
+      - '@codemirror/view'
+      - '@lezer/common'
+    dev: false
+
+  github.com/codemirror/lang-html/0420487e1ac04bfd59129c243e3b7b802ffca30c:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-html/tar.gz/0420487e1ac04bfd59129c243e3b7b802ffca30c}
+    name: '@codemirror/lang-html'
+    version: 6.4.2
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
+      '@codemirror/lang-css': 6.0.2_nzpoxphwgc7witc3f5hdaoweju
+      '@codemirror/lang-javascript': 6.1.4
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
+      '@lezer/common': 1.0.2
+      '@lezer/css': 1.1.1
+      '@lezer/html': 1.3.3
+    dev: false
+
+  github.com/codemirror/lang-java/834c534e7d689b0d88c15e3af55b0ee551d985d2:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-java/tar.gz/834c534e7d689b0d88c15e3af55b0ee551d985d2}
+    name: '@codemirror/lang-java'
+    version: 6.0.1
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/language': 6.6.0
+      '@lezer/java': 1.0.3
+    dev: false
+
+  github.com/codemirror/lang-json/fdc00c1dba5db7c997c215a7ab3d0d0a73a8eb5a:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-json/tar.gz/fdc00c1dba5db7c997c215a7ab3d0d0a73a8eb5a}
+    name: '@codemirror/lang-json'
+    version: 6.0.1
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/language': 6.6.0
+      '@lezer/json': 1.0.0
+    dev: false
+
+  github.com/codemirror/lang-markdown/1b5592cb25d3013b9e5bb9fd6312b7a7bfc0e1bb:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-markdown/tar.gz/1b5592cb25d3013b9e5bb9fd6312b7a7bfc0e1bb}
+    name: '@codemirror/lang-markdown'
+    version: 6.1.0
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/lang-html': 6.4.2
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@codemirror/view': 6.7.3
+      '@lezer/common': 1.0.2
+      '@lezer/markdown': 1.0.2
+    dev: false
+
+  github.com/codemirror/lang-php/9534a075585aaef53d8b0203fb520ef14c129f7b:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-php/tar.gz/9534a075585aaef53d8b0203fb520ef14c129f7b}
+    name: '@codemirror/lang-php'
+    version: 6.0.1
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/lang-html': 6.4.2
+      '@codemirror/language': 6.6.0
+      '@codemirror/state': 6.2.0
+      '@lezer/common': 1.0.2
+      '@lezer/php': 1.0.1
+    dev: false
+
+  github.com/codemirror/lang-python/e4e2540c4acbc40d055c08c4bdf0f79b78dcf1ed_gmyi65uhzwvxi3jypseoerg22u:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-python/tar.gz/e4e2540c4acbc40d055c08c4bdf0f79b78dcf1ed}
+    id: github.com/codemirror/lang-python/e4e2540c4acbc40d055c08c4bdf0f79b78dcf1ed
+    name: '@codemirror/lang-python'
+    version: 6.1.1
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/autocomplete': 6.4.2_yom6siklgbeshd7shgtg2sdiku
+      '@codemirror/language': 6.6.0
+      '@lezer/python': 1.1.2
+    transitivePeerDependencies:
+      - '@codemirror/state'
+      - '@codemirror/view'
+      - '@lezer/common'
+    dev: false
+
+  github.com/codemirror/lang-rust/8db1b921b85db410107b6a29e8c8c0e6e0db9d4a:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-rust/tar.gz/8db1b921b85db410107b6a29e8c8c0e6e0db9d4a}
+    name: '@codemirror/lang-rust'
+    version: 6.0.1
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/language': 6.6.0
+      '@lezer/rust': 1.0.0
+    dev: false
+
+  github.com/codemirror/lang-vue/013c3e7f8a699f2fedb002387276877dabbfc388:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-vue/tar.gz/013c3e7f8a699f2fedb002387276877dabbfc388}
+    name: '@codemirror/lang-vue'
+    version: 0.1.1
+    prepare: true
+    requiresBuild: true
+    dependencies:
+      '@codemirror/lang-html': 6.4.2
+      '@codemirror/lang-javascript': 6.1.4
+      '@codemirror/language': 6.6.0
+      '@lezer/common': 1.0.2
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
 
   github.com/tauri-apps/tauri-plugin-log/921afb3366b14ac43e3d8041a7def4b85d4d7192:
     resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/921afb3366b14ac43e3d8041a7def4b85d4d7192}

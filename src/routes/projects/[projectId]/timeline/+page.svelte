@@ -1,20 +1,18 @@
 <script lang="ts">
 	import { themeIcons } from 'seti-icons';
 	import type { PageData } from './$types';
-	import { derived } from 'svelte/store';
 	import { asyncDerived } from '@square/svelte-store';
 	import type { Session } from '$lib/sessions';
 	import { startOfDay } from 'date-fns';
 	import { list as listDeltas } from '$lib/deltas';
 	import { listFiles } from '$lib/sessions';
-	import { Operation } from '$lib/deltas';
 	import type { Delta } from '$lib/deltas';
 	import { toHumanBranchName } from '$lib/branch';
 	import { add, format, differenceInSeconds, addSeconds } from 'date-fns';
 	import { Slider } from 'fluent-svelte';
-	import { CodeViewer } from '$lib/components';
 	import TimelineDaySessionActivities from '$lib/components/timeline/TimelineDaySessionActivities.svelte';
 	import 'fluent-svelte/theme.css';
+	import { codeviewer } from '$lib';
 
 	export let data: PageData;
 	const { project, sessions } = data;
@@ -499,10 +497,13 @@
 													<div class="col-span-2" />
 													<div class="col-span-8  bg-zinc-500/70 rounded select-text">
 														{#await selection.files then files}
-															<CodeViewer
-																doc={files[selection.selectedFilePath]}
-																deltas={selection.deltas[selection.selectedFilePath]}
-																end={sliderValueTimestampMs(selection)}
+															<code
+																use:codeviewer={{
+																	doc: files[selection.selectedFilePath],
+																	deltas: selection.deltas[selection.selectedFilePath],
+																	end: sliderValueTimestampMs(selection),
+																	filepath: selection.selectedFilePath
+																}}
 															/>
 														{/await}
 													</div>
