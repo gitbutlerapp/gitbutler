@@ -169,42 +169,9 @@
 		return timestamp;
 	};
 
-	const deriveDoc = (deltas: Delta[], text: string) => {
-		if (!deltas) return text;
-
-		const tickSizeMs = Math.floor((selection.end.getTime() - selection.start.getTime()) / 63); // how many ms each column represents
-		const sliderValueTimestampMs =
-			colToTimestamp(selection.selectedColumn, selection.start, selection.end).getTime() +
-			tickSizeMs; // Include the tick size so that the slider value is always in the future
-		// Filter operations based on the current slider value
-		const operations = deltas
-			.filter(
-				(delta) =>
-					delta.timestampMs >= selection.start.getTime() &&
-					delta.timestampMs <= sliderValueTimestampMs
-			)
-			.sort((a, b) => a.timestampMs - b.timestampMs)
-			.flatMap((delta) => delta.operations);
-
-		operations.forEach((operation) => {
-			if (Operation.isInsert(operation)) {
-				text =
-					text.slice(0, operation.insert[0]) +
-					operation.insert[1] +
-					text.slice(operation.insert[0]);
-			} else if (Operation.isDelete(operation)) {
-				text =
-					text.slice(0, operation.delete[0]) +
-					text.slice(operation.delete[0] + operation.delete[1]);
-			}
-		});
-
-		return text;
-	};
-
-	$: doc = selection?.files?.then((files) =>
-		deriveDoc(selection.deltas[selection.selectedFilePath], files[selection.selectedFilePath])
-	);
+	const sliderValueTimestampMs = (selection: Selection) =>
+		colToTimestamp(selection.selectedColumn, selection.start, selection.end).getTime() +
+		Math.floor((selection.end.getTime() - selection.start.getTime()) / 63); // how many ms each column represents
 
 	// Returns a shortened version of the file path where each directory is shortened to the first three characters, except for the last directory
 	const shortenFilePath = (filePath: string) => {
@@ -531,14 +498,11 @@
 												<div class="grid grid-cols-11 mt-6">
 													<div class="col-span-2" />
 													<div class="col-span-8  bg-zinc-500/70 rounded select-text">
-														{#await doc then dd}
+														{#await selection.files then files}
 															<CodeViewer
-																value={dd}
-																scrollToChar={Object.values(
-																	Object.values(selection.deltas[selection.selectedFilePath])
-																		.pop()
-																		?.['operations'].slice(-1)?.[0] || {}
-																)[0][0]}
+																doc={files[selection.selectedFilePath]}
+																deltas={selection.deltas[selection.selectedFilePath]}
+																end={sliderValueTimestampMs(selection)}
 															/>
 														{/await}
 													</div>
