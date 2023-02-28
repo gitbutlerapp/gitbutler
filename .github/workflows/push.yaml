@@ -36,12 +36,28 @@ jobs:
               with:
                   node-version: 18
 
-            - name: Setup pnpm
+            - name: Install pnpm
               uses: pnpm/action-setup@v2
               with:
                   version: 7.x.x
-                  run_install: |
-                      args: ["--frozen-lockfile"]
+                  run_install: false
+            
+            - name: Get pnpm store directory
+              id: pnpm-cache
+              shell: bash
+              run: |
+                echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+            - uses: actions/cache@v3
+              name: Setup pnpm cache
+              with:
+                path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+                key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+                restore-keys: |
+                  ${{ runner.os }}-pnpm-store-
+
+            - name: Install pnpm dependencies
+              run: pnpm install
 
             - name: Setup rust
               uses: dtolnay/rust-toolchain@stable
@@ -56,7 +72,7 @@ jobs:
                       ~/.cargo/git/db/
                       src-tauri/target/
                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
+            
             - name: Install system dependencies
               uses: daaku/gh-action-apt-install@v4
               if: runner.os == 'Linux'
