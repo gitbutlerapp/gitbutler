@@ -41,6 +41,18 @@ jobs:
             - name: Setup rust
               uses: dtolnay/rust-toolchain@stable
 
+            - name: Cache rust dependencies
+              uses: actions/cache@v3
+              working-directory: src-tauri
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      src-tauri/target/
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
             - name: Set env variable with version
               run: |
                   CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases" | jq -r '.version')"
