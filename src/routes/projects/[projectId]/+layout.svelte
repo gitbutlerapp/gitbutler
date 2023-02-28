@@ -35,29 +35,7 @@
 	<nav
 		class="flex items-center flex-none justify-between py-2 px-8 space-x-3 border-b select-none text-zinc-300 border-zinc-700"
 	>
-		<div
-			class="text-zinc-400 w-64 font-medium grid grid-cols-3 items-center bg-zinc-700/50 rounded-lg h-7 px-4 gap-1"
-		>
-			<a
-				class="
-       {selection === 'week' ? 'bg-zinc-600/70 text-zinc-100' : ''}
-       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100"
-				href="/projects/{$project?.id}/week">Week</a
-			>
-			<a
-				href="/projects/{$project?.id}/day"
-				class="
-       {selection === 'day' ? 'bg-zinc-600/70 text-zinc-100' : ''}
-       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100">Day</a
-			>
-			<a
-				href="/projects/{$project?.id}/sessions/{lastSessionId}"
-				class="
-       {selection === 'sessions' ? 'bg-zinc-600/70 text-zinc-100' : ''}
-       rounded-lg h-7 flex items-center justify-center p-3 text-center hover:text-zinc-100"
-				title="go to current session">Session</a
-			>
-		</div>
+		<div />
 
 		<ul>
 			<li>
