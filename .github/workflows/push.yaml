@@ -54,20 +54,19 @@ jobs:
                       ~/.cargo/registry/index/
                       ~/.cargo/registry/cache/
                       ~/.cargo/git/db/
-                      target/
+                      src-tauri/target/
                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-            - name: Install test dependencies
+            - name: Install system dependencies
               uses: daaku/gh-action-apt-install@v4
+              if: runner.os == 'Linux'
               with:
                   # https://tauri.app/v1/guides/getting-started/prerequisites#setting-up-linux
                   packages: libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
-            - name: Build tauri
-              run: |
-                  pnpm tauri build
+            - name: Build frontend
+              run: pnpm build
 
             - name: Test rust
               working-directory: src-tauri
-              run: |
-                  cargo test
+              run: cargo test
