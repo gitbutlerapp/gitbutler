@@ -13,6 +13,7 @@
 	import { add, format, differenceInSeconds, addSeconds } from 'date-fns';
 	import { Slider } from 'fluent-svelte';
 	import { CodeViewer } from '$lib/components';
+	import TimelineDaySessionActivities from '$lib/components/timeline/TimelineDaySessionActivities.svelte';
 	import 'fluent-svelte/theme.css';
 
 	export let data: PageData;
@@ -280,6 +281,16 @@
 													on:click={() => expandSession(i, uiSession, +dateMilliseconds)}
 												>
 													{toHumanBranchName(uiSession.session.meta.branch)}
+												</div>
+
+												<div id="activities">
+													<div class="my-2 mx-1 bg-red-500">
+														<TimelineDaySessionActivities
+															activities={uiSession.session.activity}
+															sessionStart={uiSession.session.meta.startTimestampMs}
+															sessionEnd={uiSession.session.meta.lastTimestampMs}
+														/>
+													</div>
 												</div>
 
 												<div
