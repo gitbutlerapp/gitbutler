@@ -98,7 +98,7 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
 
                 view.dispatch({
                     changes: changes,
-                    selection: selection(deltasToRevert.at(0)),
+                    selection: selection(changes, deltasToRevert.at(0)),
                     scrollIntoView: true
                 });
             } else {

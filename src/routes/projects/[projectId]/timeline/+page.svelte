@@ -463,7 +463,7 @@
 								{#await selection.files then files}
 									<div class="flex flex-auto overflow-auto">
 										<CodeViewer
-											doc={files[selection.selectedFilePath]}
+											doc={files[selection.selectedFilePath] || ''}
 											deltas={selection.deltas[selection.selectedFilePath].filter(
 												(delta) => delta.timestampMs <= sliderValueTimestampMs(selection)
 											)}
