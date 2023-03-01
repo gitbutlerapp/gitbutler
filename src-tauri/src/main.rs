@@ -378,7 +378,7 @@ fn main() {
         })
         .setup(move |app| {
             let window = create_window(&app.handle()).expect("Failed to create window");
-            // #[cfg(debug_assertions)]
+            #[cfg(debug_assertions)]
             window.open_devtools();
 
             let resolver = app.path_resolver();
