@@ -122,7 +122,7 @@
 		selectedFilePath: string;
 		selectedColumn: number;
 	};
-	let selection = {} as Selection;
+	$: selection = {} as Selection;
 
 	const resetSelection = () => {
 		selection = {} as Selection;
@@ -464,8 +464,9 @@
 									<div class="flex flex-auto overflow-auto">
 										<CodeViewer
 											doc={files[selection.selectedFilePath]}
-											deltas={selection.deltas[selection.selectedFilePath]}
-											end={sliderValueTimestampMs(selection)}
+											deltas={selection.deltas[selection.selectedFilePath].filter(
+												(delta) => delta.timestampMs <= sliderValueTimestampMs(selection)
+											)}
 											filepath={selection.selectedFilePath}
 										/>
 									</div>

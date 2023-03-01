@@ -69,7 +69,7 @@ dependencies:
   '@codemirror/lang-json': github.com/codemirror/lang-json/fdc00c1dba5db7c997c215a7ab3d0d0a73a8eb5a
   '@codemirror/lang-markdown': github.com/codemirror/lang-markdown/1b5592cb25d3013b9e5bb9fd6312b7a7bfc0e1bb
   '@codemirror/lang-php': github.com/codemirror/lang-php/9534a075585aaef53d8b0203fb520ef14c129f7b
-  '@codemirror/lang-python': github.com/codemirror/lang-python/e4e2540c4acbc40d055c08c4bdf0f79b78dcf1ed_gmyi65uhzwvxi3jypseoerg22u
+  '@codemirror/lang-python': github.com/codemirror/lang-python/8b033f0aed777b9eda0307cf5d1e492040fc9c1c_gmyi65uhzwvxi3jypseoerg22u
   '@codemirror/lang-rust': github.com/codemirror/lang-rust/8db1b921b85db410107b6a29e8c8c0e6e0db9d4a
   '@codemirror/lang-vue': github.com/codemirror/lang-vue/013c3e7f8a699f2fedb002387276877dabbfc388
   '@codemirror/language': 6.6.0
@@ -3278,11 +3278,11 @@ packages:
       '@lezer/php': 1.0.1
     dev: false
 
-  github.com/codemirror/lang-python/e4e2540c4acbc40d055c08c4bdf0f79b78dcf1ed_gmyi65uhzwvxi3jypseoerg22u:
-    resolution: {tarball: https://codeload.github.com/codemirror/lang-python/tar.gz/e4e2540c4acbc40d055c08c4bdf0f79b78dcf1ed}
-    id: github.com/codemirror/lang-python/e4e2540c4acbc40d055c08c4bdf0f79b78dcf1ed
+  github.com/codemirror/lang-python/8b033f0aed777b9eda0307cf5d1e492040fc9c1c_gmyi65uhzwvxi3jypseoerg22u:
+    resolution: {tarball: https://codeload.github.com/codemirror/lang-python/tar.gz/8b033f0aed777b9eda0307cf5d1e492040fc9c1c}
+    id: github.com/codemirror/lang-python/8b033f0aed777b9eda0307cf5d1e492040fc9c1c
     name: '@codemirror/lang-python'
-    version: 6.1.1
+    version: 6.1.2
     prepare: true
     requiresBuild: true
     dependencies:
