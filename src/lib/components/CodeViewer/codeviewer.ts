@@ -4,9 +4,9 @@ import { EditorView, lineNumbers } from '@codemirror/view';
 import { colorEditor, highLightSyntax } from './colors';
 import { getLanguage } from './languages';
 
-const fixedHeightEditor = EditorView.theme({
-	'&': { height: '600px' },
-	'.cm-scroller': { overflow: 'auto' }
+const sizes = EditorView.theme({
+	'&': { height: '100%', width: '100%' },
+	'.cm-scroller': { overflow: 'scroll' }
 });
 
 const convertOperation = (operation: Operation): ChangeSpec => {
@@ -47,7 +47,7 @@ const extensions = [
 	EditorView.editable.of(false),
 	EditorView.lineWrapping,
 	lineNumbers(),
-	fixedHeightEditor
+	sizes
 ];
 
 type Params = { doc: string; deltas: Delta[]; end: number; filepath: string };

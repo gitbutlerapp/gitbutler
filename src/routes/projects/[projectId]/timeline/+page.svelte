@@ -11,8 +11,8 @@
 	import { add, format, differenceInSeconds, addSeconds } from 'date-fns';
 	import { Slider } from 'fluent-svelte';
 	import TimelineDaySessionActivities from '$lib/components/timeline/TimelineDaySessionActivities.svelte';
+	import { CodeViewer } from '$lib/components';
 	import 'fluent-svelte/theme.css';
-	import { codeviewer } from '$lib';
 
 	export let data: PageData;
 	const { project, sessions } = data;
@@ -461,15 +461,12 @@
 									</div>
 								</div>
 								{#await selection.files then files}
-									<div class="m-6 flex-auto overflow-auto">
-										<code
-											class="overflow-y-scroll"
-											use:codeviewer={{
-												doc: files[selection.selectedFilePath],
-												deltas: selection.deltas[selection.selectedFilePath],
-												end: sliderValueTimestampMs(selection),
-												filepath: selection.selectedFilePath
-											}}
+									<div class="flex flex-auto overflow-auto">
+										<CodeViewer
+											doc={files[selection.selectedFilePath]}
+											deltas={selection.deltas[selection.selectedFilePath]}
+											end={sliderValueTimestampMs(selection)}
+											filepath={selection.selectedFilePath}
 										/>
 									</div>
 								{/await}
