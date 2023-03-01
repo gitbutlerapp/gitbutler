@@ -1,5 +1,5 @@
 import { Operation, type Delta } from '$lib/deltas';
-import { Text, ChangeSet, EditorState, type ChangeSpec } from '@codemirror/state';
+import { Text, ChangeSet, EditorState, EditorSelection, type ChangeSpec } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { getLanguage } from './languages';
 import extensions from './extensions';
@@ -39,6 +39,27 @@ const toChangeSet = (deltas: Delta[], initLength: number): ChangeSet => {
     return sets.length > 0 ? sets.reduce((a, b) => a.compose(b)) : ChangeSet.empty(initLength);
 };
 
+const selection = (changes: ChangeSet, delta: Delta | undefined): EditorSelection | undefined => {
+    if (delta === undefined) return undefined;
+    if (delta.operations.length === 0) return undefined;
+    const lastDelta = delta.operations[delta.operations.length - 1];
+    if (Operation.isInsert(lastDelta)) {
+        const anchor = lastDelta.insert[0];
+        const head = lastDelta.insert[0] + lastDelta.insert[1].length;
+        if (changes.newLength < anchor) return undefined;
+        if (changes.newLength < head) return undefined;
+        return EditorSelection.single(anchor, head);
+    } else if (Operation.isDelete(lastDelta)) {
+        const anchor = lastDelta.delete[0];
+        const head = lastDelta.delete[0] + lastDelta.delete[1];
+        if (changes.newLength < anchor) return undefined;
+        if (changes.newLength < head) return undefined;
+        return EditorSelection.single(anchor, head);
+    } else {
+        return undefined;
+    }
+};
+
 // this action assumes:
 // * that deltas list is append only.
 // * that each (filepath, doc) pair never changes.
@@ -47,7 +68,7 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
 
     view.dispatch(
         view.state.update({
-            changes: view.state.changes(deltas.flatMap((delta) => delta.operations.map(toChangeSpec)))
+            changes: toChangeSet(deltas, doc.length)
         })
     );
 
@@ -75,11 +96,11 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
                 const revertChange = toChangeSet(deltasToRevert, targetText.length);
                 const changes = revertChange.invert(targetText);
 
-                view.dispatch(
-                    view.state.update({
-                        changes: changes
-                    })
-                );
+                view.dispatch({
+                    changes: changes,
+                    selection: selection(deltasToRevert.at(0)),
+                    scrollIntoView: true
+                });
             } else {
                 // rewind forward
 
@@ -91,11 +112,12 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
 
                 const deltasToApply = newDeltas.slice(currentDeltas.length);
                 const changes = toChangeSet(deltasToApply, view.state.doc.length);
-                view.dispatch(
-                    view.state.update({
-                        changes
-                    })
-                );
+
+                view.dispatch({
+                    changes,
+                    selection: selection(changes, deltasToApply.at(-1)),
+                    scrollIntoView: true
+                });
             }
 
             // don't forget to update caches
