@@ -1,116 +1,59 @@
 import { EditorView } from '@codemirror/view';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { tags } from '@lezer/highlight';
+import { HighlightStyle } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
+import type { Theme } from './themes/theme';
 
-const palette = {
-    invalid: '#ffffff',
-    coral: '#e06c75',
-    chalky: '#e5c07b',
-    cyan: '#56b6c2',
-    ivory: '#abb2bf',
-    stone: '#5c6370',
-    malibu: '#61afef',
-    sage: '#98c379',
-    whiskey: '#d19a66',
-    violet: '#c678dd'
-};
-
-export const colorTheme = EditorView.theme(
-    {
-        '&': {
-            color: '#d4d4d8',
-            backgroundColor: '#18181b'
+export const colorTheme = (theme: Theme, options?: { dark: boolean }) =>
+    EditorView.theme(
+        {
+            '&': {
+                color: theme.fg0,
+                backgroundColor: theme.bg0
+            },
+            '.cm-gutters': {
+                color: theme.fg0,
+                backgroundColor: theme.bg0,
+                border: 'none'
+            },
+            '.cm-mark': { backgroundColor: theme.bg2 }
         },
-        '.cm-gutters': {
-            backgroundColor: '#18181b',
-            color: '#3f3f46'
-        }
-    },
-    {
-        dark: true
-    }
-);
+        options
+    );
 
-export const highLightSyntax = syntaxHighlighting(
+export const highlightStyle = (theme: Theme) =>
     HighlightStyle.define([
-        {
-            tag: tags.keyword,
-            color: palette.violet
-        },
-        {
-            tag: [tags.name, tags.deleted, tags.character, tags.propertyName, tags.macroName],
-            color: palette.coral
-        },
-        {
-            tag: [tags.processingInstruction, tags.string, tags.inserted],
-            color: palette.sage
-        },
-        {
-            tag: [tags.function(tags.variableName), tags.labelName],
-            color: palette.malibu
-        },
-        {
-            tag: [tags.color, tags.constant(tags.name), tags.standard(tags.name)],
-            color: palette.whiskey
-        },
-        {
-            tag: [tags.definition(tags.name), tags.separator],
-            color: palette.ivory
-        },
+        { tag: t.keyword, color: theme.red },
+        { tag: [t.propertyName, t.name, t.deleted, t.character, t.macroName], color: theme.blue },
+        { tag: [t.function(t.variableName), t.labelName], color: theme.green, fontWeight: 'bold' },
+        { tag: [t.definition(t.name), t.separator], color: theme.yellow },
         {
             tag: [
-                tags.typeName,
-                tags.className,
-                tags.number,
-                tags.changed,
-                tags.annotation,
-                tags.modifier,
-                tags.self,
-                tags.namespace
+                t.typeName,
+                t.className,
+                t.number,
+                t.changed,
+                t.annotation,
+                t.modifier,
+                t.self,
+                t.namespace
             ],
-            color: palette.chalky
+            color: theme.fg1
         },
         {
-            tag: [
-                tags.operator,
-                tags.operatorKeyword,
-                tags.url,
-                tags.escape,
-                tags.regexp,
-                tags.link,
-                tags.special(tags.string)
-            ],
-            color: palette.cyan
-        },
-        {
-            tag: [tags.meta, tags.comment],
-            color: palette.stone
-        },
-        {
-            tag: tags.strong,
-            fontWeight: 'bold'
-        },
-        {
-            tag: tags.emphasis,
+            tag: [t.operator, t.operatorKeyword, t.url, t.escape, t.regexp, t.link, t.special(t.string)],
+            color: theme.orange,
             fontStyle: 'italic'
         },
+        { tag: [t.meta, t.comment], color: theme.gray, fontStyle: 'italic' },
+        { tag: t.strong, fontWeight: 'bold' },
+        { tag: t.emphasis, fontStyle: 'italic' },
+        { tag: t.strikethrough, textDecoration: 'line-through' },
+        { tag: t.heading, fontWeight: 'bold', color: theme.blue },
+        { tag: [t.atom, t.bool, t.special(t.variableName)], color: theme.purple },
         {
-            tag: tags.link,
-            color: palette.stone,
-            textDecoration: 'underline'
+            tag: [t.processingInstruction, t.string, t.inserted],
+            color: theme.green,
+            fontStyle: 'italic'
         },
-        {
-            tag: tags.heading,
-            fontWeight: 'bold',
-            color: palette.coral
-        },
-        {
-            tag: [tags.atom, tags.bool, tags.special(tags.variableName)],
-            color: palette.whiskey
-        },
-        {
-            tag: tags.invalid,
-            color: palette.invalid
-        }
-    ])
-);
+        { tag: t.invalid, color: theme.fg0 }
+    ]);

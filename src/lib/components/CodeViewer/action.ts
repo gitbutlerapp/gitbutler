@@ -1,8 +1,16 @@
 import { Operation, type Delta } from '$lib/deltas';
-import { Text, ChangeSet, EditorState, EditorSelection, type ChangeSpec } from '@codemirror/state';
+import {
+    Text,
+    ChangeSet,
+    EditorState,
+    EditorSelection,
+    type ChangeSpec,
+    SelectionRange
+} from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { getLanguage } from './languages';
 import extensions from './extensions';
+import { markChanges } from './mark';
 
 const toChangeSpec = (operation: Operation): ChangeSpec => {
     if (Operation.isInsert(operation)) {
@@ -39,25 +47,28 @@ const toChangeSet = (deltas: Delta[], initLength: number): ChangeSet => {
     return sets.length > 0 ? sets.reduce((a, b) => a.compose(b)) : ChangeSet.empty(initLength);
 };
 
-const selection = (changes: ChangeSet, delta: Delta | undefined): EditorSelection | undefined => {
-    if (delta === undefined) return undefined;
-    if (delta.operations.length === 0) return undefined;
-    const lastDelta = delta.operations[delta.operations.length - 1];
-    if (Operation.isInsert(lastDelta)) {
-        const anchor = lastDelta.insert[0];
-        const head = lastDelta.insert[0] + lastDelta.insert[1].length;
-        if (changes.newLength < anchor) return undefined;
-        if (changes.newLength < head) return undefined;
-        return EditorSelection.single(anchor, head);
-    } else if (Operation.isDelete(lastDelta)) {
-        const anchor = lastDelta.delete[0];
-        const head = lastDelta.delete[0] + lastDelta.delete[1];
-        if (changes.newLength < anchor) return undefined;
-        if (changes.newLength < head) return undefined;
-        return EditorSelection.single(anchor, head);
+const toRange = (operation: Operation) => {
+    if (Operation.isInsert(operation)) {
+        const anchor = operation.insert[0];
+        const head = operation.insert[0] + operation.insert[1].length;
+        return EditorSelection.range(anchor, head);
+    } else if (Operation.isDelete(operation)) {
+        const anchor = operation.delete[0];
+        const head = operation.delete[0] + operation.delete[1];
+        return EditorSelection.range(anchor, head);
     } else {
         return undefined;
     }
+};
+
+const toSelection = (changes: ChangeSet, delta: Delta | undefined): EditorSelection | undefined => {
+    if (delta === undefined) return undefined;
+    if (delta.operations.length === 0) return undefined;
+    const ranges = delta.operations
+        .map(toRange)
+        .filter((r): r is SelectionRange => r !== undefined)
+        .filter((range) => range.head <= changes.newLength && range.anchor <= changes.newLength);
+    return ranges.length ? EditorSelection.create(ranges) : undefined;
 };
 
 // this action assumes:
@@ -88,6 +99,7 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
             const currentDeltas = deltasCache[filepath] || [];
             if (currentDeltas.length > newDeltas.length) {
                 // rewind backward
+
                 const baseText = Text.of([doc]);
                 const targetChange = toChangeSet(newDeltas, baseText.length);
                 const targetText = targetChange.apply(baseText);
@@ -96,10 +108,13 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
                 const revertChange = toChangeSet(deltasToRevert, targetText.length);
                 const changes = revertChange.invert(targetText);
 
+                const selection = toSelection(changes, newDeltas.at(-1));
+
                 view.dispatch({
-                    changes: changes,
-                    selection: selection(changes, deltasToRevert.at(0)),
-                    scrollIntoView: true
+                    changes,
+                    selection,
+                    scrollIntoView: true,
+                    effects: markChanges(selection)
                 });
             } else {
                 // rewind forward
@@ -112,11 +127,13 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
 
                 const deltasToApply = newDeltas.slice(currentDeltas.length);
                 const changes = toChangeSet(deltasToApply, view.state.doc.length);
+                const selection = toSelection(changes, deltasToApply.at(-1));
 
                 view.dispatch({
                     changes,
-                    selection: selection(changes, deltasToApply.at(-1)),
-                    scrollIntoView: true
+                    selection,
+                    scrollIntoView: true,
+                    effects: markChanges(selection)
                 });
             }
 
