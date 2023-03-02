@@ -1,10 +1,6 @@
 <script lang="ts">
 	import { themeIcons } from 'seti-icons';
 	import type { PageData } from './$types';
-	import { asyncDerived } from '@square/svelte-store';
-	import type { Session } from '$lib/sessions';
-	import { startOfDay } from 'date-fns';
-	import { list as listDeltas } from '$lib/deltas';
 	import { listFiles } from '$lib/sessions';
 	import type { Delta } from '$lib/deltas';
 	import { toHumanBranchName } from '$lib/branch';
@@ -13,9 +9,10 @@
 	import TimelineDaySessionActivities from '$lib/components/timeline/TimelineDaySessionActivities.svelte';
 	import { CodeViewer } from '$lib/components';
 	import 'fluent-svelte/theme.css';
+	import type { UISession } from '$lib/uisessions';
 
 	export let data: PageData;
-	const { project, sessions } = data;
+	const { project, dateSessions } = data;
 
 	const formatDate = (date: Date) => {
 		return new Intl.DateTimeFormat('default', {
@@ -55,61 +52,6 @@
 		let { svg } = getIcon(name);
 		return svg;
 	}
-
-	type UISession = {
-		session: Session;
-		deltas: Record<string, Delta[]>;
-		earliestDeltaTimestampMs: number;
-		latestDeltaTimestampMs: number;
-	};
-
-	$: dateSessions = asyncDerived([sessions], async ([sessions]) => {
-		const deltas = await Promise.all(
-			sessions.map((session) => {
-				return listDeltas({
-					projectId: $project?.id ?? '',
-					sessionId: session.id
-				});
-			})
-		);
-		// Sort deltas by timestamp
-		deltas.forEach((delta) => {
-			Object.keys(delta).forEach((key) => {
-				delta[key].sort((a, b) => a.timestampMs - b.timestampMs);
-			});
-		});
-
-		const uiSessions = sessions
-			.map((session, i) => {
-				return { session, deltas: deltas[i] } as UISession;
-			})
-			.filter((uiSession) => {
-				return Object.keys(uiSession.deltas).length > 0;
-			});
-
-		const dateSessions: Record<number, UISession[]> = {};
-		uiSessions.forEach((uiSession) => {
-			const date = startOfDay(new Date(uiSession.session.meta.startTimestampMs));
-			if (dateSessions[date.getTime()]) {
-				dateSessions[date.getTime()]?.push(uiSession);
-			} else {
-				dateSessions[date.getTime()] = [uiSession];
-			}
-		});
-
-		// For each UISession in dateSessions, set the earliestDeltaTimestampMs and latestDeltaTimestampMs
-		Object.keys(dateSessions).forEach((date: any) => {
-			dateSessions[date].forEach((uiSession: any) => {
-				const deltaTimestamps = Object.keys(uiSession.deltas).reduce((acc, key) => {
-					return acc.concat(uiSession.deltas[key].map((delta: Delta) => delta.timestampMs));
-				}, []);
-				uiSession.earliestDeltaTimestampMs = Math.min(...deltaTimestamps);
-				uiSession.latestDeltaTimestampMs = Math.max(...deltaTimestamps);
-			});
-		});
-
-		return dateSessions;
-	});
 
 	type Selection = {
 		sessionIdx: number;
