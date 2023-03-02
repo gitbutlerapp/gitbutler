@@ -1,7 +1,7 @@
 use crate::{deltas, projects, sessions};
 use anyhow::Result;
 use std::{fs, path::Path};
-use tantivy::{directory::MmapDirectory, schema, DateTime};
+use tantivy::{collector, directory::MmapDirectory, schema};
 
 #[derive(Clone)]
 pub struct DeltasIndex {
@@ -11,13 +11,12 @@ pub struct DeltasIndex {
 
 fn schema() -> schema::Schema {
     let mut schema_builder = schema::Schema::builder();
-    schema_builder.add_date_field(
-        "timestamp_ms",
-        schema::STORED // we want to retrieve it from search results, so store the value
-        | schema::FAST, // makes the field faster to filter / sort on
-    );
     schema_builder.add_text_field(
         "session_hash",
+        schema::STORED, // store the value so we can retrieve it from search results
+    );
+    schema_builder.add_u64_field(
+        "index",
         schema::STORED, // store the value so we can retrieve it from search results
     );
     schema_builder.add_text_field(
@@ -32,18 +31,22 @@ fn schema() -> schema::Schema {
     );
     schema_builder.add_bool_field(
         "is_addition",
-        schema::FAST // we want to filter on the field
-        | schema::INDEXED, // we want to search on the field
+        schema::FAST, // we want to filter on the field
     );
     schema_builder.add_u64_field(
         "is_deletion",
-        schema::FAST // we want to filter on the field
-        | schema::INDEXED, // we want to search on the field
+        schema::FAST, // we want to filter on the field
     );
     schema_builder.build()
 }
 
 const WRITE_BUFFER_SIZE: usize = 10_000_000; // 10MB
+
+pub struct SearchResult {
+    pub session_hash: String,
+    pub file_path: String,
+    pub index: u64,
+}
 
 impl DeltasIndex {
     pub fn open_or_create<P: AsRef<Path>>(
@@ -68,9 +71,7 @@ impl DeltasIndex {
 
     fn with_writer(&self, f: impl FnOnce(&tantivy::IndexWriter) -> Result<()>) -> Result<()> {
         let mut writer = self.index.writer(WRITE_BUFFER_SIZE)?;
-        println!("Writing...");
         f(&mut writer)?;
-        println!("Committing...");
         writer.commit()?;
         Ok(())
     }
@@ -97,12 +98,12 @@ impl DeltasIndex {
         match &session.hash {
             None => Err(anyhow::anyhow!("Session hash is not set, on")),
             Some(hash) => self.with_writer(|writer| {
-                let field_timestamp_ms = self.index.schema().get_field("timestamp_ms").unwrap();
                 let field_session_hash = self.index.schema().get_field("session_hash").unwrap();
                 let field_file_path = self.index.schema().get_field("file_path").unwrap();
                 let field_diff = self.index.schema().get_field("diff").unwrap();
                 let field_is_addition = self.index.schema().get_field("is_addition").unwrap();
                 let field_is_deletion = self.index.schema().get_field("is_deletion").unwrap();
+                let field_index = self.index.schema().get_field("index").unwrap();
 
                 // index every file
                 for (file_path, deltas) in deltas.into_iter() {
@@ -115,14 +116,11 @@ impl DeltasIndex {
                         .chars()
                         .collect();
                     // for every deltas for the file
-                    for delta in deltas {
+                    for (i, delta) in deltas.into_iter().enumerate() {
                         // for every operation in the delta
                         for operation in &delta.operations {
                             let mut doc = tantivy::Document::default();
-                            doc.add_date(
-                                field_timestamp_ms,
-                                DateTime::from_timestamp_millis(delta.timestamp_ms.try_into()?),
-                            );
+                            doc.add_u64(field_index, i.try_into()?);
                             doc.add_text(field_session_hash, hash);
                             doc.add_text(field_file_path, file_path.as_str());
                             match operation {
@@ -151,5 +149,50 @@ impl DeltasIndex {
                 Ok(())
             }),
         }
+    }
+
+    pub fn search(&self, q: &str) -> Result<Vec<SearchResult>> {
+        let field_file_path = self.index.schema().get_field("file_path").unwrap();
+        let field_diff = self.index.schema().get_field("diff").unwrap();
+        let field_session_hash = self.index.schema().get_field("session_hash").unwrap();
+        let field_index = self.index.schema().get_field("index").unwrap();
+
+        let query_parser =
+            &tantivy::query::QueryParser::for_index(&self.index, vec![field_file_path, field_diff]);
+
+        let query = query_parser.parse_query(q)?;
+
+        self.reader.reload()?;
+        let searcher = self.reader.searcher();
+        let top_docs = searcher.search(&query, &collector::TopDocs::with_limit(10))?;
+
+        let results = top_docs
+            .iter()
+            .map(|(_score, doc_address)| {
+                let retrieved_doc = searcher.doc(*doc_address)?;
+                let file_path = retrieved_doc
+                    .get_first(field_file_path)
+                    .unwrap()
+                    .as_text()
+                    .unwrap();
+                let session_hash = retrieved_doc
+                    .get_first(field_session_hash)
+                    .unwrap()
+                    .as_text()
+                    .unwrap();
+                let index = retrieved_doc
+                    .get_first(field_index)
+                    .unwrap()
+                    .as_u64()
+                    .unwrap();
+                Ok(SearchResult {
+                    file_path: file_path.to_string(),
+                    session_hash: session_hash.to_string(),
+                    index,
+                })
+            })
+            .collect::<Result<Vec<SearchResult>>>()?;
+
+        Ok(results)
     }
 }

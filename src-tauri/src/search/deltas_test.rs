@@ -27,20 +27,25 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
 }
 
 #[test]
-fn test_index_session() {
+fn test_simple() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
-    println!("index_path: {}", index_path);
 
     let mut session = sessions::Session::from_head(&repo, &project).unwrap();
     deltas::write(
         &repo,
         &project,
         Path::new("test.txt"),
-        &vec![deltas::Delta {
-            operations: vec![Operation::Insert((0, "Hello, world!".to_string()))],
-            timestamp_ms: 0,
-        }],
+        &vec![
+            deltas::Delta {
+                operations: vec![Operation::Insert((0, "Hello".to_string()))],
+                timestamp_ms: 0,
+            },
+            deltas::Delta {
+                operations: vec![Operation::Insert((5, " World".to_string()))],
+                timestamp_ms: 0,
+            },
+        ],
     )
     .unwrap();
     session.flush(&repo, &None, &project).unwrap();
@@ -50,4 +55,38 @@ fn test_index_session() {
     let reference = repo.find_reference(&project.refname()).unwrap();
     let write_result = index.write(&session, &repo, &project, &reference);
     assert!(write_result.is_ok());
+
+    let session_hash = session.hash.unwrap();
+
+    let search_result1 = index.search("hello");
+    assert!(search_result1.is_ok());
+    let search_result1 = search_result1.unwrap();
+    assert_eq!(search_result1.len(), 1);
+    assert_eq!(search_result1[0].session_hash, session_hash);
+    assert_eq!(search_result1[0].file_path, "test.txt");
+    assert_eq!(search_result1[0].index, 0);
+
+    let search_result2 = index.search("world");
+    assert!(search_result2.is_ok());
+    let search_result2 = search_result2.unwrap();
+    assert_eq!(search_result2.len(), 1);
+    assert_eq!(search_result2[0].session_hash, session_hash);
+    assert_eq!(search_result2[0].file_path, "test.txt");
+    assert_eq!(search_result2[0].index, 1);
+
+    let search_result3 = index.search("hello world");
+    assert!(search_result3.is_ok());
+    let search_result3 = search_result3.unwrap();
+    assert_eq!(search_result3.len(), 2);
+    assert_eq!(search_result3[0].session_hash, session_hash);
+    assert_eq!(search_result3[0].file_path, "test.txt");
+    assert_eq!(search_result3[1].session_hash, session_hash);
+    assert_eq!(search_result3[1].file_path, "test.txt");
+
+    let search_by_filename_result = index.search("test.txt");
+    assert!(search_by_filename_result.is_ok());
+    let search_by_filename_result = search_by_filename_result.unwrap();
+    assert_eq!(search_by_filename_result.len(), 2);
+    assert_eq!(search_by_filename_result[0].session_hash, session_hash);
+    assert_eq!(search_by_filename_result[0].file_path, "test.txt");
 }
