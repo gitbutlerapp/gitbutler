@@ -8,29 +8,19 @@ pub struct TextDocument {
     deltas: Vec<deltas::Delta>,
 }
 
-impl TextDocument {
-    fn apply_deltas(doc: &mut Vec<char>, deltas: &Vec<deltas::Delta>) {
-        if deltas.len() == 0 {
-            return;
-        }
-        for event in deltas {
-            for operation in event.operations.iter() {
-                match operation {
-                    operations::Operation::Insert((index, chunk)) => {
-                        doc.splice(*index as usize..*index as usize, chunk.chars());
-                    }
-                    operations::Operation::Delete((index, len)) => {
-                        doc.drain(*index as usize..(*index + *len) as usize);
-                    }
-                }
-            }
+fn apply_deltas(doc: &mut Vec<char>, deltas: &Vec<deltas::Delta>) {
+    for delta in deltas {
+        for operation in &delta.operations {
+            operation.apply(doc);
         }
     }
+}
 
+impl TextDocument {
     // creates a new text document from a deltas.
     pub fn from_deltas(deltas: Vec<deltas::Delta>) -> TextDocument {
         let mut doc = vec![];
-        Self::apply_deltas(&mut doc, &deltas);
+        apply_deltas(&mut doc, &deltas);
         TextDocument { doc, deltas }
     }
 
@@ -46,7 +36,7 @@ impl TextDocument {
         }];
         all_deltas.append(&mut deltas.clone());
         let mut doc = vec![];
-        Self::apply_deltas(&mut doc, &all_deltas);
+        apply_deltas(&mut doc, &all_deltas);
         TextDocument { doc, deltas }
     }
 
@@ -62,7 +52,7 @@ impl TextDocument {
         if event.operations.len() == 0 {
             return false;
         }
-        Self::apply_deltas(&mut self.doc, &vec![event.clone()]);
+        apply_deltas(&mut self.doc, &vec![event.clone()]);
         self.deltas.push(event);
         return true;
     }

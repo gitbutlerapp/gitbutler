@@ -265,6 +265,7 @@ fn test_list_files_from_first_presistent_session() {
     let (repo, project) = test_project().unwrap();
 
     let file_path = Path::new(&project.path).join("test.txt");
+
     std::fs::write(file_path.clone(), "zero").unwrap();
 
     let first = super::sessions::Session::from_head(&repo, &project);

@@ -3,6 +3,7 @@ mod events;
 mod fs;
 mod projects;
 mod repositories;
+mod search;
 mod sessions;
 mod storage;
 mod users;
