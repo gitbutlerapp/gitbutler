@@ -10,6 +10,19 @@ pub enum Operation {
     Delete((u32, u32)),
 }
 
+impl Operation {
+    pub fn apply(&self, text: &mut Vec<char>) {
+        match self {
+            Operation::Insert((index, chunk)) => {
+                text.splice(*index as usize..*index as usize, chunk.chars());
+            }
+            Operation::Delete((index, len)) => {
+                text.splice(*index as usize..(*index + *len) as usize, "".chars());
+            }
+        }
+    }
+}
+
 pub fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operation> {
     if initial_text == final_text {
         return vec![];
