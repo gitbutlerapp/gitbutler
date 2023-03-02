@@ -9,10 +9,11 @@
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 
 	export let data: LayoutData;
-	const { user, posthog } = data;
+	const { user, posthog, projects } = data;
 
 	setContext('project', writable(null));
 	setContext('session', writable(null));
+	setContext('projects', projects);
 
 	user.subscribe(posthog.identify);
 </script>
