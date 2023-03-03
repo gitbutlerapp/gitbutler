@@ -50,18 +50,16 @@ fn test_simple() {
     .unwrap();
     session.flush(&repo, &None, &project).unwrap();
 
-    let mut searcher = super::Deltas::at(&index_path);
+    let mut searcher = super::Deltas::at(index_path.into());
 
-    let write_result = searcher.index(&repo, &project, &session);
+    let write_result = searcher.index_session(&repo, &project, &session);
     assert!(write_result.is_ok());
-
-    let session_hash = session.hash.unwrap();
 
     let search_result1 = searcher.search(&project.id, "hello");
     assert!(search_result1.is_ok());
     let search_result1 = search_result1.unwrap();
     assert_eq!(search_result1.len(), 1);
-    assert_eq!(search_result1[0].session_hash, session_hash);
+    assert_eq!(search_result1[0].session_id, session.id);
     assert_eq!(search_result1[0].file_path, "test.txt");
     assert_eq!(search_result1[0].index, 0);
 
@@ -69,7 +67,7 @@ fn test_simple() {
     assert!(search_result2.is_ok());
     let search_result2 = search_result2.unwrap();
     assert_eq!(search_result2.len(), 1);
-    assert_eq!(search_result2[0].session_hash, session_hash);
+    assert_eq!(search_result2[0].session_id, session.id);
     assert_eq!(search_result2[0].file_path, "test.txt");
     assert_eq!(search_result2[0].index, 1);
 
@@ -77,16 +75,16 @@ fn test_simple() {
     assert!(search_result3.is_ok());
     let search_result3 = search_result3.unwrap();
     assert_eq!(search_result3.len(), 2);
-    assert_eq!(search_result3[0].session_hash, session_hash);
+    assert_eq!(search_result3[0].session_id, session.id);
     assert_eq!(search_result3[0].file_path, "test.txt");
-    assert_eq!(search_result3[1].session_hash, session_hash);
+    assert_eq!(search_result3[1].session_id, session.id);
     assert_eq!(search_result3[1].file_path, "test.txt");
 
     let search_by_filename_result = searcher.search(&project.id, "test.txt");
     assert!(search_by_filename_result.is_ok());
     let search_by_filename_result = search_by_filename_result.unwrap();
     assert_eq!(search_by_filename_result.len(), 2);
-    assert_eq!(search_by_filename_result[0].session_hash, session_hash);
+    assert_eq!(search_by_filename_result[0].session_id, session.id);
     assert_eq!(search_by_filename_result[0].file_path, "test.txt");
 
     let not_found_result = searcher.search("404", "hello world");
