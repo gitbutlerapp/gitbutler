@@ -4,7 +4,6 @@
 	import { toHumanReadableTime } from '$lib/time';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { IconHome, IconChevronRight } from '@tabler/icons-svelte';
 	import Popover from '$lib/components/Popover';
 
 	let project: Writable<Project | null | undefined> = getContext('project');
@@ -12,13 +11,17 @@
 	let projects: Writable<any> = getContext('projects');
 </script>
 
-<div class="flex flex-row items-center space-x-1 bg-zinc-900 text-zinc-400 h-8">
-	<a class="hover:text-zinc-200" href="/">
-		<IconHome class="w-5 h-5" />
+<div class="flex flex-row items-center bg-zinc-900 text-zinc-400">
+	<a class="" href="/">
+		<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<path
+				d="M7.5547 0.16795C7.2188 -0.0559832 6.7812 -0.0559832 6.4453 0.16795L0.8906 3.87108C0.334202 4.24201 0 4.86648 0 5.53518V12C0 13.1046 0.895431 14 2 14H4C4.55228 14 5 13.5523 5 13V9H9V13C9 13.5523 9.44771 14 10 14H12C13.1046 14 14 13.1046 14 12V5.53518C14 4.86648 13.6658 4.24202 13.1094 3.87108L7.5547 0.16795Z"
+				fill="#5C5F62"
+			/>
+		</svg>
 	</a>
 	{#if $project}
-		<IconChevronRight class="w-5 h-5 text-zinc-700" />
-		<div class="flex flex-col">
+		<div class="ml-3">
 			<Popover>
 				<div slot="button">
 					{$project.title}
@@ -69,7 +72,6 @@
 		</div>
 	{/if}
 	{#if $project && $session}
-		<IconChevronRight class="w-5 h-5 text-zinc-700" />
 		<a class="hover:text-zinc-200" href="/projects/{$project.id}/sessions/{$session.id}">
 			{toHumanReadableTime($session.meta.startTimestampMs)}
 			{toHumanReadableTime($session.meta.lastTimestampMs)}
