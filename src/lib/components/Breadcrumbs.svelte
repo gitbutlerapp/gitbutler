@@ -27,7 +27,7 @@
 					{$project.title}
 				</div>
 				<div class="flex flex-col">
-					<ul class="flex flex-col overflow-y-auto m-2 max-h-[280px]">
+					<ul class="flex flex-col overflow-y-auto p-2 max-h-[289px]">
 						{#each $projects || [] as p}
 							<a
 								href="/projects/{p.id}"
