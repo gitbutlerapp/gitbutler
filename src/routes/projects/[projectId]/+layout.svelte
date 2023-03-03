@@ -9,10 +9,6 @@
 	export let data: LayoutData;
 
 	$: project = data.project;
-	$: sessions = data.sessions;
-	$: lastSessionId = $sessions[$sessions.length - 1]?.id;
-	$: dateSessions = data.dateSessions;
-	console.debug('loading sessions for project: ', $dateSessions === undefined); // Force pre-loading of dateSessions
 
 	function projectUrl(project: Project) {
 		const gitUrl = project.api?.git_url;
