@@ -156,7 +156,7 @@
 			<!-- Day -->
 			<div
 				id={dateMilliseconds}
-				class="flex flex-col bg-zinc-800/50 rounded-xl border border-zinc-700 "
+				class="flex flex-col bg-zinc-800/50 rounded-lg border border-zinc-700 "
 				class:min-w-full={selection.dateMilliseconds == +dateMilliseconds}
 			>
 				<div class="font-medium border-b border-zinc-700 bg-zinc-700/30 h-6 flex items-center pl-4">

@@ -153,7 +153,7 @@
 						<div class="text-xl text-zinc-300 mb-1">
 							My Projects
 							<div class="text-lg text-zinc-500 mb-1">
-								All the projects that I am currently helping you with.
+								All the projects that I am currently assisting you with.
 							</div>
 						</div>
 						<div>
@@ -169,32 +169,36 @@
 					<div class="h-full max-h-screen overflow-auto">
 						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
 							{#each $projects as project}
-								<div class="flex flex-col justify-between space-y-1 bg-zinc-700 rounded-lg shadow">
-									<div class="px-4 py-4 flex-grow-0">
-										<a
-											class="hover:text-zinc-200 text-zinc-300 text-lg"
-											href="/projects/{project.id}/">{project.title}</a
+								<a
+								class="hover:text-zinc-200 text-zinc-300 text-lg"
+								href="/projects/{project.id}/">
+									<div class="flex flex-col justify-between space-y-1 bg-zinc-700 rounded-lg shadow">
+										<div class="px-4 py-4 flex-grow-0">
+
+											<div class="hover:text-zinc-200 text-zinc-300 text-lg">
+												{project.title}
+											</div>
+											<div class="text-zinc-500 font-mono break-words">
+												{project.path}
+											</div>
+										</div>
+										<div
+											class="flex-grow-0 text-zinc-500 font-mono border-t border-zinc-600 bg-zinc-600 rounded-b-lg px-3 py-1"
 										>
-										<div class="text-zinc-500 font-mono break-words">
-											{project.path}
+											{#if project.api}
+												<div class="flex flex-row items-center space-x-2 ">
+													<div class="w-2 h-2 bg-green-700 rounded-full" />
+													<div class="text-zinc-400">syncing</div>
+												</div>
+											{:else}
+												<div class="flex flex-row items-center space-x-2 ">
+													<div class="w-2 h-2 bg-gray-400 rounded-full" />
+													<div class="text-zinc-400">offline</div>
+												</div>
+											{/if}
 										</div>
 									</div>
-									<div
-										class="flex-grow-0 text-zinc-500 font-mono border-t border-zinc-600 bg-zinc-600 rounded-b-lg px-3 py-1"
-									>
-										{#if project.api}
-											<div class="flex flex-row items-center space-x-2 ">
-												<div class="w-2 h-2 bg-green-700 rounded-full" />
-												<div class="text-zinc-400">syncing</div>
-											</div>
-										{:else}
-											<div class="flex flex-row items-center space-x-2 ">
-												<div class="w-2 h-2 bg-gray-400 rounded-full" />
-												<div class="text-zinc-400">offline</div>
-											</div>
-										{/if}
-									</div>
-								</div>
+								</a>
 							{/each}
 						</div>
 					</div>
