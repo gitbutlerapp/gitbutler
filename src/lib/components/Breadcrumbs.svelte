@@ -59,8 +59,8 @@
 					</ul>
 					<span class="w-full border-t border-zinc-700" />
 					<!-- svelte-ignore a11y-click-events-have-key-events -->
-					<div class="m-2">
-						<div class="p-2 rounded hover:bg-zinc-700 cursor-pointer">Add repository...</div>
+					<div class="m-2 flex">
+						<a href="/" class="p-2 w-full rounded hover:bg-zinc-700 cursor-pointer">Add repository...</a>
 					</div>
 				</div>
 			</Popover>
