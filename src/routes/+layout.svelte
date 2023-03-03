@@ -21,7 +21,7 @@
 <div class="flex flex-col min-h-full max-h-full h-full bg-zinc-800 text-zinc-400">
 	<header
 		data-tauri-drag-region
-		class="flex flex-row items-center h-full max-h-8 border-b select-none  text-zinc-400 border-zinc-700 bg-zinc-900 "
+		class="flex flex-row items-center h-full max-h-8 border-b select-none  text-zinc-400 border-zinc-700 bg-zinc-800 "
 	>
 		<div class="ml-24">
 			<BackForwardButtons />
@@ -40,7 +40,7 @@
 		</a>
 	</header>
 
-	<div class="flex-auto overflow-auto bg-zinc-900 text-zinc-400">
+	<div class="flex-auto overflow-auto bg-zinc-800 text-zinc-400">
 		<slot />
 	</div>
 	<Toaster />

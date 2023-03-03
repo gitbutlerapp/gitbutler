@@ -68,7 +68,7 @@
 
 	<footer class="w-full text-sm font-medium">
 		<div
-			class="flex items-center flex-shrink-0 h-6 border-t select-none border-zinc-700 bg-zinc-900 "
+			class="flex items-center flex-shrink-0 h-6 border-t select-none border-zinc-700 bg-zinc-800 "
 		>
 			<div class="flex flex-row mx-4 items-center space-x-2 justify-between w-full">
 				{#if $project?.api?.sync}

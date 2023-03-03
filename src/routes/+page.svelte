@@ -175,7 +175,7 @@
 											class="hover:text-zinc-200 text-zinc-300 text-lg"
 											href="/projects/{project.id}/">{project.title}</a
 										>
-										<div class="text-zinc-500 font-mono">
+										<div class="text-zinc-500 font-mono break-words">
 											{project.path}
 										</div>
 									</div>
@@ -203,7 +203,7 @@
 
 			<div class="absolute bottom-0 left-0 w-full">
 				<div
-					class="flex items-center flex-shrink-0 p-4 h-18 border-t select-none border-zinc-700 bg-zinc-900"
+					class="flex items-center flex-shrink-0 p-4 h-18 border-t select-none border-zinc-700 bg-zinc-800"
 				>
 					<div class="text-sm text-zinc-300">Timeline</div>
 				</div>
