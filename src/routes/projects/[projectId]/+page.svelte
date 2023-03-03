@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { PageData } from './$types';
+	import type { LayoutData } from './$types';
 
-	export let data: PageData;
-	const { project } = data;
+	export let data: LayoutData;
+	$: project = data.project;
 </script>
 
 <div class="flex flex-col mt-12">
