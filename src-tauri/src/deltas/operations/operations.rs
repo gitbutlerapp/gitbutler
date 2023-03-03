@@ -1,3 +1,4 @@
+use anyhow::Result;
 use difference::{Changeset, Difference};
 use serde::{Deserialize, Serialize};
 
@@ -11,13 +12,40 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn apply(&self, text: &mut Vec<char>) {
+    pub fn apply(&self, text: &mut Vec<char>) -> Result<()> {
         match self {
             Operation::Insert((index, chunk)) => {
-                text.splice(*index as usize..*index as usize, chunk.chars());
+                if *index as usize > text.len() {
+                    Err(anyhow::anyhow!(
+                        "Index out of bounds, {} > {}",
+                        index,
+                        text.len()
+                    ))
+                } else if *index as usize == text.len() {
+                    text.extend(chunk.chars());
+                    Ok(())
+                } else {
+                    text.splice(*index as usize..*index as usize, chunk.chars());
+                    Ok(())
+                }
             }
             Operation::Delete((index, len)) => {
-                text.splice(*index as usize..(*index + *len) as usize, "".chars());
+                if *index as usize > text.len() {
+                    Err(anyhow::anyhow!(
+                        "Index out of bounds, {} > {}",
+                        index,
+                        text.len()
+                    ))
+                } else if *index as usize + *len as usize > text.len() {
+                    Err(anyhow::anyhow!(
+                        "Index + length out of bounds, {} > {}",
+                        index + len,
+                        text.len()
+                    ))
+                } else {
+                    text.splice(*index as usize..(*index + *len) as usize, "".chars());
+                    Ok(())
+                }
             }
         }
     }
