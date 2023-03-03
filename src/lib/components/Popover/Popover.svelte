@@ -2,7 +2,7 @@
 	import { slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
-	let showPopover: boolean = false;
+	let showPopover: boolean = true;
 	let anchor: HTMLButtonElement | undefined = undefined;
 	let bottom: number;
 	let left: number;
