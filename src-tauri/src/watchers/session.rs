@@ -11,12 +11,12 @@ const FIVE_MINUTES: u128 = Duration::new(5 * 60, 0).as_millis();
 const ONE_HOUR: u128 = Duration::new(60 * 60, 0).as_millis();
 
 #[derive(Debug, Clone)]
-pub struct GitWatcher {
+pub struct SessionWatcher {
     projects_storage: projects::Storage,
     users_storage: users::Storage,
 }
 
-impl GitWatcher {
+impl SessionWatcher {
     pub fn new(projects_storage: projects::Storage, users_storage: users::Storage) -> Self {
         Self {
             projects_storage,
@@ -42,6 +42,7 @@ impl GitWatcher {
                 })?;
                 match self.check_for_changes(&project, &user)? {
                     Some(session) => {
+                        // index
                         sender
                             .send(events::Event::session(&project, &session))
                             .with_context(|| {
@@ -67,9 +68,9 @@ impl GitWatcher {
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
     ) -> Result<()> {
-        log::info!("Watching git for {}", project.path);
+        log::info!("Watching sessions for {}", project.path);
 
-        let shared_self = std::sync::Arc::new(self.clone());
+        let shared_self = self.clone();
         let self_copy = shared_self.clone();
         let project_id = project.id;
 
