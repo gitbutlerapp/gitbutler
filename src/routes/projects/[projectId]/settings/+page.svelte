@@ -82,9 +82,9 @@
 	<div class="max-w-2xl mx-auto p-4">
 		<div class="flex flex-col text-zinc-100 space-y-6">
 			<div class="space-y-0">
-				<div class="text-lg font-medium">Project Settings</div>
+				<div class="text-xl font-medium">Project Settings</div>
 				<div class="text-zinc-400">
-					Manage your project settings for <strong>{$project?.title}</strong>
+					How shall I manage your project settings for <strong>{$project?.title}</strong>?
 				</div>
 			</div>
 			<hr class="border-zinc-600" />
@@ -188,13 +188,13 @@
 				<footer>
 					{#if saving}
 						<div
-							class="flex w-32 flex-row w-content items-center gap-1 justify-center py-1 px-3 rounded text-white bg-blue-400"
+							class="flex w-32 flex-row w-content items-center gap-1 justify-center py-2 px-3 rounded text-white bg-blue-400"
 						>
 							<IconRotateClockwise2 class="w-5 h-5 animate-spin" />
 							<span>Updating...</span>
 						</div>
 					{:else}
-						<button type="submit" class="py-1 px-3 rounded text-white bg-blue-400"
+						<button type="submit" class="py-2 px-3 rounded text-white bg-blue-600"
 							>Update profile</button
 						>
 					{/if}
