@@ -62,13 +62,14 @@ impl From<anyhow::Error> for Error {
 struct App {
     pub projects_storage: projects::Storage,
     pub users_storage: users::Storage,
-    pub deltas_searcher: search::Deltas,
+    pub deltas_searcher: Mutex<search::Deltas>,
     pub watchers: Mutex<watchers::Watcher>,
 }
 
 impl App {
     pub fn new(resolver: tauri::PathResolver) -> Self {
         let local_data_dir = resolver.app_local_data_dir().unwrap();
+        log::info!("Local data dir: {:?}", local_data_dir,);
         let storage = Storage::from_path_resolver(&resolver);
         let projects_storage = projects::Storage::new(storage.clone());
         let users_storage = users::Storage::new(storage.clone());
@@ -81,8 +82,8 @@ impl App {
         Self {
             projects_storage,
             users_storage,
-            deltas_searcher,
-            watchers: Mutex::new(watchers),
+            deltas_searcher: deltas_searcher.into(),
+            watchers: watchers.into(),
         }
     }
 }
@@ -397,23 +398,20 @@ fn main() {
             #[cfg(debug_assertions)]
             window.open_devtools();
 
-            let mut app_state: App = App::new(app.path_resolver());
+            let app_state: App = App::new(app.path_resolver());
 
-            let resolver = app.path_resolver();
-            let local_data_dir = resolver.app_local_data_dir().unwrap();
-            log::info!("Local data dir: {:?}", local_data_dir,);
-
+            // setup senty
             if let Some(user) = app_state.users_storage.get().expect("Failed to get user") {
                 sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
             }
 
+            // start watching projects
             let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
                 mpsc::channel();
-
             let projects = app_state
                 .projects_storage
                 .list_projects()
-                .expect("Failed to list projects");
+                .with_context(|| "Failed to list projects")?;
 
             for project in projects {
                 app_state
@@ -421,13 +419,20 @@ fn main() {
                     .lock()
                     .unwrap()
                     .watch(tx.clone(), &project)
-                    .with_context(|| format!("Failed to watch project: {}", project.id))?
-            }
+                    .with_context(|| format!("Failed to watch project: {}", project.id))?;
+                let repo = git2::Repository::open(&project.path)
+                    .with_context(|| format!("Failed to open git repository: {}", project.path))?;
 
+                app_state
+                    .deltas_searcher
+                    .lock()
+                    .unwrap()
+                    .reindex_project(&repo, &project)
+                    .with_context(|| format!("Failed to reindex project: {}", project.id))?;
+            }
             watch_events(app.handle(), rx);
 
             app.manage(app_state);
-
             Ok(())
         })
         .plugin(tauri_plugin_window_state::Builder::default().build())

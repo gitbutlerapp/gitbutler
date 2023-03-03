@@ -4,10 +4,10 @@ use crate::{events, sessions};
 use anyhow::{Context, Result};
 use git2;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::mpsc;
-use std::{collections::HashMap, sync::Mutex};
 
 pub struct DeltaWatchers {
     watchers: HashMap<String, RecommendedWatcher>,
@@ -144,13 +144,13 @@ fn register_file_change(
 
     // depending on the above, we can create TextDocument suitable for calculating deltas
     let mut text_doc = match (latest_contents, deltas) {
-        (Some(latest_contents), Some(deltas)) => TextDocument::new(&latest_contents, deltas),
-        (Some(latest_contents), None) => TextDocument::new(&latest_contents, vec![]),
-        (None, Some(deltas)) => TextDocument::from_deltas(deltas),
-        (None, None) => TextDocument::from_deltas(vec![]),
+        (Some(latest_contents), Some(deltas)) => TextDocument::new(&latest_contents, deltas)?,
+        (Some(latest_contents), None) => TextDocument::new(&latest_contents, vec![])?,
+        (None, Some(deltas)) => TextDocument::from_deltas(deltas)?,
+        (None, None) => TextDocument::from_deltas(vec![])?,
     };
 
-    if !text_doc.update(&file_contents) {
+    if !text_doc.update(&file_contents)? {
         return Ok(None);
     } else {
         // if the file was modified, save the deltas

@@ -113,7 +113,7 @@ impl<'a> SessionWatcher {
                     .flush(&repo, user, project)
                     .with_context(|| "Error while flushing session")?;
                 self.deltas_searcher
-                    .index(&repo, &project, &session)
+                    .index_session(&repo, &project, &session)
                     .with_context(|| format!("Error while indexing session {}", session.id))?;
                 Ok(Some(session))
             }
