@@ -23,10 +23,12 @@
 		</div>
 	</a>
 	{#if $project}
-		<div class="ml-3">
+		<div class="ml-1">
 			<Popover>
-				<div slot="button">
-					{$project.title}
+				<div slot="button" class="flex align-item-centerh-5 py-2 px-2 rounded-md hover:bg-zinc-700">
+					<div class="h-4">
+						{$project.title}
+					</div>
 				</div>
 				<div class="flex flex-col">
 					<ul class="flex flex-col overflow-y-auto p-2 max-h-[289px]">
