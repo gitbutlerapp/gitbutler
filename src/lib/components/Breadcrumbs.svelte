@@ -26,7 +26,7 @@
 		<div class="ml-1">
 			<Popover>
 				<div slot="button" class="flex align-item-centerh-5 py-2 px-2 rounded-md hover:bg-zinc-700">
-					<div class="h-4">
+					<div class="h-4 flex items-center">
 						{$project.title}
 					</div>
 				</div>
