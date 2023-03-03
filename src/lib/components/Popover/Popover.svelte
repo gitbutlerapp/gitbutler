@@ -51,7 +51,7 @@
 			aria-describedby="Description"
 			aria-orientation="vertical"
 			transition:slide={{ duration: 150, easing: cubicOut }}
-			on:click|stopPropagation
+			on:mouseup={() => (showPopover = false)}
 			class="wrapper z-[999] bg-zinc-800 border border-zinc-700 text-zinc-50 rounded shadow-2xl min-w-[180px] max-w-[512px]"
 			style="--popover-top: {`${bottom}px`}; --popover-left: {`${left}px`}"
 		>
