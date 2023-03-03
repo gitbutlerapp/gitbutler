@@ -1,24 +1,23 @@
 mod delta;
 mod session;
 
-pub use self::delta::WatcherCollection;
-use crate::{events, projects, users};
+use crate::{events, projects, search, users};
 use anyhow::Result;
 use std::sync::mpsc;
 
-pub struct Watcher<'a> {
+pub struct Watcher {
     session_watcher: session::SessionWatcher,
-    delta_watcher: delta::DeltaWatchers<'a>,
+    delta_watcher: delta::DeltaWatchers,
 }
 
-impl<'a> Watcher<'a> {
+impl Watcher {
     pub fn new(
-        watchers: &'a delta::WatcherCollection,
         projects_storage: projects::Storage,
         users_storage: users::Storage,
+        deltas_searcher: search::Deltas,
     ) -> Self {
-        let session_watcher = session::SessionWatcher::new(projects_storage, users_storage);
-        let delta_watcher = delta::DeltaWatchers::new(watchers);
+        let session_watcher = session::SessionWatcher::new(projects_storage, users_storage, deltas_searcher);
+        let delta_watcher = delta::DeltaWatchers::new();
         Self {
             session_watcher,
             delta_watcher,
@@ -26,7 +25,7 @@ impl<'a> Watcher<'a> {
     }
 
     pub fn watch(
-        &self,
+        &mut self,
         sender: mpsc::Sender<events::Event>,
         project: &projects::Project,
     ) -> Result<()> {
@@ -36,7 +35,7 @@ impl<'a> Watcher<'a> {
         Ok(())
     }
 
-    pub fn unwatch(&self, project: projects::Project) -> Result<()> {
+    pub fn unwatch(&mut self, project: projects::Project) -> Result<()> {
         self.delta_watcher.unwatch(project)?;
         // TODO: how to unwatch session ?
         Ok(())

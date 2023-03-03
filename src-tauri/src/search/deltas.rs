@@ -9,6 +9,7 @@ use std::{
 };
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
 
+#[derive(Clone)]
 pub struct Deltas {
     base_path: String,
 
@@ -58,6 +59,7 @@ impl Deltas {
         project: &projects::Project,
         session: &sessions::Session,
     ) -> Result<()> {
+        log::info!("Indexing session {} in {}", session.id, project.path);
         self.init(&project.id)?;
         index(
             &self.indexes.get(&project.id).unwrap(),

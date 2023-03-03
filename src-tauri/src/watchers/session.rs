@@ -1,4 +1,4 @@
-use crate::{events, projects, sessions, users};
+use crate::{events, projects, search, sessions, users};
 use anyhow::{Context, Result};
 use git2::Repository;
 use std::{
@@ -10,21 +10,27 @@ use std::{
 const FIVE_MINUTES: u128 = Duration::new(5 * 60, 0).as_millis();
 const ONE_HOUR: u128 = Duration::new(60 * 60, 0).as_millis();
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SessionWatcher {
     projects_storage: projects::Storage,
     users_storage: users::Storage,
+    deltas_searcher: search::Deltas,
 }
 
-impl SessionWatcher {
-    pub fn new(projects_storage: projects::Storage, users_storage: users::Storage) -> Self {
+impl<'a> SessionWatcher {
+    pub fn new(
+        projects_storage: projects::Storage,
+        users_storage: users::Storage,
+        deltas_searcher: search::Deltas,
+    ) -> Self {
         Self {
             projects_storage,
             users_storage,
+            deltas_searcher,
         }
     }
 
-    fn run(&self, project_id: &str, sender: mpsc::Sender<events::Event>) -> Result<()> {
+    fn run(&mut self, project_id: &str, sender: mpsc::Sender<events::Event>) -> Result<()> {
         match self
             .projects_storage
             .get_project(&project_id)
@@ -42,7 +48,6 @@ impl SessionWatcher {
                 })?;
                 match self.check_for_changes(&project, &user)? {
                     Some(session) => {
-                        // index
                         sender
                             .send(events::Event::session(&project, &session))
                             .with_context(|| {
@@ -71,11 +76,11 @@ impl SessionWatcher {
         log::info!("Watching sessions for {}", project.path);
 
         let shared_self = self.clone();
-        let self_copy = shared_self.clone();
+        let mut self_copy = shared_self.clone();
         let project_id = project.id;
 
         tauri::async_runtime::spawn_blocking(move || loop {
-            let local_self = &self_copy;
+            let local_self = &mut self_copy;
             if let Err(e) = local_self.run(&project_id, sender.clone()) {
                 log::error!("Error while running git watcher: {:#}", e);
             }
@@ -94,7 +99,7 @@ impl SessionWatcher {
     //
     // returns a commited session if created
     fn check_for_changes(
-        &self,
+        &mut self,
         project: &projects::Project,
         user: &Option<users::User>,
     ) -> Result<Option<sessions::Session>> {
@@ -107,6 +112,9 @@ impl SessionWatcher {
                 session
                     .flush(&repo, user, project)
                     .with_context(|| "Error while flushing session")?;
+                self.deltas_searcher
+                    .index(&repo, &project, &session)
+                    .with_context(|| format!("Error while indexing session {}", session.id))?;
                 Ok(Some(session))
             }
         }
