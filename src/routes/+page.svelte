@@ -207,7 +207,7 @@
 
 			<div class="absolute bottom-0 left-0 w-full">
 				<div
-					class="flex items-center flex-shrink-0 p-4 h-18 border-t select-none border-zinc-700 bg-zinc-800"
+					class="flex items-center flex-shrink-0 p-4 h-18 border-t select-none border-zinc-700"
 				>
 					<div class="text-sm text-zinc-300">Timeline</div>
 				</div>

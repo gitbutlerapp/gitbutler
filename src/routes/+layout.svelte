@@ -18,11 +18,10 @@
 	user.subscribe(posthog.identify);
 </script>
 
-<div class="flex flex-col min-h-full max-h-full h-full bg-zinc-800 text-zinc-400">
+<div class="flex flex-col min-h-full max-h-full h-full text-zinc-400">
 	<header
 		data-tauri-drag-region
-		class="flex flex-row items-center border-b select-none pt-1 pb-1 text-zinc-400 border-zinc-700 bg-zinc-800 "
-	>
+		class="flex flex-row items-center border-b select-none pt-1 pb-1 text-zinc-400 border-zinc-700">
 		<div class="ml-24">
 			<BackForwardButtons />
 		</div>
@@ -40,7 +39,7 @@
 		</a>
 	</header>
 
-	<div class="flex-auto overflow-auto bg-zinc-800 text-zinc-400">
+	<div class="flex-auto overflow-auto text-zinc-400">
 		<slot />
 	</div>
 	<Toaster />

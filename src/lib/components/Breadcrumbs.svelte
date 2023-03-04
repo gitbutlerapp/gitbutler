@@ -11,7 +11,7 @@
 	let projects: Writable<any> = getContext('projects');
 </script>
 
-<div class="flex flex-row items-center bg-zinc-800 text-zinc-400">
+<div class="flex flex-row items-center text-zinc-400">
 	<a class="p-2 rounded-md hover:text-zinc-200 hover:bg-zinc-700" href="/">
 		<div class="w-4 h-4 flex justify-center items-center">
 			<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">

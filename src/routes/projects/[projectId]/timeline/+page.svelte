@@ -156,24 +156,24 @@
 			<!-- Day -->
 			<div
 				id={dateMilliseconds}
-				class="flex flex-col bg-zinc-800/50 rounded-lg border border-zinc-700 "
+				class="session-day-component flex flex-col bg-zinc-800/50 rounded-lg border border-zinc-700"
 				class:min-w-full={selection.dateMilliseconds == +dateMilliseconds}
 			>
-				<div class="font-medium border-b border-zinc-700 bg-zinc-700/30 h-6 flex items-center pl-4">
-					<span class={animatingOut ? 'animate-pulse text-orange-300' : ''}>
+				<div class="session-day-container font-medium border-b border-zinc-700 bg-zinc-700/30 flex items-center py-2 px-4">
+					<span class="session-day-header text-zinc-200 font-bold">
 						{formatDate(new Date(+dateMilliseconds))}
 					</span>
 				</div>
 				{#if selection.dateMilliseconds !== +dateMilliseconds}
 					<div class="flex flex-col flex-auto">
-						<div class="h-2/3 flex space-x-2 px-4">
+						<div class="h-2/3 flex space-x-2 p-3">
 							{#each uiSessions as uiSession, i}
 								<!-- Session (overview) -->
 
-								<div class="flex flex-col py-2 w-40">
+								<div class="session-column-container flex flex-col w-40">
 									<!-- svelte-ignore a11y-click-events-have-key-events -->
 									<div
-										class="cursor-pointer text-sm text-center font-medium rounded borded  text-zinc-800 p-1 border bg-orange-400 border-orange-400 hover:bg-[#fdbc87]"
+										class="repository-name cursor-pointer text-sm text-center font-bold rounded borded  text-zinc-800 p-1 border bg-orange-400 border-orange-400 hover:bg-[#fdbc87]"
 										on:click={() => expandSession(i, uiSession, +dateMilliseconds)}
 									>
 										{toHumanBranchName(uiSession.session.meta.branch)}
@@ -211,7 +211,7 @@
 													<div class="w-6 h-6 text-zinc-200 fill-blue-400">
 														{@html pathToIconSvg(filePath)}
 													</div>
-													<div class="text-zinc-400 hover:text-zinc-200 w-24 truncate">
+													<div class= "file-name text-zinc-300 hover:text-zinc-50 w-24 truncate">
 														{pathToName(filePath)}
 													</div>
 												</button>
@@ -221,7 +221,9 @@
 								</div>
 							{/each}
 						</div>
-						<div class="h-1/3 px-4 border-t border-zinc-700 ">Day summary</div>
+						<div class="day-summary-container h-1/3 p-4 border-t border-zinc-400 ">
+							<div class="day-summary-header font-bold text-zinc-200">Day summary</div>
+						</div>
 					</div>
 				{:else}
 					<div class="my-2 flex-auto overflow-auto flex flex-row space-x-2">
@@ -245,7 +247,7 @@
 						</div>
 						<div class="w-full flex flex-col border rounded-t border-orange-400">
 							<div
-								class="px-4 bg-orange-400 border border-orange-400 p-1 rounded-t-sm text-zinc-800 text-sm font-medium flex items-center justify-between"
+								class="session-header px-4 bg-orange-400 border border-orange-400 p-1 rounded-t-sm text-zinc-800 text-sm font-bold flex items-center justify-between"
 							>
 								<span class="cursor-default"
 									>{format(selection.start, 'hh:mm')} - {format(selection.end, 'hh:mm')}</span
@@ -256,42 +258,40 @@
 
 							<div class="flex-auto overflow-auto flex flex-col">
 								<div
-									class="bg-zinc-800 shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1"
-								>
+									class="shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1">
 									<div class="grid-cols-11 -mr-px  border-zinc-700  grid text-xs font-medium">
-										<div />
 										<div class="col-span-2 flex items-center justify-center py-1">
 											<span>{format(selection.start, 'hh:mm')}</span>
 										</div>
 										<div class="col-span-2 flex items-center justify-center py-1">
-											<span
-												>{format(
+											<span>
+												{format(
 													add(selection.start, {
 														seconds: differenceInSeconds(selection.end, selection.start) * 0.25
 													}),
 													'hh:mm'
-												)}</span
-											>
+												)}
+											</span>
 										</div>
 										<div class="col-span-2 flex items-center justify-center py-1">
-											<span
-												>{format(
+											<span>
+												{format(
 													add(selection.start, {
 														seconds: differenceInSeconds(selection.end, selection.start) * 0.5
 													}),
 													'hh:mm'
-												)}</span
-											>
+												)}
+											</span>
 										</div>
 										<div class="col-span-2 flex items-center justify-center py-1">
-											<span
-												>{format(
+											<span>
+												{format(
 													add(selection.start, {
 														seconds: differenceInSeconds(selection.end, selection.start) * 0.75
 													}),
 													'hh:mm'
-												)}</span
-											>
+												)}
+											</span>
 										</div>
 										<div class="col-span-2 flex items-center justify-center py-1">
 											<span>{format(selection.end, 'hh:mm')}</span>
@@ -310,7 +310,7 @@
 										<div class="col-span-1 flex items-center justify-center" />
 									</div>
 								</div>
-								<div class="flex mb-1">
+								<div class="timeline-file-list flex mb-1 border-b-zinc-700">
 									<div class="grid flex-auto grid-cols-1 grid-rows-1">
 										<!-- file names list -->
 										<div
@@ -323,7 +323,7 @@
 											{#each Object.keys(selection.deltas) as filePath}
 												<div
 													class="flex {filePath === selection.selectedFilePath
-														? 'bg-zinc-500/70'
+														? 'bg-blue-500/70 font-bold rounded-sm mx-1'
 														: ''}"
 												>
 													<button
