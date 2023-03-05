@@ -78,7 +78,7 @@
 								name="name"
 								bind:value={userName}
 								type="text"
-								class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+								class="px-2 py-2 text-zinc-300 bg-zinc-900 border border-zinc-600 rounded-lg w-full"
 								required
 							/>
 						</div>
@@ -91,7 +91,7 @@
 								name="email"
 								bind:value={$user.email}
 								type="text"
-								class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+								class="px-2 py-2 text-zinc-300 bg-zinc-900 border border-zinc-600 rounded-lg w-full"
 							/>
 						</div>
 
@@ -202,7 +202,7 @@
 		{/if}
 
 		<div class="flex flex-col mt-8 border-t border-zinc-400 pt-4">
-			<h2 class="text-lg text-zinc-100 font-medium">Get Support</h2>
+			<h2 class="text-lg text-zinc-100 font-bold">Get Support</h2>
 			<div class="text-sm text-zinc-300">
 				If you have an issue or any questions, please email us.
 			</div>

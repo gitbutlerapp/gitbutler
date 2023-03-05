@@ -258,7 +258,7 @@
 
 							<div class="flex-auto overflow-auto flex flex-col">
 								<div
-									class="shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1">
+									class="timeline-container shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1">
 									<div class="grid-cols-11 -mr-px  border-zinc-700  grid text-xs font-medium">
 										<div class="col-span-2 flex items-center justify-center py-1">
 											<span>{format(selection.start, 'hh:mm')}</span>
