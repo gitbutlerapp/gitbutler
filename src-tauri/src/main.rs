@@ -400,39 +400,13 @@ fn main() {
 
             let app_state: App = App::new(app.path_resolver());
 
-            // setup senty
-            if let Some(user) = app_state.users_storage.get().expect("Failed to get user") {
-                sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
-            }
-
-            // start watching projects
-            let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) =
-                mpsc::channel();
-            let projects = app_state
-                .projects_storage
-                .list_projects()
-                .with_context(|| "Failed to list projects")?;
-
-            for project in projects {
-                app_state
-                    .watchers
-                    .lock()
-                    .unwrap()
-                    .watch(tx.clone(), &project)
-                    .with_context(|| format!("Failed to watch project: {}", project.id))?;
-                let repo = git2::Repository::open(&project.path)
-                    .with_context(|| format!("Failed to open git repository: {}", project.path))?;
-
-                app_state
-                    .deltas_searcher
-                    .lock()
-                    .unwrap()
-                    .reindex_project(&repo, &project)
-                    .with_context(|| format!("Failed to reindex project: {}", project.id))?;
-            }
-            watch_events(app.handle(), rx);
-
             app.manage(app_state);
+
+            let app_handle = app.handle();
+            tauri::async_runtime::spawn_blocking(move || {
+                init(app_handle).expect("Failed to initialize app");
+            });
+
             Ok(())
         })
         .plugin(tauri_plugin_window_state::Builder::default().build())
@@ -501,6 +475,51 @@ fn main() {
             });
         },
     );
+}
+
+fn init(app_handle: tauri::AppHandle) -> Result<()> {
+    let app_state = app_handle.state::<App>();
+
+    let user = app_state
+        .users_storage
+        .get()
+        .with_context(|| "Failed to get user")?;
+
+    // setup senty
+    if let Some(user) = user {
+        sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
+    }
+
+    // start watching projects
+    let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
+
+    let projects = app_state
+        .projects_storage
+        .list_projects()
+        .with_context(|| "Failed to list projects")?;
+
+    for project in projects {
+        app_state
+            .watchers
+            .lock()
+            .unwrap()
+            .watch(tx.clone(), &project)
+            .with_context(|| format!("Failed to watch project: {}", project.id))?;
+
+        let repo = git2::Repository::open(&project.path)
+            .with_context(|| format!("Failed to open git repository: {}", project.path))?;
+
+        app_state
+            .deltas_searcher
+            .lock()
+            .unwrap()
+            .reindex_project(&repo, &project)
+            .with_context(|| format!("Failed to reindex project: {}", project.id))
+            .unwrap();
+    }
+    watch_events(app_handle, rx);
+
+    Ok(())
 }
 
 fn watch_events(handle: tauri::AppHandle, rx: mpsc::Receiver<events::Event>) {
