@@ -98,12 +98,17 @@
 						<footer class="pt-4">
 							{#if saving}
 								<div
-									class="flex w-32 flex-row w-content items-center gap-1 justify-center px-4 py-2 rounded text-white bg-blue-600">
+									class="flex w-32 flex-row w-content items-center gap-1 justify-center px-4 py-2 rounded text-white bg-blue-600"
+								>
 									<IconRotateClockwise2 class="w-5 h-5 animate-spin" />
 									<span>Updating...</span>
 								</div>
 							{:else}
-								<button type="submit" class="px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none">Update profile</button>
+								<button
+									type="submit"
+									class="px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+									>Update profile</button
+								>
 							{/if}
 						</footer>
 					</fields>
@@ -119,7 +124,8 @@
 
 						<label
 							for="picture"
-							class="px-2 -mt-6 -ml-16 cursor-pointer text-center font-sm text-zinc-300 bg-zinc-800 border border-zinc-600 rounded-lg hover:text-zinc-50 bg-zinc-800 hover:bg-zinc-900">
+							class="px-2 -mt-6 -ml-16 cursor-pointer text-center font-sm text-zinc-300 bg-zinc-800 border border-zinc-600 rounded-lg hover:text-zinc-50 bg-zinc-800 hover:bg-zinc-900"
+						>
 							Edit
 							<input
 								on:change={onPictureChange}

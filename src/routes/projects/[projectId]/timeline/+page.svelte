@@ -159,7 +159,9 @@
 				class="session-day-component flex flex-col bg-zinc-800/50 rounded-lg border border-zinc-700"
 				class:min-w-full={selection.dateMilliseconds == +dateMilliseconds}
 			>
-				<div class="session-day-container font-medium border-b border-zinc-700 bg-zinc-700/30 flex items-center py-2 px-4">
+				<div
+					class="session-day-container font-medium border-b border-zinc-700 bg-zinc-700/30 flex items-center py-2 px-4"
+				>
 					<span class="session-day-header text-zinc-200 font-bold">
 						{formatDate(new Date(+dateMilliseconds))}
 					</span>
@@ -211,7 +213,7 @@
 													<div class="w-6 h-6 text-zinc-200 fill-blue-400">
 														{@html pathToIconSvg(filePath)}
 													</div>
-													<div class= "file-name text-zinc-300 hover:text-zinc-50 w-24 truncate">
+													<div class="file-name text-zinc-300 hover:text-zinc-50 w-24 truncate">
 														{pathToName(filePath)}
 													</div>
 												</button>
@@ -257,8 +259,7 @@
 							</div>
 
 							<div class="flex-auto overflow-auto flex flex-col">
-								<div
-									class="shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1">
+								<div class="shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1">
 									<div class="grid-cols-11 -mr-px  border-zinc-700  grid text-xs font-medium">
 										<div class="col-span-2 flex items-center justify-center py-1">
 											<span>{format(selection.start, 'hh:mm')}</span>

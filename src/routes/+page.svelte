@@ -169,12 +169,11 @@
 					<div class="h-full max-h-screen overflow-auto">
 						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
 							{#each $projects as project}
-								<a
-								class="hover:text-zinc-200 text-zinc-300 text-lg"
-								href="/projects/{project.id}/">
-									<div class="flex flex-col justify-between space-y-1 bg-zinc-700 rounded-lg shadow">
+								<a class="hover:text-zinc-200 text-zinc-300 text-lg" href="/projects/{project.id}/">
+									<div
+										class="flex flex-col justify-between space-y-1 bg-zinc-700 rounded-lg shadow"
+									>
 										<div class="px-4 py-4 flex-grow-0">
-
 											<div class="hover:text-zinc-200 text-zinc-300 text-lg">
 												{project.title}
 											</div>
@@ -206,9 +205,7 @@
 			</div>
 
 			<div class="absolute bottom-0 left-0 w-full">
-				<div
-					class="flex items-center flex-shrink-0 p-4 h-18 border-t select-none border-zinc-700"
-				>
+				<div class="flex items-center flex-shrink-0 p-4 h-18 border-t select-none border-zinc-700">
 					<div class="text-sm text-zinc-300">Timeline</div>
 				</div>
 			</div>
