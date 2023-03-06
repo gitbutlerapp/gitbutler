@@ -1,6 +1,7 @@
 use crate::{deltas, projects, sessions, storage};
 use anyhow::{Context, Result};
 use serde::Serialize;
+use std::ops::Range;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -162,7 +163,7 @@ fn build_schema() -> schema::Schema {
     schema_builder.add_text_field("diff", schema::TEXT);
     schema_builder.add_bool_field("is_addition", schema::FAST);
     schema_builder.add_bool_field("is_deletion", schema::FAST);
-    schema_builder.add_u64_field("timestamp_ms", schema::FAST);
+    schema_builder.add_u64_field("timestamp_ms", schema::INDEXED | schema::FAST);
     schema_builder.build()
 }
 
@@ -262,12 +263,13 @@ fn index(
     Ok(())
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SearchQuery {
     pub q: String,
     pub project_id: String,
     pub limit: usize,
     pub offset: Option<usize>,
+    pub range: Range<u64>,
 }
 
 pub fn search(
@@ -275,7 +277,7 @@ pub fn search(
     reader: &tantivy::IndexReader,
     q: &SearchQuery,
 ) -> Result<Vec<SearchResult>> {
-    let query = &tantivy::query::QueryParser::for_index(
+    let query = tantivy::query::QueryParser::for_index(
         index,
         vec![
             index.schema().get_field("diff").unwrap(),
@@ -284,8 +286,8 @@ pub fn search(
     )
     .parse_query(
         format!(
-            "version:\"{}\" AND project_id:\"{}\" AND ({})",
-            CURRENT_VERSION, q.project_id, q.q,
+            "version:\"{}\" AND project_id:\"{}\" AND timestamp_ms:[{} TO {}}} AND ({})",
+            CURRENT_VERSION, q.project_id, q.range.start, q.range.end, q.q,
         )
         .as_str(),
     )?;
@@ -294,7 +296,7 @@ pub fn search(
     let searcher = reader.searcher();
 
     let top_docs = searcher.search(
-        query,
+        &query,
         &collector::TopDocs::with_limit(q.limit)
             .and_offset(q.offset.unwrap_or(0))
             .order_by_u64_field(index.schema().get_field("timestamp_ms").unwrap()),

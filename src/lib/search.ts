@@ -6,6 +6,8 @@ export type SearchResult = {
     filePath: string;
     // index of the delta in the session.
     index: number;
+    timestampMsGte?: number;
+    timestampMsLt?: number;
 };
 
 export const search = (params: {
