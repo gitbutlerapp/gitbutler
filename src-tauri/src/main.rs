@@ -142,15 +142,24 @@ fn search(
     handle: tauri::AppHandle,
     project_id: &str,
     query: &str,
+    limit: Option<usize>,
+    offset: Option<usize>,
 ) -> Result<Vec<search::SearchResult>, Error> {
     let app_state = handle.state::<App>();
+
+    let query = search::SearchQuery {
+        project_id: project_id.to_string(),
+        q: query.to_string(),
+        limit: limit.unwrap_or(100),
+        offset,
+    };
 
     let deltas = app_state
         .deltas_searcher
         .lock()
         .unwrap()
-        .search(project_id, query)
-        .with_context(|| format!("Failed to search for {}", query))?;
+        .search(&query)
+        .with_context(|| format!("Failed to search for {:?}", query))?;
 
     Ok(deltas)
 }
