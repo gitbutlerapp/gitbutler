@@ -138,6 +138,24 @@ fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
 }
 
 #[tauri::command]
+fn search(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    query: &str,
+) -> Result<Vec<search::SearchResult>, Error> {
+    let app_state = handle.state::<App>();
+
+    let deltas = app_state
+        .deltas_searcher
+        .lock()
+        .unwrap()
+        .search(project_id, query)
+        .with_context(|| format!("Failed to search for {}", query))?;
+
+    Ok(deltas)
+}
+
+#[tauri::command]
 fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -444,7 +462,8 @@ fn main() {
             list_session_files,
             set_user,
             delete_user,
-            get_user
+            get_user,
+            search
         ]);
 
     let tauri_context = generate_context!();
