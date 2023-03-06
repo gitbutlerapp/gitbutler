@@ -1,5 +1,6 @@
 use crate::{deltas, projects, sessions, storage};
 use anyhow::{Context, Result};
+use serde::Serialize;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -161,7 +162,7 @@ fn build_schema() -> schema::Schema {
 
 const WRITE_BUFFER_SIZE: usize = 10_000_000; // 10MB
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct SearchResult {
     pub project_id: String,
     pub session_id: String,
