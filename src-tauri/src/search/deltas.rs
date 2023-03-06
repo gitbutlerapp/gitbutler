@@ -81,8 +81,8 @@ impl Deltas {
         })
     }
 
-    pub fn search(&self, project_id: &str, query: &str) -> Result<Vec<SearchResult>> {
-        search(&self.index, &self.reader, project_id, query)
+    pub fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>> {
+        search(&self.index, &self.reader, query)
     }
 
     pub fn reindex_project(
@@ -262,11 +262,18 @@ fn index(
     Ok(())
 }
 
+#[derive(Debug, Default)]
+pub struct SearchQuery {
+    pub q: String,
+    pub project_id: String,
+    pub limit: usize,
+    pub offset: Option<usize>,
+}
+
 pub fn search(
     index: &tantivy::Index,
     reader: &tantivy::IndexReader,
-    project_id: &str,
-    q: &str,
+    q: &SearchQuery,
 ) -> Result<Vec<SearchResult>> {
     let query = &tantivy::query::QueryParser::for_index(
         index,
@@ -278,7 +285,7 @@ pub fn search(
     .parse_query(
         format!(
             "version:\"{}\" AND project_id:\"{}\" AND ({})",
-            CURRENT_VERSION, project_id, q
+            CURRENT_VERSION, q.project_id, q.q,
         )
         .as_str(),
     )?;
@@ -288,7 +295,8 @@ pub fn search(
 
     let top_docs = searcher.search(
         query,
-        &collector::TopDocs::with_limit(10)
+        &collector::TopDocs::with_limit(q.limit)
+            .and_offset(q.offset.unwrap_or(0))
             .order_by_u64_field(index.schema().get_field("timestamp_ms").unwrap()),
     )?;
 

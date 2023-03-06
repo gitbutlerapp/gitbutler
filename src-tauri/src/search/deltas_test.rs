@@ -55,7 +55,12 @@ fn test_sorted_by_timestamp() {
     let write_result = searcher.index_session(&repo, &project, &session);
     assert!(write_result.is_ok());
 
-    let search_result = searcher.search(&project.id, "hello world");
+    let search_result = searcher.search(&super::SearchQuery {
+        project_id: project.id,
+        q: "hello world".to_string(),
+        limit: 10,
+        ..Default::default()
+    });
     assert!(search_result.is_ok());
     let search_result = search_result.unwrap();
     assert_eq!(search_result.len(), 2);
@@ -92,7 +97,12 @@ fn test_simple() {
     let write_result = searcher.index_session(&repo, &project, &session);
     assert!(write_result.is_ok());
 
-    let search_result1 = searcher.search(&project.id, "hello");
+    let search_result1 = searcher.search(&super::SearchQuery {
+        project_id: project.id.clone(),
+        q: "hello".to_string(),
+        limit: 10,
+        ..Default::default()
+    });
     assert!(search_result1.is_ok());
     let search_result1 = search_result1.unwrap();
     assert_eq!(search_result1.len(), 1);
@@ -101,7 +111,12 @@ fn test_simple() {
     assert_eq!(search_result1[0].file_path, "test.txt");
     assert_eq!(search_result1[0].index, 0);
 
-    let search_result2 = searcher.search(&project.id, "world");
+    let search_result2 = searcher.search(&super::SearchQuery {
+        project_id: project.id.clone(),
+        q: "world".to_string(),
+        limit: 10,
+        ..Default::default()
+    });
     assert!(search_result2.is_ok());
     let search_result2 = search_result2.unwrap();
     assert_eq!(search_result2.len(), 1);
@@ -110,7 +125,12 @@ fn test_simple() {
     assert_eq!(search_result2[0].file_path, "test.txt");
     assert_eq!(search_result2[0].index, 1);
 
-    let search_result3 = searcher.search(&project.id, "hello world");
+    let search_result3 = searcher.search(&super::SearchQuery {
+        project_id: project.id.clone(),
+        q: "hello world".to_string(),
+        limit: 10,
+        ..Default::default()
+    });
     println!("{:?}", search_result3);
     assert!(search_result3.is_ok());
     let search_result3 = search_result3.unwrap();
@@ -122,7 +142,12 @@ fn test_simple() {
     assert_eq!(search_result3[1].project_id, project.id);
     assert_eq!(search_result3[1].file_path, "test.txt");
 
-    let search_by_filename_result = searcher.search(&project.id, "test.txt");
+    let search_by_filename_result = searcher.search(&super::SearchQuery {
+        project_id: project.id.clone(),
+        q: "test.txt".to_string(),
+        limit: 10,
+        ..Default::default()
+    });
     assert!(search_by_filename_result.is_ok());
     let search_by_filename_result = search_by_filename_result.unwrap();
     assert_eq!(search_by_filename_result.len(), 2);
@@ -130,7 +155,12 @@ fn test_simple() {
     assert_eq!(search_by_filename_result[0].project_id, project.id);
     assert_eq!(search_by_filename_result[0].file_path, "test.txt");
 
-    let not_found_result = searcher.search("404", "hello world");
+    let not_found_result = searcher.search(&super::SearchQuery {
+        project_id: "not found".to_string(),
+        q: "test.txt".to_string(),
+        limit: 10,
+        ..Default::default()
+    });
     assert!(not_found_result.is_ok());
     let not_found_result = not_found_result.unwrap();
     assert_eq!(not_found_result.len(), 0);
