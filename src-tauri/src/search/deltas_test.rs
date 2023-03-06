@@ -50,7 +50,7 @@ fn test_simple() {
     .unwrap();
     session.flush(&repo, &None, &project).unwrap();
 
-    let mut searcher = super::Deltas::at(index_path.into());
+    let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
     let write_result = searcher.index_session(&repo, &project, &session);
     assert!(write_result.is_ok());
@@ -60,6 +60,7 @@ fn test_simple() {
     let search_result1 = search_result1.unwrap();
     assert_eq!(search_result1.len(), 1);
     assert_eq!(search_result1[0].session_id, session.id);
+    assert_eq!(search_result1[0].project_id, project.id);
     assert_eq!(search_result1[0].file_path, "test.txt");
     assert_eq!(search_result1[0].index, 0);
 
@@ -68,16 +69,20 @@ fn test_simple() {
     let search_result2 = search_result2.unwrap();
     assert_eq!(search_result2.len(), 1);
     assert_eq!(search_result2[0].session_id, session.id);
+    assert_eq!(search_result2[0].project_id, project.id);
     assert_eq!(search_result2[0].file_path, "test.txt");
     assert_eq!(search_result2[0].index, 1);
 
     let search_result3 = searcher.search(&project.id, "hello world");
+    println!("{:?}", search_result3);
     assert!(search_result3.is_ok());
     let search_result3 = search_result3.unwrap();
     assert_eq!(search_result3.len(), 2);
+    assert_eq!(search_result3[0].project_id, project.id);
     assert_eq!(search_result3[0].session_id, session.id);
     assert_eq!(search_result3[0].file_path, "test.txt");
     assert_eq!(search_result3[1].session_id, session.id);
+    assert_eq!(search_result3[1].project_id, project.id);
     assert_eq!(search_result3[1].file_path, "test.txt");
 
     let search_by_filename_result = searcher.search(&project.id, "test.txt");
@@ -85,6 +90,7 @@ fn test_simple() {
     let search_by_filename_result = search_by_filename_result.unwrap();
     assert_eq!(search_by_filename_result.len(), 2);
     assert_eq!(search_by_filename_result[0].session_id, session.id);
+    assert_eq!(search_by_filename_result[0].project_id, project.id);
     assert_eq!(search_by_filename_result[0].file_path, "test.txt");
 
     let not_found_result = searcher.search("404", "hello world");

@@ -67,24 +67,24 @@ struct App {
 }
 
 impl App {
-    pub fn new(resolver: tauri::PathResolver) -> Self {
+    pub fn new(resolver: tauri::PathResolver) -> Result<Self> {
         let local_data_dir = resolver.app_local_data_dir().unwrap();
         log::info!("Local data dir: {:?}", local_data_dir,);
         let storage = Storage::from_path_resolver(&resolver);
         let projects_storage = projects::Storage::new(storage.clone());
         let users_storage = users::Storage::new(storage.clone());
-        let deltas_searcher = search::Deltas::at(local_data_dir);
+        let deltas_searcher = search::Deltas::at(local_data_dir)?;
         let watchers = watchers::Watcher::new(
             projects_storage.clone(),
             users_storage.clone(),
             deltas_searcher.clone(),
         );
-        Self {
+        Ok(Self {
             projects_storage,
             users_storage,
             deltas_searcher: deltas_searcher.into(),
             watchers: watchers.into(),
-        }
+        })
     }
 }
 
@@ -398,7 +398,8 @@ fn main() {
             #[cfg(debug_assertions)]
             window.open_devtools();
 
-            let app_state: App = App::new(app.path_resolver());
+            let app_state: App =
+                App::new(app.path_resolver()).expect("Failed to initialize app state");
 
             app.manage(app_state);
 
