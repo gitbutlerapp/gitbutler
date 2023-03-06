@@ -13,5 +13,8 @@
 		<a href="/projects/{$project?.id}/timeline" class="hover:text-zinc-200 text-orange-400"
 			>Timeline</a
 		>
+		<a href="/projects/{$project?.id}/search" class="hover:text-zinc-200 text-orange-400"
+			>search (test)</a
+		>
 	</div>
 </div>
