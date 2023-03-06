@@ -62,7 +62,13 @@ impl Deltas {
 
         let mmap_dir = MmapDirectory::open(dir)?;
         let schema = build_schema();
-        let index = tantivy::Index::open_or_create(mmap_dir, schema)?;
+        let index_settings = tantivy::IndexSettings {
+            ..Default::default()
+        };
+        let index = tantivy::IndexBuilder::new()
+            .schema(schema)
+            .settings(index_settings)
+            .open_or_create(mmap_dir)?;
 
         let reader = index.reader()?;
         let writer = index.writer(WRITE_BUFFER_SIZE)?;
@@ -279,7 +285,12 @@ pub fn search(
 
     reader.reload()?;
     let searcher = reader.searcher();
-    let top_docs = searcher.search(query, &collector::TopDocs::with_limit(10))?;
+
+    let top_docs = searcher.search(
+        query,
+        &collector::TopDocs::with_limit(10)
+            .order_by_u64_field(index.schema().get_field("timestamp_ms").unwrap()),
+    )?;
 
     let results = top_docs
         .iter()

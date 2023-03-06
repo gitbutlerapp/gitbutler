@@ -27,6 +27,43 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
 }
 
 #[test]
+fn test_sorted_by_timestamp() {
+    let (repo, project) = test_project().unwrap();
+    let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
+
+    let mut session = sessions::Session::from_head(&repo, &project).unwrap();
+    deltas::write(
+        &repo,
+        &project,
+        Path::new("test.txt"),
+        &vec![
+            deltas::Delta {
+                operations: vec![Operation::Insert((0, "Hello".to_string()))],
+                timestamp_ms: 0,
+            },
+            deltas::Delta {
+                operations: vec![Operation::Insert((5, " World".to_string()))],
+                timestamp_ms: 1,
+            },
+        ],
+    )
+    .unwrap();
+    session.flush(&repo, &None, &project).unwrap();
+
+    let mut searcher = super::Deltas::at(index_path.into()).unwrap();
+
+    let write_result = searcher.index_session(&repo, &project, &session);
+    assert!(write_result.is_ok());
+
+    let search_result = searcher.search(&project.id, "hello world");
+    assert!(search_result.is_ok());
+    let search_result = search_result.unwrap();
+    assert_eq!(search_result.len(), 2);
+    assert_eq!(search_result[0].index, 1);
+    assert_eq!(search_result[1].index, 0);
+}
+
+#[test]
 fn test_simple() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
