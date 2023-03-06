@@ -163,6 +163,7 @@ fn build_schema() -> schema::Schema {
 const WRITE_BUFFER_SIZE: usize = 10_000_000; // 10MB
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     pub project_id: String,
     pub session_id: String,
