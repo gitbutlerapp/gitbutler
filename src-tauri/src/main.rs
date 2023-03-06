@@ -15,6 +15,7 @@ use log;
 use serde::{ser::SerializeMap, Serialize};
 use std::{
     collections::HashMap,
+    ops::Range,
     sync::{mpsc, Mutex},
 };
 use storage::Storage;
@@ -144,6 +145,8 @@ fn search(
     query: &str,
     limit: Option<usize>,
     offset: Option<usize>,
+    timestamp_ms_gte: Option<u64>,
+    timestamp_ms_lt: Option<u64>,
 ) -> Result<Vec<search::SearchResult>, Error> {
     let app_state = handle.state::<App>();
 
@@ -152,6 +155,10 @@ fn search(
         q: query.to_string(),
         limit: limit.unwrap_or(100),
         offset,
+        range: Range {
+            start: timestamp_ms_gte.unwrap_or(0),
+            end: timestamp_ms_lt.unwrap_or(u64::MAX),
+        },
     };
 
     let deltas = app_state
