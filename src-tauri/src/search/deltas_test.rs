@@ -73,7 +73,7 @@ fn test_filter_by_timestamp() {
 
     let search_result_to = searcher.search(&super::SearchQuery {
         project_id: project.id.clone(),
-        q: "hello world".to_string(),
+        q: "test.txt".to_string(),
         limit: 10,
         range: Range { start: 0, end: 1 },
         offset: None,
@@ -85,7 +85,7 @@ fn test_filter_by_timestamp() {
 
     let search_result_from_to = searcher.search(&super::SearchQuery {
         project_id: project.id.clone(),
-        q: "hello world".to_string(),
+        q: "test.txt".to_string(),
         limit: 10,
         range: Range { start: 1, end: 2 },
         offset: None,
