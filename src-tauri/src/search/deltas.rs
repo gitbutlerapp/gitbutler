@@ -1,5 +1,6 @@
 use crate::{deltas, projects, sessions, storage};
 use anyhow::{Context, Result};
+use difference::Changeset;
 use serde::Serialize;
 use std::ops::Range;
 use std::{
@@ -10,7 +11,7 @@ use std::{
 };
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
 
-const CURRENT_VERSION: u64 = 1; // should not decrease
+const CURRENT_VERSION: u64 = 2; // should not decrease
 
 #[derive(Clone)]
 struct MetaStorage {
@@ -207,56 +208,62 @@ fn index(
             .unwrap_or("")
             .chars()
             .collect();
+        let mut prev_file_text = file_text.clone();
         // for every deltas for the file
         for (i, delta) in deltas.into_iter().enumerate() {
+            let mut doc = tantivy::Document::default();
+            doc.add_u64(
+                index.schema().get_field("version").unwrap(),
+                CURRENT_VERSION.try_into()?,
+            );
+            doc.add_u64(index.schema().get_field("index").unwrap(), i.try_into()?);
+            doc.add_text(
+                index.schema().get_field("session_id").unwrap(),
+                session.id.clone(),
+            );
+            doc.add_text(
+                index.schema().get_field("file_path").unwrap(),
+                file_path.as_str(),
+            );
+            doc.add_text(
+                index.schema().get_field("project_id").unwrap(),
+                project.id.clone(),
+            );
+            doc.add_u64(
+                index.schema().get_field("timestamp_ms").unwrap(),
+                delta.timestamp_ms.try_into()?,
+            );
+
             // for every operation in the delta
             for operation in &delta.operations {
-                let mut doc = tantivy::Document::default();
-                doc.add_u64(
-                    index.schema().get_field("version").unwrap(),
-                    CURRENT_VERSION.try_into()?,
-                );
-                doc.add_u64(index.schema().get_field("index").unwrap(), i.try_into()?);
-                doc.add_text(
-                    index.schema().get_field("session_id").unwrap(),
-                    session.id.clone(),
-                );
-                doc.add_text(
-                    index.schema().get_field("file_path").unwrap(),
-                    file_path.as_str(),
-                );
-                doc.add_text(
-                    index.schema().get_field("project_id").unwrap(),
-                    project.id.clone(),
-                );
-                doc.add_u64(
-                    index.schema().get_field("timestamp_ms").unwrap(),
-                    delta.timestamp_ms.try_into()?,
-                );
-                match operation {
-                    deltas::Operation::Delete((from, len)) => {
-                        // here we use the file_text to calculate the diff
-                        let diff = file_text
-                            .iter()
-                            .skip((*from).try_into()?)
-                            .take((*len).try_into()?)
-                            .collect::<String>();
-                        doc.add_text(index.schema().get_field("diff").unwrap(), diff);
-                        doc.add_bool(index.schema().get_field("is_deletion").unwrap(), true);
-                    }
-                    deltas::Operation::Insert((_from, value)) => {
-                        doc.add_text(index.schema().get_field("diff").unwrap(), value);
-                        doc.add_bool(index.schema().get_field("is_addition").unwrap(), true);
-                    }
-                }
-                writer.add_document(doc)?;
-
                 // don't forget to apply the operation to the file_text
                 if let Err(e) = operation.apply(&mut file_text) {
                     log::error!("failed to apply operation: {:#}", e);
                     break;
                 }
             }
+
+            let mut changeset = Changeset::new(
+                &prev_file_text.iter().collect::<String>(),
+                &file_text.iter().collect::<String>(),
+                " ",
+            );
+
+            changeset.diffs = changeset
+                .diffs
+                .into_iter()
+                .filter(|d| match d {
+                    difference::Difference::Add(_) => true,
+                    difference::Difference::Rem(_) => true,
+                    difference::Difference::Same(_) => false,
+                })
+                .collect();
+
+            doc.add_text(index.schema().get_field("diff").unwrap(), changeset);
+
+            prev_file_text = file_text.clone();
+
+            writer.add_document(doc)?;
         }
     }
     writer.commit()?;
