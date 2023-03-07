@@ -16,5 +16,6 @@
 		<a href="/projects/{$project?.id}/search" class="text-orange-400 hover:text-zinc-200"
 			>search (test)</a
 		>
+		<a href="/projects/{$project?.id}/player" class="hover:text-zinc-200 text-orange-400">player</a>
 	</div>
 </div>

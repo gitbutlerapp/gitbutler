@@ -18,7 +18,7 @@ export namespace Operation {
 
 export type Delta = { timestampMs: number; operations: Operation[] };
 
-type DeltasEvent = {
+export type DeltasEvent = {
 	deltas: Delta[];
 	filePath: string;
 };
