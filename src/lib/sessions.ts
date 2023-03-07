@@ -2,8 +2,6 @@ import { invoke } from '@tauri-apps/api';
 import { appWindow } from '@tauri-apps/api/window';
 import { writable, type Readable } from 'svelte/store';
 import { log } from '$lib';
-import deltas, { type Delta } from '$lib/deltas';
-import type { SessionRecordingOptions } from 'posthog-js';
 
 export type Activity = {
 	type: string;
