@@ -38,8 +38,6 @@ impl<'a> SessionWatcher {
                 format!("Error while getting project {} for git watcher", project_id)
             })? {
             Some(project) => {
-                log::info!("Checking for session to commit in {}", project.path);
-
                 let user = self.users_storage.get().with_context(|| {
                     format!(
                         "Error while getting user for git watcher in {}",
@@ -130,10 +128,6 @@ fn session_to_commit(
 ) -> Result<Option<sessions::Session>> {
     match sessions::Session::current(repo, project)? {
         None => {
-            log::debug!(
-                "No current session to commit for {}",
-                repo.workdir().unwrap().display()
-            );
             Ok(None)
         }
         Some(current_session) => {
