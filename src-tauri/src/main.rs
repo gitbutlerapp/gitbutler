@@ -161,10 +161,11 @@ fn search(
         },
     };
 
-    let deltas = app_state
+    let deltas_lock = app_state
         .deltas_searcher
         .lock()
-        .unwrap()
+        .map_err(|poison_err| anyhow::anyhow!("Lock poisoned: {:?}", poison_err))?;
+    let deltas = deltas_lock
         .search(&query)
         .with_context(|| format!("Failed to search for {:?}", query))?;
 
