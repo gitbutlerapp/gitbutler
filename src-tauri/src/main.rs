@@ -551,8 +551,7 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .lock()
             .unwrap()
             .reindex_project(&repo, &project)
-            .with_context(|| format!("Failed to reindex project: {}", project.id))
-            .unwrap();
+            .with_context(|| format!("Failed to reindex project: {}", project.id))?;
     }
     watch_events(app_handle, rx);
 
