@@ -5,6 +5,7 @@
 	export let doc: string;
 	export let deltas: Delta[];
 	export let filepath: string;
+	export let highlightLatest: boolean = false;
 </script>
 
-<code class="h-full w-full" use:codeviewer={{ doc, deltas, filepath }} />
+<code class="h-full w-full" use:codeviewer={{ doc, deltas, filepath, highlightLatest }} />

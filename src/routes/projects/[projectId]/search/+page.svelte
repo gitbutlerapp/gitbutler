@@ -5,6 +5,7 @@
 	import { list as listDeltas } from '$lib/deltas';
 	import { writable } from 'svelte/store';
 	import { CodeViewer } from '$lib/components';
+	import { Operation } from '$lib/deltas';
 
 	export let data: PageData;
 	const { project } = data;
@@ -41,10 +42,12 @@
 						<div class="m-4">
 							<p class="mb-2 text-lg font-bold">{result.filePath}</p>
 							<div class="border border-red-400 ">
+								<!-- {JSON.stringify(deltas[result.filePath][result.index])} -->
 								<CodeViewer
 									doc={files[result.filePath] || ''}
 									filepath={result.filePath}
-									deltas={deltas[result.filePath].slice(0, result.index) || []}
+									deltas={[deltas[result.filePath][result.index]] || []}
+									highlightLatest={true}
 								/>
 							</div>
 						</div>
