@@ -362,18 +362,14 @@ fn is_current_session_id(project: &projects::Project, session_id: &str) -> Resul
     return Ok(current_id == session_id);
 }
 
-fn is_commit_session_id(
-    repo: &git2::Repository,
-    commit: &git2::Commit,
-    session_id: &str,
-) -> Result<bool> {
+pub fn id_from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<String> {
     let tree = commit.tree().unwrap();
     let session_id_path = Path::new("session/meta/id");
     if !tree.get_path(session_id_path).is_ok() {
-        return Ok(false);
+        return Err(anyhow!("commit does not have a session id"));
     }
     let id = read_as_string(repo, &tree, session_id_path)?;
-    return Ok(id == session_id);
+    return Ok(id);
 }
 
 pub fn get(
@@ -393,7 +389,7 @@ pub fn get(
 
     for commit_id in walker {
         let commit = repo.find_commit(commit_id?)?;
-        if is_commit_session_id(repo, &commit, id)? {
+        if id_from_commit(repo, &commit)? == id {
             return Ok(Some(Session::from_commit(repo, &commit)?));
         }
     }
@@ -471,7 +467,7 @@ pub fn list_files(
         let mut previous_session_commit = None;
         for commit_id in walker {
             let commit = repo.find_commit(commit_id?)?;
-            if is_commit_session_id(repo, &commit, session_id)? {
+            if id_from_commit(repo, &commit)? == session_id {
                 session_commit = Some(commit);
                 break;
             }

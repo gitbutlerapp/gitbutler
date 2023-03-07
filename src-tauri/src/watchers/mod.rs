@@ -1,43 +1,43 @@
 mod delta;
-mod git;
+mod session;
 
-pub use self::delta::WatcherCollection;
-use crate::{events, projects, users};
+use crate::{events, projects, search, users};
 use anyhow::Result;
 use std::sync::mpsc;
 
-pub struct Watcher<'a> {
-    git_watcher: git::GitWatcher,
-    delta_watcher: delta::DeltaWatchers<'a>,
+pub struct Watcher {
+    session_watcher: session::SessionWatcher,
+    delta_watcher: delta::DeltaWatchers,
 }
 
-impl<'a> Watcher<'a> {
+impl Watcher {
     pub fn new(
-        watchers: &'a delta::WatcherCollection,
         projects_storage: projects::Storage,
         users_storage: users::Storage,
+        deltas_searcher: search::Deltas,
     ) -> Self {
-        let git_watcher = git::GitWatcher::new(projects_storage, users_storage);
-        let delta_watcher = delta::DeltaWatchers::new(watchers);
+        let session_watcher = session::SessionWatcher::new(projects_storage, users_storage, deltas_searcher);
+        let delta_watcher = delta::DeltaWatchers::new();
         Self {
-            git_watcher,
+            session_watcher,
             delta_watcher,
         }
     }
 
     pub fn watch(
-        &self,
+        &mut self,
         sender: mpsc::Sender<events::Event>,
         project: &projects::Project,
     ) -> Result<()> {
         self.delta_watcher.watch(sender.clone(), project.clone())?;
-        self.git_watcher.watch(sender.clone(), project.clone())?;
+        self.session_watcher
+            .watch(sender.clone(), project.clone())?;
         Ok(())
     }
 
-    pub fn unwatch(&self, project: projects::Project) -> Result<()> {
+    pub fn unwatch(&mut self, project: projects::Project) -> Result<()> {
         self.delta_watcher.unwatch(project)?;
-        // TODO: how to unwatch git ?
+        // TODO: how to unwatch session ?
         Ok(())
     }
 }

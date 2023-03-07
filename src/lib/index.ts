@@ -5,3 +5,4 @@ export * as toasts from './toasts';
 export * as sessions from './sessions';
 export * as week from './week';
 export * as uisessions from './uisessions';
+export * from './search';

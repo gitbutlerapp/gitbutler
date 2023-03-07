@@ -25,26 +25,26 @@
 </script>
 
 <div class="relative">
-	<hr class="h-px bg-slate-400 border-0 z-0" />
+	<hr class="z-0 h-px border-0 bg-slate-400" />
 	<div class="absolute inset-0 -mt-1.5">
 		{#each activities as activity}
 			<div
-				class="flex -mx-1.5"
+				class="-mx-1.5 flex"
 				style="position:relative; left: {proportionOfTime(activity.timestampMs)}%;"
 			>
 				<div
-					class="w-3 h-3 text-slate-700 z-50 absolute inset-0"
+					class="absolute inset-0 z-50 h-3 w-3 text-slate-700"
 					style=""
 					title="{activity.type}: {activity.message} at {toHumanReadableTime(activity.timestampMs)}"
 				>
 					{#if activity.type.startsWith('commit')}
-						<IconSquareRoundedFilled class="w-3 h-3 text-sky-500 hover:text-sky-600" />
+						<IconSquareRoundedFilled class="h-3 w-3 text-sky-500 hover:text-sky-600" />
 					{:else if activity.type.startsWith('merge')}
-						<IconMapPinFilled class="w-3 h-3 text-green-500 hover:text-green-600" />
+						<IconMapPinFilled class="h-3 w-3 text-green-500 hover:text-green-600" />
 					{:else if activity.type.startsWith('rebase')}
-						<IconCircleHalf2 class="w-3 h-3 text-orange-500 hover:text-orange-600" />
+						<IconCircleHalf2 class="h-3 w-3 text-orange-500 hover:text-orange-600" />
 					{:else if activity.type.startsWith('push')}
-						<IconCircleFilled class="w-3 h-3 text-purple-500 hover:text-purple-600" />
+						<IconCircleFilled class="h-3 w-3 text-purple-500 hover:text-purple-600" />
 					{/if}
 				</div>
 			</div>

@@ -53,7 +53,7 @@
 	<span class="relative inline-flex">
 		<a
 			id="block"
-			class="inline-flex flex-grow items-center truncate transition ease-in-out duration-150 border px-4 py-2 text-slate-50 rounded-lg {colorFromBranchName(
+			class="inline-flex flex-grow items-center truncate rounded-lg border px-4 py-2 text-slate-50 transition duration-150 ease-in-out {colorFromBranchName(
 				session.meta.branch
 			)}"
 			title={session.meta.branch}
@@ -62,12 +62,12 @@
 			{toHumanBranchName(session.meta.branch)}
 		</a>
 		{#if !session.hash}
-			<span class="flex absolute h-3 w-3 top-0 right-0 -mt-1 -mr-1" title="Current session">
+			<span class="absolute top-0 right-0 -mt-1 -mr-1 flex h-3 w-3" title="Current session">
 				<span
-					class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-200 opacity-75"
+					class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-200 opacity-75"
 				/>
 				<span
-					class="relative inline-flex rounded-full h-3 w-3 bg-zinc-200 border border-orange-200"
+					class="relative inline-flex h-3 w-3 rounded-full border border-orange-200 bg-zinc-200"
 				/>
 			</span>
 		{/if}
@@ -91,11 +91,11 @@
 	<div id="files">
 		{#await list({ projectId: projectId, sessionId: session.id }) then deltas}
 			{#each Object.keys(deltas) as delta}
-				<div class="flex flex-row w-32 items-center">
-					<div class="w-6 h-6 text-white fill-blue-400">
+				<div class="flex w-32 flex-row items-center">
+					<div class="h-6 w-6 fill-blue-400 text-white">
 						{@html pathToIconSvg(delta)}
 					</div>
-					<div class="text-white w-24 truncate">
+					<div class="w-24 truncate text-white">
 						{pathToName(delta)}
 					</div>
 				</div>

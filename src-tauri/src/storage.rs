@@ -1,5 +1,8 @@
 use anyhow::{Context, Result};
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use tauri::PathResolver;
 
 #[derive(Debug, Default, Clone)]
@@ -8,7 +11,6 @@ pub struct Storage {
 }
 
 impl Storage {
-    #[cfg(test)]
     pub fn from_path(path: PathBuf) -> Self {
         Storage {
             local_data_dir: path,
@@ -21,7 +23,7 @@ impl Storage {
         }
     }
 
-    pub fn read(&self, path: &str) -> Result<Option<String>> {
+    pub fn read<P: AsRef<Path>>(&self, path: P) -> Result<Option<String>> {
         let file_path = self.local_data_dir.join(path);
         if !file_path.exists() {
             return Ok(None);

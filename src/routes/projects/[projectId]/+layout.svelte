@@ -29,16 +29,16 @@
 	$: selection = $page?.route?.id?.split('/')?.[3];
 </script>
 
-<div class="flex w-full h-full flex-col">
+<div class="flex h-full w-full flex-col">
 	<nav
-		class="flex items-center flex-none justify-between py-1 px-8 space-x-3 border-b select-none text-zinc-300 border-zinc-700"
+		class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-8 text-zinc-300"
 	>
 		<div />
 
 		<ul>
 			<li>
 				<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
-					<div class="p-1 rounded-md hover:text-zinc-200 hover:bg-zinc-700 hover:bg-zinc-700">
+					<div class="rounded-md p-1 hover:bg-zinc-700 hover:bg-zinc-700 hover:text-zinc-200">
 						<div class="h-6 w-6 ">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -46,7 +46,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-6 h-6"
+								class="h-6 w-6"
 							>
 								<path
 									stroke-linecap="round"
@@ -72,13 +72,13 @@
 
 	<footer class="w-full text-sm font-medium">
 		<div
-			class="flex items-center flex-shrink-0 h-6 border-t select-none border-zinc-700 bg-zinc-800 "
+			class="flex h-6 flex-shrink-0 select-none items-center border-t border-zinc-700 bg-zinc-800 "
 		>
-			<div class="flex flex-row mx-4 items-center space-x-2 justify-between w-full">
+			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2">
 				{#if $project?.api?.sync}
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
 						<div class="flex flex-row items-center space-x-2 ">
-							<div class="w-2 h-2 bg-green-700 rounded-full" />
+							<div class="h-2 w-2 rounded-full bg-green-700" />
 							<div>Syncing</div>
 						</div>
 					</a>
@@ -87,7 +87,7 @@
 				{:else}
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
 						<div class="flex flex-row items-center space-x-2 ">
-							<div class="w-2 h-2 bg-red-700 rounded-full" />
+							<div class="h-2 w-2 rounded-full bg-red-700" />
 							<div>Offline</div>
 						</div>
 					</a>

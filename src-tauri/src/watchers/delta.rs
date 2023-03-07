@@ -4,25 +4,24 @@ use crate::{events, sessions};
 use anyhow::{Context, Result};
 use git2;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::mpsc;
-use std::{collections::HashMap, sync::Mutex};
 
-#[derive(Default)]
-pub struct WatcherCollection(Mutex<HashMap<String, RecommendedWatcher>>);
-
-pub struct DeltaWatchers<'a> {
-    watchers: &'a WatcherCollection,
+pub struct DeltaWatchers {
+    watchers: HashMap<String, RecommendedWatcher>,
 }
 
-impl<'a> DeltaWatchers<'a> {
-    pub fn new(watchers: &'a WatcherCollection) -> Self {
-        Self { watchers }
+impl DeltaWatchers {
+    pub fn new() -> Self {
+        Self {
+            watchers: Default::default(),
+        }
     }
 
     pub fn watch(
-        &self,
+        &mut self,
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
     ) -> Result<()> {
@@ -34,11 +33,7 @@ impl<'a> DeltaWatchers<'a> {
 
         watcher.watch(project_path, RecursiveMode::Recursive)?;
 
-        self.watchers
-            .0
-            .lock()
-            .unwrap()
-            .insert(project.path.clone(), watcher);
+        self.watchers.insert(project.path.clone(), watcher);
 
         let repo = git2::Repository::open(project_path)?;
         tauri::async_runtime::spawn_blocking(move || {
@@ -92,9 +87,8 @@ impl<'a> DeltaWatchers<'a> {
         Ok(())
     }
 
-    pub fn unwatch(&self, project: projects::Project) -> Result<()> {
-        let mut watchers = self.watchers.0.lock().unwrap();
-        if let Some(mut watcher) = watchers.remove(&project.path) {
+    pub fn unwatch(&mut self, project: projects::Project) -> Result<()> {
+        if let Some(mut watcher) = self.watchers.remove(&project.path) {
             watcher.unwatch(Path::new(&project.path))?;
         }
         Ok(())
@@ -150,13 +144,13 @@ fn register_file_change(
 
     // depending on the above, we can create TextDocument suitable for calculating deltas
     let mut text_doc = match (latest_contents, deltas) {
-        (Some(latest_contents), Some(deltas)) => TextDocument::new(&latest_contents, deltas),
-        (Some(latest_contents), None) => TextDocument::new(&latest_contents, vec![]),
-        (None, Some(deltas)) => TextDocument::from_deltas(deltas),
-        (None, None) => TextDocument::from_deltas(vec![]),
+        (Some(latest_contents), Some(deltas)) => TextDocument::new(&latest_contents, deltas)?,
+        (Some(latest_contents), None) => TextDocument::new(&latest_contents, vec![])?,
+        (None, Some(deltas)) => TextDocument::from_deltas(deltas)?,
+        (None, None) => TextDocument::from_deltas(vec![])?,
     };
 
-    if !text_doc.update(&file_contents) {
+    if !text_doc.update(&file_contents)? {
         return Ok(None);
     } else {
         // if the file was modified, save the deltas
