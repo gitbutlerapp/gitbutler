@@ -30,7 +30,7 @@
 		<input on:input={fetchResults} type="text" name="query" bind:value={query} />
 	</figcaption>
 
-	<ul class="flex flex-col gap-q">
+	<ul class="gap-q flex flex-col">
 		{#each $results as result}
 			<li>{JSON.stringify(result)}</li>
 		{/each}

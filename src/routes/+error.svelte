@@ -15,7 +15,7 @@
 		: 'Something went wrong';
 </script>
 
-<div class="flex flex-1 h-full">
+<div class="flex h-full flex-1">
 	<h1 class="m-auto text-xl">
 		{message} :(
 	</h1>

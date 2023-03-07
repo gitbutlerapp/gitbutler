@@ -24,15 +24,15 @@
 	};
 </script>
 
-<div class="w-full h-full p-8">
-	<div class="flex flex-col h-full">
+<div class="h-full w-full p-8">
+	<div class="flex h-full flex-col">
 		{#if $projects.length == 0}
-			<div class="h-fill grid grid-cols-2 gap-4 items-center h-full">
+			<div class="h-fill grid h-full grid-cols-2 items-center gap-4">
 				<!-- right box, welcome text -->
-				<div class="flex flex-col space-y-4 content-center p-4">
-					<div class="text-xl text-zinc-300 p-0 m-0">
+				<div class="flex flex-col content-center space-y-4 p-4">
+					<div class="m-0 p-0 text-xl text-zinc-300">
 						<div class="font-bold">Welcome to GitButler.</div>
-						<div class="text-lg text-zinc-300 mb-1">More than just version control.</div>
+						<div class="mb-1 text-lg text-zinc-300">More than just version control.</div>
 					</div>
 					<div class="">
 						GitButler is a tool to help you manage all the local work you do on your code projects.
@@ -41,7 +41,7 @@
 						Think of us as a <strong>code concierge</strong>, a smart assistant for all the coding
 						related tasks you need to do every day.
 					</div>
-					<ul class="text-zinc-400 pt-2 pb-4 space-y-4">
+					<ul class="space-y-4 pt-2 pb-4 text-zinc-400">
 						<li class="flex flex-row space-x-3">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -49,7 +49,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-8 h-8 flex-none"
+								class="h-8 w-8 flex-none"
 							>
 								<path
 									stroke-linecap="round"
@@ -69,7 +69,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-8 h-8 flex-none"
+								class="h-8 w-8 flex-none"
 							>
 								<path
 									stroke-linecap="round"
@@ -90,7 +90,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-8 h-8 flex-none"
+								class="h-8 w-8 flex-none"
 							>
 								<path
 									stroke-linecap="round"
@@ -110,7 +110,7 @@
 							rel="noreferrer"
 							target="_blank"
 							href="https://help.gitbutler.com"
-							class="text-base font-semibold leading-7 text-white bg-zinc-700 px-4 py-3 rounded-lg mt-4"
+							class="mt-4 rounded-lg bg-zinc-700 px-4 py-3 text-base font-semibold leading-7 text-white"
 						>
 							Learn more <span aria-hidden="true">→</span></a
 						>
@@ -150,9 +150,9 @@
 			<div class="select-none p-8">
 				<div class="flex flex-col">
 					<div class="flex flex-row justify-between">
-						<div class="text-xl text-zinc-300 mb-1">
+						<div class="mb-1 text-xl text-zinc-300">
 							My Projects
-							<div class="text-lg text-zinc-500 mb-1">
+							<div class="mb-1 text-lg text-zinc-500">
 								All the projects that I am currently assisting you with.
 							</div>
 						</div>
@@ -167,31 +167,31 @@
 						</div>
 					</div>
 					<div class="h-full max-h-screen overflow-auto">
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 							{#each $projects as project}
-								<a class="hover:text-zinc-200 text-zinc-300 text-lg" href="/projects/{project.id}/">
+								<a class="text-lg text-zinc-300 hover:text-zinc-200" href="/projects/{project.id}/">
 									<div
-										class="flex flex-col justify-between space-y-1 bg-zinc-700 rounded-lg shadow"
+										class="flex flex-col justify-between space-y-1 rounded-lg bg-zinc-700 shadow"
 									>
-										<div class="px-4 py-4 flex-grow-0">
-											<div class="hover:text-zinc-200 text-zinc-300 text-lg">
+										<div class="flex-grow-0 px-4 py-4">
+											<div class="text-lg text-zinc-300 hover:text-zinc-200">
 												{project.title}
 											</div>
-											<div class="text-zinc-500 font-mono break-words">
+											<div class="font-mono break-words text-zinc-500">
 												{project.path}
 											</div>
 										</div>
 										<div
-											class="flex-grow-0 text-zinc-500 font-mono border-t border-zinc-600 bg-zinc-600 rounded-b-lg px-3 py-1"
+											class="font-mono flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 text-zinc-500"
 										>
 											{#if project.api}
 												<div class="flex flex-row items-center space-x-2 ">
-													<div class="w-2 h-2 bg-green-700 rounded-full" />
+													<div class="h-2 w-2 rounded-full bg-green-700" />
 													<div class="text-zinc-400">syncing</div>
 												</div>
 											{:else}
 												<div class="flex flex-row items-center space-x-2 ">
-													<div class="w-2 h-2 bg-gray-400 rounded-full" />
+													<div class="h-2 w-2 rounded-full bg-gray-400" />
 													<div class="text-zinc-400">offline</div>
 												</div>
 											{/if}
@@ -205,7 +205,7 @@
 			</div>
 
 			<div class="absolute bottom-0 left-0 w-full">
-				<div class="flex items-center flex-shrink-0 p-4 h-18 border-t select-none border-zinc-700">
+				<div class="h-18 flex flex-shrink-0 select-none items-center border-t border-zinc-700 p-4">
 					<div class="text-sm text-zinc-300">Timeline</div>
 				</div>
 			</div>

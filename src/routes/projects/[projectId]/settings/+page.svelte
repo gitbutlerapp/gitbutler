@@ -78,9 +78,9 @@
 	};
 </script>
 
-<div class="p-4 mx-auto h-full overflow-auto">
-	<div class="max-w-2xl mx-auto p-4">
-		<div class="flex flex-col text-zinc-100 space-y-6">
+<div class="mx-auto h-full overflow-auto p-4">
+	<div class="mx-auto max-w-2xl p-4">
+		<div class="flex flex-col space-y-6 text-zinc-100">
 			<div class="space-y-0">
 				<div class="text-xl font-medium">Project Settings</div>
 				<div class="text-zinc-400">
@@ -92,7 +92,7 @@
 				<div class="space-y-2">
 					<div class="ml-1">GitButler Cloud</div>
 					<div
-						class="flex flex-row justify-between border border-zinc-600 rounded-lg p-2 items-center"
+						class="flex flex-row items-center justify-between rounded-lg border border-zinc-600 p-2"
 					>
 						<div class="flex flex-row space-x-3">
 							<svg
@@ -101,7 +101,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="white"
-								class="w-6 h-6"
+								class="h-6 w-6"
 							>
 								<path
 									stroke-linecap="round"
@@ -113,11 +113,11 @@
 								{#if $project?.api?.git_url}
 									<div class="flex flex-col">
 										<div class="text-zinc-300">Git Host</div>
-										<div class="text-zinc-400 font-mono">
+										<div class="font-mono text-zinc-400">
 											{hostname($project?.api?.git_url)}
 										</div>
-										<div class="text-zinc-300 mt-3">Repository ID</div>
-										<div class="text-zinc-400 font-mono">
+										<div class="mt-3 text-zinc-300">Repository ID</div>
+										<div class="font-mono text-zinc-400">
 											{repo_id($project?.api?.git_url)}
 										</div>
 									</div>
@@ -140,7 +140,7 @@
 				</div>
 			{:else}
 				<div class="space-y-2">
-					<div class="flex flex-row space-x-2 items-end">
+					<div class="flex flex-row items-end space-x-2">
 						<div class="">GitButler Cloud</div>
 						<div class="text-zinc-400">backup your work and access advanced features</div>
 					</div>
@@ -158,7 +158,7 @@
 							id="path"
 							name="path"
 							type="text"
-							class="p-2 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+							class="w-full rounded-lg border border-zinc-600 bg-black p-2 text-zinc-300"
 							value={$project?.path}
 						/>
 					</div>
@@ -168,7 +168,7 @@
 							id="name"
 							name="name"
 							type="text"
-							class="p-2 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+							class="w-full rounded-lg border border-zinc-600 bg-black p-2 text-zinc-300"
 							value={$project?.title}
 							required
 						/>
@@ -179,7 +179,7 @@
 							id="description"
 							name="description"
 							rows="3"
-							class="p-2 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+							class="w-full rounded-lg border border-zinc-600 bg-black p-2 text-zinc-300"
 							value={$project?.api?.description}
 						/>
 					</div>
@@ -188,13 +188,13 @@
 				<footer>
 					{#if saving}
 						<div
-							class="flex w-32 flex-row w-content items-center gap-1 justify-center py-2 px-3 rounded text-white bg-blue-400"
+							class="w-content flex w-32 flex-row items-center justify-center gap-1 rounded bg-blue-400 py-2 px-3 text-white"
 						>
-							<IconRotateClockwise2 class="w-5 h-5 animate-spin" />
+							<IconRotateClockwise2 class="h-5 w-5 animate-spin" />
 							<span>Updating...</span>
 						</div>
 					{:else}
-						<button type="submit" class="py-2 px-3 rounded text-white bg-blue-600"
+						<button type="submit" class="rounded bg-blue-600 py-2 px-3 text-white"
 							>Update profile</button
 						>
 					{/if}

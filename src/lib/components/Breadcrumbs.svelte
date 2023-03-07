@@ -12,8 +12,8 @@
 </script>
 
 <div class="flex flex-row items-center text-zinc-400">
-	<a class="p-2 rounded-md hover:text-zinc-200 hover:bg-zinc-700" href="/">
-		<div class="w-4 h-4 flex justify-center items-center">
+	<a class="rounded-md p-2 hover:bg-zinc-700 hover:text-zinc-200" href="/">
+		<div class="flex h-4 w-4 items-center justify-center">
 			<svg
 				width="14"
 				height="14"
@@ -31,19 +31,19 @@
 	{#if $project}
 		<div class="ml-1">
 			<Popover>
-				<div slot="button" class="flex align-item-centerh-5 py-2 px-2 rounded-md hover:bg-zinc-700">
-					<div class="h-4 flex items-center">
+				<div slot="button" class="align-item-centerh-5 flex rounded-md py-2 px-2 hover:bg-zinc-700">
+					<div class="flex h-4 items-center">
 						{$project.title}
 					</div>
 				</div>
 				<div class="flex flex-col">
-					<ul class="flex flex-col overflow-y-auto p-2 max-h-[289px]">
+					<ul class="flex max-h-[289px] flex-col overflow-y-auto p-2">
 						{#each $projects || [] as p}
 							<a
 								href="/projects/{p.id}"
 								class="
-								flex items-center
-								p-2 rounded hover:bg-zinc-700 cursor-pointer"
+								flex cursor-pointer
+								items-center rounded p-2 hover:bg-zinc-700"
 							>
 								<span class="truncate">
 									{p.title}
@@ -73,7 +73,7 @@
 					<span class="w-full border-t border-zinc-700" />
 					<!-- svelte-ignore a11y-click-events-have-key-events -->
 					<div class="m-2 flex">
-						<a href="/" class="p-2 w-full rounded hover:bg-zinc-700 cursor-pointer"
+						<a href="/" class="w-full cursor-pointer rounded p-2 hover:bg-zinc-700"
 							>Add repository...</a
 						>
 					</div>

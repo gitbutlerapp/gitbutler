@@ -5,11 +5,11 @@
 
 <div class="flex items-center justify-center space-x-3 text-zinc-400">
 	<button
-		class="p-2 rounded-md hover:text-zinc-200 hover:bg-zinc-700"
+		class="rounded-md p-2 hover:bg-zinc-700 hover:text-zinc-200"
 		title="Go back"
 		on:click={() => history.back()}
 	>
-		<div class="w-4 h-4 flex justify-center items-center">
+		<div class="flex h-4 w-4 items-center justify-center">
 			<svg
 				width="16"
 				height="12"
@@ -27,11 +27,11 @@
 		</div>
 	</button>
 	<button
-		class="p-2 rounded-md hover:text-zinc-200 hover:bg-zinc-700"
+		class="rounded-md p-2 hover:bg-zinc-700 hover:text-zinc-200"
 		title="Go forward"
 		on:click={() => history.forward()}
 	>
-		<div class="w-4 h-4 flex justify-center items-center">
+		<div class="flex h-4 w-4 items-center justify-center">
 			<svg
 				width="16"
 				height="12"

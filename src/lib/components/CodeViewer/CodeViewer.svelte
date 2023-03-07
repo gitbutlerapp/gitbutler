@@ -7,4 +7,4 @@
 	export let filepath: string;
 </script>
 
-<code class="w-full h-full" use:codeviewer={{ doc, deltas, filepath }} />
+<code class="h-full w-full" use:codeviewer={{ doc, deltas, filepath }} />
