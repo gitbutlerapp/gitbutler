@@ -1,7 +1,10 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { search, type SearchResult } from '$lib';
+	import { listFiles } from '$lib/sessions';
+	import { list as listDeltas } from '$lib/deltas';
 	import { writable } from 'svelte/store';
+	import { CodeViewer } from '$lib/components';
 
 	export let data: PageData;
 	const { project } = data;
@@ -22,7 +25,7 @@
 		if (!$project) return;
 		if (!query) return results.set([]);
 		search({ projectId: $project.id, query }).then(results.set);
-	}, 100);
+	}, 500);
 </script>
 
 <figure class="flex flex-col gap-2">
@@ -32,7 +35,22 @@
 
 	<ul class="gap-q flex flex-col">
 		{#each $results as result}
-			<li>{JSON.stringify(result)}</li>
+			<li>
+				{#await listFiles( { projectId: result.projectId, sessionId: result.sessionId, paths: [result.filePath] } ) then files}
+					{#await listDeltas( { projectId: result.projectId, sessionId: result.sessionId } ) then deltas}
+						<div class="m-4">
+							<p class="mb-2 text-lg font-bold">{result.filePath}</p>
+							<div class="border border-red-400 ">
+								<CodeViewer
+									doc={files[result.filePath] || ''}
+									filepath={result.filePath}
+									deltas={deltas[result.filePath].slice(0, result.index) || []}
+								/>
+							</div>
+						</div>
+					{/await}
+				{/await}
+			</li>
 		{/each}
 	</ul>
 </figure>
