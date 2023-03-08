@@ -4,8 +4,9 @@
 	import { listFiles } from '$lib/sessions';
 	import { list as listDeltas } from '$lib/deltas';
 	import { writable } from 'svelte/store';
-	import { CodeViewer } from '$lib/components';
 	import { Operation } from '$lib/deltas';
+	import type { Delta } from '$lib/deltas';
+	import { structuredPatch } from 'diff';
 
 	export let data: PageData;
 	const { project } = data;
@@ -26,7 +27,38 @@
 		if (!$project) return;
 		if (!query) return results.set([]);
 		search({ projectId: $project.id, query }).then(results.set);
-	}, 500);
+	}, 1000);
+
+	const applyDeltas = (text: string, deltas: Delta[]) => {
+		const operations = deltas.flatMap((delta) => delta.operations);
+
+		operations.forEach((operation) => {
+			if (Operation.isInsert(operation)) {
+				text =
+					text.slice(0, operation.insert[0]) +
+					operation.insert[1] +
+					text.slice(operation.insert[0]);
+			} else if (Operation.isDelete(operation)) {
+				text =
+					text.slice(0, operation.delete[0]) +
+					text.slice(operation.delete[0] + operation.delete[1]);
+			}
+		});
+		return text;
+	};
+
+	const diffParagraph = (original: string, deltas: Delta[], idx: number) => {
+		if (!original) return [];
+		return structuredPatch(
+			'file',
+			'file',
+			applyDeltas(original, deltas.slice(0, idx)),
+			applyDeltas(original, [deltas[idx]]),
+			'header',
+			'header',
+			{ context: 1 }
+		).hunks.filter((hunk) => hunk.lines.some((l) => l.includes(query)));
+	};
 </script>
 
 <figure class="flex flex-col gap-2">
@@ -40,15 +72,26 @@
 				{#await listFiles( { projectId: result.projectId, sessionId: result.sessionId, paths: [result.filePath] } ) then files}
 					{#await listDeltas( { projectId: result.projectId, sessionId: result.sessionId } ) then deltas}
 						<div class="m-4">
-							<p class="mb-2 text-lg font-bold">{result.filePath}</p>
+							<p class="mb-2 text-lg font-bold">
+								{result.filePath}
+								<span>{new Date(deltas[result.filePath][result.index].timestampMs)}</span>
+							</p>
 							<div class="border border-red-400 ">
-								<!-- {JSON.stringify(deltas[result.filePath][result.index])} -->
-								<CodeViewer
-									doc={files[result.filePath] || ''}
-									filepath={result.filePath}
-									deltas={[deltas[result.filePath][result.index]] || []}
-									highlightLatest={true}
-								/>
+								{#each diffParagraph(files[result.filePath], deltas[result.filePath], result.index) as hunk}
+									<div class="m-4 flex flex-col border">
+										{#each hunk.lines as line}
+											<pre
+												class={line.startsWith('+')
+													? 'bg-[#14FF00]/30'
+													: line.startsWith('-')
+													? 'bg-[#FF0000]/30'
+													: ''}>{@html line
+													.slice(1)
+													.split(query)
+													.join(`<span class="bg-purple-400">${query}</span>`) || ' '}</pre>
+										{/each}
+									</div>
+								{/each}
 							</div>
 						</div>
 					{/await}
