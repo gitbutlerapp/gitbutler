@@ -8,8 +8,10 @@
 	export let highlightLatest = false;
 </script>
 
-<code
-	style:color-scheme="dark"
-	class="h-full w-full"
-	use:codeviewer={{ doc, deltas, filepath, highlightLatest }}
-/>
+{#key doc + filepath}
+	<code
+		style:color-scheme="dark"
+		class="h-full w-full"
+		use:codeviewer={{ doc, deltas, filepath, highlightLatest }}
+	/>
+{/key}

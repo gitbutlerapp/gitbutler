@@ -139,11 +139,9 @@
 	</div>
 
 	<div class="flex-auto overflow-auto">
-		{#key currentSessionIndex}
-			{#if currentDoc !== null && currentDeltas !== null && currentFilepath !== null}
-				<CodeViewer doc={currentDoc} filepath={currentFilepath} deltas={currentDeltas} />
-			{/if}
-		{/key}
+		{#if currentDoc !== null && currentDeltas !== null && currentFilepath !== null}
+			<CodeViewer doc={currentDoc} filepath={currentFilepath} deltas={currentDeltas} />
+		{/if}
 	</div>
 
 	<div id="timeline" class="relative w-full py-4" bind:this={timeline}>
