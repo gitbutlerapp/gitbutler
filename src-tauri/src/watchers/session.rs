@@ -71,9 +71,11 @@ impl<'a> SessionWatcher {
 
         tauri::async_runtime::spawn_blocking(move || loop {
             let local_self = &mut self_copy;
+
             if let Err(e) = local_self.run(&project_id, sender.clone()) {
                 log::error!("{}: error while running git watcher: {:#}", project_id, e);
             }
+
             thread::sleep(Duration::from_secs(10));
         });
 
