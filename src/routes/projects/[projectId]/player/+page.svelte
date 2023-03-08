@@ -12,6 +12,20 @@
 	const { sessions } = data;
 
 	let currentTimestamp = new Date().getTime();
+	$: minVisibleTimestamp = currentTimestamp - 12 * 60 * 60 * 1000;
+	let maxVisibleTimestamp = new Date().getTime();
+	onMount(() => {
+		const inverval = setInterval(() => {
+			maxVisibleTimestamp = new Date().getTime();
+		}, 1000);
+		return () => clearInterval(inverval);
+	});
+
+	$: visibleSessions = $sessions.filter(
+		(session) =>
+			session.meta.startTimestampMs >= minVisibleTimestamp ||
+			session.meta.lastTimestampMs >= minVisibleTimestamp
+	);
 
 	let currentSessionIndex = 0;
 	let currentSession = $sessions[currentSessionIndex];
@@ -106,23 +120,14 @@
 		start({ direction, speed });
 	};
 
-	// timeline
-	$: sessionRanges = $sessions.map(
-		({ meta }) => [meta.startTimestampMs, meta.lastTimestampMs] as [number, number]
-	);
-
-	$: minVisibleTimestamp = currentTimestamp - 12 * 60 * 60 * 1000;
-	let maxVisibleTimestamp = new Date().getTime();
-	onMount(() => {
-		const inverval = setInterval(() => {
-			maxVisibleTimestamp = new Date().getTime();
-		}, 1000);
-		return () => clearInterval(inverval);
-	});
-
-	$: visibleRanges = sessionRanges
-		.filter(([from, to]) => from >= minVisibleTimestamp || to >= minVisibleTimestamp)
-		.map(([from, to]) => [Math.max(from, minVisibleTimestamp), Math.min(to, maxVisibleTimestamp)])
+	$: visibleRanges = visibleSessions
+		.map(
+			({ meta }) =>
+				[
+					Math.max(meta.startTimestampMs, minVisibleTimestamp),
+					Math.min(meta.lastTimestampMs, maxVisibleTimestamp)
+				] as [number, number]
+		)
 		.sort((a, b) => a[0] - b[0])
 		.reduce((timeline, range) => {
 			const [from, to] = range;
