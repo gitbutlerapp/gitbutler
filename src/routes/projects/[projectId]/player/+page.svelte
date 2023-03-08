@@ -40,7 +40,7 @@
 			currentTimestamp <= $sessions[currentSessionIndex].meta.lastTimestampMs
 		) {
 			// noop
-		} else if (!Session.within($sessions[currentSessionIndex], currentTimestamp)) {
+		} else if (!Session.within(currentSession, currentTimestamp)) {
 			currentSessionIndex = $sessions.findIndex(
 				(session) => session.meta.startTimestampMs <= currentTimestamp
 			);
@@ -157,6 +157,10 @@
 </script>
 
 <div class="flex h-full flex-col gap-2 px-4">
+	<header>
+		<h2 class="text-lg">{currentFilepath}</h2>
+	</header>
+
 	<div class="flex-auto overflow-auto">
 		{#if currentDoc !== null && currentDeltas !== null && currentFilepath !== null}
 			<CodeViewer doc={currentDoc} filepath={currentFilepath} deltas={currentDeltas} />
