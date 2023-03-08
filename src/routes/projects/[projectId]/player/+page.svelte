@@ -14,14 +14,10 @@
 
 	let currentSessionIndex = 0;
 
-	$: {
-		if (Session.within($sessions.at(currentTimestamp), currentTimestamp)) {
-			// noop
-		} else {
-			currentSessionIndex = $sessions.findIndex(
-				(session) => session.meta.startTimestampMs <= currentTimestamp
-			);
-		}
+	$: if (!Session.within($sessions.at(currentTimestamp), currentTimestamp)) {
+		currentSessionIndex = $sessions.findIndex(
+			(session) => session.meta.startTimestampMs <= currentTimestamp
+		);
 	}
 
 	let currentSessionFileByFilepath = {} as Record<string, string>;
@@ -92,10 +88,10 @@
 	);
 	$: currentRange = sessionRanges.at(currentSessionIndex)!;
 	$: minVisibleTimestamp = currentRange[0] - 12 * 60 * 60 * 1000;
-	$: maxVisibleTimestamp = Math.max(currentTimestamp, sessionRanges.at(0)![1]);
+	$: maxVisibleTimestamp = Math.min(currentTimestamp + 12 * 60 * 60 * 1000, new Date().getTime());
 	$: visibleRanges = sessionRanges
-		.filter(([from]) => from >= minVisibleTimestamp)
-		.filter(([_, to]) => to <= maxVisibleTimestamp)
+		.filter(([from, to]) => from >= minVisibleTimestamp || to >= minVisibleTimestamp)
+		.map(([from, to]) => [Math.max(from, minVisibleTimestamp), Math.min(to, maxVisibleTimestamp)])
 		.sort((a, b) => a[0] - b[0]);
 	$: ranges = visibleRanges.reduce((timeline, range) => {
 		const [from, to] = range;
@@ -127,7 +123,7 @@
 <div class="flex h-full flex-col gap-2 px-4">
 	<div>
 		<div>current session id {$sessions.at(currentSessionIndex)?.id}</div>
-        <div>current session hash {$sessions.at(currentSessionIndex)?.hash}</div>
+		<div>current session hash {$sessions.at(currentSessionIndex)?.hash}</div>
 		<div>current filepath {currentFilepath}</div>
 		<div>current deltas.length {currentDeltas?.length}</div>
 		<div>current doc.length {currentDoc?.length}</div>
@@ -152,7 +148,7 @@
 		>
 			<div class="h-5 w-0.5 rounded-sm bg-white" />
 		</div>
-		<div id="sessions" class="flex w-full items-center gap-1" on:mousedown={onSelectTimestamp}>
+		<div id="ranges" class="flex w-full items-center gap-1" on:mousedown={onSelectTimestamp}>
 			<div
 				class="h-2 rounded-sm"
 				style:background-color="inherit"
