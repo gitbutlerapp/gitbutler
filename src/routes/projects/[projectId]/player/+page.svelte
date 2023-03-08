@@ -1,14 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { listFiles, type Session } from '$lib/sessions';
+	import { listFiles, Session } from '$lib/sessions';
 	import { type Delta, list as listDeltas } from '$lib/deltas';
 	import { CodeViewer } from '$lib/components';
-	import {
-		IconPlayerPauseFilled,
-		IconPlayerPlayFilled,
-		IconPlayerTrackNextFilled,
-		IconPlayerTrackPrevFilled
-	} from '@tabler/icons-svelte';
+	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-svelte';
 
 	export let data: PageData;
 
@@ -16,24 +11,15 @@
 
 	let currentTimestamp = new Date().getTime();
 
-	let [nextSessionIndex, currentSessionIndex, previousSessionIndex] = [1, 0, -1];
-
-	const within = (timestamp: number, session: Session | undefined) =>
-		session &&
-		session.meta.startTimestampMs >= timestamp &&
-		session.meta.lastTimestampMs <= timestamp;
+	let currentSessionIndex = 0;
 
 	$: {
-		if (within(currentTimestamp, $sessions.at(currentTimestamp))) {
+		if (Session.within($sessions.at(currentTimestamp), currentTimestamp)) {
 			// noop
-		} else if (within(currentTimestamp, $sessions.at(previousSessionIndex))) {
-			previousSessionIndex--;
+		} else if (Session.within($sessions.at(currentSessionIndex - 1), currentTimestamp)) {
 			currentSessionIndex--;
-			nextSessionIndex--;
-		} else if (within(currentTimestamp, $sessions.at(nextSessionIndex))) {
-			previousSessionIndex++;
+		} else if (Session.within($sessions.at(currentSessionIndex + 1), currentTimestamp)) {
 			currentSessionIndex++;
-			nextSessionIndex++;
 		} else {
 			// noop
 		}
@@ -76,6 +62,7 @@
 
 	$: currentDoc = currentFilepath ? currentSessionFileByFilepath[currentFilepath] ?? '' : null;
 
+	// player
 	let interval: ReturnType<typeof setInterval> | undefined;
 	let direction: -1 | 1 = 1;
 	let speed = 1;
@@ -84,28 +71,49 @@
 	const stop = () => {
 		clearInterval(interval);
 		interval = undefined;
+		speed = 1;
 	};
 	const play = () => start({ direction, speed });
 
 	const start = (params: { direction: 1 | -1; speed: number }) => {
-		if (interval) stop();
+		if (interval) clearInterval(interval);
 		interval = setInterval(() => {
 			currentTimestamp += oneSecond * params.direction;
 		}, oneSecond / params.speed);
 	};
 
-	const backward = () => {
-		direction === -1 ? (speed = speed * 2) : ((direction = -1), (speed = 1));
+	const speedUp = () => {
+		speed = speed * 2;
 		start({ direction, speed });
 	};
 
-	const forward = () => {
-		direction === 1 ? (speed = speed * 2) : ((direction = 1), (speed = 1));
-		start({ direction, speed });
-	};
+	// timeline
+	$: sessionRanges = $sessions.map(
+		({ meta }) => [meta.startTimestampMs, meta.lastTimestampMs] as [number, number]
+	);
+	$: currentRange = sessionRanges.at(currentSessionIndex)!;
+	$: minVisibleTimestamp = currentRange[0] - 12 * 60 * 60 * 1000;
+	$: maxVisibleTimestamp = Math.max(currentTimestamp, sessionRanges.at(0)![1]);
+	$: visibleRanges = sessionRanges
+		.filter(([from]) => from >= minVisibleTimestamp)
+		.filter(([_, to]) => to <= maxVisibleTimestamp)
+		.sort((a, b) => a[0] - b[0]);
+	$: ranges = visibleRanges.reduce((timeline, range) => {
+		const [from, to] = range;
+		const last = timeline.at(-1);
+		if (last) timeline.push([last[1], from, false]);
+		timeline.push([from, to, true]);
+		return timeline;
+	}, [] as [number, number, boolean][]);
+
+	const rangeWidth = (range: [number, number]) =>
+		(100 * (range[1] - range[0])) / (maxVisibleTimestamp - minVisibleTimestamp) + '%';
+
+	const timestampOffset = (timestamp: number) =>
+		((timestamp - minVisibleTimestamp) / (maxVisibleTimestamp - minVisibleTimestamp)) * 100 + '%';
 </script>
 
-<div class="flex h-full flex-col gap-2 px-12">
+<div class="flex h-full flex-col gap-2 px-4">
 	<div>
 		<div>current filepath {currentFilepath}</div>
 		<div>current deltas.length {currentDeltas?.length}</div>
@@ -121,13 +129,42 @@
 		{/key}
 	</div>
 
+	<div id="timeline" class="flex w-full items-center py-4">
+		<div class="flex w-full items-center gap-1">
+			<div
+				id="cursor"
+				class="absolute flex h-12 w-4 cursor-pointer items-center justify-around"
+				style:left="calc({timestampOffset(currentTimestamp)} - 1.5rem)"
+			>
+				<div class="h-5 w-0.5 rounded-sm bg-white" />
+			</div>
+
+			<div
+				class="h-2 rounded-sm"
+				style:background-color="inherit"
+				style:width={rangeWidth([minVisibleTimestamp, ranges[0][0]])}
+			/>
+			{#each ranges as [from, to, filled]}
+				<div
+					class="h-2 rounded-sm"
+					style:background-color={filled ? '#D9D9D9' : 'inherit'}
+					style:width={rangeWidth([from, to])}
+				/>
+			{/each}
+			<div
+				class="h-2 rounded-sm"
+				style:background-color="inherit"
+				style:width={rangeWidth([ranges[ranges.length - 1][1], maxVisibleTimestamp])}
+			/>
+		</div>
+	</div>
+
 	<div class="mx-auto flex items-center gap-2">
-		<button on:click={backward}><IconPlayerTrackPrevFilled class="h-6 w-6" /></button>
 		{#if interval}
 			<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
 		{:else}
 			<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
 		{/if}
-		<button on:click={forward}><IconPlayerTrackNextFilled class="h-6 w-6" /></button>
+		<button on:click={speedUp}>{speed}x</button>
 	</div>
 </div>

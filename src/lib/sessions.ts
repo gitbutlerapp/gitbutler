@@ -9,6 +9,14 @@ export type Activity = {
 	message: string;
 };
 
+export namespace Session {
+	export const within = (session: Session | undefined, timestampMs: number) => {
+		if (!session) return false;
+		const { startTimestampMs, lastTimestampMs } = session.meta;
+		return startTimestampMs <= timestampMs && timestampMs <= lastTimestampMs;
+	};
+}
+
 export type Session = {
 	id: string;
 	hash?: string;
