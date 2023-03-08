@@ -5,6 +5,7 @@
 	import { CodeViewer } from '$lib/components';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-svelte';
 	import slider from '$lib/slider';
+	import { onMount } from 'svelte';
 
 	export let data: PageData;
 
@@ -86,20 +87,27 @@
 	$: sessionRanges = $sessions.map(
 		({ meta }) => [meta.startTimestampMs, meta.lastTimestampMs] as [number, number]
 	);
-	$: currentRange = sessionRanges.at(currentSessionIndex)!;
-	$: minVisibleTimestamp = currentRange[0] - 12 * 60 * 60 * 1000;
-	$: maxVisibleTimestamp = Math.min(currentTimestamp + 12 * 60 * 60 * 1000, new Date().getTime());
+
+	$: minVisibleTimestamp = currentTimestamp - 12 * 60 * 60 * 1000;
+	let maxVisibleTimestamp = new Date().getTime();
+	onMount(() => {
+		const inverval = setInterval(() => {
+			maxVisibleTimestamp = new Date().getTime();
+		}, 1000);
+		return () => clearInterval(inverval);
+	});
+
 	$: visibleRanges = sessionRanges
 		.filter(([from, to]) => from >= minVisibleTimestamp || to >= minVisibleTimestamp)
 		.map(([from, to]) => [Math.max(from, minVisibleTimestamp), Math.min(to, maxVisibleTimestamp)])
-		.sort((a, b) => a[0] - b[0]);
-	$: ranges = visibleRanges.reduce((timeline, range) => {
-		const [from, to] = range;
-		const last = timeline.at(-1);
-		if (last) timeline.push([last[1], from, false]);
-		timeline.push([from, to, true]);
-		return timeline;
-	}, [] as [number, number, boolean][]);
+		.sort((a, b) => a[0] - b[0])
+		.reduce((timeline, range) => {
+			const [from, to] = range;
+			const last = timeline.at(-1);
+			if (last) timeline.push([last[1], from, false]);
+			timeline.push([from, to, true]);
+			return timeline;
+		}, [] as [number, number, boolean][]);
 
 	const rangeWidth = (range: [number, number]) =>
 		(100 * (range[1] - range[0])) / (maxVisibleTimestamp - minVisibleTimestamp) + '%';
@@ -138,7 +146,7 @@
 		{/key}
 	</div>
 
-	<div id="timeline" class="relative flex w-full items-center py-4" bind:this={timeline}>
+	<div id="timeline" class="relative w-full py-4" bind:this={timeline}>
 		<div
 			id="cursor"
 			use:slider
@@ -148,24 +156,40 @@
 		>
 			<div class="h-5 w-0.5 rounded-sm bg-white" />
 		</div>
-		<div id="ranges" class="flex w-full items-center gap-1" on:mousedown={onSelectTimestamp}>
-			<div
-				class="h-2 rounded-sm"
-				style:background-color="inherit"
-				style:width={rangeWidth([minVisibleTimestamp, ranges[0][0]])}
-			/>
-			{#each ranges as [from, to, filled]}
+
+		<div class="flex w-full items-center justify-between">
+			<div id="from">
+				{new Date(minVisibleTimestamp).toLocaleString()}
+			</div>
+
+			<div id="to">
+				{new Date(maxVisibleTimestamp).toLocaleString()}
+			</div>
+		</div>
+
+		<div class="w-full">
+			<div id="ranges" class="flex w-full items-center gap-1" on:mousedown={onSelectTimestamp}>
 				<div
 					class="h-2 rounded-sm"
-					style:background-color={filled ? '#D9D9D9' : 'inherit'}
-					style:width={rangeWidth([from, to])}
+					style:background-color="inherit"
+					style:width={rangeWidth([minVisibleTimestamp, visibleRanges[0][0]])}
 				/>
-			{/each}
-			<div
-				class="h-2 rounded-sm"
-				style:background-color="inherit"
-				style:width={rangeWidth([ranges[ranges.length - 1][1], maxVisibleTimestamp])}
-			/>
+				{#each visibleRanges as [from, to, filled]}
+					<div
+						class="h-2 rounded-sm"
+						style:background-color={filled ? '#D9D9D9' : 'inherit'}
+						style:width={rangeWidth([from, to])}
+					/>
+				{/each}
+				<div
+					class="h-2 rounded-sm"
+					style:background-color="inherit"
+					style:width={rangeWidth([
+						visibleRanges[visibleRanges.length - 1][1],
+						maxVisibleTimestamp
+					])}
+				/>
+			</div>
 		</div>
 	</div>
 
