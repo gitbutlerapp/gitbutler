@@ -14,29 +14,53 @@
 	let currentTimestamp = new Date().getTime();
 
 	let currentSessionIndex = 0;
-
-	$: if (!Session.within($sessions.at(currentTimestamp), currentTimestamp)) {
-		currentSessionIndex = $sessions.findIndex(
-			(session) => session.meta.startTimestampMs <= currentTimestamp
-		);
+	let currentSession = $sessions[currentSessionIndex];
+	$: {
+		if (
+			currentSessionIndex === 0 &&
+			currentTimestamp >= $sessions[currentSessionIndex].meta.startTimestampMs
+		) {
+			// noop
+		} else if (
+			currentSessionIndex === $sessions.length &&
+			currentTimestamp <= $sessions[currentSessionIndex].meta.lastTimestampMs
+		) {
+			// noop
+		} else if (!Session.within($sessions[currentSessionIndex], currentTimestamp)) {
+			currentSessionIndex = $sessions.findIndex(
+				(session) => session.meta.startTimestampMs <= currentTimestamp
+			);
+			currentSession = $sessions[currentSessionIndex];
+		}
 	}
 
-	let currentSessionFileByFilepath = {} as Record<string, string>;
-	let currentSessionDeltasByFilepath = {} as Record<string, Delta[]>;
-	$: Promise.all([
-		listFiles({ projectId: data.projectId, sessionId: $sessions.at(currentSessionIndex)!.id }),
+	let docsByFilepath = {} as Record<string, string>;
+	let deltasByFilepath = {} as Record<string, Delta[]>;
+	$: Promise.allSettled([
+		listFiles({
+			projectId: data.projectId,
+			sessionId: currentSession.id
+		}),
 		listDeltas({
 			projectId: data.projectId,
-			sessionId: $sessions.at(currentSessionIndex)!.id
+			sessionId: currentSession.id
 		})
-	]).then(
-		([files, deltas]) => (
-			(currentSessionFileByFilepath = files), (currentSessionDeltasByFilepath = deltas)
-		)
-	);
+	]).then(async ([currentFiles, currentDeltas]) => {
+		if (currentFiles.status === 'fulfilled') {
+			docsByFilepath = currentFiles.value;
+		} else {
+			throw new Error(currentFiles.reason);
+		}
+
+		if (currentDeltas.status === 'fulfilled') {
+			deltasByFilepath = currentDeltas.value;
+		} else {
+			throw new Error(currentDeltas.reason);
+		}
+	});
 
 	$: currentFilepath =
-		Object.entries(currentSessionDeltasByFilepath)
+		Object.entries(deltasByFilepath)
 			.map(
 				([filepath, deltas]) =>
 					[filepath, deltas.filter((delta) => delta.timestampMs <= currentTimestamp)] as [
@@ -50,12 +74,12 @@
 			.at(0)?.[0] ?? null;
 
 	$: currentDeltas = currentFilepath
-		? (currentSessionDeltasByFilepath[currentFilepath] ?? []).filter(
+		? (deltasByFilepath[currentFilepath] ?? []).filter(
 				(delta) => delta.timestampMs <= currentTimestamp
 		  )
 		: null;
 
-	$: currentDoc = currentFilepath ? currentSessionFileByFilepath[currentFilepath] ?? '' : null;
+	$: currentDoc = currentFilepath ? docsByFilepath[currentFilepath] ?? '' : null;
 
 	// player
 	let interval: ReturnType<typeof setInterval> | undefined;
@@ -128,15 +152,6 @@
 </script>
 
 <div class="flex h-full flex-col gap-2 px-4">
-	<div>
-		<div>current session id {$sessions.at(currentSessionIndex)?.id}</div>
-		<div>current session hash {$sessions.at(currentSessionIndex)?.hash}</div>
-		<div>current filepath {currentFilepath}</div>
-		<div>current deltas.length {currentDeltas?.length}</div>
-		<div>current doc.length {currentDoc?.length}</div>
-		<div>current timestamp {new Date(currentTimestamp)}</div>
-	</div>
-
 	<div class="flex-auto overflow-auto">
 		{#if currentDoc !== null && currentDeltas !== null && currentFilepath !== null}
 			<CodeViewer doc={currentDoc} filepath={currentFilepath} deltas={currentDeltas} />
