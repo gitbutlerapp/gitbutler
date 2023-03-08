@@ -4,6 +4,7 @@
 	import { type Delta, list as listDeltas } from '$lib/deltas';
 	import { CodeViewer } from '$lib/components';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-svelte';
+	import slider from '$lib/slider';
 
 	export let data: PageData;
 
@@ -16,12 +17,10 @@
 	$: {
 		if (Session.within($sessions.at(currentTimestamp), currentTimestamp)) {
 			// noop
-		} else if (Session.within($sessions.at(currentSessionIndex - 1), currentTimestamp)) {
-			currentSessionIndex--;
-		} else if (Session.within($sessions.at(currentSessionIndex + 1), currentTimestamp)) {
-			currentSessionIndex++;
 		} else {
-			// noop
+			currentSessionIndex = $sessions.findIndex(
+				(session) => session.meta.startTimestampMs <= currentTimestamp
+			);
 		}
 	}
 
@@ -109,16 +108,30 @@
 	const rangeWidth = (range: [number, number]) =>
 		(100 * (range[1] - range[0])) / (maxVisibleTimestamp - minVisibleTimestamp) + '%';
 
-	const timestampOffset = (timestamp: number) =>
+	const timestampToOffset = (timestamp: number) =>
 		((timestamp - minVisibleTimestamp) / (maxVisibleTimestamp - minVisibleTimestamp)) * 100 + '%';
+
+	const offsetToTimestamp = (offset: number) =>
+		offset * (maxVisibleTimestamp - minVisibleTimestamp) + minVisibleTimestamp;
+
+	let timeline: HTMLElement;
+
+	const onSelectTimestamp = (e: MouseEvent) => {
+		const { left, width } = timeline.getBoundingClientRect();
+		const clickOffset = e.clientX;
+		const clickPos = Math.min(Math.max((clickOffset - left) / width, 0), 1) || 0;
+		currentTimestamp = offsetToTimestamp(clickPos);
+	};
 </script>
 
 <div class="flex h-full flex-col gap-2 px-4">
 	<div>
+		<div>current session id {$sessions.at(currentSessionIndex)?.id}</div>
+        <div>current session hash {$sessions.at(currentSessionIndex)?.hash}</div>
 		<div>current filepath {currentFilepath}</div>
 		<div>current deltas.length {currentDeltas?.length}</div>
 		<div>current doc.length {currentDoc?.length}</div>
-		<div>current timestamp {new Date(currentTimestamp).toTimeString()}</div>
+		<div>current timestamp {new Date(currentTimestamp)}</div>
 	</div>
 
 	<div class="flex-auto overflow-auto">
@@ -129,16 +142,17 @@
 		{/key}
 	</div>
 
-	<div id="timeline" class="flex w-full items-center py-4">
-		<div class="flex w-full items-center gap-1">
-			<div
-				id="cursor"
-				class="absolute flex h-12 w-4 cursor-pointer items-center justify-around"
-				style:left="calc({timestampOffset(currentTimestamp)} - 1.5rem)"
-			>
-				<div class="h-5 w-0.5 rounded-sm bg-white" />
-			</div>
-
+	<div id="timeline" class="relative flex w-full items-center py-4" bind:this={timeline}>
+		<div
+			id="cursor"
+			use:slider
+			on:drag={({ detail: v }) => (currentTimestamp = offsetToTimestamp(v))}
+			class="absolute flex h-12 w-4 cursor-pointer items-center justify-around transition hover:scale-150"
+			style:left="calc({timestampToOffset(currentTimestamp)} - 0.5rem)"
+		>
+			<div class="h-5 w-0.5 rounded-sm bg-white" />
+		</div>
+		<div id="sessions" class="flex w-full items-center gap-1" on:mousedown={onSelectTimestamp}>
 			<div
 				class="h-2 rounded-sm"
 				style:background-color="inherit"
