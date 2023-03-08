@@ -22,19 +22,18 @@
 	}
 
 	let currentSessionFileByFilepath = {} as Record<string, string>;
-	$: {
-		listFiles({ projectId: data.projectId, sessionId: $sessions.at(currentSessionIndex)!.id }).then(
-			(r) => (currentSessionFileByFilepath = r)
-		);
-	}
-
 	let currentSessionDeltasByFilepath = {} as Record<string, Delta[]>;
-	$: {
+	$: Promise.all([
+		listFiles({ projectId: data.projectId, sessionId: $sessions.at(currentSessionIndex)!.id }),
 		listDeltas({
 			projectId: data.projectId,
 			sessionId: $sessions.at(currentSessionIndex)!.id
-		}).then((r) => (currentSessionDeltasByFilepath = r));
-	}
+		})
+	]).then(
+		([files, deltas]) => (
+			(currentSessionFileByFilepath = files), (currentSessionDeltasByFilepath = deltas)
+		)
+	);
 
 	$: currentFilepath =
 		Object.entries(currentSessionDeltasByFilepath)
