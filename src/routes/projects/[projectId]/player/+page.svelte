@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { listFiles, Session } from '$lib/sessions';
+	import { listFiles } from '$lib/sessions';
 	import { type Delta, list as listDeltas } from '$lib/deltas';
 	import { CodeViewer } from '$lib/components';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-svelte';
@@ -12,7 +12,9 @@
 	const { sessions } = data;
 
 	let currentTimestamp = new Date().getTime();
+
 	$: minVisibleTimestamp = currentTimestamp - 12 * 60 * 60 * 1000;
+
 	let maxVisibleTimestamp = new Date().getTime();
 	onMount(() => {
 		const inverval = setInterval(() => {
@@ -26,52 +28,96 @@
 			session.meta.startTimestampMs >= minVisibleTimestamp ||
 			session.meta.lastTimestampMs >= minVisibleTimestamp
 	);
+	$: earliestVisibleSession = visibleSessions.at(-1)!;
 
-	let currentSessionIndex = 0;
-	let currentSession = $sessions[currentSessionIndex];
-	$: {
-		if (
-			currentSessionIndex === 0 &&
-			currentTimestamp >= $sessions[currentSessionIndex].meta.startTimestampMs
-		) {
-			// noop
-		} else if (
-			currentSessionIndex === $sessions.length &&
-			currentTimestamp <= $sessions[currentSessionIndex].meta.lastTimestampMs
-		) {
-			// noop
-		} else if (!Session.within(currentSession, currentTimestamp)) {
-			currentSessionIndex = $sessions.findIndex(
-				(session) => session.meta.startTimestampMs <= currentTimestamp
-			);
-			currentSession = $sessions[currentSessionIndex];
-		}
+	let deltasBySessionId: Record<string, Promise<Record<string, Delta[]>>> = {};
+	$: visibleSessions
+		.filter((s) => deltasBySessionId[s.id] === undefined)
+		.forEach((s) => {
+			deltasBySessionId[s.id] = listDeltas({
+				projectId: data.projectId,
+				sessionId: s.id
+			});
+		});
+
+	let docsBySessionId: Record<string, Promise<Record<string, string>>> = {};
+	$: if (docsBySessionId[earliestVisibleSession.id] === undefined) {
+		docsBySessionId[earliestVisibleSession.id] = listFiles({
+			projectId: data.projectId,
+			sessionId: earliestVisibleSession.id
+		});
 	}
 
-	let docsByFilepath = {} as Record<string, string>;
-	let deltasByFilepath = {} as Record<string, Delta[]>;
-	$: Promise.allSettled([
-		listFiles({
-			projectId: data.projectId,
-			sessionId: currentSession.id
-		}),
-		listDeltas({
-			projectId: data.projectId,
-			sessionId: currentSession.id
-		})
-	]).then(async ([currentFiles, currentDeltas]) => {
-		if (currentFiles.status === 'fulfilled') {
-			docsByFilepath = currentFiles.value;
-		} else {
-			throw new Error(currentFiles.reason);
-		}
+	listDeltas({
+		projectId: '0317f7eb-0331-4d27-a73b-15170d91bb42',
+		sessionId: 'f6387eb5-2017-479f-b657-a5e873c5442d'
+	})
+		.then((r) => r['src/routes/projects/[projectId]/player/+page.svelte'].map((d) => d.timestampMs))
+		.then((tt) => tt.map((timestamp) => new Date(timestamp)))
+		.then((ttt) => {
+			const s = $sessions.find((s) => s.id === 'f6387eb5-2017-479f-b657-a5e873c5442d')!;
+			console.log({
+				ttt,
+				from: new Date(s.meta.startTimestampMs),
+				to: new Date(s.meta.lastTimestampMs)
+			});
+		});
 
-		if (currentDeltas.status === 'fulfilled') {
-			deltasByFilepath = currentDeltas.value;
-		} else {
-			throw new Error(currentDeltas.reason);
-		}
+	listDeltas({
+		projectId: '0317f7eb-0331-4d27-a73b-15170d91bb42',
+		sessionId: 'ab3fe2ab-da8b-47d1-af95-81488132608f'
+	})
+		.then((r) => r['src/routes/projects/[projectId]/player/+page.svelte'].map((d) => d.timestampMs))
+		.then((tt) => tt.map((timestamp) => new Date(timestamp)))
+		.then((ttt) => {
+			const s = $sessions.find((s) => s.id === 'ab3fe2ab-da8b-47d1-af95-81488132608f')!;
+			console.log({
+				ttt,
+				from: new Date(s.meta.startTimestampMs),
+				to: new Date(s.meta.lastTimestampMs)
+			});
+		});
+
+	$: console.log($sessions);
+
+	$: {
+		const entries = Object.entries(deltasBySessionId);
+		const values = entries.map((entry) => entry[1]);
+		const keys = entries.map((entry) => entry[0]);
+		Promise.all(values).then((sessionsDeltas) => {
+			const seen = {} as Record<string, Record<string, string>>;
+			sessionsDeltas.forEach((deltas, i) => {
+				const sessionId = keys[i];
+				Object.entries(deltas).forEach(([filepath, deltas]) =>
+					deltas.forEach((delta) => {
+						seen[filepath] ??= {};
+						if (seen[filepath][delta.timestampMs] !== undefined) {
+							console.log(
+								`duplicate delta for ${filepath} in ${
+									seen[filepath][delta.timestampMs]
+								} and ${sessionId}`
+							);
+						} else {
+							seen[filepath][delta.timestampMs] = sessionId;
+						}
+					})
+				);
+			});
+			console.log({ seen });
+		});
+	}
+
+	let deltasByFilepath: Record<string, Delta[]> = {};
+	$: Promise.all(Object.values(deltasBySessionId)).then((sessionsDeltas) => {
+		deltasByFilepath = sessionsDeltas.reduce((acc, deltas) => {
+			Object.entries(deltas).forEach(([filepath, deltas]) => {
+				acc[filepath] = [...(acc[filepath] ?? []), ...deltas];
+			});
+			return acc;
+		}, {} as Record<string, Delta[]>);
 	});
+
+	console.log({ deltasByFilepath });
 
 	$: currentFilepath =
 		Object.entries(deltasByFilepath)
@@ -93,7 +139,14 @@
 		  )
 		: null;
 
-	$: currentDoc = currentFilepath ? docsByFilepath[currentFilepath] ?? '' : null;
+	let currentDoc: string | null = null;
+	$: {
+		docsBySessionId[earliestVisibleSession.id].then((docs) => {
+			if (currentFilepath !== null) {
+				currentDoc = docs[currentFilepath];
+			}
+		});
+	}
 
 	// player
 	let interval: ReturnType<typeof setInterval> | undefined;
@@ -154,6 +207,8 @@
 		const clickPos = Math.min(Math.max((clickOffset - left) / width, 0), 1) || 0;
 		currentTimestamp = offsetToTimestamp(clickPos);
 	};
+
+	$: console.log({ currentDoc, currentDeltas: currentDeltas, currentFilepath: currentFilepath });
 </script>
 
 <div class="flex h-full flex-col gap-2 px-4">
