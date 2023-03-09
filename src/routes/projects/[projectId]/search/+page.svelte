@@ -8,17 +8,21 @@
 	import type { Delta } from '$lib/deltas';
 	import { structuredPatch } from 'diff';
 	import { formatDistanceToNow } from 'date-fns';
-	// import { onMount } from 'svelte';
+	import { onMount } from 'svelte';
 
 	export let data: PageData;
 	const { project } = data;
 
+	const urlParams = new URLSearchParams(window.location.search);
+	console.log(urlParams.get('search'));
+
 	let query: string;
-	// onMount(async () => {
-	// 	await new Promise((r) => setTimeout(r, 100));
-	// 	query = 'transform';
-	// 	fetchResults();
-	// });
+
+	onMount(async () => {
+		await new Promise((r) => setTimeout(r, 100));
+		query = urlParams.get('search');
+		fetchResults();
+	});
 
 	const results = writable<SearchResult[]>([]);
 

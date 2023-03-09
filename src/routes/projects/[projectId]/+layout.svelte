@@ -33,7 +33,47 @@
 	<nav
 		class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-8 text-zinc-300"
 	>
-		<div />
+		<div class="flex flex-row items-center space-x-2">
+			<form action="/projects/{$project?.id}/search" method="GET">
+				<div class="flex w-48 max-w-lg rounded-md shadow-sm">
+					<input
+						type="text"
+						name="search"
+						id="search"
+						placeholder="search"
+						class="block w-full pl-3 min-w-0 flex-1 rounded-none bg-zinc-900 border-r-0 rounded-l-md border-0 py-1.5 text-zinc-200 ring-1 ring-inset ring-zinc-700 placeholder:text-zinc-400 focus:ring-1 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+					/>
+					<span
+						class="inline-flex items-center rounded-r-md bg-zinc-900 border border-l-0 border-zinc-700 px-3 text-gray-500 sm:text-sm"
+						>&#8984;K</span
+					>
+				</div>
+			</form>
+			<a href="/projects/{$project?.id}/player" class="text-zinc-400 hover:text-zinc-200">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+					class="w-6 h-6"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z"
+					/>
+				</svg>
+			</a>
+			<a href="/projects/{$project?.id}/timeline" class="text-orange-400 hover:text-zinc-200"
+				>Timeline</a
+			>
+		</div>
 
 		<ul>
 			<li>
