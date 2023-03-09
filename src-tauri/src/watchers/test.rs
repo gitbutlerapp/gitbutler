@@ -1,4 +1,4 @@
-use crate::{deltas, list_deltas, projects, repositories};
+use crate::projects;
 use anyhow::Result;
 use std::path::Path;
 use tempfile::tempdir;
@@ -29,12 +29,13 @@ fn test_flush_session() {
     let relative_file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(relative_file_path), "hello").unwrap();
 
-    let result = super::delta::register_file_change(&project, &repo, relative_file_path);
+    let result = super::delta::register_file_change(&project, &repo, &relative_file_path);
     assert!(result.is_ok());
     let maybe_session_deltas = result.unwrap();
     assert!(maybe_session_deltas.is_some());
-    let (mut session1, _) = maybe_session_deltas.unwrap();
+    let (mut session1, deltas1) = maybe_session_deltas.unwrap();
     assert_eq!(session1.hash, None);
+    assert_eq!(deltas1.len(), 1);
 
     session1.flush(&repo, &None, &project).unwrap();
     assert!(session1.hash.is_some());
@@ -45,26 +46,15 @@ fn test_flush_session() {
     )
     .unwrap();
 
-    let result = super::delta::register_file_change(&project, &repo, relative_file_path);
+    let result = super::delta::register_file_change(&project, &repo, &relative_file_path);
     assert!(result.is_ok());
     let maybe_session_deltas = result.unwrap();
     assert!(maybe_session_deltas.is_some());
-    let (mut session2, _) = maybe_session_deltas.unwrap();
+    let (mut session2, deltas2) = maybe_session_deltas.unwrap();
     assert_eq!(session2.hash, None);
+    assert_eq!(deltas2.len(), 1);
     assert_ne!(session1.id, session2.id);
 
     session2.flush(&repo, &None, &project).unwrap();
     assert!(session2.hash.is_some());
-
-    let deltas = deltas::list(
-        &repo,
-        &project,
-        &repo.find_reference(&project.refname()).unwrap(),
-        &session2.id,
-    )
-    .unwrap();
-
-    println!("{:?}", deltas);
-
-    assert_eq!(1, 2);
 }

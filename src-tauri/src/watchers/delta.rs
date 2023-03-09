@@ -3,7 +3,7 @@ use crate::projects;
 use crate::{events, sessions};
 use anyhow::{Context, Result};
 use git2;
-use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -11,6 +11,24 @@ use std::sync::mpsc;
 
 pub struct DeltaWatchers {
     watchers: HashMap<String, RecommendedWatcher>,
+}
+
+fn is_interesting_event(kind: &notify::EventKind) -> Option<String> {
+    match kind {
+        notify::EventKind::Create(notify::event::CreateKind::File) => {
+            Some("file created".to_string())
+        }
+        notify::EventKind::Modify(notify::event::ModifyKind::Data(_)) => {
+            Some("file modified".to_string())
+        }
+        notify::EventKind::Modify(notify::event::ModifyKind::Name(_)) => {
+            Some("file renamed".to_string())
+        }
+        notify::EventKind::Remove(notify::event::RemoveKind::File) => {
+            Some("file removed".to_string())
+        }
+        _ => None,
+    }
 }
 
 impl DeltaWatchers {
@@ -35,26 +53,31 @@ impl DeltaWatchers {
 
         self.watchers.insert(project.path.clone(), watcher);
 
-        let repo = git2::Repository::open(project_path)?;
         tauri::async_runtime::spawn_blocking(move || {
             while let Ok(event) = rx.recv() {
                 match event {
                     Ok(notify_event) => {
                         for file_path in notify_event.paths {
                             let relative_file_path =
-                                file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
+                                file_path.strip_prefix(project.path.clone()).unwrap();
+                            let repo = git2::Repository::open(&project.path).expect(
+                                format!("failed to open repo at {}", project.path).as_str(),
+                            );
 
-                            match notify_event.kind {
-                                EventKind::Modify(_) => {
-                                    log::info!("File modified: {}", file_path.display());
-                                }
-                                EventKind::Create(_) => {
-                                    log::info!("File created: {}", file_path.display());
-                                }
-                                EventKind::Remove(_) => {
-                                    log::info!("File removed: {}", file_path.display());
-                                }
-                                _ => {}
+                            if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
+                                // make sure we're not watching ignored files
+                                continue;
+                            }
+
+                            if let Some(kind_string) = is_interesting_event(&notify_event.kind) {
+                                log::info!(
+                                    "{}: \"{}\" {}",
+                                    project.id,
+                                    relative_file_path.display(),
+                                    kind_string
+                                );
+                            } else {
+                                continue;
                             }
 
                             match register_file_change(&project, &repo, &relative_file_path) {
@@ -104,11 +127,6 @@ pub(crate) fn register_file_change(
     repo: &git2::Repository,
     relative_file_path: &Path,
 ) -> Result<Option<(sessions::Session, Vec<Delta>)>> {
-    if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
-        // make sure we're not watching ignored files
-        return Ok(None);
-    }
-
     let file_path = repo.workdir().unwrap().join(relative_file_path);
     let file_contents = match fs::read_to_string(&file_path) {
         Ok(contents) => contents,
@@ -126,7 +144,7 @@ pub(crate) fn register_file_change(
     };
 
     // first, we need to check if the file exists in the meta commit
-    let latest_contents = get_latest_file_contents(repo, project, relative_file_path)
+    let latest_contents = get_latest_file_contents(&repo, project, relative_file_path)
         .with_context(|| {
             format!(
                 "Failed to get latest file contents for {}",
@@ -155,7 +173,7 @@ pub(crate) fn register_file_change(
     } else {
         // if the file was modified, save the deltas
         let deltas = text_doc.get_deltas();
-        let session = write(repo, project, relative_file_path, &deltas)?;
+        let session = write(&repo, project, relative_file_path, &deltas)?;
         Ok(Some((session, deltas)))
     }
 }

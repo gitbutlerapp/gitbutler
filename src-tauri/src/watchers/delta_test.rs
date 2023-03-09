@@ -29,7 +29,7 @@ fn test_register_file_change_must_create_session() {
     let relative_file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(relative_file_path), "test").unwrap();
 
-    let result = super::delta::register_file_change(&project, &repo, relative_file_path);
+    let result = super::delta::register_file_change(&project, &repo, &relative_file_path);
     assert!(result.is_ok());
     let maybe_session_deltas = result.unwrap();
     assert!(maybe_session_deltas.is_some());
@@ -45,7 +45,7 @@ fn test_register_file_change_must_not_change_session() {
     let relative_file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(relative_file_path), "test").unwrap();
 
-    let result = super::delta::register_file_change(&project, &repo, relative_file_path);
+    let result = super::delta::register_file_change(&project, &repo, &relative_file_path);
     assert!(result.is_ok());
     let maybe_session_deltas = result.unwrap();
     assert!(maybe_session_deltas.is_some());
@@ -54,7 +54,7 @@ fn test_register_file_change_must_not_change_session() {
 
     std::fs::write(Path::new(&project.path).join(relative_file_path), "test2").unwrap();
 
-    let result = super::delta::register_file_change(&project, &repo, relative_file_path);
+    let result = super::delta::register_file_change(&project, &repo, &relative_file_path);
     assert!(result.is_ok());
     let maybe_session_deltas = result.unwrap();
     assert!(maybe_session_deltas.is_some());
