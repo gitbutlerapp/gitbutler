@@ -34,35 +34,27 @@ impl<'a> SessionWatcher {
         match self
             .projects_storage
             .get_project(&project_id)
-            .with_context(|| {
-                format!("Error while getting project {} for git watcher", project_id)
-            })? {
+            .with_context(|| format!("{}: failed to get project", project_id))?
+        {
             Some(project) => {
-                let user = self.users_storage.get().with_context(|| {
-                    format!(
-                        "Error while getting user for git watcher in {}",
-                        project.path
-                    )
-                })?;
+                let user = self
+                    .users_storage
+                    .get()
+                    .with_context(|| format!("{}: failed to get user", project.id))?;
+
                 match self.check_for_changes(&project, &user)? {
                     Some(session) => {
                         sender
                             .send(events::Event::session(&project, &session))
                             .with_context(|| {
-                                format!(
-                                    "Error while sending session event for git watcher in {}",
-                                    project.path
-                                )
+                                format!("{}: failed to send session event", project.id)
                             })?;
                         Ok(())
                     }
                     None => Ok(()),
                 }
             }
-            None => {
-                log::error!("Project {} not found for git watcher", project_id);
-                Ok(())
-            }
+            None => Err(anyhow::anyhow!("project not found")),
         }
     }
 
@@ -71,7 +63,7 @@ impl<'a> SessionWatcher {
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
     ) -> Result<()> {
-        log::info!("Watching sessions for {}", project.path);
+        log::info!("{}: watching sessions in {}", project.id, project.path);
 
         let shared_self = self.clone();
         let mut self_copy = shared_self.clone();
@@ -80,7 +72,7 @@ impl<'a> SessionWatcher {
         tauri::async_runtime::spawn_blocking(move || loop {
             let local_self = &mut self_copy;
             if let Err(e) = local_self.run(&project_id, sender.clone()) {
-                log::error!("Error while running git watcher: {:#}", e);
+                log::error!("{}: error while running git watcher: {:#}", project_id, e);
             }
             thread::sleep(Duration::from_secs(10));
         });
@@ -101,18 +93,19 @@ impl<'a> SessionWatcher {
         project: &projects::Project,
         user: &Option<users::User>,
     ) -> Result<Option<sessions::Session>> {
-        let repo = git2::Repository::open(project.path.clone())?;
+        let repo = git2::Repository::open(project.path.clone())
+            .with_context(|| format!("{}: failed to open repository", project.id))?;
         match session_to_commit(&repo, project)
-            .with_context(|| "Error while checking for session to commit")?
+            .with_context(|| "failed to check for session to comit")?
         {
             None => Ok(None),
             Some(mut session) => {
                 session
                     .flush(&repo, user, project)
-                    .with_context(|| "Error while flushing session")?;
+                    .with_context(|| format!("failed to flush session {}", session.id))?;
                 self.deltas_searcher
                     .index_session(&repo, &project, &session)
-                    .with_context(|| format!("Error while indexing session {}", session.id))?;
+                    .with_context(|| format!("failed to index session {}", session.id))?;
                 Ok(Some(session))
             }
         }
@@ -126,10 +119,10 @@ fn session_to_commit(
     repo: &Repository,
     project: &projects::Project,
 ) -> Result<Option<sessions::Session>> {
-    match sessions::Session::current(repo, project)? {
-        None => {
-            Ok(None)
-        }
+    match sessions::Session::current(repo, project)
+        .with_context(|| format!("{}: failed to get current session", project.id))?
+    {
+        None => Ok(None),
         Some(current_session) => {
             let now = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
@@ -140,11 +133,19 @@ fn session_to_commit(
             let elapsed_start = now - current_session.meta.start_timestamp_ms;
 
             if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {
+                log::info!(
+                    "{}: ready to commit {} ({} seconds elapsed, {} seconds since start)",
+                    project.id,
+                    project.path,
+                    elapsed_last / 1000,
+                    elapsed_start / 1000
+                );
                 Ok(Some(current_session))
             } else {
                 log::debug!(
-                    "Not ready to commit {} yet. ({} seconds elapsed, {} seconds since start)",
-                    repo.workdir().unwrap().display(),
+                    "{}: not ready to commit {} yet. ({} seconds elapsed, {} seconds since start)",
+                    project.id,
+                    project.path,
                     elapsed_last / 1000,
                     elapsed_start / 1000
                 );

@@ -1,6 +1,6 @@
 use crate::projects::project;
 use crate::storage;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 const PROJECTS_FILE: &str = "projects.json";
@@ -26,7 +26,8 @@ impl Storage {
     pub fn list_projects(&self) -> Result<Vec<project::Project>> {
         match self.storage.read(PROJECTS_FILE)? {
             Some(projects) => {
-                let all_projects: Vec<project::Project> = serde_json::from_str(&projects)?;
+                let all_projects: Vec<project::Project> = serde_json::from_str(&projects)
+                    .with_context(|| format!("Failed to parse projects from {}", PROJECTS_FILE))?;
                 let non_deleted_projects = all_projects
                     .into_iter()
                     .filter(|p: &project::Project| !p.deleted)

@@ -154,7 +154,7 @@ impl Session {
             meta,
             activity,
         };
-        create(project, &session)?;
+        create(project, &session).with_context(|| "failed to create current session from head")?;
         Ok(session)
     }
 
@@ -239,7 +239,7 @@ impl Session {
         })
     }
 
-    pub fn update(&mut self, project: &projects::Project) -> Result<()> {
+    pub fn touch(&mut self, project: &projects::Project) -> Result<()> {
         update(project, self)
     }
 
@@ -325,11 +325,11 @@ fn update(project: &projects::Project, session: &mut Session) -> Result<()> {
         .as_millis();
 
     let session_path = project.session_path();
-    log::debug!("{}: Updating current session", session_path.display());
+    log::debug!("{}: updating current session", project.id);
     if session_path.exists() {
         write(&session_path, session)
     } else {
-        Err(anyhow!("session does not exist"))
+        Err(anyhow!("\"{}\" does not exist", session_path.display()))
     }
 }
 
@@ -346,7 +346,7 @@ fn create(project: &projects::Project, session: &Session) -> Result<()> {
 
 fn delete(project: &projects::Project) -> Result<()> {
     let session_path = project.session_path();
-    log::debug!("{}: Deleting current session", session_path.display());
+    log::debug!("{}: deleting current session", project.id);
     if session_path.exists() {
         std::fs::remove_dir_all(session_path)?;
     }
@@ -537,8 +537,8 @@ fn flush(
     }
 
     session
-        .update(project)
-        .with_context(|| format!("failed to update session"))?;
+        .touch(project)
+        .with_context(|| format!("failed to touch session"))?;
 
     let wd_index = &mut git2::Index::new()
         .with_context(|| format!("failed to create index for working directory"))?;
@@ -586,17 +586,24 @@ fn flush(
         )
     })?;
 
-    log::debug!(
-        "{}: wrote gb commit {}",
-        repo.workdir().unwrap().display(),
-        commit_oid
+    log::info!(
+        "{}: flushed session {} into commit {}",
+        project.id,
+        session.id,
+        commit_oid,
     );
 
     session.hash = Some(commit_oid.to_string());
-    delete(project).with_context(|| format!("failed to delete session"))?;
+
+    delete(project)?;
 
     if let Err(e) = push_to_remote(repo, user, project) {
-        log::error!("failed to push gb commit {} to remote: {:#}", commit_oid, e);
+        log::error!(
+            "{}: failed to push gb commit {} to remote: {:#}",
+            project.id,
+            commit_oid,
+            e
+        );
     }
 
     Ok(())
@@ -679,10 +686,18 @@ fn push_to_remote(
 // it ignores files that are in the .gitignore
 fn build_wd_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()> {
     // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
-    let repo_index = &mut repo.index()?;
+    let repo_index = &mut repo
+        .index()
+        .with_context(|| format!("failed to open repo index"))?;
 
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
-    let all_files = fs::list_files(repo.workdir().unwrap())?;
+    let all_files = fs::list_files(repo.workdir().unwrap()).with_context(|| {
+        format!(
+            "failed to list files in {}",
+            repo.workdir().unwrap().display()
+        )
+    })?;
+
     for file in all_files {
         let file_path = Path::new(&file);
         if !repo.is_path_ignored(&file).unwrap_or(true) {
@@ -724,7 +739,7 @@ fn add_wd_path(
             && entry.file_size == u32::try_from(metadata.len())?
             && entry.mode == metadata.mode()
         {
-            log::debug!("Using existing entry for {}", file_path.display());
+            log::debug!("using existing entry for {}", file_path.display());
             index.add(&entry).unwrap();
             return Ok(());
         }
@@ -732,7 +747,7 @@ fn add_wd_path(
 
     // something is different, or not found, so we need to create a new entry
 
-    log::debug!("Adding wd path: {}", file_path.display());
+    log::debug!("adding wd path: {}", file_path.display());
 
     // look for files that are bigger than 4GB, which are not supported by git
     // insert a pointer as the blob content instead
@@ -770,29 +785,30 @@ fn add_wd_path(
     };
 
     // create a new IndexEntry from the file metadata
-    match index.add(&git2::IndexEntry {
-        ctime: git2::IndexTime::new(
-            ctime.seconds().try_into()?,
-            ctime.nanoseconds().try_into().unwrap(),
-        ),
-        mtime: git2::IndexTime::new(
-            mtime.seconds().try_into()?,
-            mtime.nanoseconds().try_into().unwrap(),
-        ),
-        dev: metadata.dev().try_into()?,
-        ino: metadata.ino().try_into()?,
-        mode: 33188,
-        uid: metadata.uid().try_into().unwrap(),
-        gid: metadata.gid().try_into().unwrap(),
-        file_size: metadata.len().try_into().unwrap(),
-        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
-        flags_extended: 0, // no extended flags
-        path: rel_file_path.to_str().unwrap().to_string().into(),
-        id: blob,
-    }) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e).with_context(|| "failed to add working directory path".to_string()),
-    }
+    index
+        .add(&git2::IndexEntry {
+            ctime: git2::IndexTime::new(
+                ctime.seconds().try_into()?,
+                ctime.nanoseconds().try_into().unwrap(),
+            ),
+            mtime: git2::IndexTime::new(
+                mtime.seconds().try_into()?,
+                mtime.nanoseconds().try_into().unwrap(),
+            ),
+            dev: metadata.dev().try_into()?,
+            ino: metadata.ino().try_into()?,
+            mode: 33188,
+            uid: metadata.uid().try_into().unwrap(),
+            gid: metadata.gid().try_into().unwrap(),
+            file_size: metadata.len().try_into().unwrap(),
+            flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
+            flags_extended: 0, // no extended flags
+            path: rel_file_path.to_str().unwrap().to_string().into(),
+            id: blob,
+        })
+        .with_context(|| format!("failed to add index entry for {}", file_path.display()))?;
+
+    Ok(())
 }
 
 /// calculates sha256 digest of a large file as lowercase hex string via streaming buffer
@@ -874,12 +890,8 @@ fn build_session_index(
     let session_dir = project.session_path();
     for session_file in fs::list_files(&session_dir)? {
         let file_path = Path::new(&session_file);
-        add_session_path(&repo, index, project, &file_path).with_context(|| {
-            format!(
-                "Failed to add session file to index: {}",
-                file_path.display()
-            )
-        })?;
+        add_session_path(&repo, index, project, &file_path)
+            .with_context(|| format!("failed to add session file: {}", file_path.display()))?;
     }
 
     Ok(())
@@ -894,7 +906,7 @@ fn add_session_path(
 ) -> Result<()> {
     let file_path = project.session_path().join(rel_file_path);
 
-    log::debug!("Adding session path: {}", file_path.display());
+    log::debug!("adding session path: {}", file_path.display());
 
     let blob = repo.blob_path(&file_path)?;
     let metadata = file_path.metadata()?;
@@ -902,26 +914,33 @@ fn add_session_path(
     let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
     // create a new IndexEntry from the file metadata
-    index.add(&git2::IndexEntry {
-        ctime: git2::IndexTime::new(
-            ctime.seconds().try_into()?,
-            ctime.nanoseconds().try_into().unwrap(),
-        ),
-        mtime: git2::IndexTime::new(
-            mtime.seconds().try_into()?,
-            mtime.nanoseconds().try_into().unwrap(),
-        ),
-        dev: metadata.dev().try_into()?,
-        ino: metadata.ino().try_into()?,
-        mode: metadata.mode(),
-        uid: metadata.uid().try_into().unwrap(),
-        gid: metadata.gid().try_into().unwrap(),
-        file_size: metadata.len().try_into()?,
-        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
-        flags_extended: 0, // no extended flags
-        path: rel_file_path.to_str().unwrap().into(),
-        id: blob,
-    })?;
+    index
+        .add(&git2::IndexEntry {
+            ctime: git2::IndexTime::new(
+                ctime.seconds().try_into()?,
+                ctime.nanoseconds().try_into().unwrap(),
+            ),
+            mtime: git2::IndexTime::new(
+                mtime.seconds().try_into()?,
+                mtime.nanoseconds().try_into().unwrap(),
+            ),
+            dev: metadata.dev().try_into()?,
+            ino: metadata.ino().try_into()?,
+            mode: metadata.mode(),
+            uid: metadata.uid().try_into().unwrap(),
+            gid: metadata.gid().try_into().unwrap(),
+            file_size: metadata.len().try_into()?,
+            flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
+            flags_extended: 0, // no extended flags
+            path: rel_file_path.to_str().unwrap().into(),
+            id: blob,
+        })
+        .with_context(|| {
+            format!(
+                "Failed to add session file to index: {}",
+                file_path.display()
+            )
+        })?;
 
     Ok(())
 }
@@ -958,16 +977,20 @@ fn write_gb_commit(
             )?;
             Ok(new_commit)
         }
-        Err(_) => {
-            let new_commit = repo.commit(
-                Some(refname.as_str()),
-                &author,                           // author
-                &comitter,                         // committer
-                "gitbutler check",                 // commit message
-                &repo.find_tree(gb_tree).unwrap(), // tree
-                &[],                               // parents
-            )?;
-            Ok(new_commit)
+        Err(e) => {
+            if e.code() == git2::ErrorCode::NotFound {
+                let new_commit = repo.commit(
+                    Some(refname.as_str()),
+                    &author,                           // author
+                    &comitter,                         // committer
+                    "gitbutler check",                 // commit message
+                    &repo.find_tree(gb_tree).unwrap(), // tree
+                    &[],                               // parents
+                )?;
+                Ok(new_commit)
+            } else {
+                return Err(e.into());
+            }
         }
     }
 }

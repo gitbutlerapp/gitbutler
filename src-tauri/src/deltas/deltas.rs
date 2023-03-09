@@ -19,12 +19,19 @@ pub fn read(project: &projects::Project, file_path: &Path) -> Result<Option<Vec<
 
     let file_deltas = std::fs::read_to_string(&file_deltas_path).with_context(|| {
         format!(
-            "Failed to read file deltas from {}",
+            "failed to read file deltas from {}",
             file_deltas_path.to_str().unwrap()
         )
     })?;
 
-    Ok(Some(serde_json::from_str(&file_deltas)?))
+    let deltas: Vec<Delta> = serde_json::from_str(&file_deltas).with_context(|| {
+        format!(
+            "failed to parse file deltas from {}",
+            file_deltas_path.to_str().unwrap()
+        )
+    })?;
+
+    Ok(Some(deltas))
 }
 
 pub fn write(
@@ -34,26 +41,31 @@ pub fn write(
     deltas: &Vec<Delta>,
 ) -> Result<sessions::Session> {
     // make sure we always have a session before writing deltas
-    let mut session = match sessions::Session::current(repo, project)? {
-        Some(session) => Ok(session),
+    let session = match sessions::Session::current(repo, project)? {
+        Some(mut session) => {
+            session
+                .touch(project)
+                .with_context(|| format!("failed to touch session {}", session.id))?;
+            Ok(session)
+        }
         None => sessions::Session::from_head(repo, project),
     }?;
 
     let delta_path = project.deltas_path().join(file_path);
     let delta_dir = delta_path.parent().unwrap();
     std::fs::create_dir_all(&delta_dir)?;
-    log::info!("mkdir {}", delta_path.to_str().unwrap());
-    log::info!("Writing deltas to {}", delta_path.to_str().unwrap());
+    log::info!(
+        "{}: writing deltas to {}",
+        project.id,
+        delta_path.to_str().unwrap()
+    );
     let raw_deltas = serde_json::to_string(&deltas)?;
     std::fs::write(delta_path.clone(), raw_deltas).with_context(|| {
         format!(
-            "Failed to write file deltas to {}",
+            "failed to write file deltas to {}",
             delta_path.to_str().unwrap()
         )
     })?;
-
-    // update last session activity timestamp
-    session.update(project)?;
 
     Ok(session)
 }

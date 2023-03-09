@@ -132,15 +132,12 @@ fn init(
                     Some(session) => session,
                     None => sessions::Session::from_head(git_repository, project)?,
                 };
-                current_session.flush(git_repository, user, project)?;
+                current_session
+                    .flush(git_repository, user, project)
+                    .with_context(|| format!("{}: failed to flush session", project.id))?;
                 Ok(())
             } else {
-                Err(error).with_context(|| {
-                    format!(
-                        "failed to find reference {} in repository {}",
-                        reference_name, project.path
-                    )
-                })
+                Err(error.into())
             }
         }
     }
