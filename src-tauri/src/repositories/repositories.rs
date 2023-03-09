@@ -69,6 +69,49 @@ impl Repository {
             session_id,
         )
     }
+
+    // get file status from git
+    pub fn status(&self) -> HashMap<String, String> {
+        println!("Git Status");
+
+        let mut options = git2::StatusOptions::new();
+        options.include_untracked(true);
+        options.include_ignored(false);
+        options.recurse_untracked_dirs(true);
+
+        // get the status of the repository
+        let statuses = self
+            .git_repository
+            .statuses(Some(&mut options))
+            .with_context(|| "failed to get repository status");
+
+        let mut files = HashMap::new();
+
+        match statuses {
+            Ok(statuses) => {
+                // iterate over the statuses
+                for entry in statuses.iter() {
+                    // get the path of the entry
+                    let path = entry.path().unwrap();
+                    // get the status as a string
+                    let istatus = match entry.status() {
+                        s if s.contains(git2::Status::WT_NEW) => "added",
+                        s if s.contains(git2::Status::WT_MODIFIED) => "modified",
+                        s if s.contains(git2::Status::WT_DELETED) => "deleted",
+                        s if s.contains(git2::Status::WT_RENAMED) => "renamed",
+                        s if s.contains(git2::Status::WT_TYPECHANGE) => "typechange",
+                        _ => continue,
+                    };
+                    files.insert(path.to_string(), istatus.to_string());
+                }
+            }
+            Err(_) => {
+                println!("Error getting status");
+            }
+        }
+
+        return files;
+    }
 }
 
 fn init(

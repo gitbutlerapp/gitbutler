@@ -4,6 +4,20 @@
 	export let data: LayoutData;
 	$: project = data.project;
 	$: dateSessions = data.dateSessions;
+	$: filesStatus = data.filesStatus;
+
+	function shortPath(path, max = 3) {
+		if (path.length < 30) {
+			return path;
+		}
+		const pathParts = path.split('/');
+		const file = pathParts.pop();
+		if (pathParts.length > 0) {
+			const pp = pathParts.map((p) => p.slice(0, max)).join('/');
+			return `${pp}/${file}`;
+		}
+		return file;
+	}
 
 	// convert a list of timestamps to a sparkline
 	function timestampsToSpark(tsArray) {
@@ -138,8 +152,21 @@
 		</div>
 		<div class="col-span-1 space-y-6">
 			<div>
-				<h2 class="text-lg font-bold text-zinc-500">Work in Progress</h2>
-				<div class="text-zinc-400 mt-4 mb-1 bg-zinc-700 rounded p-4">No uncommitted work</div>
+				<h2 class="text-lg font-bold text-zinc-500 mb-2">Work in Progress</h2>
+				{#if Object.entries(filesStatus).length == 0}
+					<div class="bg-green-900 text-green-500 p-4 rounded">Everything is committed</div>
+				{:else}
+					<div class="bg-blue-900 p-4 rounded">
+						<ul class="">
+							{#each Object.entries(filesStatus) as activity}
+								<li>
+									{activity[1].slice(0, 1)}
+									{shortPath(activity[0])}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 			</div>
 
 			<div>

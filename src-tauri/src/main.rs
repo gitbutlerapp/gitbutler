@@ -370,6 +370,24 @@ fn list_deltas(
     Ok(deltas)
 }
 
+#[tauri::command]
+fn git_status(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<HashMap<String, String>, Error> {
+    let app_state = handle.state::<App>();
+
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let files = repo.status();
+
+    Ok(files)
+}
+
 fn main() {
     let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
     let hide = tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title()));
@@ -480,7 +498,8 @@ fn main() {
             set_user,
             delete_user,
             get_user,
-            search
+            search,
+            git_status
         ]);
 
     let tauri_context = generate_context!();

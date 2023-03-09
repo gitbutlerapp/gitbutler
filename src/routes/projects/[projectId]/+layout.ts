@@ -6,10 +6,15 @@ import type { UISession } from '$lib/uisessions';
 import { asyncDerived } from '@square/svelte-store';
 import type { Delta } from '$lib/deltas';
 import { startOfDay } from 'date-fns';
+import { invoke } from '@tauri-apps/api';
 
 export const prerender = false;
 export const load: LayoutLoad = async ({ parent, params }) => {
 	const { projects } = await parent();
+
+	const filesStatus = building
+		? readable<Record<string, string>>({})
+		: await invoke<Record<string, string>>('git_status', { projectId: params.projectId });
 
 	const sessions = building
 		? readable<Session[]>([])
@@ -66,6 +71,7 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 				});
 			});
 
+
 			return dateSessions;
 		});
 	}
@@ -74,6 +80,7 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		project: projects.get(params.projectId),
 		projectId: params.projectId,
 		sessions: orderedSessions,
-		dateSessions: dateSessions
+		dateSessions: dateSessions,
+		filesStatus: filesStatus
 	};
 };
