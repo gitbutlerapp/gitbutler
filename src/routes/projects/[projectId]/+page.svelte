@@ -8,7 +8,6 @@
 	// convert a list of timestamps to a sparkline
 	function timestampsToSpark(tsArray) {
 		let range = tsArray[0] - tsArray[tsArray.length - 1];
-		console.log(range);
 
 		let totalBuckets = 18;
 		let bucketSize = range / totalBuckets;
@@ -22,7 +21,6 @@
 				buckets[bucket].push(ts);
 			}
 		});
-		console.log(buckets);
 
 		let spark = '';
 		buckets.forEach((entries) => {
@@ -52,17 +50,19 @@
 	function sessionFileMap(sessions: any[]) {
 		let sessionsByFile = {};
 		sessions.forEach((session) => {
-			Object.entries(session.deltas).forEach((deltas) => {
-				let filename = deltas[0];
-				let timestamps = deltas[1].map((delta: any) => {
-					return delta.timestampMs;
+			if (session.deltas) {
+				Object.entries(session.deltas).forEach((deltas) => {
+					let filename = deltas[0];
+					let timestamps = deltas[1].map((delta: any) => {
+						return delta.timestampMs;
+					});
+					if (sessionsByFile[filename]) {
+						sessionsByFile[filename] = sessionsByFile[filename].concat(timestamps).sort();
+					} else {
+						sessionsByFile[filename] = timestamps;
+					}
 				});
-				if (sessionsByFile[filename]) {
-					sessionsByFile[filename] = sessionsByFile[filename].concat(timestamps).sort();
-				} else {
-					sessionsByFile[filename] = timestamps;
-				}
-			});
+			}
 		});
 
 		return sessionsByFile;
@@ -78,6 +78,27 @@
 				return [date, sessionFileMap(sessions)];
 			})
 			.slice(0, 3);
+	}
+
+	function recentActivity(dateSessions: Record<string, any>) {
+		let recentActivity = [];
+		if (dateSessions) {
+			Object.entries(dateSessions).forEach(([date, sessions]) => {
+				console.log(date, sessions);
+				sessions.forEach((session) => {
+					if (session.session) {
+						session.session.activity.forEach((activity) => {
+							recentActivity.push(activity);
+						});
+					}
+				});
+			});
+		}
+		let activitySorted = recentActivity.sort((a, b) => {
+			return b.timestampMs - a.timestampMs;
+		});
+		console.log(activitySorted);
+		return activitySorted.slice(0, 20);
 	}
 </script>
 
@@ -105,7 +126,7 @@
 							<div class="bg-zinc-700 rounded p-4">
 								{#each Object.entries(fileSessions) as filetime}
 									<div class="flex flex-row justify-between">
-										<div class="text-zinc-200 font-mono">{filetime[0]}</div>
+										<div class="text-zinc-100 font-mono">{filetime[0]}</div>
 										<div class="text-zinc-400">{@html timestampsToSpark(filetime[1])}</div>
 									</div>
 								{/each}
@@ -123,7 +144,24 @@
 
 			<div>
 				<h2 class="text-lg font-bold text-zinc-500">Recent Activity</h2>
-				<div class="text-zinc-400 mt-4 mb-1 bg-zinc-700 rounded p-4">No recent activity</div>
+				{#each recentActivity($dateSessions) as activity}
+					<div class="text-zinc-400 mt-4 mb-1">
+						<div class="flex flex-col">
+							<div class="flex flex-row justify-between p-2 bg-zinc-700 rounded-t">
+								<div class="text-zinc-300">
+									{new Date(parseInt(activity.timestampMs)).toLocaleDateString('en-us', {
+										weekday: 'long',
+										year: 'numeric',
+										month: 'short',
+										day: 'numeric'
+									})}
+								</div>
+								<div>{activity.type}</div>
+							</div>
+							<div class="bg-zinc-600 rounded-b p-2">{activity.message}</div>
+						</div>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</div>
