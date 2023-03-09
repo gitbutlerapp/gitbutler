@@ -48,65 +48,6 @@
 		});
 	}
 
-	listDeltas({
-		projectId: '0317f7eb-0331-4d27-a73b-15170d91bb42',
-		sessionId: 'f6387eb5-2017-479f-b657-a5e873c5442d'
-	})
-		.then((r) => r['src/routes/projects/[projectId]/player/+page.svelte'].map((d) => d.timestampMs))
-		.then((tt) => tt.map((timestamp) => new Date(timestamp)))
-		.then((ttt) => {
-			const s = $sessions.find((s) => s.id === 'f6387eb5-2017-479f-b657-a5e873c5442d')!;
-			console.log({
-				ttt,
-				from: new Date(s.meta.startTimestampMs),
-				to: new Date(s.meta.lastTimestampMs)
-			});
-		});
-
-	listDeltas({
-		projectId: '0317f7eb-0331-4d27-a73b-15170d91bb42',
-		sessionId: 'ab3fe2ab-da8b-47d1-af95-81488132608f'
-	})
-		.then((r) => r['src/routes/projects/[projectId]/player/+page.svelte'].map((d) => d.timestampMs))
-		.then((tt) => tt.map((timestamp) => new Date(timestamp)))
-		.then((ttt) => {
-			const s = $sessions.find((s) => s.id === 'ab3fe2ab-da8b-47d1-af95-81488132608f')!;
-			console.log({
-				ttt,
-				from: new Date(s.meta.startTimestampMs),
-				to: new Date(s.meta.lastTimestampMs)
-			});
-		});
-
-	$: console.log($sessions);
-
-	$: {
-		const entries = Object.entries(deltasBySessionId);
-		const values = entries.map((entry) => entry[1]);
-		const keys = entries.map((entry) => entry[0]);
-		Promise.all(values).then((sessionsDeltas) => {
-			const seen = {} as Record<string, Record<string, string>>;
-			sessionsDeltas.forEach((deltas, i) => {
-				const sessionId = keys[i];
-				Object.entries(deltas).forEach(([filepath, deltas]) =>
-					deltas.forEach((delta) => {
-						seen[filepath] ??= {};
-						if (seen[filepath][delta.timestampMs] !== undefined) {
-							console.log(
-								`duplicate delta for ${filepath} in ${
-									seen[filepath][delta.timestampMs]
-								} and ${sessionId}`
-							);
-						} else {
-							seen[filepath][delta.timestampMs] = sessionId;
-						}
-					})
-				);
-			});
-			console.log({ seen });
-		});
-	}
-
 	let deltasByFilepath: Record<string, Delta[]> = {};
 	$: Promise.all(Object.values(deltasBySessionId)).then((sessionsDeltas) => {
 		deltasByFilepath = sessionsDeltas.reduce((acc, deltas) => {
@@ -116,8 +57,6 @@
 			return acc;
 		}, {} as Record<string, Delta[]>);
 	});
-
-	console.log({ deltasByFilepath });
 
 	$: currentFilepath =
 		Object.entries(deltasByFilepath)
@@ -134,16 +73,16 @@
 			.at(0)?.[0] ?? null;
 
 	$: currentDeltas = currentFilepath
-		? (deltasByFilepath[currentFilepath] ?? []).filter(
-				(delta) => delta.timestampMs <= currentTimestamp
-		  )
+		? (deltasByFilepath[currentFilepath] ?? [])
+				.filter((delta) => delta.timestampMs <= currentTimestamp)
+				.sort((a, b) => a.timestampMs - b.timestampMs)
 		: null;
 
 	let currentDoc: string | null = null;
 	$: {
 		docsBySessionId[earliestVisibleSession.id].then((docs) => {
 			if (currentFilepath !== null) {
-				currentDoc = docs[currentFilepath];
+				currentDoc = docs[currentFilepath] ?? null;
 			}
 		});
 	}
@@ -208,7 +147,11 @@
 		currentTimestamp = offsetToTimestamp(clickPos);
 	};
 
-	$: console.log({ currentDoc, currentDeltas: currentDeltas, currentFilepath: currentFilepath });
+	$: console.log({
+		docLength: currentDoc?.length,
+		deltas: currentDeltas,
+		filepath: currentFilepath
+	});
 </script>
 
 <div class="flex h-full flex-col gap-2 px-4">
@@ -217,9 +160,11 @@
 	</header>
 
 	<div class="flex-auto overflow-auto">
-		{#if currentDoc !== null && currentDeltas !== null && currentFilepath !== null}
-			<CodeViewer doc={currentDoc} filepath={currentFilepath} deltas={currentDeltas} />
-		{/if}
+		{#key earliestVisibleSession.id}
+			{#if currentDoc !== null && currentDeltas !== null && currentFilepath !== null}
+				<CodeViewer doc={currentDoc} filepath={currentFilepath} deltas={currentDeltas} />
+			{/if}
+		{/key}
 	</div>
 
 	<div id="timeline" class="relative w-full py-4" bind:this={timeline}>
