@@ -83,8 +83,6 @@
 		});
 	}
 
-	let animatingOut = false;
-
 	const timeStampToCol = (deltaTimestamp: Date, start: Date, end: Date) => {
 		if (deltaTimestamp < start || deltaTimestamp > end) {
 			console.error(

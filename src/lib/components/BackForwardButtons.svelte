@@ -1,5 +1,4 @@
 <script>
-	import { IconArrowBigLeftFilled, IconArrowBigRightFilled } from '@tabler/icons-svelte';
 	let history = window.history;
 </script>
 

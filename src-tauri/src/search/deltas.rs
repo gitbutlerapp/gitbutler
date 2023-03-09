@@ -1,7 +1,7 @@
 use crate::{deltas, projects, sessions, storage};
 use anyhow::{Context, Result};
-use difference::Changeset;
 use serde::Serialize;
+use similar::{ChangeTag, TextDiff};
 use std::ops::Range;
 use std::{
     fs,
@@ -73,7 +73,7 @@ impl Deltas {
             .open_or_create(mmap_dir)?;
 
         let reader = index.reader()?;
-        let writer = index.writer(WRITE_BUFFER_SIZE)?;
+        let writer = index.writer_with_num_threads(1, WRITE_BUFFER_SIZE)?;
 
         Ok(Self {
             meta_storage: MetaStorage::new(path),
@@ -121,10 +121,14 @@ impl Deltas {
             let session = sessions::Session::from_commit(repo, &commit).with_context(|| {
                 format!("Could not parse commit {} in project", oid.to_string())
             })?;
-            self.index_session(repo, project, &session)
-                .with_context(|| {
-                    format!("Could not index commit {} in project", oid.to_string())
-                })?;
+            if let Err(e) = self.index_session(repo, project, &session) {
+                log::error!(
+                    "Could not index commit {} in {}: {:#}",
+                    oid,
+                    project.path,
+                    e
+                );
+            }
         }
         log::info!(
             "Reindexing project {} done, took {}ms",
@@ -141,7 +145,7 @@ impl Deltas {
         session: &sessions::Session,
     ) -> Result<()> {
         log::info!("Indexing session {} in {}", session.id, project.path);
-        index(
+        index_session(
             &self.index,
             &mut self.writer.lock().unwrap(),
             session,
@@ -179,7 +183,7 @@ pub struct SearchResult {
     pub index: u64,
 }
 
-fn index(
+fn index_session(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
     session: &sessions::Session,
@@ -208,65 +212,80 @@ fn index(
             .unwrap_or("")
             .chars()
             .collect();
-        let mut prev_file_text = file_text.clone();
         // for every deltas for the file
         for (i, delta) in deltas.into_iter().enumerate() {
-            let mut doc = tantivy::Document::default();
-            doc.add_u64(
-                index.schema().get_field("version").unwrap(),
-                CURRENT_VERSION.try_into()?,
-            );
-            doc.add_u64(index.schema().get_field("index").unwrap(), i.try_into()?);
-            doc.add_text(
-                index.schema().get_field("session_id").unwrap(),
-                session.id.clone(),
-            );
-            doc.add_text(
-                index.schema().get_field("file_path").unwrap(),
-                file_path.as_str(),
-            );
-            doc.add_text(
-                index.schema().get_field("project_id").unwrap(),
-                project.id.clone(),
-            );
-            doc.add_u64(
-                index.schema().get_field("timestamp_ms").unwrap(),
-                delta.timestamp_ms.try_into()?,
-            );
-
-            // for every operation in the delta
-            for operation in &delta.operations {
-                // don't forget to apply the operation to the file_text
-                if let Err(e) = operation.apply(&mut file_text) {
-                    log::error!("failed to apply operation: {:#}", e);
-                    break;
-                }
-            }
-
-            let mut changeset = Changeset::new(
-                &prev_file_text.iter().collect::<String>(),
-                &file_text.iter().collect::<String>(),
-                " ",
-            );
-
-            changeset.diffs = changeset
-                .diffs
-                .into_iter()
-                .filter(|d| match d {
-                    difference::Difference::Add(_) => true,
-                    difference::Difference::Rem(_) => true,
-                    difference::Difference::Same(_) => false,
-                })
-                .collect();
-
-            doc.add_text(index.schema().get_field("diff").unwrap(), changeset);
-
-            prev_file_text = file_text.clone();
-
-            writer.add_document(doc)?;
+            index_delta(
+                index,
+                writer,
+                session,
+                project,
+                &mut file_text,
+                &file_path,
+                i,
+                &delta,
+            )?;
         }
     }
     writer.commit()?;
+    Ok(())
+}
+
+fn index_delta(
+    index: &tantivy::Index,
+    writer: &mut IndexWriter,
+    session: &sessions::Session,
+    project: &projects::Project,
+    file_text: &mut Vec<char>,
+    file_path: &str,
+    i: usize,
+    delta: &deltas::Delta,
+) -> Result<()> {
+    let mut doc = tantivy::Document::default();
+    doc.add_u64(
+        index.schema().get_field("version").unwrap(),
+        CURRENT_VERSION.try_into()?,
+    );
+    doc.add_u64(index.schema().get_field("index").unwrap(), i.try_into()?);
+    doc.add_text(
+        index.schema().get_field("session_id").unwrap(),
+        session.id.clone(),
+    );
+    doc.add_text(index.schema().get_field("file_path").unwrap(), file_path);
+    doc.add_text(
+        index.schema().get_field("project_id").unwrap(),
+        project.id.clone(),
+    );
+    doc.add_u64(
+        index.schema().get_field("timestamp_ms").unwrap(),
+        delta.timestamp_ms.try_into()?,
+    );
+
+    let prev_file_text = file_text.clone();
+    // for every operation in the delta
+    for operation in &delta.operations {
+        // don't forget to apply the operation to the file_text
+        operation
+            .apply(file_text)
+            .with_context(|| format!("Could not apply operation to file {}", file_path))?;
+    }
+
+    let old = &prev_file_text.iter().collect::<String>();
+    let new = &file_text.iter().collect::<String>();
+
+    let all_changes = TextDiff::from_words(old, new);
+    let changes = all_changes
+        .iter_all_changes()
+        .filter_map(|change| match change.tag() {
+            ChangeTag::Delete => change.as_str(),
+            ChangeTag::Insert => change.as_str(),
+            ChangeTag::Equal => None,
+        })
+        .collect::<String>();
+
+    doc.add_text(index.schema().get_field("diff").unwrap(), changes);
+
+    writer.add_document(doc)?;
+
     Ok(())
 }
 

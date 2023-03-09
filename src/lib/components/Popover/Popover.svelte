@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 
-	let showPopover: boolean = false;
+	let showPopover = false;
 	let anchor: HTMLButtonElement | undefined = undefined;
 	let bottom: number;
 	let left: number;

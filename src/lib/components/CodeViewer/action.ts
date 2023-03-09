@@ -28,7 +28,7 @@ const toChangeSpec = (operation: Operation): ChangeSpec => {
 	}
 };
 
-type Params = { doc: string; deltas: Delta[]; filepath: string };
+type Params = { doc: string; deltas: Delta[]; filepath: string; highlightLatest: boolean };
 
 const makeBaseState = (doc: string, filepath: string) => {
 	const language = getLanguage(filepath);
@@ -74,14 +74,23 @@ const toSelection = (changes: ChangeSet, delta: Delta | undefined): EditorSelect
 // this action assumes:
 // * that deltas list is append only.
 // * that each (filepath, doc) pair never changes.
-export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
+export default (parent: HTMLElement, { doc, deltas, filepath, highlightLatest }: Params) => {
 	const view = new EditorView({ state: makeBaseState(doc, filepath), parent });
 
-	view.dispatch(
-		view.state.update({
+	let transactionSpec;
+	if (highlightLatest) {
+		const selection = toSelection(toChangeSet(deltas, doc.length), deltas[deltas.length - 1]);
+		transactionSpec = {
+			changes: toChangeSet(deltas, doc.length),
+			selection: selection,
+			effects: markChanges(selection)
+		};
+	} else {
+		transactionSpec = {
 			changes: toChangeSet(deltas, doc.length)
-		})
-	);
+		};
+	}
+	view.dispatch(view.state.update(transactionSpec));
 
 	let currentFilepath = filepath;
 	const stateCache: Record<string, EditorState> = {};
@@ -116,7 +125,7 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
 					scrollIntoView: true,
 					effects: markChanges(selection)
 				});
-			} else {
+			} else if (currentDeltas.length < newDeltas.length) {
 				// rewind forward
 
 				// verify that deltas are append only

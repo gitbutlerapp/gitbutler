@@ -203,12 +203,6 @@
 					</div>
 				</div>
 			</div>
-
-			<div class="absolute bottom-0 left-0 w-full">
-				<div class="h-18 flex flex-shrink-0 select-none items-center border-t border-zinc-700 p-4">
-					<div class="text-sm text-zinc-300">Timeline</div>
-				</div>
-			</div>
 		{/if}
 	</div>
 </div>

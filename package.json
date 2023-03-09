@@ -41,6 +41,7 @@
 		"@tabler/icons-svelte": "^2.6.0",
 		"@tauri-apps/api": "^1.2.0",
 		"date-fns": "^2.29.3",
+		"diff": "^5.1.0",
 		"fluent-svelte": "^1.6.0",
 		"idb-keyval": "^6.2.0",
 		"inter-ui": "^3.19.3",
