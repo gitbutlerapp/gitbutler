@@ -62,37 +62,12 @@ impl Repository {
     }
 
     pub fn deltas(&self, session_id: &str) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        let session = sessions::get(
+        deltas::list(
             &self.git_repository,
             &self.project,
             &self.reference()?,
             session_id,
-        )?
-        .ok_or(anyhow::anyhow!("session {} not found", session_id))?;
-        let deltas = deltas::list(
-            &self.git_repository,
-            &self.project,
-            &self.reference()?,
-            session_id,
-        )?;
-
-        // NOTE: this is a hot fix for the issue where multiple sessions might contain the same
-        // deltas.
-        // TODO: find out the root cause of this issue and fix it.
-        let mut deltas_fixup = HashMap::new();
-        for (file, deltas) in deltas {
-            let mut deltas_fixup_file = Vec::new();
-            for delta in deltas {
-                if delta.timestamp_ms >= session.meta.start_timestamp_ms
-                    && delta.timestamp_ms <= session.meta.last_timestamp_ms
-                {
-                    deltas_fixup_file.push(delta);
-                }
-            }
-            deltas_fixup.insert(file, deltas_fixup_file);
-        }
-
-        Ok(deltas_fixup)
+        )
     }
 }
 
