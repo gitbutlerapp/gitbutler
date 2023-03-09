@@ -14,7 +14,6 @@
 	const { project } = data;
 
 	const urlParams = new URLSearchParams(window.location.search);
-	console.log(urlParams.get('search'));
 
 	let query: string;
 

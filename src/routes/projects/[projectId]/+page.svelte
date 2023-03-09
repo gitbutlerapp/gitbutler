@@ -98,7 +98,6 @@
 		let recentActivity = [];
 		if (dateSessions) {
 			Object.entries(dateSessions).forEach(([date, sessions]) => {
-				console.log(date, sessions);
 				sessions.forEach((session) => {
 					if (session.session) {
 						session.session.activity.forEach((activity) => {
@@ -111,7 +110,6 @@
 		let activitySorted = recentActivity.sort((a, b) => {
 			return b.timestampMs - a.timestampMs;
 		});
-		console.log(activitySorted);
 		return activitySorted.slice(0, 20);
 	}
 </script>
@@ -158,10 +156,10 @@
 				{:else}
 					<div class="bg-blue-900 p-4 rounded">
 						<ul class="">
-							{#each Object.entries(filesStatus) as activity}
+							{#each $filesStatus as activity}
 								<li>
-									{activity[1].slice(0, 1)}
-									{shortPath(activity[0])}
+									{activity.status.slice(0, 1)}
+									{shortPath(activity.path)}
 								</li>
 							{/each}
 						</ul>

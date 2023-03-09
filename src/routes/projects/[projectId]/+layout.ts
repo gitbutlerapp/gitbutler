@@ -3,18 +3,18 @@ import { building } from '$app/environment';
 import { readable, derived } from 'svelte/store';
 import type { Session } from '$lib/sessions';
 import type { UISession } from '$lib/uisessions';
+import type { Status } from '$lib/statuses';
 import { asyncDerived } from '@square/svelte-store';
 import type { Delta } from '$lib/deltas';
 import { startOfDay } from 'date-fns';
-import { invoke } from '@tauri-apps/api';
 
 export const prerender = false;
 export const load: LayoutLoad = async ({ parent, params }) => {
 	const { projects } = await parent();
 
-	const filesStatus = building
-		? readable<Record<string, string>>({})
-		: await invoke<Record<string, string>>('git_status', { projectId: params.projectId });
+	let filesStatus = building
+		? readable<Status[]>([])
+		: await (await import('$lib/statuses')).default({ projectId: params.projectId });
 
 	const sessions = building
 		? readable<Session[]>([])
