@@ -99,11 +99,11 @@ impl DeltaWatchers {
 // it should figure out delta data (crdt) and update the file at .git/gb/session/deltas/path/to/file
 // it also writes the metadata stuff which marks the beginning of a session if a session is not yet started
 // returns updated project deltas and sessions to which they belong
-fn register_file_change(
+pub(crate) fn register_file_change(
     project: &projects::Project,
     repo: &git2::Repository,
     relative_file_path: &Path,
-) -> Result<Option<(sessions::Session, Vec<Delta>)>, Box<dyn std::error::Error>> {
+) -> Result<Option<(sessions::Session, Vec<Delta>)>> {
     if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
         // make sure we're not watching ignored files
         return Ok(None);
