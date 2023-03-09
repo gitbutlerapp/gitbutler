@@ -151,7 +151,7 @@
 		<div class="col-span-1 space-y-6">
 			<div>
 				<h2 class="text-lg font-bold text-zinc-500 mb-2">Work in Progress</h2>
-				{#if Object.entries(filesStatus).length == 0}
+				{#if $filesStatus.length == 0}
 					<div class="bg-green-900 text-green-500 p-4 rounded">Everything is committed</div>
 				{:else}
 					<div class="bg-blue-900 p-4 rounded">
