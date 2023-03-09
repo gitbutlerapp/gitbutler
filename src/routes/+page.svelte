@@ -169,9 +169,9 @@
 					<div class="h-full max-h-screen overflow-auto">
 						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 							{#each $projects as project}
-								<a class="text-lg text-zinc-300 hover:text-zinc-200" href="/projects/{project.id}/">
+								<a class="text-lg text-zinc-300 hover:text-zinc-200  " href="/projects/{project.id}/">
 									<div
-										class="flex flex-col justify-between space-y-1 rounded-lg bg-zinc-700 shadow"
+										class="flex flex-col justify-between space-y-1 rounded-lg bg-zinc-700 shadow border-zinc-700 border border-t-zinc-600 border-t-[1]"
 									>
 										<div class="flex-grow-0 px-4 py-4">
 											<div class="text-lg text-zinc-300 hover:text-zinc-200">
