@@ -19,7 +19,7 @@
 
 	onMount(async () => {
 		await new Promise((r) => setTimeout(r, 100));
-		query = urlParams.get('search');
+		query = urlParams.get('search') ?? '';
 		fetchResults();
 	});
 
@@ -88,7 +88,9 @@
 				let afterQuery = line.slice(lastCharIndex + 1);
 
 				content =
-					beforeQuery + `<span class="bg-zinc-400/50">${querySubstring}</span>` + afterQuery;
+					beforeQuery +
+					`<span class="bg-[#AC8F2F] rounded-sm">${querySubstring}</span>` +
+					afterQuery;
 			}
 
 			outLines.push({
@@ -127,58 +129,62 @@
 </script>
 
 <figure class="flex flex-col gap-2">
-	<figcaption>
-		<input on:input={fetchResults} type="text" name="query" bind:value={query} />
-	</figcaption>
+	<div class="mx-14 ">
+		{#if $results.length > 0}
+			<div class="mb-10 mt-14">
+				<p class="text-xl text-[#D4D4D8] mb-2">Results for "{query}"</p>
+				<p class="text-lg text-[#717179]">{$results.length} change instances</p>
+			</div>
+		{/if}
 
-	<ul class="gap-q flex flex-col">
-		{#each $results as result}
-			<li>
-				{#await listFiles( { projectId: result.projectId, sessionId: result.sessionId, paths: [result.filePath] } ) then files}
-					{#await listDeltas( { projectId: result.projectId, sessionId: result.sessionId } ) then deltas}
-						<div class="m-4 flex flex-col">
-							<p class="mb-2 flex text-lg text-zinc-400">
-								<span>{result.filePath}</span>
-								<span class="flex-grow" />
-								<span
-									>{formatDistanceToNow(
-										new Date(deltas[result.filePath][result.index].timestampMs)
-									)}</span
-								>
-							</p>
-							<div class="rounded-lg bg-zinc-700 text-[#EBDBB2]">
-								{#each getDiffHunksWithSearchTerm(files[result.filePath], deltas[result.filePath], result.index) as hunk, i}
-									{#if i > 0}
-										<div class="border-b border-zinc-400" />
-									{/if}
-									<div class="m-4 flex flex-col">
-										{#each processHunkLines(hunk.lines, hunk.newStart) as line}
-											{#if !line.hidden}
-												<div class="flex">
-													<span class="w-6 flex-shrink text-zinc-400"
-														>{line.lineNumber ? line.lineNumber : ''}</span
-													>
-													<pre
-														class="
-												flex-grow
+		<ul class="gap-4 flex flex-col">
+			{#each $results as result}
+				<li class="flex flex-col">
+					{#await listFiles( { projectId: result.projectId, sessionId: result.sessionId, paths: [result.filePath] } ) then files}
+						{#await listDeltas( { projectId: result.projectId, sessionId: result.sessionId } ) then deltas}
+							<div class="mb-4">
+								<p class="mb-2 flex text-lg text-zinc-400">
+									<span>{result.filePath}</span>
+									<span class="flex-grow" />
+									<span
+										>{formatDistanceToNow(
+											new Date(deltas[result.filePath][result.index].timestampMs)
+										)} ago</span
+									>
+								</p>
+								<div class="rounded-lg bg-zinc-700 border border-[#52525B] text-[#EBDBB2]">
+									{#each getDiffHunksWithSearchTerm(files[result.filePath], deltas[result.filePath], result.index) as hunk, i}
+										{#if i > 0}
+											<div class="border-b border-[#52525B]" />
+										{/if}
+										<div class="px-6 py-3 flex flex-col">
+											{#each processHunkLines(hunk.lines, hunk.newStart) as line}
+												{#if !line.hidden}
+													<div class="flex font-mono leading-4 mb-px">
+														<span class="w-6 flex-shrink text-[#928374]"
+															>{line.lineNumber ? line.lineNumber : ''}</span
+														>
+														<pre
+															class="flex-grow rounded-sm 
 												{line.operation === 'add'
-															? 'bg-[#14FF00]/20'
-															: line.operation === 'remove'
-															? 'bg-[#FF0000]/20'
-															: ''}
+																? 'bg-[#14FF00]/20'
+																: line.operation === 'remove'
+																? 'bg-[#FF0000]/20'
+																: ''}
 												">{@html line.content}</pre>
-												</div>
-											{:else}
-												<!-- <span>hidden</span> -->
-											{/if}
-										{/each}
-									</div>
-								{/each}
+													</div>
+												{:else}
+													<!-- <span>hidden</span> -->
+												{/if}
+											{/each}
+										</div>
+									{/each}
+								</div>
 							</div>
-						</div>
+						{/await}
 					{/await}
-				{/await}
-			</li>
-		{/each}
-	</ul>
+				</li>
+			{/each}
+		</ul>
+	</div>
 </figure>
