@@ -4,7 +4,9 @@ import type { SearchResult } from '$lib/search';
 
 export type ProcessedSearchResultLine = {
 	hidden: boolean;
-	content: string;
+	contentBeforeHit: string;
+	contentAtHit: string;
+	contentAfterHit: string;
 	operation: string;
 	lineNumber: number | undefined;
 	hasKeyword: boolean;
