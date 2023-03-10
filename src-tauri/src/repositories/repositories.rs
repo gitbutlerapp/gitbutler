@@ -3,8 +3,8 @@ use anyhow::{Context, Result};
 use std::collections::HashMap;
 
 pub struct Repository {
-    project: projects::Project,
-    git_repository: git2::Repository,
+    pub project: projects::Project,
+    pub git_repository: git2::Repository,
 }
 
 impl Repository {
@@ -22,6 +22,14 @@ impl Repository {
             .with_context(|| "failed to get user for project")?;
         let git_repository =
             git2::Repository::open(&project.path).with_context(|| "failed to open repository")?;
+        Self::new(project, git_repository, user)
+    }
+
+    pub fn new(
+        project: projects::Project,
+        git_repository: git2::Repository,
+        user: Option<users::User>,
+    ) -> Result<Self> {
         init(&git_repository, &project, &user).with_context(|| "failed to init repository")?;
         Ok(Repository {
             project,

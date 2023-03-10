@@ -410,13 +410,17 @@ pub fn list(
     Ok(sessions)
 }
 
+// returns list of sessions in reverse chronological order
+// except for the first session. The first created session
+// is special and used to bootstrap the gitbutler state inside a repo.
+// see crate::repositories::init
 fn list_persistent(repo: &git2::Repository, reference: &git2::Reference) -> Result<Vec<Session>> {
     let head = repo.find_commit(reference.target().unwrap())?;
 
     // list all commits from gitbutler head to the first commit
     let mut walker = repo.revwalk()?;
     walker.push(head.id())?;
-    walker.set_sorting(git2::Sort::TIME)?;
+    walker.set_sorting(git2::Sort::TOPOLOGICAL)?;
 
     let mut sessions: Vec<Session> = vec![];
     for id in walker {
@@ -428,8 +432,12 @@ fn list_persistent(repo: &git2::Repository, reference: &git2::Reference) -> Resu
                 repo.path().display()
             )
         })?;
-        sessions.push(Session::from_commit(repo, &commit)?);
+        let session = Session::from_commit(repo, &commit)?;
+        sessions.push(session);
     }
+
+    // drop the first session, which is the bootstrap session
+    sessions.pop();
 
     Ok(sessions)
 }
@@ -461,7 +469,7 @@ pub fn list_files(
         let head_commit = reference.peel_to_commit()?;
         let mut walker = repo.revwalk()?;
         walker.push(head_commit.id())?;
-        walker.set_sorting(git2::Sort::TIME | git2::Sort::REVERSE)?;
+        walker.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)?;
 
         let mut session_commit = None;
         let mut previous_session_commit = None;
