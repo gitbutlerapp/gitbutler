@@ -118,20 +118,25 @@
 	}
 </script>
 
-
 <div class="project-section-component" style="height: calc(100vh - 110px); overflow: hidden;">
 	<div class="flex h-full">
-		<div class="main-column-containercol-span-2 mt-4" style="width: calc(100% * 0.66); height: calc(-126px + 100vh)">
-			<h1 class="flex text-xl text-zinc-200 px-8">
+		<div
+			class="main-column-containercol-span-2 mt-4"
+			style="width: calc(100% * 0.66); height: calc(-126px + 100vh)"
+		>
+			<h1 class="flex px-8 text-xl text-zinc-200">
 				{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
 			</h1>
 			<div class="mt-4">
-				<div class="recent-file-changes-container w-full" >
-					<h2 class="mb-4 text-lg font-bold text-zinc-300 px-8">Recent File Changes</h2>
+				<div class="recent-file-changes-container w-full">
+					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recent File Changes</h2>
 					{#if $dateSessions === undefined}
 						<span>Loading...</span>
 					{:else}
-						<div class="flex flex-col space-y-4 px-8 overflow-y-auto pb-16" style="height: calc(100vh - 174px);">
+						<div
+							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-16"
+							style="height: calc(100vh - 174px);"
+						>
 							{#each orderedSessions($dateSessions) as [dateMilliseconds, fileSessions]}
 								<div class="flex flex-col">
 									<div class="mb-1 text-lg text-zinc-400 text-zinc-200">
@@ -141,7 +146,6 @@
 											month: 'short',
 											day: 'numeric'
 										})}
-
 									</div>
 									<div class="rounded bg-zinc-700 p-4">
 										{#each Object.entries(fileSessions) as filetime}
@@ -158,10 +162,12 @@
 						</div>
 					{/if}
 				</div>
-				
 			</div>
 		</div>
-		<div class="secondary-column-container col-span-1 border-l border-l-zinc-700 flex flex-col" style="width: 37%;">
+		<div
+			class="secondary-column-container col-span-1 flex flex-col border-l border-l-zinc-700"
+			style="width: 37%;"
+		>
 			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if $filesStatus.length == 0}
@@ -181,8 +187,10 @@
 					</div>
 				{/if}
 			</div>
-			<div class="recent-activity-container p-4" style="height: calc(100vh - 110px); overflow-y: auto;">
-
+			<div
+				class="recent-activity-container p-4"
+				style="height: calc(100vh - 110px); overflow-y: auto;"
+			>
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
 				{#each recentActivity($dateSessions) as activity}
 					<div class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400">

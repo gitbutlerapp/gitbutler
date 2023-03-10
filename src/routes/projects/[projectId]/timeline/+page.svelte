@@ -308,7 +308,7 @@
 										<div class="col-span-1 flex items-center justify-center" />
 									</div>
 								</div>
-								<div class="timeline-file-list flex mb-1 border-b-zinc-700 border-b-2">
+								<div class="timeline-file-list mb-1 flex border-b-2 border-b-zinc-700">
 									<div class="grid flex-auto grid-cols-1 grid-rows-1">
 										<!-- file names list -->
 										<div
