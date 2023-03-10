@@ -124,7 +124,7 @@
 			class="main-column-containercol-span-2 mt-4"
 			style="width: calc(100% * 0.66); height: calc(-126px + 100vh)"
 		>
-			<h1 class="flex px-8 text-xl text-zinc-200">
+			<h1 class="flex px-8 text-xl text-zinc-300">
 				{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
 			</h1>
 			<div class="mt-4">
@@ -139,7 +139,7 @@
 						>
 							{#each orderedSessions($dateSessions) as [dateMilliseconds, fileSessions]}
 								<div class="flex flex-col">
-									<div class="mb-1 text-lg  text-zinc-200">
+									<div class="mb-1  text-zinc-300">
 										{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {
 											weekday: 'long',
 											year: 'numeric',
@@ -147,7 +147,7 @@
 											day: 'numeric'
 										})}
 									</div>
-									<div class="rounded bg-[#2F2F33] border border-zinc-700 p-4">
+									<div class="results-card rounded bg-[#2F2F33] border border-zinc-700 p-4 drop-shadow-lg">
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
 												<div class="font-mono text-zinc-100">{filetime[0]}</div>
@@ -196,20 +196,20 @@
 			>
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
 				{#each recentActivity($dateSessions) as activity}
-					<div class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400">
-						<div class="flex flex-col">
-							<div class="flex flex-row justify-between rounded-t bg-[#2F2F33] p-2">
-								<div class="text-zinc-300">
+					<div class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg">
+						<div class="flex flex-col p-3 rounded bg-[#2F2F33]">
+							<div class="flex flex-row justify-between text-zinc-500 pb-2">
+								<div class="">
 									{new Date(activity.timestampMs).toLocaleDateString('en-us', {
-										weekday: 'long',
+										weekday: 'short',
 										year: 'numeric',
 										month: 'short',
 										day: 'numeric'
 									})}
 								</div>
-								<div class="text-right font-mono">{activity.type}</div>
+								<div class="text-right font-mono ">{activity.type}</div>
 							</div>
-							<div class="rounded-b bg-[#2F2F33] p-2">{activity.message}</div>
+							<div class="rounded-b bg-[#2F2F33] text-zinc-100">{activity.message}</div>
 						</div>
 					</div>
 				{/each}
