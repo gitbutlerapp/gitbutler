@@ -115,7 +115,6 @@
 </script>
 
 
-
 <div class="project-section-component" style="height: calc(100vh - 110px); overflow: hidden;">
 	<div class="flex">
 		<div class="main-column-containercol-span-2 mt-4" style="width: calc(100% * 0.66); height: calc(-126px + 100vh)">
@@ -138,6 +137,7 @@
 											month: 'short',
 											day: 'numeric'
 										})}
+
 									</div>
 									<div class="rounded bg-zinc-700 p-4">
 										{#each Object.entries(fileSessions) as filetime}
