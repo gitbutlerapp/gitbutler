@@ -139,7 +139,7 @@
 						>
 							{#each orderedSessions($dateSessions) as [dateMilliseconds, fileSessions]}
 								<div class="flex flex-col">
-									<div class="mb-1 text-lg text-zinc-400 text-zinc-200">
+									<div class="mb-1 text-lg  text-zinc-200">
 										{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {
 											weekday: 'long',
 											year: 'numeric',
@@ -147,7 +147,7 @@
 											day: 'numeric'
 										})}
 									</div>
-									<div class="rounded bg-zinc-700 p-4">
+									<div class="rounded bg-[#2F2F33] border border-zinc-700 p-4">
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
 												<div class="font-mono text-zinc-100">{filetime[0]}</div>
