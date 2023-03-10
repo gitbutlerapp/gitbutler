@@ -138,7 +138,7 @@
 							<div class="rounded bg-zinc-700 p-4">
 								{#each Object.entries(fileSessions) as filetime}
 									<div class="flex flex-row justify-between">
-										<div class="font-mono text-zinc-100">{filetime[0]}</div>
+										<div class="font-mono text-zinc-100">{shortPath(filetime[0])}</div>
 										<div class="font-mono text-zinc-400">
 											{@html timestampsToSpark(filetime[1])}
 										</div>
