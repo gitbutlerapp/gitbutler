@@ -181,9 +181,7 @@
 												{project.path}
 											</div>
 										</div>
-										<div
-											class="font-mono flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 text-zinc-300"
-										>
+										<div class="font-mono flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 text-zinc-300">
 											{#if project.api}
 												<div class="flex flex-row items-center space-x-2 ">
 													<div class="h-2 w-2 rounded-full bg-green-700" />
