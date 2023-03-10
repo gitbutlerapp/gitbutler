@@ -169,7 +169,7 @@
 				<h2 class="text-lg">{frame.filepath}</h2>
 			</header>
 
-			<div class="flex-auto overflow-auto">
+			<div class="project-container flex-auto overflow-auto">
 				<CodeViewer filepath={frame.filepath} doc={frame.doc} deltas={frame.deltas} />
 			</div>
 		{/if}

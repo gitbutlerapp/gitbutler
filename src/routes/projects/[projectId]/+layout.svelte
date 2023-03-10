@@ -107,7 +107,7 @@
 		</ul>
 	</nav>
 
-	<div class="flex-auto overflow-auto">
+	<div class="project-container flex-auto overflow-auto">
 		<slot />
 	</div>
 
