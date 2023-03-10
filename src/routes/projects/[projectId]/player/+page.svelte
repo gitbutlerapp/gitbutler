@@ -13,9 +13,9 @@
 
 	let currentTimestamp = new Date().getTime();
 
-	$: minVisibleTimestamp = Math.min(
-		currentTimestamp - 12 * 60 * 60 * 1000,
-		$sessions[0].meta.startTimestampMs
+	$: minVisibleTimestamp = Math.max(
+		Math.min(currentTimestamp - 12 * 60 * 60 * 1000, $sessions[0].meta.startTimestampMs),
+		$sessions.at(-1)!.meta.startTimestampMs
 	);
 
 	let maxVisibleTimestamp = new Date().getTime();
@@ -64,9 +64,11 @@
 		}, {} as Record<string, Delta[]>)
 	);
 
-	let doc: string | null = null;
-	let filepath: string | null = null;
-	let deltas: Delta[] | null = null;
+	let frame: {
+		filepath: string;
+		doc: string;
+		deltas: Delta[];
+	} | null = null;
 	$: visibleDeltasByFilepath
 		.then(
 			(visibleDeltasByFilepath) =>
@@ -78,14 +80,17 @@
 		)
 		.then(async (visibleFilepath) => {
 			if (visibleFilepath !== null) {
-				deltas =
-					(await visibleDeltasByFilepath.then((deltasByFilepath) =>
-						deltasByFilepath[visibleFilepath].sort((a, b) => a.timestampMs - b.timestampMs)
-					)) || [];
-				doc = await docsBySessionId[earliestVisibleSession.id].then(
-					(docsByFilepath) => docsByFilepath[visibleFilepath]
-				);
-				filepath = visibleFilepath;
+				frame = {
+					deltas:
+						(await visibleDeltasByFilepath.then((deltasByFilepath) =>
+							deltasByFilepath[visibleFilepath].sort((a, b) => a.timestampMs - b.timestampMs)
+						)) || [],
+					doc:
+						(await docsBySessionId[earliestVisibleSession.id].then(
+							(docsByFilepath) => docsByFilepath[visibleFilepath]
+						)) || '',
+					filepath: visibleFilepath
+				};
 			}
 		});
 
@@ -159,13 +164,13 @@
 	</div>
 {:else}
 	<div class="flex h-full flex-col gap-2 px-4">
-		<header>
-			<h2 class="text-lg">{filepath}</h2>
-		</header>
+		{#if frame !== null}
+			<header>
+				<h2 class="text-lg">{frame.filepath}</h2>
+			</header>
 
-		{#if filepath !== null && doc !== null && deltas !== null}
 			<div class="flex-auto overflow-auto">
-				<CodeViewer {filepath} {doc} {deltas} />
+				<CodeViewer filepath={frame.filepath} doc={frame.doc} deltas={frame.deltas} />
 			</div>
 		{/if}
 
