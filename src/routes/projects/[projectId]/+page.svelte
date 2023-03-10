@@ -118,24 +118,24 @@
 	}
 </script>
 
-<div class="project-section-component" style="height: calc(100vh - 110px); overflow: hidden;">
+<div class="project-section-component" style="height: calc(100vh - 118px); overflow: hidden;">
 	<div class="flex h-full">
 		<div
 			class="main-column-containercol-span-2 mt-4"
 			style="width: calc(100% * 0.66); height: calc(-126px + 100vh)"
 		>
-			<h1 class="flex px-8 text-xl text-zinc-300">
+			<h1 class="flex py-4 px-8 text-xl text-zinc-300">
 				{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
 			</h1>
 			<div class="mt-4">
-				<div class="recent-file-changes-container w-full">
+				<div class="recent-file-changes-container w-full h-full">
 					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recent File Changes</h2>
 					{#if $dateSessions === undefined}
 						<span>Loading...</span>
 					{:else}
 						<div
-							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-16"
-							style="height: calc(100vh - 174px);"
+							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"
+							style="height: calc(100vh - 253px);"
 						>
 							{#each orderedSessions($dateSessions) as [dateMilliseconds, fileSessions]}
 								<div class="flex flex-col">
