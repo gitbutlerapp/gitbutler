@@ -154,7 +154,7 @@
 			<!-- Day -->
 			<div
 				id={dateMilliseconds}
-				class="session-day-component flex flex-col rounded-lg border border-zinc-700 bg-zinc-800/50"
+				class="session-day-component flex flex-col rounded-lg bg-[#2F2F33] border border-zinc-700"
 				class:min-w-full={selection.dateMilliseconds == +dateMilliseconds}
 			>
 				<div
@@ -308,7 +308,7 @@
 										<div class="col-span-1 flex items-center justify-center" />
 									</div>
 								</div>
-								<div class="timeline-file-list flex mb-1 border-b-zinc-700 border-b-2">
+								<div class="timeline-file-list mb-1 flex border-b-2 border-b-zinc-700">
 									<div class="grid flex-auto grid-cols-1 grid-rows-1">
 										<!-- file names list -->
 										<div

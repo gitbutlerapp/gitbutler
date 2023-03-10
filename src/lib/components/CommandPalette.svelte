@@ -79,7 +79,7 @@
 		}
 	}
 
-	let activeClass = ['active', 'bg-orange-800', 'text-white'];
+	let activeClass = ['active', 'bg-zinc-700/50', 'text-white'];
 
 	function upMenu() {
 		const menu = document.getElementById('commandMenu');
@@ -179,17 +179,23 @@
 	{#if showCommand}
 		<div class="relative z-10" role="dialog" aria-modal="true">
 			<div
-				class="fixed inset-0 bg-zinc-500 bg-opacity-25 transition-opacity"
+				class="fixed inset-0 bg-zinc-900 bg-opacity-80 transition-opacity"
 				in:fade={{ duration: 50 }}
 				out:fade={{ duration: 50 }}
 			/>
 
-			<div class="fixed inset-0 z-10 overflow-y-auto p-4 sm:p-6 md:p-20">
+			<div class="command-palette-modal fixed inset-0 z-10 overflow-y-auto p-4 sm:p-6 md:p-20">
 				<div
 					bind:this={palette}
 					in:fade={{ duration: 100 }}
 					out:fade={{ duration: 100 }}
-					class="mx-auto max-w-2xl transform divide-y divide-zinc-500 divide-opacity-20 overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all"
+					class="mx-auto max-w-2xl transform divide-y divide-zinc-500 divide-opacity-20 overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all border border-zinc-700"
+					style="
+						border-width: 0.5px; 
+						-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+						backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+						background-color: rgba(24, 24, 27, 0.60);
+						border: 0.5px solid rgba(63, 63, 70, 0.50);"
 				>
 					<div class="relative">
 						<svg
@@ -210,7 +216,7 @@
 							id="command"
 							type="text"
 							bind:value={search}
-							class="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-white focus:ring-0 sm:text-sm"
+							class="h-12 w-full border-0 bg-transparent pl-12 pr-4 text-white focus:ring-0 sm:text-sm"
 							placeholder="Search..."
 						/>
 					</div>
@@ -230,9 +236,9 @@
 										<svelte:component this={item.icon} />
 										<span class="ml-3 flex-auto truncate">{item.text}</span>
 										{#if item.key}
-											<span class="ml-3 flex-none text-xs font-semibold text-zinc-400"
-												><kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd></span
-											>
+											<span class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 shadow rounded">
+												<kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd>
+											</span>
 										{/if}
 									</li>
 								{/each}

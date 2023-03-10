@@ -12,7 +12,7 @@
 			<span class="flex-grow" />
 			<span>{formatDistanceToNow(processedResult.timestamp)} ago</span>
 		</p>
-		<div class="rounded-lg border border-[#52525B] bg-zinc-700 text-[#EBDBB2]">
+		<div class="rounded-lg text-[#EBDBB2] bg-[#2F2F33] border border-zinc-700 drop-shadow-lg">
 			{#each processedResult.hunks as hunk, i}
 				{#if i > 0}
 					<div class="border-b border-[#52525B]" />
@@ -20,7 +20,7 @@
 				<div class="flex flex-col px-6 py-3">
 					{#each hunk.lines as line}
 						{#if !line.hidden}
-							<div class="font-mono mb-px flex leading-4">
+							<div class="mb-px flex font-mono leading-4">
 								<span class="w-6 flex-shrink text-[#928374]"
 									>{line.lineNumber ? line.lineNumber : ''}</span
 								>
