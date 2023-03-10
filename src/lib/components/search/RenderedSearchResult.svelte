@@ -31,7 +31,8 @@
 										: line.operation === 'remove'
 										? 'bg-[#FF0000]/20'
 										: ''}
-												">{@html line.content}</pre>
+												">{line.contentBeforeHit}<span class="rounded-sm bg-[#AC8F2F]">{line.contentAtHit}</span
+									>{line.contentAfterHit}</pre>
 							</div>
 						{:else}
 							<!-- <span>hidden</span> -->

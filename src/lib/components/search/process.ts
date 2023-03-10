@@ -84,23 +84,24 @@ const processHunkLines = (lines: string[], newStart: number, query: string) => {
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
 
-		let content = '';
+		let contentBeforeHit = '';
+		let querySubstring = '';
+		let contentAfterHit = '';
 		if (!line.includes(query)) {
-			content = line.slice(1);
+			contentBeforeHit = line.slice(1);
 		} else {
 			const firstCharIndex = line.indexOf(query);
 			const lastCharIndex = firstCharIndex + query.length - 1;
-			const beforeQuery = line.slice(1, firstCharIndex);
-			const querySubstring = line.slice(firstCharIndex, lastCharIndex + 1);
-			const afterQuery = line.slice(lastCharIndex + 1);
-
-			content =
-				beforeQuery + `<span class="bg-[#AC8F2F] rounded-sm">${querySubstring}</span>` + afterQuery;
+			contentBeforeHit = line.slice(1, firstCharIndex);
+			querySubstring = line.slice(firstCharIndex, lastCharIndex + 1);
+			contentAfterHit = line.slice(lastCharIndex + 1);
 		}
 
 		outLines.push({
 			hidden: false,
-			content: content,
+			contentBeforeHit: contentBeforeHit,
+			contentAtHit: querySubstring,
+			contentAfterHit: contentAfterHit,
 			operation: line.startsWith('+') ? 'add' : line.startsWith('-') ? 'remove' : 'unmodified',
 			lineNumber: !line.startsWith('-') ? lineNumber : undefined,
 			hasKeyword: line.includes(query)
