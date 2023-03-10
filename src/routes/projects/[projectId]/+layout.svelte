@@ -5,6 +5,7 @@
 	import type { Project } from '$lib/projects';
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
+	import CommandPalette from '$lib/components/CommandPalette.svelte';
 
 	export let data: LayoutData;
 
@@ -136,3 +137,4 @@
 		</div>
 	</footer>
 </div>
+<CommandPalette projectId={$project?.id} />

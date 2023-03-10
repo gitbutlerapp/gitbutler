@@ -7,6 +7,7 @@
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import CommandPalette from '$lib/components/CommandPalette.svelte';
 
 	export let data: LayoutData;
 	const { user, posthog, projects } = data;

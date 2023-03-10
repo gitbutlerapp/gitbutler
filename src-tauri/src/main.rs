@@ -383,7 +383,45 @@ fn git_status(
         project_id,
     )?;
 
-    let files = repo.status();
+    let files = repo.status().with_context(|| "Failed to get git status")?;
+
+    Ok(files)
+}
+
+#[tauri::command]
+fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+    let app_state = handle.state::<App>();
+
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let files = repo
+        .file_paths()
+        .with_context(|| "Failed to get file paths")?;
+
+    Ok(files)
+}
+
+#[tauri::command]
+fn git_match_paths(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    match_pattern: &str,
+) -> Result<Vec<String>, Error> {
+    let app_state = handle.state::<App>();
+
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let files = repo
+        .match_file_paths(match_pattern)
+        .with_context(|| "Failed to get file paths")?;
 
     Ok(files)
 }
@@ -499,7 +537,9 @@ fn main() {
             delete_user,
             get_user,
             search,
-            git_status
+            git_status,
+            git_file_paths,
+            git_match_paths
         ]);
 
     let tauri_context = generate_context!();
