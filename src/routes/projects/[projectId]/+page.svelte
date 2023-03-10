@@ -139,7 +139,9 @@
 								{#each Object.entries(fileSessions) as filetime}
 									<div class="flex flex-row justify-between">
 										<div class="font-mono text-zinc-100">{filetime[0]}</div>
-										<div class="text-zinc-400">{@html timestampsToSpark(filetime[1])}</div>
+										<div class="font-mono text-zinc-400">
+											{@html timestampsToSpark(filetime[1])}
+										</div>
 									</div>
 								{/each}
 							</div>
@@ -152,7 +154,9 @@
 			<div>
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if $filesStatus.length == 0}
-					<div class="rounded bg-green-900 p-4 text-green-400 border border-green-700">Everything is committed</div>
+					<div class="rounded bg-green-900 p-4 text-green-400 border border-green-700">
+						Everything is committed
+					</div>
 				{:else}
 					<div class="rounded bg-yellow-500 p-4 text-yellow-900 border border-yellow-600 font-mono">
 						<ul class="pl-4">

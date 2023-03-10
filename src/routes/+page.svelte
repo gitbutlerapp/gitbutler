@@ -177,7 +177,7 @@
 											<div class="text-lg text-zinc-300 hover:text-zinc-200">
 												{project.title}
 											</div>
-											<div class="font-mono text-base break-words text-zinc-500">
+											<div class="text-base break-words text-zinc-500">
 												{project.path}
 											</div>
 										</div>
