@@ -1,12 +1,16 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
+	import type { Readable } from 'svelte/store';
+	import type { UISession } from '$lib/uisessions';
+	import type { Activity } from '$lib/sessions';
+	import type { Delta } from '$lib/deltas';
 
 	export let data: LayoutData;
 	$: project = data.project;
-	$: dateSessions = data.dateSessions;
+	$: dateSessions = data.dateSessions as Readable<Record<number, UISession[]>>;
 	$: filesStatus = data.filesStatus;
 
-	function shortPath(path, max = 3) {
+	function shortPath(path: string, max = 3) {
 		if (path.length < 30) {
 			return path;
 		}
@@ -20,12 +24,12 @@
 	}
 
 	// convert a list of timestamps to a sparkline
-	function timestampsToSpark(tsArray) {
+	function timestampsToSpark(tsArray: number[]) {
 		let range = tsArray[0] - tsArray[tsArray.length - 1];
 
 		let totalBuckets = 18;
 		let bucketSize = range / totalBuckets;
-		let buckets = [];
+		let buckets: number[][] = [];
 		for (let i = 0; i <= totalBuckets; i++) {
 			buckets.push([]);
 		}
@@ -61,13 +65,13 @@
 	}
 
 	// reduce a group of sessions to a map of filename to timestamps array
-	function sessionFileMap(sessions: any[]) {
-		let sessionsByFile = {};
+	function sessionFileMap(sessions: UISession[]): Record<string, number[]> {
+		let sessionsByFile: Record<string, number[]> = {};
 		sessions.forEach((session) => {
 			if (session.deltas) {
 				Object.entries(session.deltas).forEach((deltas) => {
 					let filename = deltas[0];
-					let timestamps = deltas[1].map((delta: any) => {
+					let timestamps = deltas[1].map((delta: Delta) => {
 						return delta.timestampMs;
 					});
 					if (sessionsByFile[filename]) {
@@ -83,7 +87,7 @@
 	}
 
 	// order the sessions and summarize the changes by file
-	function orderedSessions(dateSessions: Record<string, any>) {
+	function orderedSessions(dateSessions: Record<number, UISession[]>) {
 		return Object.entries(dateSessions)
 			.sort((a, b) => {
 				return parseInt(b[0]) - parseInt(a[0]);
@@ -94,11 +98,11 @@
 			.slice(0, 3);
 	}
 
-	function recentActivity(dateSessions: Record<string, any>) {
-		let recentActivity = [];
+	function recentActivity(dateSessions: Record<string, UISession[]>) {
+		let recentActivity: Activity[] = [];
 		if (dateSessions) {
 			Object.entries(dateSessions).forEach(([date, sessions]) => {
-				sessions.forEach((session) => {
+				sessions.forEach((session: UISession) => {
 					if (session.session) {
 						session.session.activity.forEach((activity) => {
 							recentActivity.push(activity);
@@ -161,11 +165,11 @@
 			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if $filesStatus.length == 0}
-					<div class="rounded bg-green-900 p-4 text-green-400 border border-green-700">
+					<div class="rounded border border-green-700 bg-green-900 p-4 text-green-400">
 						Everything is committed
 					</div>
 				{:else}
-					<div class="rounded bg-yellow-500 p-4 text-yellow-900 border border-yellow-600 font-mono">
+					<div class="rounded border border-yellow-600 bg-yellow-500 p-4 font-mono text-yellow-900">
 						<ul class="pl-4">
 							{#each $filesStatus as activity}
 								<li class="list-disc ">
@@ -181,18 +185,18 @@
 
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
 				{#each recentActivity($dateSessions) as activity}
-					<div class="recent-activity-card mt-4 mb-1 text-zinc-400 border border-zinc-700 rounded">
+					<div class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400">
 						<div class="flex flex-col">
 							<div class="flex flex-row justify-between rounded-t bg-[#2F2F33] p-2">
 								<div class="text-zinc-300">
-									{new Date(parseInt(activity.timestampMs)).toLocaleDateString('en-us', {
+									{new Date(activity.timestampMs).toLocaleDateString('en-us', {
 										weekday: 'long',
 										year: 'numeric',
 										month: 'short',
 										day: 'numeric'
 									})}
 								</div>
-								<div class="font-mono text-right">{activity.type}</div>
+								<div class="text-right font-mono">{activity.type}</div>
 							</div>
 							<div class="rounded-b bg-[#2F2F33] p-2">{activity.message}</div>
 						</div>
