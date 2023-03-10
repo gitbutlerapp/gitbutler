@@ -116,7 +116,7 @@
 
 
 <div class="project-section-component" style="height: calc(100vh - 110px); overflow: hidden;">
-	<div class="flex">
+	<div class="flex h-full">
 		<div class="main-column-containercol-span-2 mt-4" style="width: calc(100% * 0.66); height: calc(-126px + 100vh)">
 			<h1 class="flex text-xl text-zinc-200 px-8">
 				{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
@@ -157,8 +157,8 @@
 				
 			</div>
 		</div>
-		<div class="secondary-column-container col-span-1 space-y-6 pt-4 px-4 border-l border-l-zinc-700" style="width: 37%; height: calc(100vh - 110px); overflow-y: auto;">
-			<div>
+		<div class="secondary-column-container col-span-1 border-l border-l-zinc-700 flex flex-col" style="width: 37%;">
+			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if $filesStatus.length == 0}
 					<div class="rounded bg-green-900 p-4 text-green-400 border border-green-700">
@@ -177,7 +177,7 @@
 					</div>
 				{/if}
 			</div>
-			<div class="">
+			<div class="recent-activity-container p-4" style="height: calc(100vh - 110px); overflow-y: auto;">
 
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
 				{#each recentActivity($dateSessions) as activity}
