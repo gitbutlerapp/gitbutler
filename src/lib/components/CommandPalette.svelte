@@ -79,7 +79,7 @@
 		}
 	}
 
-	let activeClass = ['active', 'bg-orange-800', 'text-white'];
+	let activeClass = ['active', 'bg-zinc-700/50', 'text-white'];
 
 	function upMenu() {
 		const menu = document.getElementById('commandMenu');
@@ -189,7 +189,8 @@
 					bind:this={palette}
 					in:fade={{ duration: 100 }}
 					out:fade={{ duration: 100 }}
-					class="mx-auto max-w-2xl transform divide-y divide-zinc-500 divide-opacity-20 overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all"
+					class="mx-auto max-w-2xl transform divide-y divide-zinc-500 divide-opacity-20 overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all border border-zinc-700"
+					style="border-width: 0.5px;"
 				>
 					<div class="relative">
 						<svg
@@ -230,9 +231,9 @@
 										<svelte:component this={item.icon} />
 										<span class="ml-3 flex-auto truncate">{item.text}</span>
 										{#if item.key}
-											<span class="ml-3 flex-none text-xs font-semibold text-zinc-400"
-												><kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd></span
-											>
+											<span class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 border-b border-black rounded">
+												<kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd>
+											</span>
 										{/if}
 									</li>
 								{/each}
