@@ -20,7 +20,7 @@
 				<div class="flex flex-col px-6 py-3">
 					{#each hunk.lines as line}
 						{#if !line.hidden}
-							<div class="font-mono mb-px flex leading-4">
+							<div class="mb-px flex font-mono leading-4">
 								<span class="w-6 flex-shrink text-[#928374]"
 									>{line.lineNumber ? line.lineNumber : ''}</span
 								>
