@@ -560,17 +560,19 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .lock()
             .unwrap()
             .watch(tx.clone(), &project)
-            .with_context(|| format!("Failed to watch project: {}", project.id))?;
+            .with_context(|| format!("{}: failed to watch project", project.id))?;
 
         let repo = git2::Repository::open(&project.path)
-            .with_context(|| format!("Failed to open git repository: {}", project.path))?;
+            .with_context(|| format!("{}: failed to open repository", project.path))?;
 
-        app_state
+        if let Err(err) = app_state
             .deltas_searcher
             .lock()
             .unwrap()
             .reindex_project(&repo, &project)
-            .with_context(|| format!("Failed to reindex project: {}", project.id))?;
+        {
+            log::error!("{}: failed to reindex project: {:#}", project.id, err);
+        }
     }
     watch_events(app_handle, rx);
 
@@ -637,4 +639,52 @@ fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
         }
         None => Ok(()),
     }
+}
+
+fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let sessions = repo.sessions()?;
+    let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
+        .iter()
+        .map(|session| {
+            let deltas = repo.deltas(&session.id).expect("Failed to list deltas");
+            deltas
+        })
+        .collect();
+
+    let deltas: HashMap<String, Vec<Delta>> =
+        session_deltas
+            .iter()
+            .fold(HashMap::new(), |mut acc, deltas| {
+                for (path, deltas) in deltas {
+                    acc.entry(path.to_string())
+                        .or_insert_with(Vec::new)
+                        .extend(deltas.clone());
+                }
+                acc
+            });
+
+    let first_session = &sessions[sessions.len() - 1];
+    let files = repo.files(&first_session.id, None)?;
+
+    files.iter().for_each(|(path, content)| {
+        println!("Testing consistency for {}", path);
+        let mut file_deltas = deltas.get(path).unwrap_or(&Vec::new()).clone();
+        file_deltas.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
+        let mut text: Vec<char> = content.chars().collect();
+        for delta in file_deltas {
+            for operation in delta.operations {
+                operation
+                    .apply(&mut text)
+                    .expect("Failed to apply operation");
+            }
+        }
+    });
+
+    Ok(())
 }

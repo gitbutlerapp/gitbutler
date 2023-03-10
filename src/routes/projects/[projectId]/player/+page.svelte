@@ -13,7 +13,10 @@
 
 	let currentTimestamp = new Date().getTime();
 
-	$: minVisibleTimestamp = currentTimestamp - 12 * 60 * 60 * 1000;
+	$: minVisibleTimestamp = Math.min(
+		currentTimestamp - 12 * 60 * 60 * 1000,
+		$sessions[0].meta.startTimestampMs
+	);
 
 	let maxVisibleTimestamp = new Date().getTime();
 	onMount(() => {
@@ -48,44 +51,43 @@
 		});
 	}
 
-	let deltasByFilepath: Record<string, Delta[]> = {};
-	$: Promise.all(Object.values(deltasBySessionId)).then((sessionsDeltas) => {
-		deltasByFilepath = sessionsDeltas.reduce((acc, deltas) => {
-			Object.entries(deltas).forEach(([filepath, deltas]) => {
-				acc[filepath] = [...(acc[filepath] ?? []), ...deltas];
+	$: visibleDeltasByFilepath = Promise.all(
+		visibleSessions.map((s) => deltasBySessionId[s.id])
+	).then((deltasBySessionId) =>
+		Object.values(deltasBySessionId).reduce((acc, deltasByFilepath) => {
+			Object.entries(deltasByFilepath).forEach(([filepath, deltas]) => {
+				deltas = deltas.filter((delta) => delta.timestampMs <= currentTimestamp);
+				if (acc[filepath] === undefined) acc[filepath] = [];
+				acc[filepath].push(...deltas);
 			});
 			return acc;
-		}, {} as Record<string, Delta[]>);
-	});
+		}, {} as Record<string, Delta[]>)
+	);
 
-	$: currentFilepath =
-		Object.entries(deltasByFilepath)
-			.map(
-				([filepath, deltas]) =>
-					[filepath, deltas.filter((delta) => delta.timestampMs <= currentTimestamp)] as [
-						string,
-						Delta[]
-					]
-			)
-			.filter(([_, deltas]) => deltas.length > 0)
-			.map(([filepath, deltas]) => [filepath, deltas.at(-1)!.timestampMs] as [string, number])
-			.sort((a, b) => b[1] - a[1])
-			.at(0)?.[0] ?? null;
-
-	$: currentDeltas = currentFilepath
-		? (deltasByFilepath[currentFilepath] ?? [])
-				.filter((delta) => delta.timestampMs <= currentTimestamp)
-				.sort((a, b) => a.timestampMs - b.timestampMs)
-		: null;
-
-	let currentDoc: string | null = null;
-	$: {
-		docsBySessionId[earliestVisibleSession.id].then((docs) => {
-			if (currentFilepath !== null) {
-				currentDoc = docs[currentFilepath] ?? null;
+	let doc: string | null = null;
+	let filepath: string | null = null;
+	let deltas: Delta[] | null = null;
+	$: visibleDeltasByFilepath
+		.then(
+			(visibleDeltasByFilepath) =>
+				Object.entries(visibleDeltasByFilepath)
+					.filter(([_, deltas]) => deltas.length > 0)
+					.map(([filepath, deltas]) => [filepath, deltas.at(-1)!.timestampMs] as [string, number])
+					.sort((a, b) => b[1] - a[1])
+					.at(0)?.[0] ?? null
+		)
+		.then(async (visibleFilepath) => {
+			if (visibleFilepath !== null) {
+				deltas =
+					(await visibleDeltasByFilepath.then((deltasByFilepath) =>
+						deltasByFilepath[visibleFilepath].sort((a, b) => a.timestampMs - b.timestampMs)
+					)) || [];
+				doc = await docsBySessionId[earliestVisibleSession.id].then(
+					(docsByFilepath) => docsByFilepath[visibleFilepath]
+				);
+				filepath = visibleFilepath;
 			}
 		});
-	}
 
 	// player
 	let interval: ReturnType<typeof setInterval> | undefined;
@@ -146,80 +148,81 @@
 		const clickPos = Math.min(Math.max((clickOffset - left) / width, 0), 1) || 0;
 		currentTimestamp = offsetToTimestamp(clickPos);
 	};
-
-	$: console.log({
-		docLength: currentDoc?.length,
-		deltas: currentDeltas,
-		filepath: currentFilepath
-	});
 </script>
 
-<div class="flex h-full flex-col gap-2 px-4">
-	<header>
-		<h2 class="text-lg">{currentFilepath}</h2>
-	</header>
-
-	<div class="flex-auto overflow-auto">
-		{#key earliestVisibleSession.id}
-			{#if currentDoc !== null && currentDeltas !== null && currentFilepath !== null}
-				<CodeViewer doc={currentDoc} filepath={currentFilepath} deltas={currentDeltas} />
-			{/if}
-		{/key}
+{#if $sessions.length === 0}
+	<div class="flex h-full items-center justify-center">
+		<div class="text-center">
+			<h2 class="text-xl">I haven't seen any changes yet</h2>
+			<p class="text-gray-500">Go code something!</p>
+		</div>
 	</div>
+{:else}
+	<div class="flex h-full flex-col gap-2 px-4">
+		<header>
+			<h2 class="text-lg">{filepath}</h2>
+		</header>
 
-	<div id="timeline" class="relative w-full py-4" bind:this={timeline}>
-		<div
-			id="cursor"
-			use:slider
-			on:drag={({ detail: v }) => (currentTimestamp = offsetToTimestamp(v))}
-			class="absolute flex h-12 w-4 cursor-pointer items-center justify-around transition hover:scale-150"
-			style:left="calc({timestampToOffset(currentTimestamp)} - 0.5rem)"
-		>
-			<div class="h-5 w-0.5 rounded-sm bg-white" />
-		</div>
+		{#if filepath !== null && doc !== null && deltas !== null}
+			<div class="flex-auto overflow-auto">
+				<CodeViewer {filepath} {doc} {deltas} />
+			</div>
+		{/if}
 
-		<div class="flex w-full items-center justify-between">
-			<div id="from">
-				{new Date(minVisibleTimestamp).toLocaleString()}
+		<div id="timeline" class="relative w-full py-4" bind:this={timeline}>
+			<div
+				id="cursor"
+				use:slider
+				on:drag={({ detail: v }) => (currentTimestamp = offsetToTimestamp(v))}
+				class="absolute flex h-12 w-4 cursor-pointer items-center justify-around transition hover:scale-150"
+				style:left="calc({timestampToOffset(currentTimestamp)} - 0.5rem)"
+			>
+				<div class="h-5 w-0.5 rounded-sm bg-white" />
 			</div>
 
-			<div id="to">
-				{new Date(maxVisibleTimestamp).toLocaleString()}
-			</div>
-		</div>
+			<div class="flex w-full items-center justify-between">
+				<div id="from">
+					{new Date(minVisibleTimestamp).toLocaleString()}
+				</div>
 
-		<div class="w-full">
-			<div id="ranges" class="flex w-full items-center gap-1" on:mousedown={onSelectTimestamp}>
-				<div
-					class="h-2 rounded-sm"
-					style:background-color="inherit"
-					style:width={rangeWidth([minVisibleTimestamp, visibleRanges[0][0]])}
-				/>
-				{#each visibleRanges as [from, to, filled]}
+				<div id="to">
+					{new Date(maxVisibleTimestamp).toLocaleString()}
+				</div>
+			</div>
+
+			<div class="w-full">
+				<div id="ranges" class="flex w-full items-center gap-1" on:mousedown={onSelectTimestamp}>
 					<div
 						class="h-2 rounded-sm"
-						style:background-color={filled ? '#D9D9D9' : 'inherit'}
-						style:width={rangeWidth([from, to])}
+						style:background-color="inherit"
+						style:width={rangeWidth([minVisibleTimestamp, visibleRanges[0][0]])}
 					/>
-				{/each}
-				<div
-					class="h-2 rounded-sm"
-					style:background-color="inherit"
-					style:width={rangeWidth([
-						visibleRanges[visibleRanges.length - 1][1],
-						maxVisibleTimestamp
-					])}
-				/>
+					{#each visibleRanges as [from, to, filled]}
+						<div
+							class="h-2 rounded-sm"
+							style:background-color={filled ? '#D9D9D9' : 'inherit'}
+							style:width={rangeWidth([from, to])}
+						/>
+					{/each}
+					<div
+						class="h-2 rounded-sm"
+						style:background-color="inherit"
+						style:width={rangeWidth([
+							visibleRanges[visibleRanges.length - 1][1],
+							maxVisibleTimestamp
+						])}
+					/>
+				</div>
 			</div>
 		</div>
-	</div>
 
-	<div class="mx-auto flex items-center gap-2">
-		{#if interval}
-			<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
-		{:else}
-			<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
-		{/if}
-		<button on:click={speedUp}>{speed}x</button>
+		<div class="mx-auto flex items-center gap-2">
+			{#if interval}
+				<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
+			{:else}
+				<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
+			{/if}
+			<button on:click={speedUp}>{speed}x</button>
+		</div>
 	</div>
-</div>
+{/if}
