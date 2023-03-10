@@ -2,7 +2,7 @@ use crate::deltas::{operations::Operation, text_document::TextDocument, Delta};
 
 #[test]
 fn test_new() {
-    let document = TextDocument::new("hello world", vec![]);
+    let document = TextDocument::new(Some("hello world"), vec![]);
     assert_eq!(document.is_ok(), true);
     let document = document.unwrap();
     assert_eq!(document.to_string(), "hello world");
@@ -11,7 +11,7 @@ fn test_new() {
 
 #[test]
 fn test_update() {
-    let document = TextDocument::new("hello world", vec![]);
+    let document = TextDocument::new(Some("hello world"), vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
     document.update("hello world!").unwrap();
@@ -26,7 +26,7 @@ fn test_update() {
 
 #[test]
 fn test_empty() {
-    let document = TextDocument::from_deltas(vec![]);
+    let document = TextDocument::new(None, vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
     document.update("hello world!").unwrap();
@@ -41,23 +41,26 @@ fn test_empty() {
 
 #[test]
 fn test_from_deltas() {
-    let document = TextDocument::from_deltas(vec![
-        Delta {
-            timestamp_ms: 0,
-            operations: vec![Operation::Insert((0, "hello".to_string()))],
-        },
-        Delta {
-            timestamp_ms: 1,
-            operations: vec![Operation::Insert((5, " world".to_string()))],
-        },
-        Delta {
-            timestamp_ms: 2,
-            operations: vec![
-                Operation::Delete((3, 7)),
-                Operation::Insert((4, "!".to_string())),
-            ],
-        },
-    ]);
+    let document = TextDocument::new(
+        None,
+        vec![
+            Delta {
+                timestamp_ms: 0,
+                operations: vec![Operation::Insert((0, "hello".to_string()))],
+            },
+            Delta {
+                timestamp_ms: 1,
+                operations: vec![Operation::Insert((5, " world".to_string()))],
+            },
+            Delta {
+                timestamp_ms: 2,
+                operations: vec![
+                    Operation::Delete((3, 7)),
+                    Operation::Insert((4, "!".to_string())),
+                ],
+            },
+        ],
+    );
     assert_eq!(document.is_ok(), true);
     let document = document.unwrap();
     assert_eq!(document.to_string(), "held!");
@@ -65,7 +68,7 @@ fn test_from_deltas() {
 
 #[test]
 fn test_complex_line() {
-    let document = TextDocument::from_deltas(vec![]);
+    let document = TextDocument::new(None, vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
 
@@ -103,7 +106,7 @@ fn test_complex_line() {
 
 #[test]
 fn test_multiline_add() {
-    let document = TextDocument::from_deltas(vec![]);
+    let document = TextDocument::new(None, vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
 
@@ -141,7 +144,7 @@ fn test_multiline_add() {
 
 #[test]
 fn test_multiline_remove() {
-    let document = TextDocument::from_deltas(vec![]);
+    let document = TextDocument::new(None, vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
 

@@ -4,11 +4,24 @@
 	export let data: LayoutData;
 	$: project = data.project;
 	$: dateSessions = data.dateSessions;
+	$: filesStatus = data.filesStatus;
+
+	function shortPath(path, max = 3) {
+		if (path.length < 30) {
+			return path;
+		}
+		const pathParts = path.split('/');
+		const file = pathParts.pop();
+		if (pathParts.length > 0) {
+			const pp = pathParts.map((p) => p.slice(0, max)).join('/');
+			return `${pp}/${file}`;
+		}
+		return file;
+	}
 
 	// convert a list of timestamps to a sparkline
 	function timestampsToSpark(tsArray) {
 		let range = tsArray[0] - tsArray[tsArray.length - 1];
-		console.log(range);
 
 		let totalBuckets = 18;
 		let bucketSize = range / totalBuckets;
@@ -22,7 +35,6 @@
 				buckets[bucket].push(ts);
 			}
 		});
-		console.log(buckets);
 
 		let spark = '';
 		buckets.forEach((entries) => {
@@ -52,17 +64,19 @@
 	function sessionFileMap(sessions: any[]) {
 		let sessionsByFile = {};
 		sessions.forEach((session) => {
-			Object.entries(session.deltas).forEach((deltas) => {
-				let filename = deltas[0];
-				let timestamps = deltas[1].map((delta: any) => {
-					return delta.timestampMs;
+			if (session.deltas) {
+				Object.entries(session.deltas).forEach((deltas) => {
+					let filename = deltas[0];
+					let timestamps = deltas[1].map((delta: any) => {
+						return delta.timestampMs;
+					});
+					if (sessionsByFile[filename]) {
+						sessionsByFile[filename] = sessionsByFile[filename].concat(timestamps).sort();
+					} else {
+						sessionsByFile[filename] = timestamps;
+					}
 				});
-				if (sessionsByFile[filename]) {
-					sessionsByFile[filename] = sessionsByFile[filename].concat(timestamps).sort();
-				} else {
-					sessionsByFile[filename] = timestamps;
-				}
-			});
+			}
 		});
 
 		return sessionsByFile;
@@ -79,7 +93,27 @@
 			})
 			.slice(0, 3);
 	}
+
+	function recentActivity(dateSessions: Record<string, any>) {
+		let recentActivity = [];
+		if (dateSessions) {
+			Object.entries(dateSessions).forEach(([date, sessions]) => {
+				sessions.forEach((session) => {
+					if (session.session) {
+						session.session.activity.forEach((activity) => {
+							recentActivity.push(activity);
+						});
+					}
+				});
+			});
+		}
+		let activitySorted = recentActivity.sort((a, b) => {
+			return b.timestampMs - a.timestampMs;
+		});
+		return activitySorted.slice(0, 20);
+	}
 </script>
+
 
 
 <div class="project-section-component">
@@ -125,10 +159,26 @@
 		</div>
 		<div class="secondary-column-container col-span-1 space-y-6 pt-4 px-4 border-l-zinc-700" style="width: 37%; height: calc(100vh - 110px); overflow-y: auto;">
 			<div>
-				<h2 class="text-lg font-bold text-zinc-500">Work in Progress</h2>
-				<div class="text-zinc-400 mt-4 mb-1 bg-zinc-700 rounded p-4">No uncommitted work</div>
+				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
+				{#if $filesStatus.length == 0}
+					<div class="rounded bg-green-900 p-4 text-green-400 border border-green-700">
+						Everything is committed
+					</div>
+				{:else}
+					<div class="rounded bg-yellow-500 p-4 text-yellow-900 border border-yellow-600 font-mono">
+						<ul class="pl-4">
+							{#each $filesStatus as activity}
+								<li class="list-disc ">
+									{activity.status.slice(0, 1)}
+									{shortPath(activity.path)}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 			</div>
 			<div class="">
+
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
 				{#each recentActivity($dateSessions) as activity}
 					<div class="recent-activity-card mt-4 mb-1 text-zinc-400 border border-zinc-700 rounded">

@@ -21,7 +21,7 @@ const changes = StateField.define<DecorationSet>({
 export const markChanges = (selection: EditorSelection | undefined) => {
 	if (selection === undefined) return undefined;
 
-	const effects: StateEffect<unknown>[] = selection.ranges
+	const effects: StateEffect<{ from: number; to: number }>[] = selection.ranges
 		.filter((r) => !r.empty)
 		.map(({ from, to }) => addMark.of({ from, to }));
 

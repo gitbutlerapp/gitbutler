@@ -370,6 +370,62 @@ fn list_deltas(
     Ok(deltas)
 }
 
+#[tauri::command]
+fn git_status(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<HashMap<String, String>, Error> {
+    let app_state = handle.state::<App>();
+
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let files = repo.status().with_context(|| "Failed to get git status")?;
+
+    Ok(files)
+}
+
+#[tauri::command]
+fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+    let app_state = handle.state::<App>();
+
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let files = repo
+        .file_paths()
+        .with_context(|| "Failed to get file paths")?;
+
+    Ok(files)
+}
+
+#[tauri::command]
+fn git_match_paths(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    match_pattern: &str,
+) -> Result<Vec<String>, Error> {
+    let app_state = handle.state::<App>();
+
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let files = repo
+        .match_file_paths(match_pattern)
+        .with_context(|| "Failed to get file paths")?;
+
+    Ok(files)
+}
+
 fn main() {
     let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
     let hide = tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title()));
@@ -480,7 +536,10 @@ fn main() {
             set_user,
             delete_user,
             get_user,
-            search
+            search,
+            git_status,
+            git_file_paths,
+            git_match_paths
         ]);
 
     let tauri_context = generate_context!();
@@ -541,17 +600,19 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .lock()
             .unwrap()
             .watch(tx.clone(), &project)
-            .with_context(|| format!("Failed to watch project: {}", project.id))?;
+            .with_context(|| format!("{}: failed to watch project", project.id))?;
 
         let repo = git2::Repository::open(&project.path)
-            .with_context(|| format!("Failed to open git repository: {}", project.path))?;
+            .with_context(|| format!("{}: failed to open repository", project.path))?;
 
-        app_state
+        if let Err(err) = app_state
             .deltas_searcher
             .lock()
             .unwrap()
             .reindex_project(&repo, &project)
-            .with_context(|| format!("Failed to reindex project: {}", project.id))?;
+        {
+            log::error!("{}: failed to reindex project: {:#}", project.id, err);
+        }
     }
     watch_events(app_handle, rx);
 
@@ -618,4 +679,52 @@ fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
         }
         None => Ok(()),
     }
+}
+
+fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let sessions = repo.sessions()?;
+    let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
+        .iter()
+        .map(|session| {
+            let deltas = repo.deltas(&session.id).expect("Failed to list deltas");
+            deltas
+        })
+        .collect();
+
+    let deltas: HashMap<String, Vec<Delta>> =
+        session_deltas
+            .iter()
+            .fold(HashMap::new(), |mut acc, deltas| {
+                for (path, deltas) in deltas {
+                    acc.entry(path.to_string())
+                        .or_insert_with(Vec::new)
+                        .extend(deltas.clone());
+                }
+                acc
+            });
+
+    let first_session = &sessions[sessions.len() - 1];
+    let files = repo.files(&first_session.id, None)?;
+
+    files.iter().for_each(|(path, content)| {
+        println!("Testing consistency for {}", path);
+        let mut file_deltas = deltas.get(path).unwrap_or(&Vec::new()).clone();
+        file_deltas.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
+        let mut text: Vec<char> = content.chars().collect();
+        for delta in file_deltas {
+            for operation in delta.operations {
+                operation
+                    .apply(&mut text)
+                    .expect("Failed to apply operation");
+            }
+        }
+    });
+
+    Ok(())
 }

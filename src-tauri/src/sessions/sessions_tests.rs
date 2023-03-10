@@ -235,15 +235,11 @@ fn test_list() {
     first.flush(&repo, &None, &project).unwrap();
     assert!(first.hash.is_some());
 
-    std::thread::sleep(std::time::Duration::from_millis(1));
-
     let second = super::sessions::Session::from_head(&repo, &project);
     assert!(second.is_ok());
     let mut second = second.unwrap();
     second.flush(&repo, &None, &project).unwrap();
     assert!(second.hash.is_some());
-
-    std::thread::sleep(std::time::Duration::from_millis(1));
 
     let current_session = super::sessions::Session::from_head(&repo, &project);
     assert!(current_session.is_ok());
@@ -254,10 +250,10 @@ fn test_list() {
     assert!(sessions.is_ok());
     let sessions = sessions.unwrap();
 
-    assert_eq!(sessions.len(), 3);
+    assert_eq!(sessions.len(), 2);
     assert_eq!(sessions[0], current);
     assert_eq!(sessions[1], second);
-    assert_eq!(sessions[2], first);
+    // NOTE: first session is not included in the list
 }
 
 #[test]

@@ -177,12 +177,12 @@
 											<div class="text-lg text-zinc-300 hover:text-zinc-200">
 												{project.title}
 											</div>
-											<div class="font-mono break-words text-zinc-500">
+											<div class="text-base break-words text-zinc-500">
 												{project.path}
 											</div>
 										</div>
 										<div
-											class="font-mono flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 text-zinc-500"
+											class="font-mono flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 text-zinc-300"
 										>
 											{#if project.api}
 												<div class="flex flex-row items-center space-x-2 ">

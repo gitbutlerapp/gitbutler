@@ -79,6 +79,7 @@
 								bind:value={userName}
 								type="text"
 								class="px-4 py-2 text-zinc-300 bg-zinc-900 border border-zinc-600 rounded-lg w-full"
+
 								required
 							/>
 						</div>
@@ -92,6 +93,7 @@
 								bind:value={$user.email}
 								type="text"
 								class="px-4 py-2 text-zinc-300 bg-zinc-900 border border-zinc-600 rounded-lg w-full"
+
 							/>
 						</div>
 

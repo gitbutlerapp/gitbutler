@@ -4,7 +4,8 @@ const config = {
 
 	theme: {
 		fontFamily: {
-			sans: ['Inter', 'SF Pro', '-apple-system', 'system-ui']
+			sans: ['Inter', 'SF Pro', '-apple-system', 'system-ui'],
+			mono: ['SF Mono', 'Consolas', 'Liberation Mono', 'monospace']
 		},
 		fontSize: {
 			xs: '10px',

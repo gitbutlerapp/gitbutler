@@ -3,6 +3,7 @@ import { building } from '$app/environment';
 import { readable, derived } from 'svelte/store';
 import type { Session } from '$lib/sessions';
 import type { UISession } from '$lib/uisessions';
+import type { Status } from '$lib/statuses';
 import { asyncDerived } from '@square/svelte-store';
 import type { Delta } from '$lib/deltas';
 import { startOfDay } from 'date-fns';
@@ -10,6 +11,10 @@ import { startOfDay } from 'date-fns';
 export const prerender = false;
 export const load: LayoutLoad = async ({ parent, params }) => {
 	const { projects } = await parent();
+
+	const filesStatus = building
+		? readable<Status[]>([])
+		: await (await import('$lib/statuses')).default({ projectId: params.projectId });
 
 	const sessions = building
 		? readable<Session[]>([])
@@ -53,7 +58,7 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 				} else {
 					dateSessions[date.getTime()] = [uiSession];
 				}
-			})
+			});
 
 			// For each UISession in dateSessions, set the earliestDeltaTimestampMs and latestDeltaTimestampMs
 			Object.keys(dateSessions).forEach((date: any) => {
@@ -74,6 +79,7 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		project: projects.get(params.projectId),
 		projectId: params.projectId,
 		sessions: orderedSessions,
-		dateSessions: dateSessions
+		dateSessions: dateSessions,
+		filesStatus: filesStatus
 	};
 };

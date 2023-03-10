@@ -5,6 +5,7 @@
 	import type { Project } from '$lib/projects';
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
+	import CommandPalette from '$lib/components/CommandPalette.svelte';
 
 	export let data: LayoutData;
 
@@ -41,10 +42,10 @@
 						name="search"
 						id="search"
 						placeholder="search"
-						class="block w-full pl-3 min-w-0 flex-1 rounded-none bg-zinc-900 border-r-0 rounded-l-md border-0 py-1.5 text-zinc-200 ring-1 ring-inset ring-zinc-700 placeholder:text-zinc-400 focus:ring-1 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+						class="block w-full min-w-0 flex-1 rounded-none rounded-l-md border-0 border-r-0 bg-zinc-900 py-1.5 pl-3 text-zinc-200 ring-1 ring-inset ring-zinc-700 placeholder:text-zinc-400 focus:ring-1 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
 					/>
 					<span
-						class="inline-flex items-center rounded-r-md bg-zinc-900 border border-l-0 border-zinc-700 px-3 text-gray-500 sm:text-sm"
+						class="inline-flex items-center rounded-r-md border border-l-0 border-zinc-700 bg-zinc-900 px-3 text-gray-500 sm:text-sm"
 						>&#8984;K</span
 					>
 				</div>
@@ -56,7 +57,7 @@
 					viewBox="0 0 24 24"
 					stroke-width="1.5"
 					stroke="currentColor"
-					class="w-6 h-6"
+					class="h-6 w-6"
 				>
 					<path
 						stroke-linecap="round"
@@ -136,3 +137,4 @@
 		</div>
 	</footer>
 </div>
+<CommandPalette projectId={$project?.id} />
