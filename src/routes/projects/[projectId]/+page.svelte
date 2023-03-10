@@ -114,20 +114,20 @@
 	}
 </script>
 
-<div class="mt-4 px-8 flex flex-col">
+<div class="mt-4 flex flex-col px-8">
 	<h1 class="flex text-xl text-zinc-200">
-		{$project?.title} <span class="text-zinc-600 ml-2">Project</span>
+		{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
 	</h1>
-	<div class="grid grid-cols-3 mt-4">
+	<div class="mt-4 grid grid-cols-3">
 		<div class="col-span-2 pr-6">
-			<h2 class="text-lg font-bold text-zinc-500 mb-4">Recent File Changes</h2>
+			<h2 class="mb-4 text-lg font-bold text-zinc-500">Recent File Changes</h2>
 			{#if $dateSessions === undefined}
 				<span>Loading...</span>
 			{:else}
 				<div class="flex flex-col space-y-4">
 					{#each orderedSessions($dateSessions) as [dateMilliseconds, fileSessions]}
 						<div class="flex flex-col">
-							<div class="text-zinc-400 text-lg text-zinc-200 mb-1">
+							<div class="mb-1 text-lg text-zinc-400 text-zinc-200">
 								{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {
 									weekday: 'long',
 									year: 'numeric',
@@ -135,10 +135,10 @@
 									day: 'numeric'
 								})}
 							</div>
-							<div class="bg-zinc-700 rounded p-4">
+							<div class="rounded bg-zinc-700 p-4">
 								{#each Object.entries(fileSessions) as filetime}
 									<div class="flex flex-row justify-between">
-										<div class="text-zinc-100 font-mono">{filetime[0]}</div>
+										<div class="font-mono text-zinc-100">{filetime[0]}</div>
 										<div class="text-zinc-400">{@html timestampsToSpark(filetime[1])}</div>
 									</div>
 								{/each}
@@ -150,11 +150,11 @@
 		</div>
 		<div class="col-span-1 space-y-6">
 			<div>
-				<h2 class="text-lg font-bold text-zinc-500 mb-2">Work in Progress</h2>
+				<h2 class="mb-2 text-lg font-bold text-zinc-500">Work in Progress</h2>
 				{#if $filesStatus.length == 0}
-					<div class="bg-green-900 text-green-500 p-4 rounded">Everything is committed</div>
+					<div class="rounded bg-green-900 p-4 text-green-500">Everything is committed</div>
 				{:else}
-					<div class="bg-blue-900 p-4 rounded">
+					<div class="rounded bg-blue-900 p-4">
 						<ul class="">
 							{#each $filesStatus as activity}
 								<li>
@@ -170,9 +170,9 @@
 			<div>
 				<h2 class="text-lg font-bold text-zinc-500">Recent Activity</h2>
 				{#each recentActivity($dateSessions) as activity}
-					<div class="text-zinc-400 mt-4 mb-1">
+					<div class="mt-4 mb-1 text-zinc-400">
 						<div class="flex flex-col">
-							<div class="flex flex-row justify-between p-2 bg-zinc-700 rounded-t">
+							<div class="flex flex-row justify-between rounded-t bg-zinc-700 p-2">
 								<div class="text-zinc-300">
 									{new Date(parseInt(activity.timestampMs)).toLocaleDateString('en-us', {
 										weekday: 'long',
@@ -183,7 +183,7 @@
 								</div>
 								<div>{activity.type}</div>
 							</div>
-							<div class="bg-zinc-600 rounded-b p-2">{activity.message}</div>
+							<div class="rounded-b bg-zinc-600 p-2">{activity.message}</div>
 						</div>
 					</div>
 				{/each}

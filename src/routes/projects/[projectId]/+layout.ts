@@ -12,7 +12,7 @@ export const prerender = false;
 export const load: LayoutLoad = async ({ parent, params }) => {
 	const { projects } = await parent();
 
-	let filesStatus = building
+	const filesStatus = building
 		? readable<Status[]>([])
 		: await (await import('$lib/statuses')).default({ projectId: params.projectId });
 
@@ -58,7 +58,7 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 				} else {
 					dateSessions[date.getTime()] = [uiSession];
 				}
-			})
+			});
 
 			// For each UISession in dateSessions, set the earliestDeltaTimestampMs and latestDeltaTimestampMs
 			Object.keys(dateSessions).forEach((date: any) => {
@@ -70,7 +70,6 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 					uiSession.latestDeltaTimestampMs = Math.max(...deltaTimestamps);
 				});
 			});
-
 
 			return dateSessions;
 		});
