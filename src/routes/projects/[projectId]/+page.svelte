@@ -171,7 +171,10 @@
 			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if $filesStatus.length == 0}
-					<div class="rounded border border-green-700 bg-green-900 p-4 text-green-400">
+					<div class="flex align-middle rounded border border-green-700 bg-green-900 p-4 text-green-400">
+						<div class="icon h-5 w-5 mr-2">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="#4ADE80" fill-rule="evenodd" d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z" /></svg>
+						</div>
 						Everything is committed
 					</div>
 				{:else}
