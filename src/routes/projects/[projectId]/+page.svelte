@@ -4,24 +4,12 @@
 	import type { UISession } from '$lib/uisessions';
 	import type { Activity } from '$lib/sessions';
 	import type { Delta } from '$lib/deltas';
+	import { shortPath } from '$lib/paths';
 
 	export let data: LayoutData;
 	$: project = data.project;
 	$: dateSessions = data.dateSessions as Readable<Record<number, UISession[]>>;
 	$: filesStatus = data.filesStatus;
-
-	function shortPath(path: string, max = 3) {
-		if (path.length < 30) {
-			return path;
-		}
-		const pathParts = path.split('/');
-		const file = pathParts.pop();
-		if (pathParts.length > 0) {
-			const pp = pathParts.map((p) => p.slice(0, max)).join('/');
-			return `${pp}/${file}`;
-		}
-		return file;
-	}
 
 	// convert a list of timestamps to a sparkline
 	function timestampsToSpark(tsArray: number[]) {
@@ -147,7 +135,9 @@
 											day: 'numeric'
 										})}
 									</div>
-									<div class="results-card rounded bg-[#2F2F33] border border-zinc-700 p-4 drop-shadow-lg">
+									<div
+										class="results-card rounded bg-[#2F2F33] border border-zinc-700 p-4 drop-shadow-lg"
+									>
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
 												<div class="font-mono text-zinc-100">{filetime[0]}</div>
@@ -171,9 +161,17 @@
 			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if $filesStatus.length == 0}
-					<div class="flex align-middle rounded border border-green-700 bg-green-900 p-4 text-green-400">
+					<div
+						class="flex align-middle rounded border border-green-700 bg-green-900 p-4 text-green-400"
+					>
 						<div class="icon h-5 w-5 mr-2">
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="#4ADE80" fill-rule="evenodd" d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z" /></svg>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+								><path
+									fill="#4ADE80"
+									fill-rule="evenodd"
+									d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z"
+								/></svg
+							>
 						</div>
 						Everything is committed
 					</div>
@@ -196,7 +194,9 @@
 			>
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
 				{#each recentActivity($dateSessions) as activity}
-					<div class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg">
+					<div
+						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
+					>
 						<div class="flex flex-col p-3 rounded bg-[#2F2F33]">
 							<div class="flex flex-row justify-between text-zinc-500 pb-2">
 								<div class="">

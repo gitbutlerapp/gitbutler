@@ -426,6 +426,29 @@ fn git_match_paths(
     Ok(files)
 }
 
+#[tauri::command]
+fn git_commit(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    message: &str,
+    files: Vec<&str>,
+    push: bool,
+) -> Result<bool, Error> {
+    let app_state = handle.state::<App>();
+
+    let repo = repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        project_id,
+    )?;
+
+    let success = repo
+        .commit(message, files, push)
+        .with_context(|| "Failed to commit")?;
+
+    Ok(success)
+}
+
 fn main() {
     let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
     let hide = tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title()));
@@ -539,7 +562,8 @@ fn main() {
             search,
             git_status,
             git_file_paths,
-            git_match_paths
+            git_match_paths,
+            git_commit
         ]);
 
     let tauri_context = generate_context!();

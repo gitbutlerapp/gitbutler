@@ -1,5 +1,6 @@
 use crate::{deltas, fs, projects, sessions, users};
 use anyhow::{Context, Result};
+use git2::Signature;
 use std::{collections::HashMap, path::Path};
 use tauri::regex::Regex;
 use walkdir::WalkDir;
@@ -157,8 +158,6 @@ impl Repository {
 
     // get file status from git
     pub fn status(&self) -> Result<HashMap<String, String>> {
-        println!("Git Status");
-
         let mut options = git2::StatusOptions::new();
         options.include_untracked(true);
         options.include_ignored(false);
@@ -196,6 +195,51 @@ impl Repository {
         }
 
         return Ok(files);
+    }
+
+    // commit method
+    pub fn commit(&self, message: &str, files: Vec<&str>, push: bool) -> Result<bool> {
+        println!("Git Commit");
+        let repo = &self.git_repository;
+
+        let config = repo.config()?;
+        let name = config.get_string("user.name")?;
+        let email = config.get_string("user.email")?;
+
+        // Get the repository's index
+        let mut index = repo.index()?;
+
+        // Add the specified files to the index
+        for path_str in files {
+            let path = Path::new(path_str);
+            index.add_path(path)?;
+        }
+
+        // Write the updated index to disk
+        index.write()?;
+
+        // Get the default signature for the repository
+        let signature = Signature::now(&name, &email)?;
+
+        // Create the commit with the updated index
+        let tree_id = index.write_tree()?;
+        let tree = repo.find_tree(tree_id)?;
+        let parent_commit = repo.head()?.peel_to_commit()?;
+        let commit = repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            message,
+            &tree,
+            &[&parent_commit],
+        )?;
+        println!("Created commit {}", commit);
+
+        if push {
+            println!("Pushing to remote");
+        }
+
+        return Ok(true);
     }
 }
 
