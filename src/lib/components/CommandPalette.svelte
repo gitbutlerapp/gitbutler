@@ -11,6 +11,7 @@
 	import { shortPath } from '$lib/paths';
 	import { currentProject } from '$lib/current_project';
 	import type { Project } from '$lib/projects';
+	import { placeholder } from '@codemirror/view';
 
 	let showPalette = <string | false>false;
 	let keysDown = <string[]>[];
@@ -19,12 +20,16 @@
 	let changedFiles = {};
 	let commitMessage = '';
 	let commitMessageInput: HTMLElement;
+	let paletteMode = 'command';
 
 	const listFiles = (params: { projectId: string }) =>
 		invoke<Record<string, string>>('git_status', params);
 
 	const matchFiles = (params: { projectId: string; matchPattern: string }) =>
 		invoke<Array<string>>('git_match_paths', params);
+
+	const listBranches = (params: { projectId: string }) =>
+		invoke<Array<string>>('git_branches', params);
 
 	const listProjects = () => invoke<Project[]>('list_projects');
 
@@ -44,6 +49,7 @@
 				break;
 			case 'Escape':
 				showPalette = false;
+				paletteMode = 'command';
 				break;
 			case 'ArrowDown':
 				if (showPalette == 'command') {
@@ -77,6 +83,9 @@
 			}
 			if (keysDown.includes('e')) {
 				executeCommand('contact');
+			}
+			if (keysDown.includes('r')) {
+				executeCommand('branch');
 			}
 		}
 	}
@@ -170,7 +179,8 @@
 			case 'bookmark':
 				break;
 			case 'branch':
-				showBranch = true;
+				showPalette = 'command';
+				branchSwitcher();
 				break;
 		}
 	}
@@ -224,11 +234,11 @@
 		if (!showCommand) {
 			search = '';
 		}
-		if (searchValue.length == 0) {
+		if (searchValue.length == 0 && paletteMode == 'command') {
 			updateMenu([]);
 			return;
 		}
-		if ($currentProject) {
+		if ($currentProject && searchValue.length > 0) {
 			const searchPattern = '.*' + Array.from(searchValue).join('(.*)');
 			matchFiles({ projectId: $currentProject.id, matchPattern: searchPattern }).then((files) => {
 				let searchResults = [];
@@ -236,6 +246,20 @@
 					searchResults.push({ text: f, icon: FileIcon });
 				});
 				updateMenu(searchResults);
+			});
+		}
+	}
+
+	function branchSwitcher() {
+		console.log('branchSwitcher', $currentProject);
+		paletteMode = 'branch';
+		if ($currentProject) {
+			listBranches({ projectId: $currentProject.id }).then((refs) => {
+				let branches = <Object[]>[];
+				refs.forEach((b) => {
+					branches.push({ text: b, icon: BranchIcon });
+				});
+				menuItems = branches;
 			});
 		}
 	}
@@ -299,29 +323,34 @@
 							background-color: rgba(24, 24, 27, 0.60);
 							border: 0.5px solid rgba(63, 63, 70, 0.50);"
 					>
-						<div class="relative">
-							<svg
-								class="pointer-events-none absolute top-3.5 left-4 h-5 w-5 text-zinc-500"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								aria-hidden="true"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+						{#if paletteMode == 'command'}
+							<div class="relative">
+								<svg
+									class="pointer-events-none absolute top-3.5 left-4 h-5 w-5 text-zinc-500"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+									/>
+								</svg>
+								<input
+									id="command"
+									type="text"
+									bind:value={search}
+									class="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-white focus:ring-0 sm:text-sm"
+									placeholder="Search..."
 								/>
-							</svg>
-							<input
-								id="command"
-								type="text"
-								bind:value={search}
-								class="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-white focus:ring-0 sm:text-sm"
-								placeholder="Search..."
-							/>
-						</div>
+							</div>
+						{/if}
+						{#if paletteMode == 'branch'}
+							<div class="text-lg p-4">Branch Switcher</div>
+						{/if}
 
 						<!-- Default state, show/hide based on command palette state. -->
 						<ul class="scroll-py-2 divide-y divide-zinc-500 divide-opacity-20 overflow-y-auto">

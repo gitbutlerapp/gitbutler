@@ -156,6 +156,15 @@ impl Repository {
         }
     }
 
+    pub fn branches(&self) -> Result<Vec<String>> {
+        let mut branches = vec![];
+        for branch in self.git_repository.branches(None)? {
+            let (branch, _) = branch?;
+            branches.push(branch.name()?.unwrap().to_string());
+        }
+        Ok(branches)
+    }
+
     // get file status from git
     pub fn status(&self) -> Result<HashMap<String, String>> {
         let mut options = git2::StatusOptions::new();

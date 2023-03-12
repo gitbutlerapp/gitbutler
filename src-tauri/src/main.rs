@@ -177,15 +177,7 @@ fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<Vec<sessions::Session>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )
-    .with_context(|| format!("Failed to open repository for project {}", project_id))?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let sessions = repo
         .sessions()
         .with_context(|| format!("Failed to list sessions for project {}", project_id))?;
@@ -338,16 +330,8 @@ fn list_session_files(
     session_id: &str,
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, String>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let files = repo.files(session_id, paths)?;
-
     Ok(files)
 }
 
@@ -357,16 +341,8 @@ fn list_deltas(
     project_id: &str,
     session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let deltas = repo.deltas(session_id)?;
-
     Ok(deltas)
 }
 
@@ -375,29 +351,14 @@ fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let files = repo.status().with_context(|| "Failed to get git status")?;
-
     Ok(files)
 }
 
 #[tauri::command]
 fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .file_paths()
         .with_context(|| "Failed to get file paths")?;
@@ -411,6 +372,18 @@ fn git_match_paths(
     project_id: &str,
     match_pattern: &str,
 ) -> Result<Vec<String>, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let files = repo
+        .match_file_paths(match_pattern)
+        .with_context(|| "Failed to get file paths")?;
+
+    Ok(files)
+}
+
+fn repo_for_project(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<repositories::Repository, Error> {
     let app_state = handle.state::<App>();
 
     let repo = repositories::Repository::open(
@@ -419,10 +392,15 @@ fn git_match_paths(
         project_id,
     )?;
 
-    let files = repo
-        .match_file_paths(match_pattern)
-        .with_context(|| "Failed to get file paths")?;
+    Ok(repo)
+}
 
+#[tauri::command]
+fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let files = repo
+        .branches()
+        .with_context(|| "Failed to get file paths")?;
     Ok(files)
 }
 
@@ -434,14 +412,7 @@ fn git_commit(
     files: Vec<&str>,
     push: bool,
 ) -> Result<bool, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let success = repo
         .commit(message, files, push)
         .with_context(|| "Failed to commit")?;
@@ -563,6 +534,7 @@ fn main() {
             git_status,
             git_file_paths,
             git_match_paths,
+            git_branches,
             git_commit
         ]);
 
