@@ -2,10 +2,13 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import type { LayoutData } from './$types';
 	import { toasts } from '$lib';
+	import { currentProject } from '$lib/current_project';
 
 	export let data: LayoutData;
 
 	const { projects } = data;
+
+	$: currentProject.set(undefined);
 
 	const onAddLocalRepositoryClick = async () => {
 		const selectedPath = await open({
@@ -185,7 +188,7 @@
 											</div>
 										</div>
 										<div
-											class="flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 font-mono text-zinc-300"
+											class="flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 text-sm text-zinc-300"
 										>
 											{#if project.api}
 												<div class="flex flex-row items-center space-x-2 ">

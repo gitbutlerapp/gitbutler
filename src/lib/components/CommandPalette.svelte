@@ -4,9 +4,11 @@
 	import CommitIcon from './icons/CommitIcon.svelte';
 	import BookmarkIcon from './icons/BookmarkIcon.svelte';
 	import BranchIcon from './icons/BranchIcon.svelte';
+	import ContactIcon from './icons/ContactIcon.svelte';
 	import { invoke } from '@tauri-apps/api';
 	import { goto } from '$app/navigation';
 	import { shortPath } from '$lib/paths';
+	import { currentProject } from '$lib/current_project';
 
 	let showCommand = false;
 	let showCommit = false;
@@ -14,8 +16,6 @@
 	let is_command_down = false;
 	let is_k_down = false;
 	let is_c_down = false;
-
-	export let projectId: string;
 
 	let palette: HTMLElement;
 	let commitPalette: HTMLElement;
@@ -165,7 +165,9 @@
 				}
 				console.log('active', active);
 			} else {
-				goto('/projects/' + projectId + '/search?search=' + search);
+				if ($currentProject) {
+					goto('/projects/' + $currentProject.id + '/search?search=' + search);
+				}
 			}
 		}
 	}
@@ -173,14 +175,20 @@
 	function executeCommand(command: string) {
 		switch (command) {
 			case 'commit':
-				listFiles({ projectId: projectId }).then((files) => {
-					console.log('files', files);
-					changedFiles = files;
-				});
-				showCommit = true;
-				setTimeout(function () {
-					commitMessageInput.focus();
-				}, 100);
+				if ($currentProject) {
+					listFiles({ projectId: $currentProject.id }).then((files) => {
+						console.log('files', files);
+						changedFiles = files;
+					});
+					showCommit = true;
+					setTimeout(function () {
+						commitMessageInput.focus();
+					}, 100);
+				}
+				break;
+			case 'contact':
+				console.log('contact us');
+				goto('/contact');
 				break;
 			case 'bookmark':
 				break;
@@ -195,13 +203,24 @@
 		searchChanged(search, showCommand);
 	}
 
-	let baseCommands = [
+	let projectCommands = [
 		{ text: 'Commit', key: 'C', icon: CommitIcon, command: 'commit' },
 		{ text: 'Bookmark', key: 'B', icon: BookmarkIcon, command: 'bookmark' },
-		{ text: 'Branch', key: 'H', icon: BranchIcon, command: 'branch' }
+		{ text: 'Branch', key: 'R', icon: BranchIcon, command: 'branch' }
 	];
 
-	$: menuItems = baseCommands;
+	let baseCommands = [{ text: 'Contact Us', key: 'H', icon: ContactIcon, command: 'contact' }];
+
+	function commandList() {
+		let commands = [];
+		if ($currentProject) {
+			commands = projectCommands;
+		}
+		commands = commands.concat(baseCommands);
+		return commands;
+	}
+
+	$: menuItems = commandList();
 
 	function searchChanged(searchValue: string, showCommand: boolean) {
 		if (!showCommand) {
@@ -211,26 +230,27 @@
 			updateMenu([]);
 			return;
 		}
-		const searchPattern = '.*' + Array.from(searchValue).join('(.*)');
-		matchFiles({ projectId: projectId, matchPattern: searchPattern }).then((files) => {
-			let searchResults = [];
-			files.slice(0, 5).forEach((f) => {
-				searchResults.push({ text: f, icon: FileIcon });
+		if ($currentProject) {
+			const searchPattern = '.*' + Array.from(searchValue).join('(.*)');
+			matchFiles({ projectId: $currentProject.id, matchPattern: searchPattern }).then((files) => {
+				let searchResults = [];
+				files.slice(0, 5).forEach((f) => {
+					searchResults.push({ text: f, icon: FileIcon });
+				});
+				updateMenu(searchResults);
 			});
-			updateMenu(searchResults);
-		});
+		}
 	}
 
 	function updateMenu(searchResults: Array<{ text: string }>) {
 		if (searchResults.length == 0) {
-			menuItems = baseCommands;
+			menuItems = commandList();
 		} else {
 			menuItems = searchResults;
 		}
 	}
 
 	function doCommit() {
-		console.log('do commit', commitMessage);
 		// get checked files
 		let changedFiles: Array<string> = [];
 		let doc = document.getElementsByClassName('file-checkbox');
@@ -239,17 +259,18 @@
 				changedFiles.push(c.dataset['file']);
 			}
 		});
-		console.log('files', changedFiles, commitMessage);
-		commit({
-			projectId: projectId,
-			message: commitMessage,
-			files: changedFiles,
-			push: false
-		}).then((result) => {
-			console.log('commit result', result);
-			commitMessage = '';
-			showCommit = false;
-		});
+		if ($currentProject) {
+			commit({
+				projectId: $currentProject.id,
+				message: commitMessage,
+				files: changedFiles,
+				push: false
+			}).then((result) => {
+				console.log('commit result', result);
+				commitMessage = '';
+				showCommit = false;
+			});
+		}
 	}
 </script>
 
