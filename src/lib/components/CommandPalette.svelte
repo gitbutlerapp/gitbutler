@@ -5,10 +5,12 @@
 	import BookmarkIcon from './icons/BookmarkIcon.svelte';
 	import BranchIcon from './icons/BranchIcon.svelte';
 	import ContactIcon from './icons/ContactIcon.svelte';
+	import ProjectIcon from './icons/ProjectIcon.svelte';
 	import { invoke } from '@tauri-apps/api';
 	import { goto } from '$app/navigation';
 	import { shortPath } from '$lib/paths';
 	import { currentProject } from '$lib/current_project';
+	import type { Project } from '$lib/projects';
 
 	let showCommand = false;
 	let showCommit = false;
@@ -16,6 +18,7 @@
 	let is_command_down = false;
 	let is_k_down = false;
 	let is_c_down = false;
+	let is_e_down = false;
 
 	let palette: HTMLElement;
 	let commitPalette: HTMLElement;
@@ -29,6 +32,8 @@
 
 	const matchFiles = (params: { projectId: string; matchPattern: string }) =>
 		invoke<Array<string>>('git_match_paths', params);
+
+	const listProjects = () => invoke<Project[]>('list_projects');
 
 	const commit = (params: {
 		projectId: string;
@@ -49,6 +54,9 @@
 				break;
 			case 'c':
 				is_c_down = true;
+				break;
+			case 'e':
+				is_e_down = true;
 				break;
 			case 'Escape':
 				showCommand = false;
@@ -83,6 +91,9 @@
 			showCommit = true;
 			executeCommand('commit');
 		}
+		if (is_command_down && is_e_down) {
+			executeCommand('contact');
+		}
 	}
 
 	function onKeyUp(event: KeyboardEvent) {
@@ -97,6 +108,10 @@
 				break;
 			case 'c':
 				is_c_down = false;
+				event.preventDefault();
+				break;
+			case 'e':
+				is_e_down = false;
 				event.preventDefault();
 				break;
 		}
@@ -117,7 +132,7 @@
 	function upMenu() {
 		const menu = document.getElementById('commandMenu');
 		if (menu) {
-			const items = menu.querySelectorAll('li');
+			const items = menu.querySelectorAll('li.item');
 			const active = menu.querySelector('li.active');
 			if (active) {
 				const index = Array.from(items).indexOf(active);
@@ -132,14 +147,10 @@
 	}
 
 	function downMenu() {
-		console.log('DOWN');
 		const menu = document.getElementById('commandMenu');
-		console.log('menu', menu);
 		if (menu) {
-			const items = menu.querySelectorAll('li');
-			console.log('items', items);
+			const items = menu.querySelectorAll('li.item');
 			const active = menu.querySelector('li.active');
-			console.log('active', active);
 			if (active) {
 				const index = Array.from(items).indexOf(active);
 				if (index < items.length - 1) {
@@ -160,10 +171,10 @@
 			const active = menu.querySelector('li.active');
 			if (active) {
 				const command = active.getAttribute('data-command');
+				const context = active.getAttribute('data-context');
 				if (command) {
-					executeCommand(command);
+					executeCommand(command, context);
 				}
-				console.log('active', active);
 			} else {
 				if ($currentProject) {
 					goto('/projects/' + $currentProject.id + '/search?search=' + search);
@@ -172,7 +183,7 @@
 		}
 	}
 
-	function executeCommand(command: string) {
+	function executeCommand(command: string, context?: string | null) {
 		switch (command) {
 			case 'commit':
 				if ($currentProject) {
@@ -189,6 +200,10 @@
 			case 'contact':
 				console.log('contact us');
 				goto('/contact');
+				break;
+			case 'switch':
+				console.log('switch', command, context);
+				goto('/projects/' + context);
 				break;
 			case 'bookmark':
 				break;
@@ -209,14 +224,34 @@
 		{ text: 'Branch', key: 'R', icon: BranchIcon, command: 'branch' }
 	];
 
-	let baseCommands = [{ text: 'Contact Us', key: 'H', icon: ContactIcon, command: 'contact' }];
+	let switchCommands = [];
+	$: if ($currentProject) {
+		listProjects().then((projects) => {
+			switchCommands = [];
+			projects.forEach((p) => {
+				if (p.id !== $currentProject?.id) {
+					switchCommands.push({
+						text: p.title,
+						icon: ProjectIcon,
+						command: 'switch',
+						context: p.id
+					});
+				}
+			});
+		});
+	}
+
+	let baseCommands = [{ text: 'Contact Us', key: 'E', icon: ContactIcon, command: 'contact' }];
 
 	function commandList() {
 		let commands = [];
+		let divider = [{ type: 'divider' }];
 		if ($currentProject) {
-			commands = projectCommands;
+			commands = projectCommands.concat(divider).concat(switchCommands);
+		} else {
+			commands = switchCommands;
 		}
-		commands = commands.concat(baseCommands);
+		commands = commands.concat(divider).concat(baseCommands);
 		return commands;
 	}
 
@@ -330,25 +365,30 @@
 							<li class="p-1">
 								<ul id="commandMenu" class="text-sm text-zinc-400">
 									{#each menuItems as item}
-										<!-- Active: "bg-zinc-800 text-white" -->
-										<li
-											class="group flex cursor-default select-none items-center rounded-md px-3 py-2"
-											on:click={() => {
-												executeCommand(item.command);
-											}}
-											data-command={item.command}
-										>
-											<!-- Active: "text-white", Not Active: "text-zinc-500" -->
-											<svelte:component this={item.icon} />
-											<span class="ml-3 flex-auto truncate">{item.text}</span>
-											{#if item.key}
-												<span
-													class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 border-b border-black rounded"
-												>
-													<kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd>
-												</span>
-											{/if}
-										</li>
+										{#if item.type == 'divider'}
+											<li class="border-t border-zinc-500 border-opacity-20 my-2" />
+										{:else}
+											<!-- Active: "bg-zinc-800 text-white" -->
+											<li
+												class="item group flex cursor-default select-none items-center rounded-md px-3 py-2"
+												on:click={() => {
+													executeCommand(item.command);
+												}}
+												data-command={item.command}
+												data-context={item.context}
+											>
+												<!-- Active: "text-white", Not Active: "text-zinc-500" -->
+												<svelte:component this={item.icon} />
+												<span class="ml-3 flex-auto truncate">{item.text}</span>
+												{#if item.key}
+													<span
+														class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 border-b border-black rounded"
+													>
+														<kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd>
+													</span>
+												{/if}
+											</li>
+										{/if}
 									{/each}
 								</ul>
 							</li>
