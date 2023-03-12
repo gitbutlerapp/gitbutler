@@ -328,11 +328,13 @@
 						out:fade={{ duration: 100 }}
 						class="mx-auto max-w-2xl transform divide-y divide-zinc-500 divide-opacity-20 overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all border border-zinc-700"
 						style="
-						border-width: 0.5px; 
-						-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
-						backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
-						background-color: rgba(24, 24, 27, 0.60);
-						border: 0.5px solid rgba(63, 63, 70, 0.50);"
+							height: auto;
+							max-height: 420px;
+							border-width: 0.5px; 
+							-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+							backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+							background-color: rgba(24, 24, 27, 0.60);
+							border: 0.5px solid rgba(63, 63, 70, 0.50);"
 					>
 						<div class="relative">
 							<svg
@@ -360,7 +362,7 @@
 
 						<!-- Default state, show/hide based on command palette state. -->
 						<ul
-							class="max-h-80 scroll-py-2 divide-y divide-zinc-500 divide-opacity-20 overflow-y-auto"
+							class="scroll-py-2 divide-y divide-zinc-500 divide-opacity-20 overflow-y-auto"
 						>
 							<li class="p-1">
 								<ul id="commandMenu" class="text-sm text-zinc-400">
@@ -381,9 +383,7 @@
 												<svelte:component this={item.icon} />
 												<span class="ml-3 flex-auto truncate">{item.text}</span>
 												{#if item.key}
-													<span
-														class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 border-b border-black rounded"
-													>
+													<span class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 border-b border-black rounded">
 														<kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd>
 													</span>
 												{/if}
@@ -405,8 +405,11 @@
 						bind:this={commitPalette}
 						class="mx-auto max-w-2xl transform overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all border border-zinc-700"
 						style="
-						border-width: 0.5px; 
-						border: 0.5px solid rgba(63, 63, 70, 0.50);"
+							border-width: 0.5px; 
+							border: 0.5px solid rgba(63, 63, 70, 0.50);
+							-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%); 
+							background-color: rgba(24, 24, 27, 0.6);
+							"
 					>
 						<div class="w-full border-b border-zinc-700 text-lg text-white mb-4 p-4">
 							Commit Your Changes

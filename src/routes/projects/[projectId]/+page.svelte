@@ -182,9 +182,15 @@
 								<li class="list-disc ">
 									{activity.status.slice(0, 1)}
 									{shortPath(activity.path)}
+									
 								</li>
+								
 							{/each}
 						</ul>
+					</div>
+					<!-- TODO: Button needs to be hooked up -->
+					<div class="flex flex-row-reverse w-100">
+						<button class="button mt-2 rounded bg-blue-600 py-2 px-3 text-white">Commit changes</button>
 					</div>
 				{/if}
 			</div>
