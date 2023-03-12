@@ -1,7 +1,7 @@
 use crate::{deltas, fs, projects, sessions, users};
 use anyhow::{Context, Result};
-use git2::Signature;
-use std::{collections::HashMap, path::Path};
+use git2::{Cred, Signature};
+use std::{collections::HashMap, env, path::Path};
 use tauri::regex::Regex;
 use walkdir::WalkDir;
 
@@ -237,6 +237,56 @@ impl Repository {
 
         if push {
             println!("Pushing to remote");
+
+            // Get a reference to the current branch
+            let head = repo.head()?;
+            let branch = head.name().unwrap();
+
+            println!("Branch: {:?}", branch);
+
+            let branch_remote = repo.branch_upstream_remote(branch)?;
+            let branch_remote_name = branch_remote.as_str().unwrap();
+            let branch_name = repo.branch_upstream_name(branch)?;
+            println!(
+                "Branch remote: {:?}, {:?}",
+                branch_remote.as_str(),
+                branch_name.as_str()
+            );
+
+            // Set the remote's callbacks
+            let mut callbacks = git2::RemoteCallbacks::new();
+
+            callbacks.push_update_reference(move |refname, message| {
+                log::info!("pushing reference '{}': {:?}", refname, message);
+                Ok(())
+            });
+            callbacks.push_transfer_progress(move |one, two, three| {
+                log::info!("transferred {}/{}/{} objects", one, two, three);
+            });
+
+            // create ssh key if it's not there
+
+            // try to auth with creds from an ssh-agent
+            callbacks.credentials(|_url, username_from_url, _allowed_types| {
+                print!("Trying to auth with ssh... {:?} ", username_from_url);
+                Cred::ssh_key(
+                    username_from_url.unwrap(),
+                    None,
+                    std::path::Path::new(&format!("{}/.ssh/id_ed25519", env::var("HOME").unwrap())),
+                    None,
+                )
+            });
+
+            let mut push_options = git2::PushOptions::new();
+            push_options.remote_callbacks(callbacks);
+
+            // Push to the remote
+            let mut remote = repo.find_remote(branch_remote_name)?;
+            remote
+                .push(&[branch], Some(&mut push_options))
+                .with_context(|| {
+                    format!("failed to push {:?} to {:?}", branch, branch_remote_name)
+                })?;
         }
 
         return Ok(true);

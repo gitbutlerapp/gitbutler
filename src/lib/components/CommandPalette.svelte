@@ -244,7 +244,7 @@
 			projectId: projectId,
 			message: commitMessage,
 			files: changedFiles,
-			push: false
+			push: true
 		}).then((result) => {
 			console.log('commit result', result);
 			commitMessage = '';
