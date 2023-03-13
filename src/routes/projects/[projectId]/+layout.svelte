@@ -126,7 +126,7 @@
 					</a>
 					<a target="_blank" rel="noreferrer" href={projectUrl($project)} class="flex">
 						<div class="leading-5">Open in GitButler Cloud</div>
-						<div class="icon h-5 w-5 ml-1">
+						<div class="icon ml-1 h-5 w-5">
 							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"
 								><path
 									fill="#52525B"
