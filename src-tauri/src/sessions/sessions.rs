@@ -402,8 +402,9 @@ pub fn list(
     repo: &git2::Repository,
     project: &projects::Project,
     reference: &git2::Reference,
+    earliest_timestamp_ms: Option<u128>,
 ) -> Result<Vec<Session>> {
-    let mut sessions = list_persistent(repo, reference)?;
+    let mut sessions = list_persistent(repo, reference, earliest_timestamp_ms)?;
     if let Some(session) = Session::current(repo, project)? {
         sessions.insert(0, session);
     }
@@ -414,7 +415,7 @@ pub fn list(
 // except for the first session. The first created session
 // is special and used to bootstrap the gitbutler state inside a repo.
 // see crate::repositories::init
-fn list_persistent(repo: &git2::Repository, reference: &git2::Reference) -> Result<Vec<Session>> {
+fn list_persistent(repo: &git2::Repository, reference: &git2::Reference, earliest_timestamp_ms: Option<u128>) -> Result<Vec<Session>> {
     let head = repo.find_commit(reference.target().unwrap())?;
 
     // list all commits from gitbutler head to the first commit
@@ -433,6 +434,14 @@ fn list_persistent(repo: &git2::Repository, reference: &git2::Reference) -> Resu
             )
         })?;
         let session = Session::from_commit(repo, &commit)?;
+        match earliest_timestamp_ms {
+            Some(earliest_timestamp_ms) => {
+                if session.meta.start_timestamp_ms <= earliest_timestamp_ms {
+                    break;
+                }
+            },
+            None => {}
+        }
         sessions.push(session);
     }
 

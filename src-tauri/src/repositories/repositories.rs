@@ -54,8 +54,8 @@ impl Repository {
         Ok(reference)
     }
 
-    pub fn sessions(&self) -> Result<Vec<sessions::Session>> {
-        sessions::list(&self.git_repository, &self.project, &self.reference()?)
+    pub fn sessions(&self, earliest_timestamp_ms: Option<u128>) -> Result<Vec<sessions::Session>> {
+        sessions::list(&self.git_repository, &self.project, &self.reference()?, earliest_timestamp_ms)
     }
 
     pub fn files(

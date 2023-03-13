@@ -16,14 +16,14 @@
 	$: project = data.project;
 	$: filesStatus = data.filesStatus;
 	$: recentActivity = data.recentActivity as Readable<Activity[]>;
-	$: sessions = data.sessions;
+	$: orderedSessionsFromLastFourDays = data.orderedSessionsFromLastFourDays;
 
 	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
 
 	$: if ($project) {
 		latestDeltasByDateByFile = {};
 		const dateSessions: Record<number, Session[]> = {};
-		$sessions.forEach((session) => {
+		$orderedSessionsFromLastFourDays.forEach((session) => {
 			const date = startOfDay(new Date(session.meta.startTimestampMs));
 			if (dateSessions[date.getTime()]) {
 				dateSessions[date.getTime()]?.push(session);
