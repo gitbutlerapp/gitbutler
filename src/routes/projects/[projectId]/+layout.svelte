@@ -129,7 +129,7 @@
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
 						<div class="flex flex-row items-center space-x-2 ">
 							<div class="h-2 w-2 rounded-full bg-green-700" />
-							<div>Syncing</div>
+							<div>Backed up</div>
 						</div>
 					</a>
 					<a target="_blank" rel="noreferrer" href={projectUrl($project)} class="flex">
