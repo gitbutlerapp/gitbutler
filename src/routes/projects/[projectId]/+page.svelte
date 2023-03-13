@@ -1,11 +1,14 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import type { Readable } from 'svelte/store';
+	import type { Session } from '$lib/sessions';
+	import { startOfDay } from 'date-fns';
 	import type { Activity } from '$lib/sessions';
 	import type { Delta } from '$lib/deltas';
 	import { shortPath } from '$lib/paths';
 	import { invoke } from '@tauri-apps/api';
 	import { toHumanBranchName } from '$lib/branch';
+	import { list as listDeltas } from '$lib/deltas';
 
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 
@@ -13,9 +16,54 @@
 	$: project = data.project;
 	$: filesStatus = data.filesStatus;
 	$: recentActivity = data.recentActivity as Readable<Activity[]>;
-	$: latestDeltasByDateByFile = data.latestDeltasByDateByFile as Readable<
-		Record<number, Record<string, Delta[][]>[]>
-	>;
+	$: sessions = data.sessions;
+
+	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
+
+	$: if ($project) {
+		latestDeltasByDateByFile = {};
+		const dateSessions: Record<number, Session[]> = {};
+		$sessions.forEach((session) => {
+			const date = startOfDay(new Date(session.meta.startTimestampMs));
+			if (dateSessions[date.getTime()]) {
+				dateSessions[date.getTime()]?.push(session);
+			} else {
+				dateSessions[date.getTime()] = [session];
+			}
+		});
+
+		const latestDateSessions: Record<number, Session[]> = Object.fromEntries(
+			Object.entries(dateSessions)
+				.sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
+				.slice(0, 3)
+		); // Only show the last 3 days
+
+		Object.keys(latestDateSessions).forEach((date: string) => {
+			Promise.all(
+				latestDateSessions[parseInt(date)].map(async (session) => {
+					const sessionDeltas = await listDeltas({
+						projectId: $project?.id ?? '',
+						sessionId: session.id
+					});
+
+					const fileDeltas: Record<string, Delta[][]> = {};
+
+					Object.keys(sessionDeltas).forEach((filePath) => {
+						if (sessionDeltas[filePath].length > 0) {
+							if (fileDeltas[filePath]) {
+								fileDeltas[filePath]?.push(sessionDeltas[filePath]);
+							} else {
+								fileDeltas[filePath] = [sessionDeltas[filePath]];
+							}
+						}
+					});
+					return fileDeltas;
+				})
+			).then((sessionsByFile) => {
+				latestDeltasByDateByFile[parseInt(date)] = sessionsByFile;
+			});
+		});
+	}
 
 	let gitBranch = <string | undefined>undefined;
 	$: if ($project) {
@@ -90,7 +138,6 @@
 	}
 </script>
 
-<!-- {JSON.stringify($latestDeltasByDateByFile)} -->
 <div class="project-section-component" style="height: calc(100vh - 118px); overflow: hidden;">
 	<div class="flex h-full">
 		<div
@@ -103,14 +150,14 @@
 			<div class="mt-4">
 				<div class="recent-file-changes-container h-full w-full">
 					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recent File Changes</h2>
-					{#if $latestDeltasByDateByFile === undefined}
+					{#if latestDeltasByDateByFile === undefined}
 						<div class="p-8 text-center text-zinc-400">Loading...</div>
 					{:else}
 						<div
 							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"
 							style="height: calc(100vh - 253px);"
 						>
-							{#each orderedSessions($latestDeltasByDateByFile) as [dateMilliseconds, fileSessions]}
+							{#each orderedSessions(latestDeltasByDateByFile) as [dateMilliseconds, fileSessions]}
 								<div class="flex flex-col">
 									<div class="mb-1  text-zinc-300">
 										{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {
@@ -170,15 +217,15 @@
 								<li class="list-disc ">
 									{activity.status.slice(0, 1)}
 									{shortPath(activity.path)}
-									
 								</li>
-								
 							{/each}
 						</ul>
 					</div>
 					<!-- TODO: Button needs to be hooked up -->
 					<div class="flex flex-row-reverse w-100">
-						<button class="button mt-2 rounded bg-blue-600 py-2 px-3 text-white">Commit changes</button>
+						<button class="button mt-2 rounded bg-blue-600 py-2 px-3 text-white"
+							>Commit changes</button
+						>
 					</div>
 				{/if}
 			</div>
