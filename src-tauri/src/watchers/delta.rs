@@ -1,4 +1,4 @@
-use crate::deltas::{read, write, Delta, TextDocument};
+use crate::deltas::{self, read, write, Delta, TextDocument};
 use crate::projects;
 use crate::{events, sessions};
 use anyhow::{Context, Result};
@@ -42,7 +42,7 @@ impl DeltaWatchers {
         &mut self,
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
-        mutex: Arc<Mutex<()>>,
+        mutex: Arc<Mutex<fslock::LockFile>>,
     ) -> Result<()> {
         log::info!("Watching deltas for {}", project.path);
         let project_path = Path::new(&project.path);
@@ -85,8 +85,9 @@ impl DeltaWatchers {
                                 continue;
                             }
 
+                            let mut fslock = mutex.lock().unwrap();
                             log::debug!("{}: locking", project.id);
-                            let _lock = mutex.lock().unwrap();
+                            fslock.lock().unwrap();
                             log::debug!("{}: locked", project.id);
 
                             match register_file_change(&project, &repo, &relative_file_path) {
@@ -121,6 +122,10 @@ impl DeltaWatchers {
                                     e
                                 ),
                             }
+
+                            log::debug!("{}: unlocking", project.id);
+                            fslock.unlock().unwrap();
+                            log::debug!("{}: unlocked", project.id);
                         }
                     }
                     Err(e) => log::error!("{}: notify event error: {:#}", project.id, e),
@@ -192,7 +197,12 @@ pub(crate) fn register_file_change(
         (None, None) => TextDocument::new(None, vec![])?,
     };
 
-    if !text_doc.update(&file_contents)? {
+    if !text_doc.update(&current_file_contents)? {
+        log::debug!(
+            "{}: \"{}\" no new deltas, ignoring",
+            project.id,
+            relative_file_path.display()
+        );
         return Ok(None);
     }
 

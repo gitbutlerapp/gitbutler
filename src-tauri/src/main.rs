@@ -734,6 +734,10 @@ fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
                 acc
             });
 
+    if sessions.is_empty() {
+        return Ok(());
+    }
+
     let first_session = &sessions[sessions.len() - 1];
     let files = repo.files(&first_session.id, None)?;
 
