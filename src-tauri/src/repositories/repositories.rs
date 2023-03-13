@@ -1,6 +1,6 @@
 use crate::{deltas, fs, projects, sessions, users};
 use anyhow::{Context, Result};
-use git2::{Cred, Signature};
+use git2::{BranchType, Cred, Signature};
 use std::{collections::HashMap, env, path::Path};
 use tauri::regex::Regex;
 use walkdir::WalkDir;
@@ -158,7 +158,7 @@ impl Repository {
 
     pub fn branches(&self) -> Result<Vec<String>> {
         let mut branches = vec![];
-        for branch in self.git_repository.branches(None)? {
+        for branch in self.git_repository.branches(Some(BranchType::Local))? {
             let (branch, _) = branch?;
             branches.push(branch.name()?.unwrap().to_string());
         }

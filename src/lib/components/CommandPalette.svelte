@@ -119,6 +119,11 @@
 			} else {
 				items[items.length - 1].classList.add(...activeClass);
 			}
+			// scroll into view
+			const active2 = menu.querySelector('li.active');
+			if (active2) {
+				active2.scrollIntoView({ block: 'nearest' });
+			}
 		}
 	}
 
@@ -135,6 +140,11 @@
 				}
 			} else {
 				items[0].classList.add(...activeClass);
+			}
+			// scroll into view
+			const active2 = menu.querySelector('li.active');
+			if (active2) {
+				active2.scrollIntoView({ block: 'nearest' });
 			}
 		}
 	}
