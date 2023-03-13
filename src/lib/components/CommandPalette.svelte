@@ -31,6 +31,9 @@
 	const listBranches = (params: { projectId: string }) =>
 		invoke<Array<string>>('git_branches', params);
 
+	const switchBranch = (params: { projectId: string; branch: string }) =>
+		invoke<Array<string>>('git_switch_branch', params);
+
 	const listProjects = () => invoke<Project[]>('list_projects');
 
 	const commit = (params: {
@@ -182,6 +185,13 @@
 				showPalette = 'command';
 				branchSwitcher();
 				break;
+			case 'switchBranch':
+				if ($currentProject) {
+					switchBranch({ projectId: $currentProject.id, branch: context || '' }).then(() => {
+						console.log('branch switched');
+					});
+				}
+				break;
 		}
 	}
 
@@ -257,7 +267,7 @@
 			listBranches({ projectId: $currentProject.id }).then((refs) => {
 				let branches = <Object[]>[];
 				refs.forEach((b) => {
-					branches.push({ text: b, icon: BranchIcon });
+					branches.push({ text: b, icon: BranchIcon, command: 'switchBranch', context: b });
 				});
 				menuItems = branches;
 			});

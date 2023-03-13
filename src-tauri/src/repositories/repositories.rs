@@ -165,6 +165,24 @@ impl Repository {
         Ok(branches)
     }
 
+    pub fn switch_branch(&self, branch_name: &str) -> Result<bool> {
+        self.flush_session(&None)
+            .with_context(|| "failed to flush session before switching branch")?;
+
+        let branch = self
+            .git_repository
+            .find_branch(branch_name, git2::BranchType::Local)?;
+        let branch = branch.into_reference();
+        self.git_repository
+            .set_head(branch.name().unwrap())
+            .with_context(|| "failed to set head")?;
+        // checkout head
+        self.git_repository
+            .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))
+            .with_context(|| "failed to checkout head")?;
+        Ok(true)
+    }
+
     // get file status from git
     pub fn status(&self) -> Result<HashMap<String, String>> {
         let mut options = git2::StatusOptions::new();
@@ -299,6 +317,19 @@ impl Repository {
         }
 
         return Ok(true);
+    }
+
+    pub fn flush_session(&self, user: &Option<users::User>) -> Result<()> {
+        // if the reference doesn't exist, we create it by creating a flushing a new session
+        let mut current_session =
+            match sessions::Session::current(&self.git_repository, &self.project)? {
+                Some(session) => session,
+                None => sessions::Session::from_head(&self.git_repository, &self.project)?,
+            };
+        current_session
+            .flush(&self.git_repository, user, &self.project)
+            .with_context(|| format!("{}: failed to flush session", &self.project.id))?;
+        Ok(())
     }
 }
 

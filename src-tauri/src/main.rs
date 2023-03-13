@@ -405,6 +405,19 @@ fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String
 }
 
 #[tauri::command]
+fn git_switch_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<bool, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let result = repo
+        .switch_branch(branch)
+        .with_context(|| "Failed to get file paths")?;
+    Ok(result)
+}
+
+#[tauri::command]
 fn git_commit(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -535,6 +548,7 @@ fn main() {
             git_file_paths,
             git_match_paths,
             git_branches,
+            git_switch_branch,
             git_commit
         ]);
 
