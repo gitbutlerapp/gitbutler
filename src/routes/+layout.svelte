@@ -8,6 +8,7 @@
 	import { writable } from 'svelte/store';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import CommandPalette from '$lib/components/CommandPalette.svelte';
+	import { currentProject } from '$lib/current_project';
 
 	export let data: LayoutData;
 	const { user, posthog, projects } = data;
@@ -45,4 +46,5 @@
 		<slot />
 	</div>
 	<Toaster />
+	<CommandPalette />
 </div>

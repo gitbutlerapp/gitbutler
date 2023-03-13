@@ -119,7 +119,7 @@
 				<div class="recent-file-changes-container w-full h-full">
 					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recent File Changes</h2>
 					{#if $dateSessions === undefined}
-						<span>Loading...</span>
+						<div class="p-8 text-zinc-400 text-center">Loading...</div>
 					{:else}
 						<div
 							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"

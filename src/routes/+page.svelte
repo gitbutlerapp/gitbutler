@@ -2,10 +2,13 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import type { LayoutData } from './$types';
 	import { toasts } from '$lib';
+	import { currentProject } from '$lib/current_project';
 
 	export let data: LayoutData;
 
 	const { projects } = data;
+
+	$: currentProject.set(undefined);
 
 	const onAddLocalRepositoryClick = async () => {
 		const selectedPath = await open({
