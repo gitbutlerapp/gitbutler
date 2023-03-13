@@ -132,9 +132,11 @@
 
 	// order the sessions and summarize the changes by file
 	function orderedSessions(dateSessions: Record<number, Record<string, Delta[][]>[]>) {
-		return Object.entries(dateSessions).map(([date, sessions]) => {
-			return [date, sessionFileMap(sessions)];
-		});
+		return Object.entries(dateSessions)
+			.sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
+			.map(([date, sessions]) => {
+				return [date, sessionFileMap(sessions)];
+			});
 	}
 </script>
 
