@@ -246,7 +246,7 @@ fn test_list() {
     let current = current_session.unwrap();
 
     let reference = repo.find_reference(&project.refname()).unwrap();
-    let sessions = super::sessions::list(&repo, &project, &reference);
+    let sessions = super::sessions::list(&repo, &project, &reference, None);
     assert!(sessions.is_ok());
     let sessions = sessions.unwrap();
 

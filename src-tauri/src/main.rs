@@ -139,7 +139,7 @@ fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
 }
 
 #[tauri::command]
-fn search(
+async fn search(
     handle: tauri::AppHandle,
     project_id: &str,
     query: &str,
@@ -176,10 +176,11 @@ fn search(
 async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
+    earliest_timestamp_ms: Option<u128>,
 ) -> Result<Vec<sessions::Session>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let sessions = repo
-        .sessions()
+        .sessions(earliest_timestamp_ms)
         .with_context(|| format!("Failed to list sessions for project {}", project_id))?;
 
     Ok(sessions)
@@ -357,7 +358,7 @@ async fn git_status(
 }
 
 #[tauri::command]
-fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .file_paths()
@@ -367,7 +368,7 @@ fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<Stri
 }
 
 #[tauri::command]
-fn git_match_paths(
+async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
     match_pattern: &str,
@@ -396,7 +397,7 @@ fn repo_for_project(
 }
 
 #[tauri::command]
-fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branches()
@@ -405,7 +406,7 @@ fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String
 }
 
 #[tauri::command]
-fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branch()
@@ -708,7 +709,7 @@ fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
         project_id,
     )?;
 
-    let sessions = repo.sessions()?;
+    let sessions = repo.sessions(None)?;
     let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
         .iter()
         .map(|session| {
