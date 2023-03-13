@@ -151,7 +151,7 @@
 			</h1>
 			<div class="mt-4">
 				<div class="recent-file-changes-container h-full w-full">
-					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recent File Changes</h2>
+					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
 					{#if latestDeltasByDateByFile === undefined}
 						<div class="p-8 text-center text-zinc-400">Loading...</div>
 					{:else}
