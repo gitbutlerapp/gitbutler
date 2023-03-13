@@ -10,6 +10,7 @@
 	$: project = data.project;
 	$: dateSessions = data.dateSessions as Readable<Record<number, UISession[]>>;
 	$: filesStatus = data.filesStatus;
+	$: recentActivity = data.recentActivity as Readable<Activity[]>;
 
 	// convert a list of timestamps to a sparkline
 	function timestampsToSpark(tsArray: number[]) {
@@ -84,25 +85,6 @@
 				return [date, sessionFileMap(sessions)];
 			})
 			.slice(0, 3);
-	}
-
-	function recentActivity(dateSessions: Record<string, UISession[]>) {
-		let recentActivity: Activity[] = [];
-		if (dateSessions) {
-			Object.entries(dateSessions).forEach(([date, sessions]) => {
-				sessions.forEach((session: UISession) => {
-					if (session.session) {
-						session.session.activity.forEach((activity) => {
-							recentActivity.push(activity);
-						});
-					}
-				});
-			});
-		}
-		let activitySorted = recentActivity.sort((a, b) => {
-			return b.timestampMs - a.timestampMs;
-		});
-		return activitySorted.slice(0, 20);
 	}
 </script>
 
@@ -193,7 +175,7 @@
 				style="height: calc(100vh - 110px); overflow-y: auto;"
 			>
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
-				{#each recentActivity($dateSessions) as activity}
+				{#each $recentActivity as activity}
 					<div
 						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
 					>
