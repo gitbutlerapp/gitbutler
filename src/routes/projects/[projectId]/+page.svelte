@@ -190,12 +190,42 @@
 			class="secondary-column-container col-span-1 flex flex-col border-l border-l-zinc-700"
 			style="width: 37%;"
 		>
-			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
+			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4 ">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if gitBranch}
-					<div class="pb-3">
-						<div class="text-zinc-500 leading-none">Branch:</div>
-						<div class="text-zinc-300 font-mono">{toHumanBranchName(gitBranch)}</div>
+					<div class="w-100 mb-4 flex items-center justify-between">
+						<div
+							class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
+						>
+							<div class="h-4 w-4">
+								<svg
+									text="gray"
+									aria-hidden="true"
+									height="16"
+									viewBox="0 0 16 16"
+									version="1.1"
+									width="16"
+									data-view-component="true"
+									class="h-4 w-4 fill-zinc-400"
+								>
+									<path
+										d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"
+									/>
+								</svg>
+							</div>
+							<div class="truncate pl-2 font-mono text-zinc-300">
+								{toHumanBranchName(gitBranch)}
+							</div>
+							<div class="carrot flex items-center">
+								<svg width="7" height="5" viewBox="0 0 7 5" fill="none" class="fill-zinc-400">
+									<path
+										d="M3.87796 4.56356C3.67858 4.79379 3.32142 4.79379 3.12204 4.56356L0.319371 1.32733C0.0389327 1.00351 0.268959 0.5 0.697336 0.5L6.30267 0.500001C6.73104 0.500001 6.96107 1.00351 6.68063 1.32733L3.87796 4.56356Z"
+										fill="#A1A1AA"
+									/>
+								</svg>
+							</div>
+						</div>
+						<div class="branch-count-container text-md hover:text-blue-500 ">6 branches</div>
 					</div>
 				{/if}
 				{#if $filesStatus.length == 0}
