@@ -36,24 +36,27 @@
 		class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-8 text-zinc-300"
 	>
 		<div class="flex flex-row items-center space-x-2">
-			<form action="/projects/{$project?.id}/search" method="GET" class="rounded-lg border-0 py-1.5 px-2 bg-zinc-800 ring-1 ring-inset ring-zinc-700">
-				<div class="flex w-48 max-w-lg rounded-md shadow-sm">
-					<div class="h-5 w-5 mr-2">
-						<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 12a4 4 0 110-8 4 4 0 010 8zm9.707 4.293l-4.82-4.82A5.968 5.968 0 0014 8 6 6 0 002 8a6 6 0 006 6 5.968 5.968 0 003.473-1.113l4.82 4.82a.997.997 0 001.414 0 .999.999 0 000-1.414z" fill="#5C5F62"/></svg>
+			<form action="/projects/{$project?.id}/search" method="GET">
+				<label for="default-search" class="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white">Search</label>
+				<div class="relative">
+					<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+						<svg class="h-5 w-5 mr-2" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 12a4 4 0 110-8 4 4 0 010 8zm9.707 4.293l-4.82-4.82A5.968 5.968 0 0014 8 6 6 0 002 8a6 6 0 006 6 5.968 5.968 0 003.473-1.113l4.82 4.82a.997.997 0 001.414 0 .999.999 0 000-1.414z" fill="#5C5F62"/></svg>
 					</div>
-					<input
-						type="text"
-						name="search"
-						id="search"
-						placeholder="search"
-						autocomplete="off"
-						aria-label="Search input"
-						class="block w-full min-w-0 flex-1 placeholder:text-zinc-500  text-zinc-200 sm:text-sm sm:leading-6 bg-zinc-800 focus:border-pink-400"
-						style=""
-					/>
-					<span class="inline-flex items-center rounded border bg-zinc-700/50 border-zinc-700/20 px-1 text-gray-500 sm:text-sm shadow">
-						&#8984;K
-					</span>
+					<div class="flex w-48 max-w-lg rounded-md shadow-sm">
+						<input
+							type="text"
+							name="search"
+							id="search"
+							placeholder="search"
+							autocomplete="off"
+							aria-label="Search input"
+							class="block py-1.5 px-2 rounded w-full min-w-0 flex-1 placeholder:text-zinc-500  text-zinc-200 sm:text-sm sm:leading-6 bg-zinc-800 focus:border-pink-400 pl-10 border border-zinc-700"
+							style=""
+						/>
+						<div class="absolute right-2 top-2 pt-[1px] pb-[1px] inline-flex items-center rounded border bg-zinc-700/50 border-zinc-700/20 px-1 text-gray-400 sm:text-sm shadow">
+							&#8984;K
+						</div>
+					</div>
 				</div>
 			</form>
 			<a href="/projects/{$project?.id}/player" class="text-zinc-400 hover:text-zinc-200">
