@@ -34,7 +34,7 @@ export const listFiles = (params: { projectId: string; sessionId: string; paths?
 
 const list = (params: { projectId: string }) => invoke<Session[]>('list_sessions', params);
 
-export default async (params: { projectId: string, earliestTimestampMs?: number }) => {
+export default async (params: { projectId: string; earliestTimestampMs?: number }) => {
 	const store = writable([] as Session[]);
 	list(params).then((sessions) => {
 		store.set(sessions);

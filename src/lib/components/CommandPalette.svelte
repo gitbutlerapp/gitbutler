@@ -279,7 +279,7 @@
 		paletteMode = 'branch';
 		if ($currentProject) {
 			listBranches({ projectId: $currentProject.id }).then((refs) => {
-				let branches = <Object[]>[];
+				let branches: any[] = [];
 				refs.forEach((b) => {
 					branches.push({ text: b, icon: BranchIcon, command: 'switchBranch', context: b });
 				});
