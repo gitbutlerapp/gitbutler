@@ -193,7 +193,10 @@
 			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if gitBranch}
-					<div class="py-1">Branch: {toHumanBranchName(gitBranch)}</div>
+					<div class="pb-3">
+						<div class="text-zinc-500 leading-none">Branch:</div>
+						<div class="text-zinc-300 font-mono">{toHumanBranchName(gitBranch)}</div>
+					</div>
 				{/if}
 				{#if $filesStatus.length == 0}
 					<div
