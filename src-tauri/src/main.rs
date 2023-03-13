@@ -139,7 +139,7 @@ fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
 }
 
 #[tauri::command]
-fn search(
+async fn search(
     handle: tauri::AppHandle,
     project_id: &str,
     query: &str,
@@ -357,7 +357,7 @@ async fn git_status(
 }
 
 #[tauri::command]
-fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .file_paths()
@@ -367,7 +367,7 @@ fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<Stri
 }
 
 #[tauri::command]
-fn git_match_paths(
+async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
     match_pattern: &str,
@@ -396,7 +396,7 @@ fn repo_for_project(
 }
 
 #[tauri::command]
-fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branches()
@@ -405,7 +405,7 @@ fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String
 }
 
 #[tauri::command]
-fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branch()
