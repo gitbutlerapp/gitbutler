@@ -10,6 +10,7 @@
 	$: project = data.project;
 	$: dateSessions = data.dateSessions as Readable<Record<number, UISession[]>>;
 	$: filesStatus = data.filesStatus;
+	$: recentActivity = data.recentActivity as Readable<Activity[]>;
 
 	// convert a list of timestamps to a sparkline
 	function timestampsToSpark(tsArray: number[]) {
@@ -85,25 +86,6 @@
 			})
 			.slice(0, 3);
 	}
-
-	function recentActivity(dateSessions: Record<string, UISession[]>) {
-		let recentActivity: Activity[] = [];
-		if (dateSessions) {
-			Object.entries(dateSessions).forEach(([date, sessions]) => {
-				sessions.forEach((session: UISession) => {
-					if (session.session) {
-						session.session.activity.forEach((activity) => {
-							recentActivity.push(activity);
-						});
-					}
-				});
-			});
-		}
-		let activitySorted = recentActivity.sort((a, b) => {
-			return b.timestampMs - a.timestampMs;
-		});
-		return activitySorted.slice(0, 20);
-	}
 </script>
 
 <div class="project-section-component" style="height: calc(100vh - 118px); overflow: hidden;">
@@ -116,10 +98,10 @@
 				{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
 			</h1>
 			<div class="mt-4">
-				<div class="recent-file-changes-container w-full h-full">
+				<div class="recent-file-changes-container h-full w-full">
 					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recent File Changes</h2>
 					{#if $dateSessions === undefined}
-						<div class="p-8 text-zinc-400 text-center">Loading...</div>
+						<div class="p-8 text-center text-zinc-400">Loading...</div>
 					{:else}
 						<div
 							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"
@@ -136,7 +118,7 @@
 										})}
 									</div>
 									<div
-										class="results-card rounded bg-[#2F2F33] border border-zinc-700 p-4 drop-shadow-lg"
+										class="results-card rounded border border-zinc-700 bg-[#2F2F33] p-4 drop-shadow-lg"
 									>
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
@@ -162,9 +144,9 @@
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if $filesStatus.length == 0}
 					<div
-						class="flex align-middle rounded border border-green-700 bg-green-900 p-4 text-green-400"
+						class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400"
 					>
-						<div class="icon h-5 w-5 mr-2">
+						<div class="icon mr-2 h-5 w-5">
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
 								><path
 									fill="#4ADE80"
@@ -199,12 +181,12 @@
 				style="height: calc(100vh - 110px); overflow-y: auto;"
 			>
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
-				{#each recentActivity($dateSessions) as activity}
+				{#each $recentActivity as activity}
 					<div
 						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
 					>
-						<div class="flex flex-col p-3 rounded bg-[#2F2F33]">
-							<div class="flex flex-row justify-between text-zinc-500 pb-2">
+						<div class="flex flex-col rounded bg-[#2F2F33] p-3">
+							<div class="flex flex-row justify-between pb-2 text-zinc-500">
 								<div class="">
 									{new Date(activity.timestampMs).toLocaleDateString('en-us', {
 										weekday: 'short',

@@ -326,7 +326,7 @@
 						bind:this={palette}
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 100 }}
-						class="mx-auto max-w-2xl transform divide-y divide-zinc-500 divide-opacity-20 overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all border border-zinc-700"
+						class="mx-auto max-w-2xl transform divide-y divide-zinc-500 divide-opacity-20 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl transition-all"
 						style="
 							height: auto;
 							max-height: 420px;
@@ -368,7 +368,7 @@
 								<ul id="commandMenu" class="text-sm text-zinc-400">
 									{#each menuItems as item}
 										{#if item.type == 'divider'}
-											<li class="border-t border-zinc-500 border-opacity-20 my-2" />
+											<li class="my-2 border-t border-zinc-500 border-opacity-20" />
 										{:else}
 											<!-- Active: "bg-zinc-800 text-white" -->
 											<li
@@ -403,7 +403,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 100 }}
 						bind:this={commitPalette}
-						class="mx-auto max-w-2xl transform overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all border border-zinc-700"
+						class="mx-auto max-w-2xl transform overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl transition-all"
 						style="
 							border-width: 0.5px; 
 							border: 0.5px solid rgba(63, 63, 70, 0.50);
@@ -411,11 +411,11 @@
 							background-color: rgba(24, 24, 27, 0.6);
 							"
 					>
-						<div class="w-full border-b border-zinc-700 text-lg text-white mb-4 p-4">
+						<div class="mb-4 w-full border-b border-zinc-700 p-4 text-lg text-white">
 							Commit Your Changes
 						</div>
 						<div
-							class="relative transform overflow-hidden text-left transition-all sm:w-full sm:max-w-sm p-2 m-auto"
+							class="relative m-auto transform overflow-hidden p-2 text-left transition-all sm:w-full sm:max-w-sm"
 						>
 							{#if Object.entries(changedFiles).length > 0}
 								<div>
@@ -431,7 +431,7 @@
 													id="commit-message"
 													bind:this={commitMessageInput}
 													bind:value={commitMessage}
-													class="block w-full rounded-md p-4 border-0 text-zinc-200 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+													class="block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
 												/>
 											</div>
 										</div>
@@ -445,7 +445,7 @@
 										>Commit Your Changes</button
 									>
 								</div>
-								<div class="text-zinc-200 mt-4 py-4">
+								<div class="mt-4 py-4 text-zinc-200">
 									<h3 class="text-base font-semibold text-zinc-200" id="modal-title">
 										Changed Files
 									</h3>
@@ -464,7 +464,7 @@
 									{/each}
 								</div>
 							{:else}
-								<div class="text-white mx-auto text-center">No changes to commit</div>
+								<div class="mx-auto text-center text-white">No changes to commit</div>
 							{/if}
 						</div>
 					</div>

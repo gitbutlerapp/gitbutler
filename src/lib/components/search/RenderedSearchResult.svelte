@@ -12,7 +12,7 @@
 			<span class="flex-grow" />
 			<span>{formatDistanceToNow(processedResult.timestamp)} ago</span>
 		</p>
-		<div class="rounded-lg text-[#EBDBB2] bg-[#2F2F33] border border-zinc-700 drop-shadow-lg">
+		<div class="rounded-lg border border-zinc-700 bg-[#2F2F33] text-[#EBDBB2] drop-shadow-lg">
 			{#each processedResult.hunks as hunk, i}
 				{#if i > 0}
 					<div class="border-b border-[#52525B]" />

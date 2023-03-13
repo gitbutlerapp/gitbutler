@@ -7,6 +7,7 @@ import type { Status } from '$lib/statuses';
 import { asyncDerived } from '@square/svelte-store';
 import type { Delta } from '$lib/deltas';
 import { startOfDay } from 'date-fns';
+import type { Activity } from '$lib/sessions';
 
 export const prerender = false;
 export const load: LayoutLoad = async ({ parent, params }) => {
@@ -21,6 +22,18 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		: await (await import('$lib/sessions')).default({ projectId: params.projectId });
 	const orderedSessions = derived(sessions, (sessions) => {
 		return sessions.slice().sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
+	});
+	const recentActivity = derived(sessions, (sessions) => {
+		const recentActivity: Activity[] = [];
+		sessions.forEach((session) => {
+			session.activity.forEach((activity) => {
+				recentActivity.push(activity);
+			});
+		});
+		const activitySorted = recentActivity.sort((a, b) => {
+			return b.timestampMs - a.timestampMs;
+		});
+		return activitySorted.slice(0, 20);
 	});
 
 	let dateSessions = readable<Record<number, UISession[]>>({});
@@ -80,6 +93,7 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		projectId: params.projectId,
 		sessions: orderedSessions,
 		dateSessions: dateSessions,
-		filesStatus: filesStatus
+		filesStatus: filesStatus,
+		recentActivity: recentActivity
 	};
 };
