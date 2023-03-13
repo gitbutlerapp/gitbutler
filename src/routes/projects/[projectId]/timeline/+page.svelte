@@ -154,7 +154,7 @@
 			<!-- Day -->
 			<div
 				id={dateMilliseconds}
-				class="session-day-component flex flex-col rounded-lg bg-[#2F2F33] border border-zinc-700"
+				class="session-day-component flex flex-col rounded-lg border border-zinc-700 bg-[#2F2F33]"
 				class:min-w-full={selection.dateMilliseconds == +dateMilliseconds}
 			>
 				<div
@@ -245,7 +245,7 @@
 								‹
 							</button>
 						</div>
-						<div class="flex w-full flex-col rounded-t border border-orange-400">
+						<div class="session-containerflex w-full flex-col rounded-t border border-orange-400">
 							<div
 								class="session-header flex items-center justify-between rounded-t-sm border border-orange-400 bg-orange-400 p-1 px-4 text-sm font-bold text-zinc-800"
 							>

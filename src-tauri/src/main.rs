@@ -139,7 +139,7 @@ fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
 }
 
 #[tauri::command]
-fn search(
+async fn search(
     handle: tauri::AppHandle,
     project_id: &str,
     query: &str,
@@ -173,21 +173,14 @@ fn search(
 }
 
 #[tauri::command]
-fn list_sessions(
+async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
+    earliest_timestamp_ms: Option<u128>,
 ) -> Result<Vec<sessions::Session>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )
-    .with_context(|| format!("Failed to open repository for project {}", project_id))?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let sessions = repo
-        .sessions()
+        .sessions(earliest_timestamp_ms)
         .with_context(|| format!("Failed to list sessions for project {}", project_id))?;
 
     Ok(sessions)
@@ -332,72 +325,41 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
 }
 
 #[tauri::command]
-fn list_session_files(
+async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, String>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let files = repo.files(session_id, paths)?;
-
     Ok(files)
 }
 
 #[tauri::command]
-fn list_deltas(
+async fn list_deltas(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let deltas = repo.deltas(session_id)?;
-
     Ok(deltas)
 }
 
 #[tauri::command]
-fn git_status(
+async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+    let repo = repo_for_project(handle, project_id)?;
     let files = repo.status().with_context(|| "Failed to get git status")?;
-
     Ok(files)
 }
 
 #[tauri::command]
-fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
-
+async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+    let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .file_paths()
         .with_context(|| "Failed to get file paths")?;
@@ -406,11 +368,23 @@ fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<Stri
 }
 
 #[tauri::command]
-fn git_match_paths(
+async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
     match_pattern: &str,
 ) -> Result<Vec<String>, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let files = repo
+        .match_file_paths(match_pattern)
+        .with_context(|| "Failed to get file paths")?;
+
+    Ok(files)
+}
+
+fn repo_for_project(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<repositories::Repository, Error> {
     let app_state = handle.state::<App>();
 
     let repo = repositories::Repository::open(
@@ -419,11 +393,54 @@ fn git_match_paths(
         project_id,
     )?;
 
-    let files = repo
-        .match_file_paths(match_pattern)
-        .with_context(|| "Failed to get file paths")?;
+    Ok(repo)
+}
 
+#[tauri::command]
+async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let files = repo
+        .branches()
+        .with_context(|| "Failed to get file paths")?;
     Ok(files)
+}
+
+#[tauri::command]
+async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let files = repo
+        .branch()
+        .with_context(|| "Failed to get the git branch ref name")?;
+    Ok(files)
+}
+
+#[tauri::command]
+fn git_switch_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<bool, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let result = repo
+        .switch_branch(branch)
+        .with_context(|| "Failed to get file paths")?;
+    Ok(result)
+}
+
+#[tauri::command]
+fn git_commit(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    message: &str,
+    files: Vec<&str>,
+    push: bool,
+) -> Result<bool, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let success = repo
+        .commit(message, files, push)
+        .with_context(|| "Failed to commit")?;
+
+    Ok(success)
 }
 
 fn main() {
@@ -539,7 +556,11 @@ fn main() {
             search,
             git_status,
             git_file_paths,
-            git_match_paths
+            git_match_paths,
+            git_branches,
+            git_branch,
+            git_switch_branch,
+            git_commit
         ]);
 
     let tauri_context = generate_context!();
@@ -688,7 +709,7 @@ fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
         project_id,
     )?;
 
-    let sessions = repo.sessions()?;
+    let sessions = repo.sessions(None)?;
     let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
         .iter()
         .map(|session| {

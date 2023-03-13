@@ -13,10 +13,13 @@
 
 	let currentTimestamp = new Date().getTime();
 
-	$: minVisibleTimestamp = Math.max(
-		Math.min(currentTimestamp - 12 * 60 * 60 * 1000, $sessions[0].meta.startTimestampMs),
-		$sessions.at(-1)!.meta.startTimestampMs
-	);
+	$: minVisibleTimestamp =
+		$sessions.length > 0
+			? Math.max(
+					Math.min(currentTimestamp - 12 * 60 * 60 * 1000, $sessions[0].meta.startTimestampMs),
+					$sessions.at(-1)!.meta.startTimestampMs
+			  )
+			: 0;
 
 	let maxVisibleTimestamp = new Date().getTime();
 	onMount(() => {
@@ -44,7 +47,7 @@
 		});
 
 	let docsBySessionId: Record<string, Promise<Record<string, string>>> = {};
-	$: if (docsBySessionId[earliestVisibleSession.id] === undefined) {
+	$: if (earliestVisibleSession && docsBySessionId[earliestVisibleSession.id] === undefined) {
 		docsBySessionId[earliestVisibleSession.id] = listFiles({
 			projectId: data.projectId,
 			sessionId: earliestVisibleSession.id
@@ -79,7 +82,7 @@
 					.at(0)?.[0] ?? null
 		)
 		.then(async (visibleFilepath) => {
-			if (visibleFilepath !== null) {
+			if (earliestVisibleSession && visibleFilepath !== null) {
 				frame = {
 					deltas:
 						(await visibleDeltasByFilepath.then((deltasByFilepath) =>
@@ -163,18 +166,18 @@
 		</div>
 	</div>
 {:else}
-	<div class="flex h-full flex-col gap-2 px-4">
+	<div class="flex h-full w-full flex-col">
 		{#if frame !== null}
-			<header>
-				<h2 class="text-lg">{frame.filepath}</h2>
+			<header class="shadow-md">
+				<h2 class="px-4 py-2 text-xl text-zinc-300">{frame.filepath}</h2>
 			</header>
 
-			<div class="project-container flex-auto overflow-auto">
+			<div class="project-container flex-auto overflow-y-auto overflow-x-hidden" style="height: calc(100vh - 270px)">
 				<CodeViewer filepath={frame.filepath} doc={frame.doc} deltas={frame.deltas} />
 			</div>
 		{/if}
 
-		<div id="timeline" class="relative w-full py-4" bind:this={timeline}>
+		<div id="timeline" class="relative w-full px-4 pb-4" bind:this={timeline}>
 			<div
 				id="cursor"
 				use:slider
@@ -185,7 +188,7 @@
 				<div class="h-5 w-0.5 rounded-sm bg-white" />
 			</div>
 
-			<div class="flex w-full items-center justify-between">
+			<div class="mb-4 flex w-full items-center justify-between">
 				<div id="from">
 					{new Date(minVisibleTimestamp).toLocaleString()}
 				</div>
@@ -195,7 +198,7 @@
 				</div>
 			</div>
 
-			<div class="w-full">
+			<div class="w-full px-10">
 				<div id="ranges" class="flex w-full items-center gap-1" on:mousedown={onSelectTimestamp}>
 					<div
 						class="h-2 rounded-sm"

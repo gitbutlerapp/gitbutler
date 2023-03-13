@@ -5,11 +5,12 @@
 	import type { Project } from '$lib/projects';
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
-	import CommandPalette from '$lib/components/CommandPalette.svelte';
+	import { currentProject } from '$lib/current_project';
 
 	export let data: LayoutData;
 
 	$: project = data.project;
+	$: currentProject.set($project);
 
 	function projectUrl(project: Project) {
 		const gitUrl = project.api?.git_url;
@@ -112,7 +113,7 @@
 		</ul>
 	</nav>
 
-	<div class="project-container flex-auto overflow-auto">
+	<div class="project-container flex-auto overflow-y-auto h-100">
 		<slot />
 	</div>
 
@@ -130,9 +131,14 @@
 					</a>
 					<a target="_blank" rel="noreferrer" href={projectUrl($project)} class="flex">
 						<div class="leading-5">Open in GitButler Cloud</div>
-						<div class="icon h-5 w-5 ml-1">
-							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="#52525B" d="M14 13v1a1 1 0 01-1 1H6c-.575 0-1-.484-1-1V7a1 1 0 011-1h1c1.037 0 1.04 1.5 0 1.5-.178.005-.353 0-.5 0v6h6V13c0-1 1.5-1 1.5 0zm-3.75-7.25A.75.75 0 0111 5h4v4a.75.75 0 01-1.5 0V7.56l-3.22 3.22a.75.75 0 11-1.06-1.06l3.22-3.22H11a.75.75 0 01-.75-.75z"/></svg>
-						</div>						
+						<div class="icon ml-1 h-5 w-5">
+							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"
+								><path
+									fill="#52525B"
+									d="M14 13v1a1 1 0 01-1 1H6c-.575 0-1-.484-1-1V7a1 1 0 011-1h1c1.037 0 1.04 1.5 0 1.5-.178.005-.353 0-.5 0v6h6V13c0-1 1.5-1 1.5 0zm-3.75-7.25A.75.75 0 0111 5h4v4a.75.75 0 01-1.5 0V7.56l-3.22 3.22a.75.75 0 11-1.06-1.06l3.22-3.22H11a.75.75 0 01-.75-.75z"
+								/></svg
+							>
+						</div>
 					</a>
 				{:else}
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
@@ -146,4 +152,3 @@
 		</div>
 	</footer>
 </div>
-<CommandPalette projectId={$project?.id} />

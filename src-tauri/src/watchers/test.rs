@@ -115,7 +115,7 @@ fn test_flow() {
         .git_repository
         .find_reference(&repo.project.refname())
         .unwrap();
-    let mut sessions = sessions::list(&repo.git_repository, &repo.project, &reference).unwrap();
+    let mut sessions = sessions::list(&repo.git_repository, &repo.project, &reference, None).unwrap();
     assert_eq!(sessions.len(), size);
 
     // verify sessions order is correct

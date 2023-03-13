@@ -2,10 +2,13 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import type { LayoutData } from './$types';
 	import { toasts } from '$lib';
+	import { currentProject } from '$lib/current_project';
 
 	export let data: LayoutData;
 
 	const { projects } = data;
+
+	$: currentProject.set(undefined);
 
 	const onAddLocalRepositoryClick = async () => {
 		const selectedPath = await open({
@@ -109,7 +112,7 @@
 						<a
 							rel="noreferrer"
 							target="_blank"
-							href="https://help.gitbutler.com"
+							href="https://docs.gitbutler.com"
 							class="mt-4 rounded-lg bg-zinc-700 px-4 py-3 text-base font-semibold leading-7 text-white"
 						>
 							Learn more <span aria-hidden="true">→</span></a
@@ -174,7 +177,7 @@
 									href="/projects/{project.id}/"
 								>
 									<div
-										class="flex flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-zinc-700 shadow"
+										class="flex flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-[#2F2F33] shadow"
 									>
 										<div class="flex-grow-0 px-4 py-4">
 											<div class="text-lg text-zinc-300 hover:text-zinc-200">
@@ -184,16 +187,17 @@
 												{project.path}
 											</div>
 										</div>
-										<div class="font-mono flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 text-zinc-300">
+
+										<div class="flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 font-mono text-sm text-zinc-300">
 											{#if project.api}
 												<div class="flex flex-row items-center space-x-2 ">
-													<div class="h-2 w-2 rounded-full bg-green-700" />
-													<div class="text-zinc-400">syncing</div>
+													<div class="h-2 w-2 rounded-full bg-green-600" />
+													<div class="text-zinc-300">Backed-up</div>
 												</div>
 											{:else}
 												<div class="flex flex-row items-center space-x-2 ">
-													<div class="h-2 w-2 rounded-full bg-gray-400" />
-													<div class="text-zinc-400">offline</div>
+													<div class="h-2 w-2 rounded-full bg-zinc-800" />
+													<div class="text-zinc-300">Offline</div>
 												</div>
 											{/if}
 										</div>
