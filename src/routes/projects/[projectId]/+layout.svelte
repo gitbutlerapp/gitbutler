@@ -50,10 +50,10 @@
 							placeholder="search"
 							autocomplete="off"
 							aria-label="Search input"
-							class="block py-1.5 px-2 rounded w-full min-w-0 flex-1 placeholder:text-zinc-500  text-zinc-200 sm:text-sm sm:leading-6 bg-zinc-800 pl-10 border border-zinc-700"
+							class="block p-[3px] px-2 rounded w-full min-w-0 flex-1 placeholder:text-zinc-500  text-zinc-200 sm:text-sm sm:leading-6 bg-zinc-800 pl-10 border border-zinc-700"
 							style=""
 						/>
-						<div class="absolute right-2 top-2 pt-[1px] pb-[1px] inline-flex items-center rounded border bg-zinc-700/50 border-zinc-700/20 px-1 text-gray-400 sm:text-sm shadow">
+						<div class="absolute right-1 top-1 inline-flex items-center rounded border bg-zinc-700/50 border-zinc-700/20 px-1 py-[2px] text-gray-400 sm:text-sm shadow">
 							&#8984;K
 						</div>
 					</div>
