@@ -163,10 +163,10 @@
 		</div>
 	</div>
 {:else}
-	<div class="flex h-full flex-col gap-2 px-4">
+	<div class="flex h-full flex-col gap-2">
 		{#if frame !== null}
 			<header>
-				<h2 class="text-lg">{frame.filepath}</h2>
+				<h2 class="px-4 pt-2 text-xl text-zinc-300">{frame.filepath}</h2>
 			</header>
 
 			<div class="project-container flex-auto overflow-auto">
@@ -174,7 +174,7 @@
 			</div>
 		{/if}
 
-		<div id="timeline" class="relative w-full py-4" bind:this={timeline}>
+		<div id="timeline" class="relative w-full py-4 px-4" bind:this={timeline}>
 			<div
 				id="cursor"
 				use:slider

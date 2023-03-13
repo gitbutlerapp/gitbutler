@@ -211,7 +211,7 @@
 						Everything is committed
 					</div>
 				{:else}
-					<div class="rounded border border-yellow-600 bg-yellow-500 p-4 font-mono text-yellow-900">
+					<div class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
 						<ul class="pl-4">
 							{#each $filesStatus as activity}
 								<li class="list-disc ">

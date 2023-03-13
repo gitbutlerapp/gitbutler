@@ -245,7 +245,7 @@
 								‹
 							</button>
 						</div>
-						<div class="flex w-full flex-col rounded-t border border-orange-400">
+						<div class="session-container flex w-full flex-col rounded-t border border-orange-400">
 							<div
 								class="session-header flex items-center justify-between rounded-t-sm border border-orange-400 bg-orange-400 p-1 px-4 text-sm font-bold text-zinc-800"
 							>
