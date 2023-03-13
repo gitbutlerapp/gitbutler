@@ -157,12 +157,22 @@
 				class="session-day-component flex flex-col rounded-lg border border-zinc-700 bg-[#2F2F33]"
 				class:min-w-full={selection.dateMilliseconds == +dateMilliseconds}
 			>
-				<div
-					class="session-day-container flex items-center border-b border-zinc-700 bg-zinc-700/30 py-2 px-4 font-medium"
-				>
-					<span class="session-day-header font-bold text-zinc-200">
+				<div class="session-day-container flex justify-between items-center border-b border-zinc-700 bg-zinc-700/30 py-2 px-4 font-medium">
+					<div class="session-day-header font-bold text-zinc-200">
 						{formatDate(new Date(+dateMilliseconds))}
-					</span>
+					</div>
+					<div class="session-forward-back-controls flex gap-1">
+						<div class="button-next px-1 py-1 bg-zinc-600 border-1 border-zinc-700 rounded shadow hover:bg-zinc-500 hover:border-zinc-600">
+							<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="h-4 w-4">
+								<path fill-rule="evenodd" clip-rule="evenodd" d="M9.6 12.8C9.3952 12.8 9.1904 12.7216 9.0344 12.5656L5.0344 8.56563C4.7216 8.25283 4.7216 7.74723 5.0344 7.43443L9.0344 3.43443C9.3472 3.12163 9.8528 3.12163 10.1656 3.43443C10.4784 3.74723 10.4784 4.25283 10.1656 4.56563L6.7312 8.00003L10.1656 11.4344C10.4784 11.7472 10.4784 12.2528 10.1656 12.5656C10.0096 12.7216 9.8048 12.8 9.6 12.8Z" fill="#A1A1AA"/>
+							</svg>	
+						</div>
+						<div class="button-previous px-1 py-1 bg-zinc-600 border-1 border-zinc-700 rounded shadow hover:bg-zinc-500 hover:border-zinc-600">
+							<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="h-4 w-4">
+								<path fill-rule="evenodd" clip-rule="evenodd" d="M6.40005 12.8C6.19525 12.8 5.99045 12.7216 5.83445 12.5656C5.52165 12.2528 5.52165 11.7472 5.83445 11.4344L9.26885 8.00003L5.83445 4.56563C5.52165 4.25283 5.52165 3.74723 5.83445 3.43443C6.14725 3.12163 6.65285 3.12163 6.96565 3.43443L10.9657 7.43443C11.2785 7.74723 11.2785 8.25283 10.9657 8.56563L6.96565 12.5656C6.80965 12.7216 6.60485 12.8 6.40005 12.8Z" fill="#A1A1AA"/>
+							</svg>	
+						</div>
+					</div>
 				</div>
 				{#if selection.dateMilliseconds !== +dateMilliseconds}
 					<div class="flex flex-auto flex-col">
@@ -308,7 +318,7 @@
 										<div class="col-span-1 flex items-center justify-center" />
 									</div>
 								</div>
-								<div class="timeline-file-list mb-1 flex border-b-2 border-b-zinc-700">
+								<div class="timeline-file-list flex border-b border-b-zinc-700">
 									<div class="grid flex-auto grid-cols-1 grid-rows-1">
 										<!-- file names list -->
 										<div
