@@ -8,7 +8,7 @@ mod test;
 
 use crate::{events, projects, search, users};
 use anyhow::Result;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 
 pub struct Watcher {
     session_watcher: session::SessionWatcher,
@@ -35,9 +35,15 @@ impl Watcher {
         sender: mpsc::Sender<events::Event>,
         project: &projects::Project,
     ) -> Result<()> {
-        self.delta_watcher.watch(sender.clone(), project.clone())?;
+        // shared mutex to prevent concurrent write to gitbutler interal state by multiple watchers
+        // at the same time
+        let lock_file = Arc::new(Mutex::new(()));
+
+        self.delta_watcher
+            .watch(sender.clone(), project.clone(), lock_file.clone())?;
         self.session_watcher
-            .watch(sender.clone(), project.clone())?;
+            .watch(sender.clone(), project.clone(), lock_file.clone())?;
+
         Ok(())
     }
 

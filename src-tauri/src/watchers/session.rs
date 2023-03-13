@@ -2,7 +2,7 @@ use crate::{events, projects, search, sessions, users};
 use anyhow::{Context, Result};
 use git2::Repository;
 use std::{
-    sync::mpsc,
+    sync::{mpsc, Arc, Mutex},
     thread,
     time::{Duration, SystemTime},
 };
@@ -30,7 +30,12 @@ impl<'a> SessionWatcher {
         }
     }
 
-    fn run(&mut self, project_id: &str, sender: mpsc::Sender<events::Event>) -> Result<()> {
+    fn run(
+        &mut self,
+        project_id: &str,
+        sender: mpsc::Sender<events::Event>,
+        mutex: Arc<Mutex<()>>,
+    ) -> Result<()> {
         match self
             .projects_storage
             .get_project(&project_id)
@@ -42,13 +47,31 @@ impl<'a> SessionWatcher {
                     .get()
                     .with_context(|| format!("{}: failed to get user", project.id))?;
 
-                match self.check_for_changes(&project, &user)? {
-                    Some(session) => {
+                let repo = git2::Repository::open(project.path.clone())
+                    .with_context(|| format!("{}: failed to open repository", project.id))?;
+
+                match session_to_commit(&repo, &project)
+                    .with_context(|| "failed to check for session to comit")?
+                {
+                    Some(mut session) => {
+                        log::debug!("{}: locking", project.id);
+                        let _lock = mutex.lock().unwrap();
+                        log::debug!("{}: locked", project.id);
+
+                        session
+                            .flush(&repo, &user, &project)
+                            .with_context(|| format!("failed to flush session {}", session.id))?;
+
+                        self.deltas_searcher
+                            .index_session(&repo, &project, &session)
+                            .with_context(|| format!("failed to index session {}", session.id))?;
+
                         sender
                             .send(events::Event::session(&project, &session))
                             .with_context(|| {
                                 format!("{}: failed to send session event", project.id)
                             })?;
+
                         Ok(())
                     }
                     None => Ok(()),
@@ -62,6 +85,7 @@ impl<'a> SessionWatcher {
         &self,
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
+        mutex: Arc<Mutex<()>>,
     ) -> Result<()> {
         log::info!("{}: watching sessions in {}", project.id, project.path);
 
@@ -72,7 +96,7 @@ impl<'a> SessionWatcher {
         tauri::async_runtime::spawn_blocking(move || loop {
             let local_self = &mut self_copy;
 
-            if let Err(e) = local_self.run(&project_id, sender.clone()) {
+            if let Err(e) = local_self.run(&project_id, sender.clone(), mutex.clone()) {
                 log::error!("{}: error while running git watcher: {:#}", project_id, e);
             }
 
@@ -80,37 +104,6 @@ impl<'a> SessionWatcher {
         });
 
         Ok(())
-    }
-
-    // main thing called in a loop to check for changes and write our custom commit data
-    // it will commit only if there are changes and the session is either idle for 5 minutes or is over an hour old
-    // or if the repository is new to gitbutler.
-    // currently it looks at every file in the wd, but we should probably just look at the ones that have changed when we're certain we can get everything
-    // - however, it does compare to the git index so we don't actually have to read the contents of every file, so maybe it's not too slow unless in huge repos
-    // - also only does the file comparison on commit, so it's not too bad
-    //
-    // returns a commited session if created
-    fn check_for_changes(
-        &mut self,
-        project: &projects::Project,
-        user: &Option<users::User>,
-    ) -> Result<Option<sessions::Session>> {
-        let repo = git2::Repository::open(project.path.clone())
-            .with_context(|| format!("{}: failed to open repository", project.id))?;
-        match session_to_commit(&repo, project)
-            .with_context(|| "failed to check for session to comit")?
-        {
-            None => Ok(None),
-            Some(mut session) => {
-                session
-                    .flush(&repo, user, project)
-                    .with_context(|| format!("failed to flush session {}", session.id))?;
-                self.deltas_searcher
-                    .index_session(&repo, &project, &session)
-                    .with_context(|| format!("failed to index session {}", session.id))?;
-                Ok(Some(session))
-            }
-        }
     }
 }
 
