@@ -13,10 +13,13 @@
 
 	let currentTimestamp = new Date().getTime();
 
-	$: minVisibleTimestamp = Math.max(
-		Math.min(currentTimestamp - 12 * 60 * 60 * 1000, $sessions[0].meta.startTimestampMs),
-		$sessions.at(-1)!.meta.startTimestampMs
-	);
+	$: minVisibleTimestamp =
+		$sessions.length > 0
+			? Math.max(
+					Math.min(currentTimestamp - 12 * 60 * 60 * 1000, $sessions[0].meta.startTimestampMs),
+					$sessions.at(-1)!.meta.startTimestampMs
+			  )
+			: 0;
 
 	let maxVisibleTimestamp = new Date().getTime();
 	onMount(() => {
@@ -44,7 +47,7 @@
 		});
 
 	let docsBySessionId: Record<string, Promise<Record<string, string>>> = {};
-	$: if (docsBySessionId[earliestVisibleSession.id] === undefined) {
+	$: if (earliestVisibleSession && docsBySessionId[earliestVisibleSession.id] === undefined) {
 		docsBySessionId[earliestVisibleSession.id] = listFiles({
 			projectId: data.projectId,
 			sessionId: earliestVisibleSession.id
@@ -79,7 +82,7 @@
 					.at(0)?.[0] ?? null
 		)
 		.then(async (visibleFilepath) => {
-			if (visibleFilepath !== null) {
+			if (earliestVisibleSession && visibleFilepath !== null) {
 				frame = {
 					deltas:
 						(await visibleDeltasByFilepath.then((deltasByFilepath) =>
