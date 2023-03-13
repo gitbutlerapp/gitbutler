@@ -11,7 +11,6 @@
 	import { shortPath } from '$lib/paths';
 	import { currentProject } from '$lib/current_project';
 	import type { Project } from '$lib/projects';
-	import { placeholder } from '@codemirror/view';
 
 	let showPalette = <string | false>false;
 	let keysDown = <string[]>[];
@@ -164,7 +163,6 @@
 			case 'commit':
 				if ($currentProject) {
 					listFiles({ projectId: $currentProject.id }).then((files) => {
-						console.log('files', files);
 						changedFiles = files;
 					});
 					showPalette = 'commit';
@@ -187,9 +185,12 @@
 				break;
 			case 'switchBranch':
 				if ($currentProject) {
+					console.log('branch switch');
+					/*
+					this is a little dangerous right now, so lets ice it for a bit
 					switchBranch({ projectId: $currentProject.id, branch: context || '' }).then(() => {
-						console.log('branch switched');
 					});
+					*/
 				}
 				break;
 		}
@@ -261,7 +262,6 @@
 	}
 
 	function branchSwitcher() {
-		console.log('branchSwitcher', $currentProject);
 		paletteMode = 'branch';
 		if ($currentProject) {
 			listBranches({ projectId: $currentProject.id }).then((refs) => {
@@ -298,7 +298,6 @@
 				files: changedFiles,
 				push: false
 			}).then((result) => {
-				console.log('commit result', result);
 				commitMessage = '';
 				showPalette = false;
 			});

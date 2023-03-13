@@ -405,6 +405,15 @@ fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String
 }
 
 #[tauri::command]
+fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let files = repo
+        .branch()
+        .with_context(|| "Failed to get the git branch ref name")?;
+    Ok(files)
+}
+
+#[tauri::command]
 fn git_switch_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -548,6 +557,7 @@ fn main() {
             git_file_paths,
             git_match_paths,
             git_branches,
+            git_branch,
             git_switch_branch,
             git_commit
         ]);

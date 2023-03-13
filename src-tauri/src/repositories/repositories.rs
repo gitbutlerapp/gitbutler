@@ -165,6 +165,15 @@ impl Repository {
         Ok(branches)
     }
 
+    // return current branch name
+    pub fn branch(&self) -> Result<String> {
+        print!("getting branch name... ");
+        let repo = &self.git_repository;
+        let head = repo.head()?;
+        let branch = head.name().unwrap();
+        Ok(branch.to_string())
+    }
+
     pub fn switch_branch(&self, branch_name: &str) -> Result<bool> {
         self.flush_session(&None)
             .with_context(|| "failed to flush session before switching branch")?;

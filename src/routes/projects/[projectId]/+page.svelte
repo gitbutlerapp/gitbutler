@@ -5,12 +5,23 @@
 	import type { Activity } from '$lib/sessions';
 	import type { Delta } from '$lib/deltas';
 	import { shortPath } from '$lib/paths';
+	import { invoke } from '@tauri-apps/api';
+	import { toHumanBranchName } from '$lib/branch';
+
+	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 
 	export let data: LayoutData;
 	$: project = data.project;
 	$: dateSessions = data.dateSessions as Readable<Record<number, UISession[]>>;
 	$: filesStatus = data.filesStatus;
 	$: recentActivity = data.recentActivity as Readable<Activity[]>;
+
+	let gitBranch = <string | undefined>undefined;
+	$: if ($project) {
+		getBranch({ projectId: $project?.id }).then((branch) => {
+			gitBranch = branch;
+		});
+	}
 
 	// convert a list of timestamps to a sparkline
 	function timestampsToSpark(tsArray: number[]) {
@@ -142,6 +153,9 @@
 		>
 			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
+				{#if gitBranch}
+					<div class="py-1">Branch: {toHumanBranchName(gitBranch)}</div>
+				{/if}
 				{#if $filesStatus.length == 0}
 					<div
 						class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400"
