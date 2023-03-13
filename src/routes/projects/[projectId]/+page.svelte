@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import type { Readable } from 'svelte/store';
-	import type { UISession } from '$lib/uisessions';
 	import type { Activity } from '$lib/sessions';
 	import type { Delta } from '$lib/deltas';
 	import { shortPath } from '$lib/paths';
@@ -12,9 +11,11 @@
 
 	export let data: LayoutData;
 	$: project = data.project;
-	$: dateSessions = data.dateSessions as Readable<Record<number, UISession[]>>;
 	$: filesStatus = data.filesStatus;
 	$: recentActivity = data.recentActivity as Readable<Activity[]>;
+	$: latestDeltasByDateByFile = data.latestDeltasByDateByFile as Readable<
+		Record<number, Record<string, Delta[][]>[]>
+	>;
 
 	let gitBranch = <string | undefined>undefined;
 	$: if ($project) {
@@ -65,40 +66,31 @@
 	}
 
 	// reduce a group of sessions to a map of filename to timestamps array
-	function sessionFileMap(sessions: UISession[]): Record<string, number[]> {
+	function sessionFileMap(sessions: Record<string, Delta[][]>[]): Record<string, number[]> {
 		let sessionsByFile: Record<string, number[]> = {};
-		sessions.forEach((session) => {
-			if (session.deltas) {
-				Object.entries(session.deltas).forEach((deltas) => {
-					let filename = deltas[0];
-					let timestamps = deltas[1].map((delta: Delta) => {
-						return delta.timestampMs;
-					});
-					if (sessionsByFile[filename]) {
-						sessionsByFile[filename] = sessionsByFile[filename].concat(timestamps).sort();
-					} else {
-						sessionsByFile[filename] = timestamps;
-					}
-				});
-			}
-		});
 
+		for (const s of sessions) {
+			for (const [filename, deltas] of Object.entries(s)) {
+				let timestamps = deltas.flatMap((d) => d.map((dd) => dd.timestampMs));
+				if (sessionsByFile[filename]) {
+					sessionsByFile[filename] = sessionsByFile[filename].concat(timestamps).sort();
+				} else {
+					sessionsByFile[filename] = timestamps;
+				}
+			}
+		}
 		return sessionsByFile;
 	}
 
 	// order the sessions and summarize the changes by file
-	function orderedSessions(dateSessions: Record<number, UISession[]>) {
-		return Object.entries(dateSessions)
-			.sort((a, b) => {
-				return parseInt(b[0]) - parseInt(a[0]);
-			})
-			.map(([date, sessions]) => {
-				return [date, sessionFileMap(sessions)];
-			})
-			.slice(0, 3);
+	function orderedSessions(dateSessions: Record<number, Record<string, Delta[][]>[]>) {
+		return Object.entries(dateSessions).map(([date, sessions]) => {
+			return [date, sessionFileMap(sessions)];
+		});
 	}
 </script>
 
+<!-- {JSON.stringify($latestDeltasByDateByFile)} -->
 <div class="project-section-component" style="height: calc(100vh - 118px); overflow: hidden;">
 	<div class="flex h-full">
 		<div
@@ -111,14 +103,14 @@
 			<div class="mt-4">
 				<div class="recent-file-changes-container h-full w-full">
 					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recent File Changes</h2>
-					{#if $dateSessions === undefined}
+					{#if $latestDeltasByDateByFile === undefined}
 						<div class="p-8 text-center text-zinc-400">Loading...</div>
 					{:else}
 						<div
 							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"
 							style="height: calc(100vh - 253px);"
 						>
-							{#each orderedSessions($dateSessions) as [dateMilliseconds, fileSessions]}
+							{#each orderedSessions($latestDeltasByDateByFile) as [dateMilliseconds, fileSessions]}
 								<div class="flex flex-col">
 									<div class="mb-1  text-zinc-300">
 										{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {

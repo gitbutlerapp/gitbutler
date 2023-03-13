@@ -36,55 +36,55 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		return activitySorted.slice(0, 20);
 	});
 
-	let dateSessions = readable<Record<number, UISession[]>>({});
+	let latestDeltasByDateByFile = readable<Record<number, Record<string, Delta[][]>[]>>({});
 	if (!building) {
-		const listDeltas = (await import('$lib/deltas')).list;
-		dateSessions = asyncDerived([orderedSessions], async ([sessions]) => {
-			const deltas = await Promise.all(
-				sessions.map((session) => {
-					return listDeltas({
-						projectId: params.projectId ?? '',
-						sessionId: session.id
-					});
-				})
-			);
-			// Sort deltas by timestamp
-			deltas.forEach((delta) => {
-				Object.keys(delta).forEach((key) => {
-					delta[key].sort((a, b) => a.timestampMs - b.timestampMs).reverse();
-				});
-			});
-
-			const uiSessions = sessions
-				.map((session, i) => {
-					return { session, deltas: deltas[i] } as UISession;
-				})
-				.filter((uiSession) => {
-					return Object.keys(uiSession.deltas).length > 0;
-				});
-
-			const dateSessions: Record<number, UISession[]> = {};
-			uiSessions.forEach((uiSession) => {
-				const date = startOfDay(new Date(uiSession.session.meta.startTimestampMs));
+		latestDeltasByDateByFile = asyncDerived(sessions, async (sessions) => {
+			const dateSessions: Record<number, Session[]> = {};
+			sessions.forEach((session) => {
+				const date = startOfDay(new Date(session.meta.startTimestampMs));
 				if (dateSessions[date.getTime()]) {
-					dateSessions[date.getTime()]?.push(uiSession);
+					dateSessions[date.getTime()]?.push(session);
 				} else {
-					dateSessions[date.getTime()] = [uiSession];
+					dateSessions[date.getTime()] = [session];
 				}
 			});
 
-			// For each UISession in dateSessions, set the earliestDeltaTimestampMs and latestDeltaTimestampMs
-			Object.keys(dateSessions).forEach((date: any) => {
-				dateSessions[date].forEach((uiSession: any) => {
-					const deltaTimestamps = Object.keys(uiSession.deltas).reduce((acc, key) => {
-						return acc.concat(uiSession.deltas[key].map((delta: Delta) => delta.timestampMs));
-					}, []);
-					uiSession.earliestDeltaTimestampMs = Math.min(...deltaTimestamps);
-					uiSession.latestDeltaTimestampMs = Math.max(...deltaTimestamps);
-				});
-			});
+			const latestDateSessions: Record<number, Session[]> = Object.fromEntries(
+				Object.entries(dateSessions)
+					.sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
+					.slice(0, 3)
+			); // Only show the last 3 days
 
-			return dateSessions;
+			const listDeltas = (await import('$lib/deltas')).list;
+
+			return Object.fromEntries(
+				await Promise.all(
+					Object.keys(latestDateSessions).map(async (date: string) => {
+						const sessionsByFile = await Promise.all(
+							latestDateSessions[parseInt(date)].map(async (session) => {
+								const sessionDeltas = await listDeltas({
+									projectId: params.projectId ?? '',
+									sessionId: session.id
+								});
+
+								const fileDeltas: Record<string, Delta[][]> = {};
+
+								Object.keys(sessionDeltas).forEach((filePath) => {
+									if (sessionDeltas[filePath].length > 0) {
+										if (fileDeltas[filePath]) {
+											fileDeltas[filePath]?.push(sessionDeltas[filePath]);
+										} else {
+											fileDeltas[filePath] = [sessionDeltas[filePath]];
+										}
+									}
+								});
+								return fileDeltas;
+							})
+						);
+						return [date, sessionsByFile];
+					})
+				)
+			);
 		});
 	}
 
@@ -92,8 +92,8 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		project: projects.get(params.projectId),
 		projectId: params.projectId,
 		sessions: orderedSessions,
-		dateSessions: dateSessions,
 		filesStatus: filesStatus,
-		recentActivity: recentActivity
+		recentActivity: recentActivity,
+		latestDeltasByDateByFile: latestDeltasByDateByFile
 	};
 };
