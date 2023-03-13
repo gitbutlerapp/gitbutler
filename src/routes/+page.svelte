@@ -112,7 +112,7 @@
 						<a
 							rel="noreferrer"
 							target="_blank"
-							href="https://help.gitbutler.com"
+							href="https://docs.gitbutler.com"
 							class="mt-4 rounded-lg bg-zinc-700 px-4 py-3 text-base font-semibold leading-7 text-white"
 						>
 							Learn more <span aria-hidden="true">→</span></a
