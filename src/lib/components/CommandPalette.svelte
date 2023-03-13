@@ -12,16 +12,9 @@
 	import { currentProject } from '$lib/current_project';
 	import type { Project } from '$lib/projects';
 
-	let showCommand = false;
-	let showCommit = false;
-
-	let is_command_down = false;
-	let is_k_down = false;
-	let is_c_down = false;
-	let is_e_down = false;
-
+	let showPalette = <string | false>false;
+	let keysDown = <string[]>[];
 	let palette: HTMLElement;
-	let commitPalette: HTMLElement;
 
 	let changedFiles = {};
 	let commitMessage = '';
@@ -44,86 +37,58 @@
 
 	function onKeyDown(event: KeyboardEvent) {
 		if (event.repeat) return;
+		keysDown.push(event.key);
 		switch (event.key) {
 			case 'Meta':
-				is_command_down = true;
 				event.preventDefault();
 				break;
-			case 'k':
-				is_k_down = true;
-				break;
-			case 'c':
-				is_c_down = true;
-				break;
-			case 'e':
-				is_e_down = true;
-				break;
 			case 'Escape':
-				showCommand = false;
-				showCommit = false;
+				showPalette = false;
 				break;
 			case 'ArrowDown':
-				if (showCommand) {
+				if (showPalette == 'command') {
 					event.preventDefault();
 					downMenu();
 				}
 				break;
 			case 'ArrowUp':
-				if (showCommand) {
+				if (showPalette == 'command') {
 					event.preventDefault();
 					upMenu();
 				}
 				break;
 			case 'Enter':
-				if (showCommand) {
+				if (showPalette == 'command') {
 					event.preventDefault();
 					selectItem();
 				}
 				break;
 		}
-		if (is_command_down && is_k_down) {
-			showCommand = true;
-			setTimeout(function () {
-				document.getElementById('command')?.focus();
-			}, 100);
-		}
-		if (is_command_down && is_c_down) {
-			showCommit = true;
-			executeCommand('commit');
-		}
-		if (is_command_down && is_e_down) {
-			executeCommand('contact');
+		if (keysDown.includes('Meta')) {
+			if (keysDown.includes('k')) {
+				showPalette = 'command';
+				setTimeout(function () {
+					document.getElementById('command')?.focus();
+				}, 100);
+			}
+			if (keysDown.includes('c')) {
+				showPalette = 'commit';
+				executeCommand('commit');
+			}
+			if (keysDown.includes('e')) {
+				executeCommand('contact');
+			}
 		}
 	}
 
 	function onKeyUp(event: KeyboardEvent) {
-		switch (event.key) {
-			case 'Meta':
-				is_command_down = false;
-				event.preventDefault();
-				break;
-			case 'k':
-				is_k_down = false;
-				event.preventDefault();
-				break;
-			case 'c':
-				is_c_down = false;
-				event.preventDefault();
-				break;
-			case 'e':
-				is_e_down = false;
-				event.preventDefault();
-				break;
-		}
+		keysDown = keysDown.filter((key) => key !== event.key);
 	}
 
-	function checkCommandModal(event: Event) {
+	function checkPaletteModal(event: Event) {
 		const target = event.target as HTMLElement;
-		if (showCommand && !palette.contains(target)) {
-			showCommand = false;
-		}
-		if (showCommit && !commitPalette.contains(target)) {
-			showCommit = false;
+		if (showPalette !== false && !palette.contains(target)) {
+			showPalette = false;
 		}
 	}
 
@@ -164,8 +129,7 @@
 	}
 
 	function selectItem() {
-		showCommand = false;
-		showCommit = false;
+		showPalette = false;
 		const menu = document.getElementById('commandMenu');
 		if (menu) {
 			const active = menu.querySelector('li.active');
@@ -191,23 +155,22 @@
 						console.log('files', files);
 						changedFiles = files;
 					});
-					showCommit = true;
+					showPalette = 'commit';
 					setTimeout(function () {
 						commitMessageInput.focus();
 					}, 100);
 				}
 				break;
 			case 'contact':
-				console.log('contact us');
 				goto('/contact');
 				break;
 			case 'switch':
-				console.log('switch', command, context);
 				goto('/projects/' + context);
 				break;
 			case 'bookmark':
 				break;
 			case 'branch':
+				showBranch = true;
 				break;
 		}
 	}
@@ -215,7 +178,7 @@
 	let search = '';
 
 	$: {
-		searchChanged(search, showCommand);
+		searchChanged(search, showPalette == 'command');
 	}
 
 	let projectCommands = [
@@ -225,7 +188,7 @@
 	];
 
 	let switchCommands = [];
-	$: if ($currentProject) {
+	$: {
 		listProjects().then((projects) => {
 			switchCommands = [];
 			projects.forEach((p) => {
@@ -303,16 +266,16 @@
 			}).then((result) => {
 				console.log('commit result', result);
 				commitMessage = '';
-				showCommit = false;
+				showPalette = false;
 			});
 		}
 	}
 </script>
 
-<svelte:window on:keydown={onKeyDown} on:keyup={onKeyUp} on:click={checkCommandModal} />
+<svelte:window on:keydown={onKeyDown} on:keyup={onKeyUp} on:click={checkPaletteModal} />
 
 <div>
-	{#if showCommand || showCommit}
+	{#if showPalette}
 		<div class="relative z-10" role="dialog" aria-modal="true">
 			<div
 				class="fixed inset-0 bg-zinc-900 bg-opacity-80 transition-opacity"
@@ -320,12 +283,12 @@
 				out:fade={{ duration: 50 }}
 			/>
 
-			{#if showCommand}
-				<div class="command-palette-modal fixed inset-0 z-10 overflow-y-auto p-4 sm:p-6 md:p-20">
+			<div class="command-palette-modal fixed inset-0 z-10 overflow-y-auto p-4 sm:p-6 md:p-20">
+				{#if showPalette == 'command'}
 					<div
-						bind:this={palette}
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 100 }}
+						bind:this={palette}
 						class="mx-auto max-w-2xl transform divide-y divide-zinc-500 divide-opacity-20 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl transition-all"
 						style="
 							height: auto;
@@ -361,9 +324,7 @@
 						</div>
 
 						<!-- Default state, show/hide based on command palette state. -->
-						<ul
-							class="scroll-py-2 divide-y divide-zinc-500 divide-opacity-20 overflow-y-auto"
-						>
+						<ul class="scroll-py-2 divide-y divide-zinc-500 divide-opacity-20 overflow-y-auto">
 							<li class="p-1">
 								<ul id="commandMenu" class="text-sm text-zinc-400">
 									{#each menuItems as item}
@@ -383,7 +344,9 @@
 												<svelte:component this={item.icon} />
 												<span class="ml-3 flex-auto truncate">{item.text}</span>
 												{#if item.key}
-													<span class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 border-b border-black rounded">
+													<span
+														class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 border-b border-black rounded"
+													>
 														<kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd>
 													</span>
 												{/if}
@@ -394,16 +357,14 @@
 							</li>
 						</ul>
 					</div>
-				</div>
-			{/if}
+				{/if}
 
-			{#if showCommit}
-				<div class="commit-palette-modal fixed inset-0 z-10 overflow-y-auto p-4 sm:p-6 md:p-20">
+				{#if showPalette == 'commit'}
 					<div
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 100 }}
-						bind:this={commitPalette}
-						class="mx-auto max-w-2xl transform overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl transition-all"
+						bind:this={palette}
+						class="mx-auto max-w-2xl transform overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all border border-zinc-700"
 						style="
 							border-width: 0.5px; 
 							border: 0.5px solid rgba(63, 63, 70, 0.50);
@@ -468,8 +429,8 @@
 							{/if}
 						</div>
 					</div>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>
