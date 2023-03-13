@@ -454,6 +454,10 @@ fn main() {
             let app_state: App =
                 App::new(app.path_resolver()).expect("Failed to initialize app state");
 
+            // TODO: REMOVE THIS
+            // debug_test_consistency(&app_state, "fec3d50c-503f-4021-89fb-e7ec2433ceae")
+            //     .expect("FAIL");
+
             app.manage(app_state);
 
             let app_handle = app.handle();
@@ -678,7 +682,9 @@ fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
         file_deltas.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
         let mut text: Vec<char> = content.chars().collect();
         for delta in file_deltas {
+            println!("Applying delta: {:?}", delta.timestamp_ms);
             for operation in delta.operations {
+                println!("Applying operation: {:?}", operation);
                 operation
                     .apply(&mut text)
                     .expect("Failed to apply operation");

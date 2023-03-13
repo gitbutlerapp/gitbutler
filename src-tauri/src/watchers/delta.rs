@@ -7,7 +7,7 @@ use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 
 pub struct DeltaWatchers {
     watchers: HashMap<String, RecommendedWatcher>,
@@ -42,6 +42,7 @@ impl DeltaWatchers {
         &mut self,
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
+        mutex: Arc<Mutex<()>>,
     ) -> Result<()> {
         log::info!("Watching deltas for {}", project.path);
         let project_path = Path::new(&project.path);
@@ -83,6 +84,10 @@ impl DeltaWatchers {
                             } else {
                                 continue;
                             }
+
+                            log::debug!("{}: locking", project.id);
+                            let _lock = mutex.lock().unwrap();
+                            log::debug!("{}: locked", project.id);
 
                             match register_file_change(&project, &repo, &relative_file_path) {
                                 Ok(Some((session, deltas))) => {
