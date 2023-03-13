@@ -412,7 +412,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 100 }}
 						bind:this={palette}
-						class="mx-auto max-w-2xl transform overflow-hidden rounded-xl bg-zinc-900 shadow-2xl transition-all border border-zinc-700"
+						class="mx-auto max-w-2xl transform overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl transition-all"
 						style="
 							border-width: 0.5px; 
 							border: 0.5px solid rgba(63, 63, 70, 0.50);
