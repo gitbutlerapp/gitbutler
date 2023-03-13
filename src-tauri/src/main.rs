@@ -173,7 +173,7 @@ fn search(
 }
 
 #[tauri::command]
-fn list_sessions(
+async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<Vec<sessions::Session>, Error> {
@@ -324,7 +324,7 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
 }
 
 #[tauri::command]
-fn list_session_files(
+async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
@@ -336,7 +336,7 @@ fn list_session_files(
 }
 
 #[tauri::command]
-fn list_deltas(
+async fn list_deltas(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
@@ -347,7 +347,7 @@ fn list_deltas(
 }
 
 #[tauri::command]
-fn git_status(
+async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
