@@ -222,7 +222,7 @@
 						</ul>
 					</div>
 					<!-- TODO: Button needs to be hooked up -->
-					<div class="flex flex-row-reverse w-100">
+					<div class="w-100 flex flex-row-reverse">
 						<button class="button mt-2 rounded bg-blue-600 py-2 px-3 text-white"
 							>Commit changes</button
 						>

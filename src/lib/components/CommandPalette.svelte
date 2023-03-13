@@ -372,7 +372,7 @@
 							</div>
 						{/if}
 						{#if paletteMode == 'branch'}
-							<div class="text-lg p-4">Branch Switcher</div>
+							<div class="p-4 text-lg">Branch Switcher</div>
 						{/if}
 
 						<!-- Default state, show/hide based on command palette state. -->
@@ -397,7 +397,7 @@
 												<span class="ml-3 flex-auto truncate">{item.text}</span>
 												{#if item.key}
 													<span
-														class="ml-3 flex-none text-xs font-semibold text-zinc-400 px-1 py-1 bg-zinc-800 border-b border-black rounded"
+														class="ml-3 flex-none rounded border-b border-black bg-zinc-800 px-1 py-1 text-xs font-semibold text-zinc-400"
 													>
 														<kbd class="font-sans">⌘</kbd><kbd class="font-sans">{item.key}</kbd>
 													</span>

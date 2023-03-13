@@ -37,6 +37,6 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		projectId: params.projectId,
 		sessions: orderedSessions,
 		filesStatus: filesStatus,
-		recentActivity: recentActivity,
+		recentActivity: recentActivity
 	};
 };
