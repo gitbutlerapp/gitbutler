@@ -34,7 +34,7 @@ impl<'a> SessionWatcher {
         &mut self,
         project_id: &str,
         sender: mpsc::Sender<events::Event>,
-        mutex: Arc<Mutex<()>>,
+        mutex: Arc<Mutex<fslock::LockFile>>,
     ) -> Result<()> {
         match self
             .projects_storage
@@ -54,13 +54,18 @@ impl<'a> SessionWatcher {
                     .with_context(|| "failed to check for session to comit")?
                 {
                     Some(mut session) => {
+                        let mut fslock = mutex.lock().unwrap();
                         log::debug!("{}: locking", project.id);
-                        let _lock = mutex.lock().unwrap();
+                        fslock.lock().unwrap();
                         log::debug!("{}: locked", project.id);
 
                         session
                             .flush(&repo, &user, &project)
                             .with_context(|| format!("failed to flush session {}", session.id))?;
+
+                        log::debug!("{}: unlocking", project.id);
+                        fslock.unlock().unwrap();
+                        log::debug!("{}: unlocked", project.id);
 
                         self.deltas_searcher
                             .index_session(&repo, &project, &session)
@@ -85,7 +90,7 @@ impl<'a> SessionWatcher {
         &self,
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
-        mutex: Arc<Mutex<()>>,
+        mutex: Arc<Mutex<fslock::LockFile>>,
     ) -> Result<()> {
         log::info!("{}: watching sessions in {}", project.id, project.path);
 
