@@ -36,6 +36,7 @@ urlencoding = "2.1.2"
 thiserror = "1.0.38"
 tantivy = "0.19.2"
 similar = "2.2.1"
+fslock = "0.2.1"
 
 [features]
 # by default Tauri runs in production mode

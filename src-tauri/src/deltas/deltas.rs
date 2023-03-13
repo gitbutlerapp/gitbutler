@@ -60,6 +60,7 @@ pub fn write(
         delta_path.to_str().unwrap()
     );
     let raw_deltas = serde_json::to_string(&deltas)?;
+    log::debug!("{}: raw deltas: {}", project.id, raw_deltas);
     std::fs::write(delta_path.clone(), raw_deltas).with_context(|| {
         format!(
             "failed to write file deltas to {}",
