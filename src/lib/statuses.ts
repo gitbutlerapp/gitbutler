@@ -22,8 +22,10 @@ function convertToStatuses(statusesGit: Record<string, string>): Status[] {
 }
 
 export default async (params: { projectId: string }) => {
-	const statusesGit = await listFiles(params);
-	const statuses = convertToStatuses(statusesGit);
+	const statuses: Status[] = [];
+	listFiles(params).then((statuses) => {
+		store.set(convertToStatuses(statuses));
+	});
 
 	const store = writable(statuses);
 
