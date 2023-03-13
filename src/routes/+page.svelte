@@ -177,7 +177,7 @@
 									href="/projects/{project.id}/"
 								>
 									<div
-										class="flex flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-zinc-700 shadow"
+										class="flex flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-[#2F2F33] shadow"
 									>
 										<div class="flex-grow-0 px-4 py-4">
 											<div class="text-lg text-zinc-300 hover:text-zinc-200">
@@ -192,13 +192,13 @@
 										>
 											{#if project.api}
 												<div class="flex flex-row items-center space-x-2 ">
-													<div class="h-2 w-2 rounded-full bg-green-700" />
-													<div class="text-zinc-400">Backed-up</div>
+													<div class="h-2 w-2 rounded-full bg-green-600" />
+													<div class="text-zinc-300">Backed-up</div>
 												</div>
 											{:else}
 												<div class="flex flex-row items-center space-x-2 ">
-													<div class="h-2 w-2 rounded-full bg-gray-400" />
-													<div class="text-zinc-400">Offline</div>
+													<div class="h-2 w-2 rounded-full bg-zinc-800" />
+													<div class="text-zinc-300">Offline</div>
 												</div>
 											{/if}
 										</div>
