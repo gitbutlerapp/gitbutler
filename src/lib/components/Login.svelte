@@ -27,7 +27,7 @@
 
 <div>
 	{#if $user}
-		<button class="text-zinc-400 hover:underline hover:text-red-400" on:click={() => user.delete()}
+		<button class="text-zinc-400 hover:text-red-400 hover:underline" on:click={() => user.delete()}
 			>Log out</button
 		>
 	{:else if $token !== null}
@@ -40,7 +40,7 @@
 		</p>
 	{:else}
 		<button
-			class="py-1 px-3 rounded text-white bg-blue-400"
+			class="rounded bg-blue-400 py-1 px-3 text-white"
 			on:click={() => api.login.token.create().then(token.set)}>Sign up or Log in</button
 		>
 	{/if}

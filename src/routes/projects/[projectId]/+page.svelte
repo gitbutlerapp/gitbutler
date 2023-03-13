@@ -1,17 +1,263 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
+	import type { Readable } from 'svelte/store';
+	import type { Session } from '$lib/sessions';
+	import { startOfDay } from 'date-fns';
+	import type { Activity } from '$lib/sessions';
+	import type { Delta } from '$lib/deltas';
+	import { shortPath } from '$lib/paths';
+	import { invoke } from '@tauri-apps/api';
+	import { toHumanBranchName } from '$lib/branch';
+	import { list as listDeltas } from '$lib/deltas';
+
+	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 
 	export let data: LayoutData;
 	$: project = data.project;
+	$: filesStatus = data.filesStatus;
+	$: recentActivity = data.recentActivity as Readable<Activity[]>;
+	$: sessions = data.sessions;
+
+	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
+
+	$: if ($project) {
+		latestDeltasByDateByFile = {};
+		const dateSessions: Record<number, Session[]> = {};
+		$sessions.forEach((session) => {
+			const date = startOfDay(new Date(session.meta.startTimestampMs));
+			if (dateSessions[date.getTime()]) {
+				dateSessions[date.getTime()]?.push(session);
+			} else {
+				dateSessions[date.getTime()] = [session];
+			}
+		});
+
+		const latestDateSessions: Record<number, Session[]> = Object.fromEntries(
+			Object.entries(dateSessions)
+				.sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
+				.slice(0, 3)
+		); // Only show the last 3 days
+
+		Object.keys(latestDateSessions).forEach((date: string) => {
+			Promise.all(
+				latestDateSessions[parseInt(date)].map(async (session) => {
+					const sessionDeltas = await listDeltas({
+						projectId: $project?.id ?? '',
+						sessionId: session.id
+					});
+
+					const fileDeltas: Record<string, Delta[][]> = {};
+
+					Object.keys(sessionDeltas).forEach((filePath) => {
+						if (sessionDeltas[filePath].length > 0) {
+							if (fileDeltas[filePath]) {
+								fileDeltas[filePath]?.push(sessionDeltas[filePath]);
+							} else {
+								fileDeltas[filePath] = [sessionDeltas[filePath]];
+							}
+						}
+					});
+					return fileDeltas;
+				})
+			).then((sessionsByFile) => {
+				latestDeltasByDateByFile[parseInt(date)] = sessionsByFile;
+			});
+		});
+	}
+
+	let gitBranch = <string | undefined>undefined;
+	$: if ($project) {
+		getBranch({ projectId: $project?.id }).then((branch) => {
+			gitBranch = branch;
+		});
+	}
+
+	// convert a list of timestamps to a sparkline
+	function timestampsToSpark(tsArray: number[]) {
+		let range = tsArray[0] - tsArray[tsArray.length - 1];
+
+		let totalBuckets = 18;
+		let bucketSize = range / totalBuckets;
+		let buckets: number[][] = [];
+		for (let i = 0; i <= totalBuckets; i++) {
+			buckets.push([]);
+		}
+		tsArray.forEach((ts) => {
+			let bucket = Math.floor((tsArray[0] - ts) / bucketSize);
+			if (bucket && ts) {
+				buckets[bucket].push(ts);
+			}
+		});
+
+		let spark = '';
+		buckets.forEach((entries) => {
+			let size = entries.length;
+			if (size < 1) {
+				spark += '<span class="text-zinc-600">▁</span>';
+			} else if (size < 2) {
+				spark += '<span class="text-blue-200">▂</span>';
+			} else if (size < 3) {
+				spark += '<span class="text-blue-200">▃</span>';
+			} else if (size < 4) {
+				spark += '<span class="text-blue-200">▄</span>';
+			} else if (size < 5) {
+				spark += '<span class="text-blue-200">▅</span>';
+			} else if (size < 6) {
+				spark += '<span class="text-blue-200">▆</span>';
+			} else if (size < 7) {
+				spark += '<span class="text-blue-200">▇</span>';
+			} else {
+				spark += '<span class="text-blue-200">█</span>';
+			}
+		});
+		return spark;
+	}
+
+	// reduce a group of sessions to a map of filename to timestamps array
+	function sessionFileMap(sessions: Record<string, Delta[][]>[]): Record<string, number[]> {
+		let sessionsByFile: Record<string, number[]> = {};
+
+		for (const s of sessions) {
+			for (const [filename, deltas] of Object.entries(s)) {
+				let timestamps = deltas.flatMap((d) => d.map((dd) => dd.timestampMs));
+				if (sessionsByFile[filename]) {
+					sessionsByFile[filename] = sessionsByFile[filename].concat(timestamps).sort();
+				} else {
+					sessionsByFile[filename] = timestamps;
+				}
+			}
+		}
+		return sessionsByFile;
+	}
+
+	// order the sessions and summarize the changes by file
+	function orderedSessions(dateSessions: Record<number, Record<string, Delta[][]>[]>) {
+		return Object.entries(dateSessions).map(([date, sessions]) => {
+			return [date, sessionFileMap(sessions)];
+		});
+	}
 </script>
 
-<div class="flex flex-col mt-12">
-	<h1 class="text-zinc-200 text-xl flex justify-center">
-		Overview of {$project?.title}
-	</h1>
-	<div class="flex justify-center space-x-2 text-lg">
-		<a href="/projects/{$project?.id}/timeline" class="hover:text-zinc-200 text-orange-400"
-			>Timeline</a
+<div class="project-section-component" style="height: calc(100vh - 118px); overflow: hidden;">
+	<div class="flex h-full">
+		<div
+			class="main-column-containercol-span-2 mt-4"
+			style="width: calc(100% * 0.66); height: calc(-126px + 100vh)"
 		>
+			<h1 class="flex py-4 px-8 text-xl text-zinc-300">
+				{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
+			</h1>
+			<div class="mt-4">
+				<div class="recent-file-changes-container h-full w-full">
+					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recent File Changes</h2>
+					{#if latestDeltasByDateByFile === undefined}
+						<div class="p-8 text-center text-zinc-400">Loading...</div>
+					{:else}
+						<div
+							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"
+							style="height: calc(100vh - 253px);"
+						>
+							{#each orderedSessions(latestDeltasByDateByFile) as [dateMilliseconds, fileSessions]}
+								<div class="flex flex-col">
+									<div class="mb-1  text-zinc-300">
+										{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {
+											weekday: 'long',
+											year: 'numeric',
+											month: 'short',
+											day: 'numeric'
+										})}
+									</div>
+									<div
+										class="results-card rounded border border-zinc-700 bg-[#2F2F33] p-4 drop-shadow-lg"
+									>
+										{#each Object.entries(fileSessions) as filetime}
+											<div class="flex flex-row justify-between">
+												<div class="font-mono text-zinc-100">{filetime[0]}</div>
+												<div class="font-mono text-zinc-400">
+													{@html timestampsToSpark(filetime[1])}
+												</div>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+		<div
+			class="secondary-column-container col-span-1 flex flex-col border-l border-l-zinc-700"
+			style="width: 37%;"
+		>
+			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4">
+				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
+				{#if gitBranch}
+					<div class="pb-3">
+						<div class="text-zinc-500 leading-none">Branch:</div>
+						<div class="text-zinc-300 font-mono">{toHumanBranchName(gitBranch)}</div>
+					</div>
+				{/if}
+				{#if $filesStatus.length == 0}
+					<div
+						class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400"
+					>
+						<div class="icon mr-2 h-5 w-5">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+								><path
+									fill="#4ADE80"
+									fill-rule="evenodd"
+									d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z"
+								/></svg
+							>
+						</div>
+						Everything is committed
+					</div>
+				{:else}
+					<div class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
+						<ul class="pl-4">
+							{#each $filesStatus as activity}
+								<li class="list-disc ">
+									{activity.status.slice(0, 1)}
+									{shortPath(activity.path)}
+								</li>
+							{/each}
+						</ul>
+					</div>
+					<!-- TODO: Button needs to be hooked up -->
+					<div class="w-100 flex flex-row-reverse">
+						<button class="button mt-2 rounded bg-blue-600 py-2 px-3 text-white"
+							>Commit changes</button
+						>
+					</div>
+				{/if}
+			</div>
+			<div
+				class="recent-activity-container p-4"
+				style="height: calc(100vh - 110px); overflow-y: auto;"
+			>
+				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
+				{#each $recentActivity as activity}
+					<div
+						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
+					>
+						<div class="flex flex-col rounded bg-[#2F2F33] p-3">
+							<div class="flex flex-row justify-between pb-2 text-zinc-500">
+								<div class="">
+									{new Date(activity.timestampMs).toLocaleDateString('en-us', {
+										weekday: 'short',
+										year: 'numeric',
+										month: 'short',
+										day: 'numeric'
+									})}
+								</div>
+								<div class="text-right font-mono ">{activity.type}</div>
+							</div>
+							<div class="rounded-b bg-[#2F2F33] text-zinc-100">{activity.message}</div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
 	</div>
 </div>

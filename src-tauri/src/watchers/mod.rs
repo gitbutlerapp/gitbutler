@@ -1,6 +1,11 @@
 mod delta;
 mod session;
 
+#[cfg(test)]
+mod delta_test;
+#[cfg(test)]
+mod test;
+
 use crate::{events, projects, search, users};
 use anyhow::Result;
 use std::sync::mpsc;
@@ -16,7 +21,8 @@ impl Watcher {
         users_storage: users::Storage,
         deltas_searcher: search::Deltas,
     ) -> Self {
-        let session_watcher = session::SessionWatcher::new(projects_storage, users_storage, deltas_searcher);
+        let session_watcher =
+            session::SessionWatcher::new(projects_storage, users_storage, deltas_searcher);
         let delta_watcher = delta::DeltaWatchers::new();
         Self {
             session_watcher,

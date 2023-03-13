@@ -25,7 +25,7 @@ fn test_project() -> Result<projects::Project> {
 }
 
 #[test]
-fn test_open_always_with_session() {
+fn test_open_creates_reference() {
     let storage_path = tempdir().unwrap();
     let storage = storage::Storage::from_path(storage_path.path().to_path_buf());
 
@@ -39,7 +39,8 @@ fn test_open_always_with_session() {
     assert!(repository.is_ok());
     let repository = repository.unwrap();
 
-    let sessions = repository.sessions().unwrap();
-    assert_eq!(sessions.len(), 1);
-    assert!(sessions[0].hash.is_some());
+    assert!(repository
+        .git_repository
+        .find_reference(&project.refname())
+        .is_ok());
 }

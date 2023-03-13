@@ -2,7 +2,7 @@ import toast, { type ToastOptions, type ToastPosition } from 'svelte-french-toas
 
 const defaultOptions = {
 	position: 'bottom-center' as ToastPosition,
-	style: 'border-radius: 200px; background: #333; color: #fff;'
+	style: 'border-radius: 8px; background: black; color: #fff;'
 };
 
 export const error = (msg: string, options: ToastOptions = {}) =>

@@ -11,7 +11,7 @@ export const colorTheme = (theme: Theme, options?: { dark: boolean }) =>
 				backgroundColor: theme.bg0
 			},
 			'.cm-gutters': {
-				color: theme.fg0,
+				color: theme.gray,
 				backgroundColor: theme.bg0,
 				border: 'none'
 			},
@@ -22,6 +22,7 @@ export const colorTheme = (theme: Theme, options?: { dark: boolean }) =>
 
 export const highlightStyle = (theme: Theme) =>
 	HighlightStyle.define([
+		{ tag: t.tagName, color: theme.orange },
 		{ tag: t.keyword, color: theme.red },
 		{ tag: [t.propertyName, t.name, t.deleted, t.character, t.macroName], color: theme.blue },
 		{ tag: [t.function(t.variableName), t.labelName], color: theme.green, fontWeight: 'bold' },

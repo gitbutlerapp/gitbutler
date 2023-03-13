@@ -77,9 +77,14 @@ const toSelection = (changes: ChangeSet, delta: Delta | undefined): EditorSelect
 export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
 	const view = new EditorView({ state: makeBaseState(doc, filepath), parent });
 
+	const changes = toChangeSet(deltas, doc.length);
+	const selection = toSelection(changes, deltas[deltas.length - 1]);
 	view.dispatch(
 		view.state.update({
-			changes: toChangeSet(deltas, doc.length)
+			scrollIntoView: true,
+			changes,
+			selection,
+			effects: markChanges(selection)
 		})
 	);
 
@@ -116,7 +121,7 @@ export default (parent: HTMLElement, { doc, deltas, filepath }: Params) => {
 					scrollIntoView: true,
 					effects: markChanges(selection)
 				});
-			} else {
+			} else if (currentDeltas.length < newDeltas.length) {
 				// rewind forward
 
 				// verify that deltas are append only

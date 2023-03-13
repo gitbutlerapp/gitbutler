@@ -3,7 +3,7 @@ use crate::projects;
 use crate::{events, sessions};
 use anyhow::{Context, Result};
 use git2;
-use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -11,6 +11,24 @@ use std::sync::mpsc;
 
 pub struct DeltaWatchers {
     watchers: HashMap<String, RecommendedWatcher>,
+}
+
+fn is_interesting_event(kind: &notify::EventKind) -> Option<String> {
+    match kind {
+        notify::EventKind::Create(notify::event::CreateKind::File) => {
+            Some("file created".to_string())
+        }
+        notify::EventKind::Modify(notify::event::ModifyKind::Data(_)) => {
+            Some("file modified".to_string())
+        }
+        notify::EventKind::Modify(notify::event::ModifyKind::Name(_)) => {
+            Some("file renamed".to_string())
+        }
+        notify::EventKind::Remove(notify::event::RemoveKind::File) => {
+            Some("file removed".to_string())
+        }
+        _ => None,
+    }
 }
 
 impl DeltaWatchers {
@@ -35,26 +53,35 @@ impl DeltaWatchers {
 
         self.watchers.insert(project.path.clone(), watcher);
 
-        let repo = git2::Repository::open(project_path)?;
         tauri::async_runtime::spawn_blocking(move || {
             while let Ok(event) = rx.recv() {
                 match event {
                     Ok(notify_event) => {
                         for file_path in notify_event.paths {
                             let relative_file_path =
-                                file_path.strip_prefix(repo.workdir().unwrap()).unwrap();
+                                file_path.strip_prefix(project.path.clone()).unwrap();
+                            let repo = git2::Repository::open(&project.path).expect(
+                                format!(
+                                    "{}: failed to open repo at \"{}\"",
+                                    project.id, project.path
+                                )
+                                .as_str(),
+                            );
 
-                            match notify_event.kind {
-                                EventKind::Modify(_) => {
-                                    log::info!("File modified: {}", file_path.display());
-                                }
-                                EventKind::Create(_) => {
-                                    log::info!("File created: {}", file_path.display());
-                                }
-                                EventKind::Remove(_) => {
-                                    log::info!("File removed: {}", file_path.display());
-                                }
-                                _ => {}
+                            if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
+                                // make sure we're not watching ignored files
+                                continue;
+                            }
+
+                            if let Some(kind_string) = is_interesting_event(&notify_event.kind) {
+                                log::info!(
+                                    "{}: \"{}\" {}",
+                                    project.id,
+                                    relative_file_path.display(),
+                                    kind_string
+                                );
+                            } else {
+                                continue;
                             }
 
                             match register_file_change(&project, &repo, &relative_file_path) {
@@ -62,7 +89,11 @@ impl DeltaWatchers {
                                     if let Err(e) =
                                         sender.send(events::Event::session(&project, &session))
                                     {
-                                        log::error!("filed to send session event: {:#}", e)
+                                        log::error!(
+                                            "{}: failed to send session event: {:#}",
+                                            project.id,
+                                            e
+                                        )
                                     }
 
                                     if let Err(e) = sender.send(events::Event::detlas(
@@ -71,15 +102,23 @@ impl DeltaWatchers {
                                         &deltas,
                                         &relative_file_path,
                                     )) {
-                                        log::error!("failed to send deltas event: {:#}", e)
+                                        log::error!(
+                                            "{}: failed to send deltas event: {:#}",
+                                            project.id,
+                                            e
+                                        )
                                     }
                                 }
                                 Ok(None) => {}
-                                Err(e) => log::error!("failed to register file change: {:#}", e),
+                                Err(e) => log::error!(
+                                    "{}: failed to register file change: {:#}",
+                                    project.id,
+                                    e
+                                ),
                             }
                         }
                     }
-                    Err(e) => log::error!("notify event error: {:#}", e),
+                    Err(e) => log::error!("{}: notify event error: {:#}", project.id, e),
                 }
             }
         });
@@ -97,18 +136,12 @@ impl DeltaWatchers {
 
 // this is what is called when the FS watcher detects a change
 // it should figure out delta data (crdt) and update the file at .git/gb/session/deltas/path/to/file
-// it also writes the metadata stuff which marks the beginning of a session if a session is not yet started
-// returns updated project deltas and sessions to which they belong
-fn register_file_change(
+// returns current project session and calculated deltas, if any.
+pub(crate) fn register_file_change(
     project: &projects::Project,
     repo: &git2::Repository,
     relative_file_path: &Path,
-) -> Result<Option<(sessions::Session, Vec<Delta>)>, Box<dyn std::error::Error>> {
-    if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
-        // make sure we're not watching ignored files
-        return Ok(None);
-    }
-
+) -> Result<Option<(sessions::Session, Vec<Delta>)>> {
     let file_path = repo.workdir().unwrap().join(relative_file_path);
     let file_contents = match fs::read_to_string(&file_path) {
         Ok(contents) => contents,
@@ -119,17 +152,21 @@ fn register_file_change(
             } else {
                 // file exists, but content is not utf-8, it's a noop
                 // TODO: support binary files
-                log::info!("File is not utf-8, ignoring: {:?}", file_path);
+                log::info!(
+                    "{}: \"{}\" is not utf-8, ignoring",
+                    project.id,
+                    file_path.display()
+                );
                 return Ok(None);
             }
         }
     };
 
-    // first, we need to check if the file exists in the meta commit
-    let latest_contents = get_latest_file_contents(repo, project, relative_file_path)
+    // first, get latest file contens to compare with
+    let latest_contents = get_latest_file_contents(&repo, project, relative_file_path)
         .with_context(|| {
             format!(
-                "Failed to get latest file contents for {}",
+                "failed to get latest file contents for {}",
                 relative_file_path.display()
             )
         })?;
@@ -137,32 +174,32 @@ fn register_file_change(
     // second, get non-flushed file deltas
     let deltas = read(project, relative_file_path).with_context(|| {
         format!(
-            "Failed to get current file deltas for {}",
+            "failed to get current file deltas for {}",
             relative_file_path.display()
         )
     })?;
 
-    // depending on the above, we can create TextDocument suitable for calculating deltas
+    // depending on the above, we can create TextDocument suitable for calculating _new_ deltas
     let mut text_doc = match (latest_contents, deltas) {
-        (Some(latest_contents), Some(deltas)) => TextDocument::new(&latest_contents, deltas)?,
-        (Some(latest_contents), None) => TextDocument::new(&latest_contents, vec![])?,
-        (None, Some(deltas)) => TextDocument::from_deltas(deltas)?,
-        (None, None) => TextDocument::from_deltas(vec![])?,
+        (Some(latest_contents), Some(deltas)) => TextDocument::new(Some(&latest_contents), deltas)?,
+        (Some(latest_contents), None) => TextDocument::new(Some(&latest_contents), vec![])?,
+        (None, Some(deltas)) => TextDocument::new(None, deltas)?,
+        (None, None) => TextDocument::new(None, vec![])?,
     };
 
     if !text_doc.update(&file_contents)? {
         return Ok(None);
-    } else {
-        // if the file was modified, save the deltas
-        let deltas = text_doc.get_deltas();
-        let session = write(repo, project, relative_file_path, &deltas)?;
-        Ok(Some((session, deltas)))
     }
+
+    // if the file was modified, save the deltas
+    let deltas = text_doc.get_deltas();
+    let session = write(&repo, project, relative_file_path, &deltas)?;
+    Ok(Some((session, deltas)))
 }
 
 // returns last commited file contents from refs/gitbutler/current ref
-// if it doesn't exists, fallsback to HEAD
-// returns None if file doesn't exist in HEAD
+// if ref doesn't exists, returns file contents from the HEAD repository commit
+// returns None if file is not found in either of trees
 // returns None if file is not UTF-8
 // TODO: handle binary files
 fn get_latest_file_contents(
@@ -172,17 +209,14 @@ fn get_latest_file_contents(
 ) -> Result<Option<String>> {
     let tree_entry = match repo.find_reference(&project.refname()) {
         Ok(reference) => {
-            let gitbutler_tree = reference.peel_to_tree()?;
             let gitbutler_tree_path = &Path::new("wd").join(relative_file_path);
-            let tree_entry = gitbutler_tree.get_path(gitbutler_tree_path);
-            tree_entry
+            // "wd/<file_path>" contents from gitbutler HEAD
+            reference.peel_to_tree()?.get_path(gitbutler_tree_path)
         }
         Err(e) => {
             if e.code() == git2::ErrorCode::NotFound {
-                let head = repo.head()?;
-                let tree = head.peel_to_tree()?;
-                let tree_entry = tree.get_path(relative_file_path);
-                tree_entry
+                // "<file_path>" contents from repository HEAD
+                repo.head()?.peel_to_tree()?.get_path(relative_file_path)
             } else {
                 Err(e)
             }
@@ -190,28 +224,34 @@ fn get_latest_file_contents(
     };
 
     match tree_entry {
-        Ok(tree_entry) => {
-            // if file found, check if delta file exists
-            let blob = tree_entry.to_object(&repo)?.into_blob().unwrap();
-            // parse blob as utf-8.
-            // if it's not utf8, return None
-            let contents = match String::from_utf8(blob.content().to_vec()) {
-                Ok(contents) => Some(contents),
-                Err(_) => {
-                    log::info!("File is not utf-8, ignoring: {:?}", relative_file_path);
-                    None
-                }
-            };
-
-            Ok(contents)
-        }
         Err(e) => {
             if e.code() == git2::ErrorCode::NotFound {
-                // file not found, return None
+                // file not found in the chosen tree, return None
                 Ok(None)
             } else {
                 Err(e.into())
             }
+        }
+        Ok(tree_entry) => {
+            let blob = tree_entry.to_object(&repo)?.into_blob().expect(&format!(
+                "{}: failed to get blob for {}",
+                project.id,
+                relative_file_path.display()
+            ));
+
+            let text_content = match String::from_utf8(blob.content().to_vec()) {
+                Ok(contents) => Some(contents),
+                Err(_) => {
+                    log::info!(
+                        "{}: \"{}\" is not utf-8, ignoring",
+                        project.id,
+                        relative_file_path.display()
+                    );
+                    None
+                }
+            };
+
+            Ok(text_content)
         }
     }
 }

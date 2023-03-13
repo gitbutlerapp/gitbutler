@@ -83,8 +83,6 @@
 		});
 	}
 
-	let animatingOut = false;
-
 	const timeStampToCol = (deltaTimestamp: Date, start: Date, end: Date) => {
 		if (deltaTimestamp < start || deltaTimestamp > end) {
 			console.error(
@@ -151,31 +149,31 @@
 {#if $dateSessions === undefined}
 	<span>Loading...</span>
 {:else}
-	<div class="h-full flex flex-row space-x-12 px-4 py-4 pb-6">
+	<div class="flex h-full flex-row space-x-12 px-4 py-4 pb-6">
 		{#each Object.entries($dateSessions) as [dateMilliseconds, uiSessions]}
 			<!-- Day -->
 			<div
 				id={dateMilliseconds}
-				class="session-day-component flex flex-col bg-zinc-800/50 rounded-lg border border-zinc-700"
+				class="session-day-component flex flex-col rounded-lg border border-zinc-700 bg-[#2F2F33]"
 				class:min-w-full={selection.dateMilliseconds == +dateMilliseconds}
 			>
 				<div
-					class="session-day-container font-medium border-b border-zinc-700 bg-zinc-700/30 flex items-center py-2 px-4"
+					class="session-day-container flex items-center border-b border-zinc-700 bg-zinc-700/30 py-2 px-4 font-medium"
 				>
-					<span class="session-day-header text-zinc-200 font-bold">
+					<span class="session-day-header font-bold text-zinc-200">
 						{formatDate(new Date(+dateMilliseconds))}
 					</span>
 				</div>
 				{#if selection.dateMilliseconds !== +dateMilliseconds}
-					<div class="flex flex-col flex-auto">
-						<div class="h-2/3 flex space-x-2 p-3">
+					<div class="flex flex-auto flex-col">
+						<div class="flex h-2/3 space-x-2 p-3">
 							{#each uiSessions as uiSession, i}
 								<!-- Session (overview) -->
 
-								<div class="session-column-container flex flex-col w-40">
+								<div class="session-column-container flex w-40 flex-col">
 									<!-- svelte-ignore a11y-click-events-have-key-events -->
 									<div
-										class="repository-name cursor-pointer text-sm text-center font-bold rounded borded  text-zinc-800 p-1 border bg-orange-400 border-orange-400 hover:bg-[#fdbc87]"
+										class="repository-name borded cursor-pointer rounded border border-orange-400 bg-orange-400  p-1 text-center text-sm font-bold text-zinc-800 hover:bg-[#fdbc87]"
 										on:click={() => expandSession(i, uiSession, +dateMilliseconds)}
 									>
 										{toHumanBranchName(uiSession.session.meta.branch)}
@@ -192,12 +190,12 @@
 									</div>
 
 									<div class="flex flex-col p-1" id="sessions-details">
-										<div class="text-zinc-400 font-medium">
+										<div class="font-medium text-zinc-400">
 											{formatTime(new Date(uiSession.earliestDeltaTimestampMs))}
 											-
 											{formatTime(new Date(uiSession.latestDeltaTimestampMs))}
 										</div>
-										<div class="text-zinc-500 text-sm" title="Session duration">
+										<div class="text-sm text-zinc-500" title="Session duration">
 											{Math.round(
 												(uiSession.latestDeltaTimestampMs - uiSession.earliestDeltaTimestampMs) /
 													1000 /
@@ -208,12 +206,12 @@
 											{#each Object.keys(uiSession.deltas) as filePath}
 												<button
 													on:click={() => expandSession(i, uiSession, +dateMilliseconds, filePath)}
-													class="cursor-pointer flex flex-row w-32 items-center"
+													class="flex w-32 cursor-pointer flex-row items-center"
 												>
-													<div class="w-6 h-6 text-zinc-200 fill-blue-400">
+													<div class="h-6 w-6 fill-blue-400 text-zinc-200">
 														{@html pathToIconSvg(filePath)}
 													</div>
-													<div class="file-name text-zinc-300 hover:text-zinc-50 w-24 truncate">
+													<div class="file-name w-24 truncate text-zinc-300 hover:text-zinc-50">
 														{pathToName(filePath)}
 													</div>
 												</button>
@@ -223,12 +221,12 @@
 								</div>
 							{/each}
 						</div>
-						<div class="day-summary-container h-1/3 p-4 border-t border-zinc-400 ">
+						<div class="day-summary-container h-1/3 border-t border-zinc-400 p-4 ">
 							<div class="day-summary-header font-bold text-zinc-200">Day summary</div>
 						</div>
 					</div>
 				{:else}
-					<div class="my-2 flex-auto overflow-auto flex flex-row space-x-2">
+					<div class="my-2 flex flex-auto flex-row space-x-2 overflow-auto">
 						<div class="">
 							<button
 								on:click={() => {
@@ -242,14 +240,14 @@
 								}}
 								class="{selection.sessionIdx == 0
 									? 'disabled cursor-default brightness-50'
-									: 'hover:bg-[#fdbc87]'} rounded-r bg-orange-400 border border-orange-400 text-zinc-800 p-1 text-center text-sm font-medium "
+									: 'hover:bg-[#fdbc87]'} rounded-r border border-orange-400 bg-orange-400 p-1 text-center text-sm font-medium text-zinc-800 "
 							>
 								‹
 							</button>
 						</div>
-						<div class="w-full flex flex-col border rounded-t border-orange-400">
+						<div class="session-container flex w-full flex-col rounded-t border border-orange-400">
 							<div
-								class="session-header px-4 bg-orange-400 border border-orange-400 p-1 rounded-t-sm text-zinc-800 text-sm font-bold flex items-center justify-between"
+								class="session-header flex items-center justify-between rounded-t-sm border border-orange-400 bg-orange-400 p-1 px-4 text-sm font-bold text-zinc-800"
 							>
 								<span class="cursor-default"
 									>{format(selection.start, 'hh:mm')} - {format(selection.end, 'hh:mm')}</span
@@ -257,10 +255,9 @@
 								<span>{toHumanBranchName(selection.branch)}</span>
 								<button on:click={resetSelection}>Close</button>
 							</div>
-
-							<div class="flex-auto overflow-auto flex flex-col">
-								<div class="shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5 mb-1">
-									<div class="grid-cols-11 -mr-px  border-zinc-700  grid text-xs font-medium">
+							<div class="timeline-container flex flex-auto flex-col overflow-auto">
+								<div class="mb-1 shadow shadow-zinc-700 ring-1 ring-zinc-700 ring-opacity-5">
+									<div class="-mr-px grid  grid-cols-11  border-zinc-700 text-xs font-medium">
 										<div class="col-span-2 flex items-center justify-center py-1">
 											<span>{format(selection.start, 'hh:mm')}</span>
 										</div>
@@ -301,7 +298,7 @@
 									<!-- needle -->
 									<div class="grid grid-cols-11">
 										<div class="col-span-2 flex items-center justify-center" />
-										<div class="-mx-1 col-span-8 flex items-center justify-center">
+										<div class="col-span-8 -mx-1 flex items-center justify-center">
 											<Slider min={17} max={80} step={1} bind:value={selection.selectedColumn}>
 												<svelte:fragment slot="tooltip" let:value>
 													{format(colToTimestamp(value, selection.start, selection.end), 'hh:mm')}
@@ -311,7 +308,7 @@
 										<div class="col-span-1 flex items-center justify-center" />
 									</div>
 								</div>
-								<div class="timeline-file-list flex mb-1 border-b-zinc-700">
+								<div class="timeline-file-list mb-1 flex border-b-2 border-b-zinc-700">
 									<div class="grid flex-auto grid-cols-1 grid-rows-1">
 										<!-- file names list -->
 										<div
@@ -324,15 +321,15 @@
 											{#each Object.keys(selection.deltas) as filePath}
 												<div
 													class="flex {filePath === selection.selectedFilePath
-														? 'bg-blue-500/70 font-bold rounded-sm mx-1'
+														? 'mx-1 rounded-sm bg-blue-500/70 font-bold'
 														: ''}"
 												>
 													<button
-														class="text-xs z-20 flex justify-end items-center overflow-hidden sticky left-0 w-1/6 leading-5 
+														class="sticky left-0 z-20 flex w-1/6 items-center justify-end overflow-hidden text-xs leading-5 
                                                                         {selection.selectedFilePath ===
 														filePath
-															? 'text-zinc-200 cursor-default'
-															: 'text-zinc-400 hover:text-zinc-200 cursor-pointer'}"
+															? 'cursor-default text-zinc-200'
+															: 'cursor-pointer text-zinc-400 hover:text-zinc-200'}"
 														on:click={() => (selection.selectedFilePath = filePath)}
 														title={filePath}
 													>
@@ -354,7 +351,7 @@
 										</div>
 										<!-- time vertical lines -->
 										<div
-											class="col-start-1 col-end-2 row-start-1 grid-rows-1 divide-x divide-zinc-700/50 grid grid-cols-11"
+											class="col-start-1 col-end-2 row-start-1 grid grid-cols-11 grid-rows-1 divide-x divide-zinc-700/50"
 										>
 											<div class="col-span-2 row-span-full" />
 											<div class="col-span-2 row-span-full" />
@@ -376,7 +373,7 @@
 											{#each Object.entries(selection.deltas) as [filePath, fileDeltas], idx}
 												{#each fileDeltas as delta}
 													<li
-														class="relative flex items-center bg-zinc-300 hover:bg-zinc-100 rounded m-0.5 cursor-pointer"
+														class="relative m-0.5 flex cursor-pointer items-center rounded bg-zinc-300 hover:bg-zinc-100"
 														style="
                                                                             grid-row: {idx +
 															1} / span 1;
@@ -387,7 +384,7 @@
 														)} / span 1;"
 													>
 														<button
-															class="z-20 flex flex-col w-full items-center justify-center"
+															class="z-20 flex w-full flex-col items-center justify-center"
 															on:click={() => {
 																selection.selectedColumn = timeStampToCol(
 																	new Date(delta.timestampMs),
@@ -429,7 +426,7 @@
 								}}
 								class="{selection.sessionIdx < uiSessions.length - 1
 									? 'hover:bg-[#fdbc87]'
-									: 'disabled cursor-default brightness-50'} rounded-r bg-orange-400 border border-orange-400 text-zinc-800 p-1 text-center text-sm font-medium "
+									: 'disabled cursor-default brightness-50'} rounded-r border border-orange-400 bg-orange-400 p-1 text-center text-sm font-medium text-zinc-800 "
 							>
 								›
 							</button>

@@ -54,8 +54,8 @@
 	};
 </script>
 
-<div class="p-4 mx-auto">
-	<div class="max-w-xl mx-auto p-4">
+<div class="mx-auto p-4">
+	<div class="mx-auto max-w-xl p-4">
 		{#if $user}
 			<div class="flex flex-col gap-6 text-zinc-100">
 				<header class="flex items-center justify-between">
@@ -68,7 +68,7 @@
 
 				<form
 					on:submit={onSubmit}
-					class="flex flex-row gap-12 justify-between rounded-lg p-2 items-start"
+					class="user-form flex flex-row items-start justify-between gap-12 rounded-lg py-2"
 				>
 					<fields id="left" class="flex flex-1 flex-col gap-3">
 						<div class="flex flex-col gap-1">
@@ -78,7 +78,7 @@
 								name="name"
 								bind:value={userName}
 								type="text"
-								class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+								class="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-300"
 								required
 							/>
 						</div>
@@ -91,29 +91,29 @@
 								name="email"
 								bind:value={$user.email}
 								type="text"
-								class="px-2 py-1 text-zinc-300 bg-black border border-zinc-600 rounded-lg w-full"
+								class="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-300"
 							/>
 						</div>
 
 						<footer class="pt-4">
 							{#if saving}
 								<div
-									class="flex w-32 flex-row w-content items-center gap-1 justify-center px-4 py-2 rounded text-white bg-blue-600"
+									class="w-content flex w-32 flex-row items-center justify-center gap-1 rounded bg-blue-600 px-4 py-2 text-white"
 								>
-									<IconRotateClockwise2 class="w-5 h-5 animate-spin" />
+									<IconRotateClockwise2 class="h-5 w-5 animate-spin" />
 									<span>Updating...</span>
 								</div>
 							{:else}
 								<button
 									type="submit"
-									class="px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+									class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none"
 									>Update profile</button
 								>
 							{/if}
 						</footer>
 					</fields>
 
-					<fields id="right" class="flex flex-col gap-2 items-center">
+					<fields id="right" class="flex flex-col items-center gap-2">
 						{#if $user.picture}
 							<img
 								class="h-28 w-28 rounded-full border-zinc-300"
@@ -124,7 +124,7 @@
 
 						<label
 							for="picture"
-							class="px-2 -mt-6 -ml-16 cursor-pointer text-center font-sm text-zinc-300 bg-zinc-800 border border-zinc-600 rounded-lg hover:text-zinc-50 bg-zinc-800 hover:bg-zinc-900"
+							class="font-sm -mt-6 -ml-16 cursor-pointer rounded-lg border border-zinc-600 bg-zinc-800 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
 						>
 							Edit
 							<input
@@ -140,10 +140,10 @@
 				</form>
 			</div>
 		{:else}
-			<div class="flex flex-col text-white space-y-6 items-center justify-items-center">
+			<div class="flex flex-col items-center justify-items-center space-y-6 text-white">
 				<div class="text-3xl font-bold text-white">Connect to GitButler Cloud</div>
 				<div>Sign up or log in to GitButler Cloud for more tools and features:</div>
-				<ul class="text-zinc-400 pb-4 space-y-2">
+				<ul class="space-y-2 pb-4 text-zinc-400">
 					<li class="flex flex-row space-x-3">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -151,7 +151,7 @@
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 							stroke="white"
-							class="w-6 h-6"
+							class="h-6 w-6"
 						>
 							<path
 								stroke-linecap="round"
@@ -168,7 +168,7 @@
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 							stroke="white"
-							class="w-6 h-6"
+							class="h-6 w-6"
 						>
 							<path
 								stroke-linecap="round"
@@ -186,7 +186,7 @@
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 							stroke="white"
-							class="w-6 h-6"
+							class="h-6 w-6"
 						>
 							<path
 								stroke-linecap="round"
@@ -200,15 +200,15 @@
 				<div class="mt-8 text-center">
 					<Login {user} {api} />
 				</div>
-				<div class="text-zinc-300 text-center">
+				<div class="text-center text-zinc-300">
 					You will still need to give us permission for each project before we transfer any data to
 					our servers. You can revoke this permission at any time.
 				</div>
 			</div>
 		{/if}
 
-		<div class="flex flex-col mt-8 border-t border-zinc-400 pt-4">
-			<h2 class="text-lg text-zinc-100 font-medium">Get Support</h2>
+		<div class="mt-8 flex flex-col border-t border-zinc-400 pt-4">
+			<h2 class="text-lg font-medium text-zinc-100">Get Support</h2>
 			<div class="text-sm text-zinc-300">
 				If you have an issue or any questions, please email us.
 			</div>

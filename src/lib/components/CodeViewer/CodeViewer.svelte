@@ -7,4 +7,10 @@
 	export let filepath: string;
 </script>
 
-<code class="w-full h-full" use:codeviewer={{ doc, deltas, filepath }} />
+{#key doc + filepath}
+	<code
+		style:color-scheme="dark"
+		class="h-full w-full"
+		use:codeviewer={{ doc, deltas, filepath }}
+	/>
+{/key}

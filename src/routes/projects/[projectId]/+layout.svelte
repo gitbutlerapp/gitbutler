@@ -5,10 +5,12 @@
 	import type { Project } from '$lib/projects';
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
+	import { currentProject } from '$lib/current_project';
 
 	export let data: LayoutData;
 
 	$: project = data.project;
+	$: currentProject.set($project);
 
 	function projectUrl(project: Project) {
 		const gitUrl = project.api?.git_url;
@@ -29,16 +31,56 @@
 	$: selection = $page?.route?.id?.split('/')?.[3];
 </script>
 
-<div class="flex w-full h-full flex-col">
+<div class="flex h-full w-full flex-col">
 	<nav
-		class="flex items-center flex-none justify-between py-1 px-8 space-x-3 border-b select-none text-zinc-300 border-zinc-700"
+		class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-8 text-zinc-300"
 	>
-		<div />
+		<div class="flex flex-row items-center space-x-2">
+			<form action="/projects/{$project?.id}/search" method="GET">
+				<div class="flex w-48 max-w-lg rounded-md shadow-sm">
+					<input
+						type="text"
+						name="search"
+						id="search"
+						placeholder="search"
+						class="block w-full min-w-0 flex-1 rounded-none rounded-l-md border-0 border-r-0 bg-zinc-900 py-1.5 pl-3 text-zinc-200 ring-1 ring-inset ring-zinc-700 placeholder:text-zinc-400 focus:ring-1 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+					/>
+					<span
+						class="inline-flex items-center rounded-r-md border border-l-0 border-zinc-700 bg-zinc-900 px-3 text-gray-500 sm:text-sm"
+						>&#8984;K</span
+					>
+				</div>
+			</form>
+			<a href="/projects/{$project?.id}/player" class="text-zinc-400 hover:text-zinc-200">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+					class="h-6 w-6"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z"
+					/>
+				</svg>
+			</a>
+			<a href="/projects/{$project?.id}/timeline" class="text-orange-400 hover:text-zinc-200"
+				>Timeline</a
+			>
+		</div>
 
 		<ul>
 			<li>
 				<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
-					<div class="p-1 rounded-md hover:text-zinc-200 hover:bg-zinc-700 hover:bg-zinc-700">
+					<div class="rounded-md p-1 hover:bg-zinc-700 hover:bg-zinc-700 hover:text-zinc-200">
 						<div class="h-6 w-6 ">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -46,7 +88,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-6 h-6"
+								class="h-6 w-6"
 							>
 								<path
 									stroke-linecap="round"
@@ -66,28 +108,37 @@
 		</ul>
 	</nav>
 
-	<div class="flex-auto overflow-auto">
+	<div class="project-container flex-auto overflow-auto">
 		<slot />
 	</div>
 
 	<footer class="w-full text-sm font-medium">
 		<div
-			class="flex items-center flex-shrink-0 h-6 border-t select-none border-zinc-700 bg-zinc-800 "
+			class="flex h-8 flex-shrink-0 select-none items-center border-t border-zinc-700 bg-zinc-800 "
 		>
-			<div class="flex flex-row mx-4 items-center space-x-2 justify-between w-full">
+			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2">
 				{#if $project?.api?.sync}
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
 						<div class="flex flex-row items-center space-x-2 ">
-							<div class="w-2 h-2 bg-green-700 rounded-full" />
+							<div class="h-2 w-2 rounded-full bg-green-700" />
 							<div>Syncing</div>
 						</div>
 					</a>
-					<a target="_blank" rel="noreferrer" href={projectUrl($project)}>Open in GitButler Cloud</a
-					>
+					<a target="_blank" rel="noreferrer" href={projectUrl($project)} class="flex">
+						<div class="leading-5">Open in GitButler Cloud</div>
+						<div class="icon ml-1 h-5 w-5">
+							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"
+								><path
+									fill="#52525B"
+									d="M14 13v1a1 1 0 01-1 1H6c-.575 0-1-.484-1-1V7a1 1 0 011-1h1c1.037 0 1.04 1.5 0 1.5-.178.005-.353 0-.5 0v6h6V13c0-1 1.5-1 1.5 0zm-3.75-7.25A.75.75 0 0111 5h4v4a.75.75 0 01-1.5 0V7.56l-3.22 3.22a.75.75 0 11-1.06-1.06l3.22-3.22H11a.75.75 0 01-.75-.75z"
+								/></svg
+							>
+						</div>
+					</a>
 				{:else}
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
 						<div class="flex flex-row items-center space-x-2 ">
-							<div class="w-2 h-2 bg-red-700 rounded-full" />
+							<div class="h-2 w-2 rounded-full bg-red-700" />
 							<div>Offline</div>
 						</div>
 					</a>
