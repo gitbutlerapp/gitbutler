@@ -218,7 +218,7 @@
 							<div class="truncate pl-2 font-mono text-zinc-300">
 								{toHumanBranchName(gitBranch)}
 							</div>
-							<div class="carrot flex items-center">
+							<div class="carrot flex items-center pl-3">
 								<svg width="7" height="5" viewBox="0 0 7 5" fill="none" class="fill-zinc-400">
 									<path
 										d="M3.87796 4.56356C3.67858 4.79379 3.32142 4.79379 3.12204 4.56356L0.319371 1.32733C0.0389327 1.00351 0.268959 0.5 0.697336 0.5L6.30267 0.500001C6.73104 0.500001 6.96107 1.00351 6.68063 1.32733L3.87796 4.56356Z"
