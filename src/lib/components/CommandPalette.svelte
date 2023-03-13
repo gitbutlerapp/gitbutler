@@ -11,6 +11,7 @@
 	import { shortPath } from '$lib/paths';
 	import { currentProject } from '$lib/current_project';
 	import type { Project } from '$lib/projects';
+	import toast from 'svelte-french-toast';
 
 	let showPalette = <string | false>false;
 	let keysDown = <string[]>[];
@@ -195,7 +196,10 @@
 				break;
 			case 'switchBranch':
 				if ($currentProject) {
-					console.log('branch switch');
+					toast.success('Not implelmented yet. :(', {
+						icon: '🛠️'
+					});
+
 					/*
 					this is a little dangerous right now, so lets ice it for a bit
 					switchBranch({ projectId: $currentProject.id, branch: context || '' }).then(() => {
