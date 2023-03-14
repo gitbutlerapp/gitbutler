@@ -14,7 +14,6 @@
 	import toast from 'svelte-french-toast';
 
 	let showPalette = <string | false>false;
-	let keysDown = <string[]>[];
 	let palette: HTMLElement;
 
 	let changedFiles = {};
@@ -43,59 +42,56 @@
 		push: boolean;
 	}) => invoke<boolean>('git_commit', params);
 
-	function onKeyDown(event: KeyboardEvent) {
-		if (event.repeat) return;
-		keysDown.push(event.key);
-		switch (event.key) {
-			case 'Meta':
-				event.preventDefault();
-				break;
-			case 'Escape':
-				showPalette = false;
-				paletteMode = 'command';
-				break;
-			case 'ArrowDown':
-				if (showPalette == 'command') {
+	const onKeyD = (event: KeyboardEvent) => {
+		if (event.metaKey) {
+			switch (event.key) {
+				case 'k':
+					showPalette = 'command';
+					setTimeout(function () {
+						document.getElementById('command')?.focus();
+					}, 100);
+					break;
+				case 'c':
+					showPalette = 'commit';
+					executeCommand('commit');
+					break;
+				case 'e':
+					executeCommand('contact');
+					break;
+				case 'r':
+					executeCommand('branch');
+					break;
+			}
+		} else {
+			switch (event.key) {
+				case 'Meta':
 					event.preventDefault();
-					downMenu();
-				}
-				break;
-			case 'ArrowUp':
-				if (showPalette == 'command') {
-					event.preventDefault();
-					upMenu();
-				}
-				break;
-			case 'Enter':
-				if (showPalette == 'command') {
-					event.preventDefault();
-					selectItem();
-				}
-				break;
+					break;
+				case 'Escape':
+					showPalette = false;
+					paletteMode = 'command';
+					break;
+				case 'ArrowDown':
+					if (showPalette == 'command') {
+						event.preventDefault();
+						downMenu();
+					}
+					break;
+				case 'ArrowUp':
+					if (showPalette == 'command') {
+						event.preventDefault();
+						upMenu();
+					}
+					break;
+				case 'Enter':
+					if (showPalette == 'command') {
+						event.preventDefault();
+						selectItem();
+					}
+					break;
+			}
 		}
-		if (keysDown.includes('Meta')) {
-			if (keysDown.includes('k')) {
-				showPalette = 'command';
-				setTimeout(function () {
-					document.getElementById('command')?.focus();
-				}, 100);
-			}
-			if (keysDown.includes('c')) {
-				showPalette = 'commit';
-				executeCommand('commit');
-			}
-			if (keysDown.includes('e')) {
-				executeCommand('contact');
-			}
-			if (keysDown.includes('r')) {
-				executeCommand('branch');
-			}
-		}
-	}
-
-	function onKeyUp(event: KeyboardEvent) {
-		keysDown = keysDown.filter((key) => key !== event.key);
-	}
+	};
 
 	function checkPaletteModal(event: Event) {
 		const target = event.target as HTMLElement;
@@ -319,7 +315,7 @@
 	}
 </script>
 
-<svelte:window on:keydown={onKeyDown} on:keyup={onKeyUp} on:click={checkPaletteModal} />
+<svelte:window on:keydown={onKeyD} on:click={checkPaletteModal} />
 
 <div>
 	{#if showPalette}
