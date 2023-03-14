@@ -90,9 +90,6 @@
 					/>
 				</svg>
 			</a>
-			<a href="/projects/{$project?.id}/timeline" class="text-orange-400 hover:text-zinc-200"
-				>Timeline</a
-			>
 		</div>
 
 		<ul>
