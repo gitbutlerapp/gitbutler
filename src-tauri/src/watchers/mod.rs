@@ -57,7 +57,7 @@ impl Watcher {
             .watch(sender.clone(), project.clone(), lock_file.clone())?;
         self.session_watcher
             .watch(sender.clone(), project.clone(), lock_file.clone())?;
-        self.git_watcher.watch(project.clone())?;
+        self.git_watcher.watch(sender.clone(), project.clone())?;
 
         Ok(())
     }
