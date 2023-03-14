@@ -62,7 +62,7 @@
 							</svg>
 
 							<span class="text-zinc-200"
-								>Automatically recording everything you do in any of your butlered projects.</span
+								>Automatically records everything you do in any of your butlered projects.</span
 							>
 						</li>
 						<li class="flex flex-row space-x-3">
@@ -82,8 +82,9 @@
 							</svg>
 
 							<span class="text-zinc-200"
-								>Simplifying all your Git work, including committing, branching and pushing, to be
+								>Simplifys all your Git work, including committing, branching and pushing, to be
 								easy and intuitive.
+								<span class="text-zinc-500"> (Coming soon)</span>
 							</span>
 						</li>
 						<li class="flex flex-row space-x-3">
@@ -103,7 +104,7 @@
 							</svg>
 
 							<span class="text-zinc-200"
-								>Helping you not just search for strings or past commits, but find useful context in
+								>Helps you not just search for strings or past commits, but find useful context in
 								the story of your code.
 							</span>
 						</li>

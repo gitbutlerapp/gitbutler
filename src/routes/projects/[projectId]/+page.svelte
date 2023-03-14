@@ -185,6 +185,10 @@
 							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"
 							style="height: calc(100vh - 253px);"
 						>
+							{#if orderedSessions(latestDeltasByDateByFile).length == 0}
+								<div class="text-zinc-400">Waiting for your first file changes...</div>
+							{/if}
+
 							{#each orderedSessions(latestDeltasByDateByFile) as [dateMilliseconds, fileSessions]}
 								<div class="flex flex-col">
 									<div class="mb-1  text-zinc-300">
@@ -346,6 +350,9 @@
 				style="height: calc(100vh - 110px); overflow-y: auto;"
 			>
 				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
+				{#if $recentActivity.length == 0}
+					<div class="text-zinc-400">No activity yet.</div>
+				{/if}
 				{#each $recentActivity as activity}
 					<div
 						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"

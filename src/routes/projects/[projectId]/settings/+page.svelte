@@ -131,7 +131,7 @@
 											checked={$isSyncing}
 											on:change={onSyncChange}
 										/>
-										<label for="sync">Send Data to Server</label>
+										<label for="sync">Backup your data to GitButler Cloud</label>
 									</form>
 								</div>
 							</div>
