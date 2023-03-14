@@ -517,7 +517,9 @@ fn main() {
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn_blocking(move || {
-                init(app_handle).expect("Failed to initialize app");
+                if let Err(e) = init(app_handle) {
+                    log::error!("failed to app: {:#}", e);
+                }
             });
 
             Ok(())
@@ -620,6 +622,13 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
         .with_context(|| "Failed to list projects")?;
 
     for project in projects {
+        let repo = repositories::Repository::open(
+            &app_state.projects_storage,
+            &app_state.users_storage,
+            &project.id,
+        )
+        .with_context(|| format!("{}: failed to open repository", project.path))?;
+
         app_state
             .watchers
             .lock()
@@ -627,14 +636,11 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .watch(tx.clone(), &project)
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
-        let repo = git2::Repository::open(&project.path)
-            .with_context(|| format!("{}: failed to open repository", project.path))?;
-
         if let Err(err) = app_state
             .deltas_searcher
             .lock()
             .unwrap()
-            .reindex_project(&repo, &project)
+            .reindex_project(&repo.git_repository, &repo.project)
         {
             log::error!("{}: failed to reindex project: {:#}", project.id, err);
         }

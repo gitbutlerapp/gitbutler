@@ -557,12 +557,8 @@ fn flush(
         .touch(project)
         .with_context(|| format!("failed to touch session"))?;
 
-    let wd_index = &mut git2::Index::new()
-        .with_context(|| format!("failed to create index for working directory"))?;
-    build_wd_index(&repo, wd_index).with_context(|| format!("failed to build wd index"))?;
-    let wd_tree = wd_index
-        .write_tree_to(&repo)
-        .with_context(|| format!("failed to write wd tree"))?;
+    let wd_tree = build_wd_tree(&repo, &project)
+        .with_context(|| "failed to build wd tree for project".to_string())?;
 
     let session_index =
         &mut git2::Index::new().with_context(|| format!("failed to create session index"))?;
@@ -698,27 +694,104 @@ fn push_to_remote(
     Ok(())
 }
 
-// build the initial tree from the working directory, not taking into account the gitbutler metadata
-// eventually we might just want to run this once and then update it with the files that are changed over time, but right now we're running it every commit
-// it ignores files that are in the .gitignore
-fn build_wd_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()> {
+fn build_wd_tree(repo: &git2::Repository, project: &projects::Project) -> Result<git2::Oid> {
+    match repo.find_reference(&project.refname()) {
+        Ok(reference) => {
+            let commit = reference.peel_to_commit()?;
+            let tree = commit.tree()?;
+            let mut tree_builder = repo.treebuilder(Some(&tree))?;
+
+            let session_wd_files = fs::list_files(project.wd_path()).with_context(|| {
+                format!("failed to list files in {}", project.wd_path().display())
+            })?;
+            for file in session_wd_files {
+                let relative_file_path = Path::new(&file);
+                if repo.is_path_ignored(&file).unwrap_or(true) {
+                    continue;
+                }
+                let absolute_file_path = project.wd_path().join(&relative_file_path);
+
+                let file_contents =
+                    std::fs::read_to_string(&absolute_file_path).with_context(|| {
+                        format!("failed to read file {}", absolute_file_path.display())
+                    })?;
+
+                let file_oid = repo.blob(file_contents.as_bytes())?;
+                tree_builder.insert(relative_file_path, file_oid, 0o100644)?;
+            }
+
+            let wd_tree = tree_builder.write()?;
+            Ok(wd_tree)
+        }
+        Err(e) => {
+            if e.code() != git2::ErrorCode::NotFound {
+                return Err(e.into());
+            }
+            let wd_index = &mut git2::Index::new()
+                .with_context(|| format!("failed to create index for working directory"))?;
+            build_wd_index(&repo, &project, wd_index)
+                .with_context(|| format!("failed to build wd index"))?;
+            let wd_tree = wd_index
+                .write_tree_to(&repo)
+                .with_context(|| format!("failed to write wd tree"))?;
+            Ok(wd_tree)
+        }
+    }
+}
+
+// build wd index from  the working directory files  new session wd files
+// this is important because we want to make sure session files are in sync with session deltas
+fn build_wd_index(
+    repo: &git2::Repository,
+    project: &projects::Project,
+    index: &mut git2::Index,
+) -> Result<()> {
     // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
     let repo_index = &mut repo
         .index()
         .with_context(|| format!("failed to open repo index"))?;
 
-    // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
-    let all_files = fs::list_files(repo.workdir().unwrap()).with_context(|| {
-        format!(
-            "failed to list files in {}",
-            repo.workdir().unwrap().display()
-        )
-    })?;
+    let mut added: HashMap<String, bool> = HashMap::new();
 
-    for file in all_files {
+    // first, add session/wd files. this is important because we want to make sure session files
+    // are in sync with session deltas
+    let session_wd_files = fs::list_files(project.wd_path())
+        .with_context(|| format!("failed to list files in {}", project.wd_path().display()))?;
+    for file in session_wd_files {
+        let file_path = Path::new(&file);
+        if repo.is_path_ignored(&file).unwrap_or(true) {
+            continue;
+        }
+        add_wd_path(index, repo_index, &project.wd_path(), &file_path, &repo).with_context(
+            || {
+                format!(
+                    "failed to add working directory path {}",
+                    file_path.display()
+                )
+            },
+        )?;
+        added.insert(file_path.to_string_lossy().to_string(), true);
+    }
+
+    // finally, add files from the working directory if they aren't already in the index
+    let current_wd_files = fs::list_files(&project.path)
+        .with_context(|| format!("failed to list files in {}", project.path))?;
+
+    for file in current_wd_files {
+        if added.contains_key(&file.to_string_lossy().to_string()) {
+            continue;
+        }
+
         let file_path = Path::new(&file);
         if !repo.is_path_ignored(&file).unwrap_or(true) {
-            add_wd_path(index, repo_index, &file_path, &repo).with_context(|| {
+            add_wd_path(
+                index,
+                repo_index,
+                &Path::new(&project.path),
+                &file_path,
+                &repo,
+            )
+            .with_context(|| {
                 format!(
                     "failed to add working directory path {}",
                     file_path.display()
@@ -737,10 +810,11 @@ fn build_wd_index(repo: &git2::Repository, index: &mut git2::Index) -> Result<()
 fn add_wd_path(
     index: &mut git2::Index,
     repo_index: &mut git2::Index,
+    dir: &Path,
     rel_file_path: &Path,
     repo: &git2::Repository,
 ) -> Result<()> {
-    let abs_file_path = repo.workdir().unwrap().join(rel_file_path);
+    let abs_file_path = dir.join(rel_file_path);
     let file_path = Path::new(&abs_file_path);
 
     let metadata = file_path

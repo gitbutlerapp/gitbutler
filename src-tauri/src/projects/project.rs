@@ -57,6 +57,10 @@ impl Project {
         self.session_path().join("deltas")
     }
 
+    pub fn wd_path(&self) -> PathBuf {
+        self.session_path().join("wd")
+    }
+
     pub fn from_path(fpath: String) -> Result<Self, CreateError> {
         // make sure path exists
         let path = std::path::Path::new(&fpath);
