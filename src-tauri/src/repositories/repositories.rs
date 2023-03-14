@@ -172,7 +172,6 @@ impl Repository {
 
     // return current branch name
     pub fn branch(&self) -> Result<String> {
-        print!("getting branch name... ");
         let repo = &self.git_repository;
         let head = repo.head()?;
         let branch = head.name().unwrap();
@@ -208,31 +207,24 @@ impl Repository {
         let statuses = self
             .git_repository
             .statuses(Some(&mut options))
-            .with_context(|| "failed to get repository status");
+            .with_context(|| "failed to get repository status")?;
 
         let mut files = HashMap::new();
 
-        match statuses {
-            Ok(statuses) => {
-                // iterate over the statuses
-                for entry in statuses.iter() {
-                    // get the path of the entry
-                    let path = entry.path().unwrap();
-                    // get the status as a string
-                    let istatus = match entry.status() {
-                        s if s.contains(git2::Status::WT_NEW) => "added",
-                        s if s.contains(git2::Status::WT_MODIFIED) => "modified",
-                        s if s.contains(git2::Status::WT_DELETED) => "deleted",
-                        s if s.contains(git2::Status::WT_RENAMED) => "renamed",
-                        s if s.contains(git2::Status::WT_TYPECHANGE) => "typechange",
-                        _ => continue,
-                    };
-                    files.insert(path.to_string(), istatus.to_string());
-                }
-            }
-            Err(_) => {
-                println!("Error getting status");
-            }
+        // iterate over the statuses
+        for entry in statuses.iter() {
+            // get the path of the entry
+            let path = entry.path().unwrap();
+            // get the status as a string
+            let istatus = match entry.status() {
+                s if s.contains(git2::Status::WT_NEW) => "added",
+                s if s.contains(git2::Status::WT_MODIFIED) => "modified",
+                s if s.contains(git2::Status::WT_DELETED) => "deleted",
+                s if s.contains(git2::Status::WT_RENAMED) => "renamed",
+                s if s.contains(git2::Status::WT_TYPECHANGE) => "typechange",
+                _ => continue,
+            };
+            files.insert(path.to_string(), istatus.to_string());
         }
 
         return Ok(files);
@@ -240,7 +232,6 @@ impl Repository {
 
     // commit method
     pub fn commit(&self, message: &str, files: Vec<&str>, push: bool) -> Result<bool> {
-        println!("Git Commit");
         let repo = &self.git_repository;
 
         let config = repo.config()?;
@@ -274,24 +265,23 @@ impl Repository {
             &tree,
             &[&parent_commit],
         )?;
-        println!("Created commit {}", commit);
+        log::info!("{}: created commit {}", self.project.id, commit);
 
         if push {
-            println!("Pushing to remote");
-
             // Get a reference to the current branch
             let head = repo.head()?;
             let branch = head.name().unwrap();
 
-            println!("Branch: {:?}", branch);
-
             let branch_remote = repo.branch_upstream_remote(branch)?;
             let branch_remote_name = branch_remote.as_str().unwrap();
             let branch_name = repo.branch_upstream_name(branch)?;
-            println!(
-                "Branch remote: {:?}, {:?}",
-                branch_remote.as_str(),
-                branch_name.as_str()
+
+            log::info!(
+                "{}: pushing {} to {} as {}",
+                self.project.id,
+                branch,
+                branch_remote_name,
+                branch_name.as_str().unwrap()
             );
 
             // Set the remote's callbacks
@@ -309,7 +299,6 @@ impl Repository {
 
             // try to auth with creds from an ssh-agent
             callbacks.credentials(|_url, username_from_url, _allowed_types| {
-                print!("Trying to auth with ssh... {:?} ", username_from_url);
                 Cred::ssh_key(
                     username_from_url.unwrap(),
                     None,
