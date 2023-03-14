@@ -415,7 +415,11 @@ pub fn list(
 // except for the first session. The first created session
 // is special and used to bootstrap the gitbutler state inside a repo.
 // see crate::repositories::init
-fn list_persistent(repo: &git2::Repository, reference: &git2::Reference, earliest_timestamp_ms: Option<u128>) -> Result<Vec<Session>> {
+fn list_persistent(
+    repo: &git2::Repository,
+    reference: &git2::Reference,
+    earliest_timestamp_ms: Option<u128>,
+) -> Result<Vec<Session>> {
     let head = repo.find_commit(reference.target().unwrap())?;
 
     // list all commits from gitbutler head to the first commit
@@ -439,7 +443,7 @@ fn list_persistent(repo: &git2::Repository, reference: &git2::Reference, earlies
                 if session.meta.start_timestamp_ms <= earliest_timestamp_ms {
                     break;
                 }
-            },
+            }
             None => {}
         }
         sessions.push(session);
@@ -695,53 +699,74 @@ fn push_to_remote(
 }
 
 fn build_wd_tree(repo: &git2::Repository, project: &projects::Project) -> Result<git2::Oid> {
+    let wd_index = &mut git2::Index::new()
+        .with_context(|| format!("failed to create index for working directory"))?;
     match repo.find_reference(&project.refname()) {
         Ok(reference) => {
+            // build the working directory tree from the current commit
+            // and the session files
             let commit = reference.peel_to_commit()?;
             let tree = commit.tree()?;
-            let mut tree_builder = repo.treebuilder(Some(&tree))?;
+            wd_index.read_tree(&tree)?;
 
             let session_wd_files = fs::list_files(project.wd_path()).with_context(|| {
                 format!("failed to list files in {}", project.wd_path().display())
             })?;
             for file in session_wd_files {
-                let relative_file_path = Path::new(&file);
-                if repo.is_path_ignored(&file).unwrap_or(true) {
-                    continue;
-                }
-                let absolute_file_path = project.wd_path().join(&relative_file_path);
-
-                let file_contents =
-                    std::fs::read_to_string(&absolute_file_path).with_context(|| {
-                        format!("failed to read file {}", absolute_file_path.display())
-                    })?;
-
-                let file_oid = repo.blob(file_contents.as_bytes())?;
-                tree_builder.insert(relative_file_path, file_oid, 0o100644)?;
+                let abs_path = project.wd_path().join(&file);
+                let metadata = abs_path
+                    .metadata()
+                    .with_context(|| "failed to get metadata for".to_string())?;
+                let mtime = FileTime::from_last_modification_time(&metadata);
+                let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+                let file_content = std::fs::read_to_string(&abs_path)
+                    .with_context(|| format!("failed to read file {}", abs_path.display()))?;
+                wd_index
+                    .add(&git2::IndexEntry {
+                        ctime: git2::IndexTime::new(
+                            ctime.seconds().try_into()?,
+                            ctime.nanoseconds().try_into().unwrap(),
+                        ),
+                        mtime: git2::IndexTime::new(
+                            mtime.seconds().try_into()?,
+                            mtime.nanoseconds().try_into().unwrap(),
+                        ),
+                        dev: metadata.dev().try_into()?,
+                        ino: metadata.ino().try_into()?,
+                        mode: 33188,
+                        uid: metadata.uid().try_into().unwrap(),
+                        gid: metadata.gid().try_into().unwrap(),
+                        file_size: metadata.len().try_into().unwrap(),
+                        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
+                        flags_extended: 0, // no extended flags
+                        path: file.to_str().unwrap().to_string().into(),
+                        id: repo.blob(file_content.as_bytes())?,
+                    })
+                    .with_context(|| format!("failed to add index entry for {}", file.display()))?;
             }
 
-            let wd_tree = tree_builder.write()?;
-            Ok(wd_tree)
+            let wd_tree_oid = wd_index
+                .write_tree_to(&repo)
+                .with_context(|| format!("failed to write wd tree"))?;
+            Ok(wd_tree_oid)
         }
         Err(e) => {
             if e.code() != git2::ErrorCode::NotFound {
                 return Err(e.into());
             }
-            let wd_index = &mut git2::Index::new()
-                .with_context(|| format!("failed to create index for working directory"))?;
-            build_wd_index(&repo, &project, wd_index)
+            build_wd_index_from_repo(&repo, &project, wd_index)
                 .with_context(|| format!("failed to build wd index"))?;
-            let wd_tree = wd_index
+            let wd_tree_oid = wd_index
                 .write_tree_to(&repo)
                 .with_context(|| format!("failed to write wd tree"))?;
-            Ok(wd_tree)
+            Ok(wd_tree_oid)
         }
     }
 }
 
-// build wd index from  the working directory files  new session wd files
+// build wd index from the working directory files new session wd files
 // this is important because we want to make sure session files are in sync with session deltas
-fn build_wd_index(
+fn build_wd_index_from_repo(
     repo: &git2::Repository,
     project: &projects::Project,
     index: &mut git2::Index,

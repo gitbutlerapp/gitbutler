@@ -83,8 +83,9 @@ fn test_flow() {
     let repo = test_project().unwrap();
 
     let size = 10;
-    let relative_file_path = Path::new("test.txt");
+    let relative_file_path = Path::new("one/two/test.txt");
     for i in 1..=size {
+        std::fs::create_dir_all(Path::new(&repo.project.path).join("one/two")).unwrap();
         // create a session with a single file change and flush it
         std::fs::write(
             Path::new(&repo.project.path).join(relative_file_path),
@@ -115,7 +116,8 @@ fn test_flow() {
         .git_repository
         .find_reference(&repo.project.refname())
         .unwrap();
-    let mut sessions = sessions::list(&repo.git_repository, &repo.project, &reference, None).unwrap();
+    let mut sessions =
+        sessions::list(&repo.git_repository, &repo.project, &reference, None).unwrap();
     assert_eq!(sessions.len(), size);
 
     // verify sessions order is correct
