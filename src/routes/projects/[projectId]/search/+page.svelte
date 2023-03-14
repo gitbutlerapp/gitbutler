@@ -22,7 +22,9 @@
 		const result = await search({ projectId, query });
 		for (const r of result) {
 			const processedResult = await processSearchResult(r, query);
-			processedResults = [...processedResults, processedResult];
+			if (processedResult.hunks && processedResult.hunks.length > 0) {
+				processedResults = [...processedResults, processedResult];
+			}
 		}
 	};
 </script>
