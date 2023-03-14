@@ -286,6 +286,12 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
     let project = projects::Project::from_path(path.to_string())?;
     app_state.projects_storage.add_project(&project)?;
 
+    repositories::Repository::open(
+        &app_state.projects_storage,
+        &app_state.users_storage,
+        &project.id,
+    )?;
+
     let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
     app_state.watchers.lock().unwrap().watch(tx, &project)?;
     watch_events(handle, rx);
