@@ -307,11 +307,11 @@
 								/>
 							</div>
 						{/if}
-						<div class="w-100 flex flex-row-reverse items-center gap-4">
+						<div class="w-100 flex flex-row-reverse items-center justify-between gap-4">
 							{#if initiatedCommit}
 								<div class="flex gap-2">
 									<button
-										class="w-[60px] button rounded bg-blue-600 py-2 text-white"
+										class="w-[60px] button rounded border border-zinc-600 py-2 text-white hover:bg-zinc-800"
 										on:click={() => {
 											initiatedCommit = false;
 										}}>✘</button
@@ -319,25 +319,27 @@
 									<button
 										disabled={!commitMessage || filesSelectedForCommit.length == 0}
 										class="{!commitMessage || filesSelectedForCommit.length == 0
-											? 'grayscale'
-											: ''} w-[60px] button rounded bg-blue-600 py-2 text-white"
+											? 'bg-zinc-800 text-zinc-600'
+											: ''} button rounded bg-blue-600 py-2 px-3 text-white"
 										on:click={() => {
 											doCommit();
 											initiatedCommit = false;
 											commitMessage = '';
-										}}>✔</button
+										}}>Commit changes</button
 									>
 								</div>
-								{#if filesSelectedForCommit.length == 0}
-									<div>Select at least one file.</div>
-								{:else if !commitMessage}
-									<div>Provide a commit message.</div>
-								{:else}
-									<div>Are you certain of this?</div>
-								{/if}
+								<div class="w-100 align-left">
+									{#if filesSelectedForCommit.length == 0}
+										<div>Select at least one file.</div>
+									{:else if !commitMessage}
+										<div>Provide a commit message.</div>
+									{:else}
+										<div>Are you certain of this?</div>
+									{/if}
+								</div>
 							{:else}
 								<button
-									class="button rounded bg-blue-600 py-2 px-3 text-white"
+									class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
 									on:click={() => (initiatedCommit = true)}>Commit changes</button
 								>
 							{/if}
