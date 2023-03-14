@@ -86,7 +86,7 @@ fn list_current_deltas(project: &projects::Project) -> Result<HashMap<String, Ve
         .map_while(|file_path| {
             let file_deltas = read(project, Path::new(file_path));
             match file_deltas {
-                Ok(Some(file_deltas)) => Some(Ok((file_path.to_owned(), file_deltas))),
+                Ok(Some(file_deltas)) => Some(Ok((file_path.to_str().unwrap().to_string(), file_deltas))),
                 Ok(None) => None,
                 Err(err) => Some(Err(err)),
             }

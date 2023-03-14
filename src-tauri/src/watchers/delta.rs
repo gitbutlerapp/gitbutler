@@ -1,4 +1,4 @@
-use crate::deltas::{self, read, write, Delta, TextDocument};
+use crate::deltas::{read, write, Delta, TextDocument};
 use crate::projects;
 use crate::{events, sessions};
 use anyhow::{Context, Result};
@@ -153,7 +153,7 @@ pub(crate) fn register_file_change(
     relative_file_path: &Path,
 ) -> Result<Option<(sessions::Session, Vec<Delta>)>> {
     let file_path = repo.workdir().unwrap().join(relative_file_path);
-    let file_contents = match fs::read_to_string(&file_path) {
+    let current_file_contents = match fs::read_to_string(&file_path) {
         Ok(contents) => contents,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
@@ -208,7 +208,26 @@ pub(crate) fn register_file_change(
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
-    let session = write(&repo, project, relative_file_path, &deltas)?;
+    let session = write(&repo, project, relative_file_path, &deltas).with_context(|| {
+        format!(
+            "failed to write file deltas for {}",
+            relative_file_path.display()
+        )
+    })?;
+
+    // save file contents corresponding to the deltas
+    fs::create_dir_all(project.wd_path())?;
+    fs::write(
+        project.wd_path().join(relative_file_path),
+        current_file_contents,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write file contents to {}",
+            project.wd_path().join(relative_file_path).display()
+        )
+    })?;
+
     Ok(Some((session, deltas)))
 }
 
