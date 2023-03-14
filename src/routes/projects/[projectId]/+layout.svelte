@@ -37,10 +37,18 @@
 	>
 		<div class="flex flex-row items-center space-x-2">
 			<form action="/projects/{$project?.id}/search" method="GET">
-				<label for="default-search" class="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white">Search</label>
+				<label
+					for="default-search"
+					class="sr-only mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label
+				>
 				<div class="relative">
-					<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-						<svg class="h-5 w-5 mr-2" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 12a4 4 0 110-8 4 4 0 010 8zm9.707 4.293l-4.82-4.82A5.968 5.968 0 0014 8 6 6 0 002 8a6 6 0 006 6 5.968 5.968 0 003.473-1.113l4.82 4.82a.997.997 0 001.414 0 .999.999 0 000-1.414z" fill="#5C5F62"/></svg>
+					<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+						<svg class="mr-2 h-5 w-5" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"
+							><path
+								d="M8 12a4 4 0 110-8 4 4 0 010 8zm9.707 4.293l-4.82-4.82A5.968 5.968 0 0014 8 6 6 0 002 8a6 6 0 006 6 5.968 5.968 0 003.473-1.113l4.82 4.82a.997.997 0 001.414 0 .999.999 0 000-1.414z"
+								fill="#5C5F62"
+							/></svg
+						>
 					</div>
 					<div class="flex w-48 max-w-lg rounded-md shadow-sm">
 						<input
@@ -50,10 +58,12 @@
 							placeholder="search"
 							autocomplete="off"
 							aria-label="Search input"
-							class="block p-[3px] px-2 rounded w-full min-w-0 flex-1 placeholder:text-zinc-500  text-zinc-200 sm:text-sm sm:leading-6 bg-zinc-800 pl-10 border border-zinc-700"
+							class="block w-full min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-800  p-[3px] px-2 pl-10 text-zinc-200 placeholder:text-zinc-500 sm:text-sm sm:leading-6"
 							style=""
 						/>
-						<div class="absolute right-1 top-1 inline-flex items-center rounded border bg-zinc-700/50 border-zinc-700/20 px-1 py-[2px] text-gray-400 sm:text-sm shadow">
+						<div
+							class="absolute right-1 top-1 inline-flex items-center rounded border border-zinc-700/20 bg-zinc-700/50 px-1 py-[2px] text-gray-400 shadow sm:text-sm"
+						>
 							&#8984;K
 						</div>
 					</div>
@@ -116,14 +126,12 @@
 		</ul>
 	</nav>
 
-	<div class="project-container flex-auto overflow-y-auto h-100">
+	<div class="project-container h-100 flex-auto overflow-y-auto">
 		<slot />
 	</div>
 
 	<footer class="w-full text-sm font-medium">
-		<div
-			class="flex h-8 flex-shrink-0 select-none items-center border-t border-zinc-700"
-		>
+		<div class="flex h-8 flex-shrink-0 select-none items-center border-t border-zinc-700">
 			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2">
 				{#if $project?.api?.sync}
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">

@@ -3,7 +3,7 @@
 	import { Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts } from '$lib';
-	import { IconRotateClockwise2 } from '@tabler/icons-svelte';
+	import { IconRotateClockwise } from '$lib/components/icons';
 
 	export let data: PageData;
 	const { project, user, api } = data;
@@ -190,7 +190,7 @@
 						<div
 							class="w-content flex w-32 flex-row items-center justify-center gap-1 rounded bg-blue-400 py-2 px-3 text-white"
 						>
-							<IconRotateClockwise2 class="h-5 w-5 animate-spin" />
+							<IconRotateClockwise class="h-5 w-5 animate-spin" />
 							<span>Updating...</span>
 						</div>
 					{:else}

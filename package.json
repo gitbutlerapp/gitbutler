@@ -38,7 +38,6 @@
 		"@replit/codemirror-lang-csharp": "^6.1.0",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@square/svelte-store": "^1.0.14",
-		"@tabler/icons-svelte": "^2.6.0",
 		"@tauri-apps/api": "^1.2.0",
 		"date-fns": "^2.29.3",
 		"diff": "^5.1.0",

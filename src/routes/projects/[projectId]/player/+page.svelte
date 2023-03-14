@@ -3,7 +3,7 @@
 	import { listFiles } from '$lib/sessions';
 	import { type Delta, list as listDeltas } from '$lib/deltas';
 	import { CodeViewer } from '$lib/components';
-	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-svelte';
+	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/components/icons';
 	import slider from '$lib/slider';
 	import { onMount } from 'svelte';
 
@@ -172,7 +172,10 @@
 				<h2 class="px-4 py-2 text-xl text-zinc-300">{frame.filepath}</h2>
 			</header>
 
-			<div class="project-container flex-auto overflow-y-auto overflow-x-hidden" style="height: calc(100vh - 270px)">
+			<div
+				class="project-container flex-auto overflow-y-auto overflow-x-hidden"
+				style="height: calc(100vh - 270px)"
+			>
 				<CodeViewer filepath={frame.filepath} doc={frame.doc} deltas={frame.deltas} />
 			</div>
 		{/if}

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { Activity } from '$lib/sessions';
 	import {
-		IconCircleHalf2,
+		IconCircleHalf,
 		IconMapPinFilled,
 		IconSquareRoundedFilled,
 		IconCircleFilled
-	} from '@tabler/icons-svelte';
+	} from '$lib/components/icons';
 
 	export let activities: Activity[];
 	export let sessionStart: number;
@@ -42,7 +42,7 @@
 					{:else if activity.type.startsWith('merge')}
 						<IconMapPinFilled class="h-3 w-3 text-green-500 hover:text-green-600" />
 					{:else if activity.type.startsWith('rebase')}
-						<IconCircleHalf2 class="h-3 w-3 text-orange-500 hover:text-orange-600" />
+						<IconCircleHalf class="h-3 w-3 text-orange-500 hover:text-orange-600" />
 					{:else if activity.type.startsWith('push')}
 						<IconCircleFilled class="h-3 w-3 text-purple-500 hover:text-purple-600" />
 					{/if}
