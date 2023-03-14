@@ -216,7 +216,7 @@ pub(crate) fn register_file_change(
     })?;
 
     // save file contents corresponding to the deltas
-    fs::create_dir_all(project.wd_path().join(relative_file_path).parent())?;
+    fs::create_dir_all(project.wd_path().join(relative_file_path).parent().unwrap())?;
     fs::write(
         project.wd_path().join(relative_file_path),
         current_file_contents,
