@@ -55,7 +55,12 @@ impl Repository {
     }
 
     pub fn sessions(&self, earliest_timestamp_ms: Option<u128>) -> Result<Vec<sessions::Session>> {
-        sessions::list(&self.git_repository, &self.project, &self.reference()?, earliest_timestamp_ms)
+        sessions::list(
+            &self.git_repository,
+            &self.project,
+            &self.reference()?,
+            earliest_timestamp_ms,
+        )
     }
 
     pub fn files(
@@ -94,7 +99,7 @@ impl Repository {
         let mut files = Vec::new();
         for file in all_files {
             if !&self.git_repository.is_path_ignored(&file).unwrap_or(true) {
-                files.push(file);
+                files.push(file.to_string_lossy().to_string());
             }
         }
         return Ok(files);
@@ -127,7 +132,7 @@ impl Repository {
                                 || pattern.is_match(match_string)) // but only pass on files that match the regex
                                 && !&self
                                     .git_repository
-                                    .is_path_ignored(e.path())
+                                    .is_path_ignored(&e.path())
                                     .unwrap_or(true))
                     })
                     .filter_map(Result::ok)
