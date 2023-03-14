@@ -1,4 +1,5 @@
 mod delta;
+mod git;
 mod session;
 
 #[cfg(test)]
@@ -16,6 +17,7 @@ use std::{
 pub struct Watcher {
     session_watcher: session::SessionWatcher,
     delta_watcher: delta::DeltaWatchers,
+    git_watcher: git::GitWatchers,
 }
 
 impl Watcher {
@@ -27,9 +29,11 @@ impl Watcher {
         let session_watcher =
             session::SessionWatcher::new(projects_storage, users_storage, deltas_searcher);
         let delta_watcher = delta::DeltaWatchers::new();
+        let git_watcher = git::GitWatchers::new();
         Self {
             session_watcher,
             delta_watcher,
+            git_watcher,
         }
     }
 
@@ -53,12 +57,14 @@ impl Watcher {
             .watch(sender.clone(), project.clone(), lock_file.clone())?;
         self.session_watcher
             .watch(sender.clone(), project.clone(), lock_file.clone())?;
+        self.git_watcher.watch(project.clone())?;
 
         Ok(())
     }
 
     pub fn unwatch(&mut self, project: projects::Project) -> Result<()> {
-        self.delta_watcher.unwatch(project)?;
+        self.delta_watcher.unwatch(&project)?;
+        self.git_watcher.unwatch(&project)?;
         // TODO: how to unwatch session ?
         Ok(())
     }

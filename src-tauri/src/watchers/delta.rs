@@ -136,7 +136,7 @@ impl DeltaWatchers {
         Ok(())
     }
 
-    pub fn unwatch(&mut self, project: projects::Project) -> Result<()> {
+    pub fn unwatch(&mut self, project: &projects::Project) -> Result<()> {
         if let Some(mut watcher) = self.watchers.remove(&project.path) {
             watcher.unwatch(Path::new(&project.path))?;
         }
