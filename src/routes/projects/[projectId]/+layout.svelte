@@ -33,7 +33,7 @@
 
 <div class="flex h-full w-full flex-col">
 	<nav
-		class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-8 text-zinc-300"
+		class="project-top-bar flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 p-[6px] px-8 text-zinc-300"
 	>
 		<div class="flex flex-row items-center space-x-2">
 			<form action="/projects/{$project?.id}/search" method="GET">
@@ -140,12 +140,11 @@
 					<a target="_blank" rel="noreferrer" href={projectUrl($project)} class="flex">
 						<div class="leading-5">Open in GitButler Cloud</div>
 						<div class="icon ml-1 h-5 w-5">
-							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"
-								><path
+							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+								<path
 									fill="#52525B"
-									d="M14 13v1a1 1 0 01-1 1H6c-.575 0-1-.484-1-1V7a1 1 0 011-1h1c1.037 0 1.04 1.5 0 1.5-.178.005-.353 0-.5 0v6h6V13c0-1 1.5-1 1.5 0zm-3.75-7.25A.75.75 0 0111 5h4v4a.75.75 0 01-1.5 0V7.56l-3.22 3.22a.75.75 0 11-1.06-1.06l3.22-3.22H11a.75.75 0 01-.75-.75z"
-								/></svg
-							>
+									d="M14 13v1a1 1 0 01-1 1H6c-.575 0-1-.484-1-1V7a1 1 0 011-1h1c1.037 0 1.04 1.5 0 1.5-.178.005-.353 0-.5 0v6h6V13c0-1 1.5-1 1.5 0zm-3.75-7.25A.75.75 0 0111 5h4v4a.75.75 0 01-1.5 0V7.56l-3.22 3.22a.75.75 0 11-1.06-1.06l3.22-3.22H11a.75.75 0 01-.75-.75z"/>
+								</svg>
 						</div>
 					</a>
 				{:else}
