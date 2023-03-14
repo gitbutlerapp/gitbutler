@@ -10,6 +10,7 @@
 	import { toHumanBranchName } from '$lib/branch';
 	import { list as listDeltas } from '$lib/deltas';
 	import { slide } from 'svelte/transition';
+	import { navigating } from '$app/stores';
 
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 
@@ -30,6 +31,12 @@
 	let commitMessage: string;
 	let initiatedCommit = false;
 	let filesSelectedForCommit: string[] = [];
+
+	$: if ($navigating) {
+		commitMessage = '';
+		filesSelectedForCommit = [];
+		initiatedCommit = false;
+	}
 
 	function doCommit() {
 		if ($project) {
@@ -339,8 +346,15 @@
 								</div>
 							{:else}
 								<button
-									class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
-									on:click={() => (initiatedCommit = true)}>Commit changes</button
+
+									class="button rounded bg-blue-600 py-2 px-3 text-whit hover:bg-blue-700"
+									on:click={() => {
+										filesSelectedForCommit = $filesStatus.map((file) => {
+											return file.path;
+										});
+
+										initiatedCommit = true;
+									}}>Commit changes</button
 								>
 							{/if}
 						</div>
