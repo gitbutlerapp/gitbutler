@@ -9,6 +9,7 @@
 	import { invoke } from '@tauri-apps/api';
 	import { toHumanBranchName } from '$lib/branch';
 	import { list as listDeltas } from '$lib/deltas';
+	import { slide } from 'svelte/transition';
 
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 
@@ -18,7 +19,32 @@
 	$: recentActivity = data.recentActivity as Readable<Activity[]>;
 	$: orderedSessionsFromLastFourDays = data.orderedSessionsFromLastFourDays;
 
+	const commit = (params: {
+		projectId: string;
+		message: string;
+		files: Array<string>;
+		push: boolean;
+	}) => invoke<boolean>('git_commit', params);
+
 	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
+	let commitMessage: string;
+	let initiatedCommit = false;
+	let filesSelectedForCommit: string[] = [];
+
+	function doCommit() {
+		if ($project) {
+			commit({
+				projectId: $project.id,
+				message: commitMessage,
+				files: filesSelectedForCommit,
+				push: false
+			}).then((result) => {
+				commitMessage = '';
+				filesSelectedForCommit = [];
+				initiatedCommit = false;
+			});
+		}
+	}
 
 	$: if ($project) {
 		latestDeltasByDateByFile = {};
@@ -249,7 +275,14 @@
 					<div class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
 						<ul class="pl-4">
 							{#each $filesStatus as activity}
-								<li class="list-disc ">
+								<li class={initiatedCommit ? '-ml-5' : 'list-disc'}>
+									{#if initiatedCommit}
+										<input
+											type="checkbox"
+											bind:group={filesSelectedForCommit}
+											value={activity.path}
+										/>
+									{/if}
 									{activity.status.slice(0, 1)}
 									{shortPath(activity.path)}
 								</li>
@@ -257,10 +290,54 @@
 						</ul>
 					</div>
 					<!-- TODO: Button needs to be hooked up -->
-					<div class="w-100 flex flex-row-reverse">
-						<button class="button mt-2 rounded bg-blue-600 py-2 px-3 text-white"
-							>Commit changes</button
-						>
+					<div class="mt-2 flex flex-col">
+						{#if initiatedCommit}
+							<div transition:slide={{ duration: 150 }}>
+								<h3 class="text-base font-semibold text-zinc-200">Commit Message</h3>
+								<textarea
+									rows="4"
+									name="message"
+									placeholder="Description of changes"
+									bind:value={commitMessage}
+									class="mb-2 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+								/>
+							</div>
+						{/if}
+						<div class="w-100 flex flex-row-reverse items-center gap-4">
+							{#if initiatedCommit}
+								<div class="flex gap-2">
+									<button
+										class="w-[60px] button rounded bg-blue-600 py-2 text-white"
+										on:click={() => {
+											initiatedCommit = false;
+										}}>✘</button
+									>
+									<button
+										disabled={!commitMessage || filesSelectedForCommit.length == 0}
+										class="{!commitMessage || filesSelectedForCommit.length == 0
+											? 'grayscale'
+											: ''} w-[60px] button rounded bg-blue-600 py-2 text-white"
+										on:click={() => {
+											doCommit();
+											initiatedCommit = false;
+											commitMessage = '';
+										}}>✔</button
+									>
+								</div>
+								{#if filesSelectedForCommit.length == 0}
+									<div>Select at least one file.</div>
+								{:else if !commitMessage}
+									<div>Provide a commit message.</div>
+								{:else}
+									<div>Are you certain of this?</div>
+								{/if}
+							{:else}
+								<button
+									class="button rounded bg-blue-600 py-2 px-3 text-white"
+									on:click={() => (initiatedCommit = true)}>Commit changes</button
+								>
+							{/if}
+						</div>
 					</div>
 				{/if}
 			</div>
