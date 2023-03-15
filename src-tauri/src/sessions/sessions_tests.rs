@@ -369,6 +369,9 @@ fn test_flush_ensure_wd_structure() {
         .peel_to_tree()
         .unwrap()
         .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+            if !root.starts_with("wd") && entry.name() != Some("wd") {
+                return git2::TreeWalkResult::Ok;
+            }
             let full_path = Path::new(root).join(entry.name().unwrap());
             all_files_1.insert(full_path.to_str().unwrap().to_string(), true);
             git2::TreeWalkResult::Ok
@@ -388,6 +391,10 @@ fn test_flush_ensure_wd_structure() {
         .peel_to_tree()
         .unwrap()
         .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+            if !root.starts_with("wd") && entry.name() != Some("wd") {
+                return git2::TreeWalkResult::Ok;
+            }
+
             let full_path = Path::new(root).join(entry.name().unwrap());
             all_files_2.insert(full_path.to_str().unwrap().to_string(), true);
             git2::TreeWalkResult::Ok
