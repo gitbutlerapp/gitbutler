@@ -66,7 +66,7 @@
 		type === 'insert' ? 'bg-[#14FF00]/20' : type === 'delete' ? 'bg-[#FF0000]/20' : '';
 </script>
 
-<table class="w-full h-full whitespace-pre font-mono" bind:this={editor}>
+<table class="h-full w-full whitespace-pre font-mono" bind:this={editor}>
 	{#each parsed as hunk}
 		<tbody>
 			{#each highlightBlocks(hunk.blocks) as block}

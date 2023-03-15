@@ -237,7 +237,9 @@
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if gitBranch}
 					<div class="w-100 mb-4 flex items-center justify-between">
-						<div class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow">
+						<div
+							class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
+						>
 							<div class="h-4 w-4">
 								<svg
 									text="gray"
@@ -270,7 +272,9 @@
 					</div>
 				{/if}
 				{#if $filesStatus.length == 0}
-					<div class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400">
+					<div
+						class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400"
+					>
 						<div class="icon mr-2 h-5 w-5">
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
 								<path
@@ -369,7 +373,9 @@
 					<div class="text-zinc-400">No activity yet.</div>
 				{/if}
 				{#each $recentActivity as activity}
-					<div class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg">
+					<div
+						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
+					>
 						<div class="flex flex-col rounded bg-[#2F2F33] p-3">
 							<div class="flex flex-row justify-between pb-2 text-zinc-500">
 								<div class="">
