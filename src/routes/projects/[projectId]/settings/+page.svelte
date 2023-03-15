@@ -80,10 +80,10 @@
 
 <div class="mx-auto h-full overflow-auto p-4">
 	<div class="mx-auto max-w-2xl p-4">
-		<div class="flex flex-col space-y-6 text-zinc-100">
+		<div class="flex flex-col space-y-6">
 			<div class="space-y-0">
 				<div class="text-xl font-medium">Project Settings</div>
-				<div class="text-zinc-400">
+				<div class="">
 					How shall I manage your project settings for <strong>{$project?.title}</strong>?
 				</div>
 			</div>
@@ -112,11 +112,11 @@
 							<div class="flex flex-row">
 								{#if $project?.api?.git_url}
 									<div class="flex flex-col">
-										<div class="text-zinc-300">Git Host</div>
+										<div class="">Git Host</div>
 										<div class="font-mono text-zinc-400">
 											{hostname($project?.api?.git_url)}
 										</div>
-										<div class="mt-3 text-zinc-300">Repository ID</div>
+										<div class="mt-3 ">Repository ID</div>
 										<div class="font-mono text-zinc-400">
 											{repo_id($project?.api?.git_url)}
 										</div>

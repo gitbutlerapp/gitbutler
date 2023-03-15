@@ -61,7 +61,7 @@
 				<header class="flex items-center justify-between">
 					<div class="flex flex-col">
 						<h2 class="text-xl font-medium">GitButler Cloud Account</h2>
-						<div class="text-sm text-zinc-300">Your online account details on gitbutler.com</div>
+						<div class="">Your online account details on gitbutler.com</div>
 					</div>
 					<Login {user} {api} />
 				</header>

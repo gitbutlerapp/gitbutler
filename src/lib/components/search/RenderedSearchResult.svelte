@@ -7,7 +7,7 @@
 
 <div class="flex flex-col">
 	<div class="mb-4">
-		<p class="mb-2 flex text-lg text-zinc-400">
+		<p class="mb-2 flex text-lg">
 			<span>{processedResult.searchResult.filePath}</span>
 			<span class="flex-grow" />
 			<span>{formatDistanceToNow(processedResult.timestamp)} ago</span>

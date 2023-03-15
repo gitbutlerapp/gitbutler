@@ -20,7 +20,7 @@
 	user.subscribe(posthog.identify);
 </script>
 
-<div class="flex h-full max-h-full min-h-full flex-col text-zinc-400">
+<div class="flex h-full max-h-full min-h-full flex-col">
 	<header
 		data-tauri-drag-region
 		class="flex select-none flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
@@ -42,7 +42,7 @@
 		</a>
 	</header>
 
-	<div class="flex-auto overflow-auto text-zinc-400">
+	<div class="flex-auto overflow-auto">
 		<slot />
 	</div>
 	<Toaster />

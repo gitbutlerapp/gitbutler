@@ -237,9 +237,7 @@
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				{#if gitBranch}
 					<div class="w-100 mb-4 flex items-center justify-between">
-						<div
-							class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
-						>
+						<div class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow">
 							<div class="h-4 w-4">
 								<svg
 									text="gray"
@@ -272,17 +270,15 @@
 					</div>
 				{/if}
 				{#if $filesStatus.length == 0}
-					<div
-						class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400"
-					>
+					<div class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400">
 						<div class="icon mr-2 h-5 w-5">
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
-								><path
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+								<path
 									fill="#4ADE80"
 									fill-rule="evenodd"
 									d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z"
-								/></svg
-							>
+								/>
+							</svg>
 						</div>
 						Everything is committed
 					</div>
@@ -373,9 +369,7 @@
 					<div class="text-zinc-400">No activity yet.</div>
 				{/if}
 				{#each $recentActivity as activity}
-					<div
-						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
-					>
+					<div class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg">
 						<div class="flex flex-col rounded bg-[#2F2F33] p-3">
 							<div class="flex flex-row justify-between pb-2 text-zinc-500">
 								<div class="">
