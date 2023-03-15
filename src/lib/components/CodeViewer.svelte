@@ -66,12 +66,12 @@
 		type === 'insert' ? 'bg-[#14FF00]/20' : type === 'delete' ? 'bg-[#FF0000]/20' : '';
 </script>
 
-<table class="h-full w-full whitespace-pre font-mono" bind:this={editor}>
+<table class="flex h-full w-full flex-col whitespace-pre font-mono" bind:this={editor}>
 	{#each parsed as hunk}
 		<tbody>
 			{#each highlightBlocks(hunk.blocks) as block}
 				{#each block.lines as line}
-					<tr>
+					<tr class="w-full">
 						<td>
 							<div class="flex select-none justify-between gap-2">
 								<div>{line.oldNumber ?? ''}</div>
@@ -80,14 +80,14 @@
 						</td>
 
 						<td
-							class={bgColor(line.type)}
+							class="flex-auto {bgColor(line.type)}"
 							class:changed={line.type === 'insert' || line.type === 'delete'}
 						>
-							<div class="d2h-code-line relative px-4">
+							<div class="px-4">
 								{#if line.content}
 									<span>{@html line.content}</span>
 								{:else}
-									<span class="d2h-code-line-ctn whitespace-pre">{line.originalContent}</span>
+									<span>{line.originalContent}</span>
 								{/if}
 							</div>
 						</td>

@@ -312,8 +312,8 @@
 		</div>
 	</div>
 {:else}
-	<div class="flex h-full w-full flex-row bg-black">
-		<div class="w-24 flex-shrink-0 border-r border-zinc-700 p-2">
+	<div id="player-page" class="flex h-full w-full flex-row bg-black">
+		<div id="left" class="w-24 flex-shrink-0 border-r border-zinc-700 p-2">
 			<div class="font-zinc-100 mb-2 text-lg font-bold">Daily Work</div>
 			{#each Object.entries(sessionDays) as [day, sessions]}
 				{#if day == currentDay}
@@ -335,9 +335,10 @@
 				{/if}
 			{/each}
 		</div>
-		<div class="flex-grow">
-			<div class="flex h-full w-full flex-col">
-				<div class="flex-auto overflow-x-hidden overflow-y-scroll text-clip p-2">
+
+		<div id="middle" class="flex-auto overflow-auto">
+			<div class="flex h-full w-full flex-col gap-2">
+				<div id="code" class="flex-auto overflow-auto px-2">
 					{#if dayPlaylist[currentDay] !== undefined}
 						{#if currentEdit !== null}
 							<CodeViewer
@@ -347,10 +348,11 @@
 							/>
 						{/if}
 					{:else}
-						loading...
+						<span class="m-auto">loading...</span>
 					{/if}
 				</div>
-				<div class="p-2">
+
+				<div id="info" class="px-2">
 					{#if dayPlaylist[currentDay] !== undefined}
 						<div class="flex flex-row justify-between">
 							<div>{dayPlaylist[currentDay].chapters.length} sessions</div>
@@ -365,9 +367,10 @@
 						{/if}
 					{/if}
 				</div>
-				<div class="flex flex-col bg-zinc-800 p-2 p-2">
+
+				<div id="controls" class="flex flex-col bg-zinc-800 px-2">
 					{#if dayPlaylist[currentDay] !== undefined}
-						<div class="h-0 w-full justify-between">
+						<div class="flex h-0 w-full justify-between">
 							{#each dayPlaylist[currentDay].chapters as chapter}
 								<div
 									class="inline-block h-2 rounded bg-white"
@@ -442,7 +445,8 @@
 				</div>
 			</div>
 		</div>
-		<div class="w-80 flex-shrink-0 overflow-auto border-l border-zinc-700 bg-black p-2">
+
+		<div id="right" class="w-80 flex-shrink-0 overflow-auto border-l border-zinc-700 bg-black p-2">
 			<div class="flex flex-row justify-between">
 				<div class="font-zinc-100 mb-2 text-lg font-bold">Sessions</div>
 				<div>{Object.entries(sessionDays[currentDay]).length}</div>
