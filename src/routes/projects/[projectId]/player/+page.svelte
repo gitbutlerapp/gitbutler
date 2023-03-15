@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { listFiles } from '$lib/sessions';
-	import { type Delta, list as listDeltas } from '$lib/deltas';
+	import { type Delta, list as listDeltas, Operation } from '$lib/deltas';
 	import { CodeViewer } from '$lib/components';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/components/icons';
 	import slider from '$lib/slider';
@@ -11,7 +11,6 @@
 
 	const { sessions } = data;
 
-	let currentTimestamp = new Date().getTime();
 	let currentPlayerValue = 0;
 	let currentDay = dateToYmd(new Date());
 
@@ -179,6 +178,7 @@
 			console.log('select day', day);
 			currentDay = day;
 			currentPlayerValue = 0;
+			stop();
 		};
 	}
 
@@ -194,23 +194,59 @@
 	let currentEdit: EditFrame | null = null;
 	$: if (currentPlayerValue > 0) {
 		let totalEdits = 0;
+		let priorDeltas: Delta[] = [];
 		currentEdit = null;
 		dayPlaylist[currentDay].chapters.forEach((chapter) => {
 			console.log(totalEdits);
 			if (currentEdit == null && currentPlayerValue < totalEdits + chapter.editCount) {
 				let thisEdit = chapter.edits[currentPlayerValue - totalEdits];
+				priorDeltas = priorDeltas.concat(
+					chapter.edits
+						.slice(0, currentPlayerValue - totalEdits)
+						.filter((edit) => edit.filepath == thisEdit?.filepath)
+						.map((edit) => edit.delta)
+				);
+
+				console.log('prior', priorDeltas);
+				console.log('current', thisEdit);
+
 				currentEdit = {
 					sessionId: chapter.session,
 					timestampMs: thisEdit.delta.timestampMs,
 					filepath: thisEdit.filepath,
 					doc: sessionFiles[chapter.session][thisEdit.filepath],
-					ops: [],
+					ops: priorDeltas.concat(thisEdit.delta),
 					delta: thisEdit.delta
 				};
 			}
 			totalEdits += chapter.editCount;
 		});
 	}
+
+	// player
+	let interval: ReturnType<typeof setInterval> | undefined;
+	let direction: -1 | 1 = 1;
+	let speed = 1;
+	let oneSecond = 1000;
+
+	const stop = () => {
+		clearInterval(interval);
+		interval = undefined;
+		speed = 1;
+	};
+	const play = () => start({ direction, speed });
+
+	const start = (params: { direction: 1 | -1; speed: number }) => {
+		if (interval) clearInterval(interval);
+		interval = setInterval(() => {
+			currentPlayerValue += 1;
+		}, oneSecond / params.speed);
+	};
+
+	const speedUp = () => {
+		speed = speed * 2;
+		start({ direction, speed });
+	};
 </script>
 
 {#if $sessions.length === 0}
@@ -236,6 +272,21 @@
 				<div class="flex-grow border overflow-auto">
 					{ymdToDate(currentDay)}
 					{#if dayPlaylist[currentDay] !== undefined}
+						{#if currentEdit !== null}
+							<div class="h-full overflow-auto border">
+								<CodeViewer
+									doc={currentEdit.doc}
+									deltas={currentEdit.ops}
+									filepath={currentEdit.filepath}
+								/>
+							</div>
+						{/if}
+					{:else}
+						loading...
+					{/if}
+				</div>
+				<div class="border">
+					{#if dayPlaylist[currentDay] !== undefined}
 						<div>{dayPlaylist[currentDay].chapters.length} chapters</div>
 						<div>{dayPlaylist[currentDay].editCount} edits</div>
 						<div>{Math.round(dayPlaylist[currentDay].totalDurationMs / 1000 / 60)} min</div>
@@ -244,21 +295,17 @@
 							<div>{currentEdit.filepath}</div>
 							<div>{currentEdit.delta.timestampMs}</div>
 							<div>{new Date(currentEdit.delta.timestampMs)}</div>
-							<div>{currentEdit.delta.operations}</div>
-							<CodeViewer
-								doc={currentEdit.doc}
-								deltas={[currentEdit.delta]}
-								filepath={currentEdit.filepath}
-							/>
 						{/if}
-					{:else}
-						loading...
 					{/if}
-					<div>{currentPlayerValue}</div>
 				</div>
-				<div class="border">Meta Data</div>
 				<div class="flex flex-row border">
-					<div>play</div>
+					<div
+						on:click={() => {
+							currentPlayerValue += 1;
+						}}
+					>
+						forward
+					</div>
 					<div class="w-full">
 						{#if dayPlaylist[currentDay] !== undefined}
 							<input
@@ -270,11 +317,18 @@
 							/>
 						{/if}
 					</div>
-					<div>2x</div>
+					<div class="mx-auto flex items-center gap-2">
+						{#if interval}
+							<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
+						{:else}
+							<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
+						{/if}
+						<button on:click={speedUp}>{speed}x</button>
+					</div>
 				</div>
 			</div>
 		</div>
-		<div class="w-64 border">
+		<div class="w-64 flex-shrink-0 border overflow-auto">
 			<div>Sessions</div>
 			<div class="flex flex-col">
 				{#each sessionDays[currentDay] as session}
