@@ -178,7 +178,7 @@
 									href="/projects/{project.id}/"
 								>
 									<div
-										class="group flex flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-[#2F2F33] hover:bg-[#3B3B3F] shadow transition duration-150 ease-out hover:ease-in"
+										class="group flex flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-[#2F2F33] shadow transition duration-150 ease-out hover:bg-[#3B3B3F] hover:ease-in"
 									>
 										<div class="flex-grow-0 px-4 py-4">
 											<div class="text-lg text-zinc-300 hover:text-zinc-200">

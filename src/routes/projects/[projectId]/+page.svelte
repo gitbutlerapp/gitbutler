@@ -318,7 +318,7 @@
 							{#if initiatedCommit}
 								<div class="flex gap-2">
 									<button
-										class="w-[60px] button rounded border border-zinc-600 py-2 text-white hover:bg-zinc-800"
+										class="button w-[60px] rounded border border-zinc-600 py-2 text-white hover:bg-zinc-800"
 										on:click={() => {
 											initiatedCommit = false;
 										}}>✘</button
@@ -346,8 +346,7 @@
 								</div>
 							{:else}
 								<button
-
-									class="button rounded bg-blue-600 py-2 px-3 text-whit hover:bg-blue-700"
+									class="button text-whit rounded bg-blue-600 py-2 px-3 hover:bg-blue-700"
 									on:click={() => {
 										filesSelectedForCommit = $filesStatus.map((file) => {
 											return file.path;
