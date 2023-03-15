@@ -6,11 +6,28 @@
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { currentProject } from '$lib/current_project';
+	import { setContext } from 'svelte';
+	import { writable } from 'svelte/store';
 
 	export let data: LayoutData;
+	let query: string;
+	const searchTerm = writable('');
+	setContext('searchTerm', searchTerm);
 
 	$: project = data.project;
 	$: currentProject.set($project);
+
+	const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
+		let timeout: ReturnType<typeof setTimeout>;
+		return (...args: any[]) => {
+			clearTimeout(timeout);
+			timeout = setTimeout(() => fn(...args), delay);
+		};
+	};
+
+	const updateQuery = debounce(async () => {
+		searchTerm.set(query);
+	}, 500);
 
 	function projectUrl(project: Project) {
 		const gitUrl = project.api?.git_url;
@@ -33,7 +50,7 @@
 
 <div class="flex h-full w-full flex-col">
 	<nav
-		class="project-top-bar flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 p-[6px] px-8 text-zinc-300"
+		class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-8 text-zinc-300"
 	>
 		<div class="flex flex-row items-center space-x-2">
 			<form action="/projects/{$project?.id}/search" method="GET">
@@ -55,20 +72,22 @@
 							type="text"
 							name="search"
 							id="search"
-							placeholder="search"
+							placeholder="search history"
+							bind:value={query}
+							on:input={updateQuery}
 							autocomplete="off"
 							aria-label="Search input"
 							class="block w-full min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-800  p-[3px] px-2 pl-10 text-zinc-200 placeholder:text-zinc-500 sm:text-sm sm:leading-6"
 							style=""
 						/>
-						<div
-							class="absolute right-1 top-1 inline-flex items-center rounded border border-zinc-700/20 bg-zinc-700/50 px-1 py-[2px] text-gray-400 shadow sm:text-sm"
-						>
-							&#8984;K
-						</div>
 					</div>
 				</div>
 			</form>
+			<div
+				class="right-1 top-1 inline-flex items-center rounded border border-zinc-700/20 bg-zinc-700/50 px-1 py-[2px] text-gray-400 shadow sm:text-sm"
+			>
+				&#8984;K
+			</div>
 			<a href="/projects/{$project?.id}/player" class="text-zinc-400 hover:text-zinc-200">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -140,12 +159,12 @@
 					<a target="_blank" rel="noreferrer" href={projectUrl($project)} class="flex">
 						<div class="leading-5">Open in GitButler Cloud</div>
 						<div class="icon ml-1 h-5 w-5">
-							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-								<path
+							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"
+								><path
 									fill="#52525B"
 									d="M14 13v1a1 1 0 01-1 1H6c-.575 0-1-.484-1-1V7a1 1 0 011-1h1c1.037 0 1.04 1.5 0 1.5-.178.005-.353 0-.5 0v6h6V13c0-1 1.5-1 1.5 0zm-3.75-7.25A.75.75 0 0111 5h4v4a.75.75 0 01-1.5 0V7.56l-3.22 3.22a.75.75 0 11-1.06-1.06l3.22-3.22H11a.75.75 0 01-.75-.75z"
-								/>
-							</svg>
+								/></svg
+							>
 						</div>
 					</a>
 				{:else}
