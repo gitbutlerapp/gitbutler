@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use crate::{projects, users};
 use anyhow::Result;
@@ -341,4 +341,76 @@ fn test_list_files_from_second_presistent_session() {
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
     assert_eq!(files["test.txt"], "zero");
+}
+
+#[test]
+fn test_flush_ensure_wd_structure() {
+    let (repo, project) = test_project().unwrap();
+
+    // create file inside a directory
+    let file_dir = Path::new(&project.path).join("dir1").join("dir2");
+    std::fs::create_dir_all(file_dir.clone()).unwrap();
+    let file_path = file_dir.join("test.txt");
+    std::fs::write(file_path.clone(), "zero").unwrap();
+    // create just a file in root
+    let file2_path = Path::new(&project.path).join("test.txt");
+    std::fs::write(file2_path.clone(), "zero").unwrap();
+
+    // flush first session
+    let first = super::sessions::Session::from_head(&repo, &project);
+    assert!(first.is_ok());
+    let mut first = first.unwrap();
+    first.flush(&repo, &None, &project).unwrap();
+    assert!(first.hash.is_some());
+
+    let mut all_files_1: HashMap<String, bool> = HashMap::new();
+    repo.find_reference(&project.refname())
+        .unwrap()
+        .peel_to_tree()
+        .unwrap()
+        .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+            let full_path = Path::new(root).join(entry.name().unwrap());
+            all_files_1.insert(full_path.to_str().unwrap().to_string(), true);
+            git2::TreeWalkResult::Ok
+        })
+        .unwrap();
+
+    // flush second session
+    let second = super::sessions::Session::from_head(&repo, &project);
+    assert!(second.is_ok());
+    let mut second = second.unwrap();
+    second.flush(&repo, &None, &project).unwrap();
+    assert!(second.hash.is_some());
+
+    let mut all_files_2: HashMap<String, bool> = HashMap::new();
+    repo.find_reference(&project.refname())
+        .unwrap()
+        .peel_to_tree()
+        .unwrap()
+        .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+            let full_path = Path::new(root).join(entry.name().unwrap());
+            all_files_2.insert(full_path.to_str().unwrap().to_string(), true);
+            git2::TreeWalkResult::Ok
+        })
+        .unwrap();
+
+    assert_eq!(all_files_1, all_files_2);
+    assert!(all_files_1.contains_key("wd"));
+    assert!(all_files_1.contains_key("wd/test.txt"));
+    assert!(all_files_1.contains_key("wd/dir1"));
+    assert!(all_files_1.contains_key("wd/dir1/dir2"));
+    assert!(all_files_1.contains_key("wd/dir1/dir2/test.txt"));
+
+    let files = super::sessions::list_files(
+        &repo,
+        &project,
+        &repo.find_reference(&project.refname()).unwrap(),
+        &second.id,
+        None,
+    );
+    assert!(files.is_ok());
+    let files = files.unwrap();
+    assert_eq!(files.len(), 2);
+    assert!(files.contains_key("test.txt"));
+    assert!(files.contains_key("dir1/dir2/test.txt"));
 }
