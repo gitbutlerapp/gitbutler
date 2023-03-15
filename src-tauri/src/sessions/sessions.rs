@@ -14,7 +14,7 @@ use std::{
 };
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     // timestamp of when the session was created
@@ -27,7 +27,7 @@ pub struct Meta {
     pub commit: Option<String>,
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
     pub id: String,

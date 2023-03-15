@@ -16,7 +16,7 @@ use serde::{ser::SerializeMap, Serialize};
 use std::{
     collections::HashMap,
     ops::Range,
-    sync::{mpsc, Mutex},
+    sync::{mpsc, Mutex, Arc},
 };
 use storage::Storage;
 use tauri::{generate_context, Manager};
@@ -65,6 +65,8 @@ struct App {
     pub users_storage: users::Storage,
     pub deltas_searcher: Mutex<search::Deltas>,
     pub watchers: Mutex<watchers::Watcher>,
+    pub session_cache: Arc<Mutex<HashMap<String, Vec<sessions::Session>>>>,
+    pub delta_cache: Arc<Mutex<HashMap<String, HashMap <String, Vec<deltas::Delta>>>>>,
 }
 
 impl App {
@@ -85,6 +87,8 @@ impl App {
             users_storage,
             deltas_searcher: deltas_searcher.into(),
             watchers: watchers.into(),
+            session_cache: Arc::new(Mutex::new(HashMap::new())),
+            delta_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 }
@@ -178,12 +182,21 @@ async fn list_sessions(
     project_id: &str,
     earliest_timestamp_ms: Option<u128>,
 ) -> Result<Vec<sessions::Session>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let sessions = repo
-        .sessions(earliest_timestamp_ms)
-        .with_context(|| format!("Failed to list sessions for project {}", project_id))?;
-
-    Ok(sessions)
+    let state = handle.state::<App>();
+    let mut session_cache = state.session_cache.lock().unwrap();
+    match session_cache.get(project_id) {
+        Some(sessions) => {
+            Ok(sessions.clone())
+        },
+        None => {
+            let repo = repo_for_project(&handle, project_id)?;
+            let sessions = repo
+                .sessions(earliest_timestamp_ms)
+                .with_context(|| format!("Failed to list sessions for project {}", project_id))?;
+            session_cache.insert(project_id.to_string(), sessions.clone());
+            Ok(sessions)
+        }
+    }
 }
 
 #[tauri::command]
@@ -337,7 +350,7 @@ async fn list_session_files(
     session_id: &str,
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
+    let repo = repo_for_project(&handle, project_id)?;
     let files = repo.files(session_id, paths)?;
     Ok(files)
 }
@@ -348,9 +361,30 @@ async fn list_deltas(
     project_id: &str,
     session_id: &str,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let deltas = repo.deltas(session_id)?;
-    Ok(deltas)
+    let state = handle.state::<App>();
+    let mut delta_cache = state.delta_cache.lock().unwrap();
+    match delta_cache.get(session_id) {
+        Some(deltas) => {
+            return Ok(deltas.clone());
+        }
+        None => {
+            let repo = repo_for_project(&handle, project_id)?;
+            let deltas = repo
+                .deltas(session_id)
+                .with_context(|| format!("Failed to list deltas for session {}", session_id))?;
+    
+            // If there is a current session, don't cache its deltas
+            let current_session = sessions::Session::current(&repo.git_repository, &repo.project).ok().flatten();
+            if let Some(current_session) = &current_session {
+                if current_session.id == session_id {
+                    return Ok(deltas);
+                }
+            }
+    
+            delta_cache.insert(session_id.to_string(), deltas.clone());
+            return Ok(deltas);
+        }
+    }
 }
 
 #[tauri::command]
@@ -358,14 +392,14 @@ async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
+    let repo = repo_for_project(&handle, project_id)?;
     let files = repo.status().with_context(|| "Failed to get git status")?;
     Ok(files)
 }
 
 #[tauri::command]
 async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
+    let repo = repo_for_project(&handle, project_id)?;
     let files = repo
         .file_paths()
         .with_context(|| "Failed to get file paths")?;
@@ -379,7 +413,7 @@ async fn git_match_paths(
     project_id: &str,
     match_pattern: &str,
 ) -> Result<Vec<String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
+    let repo = repo_for_project(&handle, project_id)?;
     let files = repo
         .match_file_paths(match_pattern)
         .with_context(|| "Failed to get file paths")?;
@@ -388,7 +422,7 @@ async fn git_match_paths(
 }
 
 fn repo_for_project(
-    handle: tauri::AppHandle,
+    handle: &tauri::AppHandle,
     project_id: &str,
 ) -> Result<repositories::Repository, Error> {
     let app_state = handle.state::<App>();
@@ -404,7 +438,7 @@ fn repo_for_project(
 
 #[tauri::command]
 async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
+    let repo = repo_for_project(&handle, project_id)?;
     let files = repo
         .branches()
         .with_context(|| "Failed to get file paths")?;
@@ -413,7 +447,7 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 
 #[tauri::command]
 async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
-    let repo = repo_for_project(handle, project_id)?;
+    let repo = repo_for_project(&handle, project_id)?;
     let files = repo
         .branch()
         .with_context(|| "Failed to get the git branch ref name")?;
@@ -426,7 +460,7 @@ fn git_switch_branch(
     project_id: &str,
     branch: &str,
 ) -> Result<bool, Error> {
-    let repo = repo_for_project(handle, project_id)?;
+    let repo = repo_for_project(&handle, project_id)?;
     let result = repo
         .switch_branch(branch)
         .with_context(|| "Failed to get file paths")?;
@@ -441,7 +475,7 @@ fn git_commit(
     files: Vec<&str>,
     push: bool,
 ) -> Result<bool, Error> {
-    let repo = repo_for_project(handle, project_id)?;
+    let repo = repo_for_project(&handle, project_id)?;
     let success = repo
         .commit(message, files, push)
         .with_context(|| "Failed to commit")?;
