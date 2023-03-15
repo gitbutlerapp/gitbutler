@@ -11,6 +11,7 @@
 	import { list as listDeltas } from '$lib/deltas';
 	import { slide } from 'svelte/transition';
 	import { navigating } from '$app/stores';
+	import toast from 'svelte-french-toast';
 
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 
@@ -46,6 +47,9 @@
 				files: filesSelectedForCommit,
 				push: false
 			}).then((result) => {
+				toast.success('Commit successful!', {
+					icon: '🎉'
+				});
 				commitMessage = '';
 				filesSelectedForCommit = [];
 				initiatedCommit = false;
@@ -346,7 +350,7 @@
 								</div>
 							{:else}
 								<button
-									class="button text-whit rounded bg-blue-600 py-2 px-3 hover:bg-blue-700"
+									class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
 									on:click={() => {
 										filesSelectedForCommit = $filesStatus.map((file) => {
 											return file.path;

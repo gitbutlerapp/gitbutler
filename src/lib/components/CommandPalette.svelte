@@ -308,6 +308,9 @@
 				files: changedFiles,
 				push: false
 			}).then((result) => {
+				toast.success('Commit successful!', {
+					icon: '🎉'
+				});
 				commitMessage = '';
 				showPalette = false;
 			});
