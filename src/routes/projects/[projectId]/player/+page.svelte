@@ -312,13 +312,13 @@
 		</div>
 	</div>
 {:else}
-	<div class="flex flex-row h-full w-full bg-black">
+	<div class="flex h-full w-full flex-row bg-black">
 		<div class="w-24 flex-shrink-0 border-r border-zinc-700 p-2">
-			<div class="text-lg font-bold font-zinc-100 mb-2">Daily Work</div>
+			<div class="font-zinc-100 mb-2 text-lg font-bold">Daily Work</div>
 			{#each Object.entries(sessionDays) as [day, sessions]}
 				{#if day == currentDay}
 					<div
-						class="flex flex-col text-center text-white bg-zinc-800 p-2 rounded shadow mb-2 cursor-pointer"
+						class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-800 p-2 text-center text-white shadow"
 						on:click={selectDay(day)}
 					>
 						<div class="">{ymdToDay(day)}</div>
@@ -326,7 +326,7 @@
 					</div>
 				{:else}
 					<div
-						class="flex flex-col text-center bg-zinc-900 p-2 rounded shadow mb-2 cursor-pointer"
+						class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-900 p-2 text-center shadow"
 						on:click={selectDay(day)}
 					>
 						<div class="">{ymdToDay(day)}</div>
@@ -336,17 +336,15 @@
 			{/each}
 		</div>
 		<div class="flex-grow">
-			<div class="flex flex-col h-full w-full">
-				<div class="flex-grow overflow-auto p-2">
+			<div class="flex h-full w-full flex-col">
+				<div class="flex-auto overflow-x-hidden overflow-y-scroll text-clip p-2">
 					{#if dayPlaylist[currentDay] !== undefined}
 						{#if currentEdit !== null}
-							<div class="h-full overflow-auto">
-								<CodeViewer
-									doc={currentEdit.doc}
-									deltas={currentEdit.ops}
-									filepath={currentEdit.filepath}
-								/>
-							</div>
+							<CodeViewer
+								doc={currentEdit.doc}
+								deltas={currentEdit.ops}
+								filepath={currentEdit.filepath}
+							/>
 						{/if}
 					{:else}
 						loading...
@@ -367,12 +365,12 @@
 						{/if}
 					{/if}
 				</div>
-				<div class="flex flex-col p-2 bg-zinc-800 p-2">
+				<div class="flex flex-col bg-zinc-800 p-2 p-2">
 					{#if dayPlaylist[currentDay] !== undefined}
-						<div class="w-full h-0 justify-between">
+						<div class="h-0 w-full justify-between">
 							{#each dayPlaylist[currentDay].chapters as chapter}
 								<div
-									class="inline-block bg-white rounded h-2"
+									class="inline-block h-2 rounded bg-white"
 									style="width: {Math.round(
 										(chapter.editCount / dayPlaylist[currentDay].editCount) * 100
 									)}%"
@@ -386,7 +384,7 @@
 						{#if dayPlaylist[currentDay] !== undefined}
 							<input
 								type="range"
-								class="w-full -mt-3 cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
+								class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
 								max={dayPlaylist[currentDay].editCount}
 								step="1"
 								bind:value={currentPlayerValue}
@@ -405,7 +403,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-6 h-6 icon-pointer"
+								class="icon-pointer h-6 w-6"
 							>
 								<path
 									stroke-linecap="round"
@@ -425,7 +423,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-6 h-6 icon-pointer"
+								class="icon-pointer h-6 w-6"
 							>
 								<path
 									stroke-linecap="round"
@@ -444,9 +442,9 @@
 				</div>
 			</div>
 		</div>
-		<div class="w-80 flex-shrink-0 bg-black overflow-auto border-l border-zinc-700 p-2">
+		<div class="w-80 flex-shrink-0 overflow-auto border-l border-zinc-700 bg-black p-2">
 			<div class="flex flex-row justify-between">
-				<div class="text-lg font-bold font-zinc-100 mb-2">Sessions</div>
+				<div class="font-zinc-100 mb-2 text-lg font-bold">Sessions</div>
 				<div>{Object.entries(sessionDays[currentDay]).length}</div>
 			</div>
 			<div class="flex flex-col">
@@ -454,7 +452,7 @@
 					{#if currentEdit !== null && currentEdit.sessionId == session.id}
 						<div
 							id="currentSession"
-							class="bg-zinc-700 text-white rounded shadow mb-2 overflow-auto border-zinc-800"
+							class="mb-2 overflow-auto rounded border-zinc-800 bg-zinc-700 text-white shadow"
 						>
 							<div class="flex flex-row justify-between px-2 pt-2">
 								<div class="font-bold">{dateRange(session.meta)}</div>
@@ -482,7 +480,7 @@
 							on:click={() => {
 								currentPlayerValue = max(dayPlaylist[currentDay].editOffsets[session.id], 1);
 							}}
-							class="bg-zinc-800 rounded shadow mb-2 overflow-auto border-zinc-800 pointer-cursor"
+							class="pointer-cursor mb-2 overflow-auto rounded border-zinc-800 bg-zinc-800 shadow"
 						>
 							<div class="flex flex-row justify-between px-2 pt-2">
 								<div>{dateRange(session.meta)}</div>
