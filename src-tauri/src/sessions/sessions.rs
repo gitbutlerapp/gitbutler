@@ -522,6 +522,11 @@ pub fn list_files(
         if "wd".eq(entry_path.to_str().unwrap()) {
             return git2::TreeWalkResult::Ok;
         }
+
+        if entry.kind() == Some(git2::ObjectType::Tree) {
+            return git2::TreeWalkResult::Ok;
+        }
+
         let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
         let content = blob.map(|blob| blob.content().to_vec());
 
@@ -707,7 +712,9 @@ fn build_wd_tree(repo: &git2::Repository, project: &projects::Project) -> Result
             // and the session files
             let commit = reference.peel_to_commit()?;
             let tree = commit.tree()?;
-            wd_index.read_tree(&tree)?;
+            let wd_tree_entry = tree.get_name("wd").unwrap();
+            let wd_tree = repo.find_tree(wd_tree_entry.id())?;
+            wd_index.read_tree(&wd_tree)?;
 
             let session_wd_files = fs::list_files(project.wd_path()).with_context(|| {
                 format!("failed to list files in {}", project.wd_path().display())

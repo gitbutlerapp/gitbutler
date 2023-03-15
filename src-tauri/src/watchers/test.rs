@@ -158,6 +158,11 @@ fn test_flow() {
             None,
         )
         .unwrap();
+        if i == 0 {
+            assert_eq!(files.len(), 0);
+        } else {
+            assert_eq!(files.len(), 1);
+        }
 
         let base_file = files.get(&relative_file_path.to_str().unwrap().to_string());
         let mut text: Vec<char> = match base_file {
