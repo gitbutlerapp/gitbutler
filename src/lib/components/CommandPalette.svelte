@@ -42,6 +42,14 @@
 		push: boolean;
 	}) => invoke<boolean>('git_commit', params);
 
+	const onCmdK = (event: KeyboardEvent) => {
+		if (event.key === 'k') {
+			showPalette = 'command';
+			setTimeout(function () {
+				document.getElementById('command')?.focus();
+			}, 100);
+		}
+	};
 	const onKeyD = (event: KeyboardEvent) => {
 		if (event.metaKey) {
 			switch (event.key) {
@@ -318,9 +326,8 @@
 	}
 </script>
 
-<svelte:window on:keydown={onKeyD} on:click={checkPaletteModal} />
-
-<div>
+<svelte:window on:keydown={onCmdK} />
+<div on:keydown={onKeyD} on:click={checkPaletteModal}>
 	{#if showPalette}
 		<div class="relative z-10" role="dialog" aria-modal="true">
 			<div
