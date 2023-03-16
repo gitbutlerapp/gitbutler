@@ -291,29 +291,31 @@
 	</div>
 {:else}
 	<div id="player-page" class="flex h-full w-full flex-row bg-black">
-		<div id="left" class="w-24 flex-shrink-0 border-r border-zinc-700 p-2">
+		<div id="left" class="flex h-full w-24 flex-shrink-0 flex-col border-r border-zinc-700 p-2">
 			<div class="font-zinc-100 mb-2 text-lg font-bold">Daily Work</div>
-			{#each Object.entries(sessionDays) as [day, sessions]}
-				{#if day == currentDay}
-					<!-- svelte-ignore a11y-click-events-have-key-events -->
-					<div
-						class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-800 p-2 text-center text-white shadow"
-						on:click={selectDay(day)}
-					>
-						<div class="">{ymdToDay(day)}</div>
-						<div class="">{ymdToMonth(day)}</div>
-					</div>
-				{:else}
-					<!-- svelte-ignore a11y-click-events-have-key-events -->
-					<div
-						class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-900 p-2 text-center shadow"
-						on:click={selectDay(day)}
-					>
-						<div class="">{ymdToDay(day)}</div>
-						<div class="">{ymdToMonth(day)}</div>
-					</div>
-				{/if}
-			{/each}
+			<div class="overflow-y-auto">
+				{#each Object.entries(sessionDays) as [day, sessions]}
+					{#if day == currentDay}
+						<!-- svelte-ignore a11y-click-events-have-key-events -->
+						<div
+							class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-800 p-2 text-center text-white shadow"
+							on:click={selectDay(day)}
+						>
+							<div class="">{ymdToDay(day)}</div>
+							<div class="">{ymdToMonth(day)}</div>
+						</div>
+					{:else}
+						<!-- svelte-ignore a11y-click-events-have-key-events -->
+						<div
+							class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-900 p-2 text-center shadow"
+							on:click={selectDay(day)}
+						>
+							<div class="">{ymdToDay(day)}</div>
+							<div class="">{ymdToMonth(day)}</div>
+						</div>
+					{/if}
+				{/each}
+			</div>
 		</div>
 
 		<div id="middle" class="flex-auto overflow-auto">
