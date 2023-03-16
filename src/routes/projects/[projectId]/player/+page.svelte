@@ -6,6 +6,7 @@
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/components/icons';
 	import { shortPath } from '$lib/paths';
 	import type { Session } from '$lib/sessions';
+	import { format } from 'date-fns';
 
 	export let data: PageData;
 
@@ -169,15 +170,11 @@
 	}
 
 	function dateToYmd(date: Date): string {
-		const year = date.getFullYear();
-		const month = ('0' + (date.getMonth() + 1)).slice(-2);
-		const day = ('0' + date.getDate()).slice(-2);
-		return `${year}-${month}-${day}`;
+		return format(date, 'yyyy-MM-dd');
 	}
 
 	function ymdToDate(dateString: string): Date {
-		const [year, month, day] = dateString.split('-').map(Number);
-		return new Date(year, month - 1, day);
+		return new Date(dateString);
 	}
 
 	function dateRange(startTimestampMs: number, lastTimestampMs: number): string {
@@ -201,23 +198,8 @@
 		return date.getDate();
 	}
 
-	const month = [
-		'Jan',
-		'Feb',
-		'Mar',
-		'Apr',
-		'May',
-		'Jun',
-		'Jul',
-		'Aug',
-		'Sep',
-		'Oct',
-		'Nov',
-		'Dec'
-	];
 	function ymdToMonth(dateString: string): string {
-		let date = ymdToDate(dateString);
-		return month[date.getMonth()];
+		return format(new Date(dateString), 'MMM');
 	}
 
 	function selectDay(day: string) {
