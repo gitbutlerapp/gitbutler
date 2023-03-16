@@ -48,7 +48,7 @@
 	};
 </script>
 
-<div class="diff-listing w-full font-mono whitespace-pre select-text">
+<div class="diff-listing w-full select-text whitespace-pre font-mono">
 	{#each diffRows.rows as row}
 		{@const baseNumber =
 			row.type === RowType.Equal || row.type === RowType.Deletion
@@ -67,7 +67,11 @@
 		>
 			{row.type === RowType.Addition ? '+' : row.type === RowType.Deletion ? '-' : ''}
 		</div>
-		<div class="px-1 diff-line-{row.type}" data-line-number={curNumber}>
+		<div
+			class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
+			class="px-1 diff-line-{row.type}"
+			data-line-number={curNumber}
+		>
 			{#each renderRowContent(row) as content}
 				{@html content}
 			{/each}

@@ -242,9 +242,14 @@
 	}
 
 	function scrollToSession() {
-		let sessionEl = document.getElementById('currentSession');
+		const sessionEl = document.getElementById('currentSession');
 		if (sessionEl) {
 			sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+
+		const changedLines = document.getElementsByClassName('line-changed');
+		if (changedLines.length > 0) {
+			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
 	}
 
