@@ -349,8 +349,8 @@
 					<div class="overflow-y-auto">
 						<div
 							class="mb-2 flex cursor-pointer flex-col rounded border {showLatest
-								? 'border-zinc-500 bg-gb-700 text-white'
-								: 'border-zinc-600 bg-gb-800'} p-2 text-center shadow"
+								? 'border-[#52525B] bg-[#3B3B3F] text-white'
+								: 'border-[#52525B] bg-[#2F2F33]'} p-2 text-center shadow"
 							on:keydown={handleKey}
 							on:click={selectLatest()}
 						>
@@ -359,8 +359,8 @@
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							<div
 								class="mb-2 {day == currentDay && !showLatest
-									? 'border-zinc-500 bg-gb-700 text-white'
-									: 'border-zinc-600 bg-gb-800'} flex cursor-pointer flex-col rounded border p-2 text-center shadow"
+									? 'border-[#52525B] bg-[#3B3B3F] text-white'
+									: 'border-[#52525B] bg-[#2F2F33]'} flex cursor-pointer flex-col rounded border p-2 text-center shadow"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
@@ -371,10 +371,14 @@
 					</div>
 				</div>
 
-				<div id="right" class="w-80 flex-shrink-0 p-2 xl:w-96">
-					<div class="h-full overflow-auto rounded-t border border-gb-700 bg-gb-900">
-						<div class="flex flex-row justify-between bg-gb-700">
-							<div class="font-zinc-100 p-3 text-lg">
+				<div id="right" class="h-full w-80 flex-shrink-0 p-2 xl:w-96">
+					<div
+						class="flex h-full flex-col rounded border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-[#52525B]  bg-[#2F2F33]"
+					>
+						<div
+							class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-[#3F3F46] bg-[#3B3B3F]"
+						>
+							<div class="p-3 text-lg text-zinc-300">
 								<div class="flex flex-row items-center space-x-2">
 									<div>Activities</div>
 									<div class="text-sm text-zinc-400">
@@ -399,14 +403,17 @@
 								</svg>
 							</div>
 						</div>
-						<div class="flex h-full flex-col space-y-2 bg-gb-900 p-2">
+
+						<div
+							class="card-list flex h-full flex-col space-y-2 overflow-auto rounded-b bg-[#2F2F33] p-2 "
+						>
 							{#each currentPlaylist.chapters as chapter}
 								{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
 									<div
 										id="currentSession"
-										class="mb-2 rounded border border-gb-700 text-white shadow"
+										class="session-card mb-2 rounded border-[0.5px] border-[#52525B] text-zinc-300 shadow-md"
 									>
-										<div class="flex flex-row justify-between bg-gb-800 px-3 pt-3">
+										<div class="flex flex-row justify-between rounded-t bg-gb-800 px-3 pt-3">
 											<div class="">{dateRange(chapter)}</div>
 											<div>
 												{Math.round(chapter.totalDurationMs / 1000 / 60)} min
@@ -416,7 +423,7 @@
 											<div class="flex flex-row justify-between bg-gb-800 px-3 pb-3">
 												<div>{Object.entries(chapter.files).length} files</div>
 											</div>
-											<div class="bg-zinc-800 p-2 pb-3">
+											<div class="rounded-b bg-zinc-800 p-2 pb-3">
 												{#each Object.entries(chapter.files) as [filenm, changes]}
 													<div class="text-zinc-500">{shortPath(filenm)}</div>
 												{/each}
@@ -432,7 +439,7 @@
 												1
 											);
 										}}
-										class="cursor-pointer rounded border border-gb-700 bg-gb-900 shadow"
+										class="cursor-pointer rounded border-[0.5px] border-[#52525B] bg-[#2F2F33] shadow-md"
 									>
 										<div class="flex flex-row justify-between px-3 pt-3">
 											<div class="font-zinc-600">{dateRange(chapter)}</div>
@@ -455,13 +462,19 @@
 					class="m-2 flex-auto overflow-auto rounded border border-zinc-700 bg-[#2F2F33] "
 				>
 					<div class="relative flex h-full w-full flex-col gap-2 ">
-						<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">
-							{#if currentEdit !== null}
-								<CodeViewer
-									doc={currentEdit.doc}
-									deltas={currentEdit.ops}
-									filepath={currentEdit.filepath}
-								/>
+						<div id="code" 
+							class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]"
+						>
+							{#if dayPlaylist[currentDay] !== undefined}
+								{#if currentEdit !== null}
+									<CodeViewer
+										doc={currentEdit.doc}
+										deltas={currentEdit.ops}
+										filepath={currentEdit.filepath}
+									/>
+								{/if}
+							{:else}
+								<span class="m-auto">loading...</span>
 							{/if}
 						</div>
 
