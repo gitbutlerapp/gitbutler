@@ -12,6 +12,7 @@
 		if (nav.to === null) return;
 		const to = nav.to.url.pathname;
 		if (to === history[position]) {
+			return;
 		} else if (to === history[position + 1]) {
 			position++;
 		} else if (to === history[position - 1]) {
