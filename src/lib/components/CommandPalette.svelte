@@ -2,10 +2,10 @@
 	import { fade } from 'svelte/transition';
 	import FileIcon from './icons/FileIcon.svelte';
 	import CommitIcon from './icons/CommitIcon.svelte';
-	import BookmarkIcon from './icons/BookmarkIcon.svelte';
 	import BranchIcon from './icons/BranchIcon.svelte';
 	import ContactIcon from './icons/ContactIcon.svelte';
 	import ProjectIcon from './icons/ProjectIcon.svelte';
+	import IconPlayerPlayFilled from './icons/IconPlayerPlayFilled.svelte';
 	import { invoke } from '@tauri-apps/api';
 	import { goto } from '$app/navigation';
 	import { shortPath } from '$lib/paths';
@@ -54,6 +54,7 @@
 		if (event.metaKey) {
 			switch (event.key) {
 				case 'k':
+					console.log('COMMAND');
 					showPalette = 'command';
 					setTimeout(function () {
 						document.getElementById('command')?.focus();
@@ -65,6 +66,10 @@
 					break;
 				case 'e':
 					executeCommand('contact');
+					break;
+				case 'p':
+					showPalette = false;
+					executeCommand('player');
 					break;
 				case 'r':
 					executeCommand('branch');
@@ -192,7 +197,12 @@
 			case 'switch':
 				goto('/projects/' + context);
 				break;
-			case 'bookmark':
+			case 'player':
+				if (context) {
+					goto(`/projects/${$currentProject?.id}/player?file=${encodeURIComponent(context)}`);
+				} else {
+					goto('/projects/' + $currentProject?.id + '/player');
+				}
 				break;
 			case 'branch':
 				showPalette = 'command';
@@ -222,7 +232,7 @@
 
 	let projectCommands = [
 		{ text: 'Commit', key: 'C', icon: CommitIcon, command: 'commit' },
-		{ text: 'Bookmark', key: 'B', icon: BookmarkIcon, command: 'bookmark' },
+		{ text: 'Player', key: 'P', icon: IconPlayerPlayFilled, command: 'player' },
 		{ text: 'Branch', key: 'R', icon: BranchIcon, command: 'branch' }
 	];
 
@@ -272,7 +282,7 @@
 			matchFiles({ projectId: $currentProject.id, matchPattern: searchPattern }).then((files) => {
 				let searchResults = [];
 				files.slice(0, 5).forEach((f) => {
-					searchResults.push({ text: f, icon: FileIcon });
+					searchResults.push({ text: f, icon: FileIcon, command: 'player', context: f });
 				});
 				updateMenu(searchResults);
 			});
