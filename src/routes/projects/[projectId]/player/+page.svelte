@@ -5,6 +5,7 @@
 	import { CodeViewer } from '$lib/components';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/components/icons';
 	import { shortPath } from '$lib/paths';
+	import type { Session } from '$lib/sessions';
 
 	export let data: PageData;
 
@@ -13,7 +14,7 @@
 	let currentPlayerValue = 0;
 	let currentDay = dateToYmd(new Date());
 
-	$: sessionDays = $sessions.reduce((group, session) => {
+	$: sessionDays = $sessions.reduce((group: Record<string, Session[]>, session) => {
 		const day = dateToYmd(new Date(session.meta.startTimestampMs));
 		group[day] = group[day] ?? [];
 		group[day].push(session);
@@ -179,21 +180,16 @@
 		return new Date(year, month - 1, day);
 	}
 
-	function ymdToDateLocale(dateString: string): string {
-		let date = ymdToDate(dateString);
-		return date.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-	}
-
-	function dateRange(meta) {
-		let day = new Date(meta.startTimestampMs).toLocaleString('en-US', {
+	function dateRange(startTimestampMs: number, lastTimestampMs: number): string {
+		let day = new Date(startTimestampMs).toLocaleString('en-US', {
 			month: 'short',
 			day: 'numeric'
 		});
-		let start = new Date(meta.startTimestampMs).toLocaleString('en-US', {
+		let start = new Date(startTimestampMs).toLocaleString('en-US', {
 			hour: 'numeric',
 			minute: 'numeric'
 		});
-		let end = new Date(meta.lastTimestampMs).toLocaleString('en-US', {
+		let end = new Date(lastTimestampMs).toLocaleString('en-US', {
 			hour: 'numeric',
 			minute: 'numeric'
 		});
@@ -317,6 +313,7 @@
 			<div class="font-zinc-100 mb-2 text-lg font-bold">Daily Work</div>
 			{#each Object.entries(sessionDays) as [day, sessions]}
 				{#if day == currentDay}
+					<!-- svelte-ignore a11y-click-events-have-key-events -->
 					<div
 						class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-800 p-2 text-center text-white shadow"
 						on:click={selectDay(day)}
@@ -325,6 +322,7 @@
 						<div class="">{ymdToMonth(day)}</div>
 					</div>
 				{:else}
+					<!-- svelte-ignore a11y-click-events-have-key-events -->
 					<div
 						class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-900 p-2 text-center shadow"
 						on:click={selectDay(day)}
@@ -459,7 +457,9 @@
 							class="mb-2 overflow-auto rounded border-zinc-800 bg-zinc-700 text-white shadow"
 						>
 							<div class="flex flex-row justify-between px-2 pt-2">
-								<div class="font-bold">{dateRange(session.meta)}</div>
+								<div class="font-bold">
+									{dateRange(session.meta.startTimestampMs, session.meta.lastTimestampMs)}
+								</div>
 								{#if sessionChapters[session.id] !== undefined}
 									<div>
 										{Math.round(sessionChapters[session.id].totalDurationMs / 1000 / 60)} min
@@ -480,6 +480,7 @@
 							{/if}
 						</div>
 					{:else}
+						<!-- svelte-ignore a11y-click-events-have-key-events -->
 						<div
 							on:click={() => {
 								currentPlayerValue = max(dayPlaylist[currentDay].editOffsets[session.id], 1);
@@ -487,7 +488,7 @@
 							class="pointer-cursor mb-2 overflow-auto rounded border-zinc-800 bg-zinc-800 shadow"
 						>
 							<div class="flex flex-row justify-between px-2 pt-2">
-								<div>{dateRange(session.meta)}</div>
+								<div>{dateRange(session.meta.startTimestampMs, session.meta.lastTimestampMs)}</div>
 								{#if sessionChapters[session.id] !== undefined}
 									<div>
 										{Math.round(sessionChapters[session.id].totalDurationMs / 1000 / 60)} min
