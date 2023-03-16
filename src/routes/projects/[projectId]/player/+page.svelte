@@ -299,30 +299,30 @@
 	</div>
 {:else}
 	<div id="player-page" class="flex h-full w-full">
-		<div class="flex flex-col h-full w-full">
+		<div class="flex h-full w-full flex-col">
 			{#if fileFilter}
 				<div class="w-full p-2 font-mono text-lg">{fileFilter}</div>
 			{/if}
-			<div class="flex flex-row h-full w-full">
+			<div class="flex h-full w-full flex-row">
 				<div id="left" class="flex h-full w-20 flex-shrink-0 flex-col p-2">
 					<div class="overflow-y-auto">
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							{#if day == currentDay}
 								<div
-									class="mb-2 flex cursor-pointer flex-col rounded bg-gb-700 border border-zinc-500 p-2 text-center text-white shadow"
+									class="mb-2 flex cursor-pointer flex-col rounded border border-zinc-500 bg-gb-700 p-2 text-center text-white shadow"
 									on:keydown={handleKey}
 									on:click={selectDay(day)}
 								>
-									<div class="font-bold text-lg">{ymdToDay(day)}</div>
+									<div class="text-lg font-bold">{ymdToDay(day)}</div>
 									<div class="">{ymdToMonth(day)}</div>
 								</div>
 							{:else}
 								<div
-									class="mb-2 flex cursor-pointer flex-col rounded bg-gb-800 border border-zinc-600 p-2 text-center shadow"
+									class="mb-2 flex cursor-pointer flex-col rounded border border-zinc-600 bg-gb-800 p-2 text-center shadow"
 									on:keydown={handleKey}
 									on:click={selectDay(day)}
 								>
-									<div class="font-bold text-lg">{ymdToDay(day)}</div>
+									<div class="text-lg font-bold">{ymdToDay(day)}</div>
 									<div class="">{ymdToMonth(day)}</div>
 								</div>
 							{/if}
@@ -330,11 +330,11 @@
 					</div>
 				</div>
 
-				<div id="right" class="w-80 xl:w-96 flex-shrink-0 p-2">
-					<div class="border border-gb-700 bg-gb-900 rounded-t h-full overflow-auto">
+				<div id="right" class="w-80 flex-shrink-0 p-2 xl:w-96">
+					<div class="h-full overflow-auto rounded-t border border-gb-700 bg-gb-900">
 						<div class="flex flex-row justify-between bg-gb-700">
-							<div class="font-zinc-100 text-lg p-3">
-								<div class="flex flex-row space-x-2 items-center">
+							<div class="font-zinc-100 p-3 text-lg">
+								<div class="flex flex-row items-center space-x-2">
 									<div>Activities</div>
 									{#if dayPlaylist[currentDay] !== undefined}
 										<div class="text-sm text-zinc-400">
@@ -351,7 +351,7 @@
 										viewBox="0 0 24 24"
 										stroke-width="1.5"
 										stroke="currentColor"
-										class="w-6 h-6"
+										class="h-6 w-6"
 									>
 										<path
 											stroke-linecap="round"
@@ -363,21 +363,21 @@
 							{/if}
 						</div>
 						{#if dayPlaylist[currentDay] !== undefined}
-							<div class="flex flex-col bg-gb-900 h-full p-2 space-y-2">
+							<div class="flex h-full flex-col space-y-2 bg-gb-900 p-2">
 								{#each dayPlaylist[currentDay].chapters as chapter}
 									{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
 										<div
 											id="currentSession"
 											class="mb-2 rounded border border-gb-700 text-white shadow"
 										>
-											<div class="flex flex-row justify-between px-3 pt-3 bg-gb-800">
+											<div class="flex flex-row justify-between bg-gb-800 px-3 pt-3">
 												<div class="">{dateRange(chapter)}</div>
 												<div>
 													{Math.round(chapter.totalDurationMs / 1000 / 60)} min
 												</div>
 											</div>
 											{#if chapter.files}
-												<div class="flex flex-row justify-between px-3 pb-3 bg-gb-800">
+												<div class="flex flex-row justify-between bg-gb-800 px-3 pb-3">
 													<div>{Object.entries(chapter.files).length} files</div>
 												</div>
 												<div class="bg-zinc-800 p-2 pb-3">
@@ -431,7 +431,7 @@
 							{/if}
 						</div>
 
-						<div id="info" class="p-2 bg-zinc-800 rounded-lg mx-4">
+						<div id="info" class="mx-4 rounded-lg bg-zinc-800 p-2">
 							{#if dayPlaylist[currentDay] !== undefined}
 								<div class="flex flex-row justify-between">
 									<div>{dayPlaylist[currentDay].chapters.length} sessions</div>
