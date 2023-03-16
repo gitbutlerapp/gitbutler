@@ -452,10 +452,10 @@
 
 				<div
 					id="middle"
-					class="flex-auto overflow-auto border border-zinc-700 rounded m-2 bg-[#2F2F33] "
+					class="m-2 flex-auto overflow-auto rounded border border-zinc-700 bg-[#2F2F33] "
 				>
-					<div class="flex h-full w-full flex-col gap-2 relative ">
-						<div id="code" class="flex-auto overflow-auto px-2 h-full w-full pb-[120px]">
+					<div class="relative flex h-full w-full flex-col gap-2 ">
+						<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">
 							{#if currentEdit !== null}
 								<CodeViewer
 									doc={currentEdit.doc}
@@ -465,7 +465,7 @@
 							{/if}
 						</div>
 
-						<div id="info" class=" rounded-lg bg-zinc-800 p-2 absolute bottom-[64px] left-4">
+						<div id="info" class=" absolute bottom-[64px] left-4 rounded-lg bg-zinc-800 p-2">
 							<div class="flex flex-row justify-between">
 								{#if currentEdit !== null}
 									<div class="font-mono font-bold text-white">{currentEdit.filepath}</div>
@@ -476,7 +476,7 @@
 
 						<div
 							id="controls"
-							class="flex flex-col p-2 absolute bottom-0 w-full border-t border-zinc-700 bg-[#2E2E32]/75"
+							class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2"
 							style="
 								border-width: 0.5px; 
 								-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
