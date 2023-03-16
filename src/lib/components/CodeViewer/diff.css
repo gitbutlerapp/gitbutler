@@ -1,0 +1,43 @@
+.diff-listing {
+	display: grid;
+	grid-template-columns: max-content max-content max-content auto;
+}
+
+.diff-line-marker {
+	border-right: 1px solid var(--color-details-hairline);
+	width: 20px;
+	text-align: center;
+}
+
+.diff-line-marker-addition,
+.diff-line-addition {
+	--override-addition-background-color: hsl(144deg 55% 49% / 20%);
+
+	background-color: var(--override-addition-background-color);
+}
+
+.diff-line-marker-deletion,
+.diff-line-deletion {
+	--override-deletion-background-color: rgb(255 0 0 / 20%);
+
+	background-color: var(--override-deletion-background-color);
+}
+
+.diff-line-addition .inner-diff {
+	--override-addition-inner-diff-background-color: hsl(144deg 55% 49% / 30%);
+
+	background-color: var(--override-addition-inner-diff-background-color);
+}
+
+.diff-line-deletion .inner-diff {
+	--override-deletion-inner-diff-background-color: rgb(255 0 0 / 30%);
+
+	background-color: var(--override-deletion-inner-diff-background-color);
+}
+
+.diff-line-spacer {
+	--override-spacer-background-color: rgb(0 0 255 / 10%);
+
+	text-align: center;
+	background-color: var(--override-spacer-background-color);
+}

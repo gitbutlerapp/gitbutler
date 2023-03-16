@@ -5,6 +5,8 @@
 	import { CodeViewer } from '$lib/components';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/components/icons';
 	import { shortPath } from '$lib/paths';
+	import { format } from 'date-fns';
+	import type { Session } from '$lib/sessions';
 
 	export let data: PageData;
 
@@ -16,7 +18,7 @@
 	const urlParams = new URLSearchParams(window.location.search);
 	let fileFilter = urlParams.get('file');
 
-	$: sessionDays = $sessions.reduce((group, session) => {
+	$: sessionDays = $sessions.reduce((group: Record<string, Session[]>, session) => {
 		const day = dateToYmd(new Date(session.meta.startTimestampMs));
 		group[day] = group[day] ?? [];
 		group[day].push(session);
@@ -100,11 +102,11 @@
 				sessionFiles[sid][filepath] = '';
 				sessionChapters[sid].editCount = sessionChapters[sid].edits.length;
 				sessionChapters[sid].files[filepath] = deltas.length;
-				sessionChapters[sid].firstDeltaTimestampMs = min(
+				sessionChapters[sid].firstDeltaTimestampMs = Math.min(
 					deltas.at(0)!.timestampMs,
 					sessionChapters[sid].firstDeltaTimestampMs
 				);
-				sessionChapters[sid].lastDeltaTimestampMs = max(
+				sessionChapters[sid].lastDeltaTimestampMs = Math.max(
 					deltas.at(-1)!.timestampMs,
 					sessionChapters[sid].lastDeltaTimestampMs
 				);
@@ -142,11 +144,11 @@
 					0
 				),
 				firstDeltaTimestampMs: Object.values(dayChapters).reduce(
-					(acc, chapter) => min(acc, chapter.firstDeltaTimestampMs),
+					(acc, chapter) => Math.min(acc, chapter.firstDeltaTimestampMs),
 					9999999999999
 				),
 				lastDeltaTimestampMs: Object.values(dayChapters).reduce(
-					(acc, chapter) => max(acc, chapter.lastDeltaTimestampMs),
+					(acc, chapter) => Math.max(acc, chapter.lastDeltaTimestampMs),
 					0
 				)
 			};
@@ -167,29 +169,12 @@
 		});
 	}
 
-	function max<T>(a: T, b: T): T {
-		return a > b ? a : b;
-	}
-
-	function min<T>(a: T, b: T): T {
-		return a < b ? a : b;
-	}
-
 	function dateToYmd(date: Date): string {
-		const year = date.getFullYear();
-		const month = ('0' + (date.getMonth() + 1)).slice(-2);
-		const day = ('0' + date.getDate()).slice(-2);
-		return `${year}-${month}-${day}`;
+		return format(date, 'yyyy-MM-dd');
 	}
 
 	function ymdToDate(dateString: string): Date {
-		const [year, month, day] = dateString.split('-').map(Number);
-		return new Date(year, month - 1, day);
-	}
-
-	function ymdToDateLocale(dateString: string): string {
-		let date = ymdToDate(dateString);
-		return date.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+		return new Date(dateString);
 	}
 
 	function dateRange(chapter: VideoChapter) {
@@ -213,23 +198,8 @@
 		return date.getDate();
 	}
 
-	const month = [
-		'Jan',
-		'Feb',
-		'Mar',
-		'Apr',
-		'May',
-		'Jun',
-		'Jul',
-		'Aug',
-		'Sep',
-		'Oct',
-		'Nov',
-		'Dec'
-	];
 	function ymdToMonth(dateString: string): string {
-		let date = ymdToDate(dateString);
-		return month[date.getMonth()];
+		return format(new Date(dateString), 'MMM');
 	}
 
 	function selectDay(day: string) {
@@ -280,9 +250,14 @@
 	}
 
 	function scrollToSession() {
-		let sessionEl = document.getElementById('currentSession');
+		const sessionEl = document.getElementById('currentSession');
 		if (sessionEl) {
 			sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+
+		const changedLines = document.getElementsByClassName('line-changed');
+		if (changedLines.length > 0) {
+			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
 	}
 
@@ -311,6 +286,7 @@
 		start({ direction, speed });
 	};
 
+	// <!-- svelte-ignore a11y-click-events-have-key-events -->
 	function handleKey() {}
 </script>
 
@@ -328,28 +304,30 @@
 				<div class="w-full p-2 font-mono text-lg">{fileFilter}</div>
 			{/if}
 			<div class="flex flex-row h-full w-full">
-				<div id="left" class="w-20 flex-shrink-0 border-r border-zinc-700 p-2">
-					{#each Object.entries(sessionDays) as [day, sessions]}
-						{#if day == currentDay}
-							<div
-								class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-600 border border-zinc-500 p-2 text-center text-white shadow"
-								on:keydown={handleKey}
-								on:click={selectDay(day)}
-							>
-								<div class="font-bold text-lg">{ymdToDay(day)}</div>
-								<div class="">{ymdToMonth(day)}</div>
-							</div>
-						{:else}
-							<div
-								class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-700 border border-zinc-600 p-2 text-center shadow"
-								on:keydown={handleKey}
-								on:click={selectDay(day)}
-							>
-								<div class="font-bold text-lg">{ymdToDay(day)}</div>
-								<div class="">{ymdToMonth(day)}</div>
-							</div>
-						{/if}
-					{/each}
+				<div id="left" class="flex h-full w-20 flex-shrink-0 flex-col p-2">
+					<div class="overflow-y-auto">
+						{#each Object.entries(sessionDays) as [day, sessions]}
+							{#if day == currentDay}
+								<div
+									class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-600 border border-zinc-500 p-2 text-center text-white shadow"
+									on:keydown={handleKey}
+									on:click={selectDay(day)}
+								>
+									<div class="font-bold text-lg">{ymdToDay(day)}</div>
+									<div class="">{ymdToMonth(day)}</div>
+								</div>
+							{:else}
+								<div
+									class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-700 border border-zinc-600 p-2 text-center shadow"
+									on:keydown={handleKey}
+									on:click={selectDay(day)}
+								>
+									<div class="font-bold text-lg">{ymdToDay(day)}</div>
+									<div class="">{ymdToMonth(day)}</div>
+								</div>
+							{/if}
+						{/each}
+					</div>
 				</div>
 
 				<div id="right" class="w-80 xl:w-96 flex-shrink-0 overflow-auto p-2">
@@ -389,7 +367,7 @@
 										<div
 											on:keydown={handleKey}
 											on:click={() => {
-												currentPlayerValue = max(
+												currentPlayerValue = Math.max(
 													dayPlaylist[currentDay].editOffsets[chapter.session],
 													1
 												);
