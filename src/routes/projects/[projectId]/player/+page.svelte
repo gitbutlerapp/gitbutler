@@ -450,9 +450,12 @@
 					</div>
 				</div>
 
-				<div id="middle" class="flex-auto overflow-auto ">
-					<div class="flex h-full w-full flex-col gap-2">
-						<div id="code" class="flex-auto overflow-auto px-2">
+				<div
+					id="middle"
+					class="flex-auto overflow-auto border border-zinc-700 rounded m-2 bg-[#2F2F33] "
+				>
+					<div class="flex h-full w-full flex-col gap-2 relative ">
+						<div id="code" class="flex-auto overflow-auto px-2 h-full w-full pb-[120px]">
 							{#if currentEdit !== null}
 								<CodeViewer
 									doc={currentEdit.doc}
@@ -462,21 +465,26 @@
 							{/if}
 						</div>
 
-						<div id="info" class="mx-4 rounded-lg bg-zinc-800 p-2">
+						<div id="info" class=" rounded-lg bg-zinc-800 p-2 absolute bottom-[64px] left-4">
 							<div class="flex flex-row justify-between">
-								<div>{currentPlaylist.chapters.length} sessions</div>
-								<div>{currentPlaylist.editCount} edits</div>
-								<div>{Math.round(currentPlaylist.totalDurationMs / 1000 / 60)} min</div>
-							</div>
-							{#if currentEdit !== null}
-								<div class="flex flex-row justify-between">
+								{#if currentEdit !== null}
 									<div class="font-mono font-bold text-white">{currentEdit.filepath}</div>
 									<div>{new Date(currentEdit.delta.timestampMs).toLocaleString('en-US')}</div>
-								</div>
-							{/if}
+								{/if}
+							</div>
 						</div>
 
-						<div id="controls" class="flex flex-col p-2">
+						<div
+							id="controls"
+							class="flex flex-col p-2 absolute bottom-0 w-full border-t border-zinc-700 bg-[#2E2E32]/75"
+							style="
+								border-width: 0.5px; 
+								-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+								backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+								background-color: rgba(24, 24, 27, 0.60);
+								border: 0.5px solid rgba(63, 63, 70, 0.50);
+							"
+						>
 							<div class="flex h-0 w-full justify-between">
 								{#each currentPlaylist.chapters as chapter}
 									<div
