@@ -2,7 +2,7 @@
 	import type { LayoutData } from './$types';
 	import type { Readable } from 'svelte/store';
 	import type { Session } from '$lib/sessions';
-	import { startOfDay } from 'date-fns';
+	import { format, startOfDay } from 'date-fns';
 	import type { Activity } from '$lib/sessions';
 	import type { Delta } from '$lib/deltas';
 	import { shortPath } from '$lib/paths';
@@ -43,6 +43,15 @@
 	function gotoPlayer(filename: string) {
 		if ($project) {
 			goto(`/projects/${$project.id}/player?file=${encodeURIComponent(filename)}`);
+		}
+	}
+
+	function datePlayerURL(ms: string) {
+		let date = new Date(parseInt(ms));
+		let datePass = format(date, 'yyyy-MM-dd');
+
+		if ($project) {
+			return `/projects/${$project.id}/player?date=${datePass}`;
 		}
 	}
 
@@ -209,13 +218,20 @@
 
 							{#each orderedSessions(latestDeltasByDateByFile) as [dateMilliseconds, fileSessions]}
 								<div class="flex flex-col">
-									<div class="mb-1  text-zinc-300">
-										{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {
-											weekday: 'long',
-											year: 'numeric',
-											month: 'short',
-											day: 'numeric'
-										})}
+									<div class="flex flex-row justify-between space-x-2">
+										<div class="mb-1 text-zinc-300">
+											{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {
+												weekday: 'long',
+												year: 'numeric',
+												month: 'short',
+												day: 'numeric'
+											})}
+										</div>
+										<div>
+											<a class="text-orange-200" href={datePlayerURL(dateMilliseconds)}
+												>Play Changes</a
+											>
+										</div>
 									</div>
 									<div
 										class="results-card rounded border border-zinc-700 bg-[#2F2F33] p-4 drop-shadow-lg"

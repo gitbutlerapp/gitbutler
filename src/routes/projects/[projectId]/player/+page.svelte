@@ -15,9 +15,9 @@
 	let currentPlayerValue = 0;
 	let showLatest = false;
 
-	$: currentDay = Object.keys(sessionDays)[0] ?? '';
-
 	const urlParams = new URLSearchParams(window.location.search);
+	$: currentDay = urlParams.get('date') ?? Object.keys(sessionDays)[0] ?? '';
+
 	let fileFilter = urlParams.get('file');
 
 	$: sessionDays = $sessions.reduce((group: Record<string, Session[]>, session) => {
