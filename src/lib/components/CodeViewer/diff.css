@@ -1,34 +1,12 @@
-/*
- * Copyright 2021 The Chromium Authors. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
-
 .diff-listing {
 	display: grid;
 	grid-template-columns: max-content max-content max-content auto;
-	font-family: var(--source-code-font-family);
-	font-size: var(--source-code-font-size);
-	white-space: pre;
-	line-height: 1.2em;
-	user-select: text;
-}
-
-.diff-line-number {
-	color: var(--color-line-number);
-	padding: 0 3px 0 9px;
-	text-align: right;
-	user-select: none;
 }
 
 .diff-line-marker {
 	border-right: 1px solid var(--color-details-hairline);
 	width: 20px;
 	text-align: center;
-}
-
-.diff-line-content {
-	padding: 0 4px;
 }
 
 .diff-line-marker-addition,
@@ -55,16 +33,6 @@
 	--override-deletion-inner-diff-background-color: rgb(255 0 0 / 30%);
 
 	background-color: var(--override-deletion-inner-diff-background-color);
-}
-
-.diff-hidden-text {
-	display: inline-block;
-	width: 0;
-	overflow: hidden;
-}
-
-.diff-line-equal {
-	opacity: 50%;
 }
 
 .diff-line-spacer {

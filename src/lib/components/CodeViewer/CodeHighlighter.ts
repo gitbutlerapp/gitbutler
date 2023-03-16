@@ -32,7 +32,7 @@ export const highlightStyle: HighlightStyle = HighlightStyle.define([
     { tag: [t.number, t.literal, t.unit], class: 'token-number' },
     { tag: t.string, class: 'token-string' },
     { tag: [t.special(t.string), t.regexp, t.escape], class: 'token-string-special' },
-    { tag: [t.atom, t.labelName, t.bool], class: 'token-atom' },
+    { tag: [], class: 'token-atom' },
 
     { tag: t.keyword, class: 'token-keyword' },
     { tag: [t.comment, t.quote], class: 'token-comment' },

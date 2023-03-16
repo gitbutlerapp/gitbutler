@@ -3,7 +3,7 @@
 	import { create } from './CodeHighlighter';
 	import { buildDiffRows, documentMap, RowType, type Row } from './renderer';
 	import './diff.css';
-	import './highlight.css';
+	import './colors/gruvbox.css';
 
 	export let diff: DiffArray;
 	export let filepath: string;
@@ -13,28 +13,6 @@
 	$: originalMap = documentMap(diffRows.originalLines);
 	$: currentHighlighter = create(diffRows.currentLines.join('\n'), filepath);
 	$: currentMap = documentMap(diffRows.currentLines);
-
-	const rowAttrs = (row: Row) => {
-		const baseNumber =
-			row.type === RowType.Equal || row.type === RowType.Deletion
-				? String(row.originalLineNumber)
-				: '';
-		const curNumber =
-			row.type === RowType.Equal || row.type === RowType.Addition
-				? String(row.currentLineNumber)
-				: '';
-		let marker = '',
-			markerClass = 'diff-line-marker';
-		if (row.type === RowType.Addition) {
-			marker = '+';
-			markerClass += ' diff-line-addition';
-		} else if (row.type === RowType.Deletion) {
-			marker = '-';
-			markerClass += ' diff-line-deletion';
-		}
-
-		return { baseNumber, curNumber, marker, markerClass };
-	};
 
 	const renderRowContent = (row: Row) => {
 		if (row.type === RowType.Spacer) {
@@ -70,13 +48,26 @@
 	};
 </script>
 
-<div class="diff-listing h-full w-full">
+<div class="diff-listing w-full font-mono whitespace-pre select-text">
 	{#each diffRows.rows as row}
-		{@const { baseNumber, curNumber, marker, markerClass } = rowAttrs(row)}
-		<div class="diff-line-number">{baseNumber}</div>
-		<div class="diff-line-number">{curNumber}</div>
-		<div class={markerClass}>{marker}</div>
-		<div class="diff-line-content diff-line-{row.type}" data-line-number={curNumber}>
+		{@const baseNumber =
+			row.type === RowType.Equal || row.type === RowType.Deletion
+				? String(row.originalLineNumber)
+				: ''}
+		{@const curNumber =
+			row.type === RowType.Equal || row.type === RowType.Addition
+				? String(row.currentLineNumber)
+				: ''}
+		<div class="select-none pr-1 pl-2.5 text-right text-[#665c54]">{baseNumber}</div>
+		<div class="select-none pr-1 pl-2.5 text-right text-[#665c54]">{curNumber}</div>
+		<div
+			class="diff-line-marker"
+			class:diff-line-addition={row.type === RowType.Addition}
+			class:diff-line-deletion={row.type === RowType.Deletion}
+		>
+			{row.type === RowType.Addition ? '+' : row.type === RowType.Deletion ? '-' : ''}
+		</div>
+		<div class="px-1 diff-line-{row.type}" data-line-number={curNumber}>
 			{#each renderRowContent(row) as content}
 				{@html content}
 			{/each}
