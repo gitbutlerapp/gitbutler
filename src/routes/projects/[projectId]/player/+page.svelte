@@ -349,8 +349,8 @@
 					<div class="overflow-y-auto">
 						<div
 							class="mb-2 flex cursor-pointer flex-col rounded border {showLatest
-								? 'border-zinc-500 bg-gb-700 text-white'
-								: 'border-zinc-600 bg-gb-800'} p-2 text-center shadow"
+								? 'border-[#52525B] bg-[#3B3B3F] text-white'
+								: 'border-[#52525B] bg-[#2F2F33]'} p-2 text-center shadow"
 							on:keydown={handleKey}
 							on:click={selectLatest()}
 						>
@@ -359,8 +359,8 @@
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							<div
 								class="mb-2 {day == currentDay && !showLatest
-									? 'border-zinc-500 bg-gb-700 text-white'
-									: 'border-zinc-600 bg-gb-800'} flex cursor-pointer flex-col rounded border p-2 text-center shadow"
+									? 'border-[#52525B] bg-[#3B3B3F] text-white'
+									: 'border-[#52525B] bg-[#2F2F33]'} flex cursor-pointer flex-col rounded border p-2 text-center shadow"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
