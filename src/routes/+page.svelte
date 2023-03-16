@@ -154,7 +154,7 @@
 			<div class="select-none p-8">
 				<div class="flex flex-col">
 					<div class="flex flex-row justify-between">
-						<div class="mb-1 text-xl text-zinc-300">
+						<div class="mb-1 text-2xl text-zinc-300">
 							My Projects
 							<div class="mb-1 text-lg text-zinc-500">
 								All the projects that I am currently assisting you with.

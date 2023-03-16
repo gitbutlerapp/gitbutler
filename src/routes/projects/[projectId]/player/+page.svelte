@@ -309,7 +309,7 @@
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							{#if day == currentDay}
 								<div
-									class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-600 border border-zinc-500 p-2 text-center text-white shadow"
+									class="mb-2 flex cursor-pointer flex-col rounded bg-gb-700 border border-zinc-500 p-2 text-center text-white shadow"
 									on:keydown={handleKey}
 									on:click={selectDay(day)}
 								>
@@ -318,7 +318,7 @@
 								</div>
 							{:else}
 								<div
-									class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-700 border border-zinc-600 p-2 text-center shadow"
+									class="mb-2 flex cursor-pointer flex-col rounded bg-gb-800 border border-zinc-600 p-2 text-center shadow"
 									on:keydown={handleKey}
 									on:click={selectDay(day)}
 								>
@@ -330,33 +330,57 @@
 					</div>
 				</div>
 
-				<div id="right" class="w-80 xl:w-96 flex-shrink-0 overflow-auto p-2">
-					<div class="border border-zinc-600 bg-zinc-800 rounded-t h-full">
-						<div class="flex flex-row justify-between bg-zinc-600">
-							<div class="font-zinc-100 text-lg p-2">Activities</div>
+				<div id="right" class="w-80 xl:w-96 flex-shrink-0 p-2">
+					<div class="border border-gb-700 bg-gb-900 rounded-t h-full overflow-auto">
+						<div class="flex flex-row justify-between bg-gb-700">
+							<div class="font-zinc-100 text-lg p-3">
+								<div class="flex flex-row space-x-2 items-center">
+									<div>Activities</div>
+									{#if dayPlaylist[currentDay] !== undefined}
+										<div class="text-sm text-zinc-400">
+											{dayPlaylist[currentDay].chapters.length}
+										</div>
+									{/if}
+								</div>
+							</div>
 							{#if dayPlaylist[currentDay] !== undefined}
-								<div class="p-2 text-zinc-400">{dayPlaylist[currentDay].chapters.length}</div>
+								<div class="p-2">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="w-6 h-6"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
+										/>
+									</svg>
+								</div>
 							{/if}
 						</div>
 						{#if dayPlaylist[currentDay] !== undefined}
-							<div class="flex flex-col bg-zinc-700 p-2">
+							<div class="flex flex-col bg-gb-900 h-full p-2 space-y-2">
 								{#each dayPlaylist[currentDay].chapters as chapter}
 									{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
 										<div
 											id="currentSession"
-											class="mb-2 overflow-auto rounded border border-zinc-500 bg-zinc-600 text-white shadow"
+											class="mb-2 rounded border border-gb-700 text-white shadow"
 										>
-											<div class="flex flex-row justify-between px-2 pt-2">
+											<div class="flex flex-row justify-between px-3 pt-3 bg-gb-800">
 												<div class="">{dateRange(chapter)}</div>
 												<div>
 													{Math.round(chapter.totalDurationMs / 1000 / 60)} min
 												</div>
 											</div>
 											{#if chapter.files}
-												<div class="flex flex-row justify-between px-2 pb-2">
+												<div class="flex flex-row justify-between px-3 pb-3 bg-gb-800">
 													<div>{Object.entries(chapter.files).length} files</div>
 												</div>
-												<div class="bg-zinc-800 p-2">
+												<div class="bg-zinc-800 p-2 pb-3">
 													{#each Object.entries(chapter.files) as [filenm, changes]}
 														<div class="text-zinc-500">{shortPath(filenm)}</div>
 													{/each}
@@ -372,15 +396,15 @@
 													1
 												);
 											}}
-											class="cursor-pointer mb-2 overflow-auto rounded border border-zinc-500 bg-zinc-600 shadow"
+											class="cursor-pointer rounded border border-gb-700 bg-gb-900 shadow"
 										>
-											<div class="flex flex-row justify-between px-2 pt-2">
+											<div class="flex flex-row justify-between px-3 pt-3">
 												<div class="font-zinc-600">{dateRange(chapter)}</div>
 												<div>
 													{Math.round(chapter.totalDurationMs / 1000 / 60)} min
 												</div>
 											</div>
-											<div class="flex flex-row justify-between px-2 pb-2 text-zinc-400">
+											<div class="flex flex-row justify-between px-3 pb-3 text-zinc-400">
 												<div>{Object.entries(chapter.files).length} files</div>
 											</div>
 										</div>
@@ -391,7 +415,7 @@
 					</div>
 				</div>
 
-				<div id="middle" class="flex-auto overflow-auto">
+				<div id="middle" class="flex-auto overflow-auto ">
 					<div class="flex h-full w-full flex-col gap-2">
 						<div id="code" class="flex-auto overflow-auto px-2">
 							{#if dayPlaylist[currentDay] !== undefined}
@@ -407,7 +431,7 @@
 							{/if}
 						</div>
 
-						<div id="info" class="px-2">
+						<div id="info" class="p-2 bg-zinc-800 rounded-lg mx-4">
 							{#if dayPlaylist[currentDay] !== undefined}
 								<div class="flex flex-row justify-between">
 									<div>{dayPlaylist[currentDay].chapters.length} sessions</div>
@@ -423,7 +447,7 @@
 							{/if}
 						</div>
 
-						<div id="controls" class="flex flex-col bg-zinc-800 px-2">
+						<div id="controls" class="flex flex-col p-2">
 							{#if dayPlaylist[currentDay] !== undefined}
 								<div class="flex h-0 w-full justify-between">
 									{#each dayPlaylist[currentDay].chapters as chapter}
