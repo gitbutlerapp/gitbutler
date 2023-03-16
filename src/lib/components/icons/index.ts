@@ -13,3 +13,4 @@ export { default as IconCircleHalf } from './IconCircleHalf.svelte';
 export { default as IconSquareRoundedFilled } from './IconSquareRoundedFilled.svelte';
 export { default as IconMapPinFilled } from './IconMapPinFilled.svelte';
 export { default as IconCircleFilled } from './IconCircleFilled.svelte';
+export { default as IconCircleCancel } from './IconCircleCancel.svelte';

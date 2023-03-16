@@ -47,7 +47,8 @@
 		"nanoid": "^4.0.1",
 		"posthog-js": "^1.46.1",
 		"svelte-french-toast": "^1.0.3",
-		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log"
+		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
+		"tinykeys": "^1.4.0"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "next",
