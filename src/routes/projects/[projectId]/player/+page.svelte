@@ -97,11 +97,11 @@
 				sessionFiles[sid][filepath] = '';
 				sessionChapters[sid].editCount = sessionChapters[sid].edits.length;
 				sessionChapters[sid].files[filepath] = deltas.length;
-				sessionChapters[sid].firstDeltaTimestampMs = min(
+				sessionChapters[sid].firstDeltaTimestampMs = Math.min(
 					deltas.at(0)!.timestampMs,
 					sessionChapters[sid].firstDeltaTimestampMs
 				);
-				sessionChapters[sid].lastDeltaTimestampMs = max(
+				sessionChapters[sid].lastDeltaTimestampMs = Math.max(
 					deltas.at(-1)!.timestampMs,
 					sessionChapters[sid].lastDeltaTimestampMs
 				);
@@ -136,11 +136,11 @@
 					0
 				),
 				firstDeltaTimestampMs: Object.values(dayChapters).reduce(
-					(acc, chapter) => min(acc, chapter.firstDeltaTimestampMs),
+					(acc, chapter) => Math.min(acc, chapter.firstDeltaTimestampMs),
 					9999999999999
 				),
 				lastDeltaTimestampMs: Object.values(dayChapters).reduce(
-					(acc, chapter) => max(acc, chapter.lastDeltaTimestampMs),
+					(acc, chapter) => Math.max(acc, chapter.lastDeltaTimestampMs),
 					0
 				)
 			};
@@ -159,14 +159,6 @@
 				currentPlayerValue = 1;
 			}, 1000);
 		});
-	}
-
-	function max<T>(a: T, b: T): T {
-		return a > b ? a : b;
-	}
-
-	function min<T>(a: T, b: T): T {
-		return a < b ? a : b;
 	}
 
 	function dateToYmd(date: Date): string {
@@ -467,7 +459,7 @@
 						<!-- svelte-ignore a11y-click-events-have-key-events -->
 						<div
 							on:click={() => {
-								currentPlayerValue = max(dayPlaylist[currentDay].editOffsets[session.id], 1);
+								currentPlayerValue = Math.max(dayPlaylist[currentDay].editOffsets[session.id], 1);
 							}}
 							class="pointer-cursor mb-2 overflow-auto rounded border-zinc-800 bg-zinc-800 shadow"
 						>
