@@ -13,6 +13,9 @@
 	let currentPlayerValue = 0;
 	let currentDay = dateToYmd(new Date());
 
+	const urlParams = new URLSearchParams(window.location.search);
+	let fileFilter = urlParams.get('file');
+
 	$: sessionDays = $sessions.reduce((group, session) => {
 		const day = dateToYmd(new Date(session.meta.startTimestampMs));
 		group[day] = group[day] ?? [];
@@ -66,9 +69,9 @@
 	let sessionFiles: Record<string, Record<string, string>> = {};
 	let sessionChapters: Record<string, VideoChapter> = {};
 
-	$: currentSessions.forEach((s) => listSession(s.id));
+	$: currentSessions.forEach((s) => processSession(s.id));
 
-	function listSession(sid: string) {
+	function processSession(sid: string) {
 		currentDeltas[sid].then((deltas) => {
 			if (sessionChapters[sid] === undefined) {
 				sessionChapters[sid] = {
@@ -85,6 +88,8 @@
 			sessionChapters[sid].edits = [];
 
 			Object.entries(deltas).forEach(([filepath, deltas]) => {
+				if (fileFilter && !filepath.includes(fileFilter)) return;
+
 				deltas.forEach((delta) => {
 					sessionChapters[sid].edits.push({
 						filepath,
@@ -113,6 +118,8 @@
 					let chapterDay = dateToYmd(new Date(chapter.firstDeltaTimestampMs));
 					return chapterDay === currentDay;
 				})
+				// filter to chapters with more than 0 files
+				.filter(([, chapter]) => Object.keys(chapter.files).length > 0)
 				.map(([, chapter]) => chapter)
 				.sort((a, b) => a.firstDeltaTimestampMs - b.firstDeltaTimestampMs);
 
@@ -124,6 +131,7 @@
 					.slice(0, i)
 					.reduce((acc, chapter) => acc + chapter.editCount, 0);
 			});
+			console.log(dayChapters);
 			console.log(offsets);
 			dayPlaylist[currentDay] = {
 				chapters: dayChapters,
@@ -184,16 +192,16 @@
 		return date.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 	}
 
-	function dateRange(meta) {
-		let day = new Date(meta.startTimestampMs).toLocaleString('en-US', {
+	function dateRange(chapter: VideoChapter) {
+		let day = new Date(chapter.firstDeltaTimestampMs).toLocaleString('en-US', {
 			month: 'short',
 			day: 'numeric'
 		});
-		let start = new Date(meta.startTimestampMs).toLocaleString('en-US', {
+		let start = new Date(chapter.firstDeltaTimestampMs).toLocaleString('en-US', {
 			hour: 'numeric',
 			minute: 'numeric'
 		});
-		let end = new Date(meta.lastTimestampMs).toLocaleString('en-US', {
+		let end = new Date(chapter.lastDeltaTimestampMs).toLocaleString('en-US', {
 			hour: 'numeric',
 			minute: 'numeric'
 		});
@@ -302,6 +310,8 @@
 		speed = speed * 2;
 		start({ direction, speed });
 	};
+
+	function handleKey() {}
 </script>
 
 {#if $sessions.length === 0}
@@ -312,196 +322,208 @@
 		</div>
 	</div>
 {:else}
-	<div id="player-page" class="flex h-full w-full flex-row bg-black">
-		<div id="left" class="w-24 flex-shrink-0 border-r border-zinc-700 p-2">
-			<div class="font-zinc-100 mb-2 text-lg font-bold">Daily Work</div>
-			{#each Object.entries(sessionDays) as [day, sessions]}
-				{#if day == currentDay}
-					<div
-						class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-800 p-2 text-center text-white shadow"
-						on:click={selectDay(day)}
-					>
-						<div class="">{ymdToDay(day)}</div>
-						<div class="">{ymdToMonth(day)}</div>
-					</div>
-				{:else}
-					<div
-						class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-900 p-2 text-center shadow"
-						on:click={selectDay(day)}
-					>
-						<div class="">{ymdToDay(day)}</div>
-						<div class="">{ymdToMonth(day)}</div>
-					</div>
-				{/if}
-			{/each}
-		</div>
-
-		<div id="middle" class="flex-auto overflow-auto">
-			<div class="flex h-full w-full flex-col gap-2">
-				<div id="code" class="flex-auto overflow-auto px-2">
-					{#if dayPlaylist[currentDay] !== undefined}
-						{#if currentEdit !== null}
-							<CodeViewer
-								doc={currentEdit.doc}
-								deltas={currentEdit.ops}
-								filepath={currentEdit.filepath}
-							/>
-						{/if}
-					{:else}
-						<span class="m-auto">loading...</span>
-					{/if}
-				</div>
-
-				<div id="info" class="px-2">
-					{#if dayPlaylist[currentDay] !== undefined}
-						<div class="flex flex-row justify-between">
-							<div>{dayPlaylist[currentDay].chapters.length} sessions</div>
-							<div>{dayPlaylist[currentDay].editCount} edits</div>
-							<div>{Math.round(dayPlaylist[currentDay].totalDurationMs / 1000 / 60)} min</div>
-						</div>
-						{#if currentEdit !== null}
-							<div class="flex flex-row justify-between">
-								<div class="font-mono font-bold text-white">{currentEdit.filepath}</div>
-								<div>{new Date(currentEdit.delta.timestampMs).toLocaleString('en-US')}</div>
+	<div id="player-page" class="flex h-full w-full bg-black">
+		<div class="flex flex-col h-full w-full">
+			{#if fileFilter}
+				<div class="w-full p-2 font-mono text-lg">{fileFilter}</div>
+			{/if}
+			<div class="flex flex-row h-full w-full">
+				<div id="left" class="w-24 flex-shrink-0 border-r border-zinc-700 p-2">
+					<div class="font-zinc-100 mb-2 text-lg font-bold">Daily Work</div>
+					{#each Object.entries(sessionDays) as [day, sessions]}
+						{#if day == currentDay}
+							<div
+								class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-800 p-2 text-center text-white shadow"
+								on:keydown={handleKey}
+								on:click={selectDay(day)}
+							>
+								<div class="">{ymdToDay(day)}</div>
+								<div class="">{ymdToMonth(day)}</div>
+							</div>
+						{:else}
+							<div
+								class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-900 p-2 text-center shadow"
+								on:keydown={handleKey}
+								on:click={selectDay(day)}
+							>
+								<div class="">{ymdToDay(day)}</div>
+								<div class="">{ymdToMonth(day)}</div>
 							</div>
 						{/if}
-					{/if}
+					{/each}
 				</div>
 
-				<div id="controls" class="flex flex-col bg-zinc-800 px-2">
+				<div
+					id="right"
+					class="w-80 xl:w-96 flex-shrink-0 overflow-auto border-l border-zinc-700 bg-black p-2"
+				>
+					<div class="flex flex-row justify-between">
+						<div class="font-zinc-100 mb-2 text-lg font-bold">Sessions</div>
+						{#if dayPlaylist[currentDay] !== undefined}
+							<div>{dayPlaylist[currentDay].chapters.length}</div>
+						{/if}
+					</div>
 					{#if dayPlaylist[currentDay] !== undefined}
-						<div class="flex h-0 w-full justify-between">
+						<div class="flex flex-col">
 							{#each dayPlaylist[currentDay].chapters as chapter}
-								<div
-									class="inline-block h-2 rounded bg-white"
-									style="width: {Math.round(
-										(chapter.editCount / dayPlaylist[currentDay].editCount) * 100
-									)}%"
-								>
-									&nbsp;
-								</div>
+								{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
+									<div
+										id="currentSession"
+										class="mb-2 overflow-auto rounded border-zinc-800 bg-zinc-700 text-white shadow"
+									>
+										<div class="flex flex-row justify-between px-2 pt-2">
+											<div class="font-bold">{dateRange(chapter)}</div>
+											<div>
+												{Math.round(chapter.totalDurationMs / 1000 / 60)} min
+											</div>
+										</div>
+										{#if chapter.files}
+											<div class="flex flex-row justify-between px-2 pb-1">
+												<div>{Object.entries(chapter.files).length} files</div>
+											</div>
+											<div class="bg-zinc-800 p-2">
+												{#each Object.entries(chapter.files) as [filenm, changes]}
+													<div>{shortPath(filenm)}</div>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								{:else}
+									<div
+										on:keydown={handleKey}
+										on:click={() => {
+											currentPlayerValue = max(
+												dayPlaylist[currentDay].editOffsets[chapter.session],
+												1
+											);
+										}}
+										class="cursor-pointer mb-2 overflow-auto rounded border-zinc-800 bg-zinc-800 shadow"
+									>
+										<div class="flex flex-row justify-between px-2 pt-2">
+											<div>{dateRange(chapter)}</div>
+											<div>
+												{Math.round(chapter.totalDurationMs / 1000 / 60)} min
+											</div>
+										</div>
+										<div class="flex flex-row justify-between px-2 pb-2 text-zinc-400">
+											<div>{Object.entries(chapter.files).length} files</div>
+										</div>
+									</div>
+								{/if}
 							{/each}
 						</div>
 					{/if}
-					<div class="w-full">
-						{#if dayPlaylist[currentDay] !== undefined}
-							<input
-								type="range"
-								class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
-								max={dayPlaylist[currentDay].editCount}
-								step="1"
-								bind:value={currentPlayerValue}
-							/>
-						{/if}
-					</div>
-					<div class="mx-auto flex items-center gap-2">
-						<button
-							on:click={() => {
-								currentPlayerValue -= 1;
-							}}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								class="icon-pointer h-6 w-6"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M21 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953l7.108-4.062A1.125 1.125 0 0121 8.688v8.123zM11.25 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953L9.567 7.71a1.125 1.125 0 011.683.977v8.123z"
-								/>
-							</svg>
-						</button>
-						<button
-							on:click={() => {
-								currentPlayerValue += 1;
-							}}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								class="icon-pointer h-6 w-6"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M3 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.688zM12.75 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062a1.125 1.125 0 01-1.683-.977V8.688z"
-								/>
-							</svg>
-						</button>
-						{#if interval}
-							<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
-						{:else}
-							<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
-						{/if}
-						<button on:click={speedUp}>{speed}x</button>
-					</div>
 				</div>
-			</div>
-		</div>
 
-		<div id="right" class="w-80 flex-shrink-0 overflow-auto border-l border-zinc-700 bg-black p-2">
-			<div class="flex flex-row justify-between">
-				<div class="font-zinc-100 mb-2 text-lg font-bold">Sessions</div>
-				<div>{Object.entries(sessionDays[currentDay]).length}</div>
-			</div>
-			<div class="flex flex-col">
-				{#each sessionDays[currentDay] as session}
-					{#if currentEdit !== null && currentEdit.sessionId == session.id}
-						<div
-							id="currentSession"
-							class="mb-2 overflow-auto rounded border-zinc-800 bg-zinc-700 text-white shadow"
-						>
-							<div class="flex flex-row justify-between px-2 pt-2">
-								<div class="font-bold">{dateRange(session.meta)}</div>
-								{#if sessionChapters[session.id] !== undefined}
-									<div>
-										{Math.round(sessionChapters[session.id].totalDurationMs / 1000 / 60)} min
+				<div id="middle" class="flex-auto overflow-auto">
+					<div class="flex h-full w-full flex-col gap-2">
+						<div id="code" class="flex-auto overflow-auto px-2">
+							{#if dayPlaylist[currentDay] !== undefined}
+								{#if currentEdit !== null}
+									<CodeViewer
+										doc={currentEdit.doc}
+										deltas={currentEdit.ops}
+										filepath={currentEdit.filepath}
+									/>
+								{/if}
+							{:else}
+								<span class="m-auto">loading...</span>
+							{/if}
+						</div>
+
+						<div id="info" class="px-2">
+							{#if dayPlaylist[currentDay] !== undefined}
+								<div class="flex flex-row justify-between">
+									<div>{dayPlaylist[currentDay].chapters.length} sessions</div>
+									<div>{dayPlaylist[currentDay].editCount} edits</div>
+									<div>{Math.round(dayPlaylist[currentDay].totalDurationMs / 1000 / 60)} min</div>
+								</div>
+								{#if currentEdit !== null}
+									<div class="flex flex-row justify-between">
+										<div class="font-mono font-bold text-white">{currentEdit.filepath}</div>
+										<div>{new Date(currentEdit.delta.timestampMs).toLocaleString('en-US')}</div>
 									</div>
 								{/if}
-							</div>
-							<div class="flex flex-row justify-between px-2 pb-1">
-								{#if sessionChapters[session.id] !== undefined}
-									<div>{Object.entries(sessionChapters[session.id].files).length} files</div>
-								{/if}
-							</div>
-							{#if sessionChapters[session.id] !== undefined}
-								<div class="bg-zinc-800 p-2">
-									{#each Object.entries(sessionChapters[session.id].files) as [filenm, changes]}
-										<div>{shortPath(filenm)}</div>
+							{/if}
+						</div>
+
+						<div id="controls" class="flex flex-col bg-zinc-800 px-2">
+							{#if dayPlaylist[currentDay] !== undefined}
+								<div class="flex h-0 w-full justify-between">
+									{#each dayPlaylist[currentDay].chapters as chapter}
+										<div
+											class="inline-block h-2 rounded bg-white"
+											style="width: {Math.round(
+												(chapter.editCount / dayPlaylist[currentDay].editCount) * 100
+											)}%"
+										>
+											&nbsp;
+										</div>
 									{/each}
 								</div>
 							{/if}
-						</div>
-					{:else}
-						<div
-							on:click={() => {
-								currentPlayerValue = max(dayPlaylist[currentDay].editOffsets[session.id], 1);
-							}}
-							class="pointer-cursor mb-2 overflow-auto rounded border-zinc-800 bg-zinc-800 shadow"
-						>
-							<div class="flex flex-row justify-between px-2 pt-2">
-								<div>{dateRange(session.meta)}</div>
-								{#if sessionChapters[session.id] !== undefined}
-									<div>
-										{Math.round(sessionChapters[session.id].totalDurationMs / 1000 / 60)} min
-									</div>
+							<div class="w-full">
+								{#if dayPlaylist[currentDay] !== undefined}
+									<input
+										type="range"
+										class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
+										max={dayPlaylist[currentDay].editCount}
+										step="1"
+										bind:value={currentPlayerValue}
+									/>
 								{/if}
 							</div>
-							<div class="flex flex-row justify-between px-2 pb-2 text-zinc-400">
-								{#if sessionChapters[session.id] !== undefined}
-									<div>{Object.entries(sessionChapters[session.id].files).length} files</div>
+							<div class="mx-auto flex items-center gap-2">
+								<button
+									on:click={() => {
+										currentPlayerValue -= 1;
+									}}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="icon-pointer h-6 w-6"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M21 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953l7.108-4.062A1.125 1.125 0 0121 8.688v8.123zM11.25 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953L9.567 7.71a1.125 1.125 0 011.683.977v8.123z"
+										/>
+									</svg>
+								</button>
+								<button
+									on:click={() => {
+										currentPlayerValue += 1;
+									}}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="icon-pointer h-6 w-6"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M3 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.688zM12.75 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062a1.125 1.125 0 01-1.683-.977V8.688z"
+										/>
+									</svg>
+								</button>
+								{#if interval}
+									<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
+								{:else}
+									<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
 								{/if}
+								<button on:click={speedUp}>{speed}x</button>
 							</div>
 						</div>
-					{/if}
-				{/each}
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

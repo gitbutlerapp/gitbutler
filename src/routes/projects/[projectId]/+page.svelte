@@ -12,6 +12,7 @@
 	import { slide } from 'svelte/transition';
 	import { navigating } from '$app/stores';
 	import toast from 'svelte-french-toast';
+	import { goto } from '$app/navigation';
 
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 
@@ -37,6 +38,12 @@
 		commitMessage = '';
 		filesSelectedForCommit = [];
 		initiatedCommit = false;
+	}
+
+	function gotoPlayer(filename: string) {
+		if ($project) {
+			goto(`/projects/${$project.id}/player?file=${encodeURIComponent(filename)}`);
+		}
 	}
 
 	function doCommit() {
@@ -215,7 +222,11 @@
 									>
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
-												<div class="font-mono text-zinc-300">{filetime[0]}</div>
+												<div class="font-mono text-zinc-300">
+													<a class="cursor-pointer" on:click={gotoPlayer(filetime[0])}>
+														{filetime[0]}
+													</a>
+												</div>
 												<div class="font-mono text-zinc-400">
 													{@html timestampsToSpark(filetime[1])}
 												</div>
