@@ -322,97 +322,95 @@
 		</div>
 	</div>
 {:else}
-	<div id="player-page" class="flex h-full w-full bg-black">
+	<div id="player-page" class="flex h-full w-full">
 		<div class="flex flex-col h-full w-full">
 			{#if fileFilter}
 				<div class="w-full p-2 font-mono text-lg">{fileFilter}</div>
 			{/if}
 			<div class="flex flex-row h-full w-full">
-				<div id="left" class="w-24 flex-shrink-0 border-r border-zinc-700 p-2">
-					<div class="font-zinc-100 mb-2 text-lg font-bold">Daily Work</div>
+				<div id="left" class="w-20 flex-shrink-0 border-r border-zinc-700 p-2">
 					{#each Object.entries(sessionDays) as [day, sessions]}
 						{#if day == currentDay}
 							<div
-								class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-800 p-2 text-center text-white shadow"
+								class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-600 border border-zinc-500 p-2 text-center text-white shadow"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
-								<div class="">{ymdToDay(day)}</div>
+								<div class="font-bold text-lg">{ymdToDay(day)}</div>
 								<div class="">{ymdToMonth(day)}</div>
 							</div>
 						{:else}
 							<div
-								class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-900 p-2 text-center shadow"
+								class="mb-2 flex cursor-pointer flex-col rounded bg-zinc-700 border border-zinc-600 p-2 text-center shadow"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
-								<div class="">{ymdToDay(day)}</div>
+								<div class="font-bold text-lg">{ymdToDay(day)}</div>
 								<div class="">{ymdToMonth(day)}</div>
 							</div>
 						{/if}
 					{/each}
 				</div>
 
-				<div
-					id="right"
-					class="w-80 xl:w-96 flex-shrink-0 overflow-auto border-l border-zinc-700 bg-black p-2"
-				>
-					<div class="flex flex-row justify-between">
-						<div class="font-zinc-100 mb-2 text-lg font-bold">Sessions</div>
+				<div id="right" class="w-80 xl:w-96 flex-shrink-0 overflow-auto p-2">
+					<div class="border border-zinc-600 bg-zinc-800 rounded-t h-full">
+						<div class="flex flex-row justify-between bg-zinc-600">
+							<div class="font-zinc-100 text-lg p-2">Activities</div>
+							{#if dayPlaylist[currentDay] !== undefined}
+								<div class="p-2 text-zinc-400">{dayPlaylist[currentDay].chapters.length}</div>
+							{/if}
+						</div>
 						{#if dayPlaylist[currentDay] !== undefined}
-							<div>{dayPlaylist[currentDay].chapters.length}</div>
-						{/if}
-					</div>
-					{#if dayPlaylist[currentDay] !== undefined}
-						<div class="flex flex-col">
-							{#each dayPlaylist[currentDay].chapters as chapter}
-								{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
-									<div
-										id="currentSession"
-										class="mb-2 overflow-auto rounded border-zinc-800 bg-zinc-700 text-white shadow"
-									>
-										<div class="flex flex-row justify-between px-2 pt-2">
-											<div class="font-bold">{dateRange(chapter)}</div>
-											<div>
-												{Math.round(chapter.totalDurationMs / 1000 / 60)} min
+							<div class="flex flex-col bg-zinc-700 p-2">
+								{#each dayPlaylist[currentDay].chapters as chapter}
+									{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
+										<div
+											id="currentSession"
+											class="mb-2 overflow-auto rounded border border-zinc-500 bg-zinc-600 text-white shadow"
+										>
+											<div class="flex flex-row justify-between px-2 pt-2">
+												<div class="">{dateRange(chapter)}</div>
+												<div>
+													{Math.round(chapter.totalDurationMs / 1000 / 60)} min
+												</div>
 											</div>
+											{#if chapter.files}
+												<div class="flex flex-row justify-between px-2 pb-2">
+													<div>{Object.entries(chapter.files).length} files</div>
+												</div>
+												<div class="bg-zinc-800 p-2">
+													{#each Object.entries(chapter.files) as [filenm, changes]}
+														<div class="text-zinc-500">{shortPath(filenm)}</div>
+													{/each}
+												</div>
+											{/if}
 										</div>
-										{#if chapter.files}
-											<div class="flex flex-row justify-between px-2 pb-1">
+									{:else}
+										<div
+											on:keydown={handleKey}
+											on:click={() => {
+												currentPlayerValue = max(
+													dayPlaylist[currentDay].editOffsets[chapter.session],
+													1
+												);
+											}}
+											class="cursor-pointer mb-2 overflow-auto rounded border border-zinc-500 bg-zinc-600 shadow"
+										>
+											<div class="flex flex-row justify-between px-2 pt-2">
+												<div class="font-zinc-600">{dateRange(chapter)}</div>
+												<div>
+													{Math.round(chapter.totalDurationMs / 1000 / 60)} min
+												</div>
+											</div>
+											<div class="flex flex-row justify-between px-2 pb-2 text-zinc-400">
 												<div>{Object.entries(chapter.files).length} files</div>
 											</div>
-											<div class="bg-zinc-800 p-2">
-												{#each Object.entries(chapter.files) as [filenm, changes]}
-													<div>{shortPath(filenm)}</div>
-												{/each}
-											</div>
-										{/if}
-									</div>
-								{:else}
-									<div
-										on:keydown={handleKey}
-										on:click={() => {
-											currentPlayerValue = max(
-												dayPlaylist[currentDay].editOffsets[chapter.session],
-												1
-											);
-										}}
-										class="cursor-pointer mb-2 overflow-auto rounded border-zinc-800 bg-zinc-800 shadow"
-									>
-										<div class="flex flex-row justify-between px-2 pt-2">
-											<div>{dateRange(chapter)}</div>
-											<div>
-												{Math.round(chapter.totalDurationMs / 1000 / 60)} min
-											</div>
 										</div>
-										<div class="flex flex-row justify-between px-2 pb-2 text-zinc-400">
-											<div>{Object.entries(chapter.files).length} files</div>
-										</div>
-									</div>
-								{/if}
-							{/each}
-						</div>
-					{/if}
+									{/if}
+								{/each}
+							</div>
+						{/if}
+					</div>
 				</div>
 
 				<div id="middle" class="flex-auto overflow-auto">
