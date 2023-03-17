@@ -12,8 +12,10 @@
 
 	const { sessions } = data;
 
-	let currentPlayerValue = 0;
+	let currentPlayerValue: number | null = null;
 	let showLatest = false;
+	let fullContext = false;
+	let context = 5;
 
 	const urlParams = new URLSearchParams(window.location.search);
 	$: currentDay = urlParams.get('date') ?? Object.keys(sessionDays)[0] ?? '';
@@ -141,7 +143,7 @@
 				}
 			});
 			setTimeout(() => {
-				currentPlayerValue = 1;
+				currentPlayerValue = 0;
 			}, 1000);
 		});
 	}
@@ -318,8 +320,29 @@
 	const start = (params: { direction: 1 | -1; speed: number }) => {
 		if (interval) clearInterval(interval);
 		interval = setInterval(() => {
-			currentPlayerValue += 1;
+			incrementPlayerValue();
 		}, oneSecond / params.speed);
+	};
+
+	const changePlayerValue = (amount: number) => {
+		if (currentPlayerValue !== null) {
+			currentPlayerValue += amount;
+			if (currentPlayerValue < 0) {
+				currentPlayerValue = 0;
+			} else if (currentPlaylist && currentPlayerValue >= currentPlaylist.editCount) {
+				currentPlayerValue = currentPlaylist.editCount - 1;
+			}
+		} else {
+			currentPlayerValue = 0;
+		}
+	};
+
+	const incrementPlayerValue = () => {
+		changePlayerValue(1);
+	};
+
+	const decrementPlayerValue = () => {
+		changePlayerValue(-1);
 	};
 
 	const speedUp = () => {
@@ -342,7 +365,9 @@
 	<div id="player-page" class="flex h-full w-full">
 		<div class="flex h-full w-full flex-col">
 			{#if fileFilter}
-				<div class="w-full p-2 font-mono text-lg">{fileFilter}</div>
+				<div class="w-full p-2 font-mono text-lg" on:click={() => (fileFilter = null)}>
+					{fileFilter}
+				</div>
 			{/if}
 			<div class="flex h-full w-full flex-row">
 				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
@@ -387,22 +412,6 @@
 									</div>
 								</div>
 							</div>
-							<div class="p-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="h-6 w-6"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-									/>
-								</svg>
-							</div>
 						</div>
 
 						<div
@@ -426,7 +435,11 @@
 											</div>
 											<div class="rounded-b bg-zinc-800 p-2 pb-3">
 												{#each Object.entries(chapter.files) as [filenm, changes]}
-													<div class="text-zinc-500">{shortPath(filenm)}</div>
+													{#if currentEdit.filepath == filenm}
+														<div class="font-bold text-zinc-100">{shortPath(filenm)}</div>
+													{:else}
+														<div class="text-zinc-500">{shortPath(filenm)}</div>
+													{/if}
 												{/each}
 											</div>
 										{/if}
@@ -470,6 +483,7 @@
 										doc={currentEdit.doc}
 										deltas={currentEdit.ops}
 										filepath={currentEdit.filepath}
+										context={fullContext ? 100000 : context}
 									/>
 								{/if}
 							{:else}
@@ -477,8 +491,8 @@
 							{/if}
 						</div>
 
-						<div id="info" class=" absolute bottom-[64px] left-4 rounded-lg bg-zinc-800 p-2">
-							<div class="flex flex-row justify-between">
+						<div id="info" class="absolute bottom-[64px] left-4 rounded-lg bg-zinc-800 p-2">
+							<div class="flex flex-row justify-between space-x-2">
 								{#if currentEdit !== null}
 									<div class="font-mono font-bold text-white">{currentEdit.filepath}</div>
 									<div>{new Date(currentEdit.delta.timestampMs).toLocaleString('en-US')}</div>
@@ -513,21 +527,14 @@
 								<input
 									type="range"
 									class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
-									max={currentPlaylist.editCount}
+									max={currentPlaylist.editCount - 1}
 									step="1"
 									bind:value={currentPlayerValue}
 								/>
 							</div>
 							<div class="playback-controller-ui mx-auto flex items-center gap-2">
-								<button
-									on:click={() => {
-										currentPlayerValue -= 1;
-									}}
-									class="playback-button-back group"
-								>
-									<svg 
-										viewBox="0 0 20 20" 
-										fill="none" 
+								<button on:click={decrementPlayerValue} class="playback-button-back group">
+									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="icon-pointer h-6 w-6"	
 									>
@@ -538,16 +545,8 @@
 										/>
 									</svg>		
 								</button>
-
-								<button
-									on:click={() => {
-										currentPlayerValue += 1;
-									}}
-									class="playback-button-forward group"
-								>
-									<svg 
-										viewBox="0 0 20 20" 
-										fill="none" 
+								<button on:click={incrementPlayerValue} class="playback-button-forward group">
+									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="icon-pointer h-6 w-6"
 									>
@@ -571,6 +570,12 @@
 									</button>
 								{/if}
 								<button on:click={speedUp}>{speed}x</button>
+								<div>
+									<input type="checkbox" bind:checked={fullContext} /> Full Context
+									{#if !fullContext}
+										<input type="number" bind:value={context} />
+									{/if}
+								</div>
 							</div>
 						</div>
 					</div>

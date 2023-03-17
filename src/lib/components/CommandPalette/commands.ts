@@ -1,16 +1,18 @@
+import type { ComponentType } from 'svelte';
+
 export type ActionLink = { href: string };
-export type ActionInPalette = { action: () => void }; // todo
+export type ActionInPalette = { component: ComponentType };
 export type Action = ActionLink | ActionInPalette;
 
 export namespace Action {
 	export const isLink = (action: Action): action is ActionLink => 'href' in action;
-	export const isActionInPalette = (action: Action): action is ActionInPalette => 'todo' in action;
+	export const isActionInPalette = (action: Action): action is ActionInPalette =>
+		'component' in action;
 }
 
 export type Command = {
 	title: string;
 	description: string;
-	// icon: string;
 	action: Action;
 	selected: boolean;
 	visible: boolean;
