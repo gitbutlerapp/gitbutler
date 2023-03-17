@@ -345,27 +345,27 @@
 				<div class="w-full p-2 font-mono text-lg">{fileFilter}</div>
 			{/if}
 			<div class="flex h-full w-full flex-row">
-				<div id="left" class="flex h-full w-20 flex-shrink-0 flex-col p-2">
+				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
 					<div class="overflow-y-auto">
 						<div
-							class="mb-2 flex cursor-pointer flex-col rounded border {showLatest
+							class="card-latest mb-2 flex cursor-pointer flex-col rounded border text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-[#52525B] {showLatest
 								? 'border-[#52525B] bg-[#3B3B3F] text-white'
 								: 'border-[#52525B] bg-[#2F2F33]'} p-2 text-center shadow"
 							on:keydown={handleKey}
 							on:click={selectLatest()}
 						>
-							<div class="text-lg font-bold">Latest</div>
+							<div class="">Latest</div>
 						</div>
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							<div
-								class="mb-2 {day == currentDay && !showLatest
+								class="card-day-of-week mb-2 text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-[#52525B] {day == currentDay && !showLatest
 									? 'border-[#52525B] bg-[#3B3B3F] text-white'
-									: 'border-[#52525B] bg-[#2F2F33]'} flex cursor-pointer flex-col rounded border p-2 text-center shadow"
+									: 'border-[#52525B] bg-[#2F2F33]'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:ease-in hover:bg-[#3B3B3F]"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
-								<div class="text-lg font-bold">{ymdToDay(day)}</div>
-								<div class="">{ymdToMonth(day)}</div>
+								<div class="text-xl leading-5">{ymdToDay(day)}</div>
+								<div class="leading-4">{ymdToMonth(day)}</div>
 							</div>
 						{/each}
 					</div>
@@ -373,7 +373,7 @@
 
 				<div id="right" class="h-full w-80 flex-shrink-0 p-2 xl:w-96">
 					<div
-						class="flex h-full flex-col rounded border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-[#52525B]  bg-[#2F2F33]"
+						class="flex h-full flex-col rounded border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-[#52525B] bg-[#2F2F33]"
 					>
 						<div
 							class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-[#3F3F46] bg-[#3B3B3F]"
@@ -411,7 +411,7 @@
 								{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
 									<div
 										id="currentSession"
-										class="session-card mb-2 rounded border-[0.5px] border-[#52525B] text-zinc-300 shadow-md"
+										class="session-card rounded border-[0.5px] border-[#52525B] text-zinc-300 shadow-md"
 									>
 										<div class="flex flex-row justify-between rounded-t bg-gb-800 px-3 pt-3">
 											<div class="">{dateRange(chapter)}</div>
@@ -420,7 +420,7 @@
 											</div>
 										</div>
 										{#if chapter.files}
-											<div class="flex flex-row justify-between bg-gb-800 px-3 pb-3">
+											<div class=" flex flex-row justify-between bg-gb-800 px-3 pb-3">
 												<div>{Object.entries(chapter.files).length} files</div>
 											</div>
 											<div class="rounded-b bg-zinc-800 p-2 pb-3">
@@ -439,7 +439,7 @@
 												1
 											);
 										}}
-										class="cursor-pointer rounded border-[0.5px] border-[#52525B] bg-[#2F2F33] shadow-md"
+										class="session-card cursor-pointer rounded border-[0.5px] border-[#52525B] bg-[#2F2F33] shadow-md hover:bg-[#3B3B3F] transition duration-150 ease-out hover:ease-in"
 									>
 										<div class="flex flex-row justify-between px-3 pt-3">
 											<div class="font-zinc-600">{dateRange(chapter)}</div>
