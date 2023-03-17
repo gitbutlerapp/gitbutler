@@ -191,7 +191,7 @@ fn index_session(
     project: &projects::Project,
 ) -> Result<()> {
     let reference = repo.find_reference(&project.refname())?;
-    let deltas = deltas::list(repo, project, &reference, &session.id)?;
+    let deltas = deltas::list(repo, project, &reference, &session.id, None)?;
     if deltas.is_empty() {
         return Ok(());
     }
