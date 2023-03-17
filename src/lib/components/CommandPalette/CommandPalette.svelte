@@ -11,6 +11,34 @@
 	import { Action, previousCommand, nextCommand, firstVisibleCommand } from './commands';
 	import type { ComponentType } from 'svelte';
 	import { default as RewindCommand } from './RewindCommand.svelte';
+	import { invoke } from '@tauri-apps/api';
+
+	const matchFiles = (params: { projectId: string; matchPattern: string }) =>
+		invoke<Array<string>>('git_match_paths', params);
+
+	const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
+		let timeout: ReturnType<typeof setTimeout>;
+		return (...args: any[]) => {
+			clearTimeout(timeout);
+			timeout = setTimeout(() => fn(...args), delay);
+		};
+	};
+
+	let matchFilesQuery = '';
+	const updateMatchFilesQuery = debounce(async () => {
+		matchFilesQuery = userInput;
+	}, 100);
+
+	let matchingFiles: Array<string> = [];
+	$: if (matchFilesQuery) {
+		matchFiles({ projectId: $currentProject?.id || '', matchPattern: matchFilesQuery }).then(
+			(files) => {
+				matchingFiles = files;
+			}
+		);
+	} else {
+		matchingFiles = [];
+	}
 
 	$: scopeToProject = $currentProject ? true : false;
 
@@ -35,7 +63,7 @@
 
 	$: commandGroups = [
 		{
-			name: 'Repositories',
+			name: 'Go to project',
 			visible: !scopeToProject,
 			commands: $projects.map((project: Project) => {
 				return {
@@ -50,7 +78,7 @@
 			})
 		},
 		{
-			name: 'Commands',
+			name: 'Actions',
 			visible: scopeToProject,
 			commands: [
 				{
@@ -63,6 +91,21 @@
 					visible: 'replay'.includes(userInput?.toLowerCase())
 				}
 			]
+		},
+		{
+			name: 'Files',
+			visible: scopeToProject && matchingFiles.length > 0,
+			commands: matchingFiles.map((file) => {
+				return {
+					title: file,
+					description: 'File',
+					selected: false,
+					action: {
+						href: `/`
+					},
+					visible: true
+				};
+			})
 		}
 	] as CommandGroup[];
 
@@ -72,6 +115,7 @@
 		selection = [0, 0];
 		componentOfTriggeredCommand = undefined;
 		triggeredCommand = undefined;
+		matchingFiles = [];
 	};
 
 	const triggerCommand = () => {
@@ -153,9 +197,9 @@
 	bind:this={dialog}
 	on:click|self={() => toggleCommandPalette()}
 >
-	<div class="min-h-[640px] w-[640px] rounded text-zinc-400" on:click|stopPropagation>
+	<div class="flex h-[640px] w-[640px] flex-col rounded text-zinc-400" on:click|stopPropagation>
 		<!-- Search input area -->
-		<div class="flex h-14 items-center border-b border-zinc-400/20">
+		<div class="flex items-center border-b border-zinc-400/20 py-2">
 			<div class="ml-4 mr-2 flex flex-grow items-center">
 				<!-- Project scope -->
 				{#if scopeToProject}
@@ -177,6 +221,7 @@
 					<input
 						class="w-full bg-transparent text-zinc-300 focus:outline-none"
 						bind:value={userInput}
+						on:input={updateMatchFilesQuery}
 						type="text"
 						autofocus
 						placeholder={!scopeToProject
@@ -192,7 +237,7 @@
 			</div>
 		</div>
 		<!-- Main part -->
-		<div>
+		<div class="flex-auto overflow-y-auto">
 			{#if componentOfTriggeredCommand}
 				<svelte:component this={componentOfTriggeredCommand} {userInput} />
 			{:else}
@@ -242,5 +287,5 @@
 		</div>
 	</div>
 </dialog>
-{scopeToProject}
 {selection}
+{matchingFiles.length}
