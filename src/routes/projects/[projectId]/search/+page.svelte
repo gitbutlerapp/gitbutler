@@ -1,15 +1,17 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { search } from '$lib';
-	import { RenderedSearchResult, type ProcessedSearchResult } from '$lib/components/search';
-	import { processSearchResult } from '$lib/components/search/process';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
+	import { listFiles } from '$lib/sessions';
+	import { list as listDeltas, type Delta } from '$lib/deltas';
+	import { CodeViewer } from '$lib/components';
+	import { formatDistanceToNow } from 'date-fns';
 
 	export let data: PageData;
 	const { project } = data;
 
-	let processedResults = [] as ProcessedSearchResult[];
+	let processedResults = [] as { doc: string; deltas: Delta[]; filepath: string }[];
 	let searchTerm: Writable<string> = getContext('searchTerm');
 	let stopProcessing = false;
 
@@ -29,10 +31,13 @@
 				stopProcessing = false;
 				return;
 			}
-			const processedResult = await processSearchResult(r, query);
-			if (processedResult.hunks && processedResult.hunks.length > 0) {
-				processedResults = [...processedResults, processedResult];
-			}
+			console.log(r);
+			const { sessionId, projectId, filePath } = r;
+			const [doc, deltas] = await Promise.all([
+				listFiles({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? ''),
+				listDeltas({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? [])
+			]);
+			processedResults = [...processedResults, { doc, deltas, filepath: filePath }];
 		}
 	};
 </script>
@@ -51,9 +56,18 @@
 		{/if}
 
 		<ul class="flex flex-col gap-4">
-			{#each processedResults as r}
-				<li>
-					<RenderedSearchResult processedResult={r} />
+			{#each processedResults as { doc, deltas, filepath }}
+				{@const timestamp = deltas[deltas.length - 1].timestampMs}
+				<li class="flex flex-col gap-2">
+					<p class="flex justify-between text-lg">
+						<span>{filepath}</span>
+						<span>{formatDistanceToNow(timestamp)} ago</span>
+					</p>
+					<div
+						class="flex-auto overflow-auto rounded-lg border border-zinc-700 bg-[#2F2F33] text-[#EBDBB2] drop-shadow-lg"
+					>
+						<CodeViewer {doc} {deltas} {filepath} paddingLines={4} />
+					</div>
 				</li>
 			{/each}
 		</ul>
