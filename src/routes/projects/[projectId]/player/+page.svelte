@@ -373,7 +373,7 @@
 				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
 					<div class="overflow-y-auto">
 						<div
-							class="card-latest mb-2 flex cursor-pointer flex-col rounded border text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 {showLatest
+							class="card-latest mb-2 flex cursor-pointer flex-col rounded border border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 text-zinc-300 {showLatest
 								? 'border-gb-700 bg-gb-800 text-white'
 								: 'border-gb-700 bg-gb-900'} p-2 text-center shadow"
 							on:keydown={handleKey}
@@ -383,10 +383,10 @@
 						</div>
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							<div
-								class="card-day-of-week mb-2 text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 {day ==
+								class="card-day-of-week mb-2 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 text-zinc-300 {day ==
 									currentDay && !showLatest
 									? 'border-gb-700 bg-gb-800 text-white'
-									: 'border-gb-700 bg-gb-900'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:ease-in hover:bg-gb-800"
+									: 'border-gb-700 bg-gb-900'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
@@ -436,7 +436,7 @@
 											<div class="rounded-b bg-zinc-800 p-2 pb-3">
 												{#each Object.entries(chapter.files) as [filenm, changes]}
 													{#if currentEdit.filepath == filenm}
-														<div class="text-zinc-100 font-bold">{shortPath(filenm)}</div>
+														<div class="font-bold text-zinc-100">{shortPath(filenm)}</div>
 													{:else}
 														<div class="text-zinc-500">{shortPath(filenm)}</div>
 													{/if}
@@ -453,7 +453,7 @@
 												1
 											);
 										}}
-										class="session-card cursor-pointer rounded border-[0.5px] border-gb-700 bg-gb-900 shadow-md hover:bg-gb-800 transition duration-150 ease-out hover:ease-in"
+										class="session-card cursor-pointer rounded border-[0.5px] border-gb-700 bg-gb-900 shadow-md transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
 									>
 										<div class="flex flex-row justify-between px-3 pt-3">
 											<div class="font-zinc-600">{dateRange(chapter)}</div>

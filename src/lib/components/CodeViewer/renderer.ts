@@ -19,7 +19,10 @@ export const enum RowType {
 	Spacer = 'spacer'
 }
 
-export function buildDiffRows(diff: DiffArray, paddingLines = 10000): {
+export function buildDiffRows(
+	diff: DiffArray,
+	paddingLines = 10000
+): {
 	originalLines: readonly string[];
 	currentLines: readonly string[];
 	rows: readonly Row[];
