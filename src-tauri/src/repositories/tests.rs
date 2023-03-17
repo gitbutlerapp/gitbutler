@@ -1,5 +1,4 @@
-use super::Repository;
-use crate::{projects, storage, users};
+use crate::{projects, repositories::Store, storage, users};
 use anyhow::Result;
 use tempfile::tempdir;
 
@@ -34,8 +33,9 @@ fn test_open_creates_reference() {
     projects_storage.add_project(&project).unwrap();
 
     let users_storage = users::Storage::new(storage.clone());
+    let mut store = Store::new(projects_storage.clone(), users_storage.clone());
 
-    let repository = Repository::open(&projects_storage, &users_storage, &project.id);
+    let repository = store.get(&project.id);
     assert!(repository.is_ok());
     let repository = repository.unwrap();
 

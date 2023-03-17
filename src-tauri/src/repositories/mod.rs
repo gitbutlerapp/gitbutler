@@ -1,6 +1,8 @@
-mod repositories;
+mod repository;
+mod storage;
 
-pub use repositories::Repository;
+pub use repository::Repository;
+pub use storage::Store;
 
 #[cfg(test)]
 mod tests;

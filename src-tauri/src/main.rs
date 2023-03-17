@@ -65,6 +65,7 @@ struct App {
     pub users_storage: users::Storage,
     pub deltas_searcher: Mutex<search::Deltas>,
     pub watchers: Mutex<watchers::Watcher>,
+    pub repositories_storage: Mutex<repositories::Store>,
 }
 
 impl App {
@@ -80,11 +81,14 @@ impl App {
             users_storage.clone(),
             deltas_searcher.clone(),
         );
+        let repositories_storage =
+            repositories::Store::new(projects_storage.clone(), users_storage.clone());
         Ok(Self {
             projects_storage,
             users_storage,
             deltas_searcher: deltas_searcher.into(),
             watchers: watchers.into(),
+            repositories_storage: repositories_storage.into(),
         })
     }
 }
@@ -286,11 +290,12 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
     let project = projects::Project::from_path(path.to_string())?;
     app_state.projects_storage.add_project(&project)?;
 
-    repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        &project.id,
-    )?;
+    app_state
+        .repositories_storage
+        .lock()
+        .unwrap()
+        .get(&project.id)
+        .with_context(|| format!("{}: failed to open repository", project.path))?;
 
     let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
     app_state.watchers.lock().unwrap().watch(tx, &project)?;
@@ -394,11 +399,12 @@ fn repo_for_project(
 ) -> Result<repositories::Repository, Error> {
     let app_state = handle.state::<App>();
 
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
+    let repo = app_state
+        .repositories_storage
+        .lock()
+        .unwrap()
+        .get(&project_id)
+        .with_context(|| format!("{}: failed to open repository", project_id))?;
 
     Ok(repo)
 }
@@ -629,12 +635,12 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
         .with_context(|| "Failed to list projects")?;
 
     for project in projects {
-        let repo = repositories::Repository::open(
-            &app_state.projects_storage,
-            &app_state.users_storage,
-            &project.id,
-        )
-        .with_context(|| format!("{}: failed to open repository", project.path))?;
+        let repo = app_state
+            .repositories_storage
+            .lock()
+            .unwrap()
+            .get(&project.id)
+            .with_context(|| format!("{}: failed to open repository", project.path))?;
 
         app_state
             .watchers
@@ -720,17 +726,19 @@ fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
 }
 
 fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
-    let repo = repositories::Repository::open(
-        &app_state.projects_storage,
-        &app_state.users_storage,
-        project_id,
-    )?;
+    let repo = app_state
+        .repositories_storage
+        .lock()
+        .unwrap()
+        .get(&project_id)?;
 
     let sessions = repo.sessions(None)?;
     let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
         .iter()
         .map(|session| {
-            let deltas = repo.deltas(&session.id, None).expect("Failed to list deltas");
+            let deltas = repo
+                .deltas(&session.id, None)
+                .expect("Failed to list deltas");
             deltas
         })
         .collect();

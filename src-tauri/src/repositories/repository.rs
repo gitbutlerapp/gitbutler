@@ -10,29 +10,18 @@ pub struct Repository {
     pub git_repository: git2::Repository,
 }
 
-impl Repository {
-    pub fn open(
-        projects_storage: &projects::Storage,
-        users_storage: &users::Storage,
-        project_id: &str,
-    ) -> Result<Self> {
-        let project = projects_storage
-            .get_project(project_id)
-            .with_context(|| "failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
-        let user = users_storage
-            .get()
-            .with_context(|| "failed to get user for project")?;
-        let git_repository =
-            git2::Repository::open(&project.path).with_context(|| "failed to open repository")?;
-        Self::new(project, git_repository, user)
+impl Clone for Repository {
+    fn clone(&self) -> Self {
+        Repository {
+            project: self.project.clone(),
+            git_repository: git2::Repository::open(&self.project.path).unwrap(),
+        }
     }
+}
 
-    pub fn new(
-        project: projects::Project,
-        git_repository: git2::Repository,
-        user: Option<users::User>,
-    ) -> Result<Self> {
+impl Repository {
+    pub fn new(project: projects::Project, user: Option<users::User>) -> Result<Self> {
+        let git_repository = git2::Repository::init(&project.path)?;
         init(&git_repository, &project, &user).with_context(|| "failed to init repository")?;
         Ok(Repository {
             project,

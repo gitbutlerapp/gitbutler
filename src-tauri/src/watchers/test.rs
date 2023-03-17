@@ -22,7 +22,7 @@ fn test_project() -> Result<repositories::Repository> {
         &[],
     )?;
     let project = projects::Project::from_path(path)?;
-    repositories::Repository::new(project.clone(), repo, None)
+    repositories::Repository::new(project.clone(), None)
 }
 
 #[test]
@@ -139,8 +139,14 @@ fn test_flow() {
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
-            let deltas_by_filepath =
-                deltas::list(&repo.git_repository, &repo.project, &reference, &session.id, None).unwrap();
+            let deltas_by_filepath = deltas::list(
+                &repo.git_repository,
+                &repo.project,
+                &reference,
+                &session.id,
+                None,
+            )
+            .unwrap();
             for deltas in deltas_by_filepath.values() {
                 deltas.iter().for_each(|delta| {
                     delta.operations.iter().for_each(|operation| {
