@@ -533,6 +533,7 @@
 										</div>
 									{/each}
 								</div>
+								
 								<div class="w-full">
 									<input
 										type="range"
@@ -542,34 +543,48 @@
 										bind:value={currentPlayerValue}
 									/>
 								</div>
+
 								<div class="playback-controller-ui mx-auto flex items-center gap-2">
-									<button on:click={decrementPlayerValue} class="playback-button-back group">
-										<svg xmlns="http://www.w3.org/2000/svg" class="icon-pointer h-6 w-6">
-											<path
-												fill-rule="evenodd"
-												clip-rule="evenodd"
-												d="M13.7101 16.3199C14.0948 16.7046 14.0955 17.3273 13.7117 17.711C13.3254 18.0974 12.7053 18.0939 12.3206 17.7092L5.37536 10.7639C5.18243 10.571 5.0867 10.3199 5.08703 10.0689C5.08802 9.81722 5.18374 9.56608 5.37536 9.37446L12.3206 2.4292C12.7055 2.04433 13.328 2.04384 13.7117 2.42739C14.0981 2.81374 14.0946 3.43396 13.7101 3.81851C13.4234 4.10516 7.80387 9.78937 7.52438 10.0689C9.59011 12.1473 11.637 14.2468 13.7101 16.3199Z"
+									<button on:click={decrementPlayerValue} 
+										class="playback-button-back group">
+										<svg 
+											width="20" 
+											height="20" 
+											viewBox="0 0 20 20" 
+											fill="none" 
+											xmlns="http://www.w3.org/2000/svg"
+											class="icon-pointer h-6 w-6"
+										>
+												<path 
+													fill-rule="evenodd" 
+													clip-rule="evenodd" 
+													d="M13.7101 16.32C14.0948 16.7047 14.0955 17.3274 13.7117 17.7111C13.3254 18.0975 12.7053 18.094 12.3206 17.7093L5.37536 10.7641C5.18243 10.5711 5.0867 10.32 5.08703 10.069C5.08802 9.81734 5.18374 9.56621 5.37536 9.37458L12.3206 2.42932C12.7055 2.04445 13.328 2.04396 13.7117 2.42751C14.0981 2.81386 14.0946 3.43408 13.7101 3.81863C13.4234 4.10528 7.80387 9.78949 7.52438 10.069C9.59011 12.1474 11.637 14.2469 13.7101 16.32Z" 
+													fill="none"
+													class="fill-zinc-400 group-hover:fill-zinc-100"
+												/>
+										</svg>
+									</button>
+
+									<button on:click={incrementPlayerValue} 
+										class="playback-button-forward group">
+										<svg 
+											width="20" 
+											height="20" 
+											viewBox="0 0 20 20" 
+											fill="none" 
+											xmlns="http://www.w3.org/2000/svg"
+											class="icon-pointer h-6 w-6"
+										>
+											<path 
+												fill-rule="evenodd" 
+												clip-rule="evenodd" 
+												d="M6.28991 16.32C5.90521 16.7047 5.90455 17.3274 6.28826 17.7111C6.67461 18.0975 7.29466 18.094 7.67938 17.7093L14.6246 10.7641C14.8176 10.5711 14.9133 10.32 14.913 10.069C14.912 9.81734 14.8163 9.56621 14.6246 9.37458L7.67938 2.42932C7.29451 2.04445 6.67197 2.04396 6.28826 2.42751C5.90192 2.81386 5.90537 3.43408 6.28991 3.81863C6.57656 4.10528 12.1961 9.78949 12.4756 10.069C10.4099 12.1474 8.36301 14.2469 6.28991 16.32Z" 
 												fill="none"
 												class="fill-zinc-400 group-hover:fill-zinc-100"
 											/>
 										</svg>
 									</button>
-									<button on:click={incrementPlayerValue} class="playback-button-forward group">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke-width="1.5"
-											stroke="currentColor"
-											class="icon-pointer h-6 w-6"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M3 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.688zM12.75 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062a1.125 1.125 0 01-1.683-.977V8.688z"
-											/>
-										</svg>
-									</button>
+
 									{#if interval}
 										<button on:click={stop}
 											><IconPlayerPauseFilled
