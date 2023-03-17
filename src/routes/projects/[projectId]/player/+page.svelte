@@ -12,7 +12,7 @@
 
 	const { sessions } = data;
 
-	let currentPlayerValue = 0;
+	let currentPlayerValue: number | null = null;
 	let showLatest = false;
 
 	const urlParams = new URLSearchParams(window.location.search);
@@ -141,7 +141,7 @@
 				}
 			});
 			setTimeout(() => {
-				currentPlayerValue = 1;
+				currentPlayerValue = 0;
 			}, 1000);
 		});
 	}
@@ -318,8 +318,29 @@
 	const start = (params: { direction: 1 | -1; speed: number }) => {
 		if (interval) clearInterval(interval);
 		interval = setInterval(() => {
-			currentPlayerValue += 1;
+			incrementPlayerValue();
 		}, oneSecond / params.speed);
+	};
+
+	const changePlayerValue = (amount: number) => {
+		if (currentPlayerValue !== null) {
+			currentPlayerValue += amount;
+			if (currentPlayerValue < 0) {
+				currentPlayerValue = 0;
+			} else if (currentPlaylist && currentPlayerValue >= currentPlaylist.editCount) {
+				currentPlayerValue = currentPlaylist.editCount - 1;
+			}
+		} else {
+			currentPlayerValue = 0;
+		}
+	};
+
+	const incrementPlayerValue = () => {
+		changePlayerValue(1);
+	};
+
+	const decrementPlayerValue = () => {
+		changePlayerValue(-1);
 	};
 
 	const speedUp = () => {
@@ -342,7 +363,9 @@
 	<div id="player-page" class="flex h-full w-full">
 		<div class="flex h-full w-full flex-col">
 			{#if fileFilter}
-				<div class="w-full p-2 font-mono text-lg">{fileFilter}</div>
+				<div class="w-full p-2 font-mono text-lg" on:click={() => (fileFilter = null)}>
+					{fileFilter}
+				</div>
 			{/if}
 			<div class="flex h-full w-full flex-row">
 				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
@@ -513,17 +536,13 @@
 								<input
 									type="range"
 									class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
-									max={currentPlaylist.editCount}
+									max={currentPlaylist.editCount - 1}
 									step="1"
 									bind:value={currentPlayerValue}
 								/>
 							</div>
 							<div class="mx-auto flex items-center gap-2">
-								<button
-									on:click={() => {
-										currentPlayerValue -= 1;
-									}}
-								>
+								<button on:click={decrementPlayerValue}>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										fill="none"
@@ -539,11 +558,7 @@
 										/>
 									</svg>
 								</button>
-								<button
-									on:click={() => {
-										currentPlayerValue += 1;
-									}}
-								>
+								<button on:click={incrementPlayerValue}>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										fill="none"
@@ -565,6 +580,7 @@
 									<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
 								{/if}
 								<button on:click={speedUp}>{speed}x</button>
+								<div>{currentPlayerValue}</div>
 							</div>
 						</div>
 					</div>
