@@ -36,8 +36,11 @@
 }
 
 .diff-line-spacer {
-	--override-spacer-background-color: rgb(0 0 255 / 10%);
+	--override-spacer-background-color: rgba(25, 25, 39, 0.4);
 
+	color: rgb(229, 231, 235);
 	text-align: center;
 	background-color: var(--override-spacer-background-color);
+	border-top: 1px solid rgba(25, 25, 39, 0.3);
+	border-bottom: 1px solid rgba(25, 25, 39, 0.3);
 }

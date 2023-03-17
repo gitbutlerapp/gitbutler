@@ -503,7 +503,7 @@
 						</div>
 
 						{#if currentEdit !== null}
-							<div id="info" class="absolute bottom-[64px] left-4 rounded-lg bg-zinc-800 p-2">
+							<div id="info" class="absolute bottom-[86px] left-4 rounded-lg bg-zinc-800 p-2">
 								<div class="flex flex-row justify-between space-x-2">
 									<div class="font-mono font-bold text-white">{currentEdit.filepath}</div>
 									<div>{new Date(currentEdit.delta.timestampMs).toLocaleString('en-US')}</div>
@@ -512,11 +512,11 @@
 
 							<div
 								id="controls"
-								class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2"
+								class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 								style="
 								border-width: 0.5px; 
-								-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
-								backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+								-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
+								backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
 								background-color: rgba(24, 24, 27, 0.60);
 								border: 0.5px solid rgba(63, 63, 70, 0.50);
 							"

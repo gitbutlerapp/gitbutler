@@ -89,8 +89,8 @@
 			row.type === RowType.Equal || row.type === RowType.Addition
 				? String(row.currentLineNumber)
 				: ''}
-		<div class="select-none pr-1 pl-2.5 text-right text-[#665c54]">{baseNumber}</div>
-		<div class="select-none pr-1 pl-2.5 text-right text-[#665c54]">{curNumber}</div>
+		<div class="select-none pr-1 pl-2.5 text-right text-[#8C8178]">{baseNumber}</div>
+		<div class="select-none pr-1 pl-2.5 text-right text-[#8C8178]">{curNumber}</div>
 		<div
 			class="diff-line-marker"
 			class:diff-line-addition={row.type === RowType.Addition}
