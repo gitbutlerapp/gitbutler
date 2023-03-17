@@ -7,8 +7,10 @@
 	import { IconCircleCancel } from '$lib/components/icons';
 	import type { Project } from '$lib/projects';
 	import tinykeys from 'tinykeys';
-	import type { CommandGroup } from './commands';
+	import type { CommandGroup, Command } from './commands';
 	import { Action, previousCommand, nextCommand, firstVisibleCommand } from './commands';
+	import type { ComponentType } from 'svelte';
+	import { default as RewindCommand } from './RewindCommand.svelte';
 
 	$: scopeToProject = $currentProject ? true : false;
 
@@ -26,6 +28,10 @@
 	) {
 		selection = firstVisibleCommand(commandGroups);
 	}
+	$: selectedCommand = commandGroups[selection[0]].commands[selection[1]];
+
+	let componentOfTriggeredCommand: ComponentType | undefined;
+	let triggeredCommand: Command | undefined;
 
 	$: commandGroups = [
 		{
@@ -42,6 +48,21 @@
 					visible: project.title.toLowerCase().includes(userInput?.toLowerCase())
 				};
 			})
+		},
+		{
+			name: 'Commands',
+			visible: scopeToProject,
+			commands: [
+				{
+					title: 'Replay',
+					description: 'Command',
+					selected: false,
+					action: {
+						component: RewindCommand
+					},
+					visible: 'replay'.includes(userInput?.toLowerCase())
+				}
+			]
 		}
 	] as CommandGroup[];
 
@@ -49,16 +70,24 @@
 		userInput = '';
 		scopeToProject = $currentProject ? true : false;
 		selection = [0, 0];
+		componentOfTriggeredCommand = undefined;
+		triggeredCommand = undefined;
 	};
 
-	const handleEnter = () => {
-		if (!commandGroups[0].visible || !commandGroups[0].commands[0].visible) {
+	const triggerCommand = () => {
+		if (
+			!commandGroups[selection[0]].visible ||
+			!commandGroups[selection[0]].commands[selection[1]].visible
+		) {
 			return;
 		}
-		const command = commandGroups[selection[0]].commands[selection[1]];
-		if (Action.isLink(command.action)) {
+		if (Action.isLink(selectedCommand.action)) {
 			toggleCommandPalette();
-			goto(command.action.href);
+			goto(selectedCommand.action.href);
+		} else if (Action.isActionInPalette(selectedCommand.action)) {
+			userInput = '';
+			componentOfTriggeredCommand = selectedCommand.action.component;
+			triggeredCommand = selectedCommand;
 		}
 	};
 
@@ -76,18 +105,24 @@
 	let unsubscribeKeyboardHandler: () => void;
 
 	onMount(() => {
-		// toggleCommandPalette(); // developmnet only
+		toggleCommandPalette(); // developmnet only
 		unsubscribeKeyboardHandler = tinykeys(window, {
 			'Meta+k': () => {
 				toggleCommandPalette();
 			},
 			Backspace: () => {
 				if (!userInput) {
-					scopeToProject = false;
+					if (triggeredCommand) {
+						// Untrigger command
+						componentOfTriggeredCommand = undefined;
+						triggeredCommand = undefined;
+					} else {
+						scopeToProject = false;
+					}
 				}
 			},
 			Enter: () => {
-				handleEnter();
+				triggerCommand();
 			},
 			ArrowDown: () => {
 				selection = nextCommand(commandGroups, selection);
@@ -129,6 +164,13 @@
 						<span class="ml-1 text-lg">/</span>
 					</div>
 				{/if}
+				<!-- Selected command -->
+				{#if scopeToProject && triggeredCommand}
+					<div class="mr-1 flex items-center">
+						<span class="font-semibold text-zinc-300">{triggeredCommand?.title}</span>
+						<span class="ml-1 text-lg">/</span>
+					</div>
+				{/if}
 				<!-- Search input -->
 				<div class="mr-1 flex-grow">
 					<!-- svelte-ignore a11y-autofocus -->
@@ -137,9 +179,11 @@
 						bind:value={userInput}
 						type="text"
 						autofocus
-						placeholder={scopeToProject
+						placeholder={!scopeToProject
+							? 'Search for repositories'
+							: !componentOfTriggeredCommand
 							? 'Search for commands, files and code changes...'
-							: 'Search for repositories'}
+							: ''}
 					/>
 				</div>
 				<button on:click={toggleCommandPalette} class="rounded p-2 hover:bg-zinc-600">
@@ -149,34 +193,54 @@
 		</div>
 		<!-- Main part -->
 		<div>
-			{#each commandGroups as group, groupIdx}
-				{#if group.visible}
-					<div class="mx-2 cursor-default select-none">
-						<p class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300/80">
-							{group.name}
-						</p>
-						<ul class="">
-							{#each group.commands as command, commandIdx}
-								{#if command.visible}
-									{#if Action.isLink(command.action)}
-										<a
-											on:mouseover={() => (selection = [groupIdx, commandIdx])}
-											on:focus={() => (selection = [groupIdx, commandIdx])}
-											href={command.action.href}
-											class="{selection[0] === groupIdx && selection[1] === commandIdx
-												? 'bg-zinc-700/70'
-												: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
-										>
-											<span class="flex-grow">{command.title}</span>
-											<span>{command.description}</span>
-										</a>
+			{#if componentOfTriggeredCommand}
+				<svelte:component this={componentOfTriggeredCommand} {userInput} />
+			{:else}
+				{#each commandGroups as group, groupIdx}
+					{#if group.visible}
+						<div class="mx-2 cursor-default select-none">
+							<p
+								class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300/80"
+							>
+								{group.name}
+							</p>
+							<ul class="">
+								{#each group.commands as command, commandIdx}
+									{#if command.visible}
+										{#if Action.isLink(command.action)}
+											<a
+												on:mouseover={() => (selection = [groupIdx, commandIdx])}
+												on:focus={() => (selection = [groupIdx, commandIdx])}
+												href={command.action.href}
+												class="{selection[0] === groupIdx && selection[1] === commandIdx
+													? 'bg-zinc-700/70'
+													: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
+											>
+												<span class="flex-grow">{command.title}</span>
+												<span>{command.description}</span>
+											</a>
+										{:else if Action.isActionInPalette(command.action)}
+											<div
+												on:mouseover={() => (selection = [groupIdx, commandIdx])}
+												on:focus={() => (selection = [groupIdx, commandIdx])}
+												on:click={triggerCommand}
+												class="{selection[0] === groupIdx && selection[1] === commandIdx
+													? 'bg-zinc-700/70'
+													: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
+											>
+												<span class="flex-grow">{command.title}</span>
+												<span>{command.description}</span>
+											</div>
+										{/if}
 									{/if}
-								{/if}
-							{/each}
-						</ul>
-					</div>
-				{/if}
-			{/each}
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				{/each}
+			{/if}
 		</div>
 	</div>
 </dialog>
+{scopeToProject}
+{selection}
