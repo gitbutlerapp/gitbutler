@@ -21,6 +21,7 @@
 
 	$: {
 		stopProcessing = true;
+		processedResults = [];
 		if ($searchTerm) {
 			fetchResults($project?.id ?? '', $searchTerm);
 		}
