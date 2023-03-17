@@ -10,7 +10,7 @@
 	export let doc: string;
 	export let deltas: Delta[];
 	export let filepath: string;
-	export let context: number = 1000;
+	export let paddingLines = 10000;
 
 	const applyDeltas = (text: string, deltas: Delta[]) => {
 		const operations = deltas.flatMap((delta) => delta.operations);
@@ -30,11 +30,17 @@
 		return text;
 	};
 
+	const sanitize = (text: string) => {
+		var element = document.createElement('div');
+		element.innerText = text;
+		return element.innerHTML;
+	};
+
 	$: left = deltas.length > 0 ? applyDeltas(doc, deltas.slice(0, deltas.length - 1)) : doc;
 	$: right = deltas.length > 0 ? applyDeltas(left, deltas.slice(deltas.length - 1)) : left;
 	$: diff = lineDiff(left.split('\n'), right.split('\n'));
 
-	$: diffRows = buildDiffRows(diff, context);
+	$: diffRows = buildDiffRows(diff, { paddingLines: paddingLines });
 	$: originalHighlighter = create(diffRows.originalLines.join('\n'), filepath);
 	$: originalMap = documentMap(diffRows.originalLines);
 	$: currentHighlighter = create(diffRows.currentLines.join('\n'), filepath);
@@ -44,21 +50,18 @@
 		if (row.type === RowType.Spacer) {
 			return row.tokens.map((tok) => `${tok.text}`);
 		}
+
 		const [doc, startPos] =
 			row.type === RowType.Deletion
 				? [originalHighlighter, originalMap.get(row.originalLineNumber) as number]
 				: [currentHighlighter, currentMap.get(row.currentLineNumber) as number];
+
 		const content: string[] = [];
 		let pos = startPos;
 
-		const sanitize = (text: string) => {
-			var element = document.createElement('div');
-			element.innerText = text;
-			return element.innerHTML;
-		};
-
 		for (const token of row.tokens) {
 			let tokenContent = '';
+
 			doc.highlightRange(pos, pos + token.text.length, (text, style) => {
 				tokenContent += style ? `<span class=${style}>${sanitize(text)}</span>` : sanitize(text);
 			});
@@ -68,8 +71,10 @@
 					? `<span class=${token.className}>${tokenContent}</span>`
 					: `${tokenContent}`
 			);
+
 			pos += token.text.length;
 		}
+
 		return content;
 	};
 </script>

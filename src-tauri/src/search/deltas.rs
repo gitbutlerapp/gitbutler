@@ -11,7 +11,7 @@ use std::{
 };
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
 
-const CURRENT_VERSION: u64 = 2; // should not decrease
+const CURRENT_VERSION: u64 = 4; // should not decrease
 
 #[derive(Clone)]
 struct MetaStorage {
@@ -27,6 +27,7 @@ impl MetaStorage {
 
     pub fn get(&self, project_id: &str, session_hash: &str) -> Result<Option<u64>> {
         let filepath = Path::new("indexes")
+            .join(format!("v{}", CURRENT_VERSION))
             .join("meta")
             .join(project_id)
             .join(session_hash);
@@ -39,6 +40,7 @@ impl MetaStorage {
 
     pub fn set(&self, project_id: &str, session_hash: &str, version: u64) -> Result<()> {
         let filepath = Path::new("indexes")
+            .join(format!("v{}", CURRENT_VERSION))
             .join("meta")
             .join(project_id)
             .join(session_hash);
@@ -59,7 +61,10 @@ pub struct Deltas {
 
 impl Deltas {
     pub fn at(path: PathBuf) -> Result<Self> {
-        let dir = path.join("indexes").join("deltas");
+        let dir = path
+            .join("indexes")
+            .join(format!("v{}", CURRENT_VERSION))
+            .join("deltas");
         fs::create_dir_all(&dir)?;
 
         let mmap_dir = MmapDirectory::open(dir)?;
@@ -165,7 +170,7 @@ fn build_schema() -> schema::Schema {
     schema_builder.add_text_field("session_id", schema::STORED);
     schema_builder.add_u64_field("index", schema::STORED);
     schema_builder.add_text_field("file_path", schema::TEXT | schema::STORED | schema::FAST);
-    schema_builder.add_text_field("diff", schema::TEXT);
+    schema_builder.add_text_field("diff", schema::TEXT | schema::STORED);
     schema_builder.add_bool_field("is_addition", schema::FAST);
     schema_builder.add_bool_field("is_deletion", schema::FAST);
     schema_builder.add_u64_field("timestamp_ms", schema::INDEXED | schema::FAST);
@@ -181,6 +186,7 @@ pub struct SearchResult {
     pub session_id: String,
     pub file_path: String,
     pub index: u64,
+    pub highlighted: Vec<String>,
 }
 
 fn index_session(
@@ -191,7 +197,7 @@ fn index_session(
     project: &projects::Project,
 ) -> Result<()> {
     let reference = repo.find_reference(&project.refname())?;
-    let deltas = deltas::list(repo, project, &reference, &session.id)?;
+    let deltas = deltas::list(repo, project, &reference, &session.id, None)?;
     if deltas.is_empty() {
         return Ok(());
     }
@@ -280,7 +286,10 @@ fn index_delta(
             ChangeTag::Insert => change.as_str(),
             ChangeTag::Equal => None,
         })
-        .collect::<String>();
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<&str>>()
+        .join(" ");
 
     doc.add_text(index.schema().get_field("diff").unwrap(), changes);
 
@@ -328,10 +337,17 @@ pub fn search(
             .order_by_u64_field(index.schema().get_field("timestamp_ms").unwrap()),
     )?;
 
+    let snippet_generator = tantivy::SnippetGenerator::create(
+        &searcher,
+        &*query,
+        index.schema().get_field("diff").unwrap(),
+    )?;
+
     let results = top_docs
         .iter()
         .map(|(_score, doc_address)| {
             let retrieved_doc = searcher.doc(*doc_address)?;
+
             let project_id = retrieved_doc
                 .get_first(index.schema().get_field("project_id").unwrap())
                 .unwrap()
@@ -352,10 +368,18 @@ pub fn search(
                 .unwrap()
                 .as_u64()
                 .unwrap();
+            let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
+            let fragment = snippet.fragment();
+            let highlighted: Vec<String> = snippet
+                .highlighted()
+                .iter()
+                .map(|range| fragment[range.start..range.end].to_string())
+                .collect();
             Ok(SearchResult {
                 project_id: project_id.to_string(),
                 file_path: file_path.to_string(),
                 session_id: session_id.to_string(),
+                highlighted,
                 index,
             })
         })

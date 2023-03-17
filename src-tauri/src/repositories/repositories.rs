@@ -77,12 +77,17 @@ impl Repository {
         )
     }
 
-    pub fn deltas(&self, session_id: &str) -> Result<HashMap<String, Vec<deltas::Delta>>> {
+    pub fn deltas(
+        &self,
+        session_id: &str,
+        paths: Option<Vec<&str>>,
+    ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
         deltas::list(
             &self.git_repository,
             &self.project,
             &self.reference()?,
             session_id,
+            paths,
         )
     }
 

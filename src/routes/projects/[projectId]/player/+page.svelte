@@ -250,7 +250,7 @@
 				let playlist: VideoChapter[] = [];
 				playlist.push(latestChapter);
 
-				if (latestChapter.edits.length < 20) {
+				if (latestChapter && latestChapter.edits.length < 20) {
 					// if there are less than 20 edits, get the previous chapter
 					latestChapter = currentPlaylist.chapters[currentPlaylist.chapters.length - 2];
 					if (latestChapter !== undefined) {
@@ -492,7 +492,7 @@
 										doc={currentEdit.doc}
 										deltas={currentEdit.ops}
 										filepath={currentEdit.filepath}
-										context={fullContext ? 100000 : context}
+										paddingLines={fullContext ? 100000 : context}
 									/>
 								{:else}
 									<div class="mt-8 text-center">Select a playlist</div>
@@ -542,24 +542,19 @@
 										bind:value={currentPlayerValue}
 									/>
 								</div>
-								<div class="mx-auto flex items-center gap-2">
-									<button on:click={decrementPlayerValue}>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke-width="1.5"
-											stroke="currentColor"
-											class="icon-pointer h-6 w-6"
-										>
+								<div class="playback-controller-ui mx-auto flex items-center gap-2">
+									<button on:click={decrementPlayerValue} class="playback-button-back group">
+										<svg xmlns="http://www.w3.org/2000/svg" class="icon-pointer h-6 w-6">
 											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M21 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953l7.108-4.062A1.125 1.125 0 0121 8.688v8.123zM11.25 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953L9.567 7.71a1.125 1.125 0 011.683.977v8.123z"
+												fill-rule="evenodd"
+												clip-rule="evenodd"
+												d="M13.7101 16.3199C14.0948 16.7046 14.0955 17.3273 13.7117 17.711C13.3254 18.0974 12.7053 18.0939 12.3206 17.7092L5.37536 10.7639C5.18243 10.571 5.0867 10.3199 5.08703 10.0689C5.08802 9.81722 5.18374 9.56608 5.37536 9.37446L12.3206 2.4292C12.7055 2.04433 13.328 2.04384 13.7117 2.42739C14.0981 2.81374 14.0946 3.43396 13.7101 3.81851C13.4234 4.10516 7.80387 9.78937 7.52438 10.0689C9.59011 12.1473 11.637 14.2468 13.7101 16.3199Z"
+												fill="none"
+												class="fill-zinc-400 group-hover:fill-zinc-100"
 											/>
 										</svg>
 									</button>
-									<button on:click={incrementPlayerValue}>
+									<button on:click={incrementPlayerValue} class="playback-button-forward group">
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											fill="none"
@@ -576,9 +571,15 @@
 										</svg>
 									</button>
 									{#if interval}
-										<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
+										<button on:click={stop}
+											><IconPlayerPauseFilled
+												class="playback-button-play icon-pointer h-6 w-6"
+											/></button
+										>
 									{:else}
-										<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
+										<button on:click={play}
+											><IconPlayerPlayFilled class="icon-pointer h-6 w-6" /></button
+										>
 									{/if}
 									<button on:click={speedUp}>{speed}x</button>
 									<div>

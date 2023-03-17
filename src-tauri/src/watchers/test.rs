@@ -140,7 +140,7 @@ fn test_flow() {
         let mut operations: Vec<Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
             let deltas_by_filepath =
-                deltas::list(&repo.git_repository, &repo.project, &reference, &session.id).unwrap();
+                deltas::list(&repo.git_repository, &repo.project, &reference, &session.id, None).unwrap();
             for deltas in deltas_by_filepath.values() {
                 deltas.iter().for_each(|delta| {
                     delta.operations.iter().for_each(|operation| {

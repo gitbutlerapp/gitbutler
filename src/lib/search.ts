@@ -6,8 +6,7 @@ export type SearchResult = {
 	filePath: string;
 	// index of the delta in the session.
 	index: number;
-	timestampMsGte?: number;
-	timestampMsLt?: number;
+	highlighted: string[]; // contains the highlighted text
 };
 
 export const search = (params: {
