@@ -11,6 +11,7 @@
 	import { Action, previousCommand, nextCommand, firstVisibleCommand } from './commands';
 	import type { ComponentType } from 'svelte';
 	import { default as RewindCommand } from './RewindCommand.svelte';
+	import { default as HelpCommand } from './HelpCommand.svelte';
 	import { invoke } from '@tauri-apps/api';
 
 	const matchFiles = (params: { projectId: string; matchPattern: string }) =>
@@ -57,6 +58,13 @@
 		selection = firstVisibleCommand(commandGroups);
 	}
 	$: selectedCommand = commandGroups[selection[0]].commands[selection[1]];
+	$: {
+		const element = document.getElementById(`${selection[0]}-${selection[1]}`);
+		if (element) {
+			// TODO: this works, but it's not standard
+			element.scrollIntoViewIfNeeded(false);
+		}
+	}
 
 	let componentOfTriggeredCommand: ComponentType | undefined;
 	let triggeredCommand: Command | undefined;
@@ -82,19 +90,33 @@
 			visible: scopeToProject,
 			commands: [
 				{
-					title: 'Replay',
+					title: 'Replay History',
 					description: 'Command',
 					selected: false,
 					action: {
 						component: RewindCommand
 					},
 					visible: 'replay'.includes(userInput?.toLowerCase())
+				},
+				{
+					title: 'Help',
+					description: 'Command',
+					selected: false,
+					action: {
+						component: HelpCommand
+					},
+					visible: 'help'.includes(userInput?.toLowerCase())
 				}
 			]
 		},
 		{
 			name: 'Files',
-			visible: scopeToProject && matchingFiles.length > 0,
+			visible: scopeToProject,
+			description: !userInput
+				? 'type part of a file name'
+				: matchingFiles.length === 0
+				? `no files containing '${userInput}'`
+				: '',
 			commands: matchingFiles.map((file) => {
 				return {
 					title: file,
@@ -247,7 +269,10 @@
 							<p
 								class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300/80"
 							>
-								{group.name}
+								<span>{group.name}</span>
+								{#if group.description}
+									<span class="ml-2 font-light italic text-zinc-300/60">({group.description})</span>
+								{/if}
 							</p>
 							<ul class="">
 								{#each group.commands as command, commandIdx}
@@ -256,6 +281,7 @@
 											<a
 												on:mouseover={() => (selection = [groupIdx, commandIdx])}
 												on:focus={() => (selection = [groupIdx, commandIdx])}
+												id={`${groupIdx}-${commandIdx}`}
 												href={command.action.href}
 												class="{selection[0] === groupIdx && selection[1] === commandIdx
 													? 'bg-zinc-700/70'
@@ -287,5 +313,3 @@
 		</div>
 	</div>
 </dialog>
-{selection}
-{matchingFiles.length}

@@ -1,8 +1,25 @@
 <script lang="ts">
-	import type { Command } from './commands';
 	import { Action, firstVisibleSubCommand, nextSubCommand, previousSubCommand } from './commands';
 	import tinykeys from 'tinykeys';
 	import { onDestroy, onMount } from 'svelte';
+	import { open } from '@tauri-apps/api/shell';
+	import { goto } from '$app/navigation';
+
+	let selection = 0;
+
+	$: selectedCommand = innerCommands[selection];
+
+	const triggerCommand = () => {
+		if (!innerCommands[selection].visible) {
+			return;
+		}
+		if (Action.isLink(selectedCommand.action)) {
+			console.log('triggerCommand');
+			// toggleCommandPalette();
+			// goto(selectedCommand.action.href);
+			open(selectedCommand.action.href);
+		}
+	};
 
 	let unsubscribeKeyboardHandler: () => void;
 
@@ -19,6 +36,9 @@
 			},
 			'Control+p': () => {
 				selection = previousSubCommand(innerCommands, selection);
+			},
+			Enter: () => {
+				triggerCommand();
 			}
 		});
 	});
@@ -31,71 +51,48 @@
 
 	$: innerCommands = [
 		{
-			title: 'Last 1 hour',
-			description: 'Command',
+			title: 'Open Documentation',
+			description: 'External link',
 			selected: false,
 			action: {
-				href: '/'
+				href: 'https://docs.gitbutler.com'
 			},
-			visible: 'last 1 hour'.includes(userInput?.toLowerCase())
+			visible: 'documentation'.includes(userInput?.toLowerCase())
 		},
 		{
-			title: 'Last 3 hours',
-			description: 'Command',
+			title: 'Join Discord Server',
+			description: 'External link',
 			selected: false,
 			action: {
-				href: '/'
+				href: 'https://discord.gg/MmFkmaJ42D'
 			},
-			visible: 'last 3 hours'.includes(userInput?.toLowerCase())
+			visible: 'discord server'.includes(userInput?.toLowerCase())
 		},
 		{
-			title: 'Last 6 hours',
-			description: 'Command',
+			title: 'Email Support',
+			description: 'External link',
 			selected: false,
 			action: {
-				href: '/'
+				href: 'mailto:hello@gitbutler.com'
 			},
-			visible: 'last 6 hours'.includes(userInput?.toLowerCase())
-		},
-		{
-			title: 'Yesterday morning',
-			description: 'Command',
-			selected: false,
-			action: {
-				href: '/'
-			},
-			visible: 'yesterday morning'.includes(userInput?.toLowerCase())
-		},
-		{
-			title: 'Yesterday afternoon',
-			description: 'Command',
-			selected: false,
-			action: {
-				href: '/'
-			},
-			visible: 'yesterday afternoon'.includes(userInput?.toLowerCase())
+			visible: 'discord server'.includes(userInput?.toLowerCase())
 		}
-	] as Command[];
-
-	let selection = 0;
-
-	$: if (!innerCommands[selection]?.visible) {
-		selection = firstVisibleSubCommand(innerCommands);
-	}
+	];
 </script>
 
 <div class="mx-2 cursor-default select-none">
-	<p class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300/80">
-		Replay...
-	</p>
+	<p class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300/80">Help</p>
 
 	<ul class="">
 		{#each innerCommands as command, commandIdx}
 			{#if command.visible}
 				{#if Action.isLink(command.action)}
 					<a
+						target="_blank"
+						rel="noreferrer"
 						on:mouseover={() => (selection = commandIdx)}
 						on:focus={() => (selection = commandIdx)}
+						on:click={triggerCommand}
 						href={command.action.href}
 						class="{selection === commandIdx
 							? 'bg-zinc-700/70'

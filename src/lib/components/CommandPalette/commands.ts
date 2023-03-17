@@ -20,6 +20,7 @@ export type Command = {
 };
 export type CommandGroup = {
 	name: string;
+	description?: string;
 	visible: boolean;
 	commands: Command[];
 };
@@ -78,13 +79,9 @@ export const nextCommand = (
 		if (firstVisibleCommandIdx !== -1) {
 			// Found next visible command in the next group
 			return [selection[0] + 1 + nextVisibleGroupIndex, firstVisibleCommandIdx];
-		} else {
-			// Found next visible group but no visible commands in it
-			return [selection[0] + 1 + nextVisibleGroupIndex, 0];
 		}
 	}
-	// Loop back to the first visible command
-	return firstVisibleCommand(commandGroups);
+	return selection;
 };
 
 export const previousCommand = (
@@ -118,12 +115,37 @@ export const previousCommand = (
 		if (previousVisibleCommandIndex !== -1) {
 			// Found previous visible command in the previous group
 			return [selection[0] - 1 - previousVisibleGroupIndex, previousVisibleCommandIndex];
-		} else {
-			// Found previous visible group but no visible commands in it
-			return [selection[0] - 1 - previousVisibleGroupIndex, 0];
 		}
 	}
-	// Loop back to the last visible command
-	console.log('lastVisibleCommand(commandGroups)');
-	return lastVisibleCommand(commandGroups);
+	return selection;
+};
+
+export const firstVisibleSubCommand = (commands: Command[]): number => {
+	const firstVisibleGroup = commands.findIndex((command) => command.visible);
+	if (firstVisibleGroup === -1) {
+		return 0;
+	}
+	return firstVisibleGroup;
+};
+
+export const nextSubCommand = (commands: Command[], selection: number): number => {
+	const nextVisibleCommandIndex = commands
+		.slice(selection + 1)
+		.findIndex((command) => command.visible);
+
+	if (nextVisibleCommandIndex !== -1) {
+		return selection + 1 + nextVisibleCommandIndex;
+	}
+	return selection;
+};
+
+export const previousSubCommand = (commands: Command[], selection: number): number => {
+	const previousVisibleCommandIndex = commands
+		.slice(0, selection)
+		.reverse()
+		.findIndex((command) => command.visible);
+	if (previousVisibleCommandIndex !== -1) {
+		return selection - 1 - previousVisibleCommandIndex;
+	}
+	return selection;
 };
