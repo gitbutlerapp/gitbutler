@@ -11,7 +11,7 @@ use std::{
 };
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
 
-const CURRENT_VERSION: u64 = 3; // should not decrease
+const CURRENT_VERSION: u64 = 4; // should not decrease
 
 #[derive(Clone)]
 struct MetaStorage {
@@ -286,7 +286,10 @@ fn index_delta(
             ChangeTag::Insert => change.as_str(),
             ChangeTag::Equal => None,
         })
-        .collect::<String>();
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<&str>>()
+        .join(" ");
 
     doc.add_text(index.schema().get_field("diff").unwrap(), changes);
 
