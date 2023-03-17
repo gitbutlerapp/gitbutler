@@ -544,58 +544,69 @@
 									/>
 								</div>
 
-								<div class="playback-controller-ui mx-auto flex w-full items-center gap-2">
-									<button on:click={decrementPlayerValue} class="playback-button-back group">
-										<svg
-											width="20"
-											height="20"
-											viewBox="0 0 20 20"
-											fill="none"
-											xmlns="http://www.w3.org/2000/svg"
-											class="icon-pointer h-6 w-6"
-										>
-											<path
-												fill-rule="evenodd"
-												clip-rule="evenodd"
-												d="M13.7101 16.32C14.0948 16.7047 14.0955 17.3274 13.7117 17.7111C13.3254 18.0975 12.7053 18.094 12.3206 17.7093L5.37536 10.7641C5.18243 10.5711 5.0867 10.32 5.08703 10.069C5.08802 9.81734 5.18374 9.56621 5.37536 9.37458L12.3206 2.42932C12.7055 2.04445 13.328 2.04396 13.7117 2.42751C14.0981 2.81386 14.0946 3.43408 13.7101 3.81863C13.4234 4.10528 7.80387 9.78949 7.52438 10.069C9.59011 12.1474 11.637 14.2469 13.7101 16.32Z"
-												fill="none"
-												class="fill-zinc-400 group-hover:fill-zinc-100"
-											/>
-										</svg>
-									</button>
+								<div class="playback-controller-ui mx-auto flex w-full items-center gap-2 justify-between">
+									<div class="left-side flex space-x-8">
+										<div class="play-button-button-container">
+											{#if interval}
+											<button on:click={stop}
+												><IconPlayerPauseFilled
+													class="playback-button-play icon-pointer h-6 w-6"
+												/></button
+											>
+											{:else}
+												<button on:click={play}
+													><IconPlayerPlayFilled class="icon-pointer h-6 w-6" /></button
+												>
+											{/if}
+										</div>
 
-									<button on:click={incrementPlayerValue} class="playback-button-forward group">
-										<svg
-											width="20"
-											height="20"
-											viewBox="0 0 20 20"
-											fill="none"
-											xmlns="http://www.w3.org/2000/svg"
-											class="icon-pointer h-6 w-6"
-										>
-											<path
-												fill-rule="evenodd"
-												clip-rule="evenodd"
-												d="M6.28991 16.32C5.90521 16.7047 5.90455 17.3274 6.28826 17.7111C6.67461 18.0975 7.29466 18.094 7.67938 17.7093L14.6246 10.7641C14.8176 10.5711 14.9133 10.32 14.913 10.069C14.912 9.81734 14.8163 9.56621 14.6246 9.37458L7.67938 2.42932C7.29451 2.04445 6.67197 2.04396 6.28826 2.42751C5.90192 2.81386 5.90537 3.43408 6.28991 3.81863C6.57656 4.10528 12.1961 9.78949 12.4756 10.069C10.4099 12.1474 8.36301 14.2469 6.28991 16.32Z"
-												fill="none"
-												class="fill-zinc-400 group-hover:fill-zinc-100"
-											/>
-										</svg>
-									</button>
 
-									{#if interval}
-										<button on:click={stop}
-											><IconPlayerPauseFilled
-												class="playback-button-play icon-pointer h-6 w-6"
-											/></button
-										>
-									{:else}
-										<button on:click={play}
-											><IconPlayerPlayFilled class="icon-pointer h-6 w-6" /></button
-										>
-									{/if}
-									<button on:click={speedUp}>{speed}x</button>
-									<div class="align-center flex space-x-2">
+
+										<div class="back-forward-button-container ">
+											<button on:click={decrementPlayerValue} class="playback-button-back group">
+												<svg
+													width="20"
+													height="20"
+													viewBox="0 0 20 20"
+													fill="none"
+													xmlns="http://www.w3.org/2000/svg"
+													class="icon-pointer h-6 w-6"
+												>
+													<path
+														fill-rule="evenodd"
+														clip-rule="evenodd"
+														d="M13.7101 16.32C14.0948 16.7047 14.0955 17.3274 13.7117 17.7111C13.3254 18.0975 12.7053 18.094 12.3206 17.7093L5.37536 10.7641C5.18243 10.5711 5.0867 10.32 5.08703 10.069C5.08802 9.81734 5.18374 9.56621 5.37536 9.37458L12.3206 2.42932C12.7055 2.04445 13.328 2.04396 13.7117 2.42751C14.0981 2.81386 14.0946 3.43408 13.7101 3.81863C13.4234 4.10528 7.80387 9.78949 7.52438 10.069C9.59011 12.1474 11.637 14.2469 13.7101 16.32Z"
+														fill="none"
+														class="fill-zinc-400 group-hover:fill-zinc-100"
+													/>
+												</svg>
+											</button>
+
+											<button on:click={incrementPlayerValue} class="playback-button-forward group">
+												<svg
+													width="20"
+													height="20"
+													viewBox="0 0 20 20"
+													fill="none"
+													xmlns="http://www.w3.org/2000/svg"
+													class="icon-pointer h-6 w-6"
+												>
+													<path
+														fill-rule="evenodd"
+														clip-rule="evenodd"
+														d="M6.28991 16.32C5.90521 16.7047 5.90455 17.3274 6.28826 17.7111C6.67461 18.0975 7.29466 18.094 7.67938 17.7093L14.6246 10.7641C14.8176 10.5711 14.9133 10.32 14.913 10.069C14.912 9.81734 14.8163 9.56621 14.6246 9.37458L7.67938 2.42932C7.29451 2.04445 6.67197 2.04396 6.28826 2.42751C5.90192 2.81386 5.90537 3.43408 6.28991 3.81863C6.57656 4.10528 12.1961 9.78949 12.4756 10.069C10.4099 12.1474 8.36301 14.2469 6.28991 16.32Z"
+														fill="none"
+														class="fill-zinc-400 group-hover:fill-zinc-100"
+													/>
+												</svg>
+											</button>
+										</div>
+
+
+										<button on:click={speedUp}>{speed}x</button>
+									</div>
+
+									<div class="align-center flex gap-2 flex-row-reverse">
 										<button class="checkbox-button ">
 											<label
 												for="full-context-checkbox"
@@ -634,7 +645,11 @@
 											</label>
 										</button>
 										{#if !fullContext}
-											<input type="number" bind:value={context} />
+											<input 
+												type="number" 
+												bind:value={context} 
+												class="pl-2 pr-1 p-2 rounded w-14"
+											/>
 										{/if}
 									</div>
 								</div>
