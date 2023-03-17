@@ -648,7 +648,7 @@
 											<input 
 												type="number" 
 												bind:value={context} 
-												class="pl-2 pr-1 p-2 rounded w-14"
+												class="pl-2 pr-1 py-1 rounded w-14"
 											/>
 										{/if}
 									</div>
