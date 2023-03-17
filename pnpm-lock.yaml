@@ -11,6 +11,7 @@ specifiers:
   '@codemirror/lang-markdown': ^6.1.0
   '@codemirror/lang-php': ^6.0.1
   '@codemirror/lang-python': ^6.1.2
+  '@codemirror/lang-rust': ^6.0.1
   '@codemirror/lang-vue': ^0.1.1
   '@codemirror/lang-wast': ^6.0.1
   '@codemirror/lang-xml': ^6.0.2
@@ -71,6 +72,7 @@ dependencies:
   '@codemirror/lang-markdown': 6.1.0
   '@codemirror/lang-php': 6.0.1
   '@codemirror/lang-python': 6.1.2_252h5dwvsiu2pnu2vr7ql3rya4
+  '@codemirror/lang-rust': 6.0.1
   '@codemirror/lang-vue': 0.1.1
   '@codemirror/lang-wast': 6.0.1
   '@codemirror/lang-xml': 6.0.2_@codemirror+view@6.9.2
@@ -228,6 +230,13 @@ packages:
       - '@codemirror/state'
       - '@codemirror/view'
       - '@lezer/common'
+    dev: false
+
+  /@codemirror/lang-rust/6.0.1:
+    resolution: {integrity: sha512-344EMWFBzWArHWdZn/NcgkwMvZIWUR1GEBdwG8FEp++6o6vT6KL9V7vGs2ONsKxxFUPXKI0SPcWhyYyl2zPYxQ==}
+    dependencies:
+      '@codemirror/language': 6.6.0
+      '@lezer/rust': 1.0.0
     dev: false
 
   /@codemirror/lang-vue/0.1.1:
@@ -618,6 +627,13 @@ packages:
 
   /@lezer/python/1.1.3:
     resolution: {integrity: sha512-rUdt5/H8JjVY3YIROZF2ZNUMx7eYB7h0cmC8c4TfkgJt4xcn6vLpjCOCk1usP4vV3YfMC+VDB786dKjJ6tL5Hw==}
+    dependencies:
+      '@lezer/highlight': 1.1.3
+      '@lezer/lr': 1.3.3
+    dev: false
+
+  /@lezer/rust/1.0.0:
+    resolution: {integrity: sha512-IpGAxIjNxYmX9ra6GfQTSPegdCAWNeq23WNmrsMMQI7YNSvKtYxO4TX5rgZUmbhEucWn0KTBMeDEPXg99YKtTA==}
     dependencies:
       '@lezer/highlight': 1.1.3
       '@lezer/lr': 1.3.3

@@ -23,6 +23,7 @@
 		"@codemirror/lang-markdown": "^6.1.0",
 		"@codemirror/lang-php": "^6.0.1",
 		"@codemirror/lang-python": "^6.1.2",
+		"@codemirror/lang-rust": "^6.0.1",
 		"@codemirror/lang-vue": "^0.1.1",
 		"@codemirror/lang-wast": "^6.0.1",
 		"@codemirror/lang-xml": "^6.0.2",

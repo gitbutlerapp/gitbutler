@@ -18,6 +18,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { wast } from '@codemirror/lang-wast';
 import { svelte } from '@replit/codemirror-lang-svelte';
 import { vue } from '@codemirror/lang-vue';
+import { rust } from '@codemirror/lang-rust';
 
 const t = tags;
 
@@ -167,6 +168,9 @@ export function languageFromFilename(filename: string): LanguageSupport | null {
 
 		case 'vue':
 			return vue();
+
+		case 'rs':
+			return rust();
 
 		default:
 			return null;

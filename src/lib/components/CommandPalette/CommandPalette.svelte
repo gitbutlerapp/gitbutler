@@ -124,13 +124,13 @@
 			<div class="ml-4 mr-2 flex flex-grow items-center">
 				<!-- Project scope -->
 				{#if scopeToProject}
-					<div class="flex items-center mr-1">
+					<div class="mr-1 flex items-center">
 						<span class="font-semibold text-zinc-300">{$currentProject?.title}</span>
 						<span class="ml-1 text-lg">/</span>
 					</div>
 				{/if}
 				<!-- Search input -->
-				<div class="flex-grow mr-1">
+				<div class="mr-1 flex-grow">
 					<!-- svelte-ignore a11y-autofocus -->
 					<input
 						class="w-full bg-transparent text-zinc-300 focus:outline-none"
@@ -142,7 +142,7 @@
 							: 'Search for repositories'}
 					/>
 				</div>
-				<button on:click={toggleCommandPalette} class="hover:bg-zinc-600 p-2 rounded">
+				<button on:click={toggleCommandPalette} class="rounded p-2 hover:bg-zinc-600">
 					<IconCircleCancel class="fill-zinc-400" />
 				</button>
 			</div>
@@ -152,7 +152,7 @@
 			{#each commandGroups as group, groupIdx}
 				{#if group.visible}
 					<div class="mx-2 cursor-default select-none">
-						<p class="mx-2 py-2 text-sm text-zinc-300/80 font-semibold select-none cursor-default">
+						<p class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300/80">
 							{group.name}
 						</p>
 						<ul class="">
@@ -165,7 +165,7 @@
 											href={command.action.href}
 											class="{selection[0] === groupIdx && selection[1] === commandIdx
 												? 'bg-zinc-700/70'
-												: ''} px-2 flex rounded-lg p-2 items-center cursor-default outline-none"
+												: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
 										>
 											<span class="flex-grow">{command.title}</span>
 											<span>{command.description}</span>
