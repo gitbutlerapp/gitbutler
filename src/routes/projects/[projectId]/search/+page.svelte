@@ -54,25 +54,23 @@
 	};
 </script>
 
-<figure class="flex flex-col gap-2">
-	<div class="mx-14 ">
-		{#if processedResults.length > 0}
-			<div class="mb-10 mt-14">
-				<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{$searchTerm}"</p>
-				<p class="text-lg text-[#717179]">{processedResults.length} change instances</p>
-			</div>
-		{:else}
-			<div class="mb-10 mt-14">
-				<p class="mb-2 text-xl text-[#D4D4D8]">No results for "{$searchTerm}"</p>
-			</div>
-		{/if}
+<figure class="mx-14 flex h-full flex-col gap-2">
+	{#if processedResults.length > 0}
+		<div class="mb-10 mt-14">
+			<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{$searchTerm}"</p>
+			<p class="text-lg text-[#717179]">{processedResults.length} change instances</p>
+		</div>
+	{:else}
+		<div class="mb-10 mt-14">
+			<p class="mb-2 text-xl text-[#D4D4D8]">No results for "{$searchTerm}"</p>
+		</div>
+	{/if}
 
-		<ul class="flex flex-col gap-4">
-			{#each processedResults as { doc, deltas, filepath, highlight }}
-				<li>
-					<ResultSnippet {doc} {deltas} {filepath} mark={highlight} />
-				</li>
-			{/each}
-		</ul>
-	</div>
+	<ul class="flex-auto overflow-auto">
+		{#each processedResults as { doc, deltas, filepath, highlight }}
+			<li class="mt-6">
+				<ResultSnippet {doc} {deltas} {filepath} mark={highlight} />
+			</li>
+		{/each}
+	</ul>
 </figure>
