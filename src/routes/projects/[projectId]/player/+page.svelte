@@ -348,7 +348,7 @@
 				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
 					<div class="overflow-y-auto">
 						<div
-							class="card-latest mb-2 flex cursor-pointer flex-col rounded border text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 {showLatest
+							class="card-latest mb-2 flex cursor-pointer flex-col rounded border border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 text-zinc-300 {showLatest
 								? 'border-gb-700 bg-gb-800 text-white'
 								: 'border-gb-700 bg-gb-900'} p-2 text-center shadow"
 							on:keydown={handleKey}
@@ -358,10 +358,10 @@
 						</div>
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							<div
-								class="card-day-of-week mb-2 text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 {day ==
+								class="card-day-of-week mb-2 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 text-zinc-300 {day ==
 									currentDay && !showLatest
 									? 'border-gb-700 bg-gb-800 text-white'
-									: 'border-gb-700 bg-gb-900'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:ease-in hover:bg-gb-800"
+									: 'border-gb-700 bg-gb-900'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
@@ -440,7 +440,7 @@
 												1
 											);
 										}}
-										class="session-card cursor-pointer rounded border-[0.5px] border-gb-700 bg-gb-900 shadow-md hover:bg-gb-800 transition duration-150 ease-out hover:ease-in"
+										class="session-card cursor-pointer rounded border-[0.5px] border-gb-700 bg-gb-900 shadow-md transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
 									>
 										<div class="flex flex-row justify-between px-3 pt-3">
 											<div class="font-zinc-600">{dateRange(chapter)}</div>
@@ -518,51 +518,57 @@
 									bind:value={currentPlayerValue}
 								/>
 							</div>
-							<div class="mx-auto flex items-center gap-2">
+							<div class="playback-controller-ui mx-auto flex items-center gap-2">
 								<button
 									on:click={() => {
 										currentPlayerValue -= 1;
 									}}
+									class="playback-button-back group"
 								>
-									<svg
+									<svg 
+										viewBox="0 0 20 20" 
+										fill="none" 
 										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="icon-pointer h-6 w-6"
+										class="icon-pointer h-6 w-6"	
 									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M21 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953l7.108-4.062A1.125 1.125 0 0121 8.688v8.123zM11.25 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953L9.567 7.71a1.125 1.125 0 011.683.977v8.123z"
+										<path 
+											fill-rule="evenodd" clip-rule="evenodd" d="M13.7101 16.3199C14.0948 16.7046 14.0955 17.3273 13.7117 17.711C13.3254 18.0974 12.7053 18.0939 12.3206 17.7092L5.37536 10.7639C5.18243 10.571 5.0867 10.3199 5.08703 10.0689C5.08802 9.81722 5.18374 9.56608 5.37536 9.37446L12.3206 2.4292C12.7055 2.04433 13.328 2.04384 13.7117 2.42739C14.0981 2.81374 14.0946 3.43396 13.7101 3.81851C13.4234 4.10516 7.80387 9.78937 7.52438 10.0689C9.59011 12.1473 11.637 14.2468 13.7101 16.3199Z" 
+											fill="none"
+											class="fill-zinc-400 group-hover:fill-zinc-100"
 										/>
-									</svg>
+									</svg>		
 								</button>
+
 								<button
 									on:click={() => {
 										currentPlayerValue += 1;
 									}}
+									class="playback-button-forward group"
 								>
-									<svg
+									<svg 
+										viewBox="0 0 20 20" 
+										fill="none" 
 										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
 										class="icon-pointer h-6 w-6"
 									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M3 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.688zM12.75 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062a1.125 1.125 0 01-1.683-.977V8.688z"
+										<path 
+											fill-rule="evenodd" 
+											clip-rule="evenodd" 
+											d="M6.28991 16.3199C5.90521 16.7046 5.90455 17.3273 6.28826 17.711C6.67461 18.0974 7.29466 18.0939 7.67938 17.7092L14.6246 10.7639C14.8176 10.571 14.9133 10.3199 14.913 10.0689C14.912 9.81722 14.8163 9.56608 14.6246 9.37446L7.67938 2.4292C7.29451 2.04433 6.67197 2.04384 6.28826 2.42739C5.90192 2.81374 5.90537 3.43396 6.28991 3.81851C6.57656 4.10516 12.1961 9.78937 12.4756 10.0689C10.4099 12.1473 8.36301 14.2468 6.28991 16.3199Z" 
+											fill="none"
+											class="fill-zinc-400 group-hover:fill-zinc-100"
 										/>
 									</svg>
 								</button>
+								
 								{#if interval}
-									<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
+									<button on:click={stop}>
+										<IconPlayerPauseFilled class="playback-button-play icon-pointer h-6 w-6" />
+									</button>
 								{:else}
-									<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
+									<button on:click={play}>
+										<IconPlayerPlayFilled class="icon-pointer h-6 w-6" />
+									</button>
 								{/if}
 								<button on:click={speedUp}>{speed}x</button>
 							</div>

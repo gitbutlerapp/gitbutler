@@ -193,7 +193,7 @@
 	}
 </script>
 
-<div class="project-section-component" style="height: calc(100vh - 118px); overflow: hidden;">
+<div class="project-section-component" style="height: calc(-114px + 100vh); overflow: hidden;">
 	<div class="flex h-full">
 		<div
 			class="main-column-containercol-span-2 mt-4"
@@ -210,7 +210,7 @@
 					{:else}
 						<div
 							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"
-							style="height: calc(100vh - 253px);"
+							style="height: calc(100vh - 249px);"
 						>
 							{#if orderedSessions(latestDeltasByDateByFile).length == 0}
 								<div class="text-zinc-400">Waiting for your first file changes...</div>
