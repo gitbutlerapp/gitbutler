@@ -10,6 +10,7 @@
 	export let doc: string;
 	export let deltas: Delta[];
 	export let filepath: string;
+	export let context: number = 1000;
 
 	const applyDeltas = (text: string, deltas: Delta[]) => {
 		const operations = deltas.flatMap((delta) => delta.operations);
@@ -33,7 +34,7 @@
 	$: right = deltas.length > 0 ? applyDeltas(left, deltas.slice(deltas.length - 1)) : left;
 	$: diff = lineDiff(left.split('\n'), right.split('\n'));
 
-	$: diffRows = buildDiffRows(diff);
+	$: diffRows = buildDiffRows(diff, context);
 	$: originalHighlighter = create(diffRows.originalLines.join('\n'), filepath);
 	$: originalMap = documentMap(diffRows.originalLines);
 	$: currentHighlighter = create(diffRows.currentLines.join('\n'), filepath);

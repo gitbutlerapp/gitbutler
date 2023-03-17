@@ -14,6 +14,8 @@
 
 	let currentPlayerValue: number | null = null;
 	let showLatest = false;
+	let fullContext = false;
+	let context = 5;
 
 	const urlParams = new URLSearchParams(window.location.search);
 	$: currentDay = urlParams.get('date') ?? Object.keys(sessionDays)[0] ?? '';
@@ -410,22 +412,6 @@
 									</div>
 								</div>
 							</div>
-							<div class="p-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="h-6 w-6"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-									/>
-								</svg>
-							</div>
 						</div>
 
 						<div
@@ -449,7 +435,11 @@
 											</div>
 											<div class="rounded-b bg-zinc-800 p-2 pb-3">
 												{#each Object.entries(chapter.files) as [filenm, changes]}
-													<div class="text-zinc-500">{shortPath(filenm)}</div>
+													{#if currentEdit.filepath == filenm}
+														<div class="text-zinc-100 font-bold">{shortPath(filenm)}</div>
+													{:else}
+														<div class="text-zinc-500">{shortPath(filenm)}</div>
+													{/if}
 												{/each}
 											</div>
 										{/if}
@@ -493,6 +483,7 @@
 										doc={currentEdit.doc}
 										deltas={currentEdit.ops}
 										filepath={currentEdit.filepath}
+										context={fullContext ? 100000 : context}
 									/>
 								{/if}
 							{:else}
@@ -500,8 +491,8 @@
 							{/if}
 						</div>
 
-						<div id="info" class=" absolute bottom-[64px] left-4 rounded-lg bg-zinc-800 p-2">
-							<div class="flex flex-row justify-between">
+						<div id="info" class="absolute bottom-[64px] left-4 rounded-lg bg-zinc-800 p-2">
+							<div class="flex flex-row justify-between space-x-2">
 								{#if currentEdit !== null}
 									<div class="font-mono font-bold text-white">{currentEdit.filepath}</div>
 									<div>{new Date(currentEdit.delta.timestampMs).toLocaleString('en-US')}</div>
@@ -580,7 +571,12 @@
 									<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
 								{/if}
 								<button on:click={speedUp}>{speed}x</button>
-								<div>{currentPlayerValue}</div>
+								<div>
+									<input type="checkbox" bind:checked={fullContext} /> Full Context
+									{#if !fullContext}
+										<input type="number" bind:value={context} />
+									{/if}
+								</div>
 							</div>
 						</div>
 					</div>
