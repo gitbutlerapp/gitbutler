@@ -27,6 +27,7 @@ impl MetaStorage {
 
     pub fn get(&self, project_id: &str, session_hash: &str) -> Result<Option<u64>> {
         let filepath = Path::new("indexes")
+            .join(format!("v{}", CURRENT_VERSION))
             .join("meta")
             .join(project_id)
             .join(session_hash);
@@ -39,6 +40,7 @@ impl MetaStorage {
 
     pub fn set(&self, project_id: &str, session_hash: &str, version: u64) -> Result<()> {
         let filepath = Path::new("indexes")
+            .join(format!("v{}", CURRENT_VERSION))
             .join("meta")
             .join(project_id)
             .join(session_hash);
@@ -61,8 +63,8 @@ impl Deltas {
     pub fn at(path: PathBuf) -> Result<Self> {
         let dir = path
             .join("indexes")
-            .join("deltas")
-            .join(format!("v{}", CURRENT_VERSION));
+            .join(format!("v{}", CURRENT_VERSION))
+            .join("deltas");
         fs::create_dir_all(&dir)?;
 
         let mmap_dir = MmapDirectory::open(dir)?;
