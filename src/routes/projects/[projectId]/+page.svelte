@@ -213,7 +213,9 @@
 							style="height: calc(100vh - 253px);"
 						>
 							{#if orderedSessions(latestDeltasByDateByFile).length == 0}
-								<div class="text-zinc-400">Waiting for your first file changes...</div>
+								<div class="text-zinc-400">
+									Waiting for your first file changes. Go edit something and come back.
+								</div>
 							{/if}
 
 							{#each orderedSessions(latestDeltasByDateByFile) as [dateMilliseconds, fileSessions]}
@@ -238,9 +240,9 @@
 									>
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
-												<div class="font-mono text-zinc-300">
+												<div class="font-mono text-zinc-300 truncate w-96">
 													<a class="cursor-pointer" on:click={gotoPlayer(filetime[0])}>
-														{filetime[0]}
+														{shortPath(filetime[0], 3, 70)}
 													</a>
 												</div>
 												<div class="font-mono text-zinc-400">
@@ -315,7 +317,7 @@
 					</div>
 				{:else}
 					<div class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
-						<ul class="pl-4">
+						<ul class="pl-4 w-80 truncate">
 							{#each $filesStatus as activity}
 								<li class={initiatedCommit ? '-ml-5' : 'list-disc'}>
 									{#if initiatedCommit}

@@ -1,5 +1,5 @@
-export function shortPath(path: string, max = 3) {
-	if (path.length < 30) {
+export function shortPath(path: string, max = 3, maxLen = 30) {
+	if (path.length < maxLen) {
 		return path;
 	}
 	const pathParts = path.split('/');

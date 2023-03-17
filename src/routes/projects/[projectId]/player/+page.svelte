@@ -15,7 +15,7 @@
 	let currentPlayerValue: number | null = null;
 	let showLatest = false;
 	let fullContext = false;
-	let context = 5;
+	let context = 8;
 
 	const urlParams = new URLSearchParams(window.location.search);
 	$: currentDay = urlParams.get('date') ?? Object.keys(sessionDays)[0] ?? '';
@@ -373,7 +373,7 @@
 				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
 					<div class="overflow-y-auto">
 						<div
-							class="card-latest mb-2 flex cursor-pointer flex-col rounded border border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 text-zinc-300 {showLatest
+							class="card-latest mb-2 flex cursor-pointer flex-col rounded border text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 {showLatest
 								? 'border-gb-700 bg-gb-800 text-white'
 								: 'border-gb-700 bg-gb-900'} p-2 text-center shadow"
 							on:keydown={handleKey}
@@ -383,10 +383,10 @@
 						</div>
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							<div
-								class="card-day-of-week mb-2 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 text-zinc-300 {day ==
+								class="card-day-of-week mb-2 text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 {day ==
 									currentDay && !showLatest
 									? 'border-gb-700 bg-gb-800 text-white'
-									: 'border-gb-700 bg-gb-900'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
+									: 'border-gb-700 bg-gb-900'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:ease-in hover:bg-gb-800"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
@@ -417,6 +417,9 @@
 						<div
 							class="card-list flex h-full flex-col space-y-2 overflow-auto rounded-b bg-gb-900 p-2 "
 						>
+							{#if currentPlaylist.chapters.length == 0}
+								<div class="text-center text-zinc-300 mt-4">No activities found</div>
+							{/if}
 							{#each currentPlaylist.chapters as chapter}
 								{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
 									<div
@@ -431,14 +434,17 @@
 										</div>
 										{#if chapter.files}
 											<div class=" flex flex-row justify-between bg-gb-800 px-3 pb-3">
-												<div>{Object.entries(chapter.files).length} files</div>
+												<div>
+													{Object.entries(chapter.files).length}
+													{Object.entries(chapter.files).length > 1 ? 'files' : 'file'}
+												</div>
 											</div>
 											<div class="rounded-b bg-zinc-800 p-2 pb-3">
 												{#each Object.entries(chapter.files) as [filenm, changes]}
 													{#if currentEdit.filepath == filenm}
-														<div class="font-bold text-zinc-100">{shortPath(filenm)}</div>
+														<div class="text-zinc-100 font-bold truncate">{shortPath(filenm)}</div>
 													{:else}
-														<div class="text-zinc-500">{shortPath(filenm)}</div>
+														<div class="text-zinc-500 truncate">{shortPath(filenm)}</div>
 													{/if}
 												{/each}
 											</div>
@@ -453,7 +459,7 @@
 												1
 											);
 										}}
-										class="session-card cursor-pointer rounded border-[0.5px] border-gb-700 bg-gb-900 shadow-md transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
+										class="session-card cursor-pointer rounded border-[0.5px] border-gb-700 bg-gb-900 shadow-md hover:bg-gb-800 transition duration-150 ease-out hover:ease-in"
 									>
 										<div class="flex flex-row justify-between px-3 pt-3">
 											<div class="font-zinc-600">{dateRange(chapter)}</div>
@@ -462,7 +468,10 @@
 											</div>
 										</div>
 										<div class="flex flex-row justify-between px-3 pb-3 text-zinc-400">
-											<div>{Object.entries(chapter.files).length} files</div>
+											<div>
+												{Object.entries(chapter.files).length}
+												{Object.entries(chapter.files).length > 1 ? 'files' : 'file'}
+											</div>
 										</div>
 									</div>
 								{/if}
@@ -485,100 +494,102 @@
 										filepath={currentEdit.filepath}
 										context={fullContext ? 100000 : context}
 									/>
+								{:else}
+									<div class="mt-8 text-center">Select a playlist</div>
 								{/if}
 							{:else}
 								<span class="m-auto">loading...</span>
 							{/if}
 						</div>
 
-						<div id="info" class="absolute bottom-[64px] left-4 rounded-lg bg-zinc-800 p-2">
-							<div class="flex flex-row justify-between space-x-2">
-								{#if currentEdit !== null}
+						{#if currentEdit !== null}
+							<div id="info" class="absolute bottom-[64px] left-4 rounded-lg bg-zinc-800 p-2">
+								<div class="flex flex-row justify-between space-x-2">
 									<div class="font-mono font-bold text-white">{currentEdit.filepath}</div>
 									<div>{new Date(currentEdit.delta.timestampMs).toLocaleString('en-US')}</div>
-								{/if}
+								</div>
 							</div>
-						</div>
 
-						<div
-							id="controls"
-							class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2"
-							style="
+							<div
+								id="controls"
+								class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2"
+								style="
 								border-width: 0.5px; 
 								-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
 								backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
 								background-color: rgba(24, 24, 27, 0.60);
 								border: 0.5px solid rgba(63, 63, 70, 0.50);
 							"
-						>
-							<div class="flex h-0 w-full justify-between">
-								{#each currentPlaylist.chapters as chapter}
-									<div
-										class="inline-block h-2 rounded bg-white"
-										style="width: {Math.round(
-											(chapter.editCount / currentPlaylist.editCount) * 100
-										)}%"
-									>
-										&nbsp;
-									</div>
-								{/each}
-							</div>
-							<div class="w-full">
-								<input
-									type="range"
-									class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
-									max={currentPlaylist.editCount - 1}
-									step="1"
-									bind:value={currentPlayerValue}
-								/>
-							</div>
-							<div class="mx-auto flex items-center gap-2">
-								<button on:click={decrementPlayerValue}>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="icon-pointer h-6 w-6"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M21 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953l7.108-4.062A1.125 1.125 0 0121 8.688v8.123zM11.25 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953L9.567 7.71a1.125 1.125 0 011.683.977v8.123z"
-										/>
-									</svg>
-								</button>
-								<button on:click={incrementPlayerValue}>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="icon-pointer h-6 w-6"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M3 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.688zM12.75 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062a1.125 1.125 0 01-1.683-.977V8.688z"
-										/>
-									</svg>
-								</button>
-								{#if interval}
-									<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
-								{:else}
-									<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
-								{/if}
-								<button on:click={speedUp}>{speed}x</button>
-								<div>
-									<input type="checkbox" bind:checked={fullContext} /> Full Context
-									{#if !fullContext}
-										<input type="number" bind:value={context} />
+							>
+								<div class="flex h-0 w-full justify-between">
+									{#each currentPlaylist.chapters as chapter}
+										<div
+											class="inline-block h-2 rounded bg-white"
+											style="width: {Math.round(
+												(chapter.editCount / currentPlaylist.editCount) * 100
+											)}%"
+										>
+											&nbsp;
+										</div>
+									{/each}
+								</div>
+								<div class="w-full">
+									<input
+										type="range"
+										class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
+										max={currentPlaylist.editCount - 1}
+										step="1"
+										bind:value={currentPlayerValue}
+									/>
+								</div>
+								<div class="mx-auto flex items-center gap-2">
+									<button on:click={decrementPlayerValue}>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke-width="1.5"
+											stroke="currentColor"
+											class="icon-pointer h-6 w-6"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M21 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953l7.108-4.062A1.125 1.125 0 0121 8.688v8.123zM11.25 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953L9.567 7.71a1.125 1.125 0 011.683.977v8.123z"
+											/>
+										</svg>
+									</button>
+									<button on:click={incrementPlayerValue}>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke-width="1.5"
+											stroke="currentColor"
+											class="icon-pointer h-6 w-6"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M3 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.688zM12.75 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062a1.125 1.125 0 01-1.683-.977V8.688z"
+											/>
+										</svg>
+									</button>
+									{#if interval}
+										<button on:click={stop}><IconPlayerPauseFilled class="h-6 w-6" /></button>
+									{:else}
+										<button on:click={play}><IconPlayerPlayFilled class="h-6 w-6" /></button>
 									{/if}
+									<button on:click={speedUp}>{speed}x</button>
+									<div>
+										<input type="checkbox" bind:checked={fullContext} /> Full Context
+										{#if !fullContext}
+											<input type="number" bind:value={context} />
+										{/if}
+									</div>
 								</div>
 							</div>
-						</div>
+						{/if}
 					</div>
 				</div>
 			</div>
