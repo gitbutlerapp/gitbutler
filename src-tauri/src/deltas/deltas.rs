@@ -72,7 +72,10 @@ pub fn write(
 }
 
 // returns deltas for a current session from .gb/session/deltas tree
-fn list_current_deltas(project: &projects::Project) -> Result<HashMap<String, Vec<Delta>>> {
+fn list_current_deltas(
+    project: &projects::Project,
+    paths: Option<Vec<&str>>,
+) -> Result<HashMap<String, Vec<Delta>>> {
     let deltas_path = project.deltas_path();
     if !deltas_path.exists() {
         return Ok(HashMap::new());
@@ -84,9 +87,16 @@ fn list_current_deltas(project: &projects::Project) -> Result<HashMap<String, Ve
     let deltas = file_paths
         .iter()
         .map_while(|file_path| {
+            if let Some(paths) = &paths {
+                if !paths.contains(&file_path.to_str().unwrap()) {
+                    return None;
+                }
+            }
             let file_deltas = read(project, Path::new(file_path));
             match file_deltas {
-                Ok(Some(file_deltas)) => Some(Ok((file_path.to_str().unwrap().to_string(), file_deltas))),
+                Ok(Some(file_deltas)) => {
+                    Some(Ok((file_path.to_str().unwrap().to_string(), file_deltas)))
+                }
                 Ok(None) => None,
                 Err(err) => Some(Err(err)),
             }
@@ -101,6 +111,7 @@ pub fn list(
     project: &projects::Project,
     reference: &git2::Reference,
     session_id: &str,
+    paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, Vec<Delta>>> {
     let session = match sessions::get(repo, project, reference, session_id)? {
         Some(session) => Ok(session),
@@ -108,10 +119,10 @@ pub fn list(
     }?;
 
     if session.hash.is_none() {
-        list_current_deltas(project)
+        list_current_deltas(project, paths)
             .with_context(|| format!("Failed to list current deltas for session {}", session_id))
     } else {
-        list_commit_deltas(repo, &session.hash.unwrap())
+        list_commit_deltas(repo, &session.hash.unwrap(), paths)
             .with_context(|| format!("Failed to list commit deltas for session {}", session_id))
     }
 }
@@ -120,6 +131,7 @@ pub fn list(
 fn list_commit_deltas(
     repo: &git2::Repository,
     commit_hash: &str,
+    paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, Vec<Delta>>> {
     let commit_id = git2::Oid::from_str(commit_hash)?;
     let commit = repo.find_commit(commit_id)?;
@@ -138,6 +150,13 @@ fn list_commit_deltas(
             return git2::TreeWalkResult::Ok;
         }
 
+        let relative_file_path = entry_path.strip_prefix("session/deltas").unwrap();
+        if let Some(paths) = &paths {
+            if !paths.contains(&relative_file_path.to_str().unwrap()) {
+                return git2::TreeWalkResult::Ok;
+            }
+        }
+
         let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
         let content = blob.map(|blob| blob.content().to_vec());
 
@@ -145,13 +164,7 @@ fn list_commit_deltas(
             Ok(content) => {
                 let deltas: Result<Vec<Delta>> =
                     serde_json::from_slice(&content).map_err(|e| e.into());
-                blobs.insert(
-                    entry_path
-                        .strip_prefix("session/deltas")
-                        .unwrap()
-                        .to_owned(),
-                    deltas,
-                );
+                blobs.insert(relative_file_path.to_owned(), deltas);
             }
             Err(e) => {
                 log::error!("Could not get blob for {}: {:#}", entry_path.display(), e);

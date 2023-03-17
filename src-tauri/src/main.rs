@@ -347,9 +347,10 @@ async fn list_deltas(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
+    paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
     let repo = repo_for_project(handle, project_id)?;
-    let deltas = repo.deltas(session_id)?;
+    let deltas = repo.deltas(session_id, paths)?;
     Ok(deltas)
 }
 
@@ -729,7 +730,7 @@ fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
     let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
         .iter()
         .map(|session| {
-            let deltas = repo.deltas(&session.id).expect("Failed to list deltas");
+            let deltas = repo.deltas(&session.id, None).expect("Failed to list deltas");
             deltas
         })
         .collect();
