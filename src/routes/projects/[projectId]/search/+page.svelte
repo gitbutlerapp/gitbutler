@@ -44,6 +44,10 @@
 				<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{$searchTerm}"</p>
 				<p class="text-lg text-[#717179]">{processedResults.length} change instances</p>
 			</div>
+		{:else}
+			<div class="mb-10 mt-14">
+				<p class="mb-2 text-xl text-[#D4D4D8]">No results for "{$searchTerm}"</p>
+			</div>
 		{/if}
 
 		<ul class="flex flex-col gap-4">
