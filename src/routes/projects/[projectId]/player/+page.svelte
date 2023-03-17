@@ -135,7 +135,7 @@
 			projectId: data.projectId,
 			sessionId: sid
 		}).then((files) => {
-			Object.entries(sessionFiles[sid]).forEach(([filepath, _]) => {
+			Object.entries(sessionFiles[sid] ?? {}).forEach(([filepath, _]) => {
 				if (files[filepath] !== undefined) {
 					sessionFiles[sid][filepath] = files[filepath];
 				}
@@ -462,9 +462,7 @@
 					class="m-2 flex-auto overflow-auto rounded border border-zinc-700 bg-[#2F2F33] "
 				>
 					<div class="relative flex h-full w-full flex-col gap-2 ">
-						<div id="code" 
-							class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]"
-						>
+						<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">
 							{#if dayPlaylist[currentDay] !== undefined}
 								{#if currentEdit !== null}
 									<CodeViewer
