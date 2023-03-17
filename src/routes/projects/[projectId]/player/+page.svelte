@@ -483,7 +483,7 @@
 										doc={currentEdit.doc}
 										deltas={currentEdit.ops}
 										filepath={currentEdit.filepath}
-										context={fullContext ? 100000 : context}
+										paddingLines={fullContext ? 100000 : context}
 									/>
 								{/if}
 							{:else}
