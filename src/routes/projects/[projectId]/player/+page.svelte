@@ -348,9 +348,9 @@
 				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
 					<div class="overflow-y-auto">
 						<div
-							class="card-latest mb-2 flex cursor-pointer flex-col rounded border text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-[#52525B] {showLatest
-								? 'border-[#52525B] bg-[#3B3B3F] text-white'
-								: 'border-[#52525B] bg-[#2F2F33]'} p-2 text-center shadow"
+							class="card-latest mb-2 flex cursor-pointer flex-col rounded border text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 {showLatest
+								? 'border-gb-700 bg-gb-800 text-white'
+								: 'border-gb-700 bg-gb-900'} p-2 text-center shadow"
 							on:keydown={handleKey}
 							on:click={selectLatest()}
 						>
@@ -358,9 +358,10 @@
 						</div>
 						{#each Object.entries(sessionDays) as [day, sessions]}
 							<div
-								class="card-day-of-week mb-2 text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-[#52525B] {day == currentDay && !showLatest
-									? 'border-[#52525B] bg-[#3B3B3F] text-white'
-									: 'border-[#52525B] bg-[#2F2F33]'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:ease-in hover:bg-[#3B3B3F]"
+								class="card-day-of-week mb-2 text-zinc-300 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 {day ==
+									currentDay && !showLatest
+									? 'border-gb-700 bg-gb-800 text-white'
+									: 'border-gb-700 bg-gb-900'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:ease-in hover:bg-gb-800"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
@@ -373,10 +374,10 @@
 
 				<div id="right" class="h-full w-80 flex-shrink-0 p-2 xl:w-96">
 					<div
-						class="flex h-full flex-col rounded border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-[#52525B] bg-[#2F2F33]"
+						class="flex h-full flex-col rounded border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 bg-gb-900"
 					>
 						<div
-							class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-[#3F3F46] bg-[#3B3B3F]"
+							class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-gb-750 bg-gb-800"
 						>
 							<div class="p-3 text-lg text-zinc-300">
 								<div class="flex flex-row items-center space-x-2">
@@ -405,13 +406,13 @@
 						</div>
 
 						<div
-							class="card-list flex h-full flex-col space-y-2 overflow-auto rounded-b bg-[#2F2F33] p-2 "
+							class="card-list flex h-full flex-col space-y-2 overflow-auto rounded-b bg-gb-900 p-2 "
 						>
 							{#each currentPlaylist.chapters as chapter}
 								{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
 									<div
 										id="currentSession"
-										class="session-card rounded border-[0.5px] border-[#52525B] text-zinc-300 shadow-md"
+										class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
 									>
 										<div class="flex flex-row justify-between rounded-t bg-gb-800 px-3 pt-3">
 											<div class="">{dateRange(chapter)}</div>
@@ -439,7 +440,7 @@
 												1
 											);
 										}}
-										class="session-card cursor-pointer rounded border-[0.5px] border-[#52525B] bg-[#2F2F33] shadow-md hover:bg-[#3B3B3F] transition duration-150 ease-out hover:ease-in"
+										class="session-card cursor-pointer rounded border-[0.5px] border-gb-700 bg-gb-900 shadow-md hover:bg-gb-800 transition duration-150 ease-out hover:ease-in"
 									>
 										<div class="flex flex-row justify-between px-3 pt-3">
 											<div class="font-zinc-600">{dateRange(chapter)}</div>
@@ -459,7 +460,7 @@
 
 				<div
 					id="middle"
-					class="m-2 flex-auto overflow-auto rounded border border-zinc-700 bg-[#2F2F33] "
+					class="m-2 flex-auto overflow-auto rounded border border-zinc-700 bg-gb-900 "
 				>
 					<div class="relative flex h-full w-full flex-col gap-2 ">
 						<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">
