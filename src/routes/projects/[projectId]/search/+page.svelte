@@ -39,7 +39,9 @@
 			const { sessionId, projectId, filePath } = result;
 			const [doc, deltas] = await Promise.all([
 				listFiles({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? ''),
-				listDeltas({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? [])
+				listDeltas({ projectId, sessionId, paths: [filePath] })
+					.then((r) => r[filePath] ?? [])
+					.then((d) => d.slice(0, result.index + 1))
 			]);
 			processedResults = [
 				...processedResults,
