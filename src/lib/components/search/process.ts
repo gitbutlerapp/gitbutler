@@ -18,7 +18,8 @@ export const processSearchResult = async (
 		}),
 		listDeltas({
 			projectId: searchResult.projectId,
-			sessionId: searchResult.sessionId
+			sessionId: searchResult.sessionId,
+			paths: [searchResult.filePath]
 		})
 	]);
 	const hunks = getDiffHunksWithSearchTerm(
