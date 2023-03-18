@@ -13,14 +13,18 @@
 	import { navigating } from '$app/stores';
 	import toast from 'svelte-french-toast';
 	import { goto } from '$app/navigation';
+	import Api from '$lib/api';
 
+	const api = Api({ fetch });
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
+	const getDiff = (params: { projectId: string }) => invoke<string>('git_wd_diff', params);
 
 	export let data: LayoutData;
 	$: project = data.project;
 	$: filesStatus = data.filesStatus;
-	$: recentActivity = data.recentActivity as Readable<Activity[]>;
+	$: recentActivity = data.recentActivity;
 	$: orderedSessionsFromLastFourDays = data.orderedSessionsFromLastFourDays;
+	$: user = data.user;
 
 	const commit = (params: {
 		projectId: string;
@@ -31,6 +35,7 @@
 
 	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
 	let commitMessage: string;
+	let placeholderMessage = 'Description of changes';
 	let initiatedCommit = false;
 	let filesSelectedForCommit: string[] = [];
 
@@ -183,6 +188,27 @@
 		return sessionsByFile;
 	}
 
+	function fetchCommitMessage() {
+		if ($project && $user) {
+			placeholderMessage = 'Summarizing changes...';
+			console.log('FETCHING DIFF');
+			getDiff({
+				projectId: $project.id
+			}).then((result) => {
+				console.log('DIFF', result);
+				api.summarize
+					.commit($user?.access_token, {
+						diff: result,
+						uid: $project.id
+					})
+					.then((result) => {
+						console.log(result);
+						commitMessage = result.message;
+					});
+			});
+		}
+	}
+
 	// order the sessions and summarize the changes by file
 	function orderedSessions(dateSessions: Record<number, Record<string, Delta[][]>[]>) {
 		return Object.entries(dateSessions)
@@ -288,7 +314,7 @@
 							<div class="truncate pl-2 font-mono text-zinc-300">
 								{toHumanBranchName(gitBranch)}
 							</div>
-							<div class="carrot flex items-center pl-3">
+							<div class="carrot flex hidden items-center pl-3">
 								<svg width="7" height="5" viewBox="0 0 7 5" fill="none" class="fill-zinc-400">
 									<path
 										d="M3.87796 4.56356C3.67858 4.79379 3.32142 4.79379 3.12204 4.56356L0.319371 1.32733C0.0389327 1.00351 0.268959 0.5 0.697336 0.5L6.30267 0.500001C6.73104 0.500001 6.96107 1.00351 6.68063 1.32733L3.87796 4.56356Z"
@@ -297,7 +323,7 @@
 								</svg>
 							</div>
 						</div>
-						<div class="branch-count-container text-md hover:text-blue-500 ">6 branches</div>
+						<div class="branch-count-container text-md hidden hover:text-blue-500 ">6 branches</div>
 					</div>
 				{/if}
 				{#if $filesStatus.length == 0}
@@ -341,7 +367,7 @@
 								<textarea
 									rows="4"
 									name="message"
-									placeholder="Description of changes"
+									placeholder={placeholderMessage}
 									bind:value={commitMessage}
 									class="mb-2 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
 								/>
@@ -384,7 +410,7 @@
 										filesSelectedForCommit = $filesStatus.map((file) => {
 											return file.path;
 										});
-
+										fetchCommitMessage();
 										initiatedCommit = true;
 									}}>Commit changes</button
 								>
