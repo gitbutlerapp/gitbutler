@@ -108,6 +108,9 @@
 
 	function checkPaletteModal(event: Event) {
 		const target = event.target as HTMLElement;
+		if (!target) {
+			showPalette = false;
+		}
 		if (showPalette !== false && !palette.contains(target)) {
 			showPalette = false;
 		}

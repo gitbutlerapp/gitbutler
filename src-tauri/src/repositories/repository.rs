@@ -1,7 +1,7 @@
 use crate::{deltas, fs, projects, sessions, users};
 use anyhow::{Context, Result};
 use git2::{BranchType, Cred, Signature};
-use std::{collections::HashMap, env, path::Path};
+use std::{collections::HashMap, env, path::Path, str::from_utf8};
 use tauri::regex::Regex;
 use walkdir::WalkDir;
 
@@ -170,6 +170,26 @@ impl Repository {
         let head = repo.head()?;
         let branch = head.name().unwrap();
         Ok(branch.to_string())
+    }
+
+    pub fn wd_diff(&self) -> Result<String> {
+        println!("diffing");
+        let repo = &self.git_repository;
+        let head = repo.head()?;
+        let tree = head.peel_to_tree()?;
+        let diff = repo.diff_tree_to_workdir_with_index(Some(&tree), None)?;
+        let mut buf = String::new();
+        diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
+            buf.push_str(&format!(
+                "{:?} {}",
+                delta.status(),
+                delta.new_file().path().unwrap().to_str().unwrap()
+            ));
+            buf.push_str(from_utf8(line.content()).unwrap());
+            buf.push_str("\n");
+            true
+        })?;
+        Ok(buf)
     }
 
     pub fn switch_branch(&self, branch_name: &str) -> Result<bool> {

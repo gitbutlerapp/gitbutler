@@ -128,6 +128,17 @@ export default (
 				}).then(parseResponseJSON);
 			}
 		},
+		summarize: {
+			commit: (token: string, params: { diff: string; uid?: string }): Promise<string> =>
+				fetch(getUrl('summarize/commit.json'), {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-Auth-Token': token
+					},
+					body: JSON.stringify(params)
+				}).then(parseResponseJSON)
+		},
 		projects: {
 			create: (token: string, params: { name: string; uid?: string }): Promise<Project> =>
 				fetch(getUrl('projects.json'), {

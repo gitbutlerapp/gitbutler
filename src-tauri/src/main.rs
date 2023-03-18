@@ -370,6 +370,13 @@ async fn git_status(
 }
 
 #[tauri::command]
+async fn git_wd_diff(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let diff = repo.wd_diff().with_context(|| "Failed to get git diff")?;
+    Ok(diff)
+}
+
+#[tauri::command]
 async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
@@ -579,7 +586,8 @@ fn main() {
             git_branches,
             git_branch,
             git_switch_branch,
-            git_commit
+            git_commit,
+            git_wd_diff
         ]);
 
     let tauri_context = generate_context!();

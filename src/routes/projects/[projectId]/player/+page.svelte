@@ -544,23 +544,23 @@
 									/>
 								</div>
 
-								<div class="playback-controller-ui mx-auto flex w-full items-center gap-2 justify-between">
+								<div
+									class="playback-controller-ui mx-auto flex w-full items-center justify-between gap-2"
+								>
 									<div class="left-side flex space-x-8">
 										<div class="play-button-button-container">
 											{#if interval}
-											<button on:click={stop}
-												><IconPlayerPauseFilled
-													class="playback-button-play icon-pointer h-6 w-6"
-												/></button
-											>
+												<button on:click={stop}
+													><IconPlayerPauseFilled
+														class="playback-button-play icon-pointer h-6 w-6"
+													/></button
+												>
 											{:else}
 												<button on:click={play}
 													><IconPlayerPlayFilled class="icon-pointer h-6 w-6" /></button
 												>
 											{/if}
 										</div>
-
-
 
 										<div class="back-forward-button-container ">
 											<button on:click={decrementPlayerValue} class="playback-button-back group">
@@ -602,11 +602,10 @@
 											</button>
 										</div>
 
-
 										<button on:click={speedUp}>{speed}x</button>
 									</div>
 
-									<div class="align-center flex gap-2 flex-row-reverse">
+									<div class="align-center flex flex-row-reverse gap-2">
 										<button class="checkbox-button ">
 											<label
 												for="full-context-checkbox"
@@ -645,10 +644,10 @@
 											</label>
 										</button>
 										{#if !fullContext}
-											<input 
-												type="number" 
-												bind:value={context} 
-												class="pl-2 pr-1 py-1 rounded w-14"
+											<input
+												type="number"
+												bind:value={context}
+												class="w-14 rounded py-1 pl-2 pr-1"
 											/>
 										{/if}
 									</div>

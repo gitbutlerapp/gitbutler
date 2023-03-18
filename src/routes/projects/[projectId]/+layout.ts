@@ -37,8 +37,20 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		});
 		return activitySorted.slice(0, 20);
 	});
+	const user = building
+  ? {
+      ...readable<undefined>(undefined),
+      set: () => {
+        throw new Error('not implemented');
+      },
+      delete: () => {
+        throw new Error('not implemented');
+      }
+    }
+  : await (await import('$lib/users')).default();
 
 	return {
+		user: user,
 		project: projects.get(params.projectId),
 		projectId: params.projectId,
 		orderedSessionsFromLastFourDays: orderedSessionsFromLastFourDays,
