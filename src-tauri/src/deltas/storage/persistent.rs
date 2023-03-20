@@ -1,10 +1,16 @@
 use crate::{deltas, projects, sessions};
 use anyhow::Result;
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 pub struct Store {
     project: projects::Project,
     git_repository: git2::Repository,
+
+    cache: Arc<Mutex<HashMap<String, HashMap<String, Vec<deltas::Delta>>>>>,
 }
 
 impl Clone for Store {
@@ -12,6 +18,7 @@ impl Clone for Store {
         Self {
             project: self.project.clone(),
             git_repository: git2::Repository::open(&self.project.path).unwrap(),
+            cache: self.cache.clone(),
         }
     }
 }
@@ -21,14 +28,11 @@ impl Store {
         Ok(Self {
             git_repository: git2::Repository::open(&project.path)?,
             project,
+            cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
-    pub fn list(
-        &self,
-        session: &sessions::Session,
-        paths: Option<Vec<&str>>,
-    ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
+    fn list_all(&self, session: &sessions::Session) -> Result<HashMap<String, Vec<deltas::Delta>>> {
         if session.hash.is_none() {
             return Err(anyhow::anyhow!(format!(
                 "can not list persistent deltas from current session {}",
@@ -55,12 +59,6 @@ impl Store {
             }
 
             let relative_file_path = entry_path.strip_prefix("session/deltas").unwrap();
-            if let Some(paths) = &paths {
-                if !paths.contains(&relative_file_path.to_str().unwrap()) {
-                    return git2::TreeWalkResult::Ok;
-                }
-            }
-
             let blob = entry
                 .to_object(&self.git_repository)
                 .and_then(|obj| obj.peel_to_blob());
@@ -84,5 +82,34 @@ impl Store {
             .map(|(path, deltas)| (path.to_str().unwrap().to_owned(), deltas.unwrap()))
             .collect();
         Ok(deltas)
+    }
+
+    pub fn list(
+        &self,
+        session: &sessions::Session,
+        paths: Option<Vec<&str>>,
+    ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
+        let mut cache = self.cache.lock().unwrap();
+        let all_files = match cache.get(&session.id) {
+            Some(files) => files.clone(),
+            None => {
+                let files = self.list_all(session)?;
+                cache.insert(session.id.clone(), files.clone());
+                files
+            }
+        };
+
+        match paths {
+            Some(paths) => {
+                let mut files = HashMap::new();
+                for path in paths {
+                    if let Some(deltas) = all_files.get(path) {
+                        files.insert(path.to_owned(), deltas.clone());
+                    }
+                }
+                Ok(files)
+            }
+            None => Ok(all_files),
+        }
     }
 }
