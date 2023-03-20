@@ -128,7 +128,7 @@
 </script>
 
 <div class="flex flex-row">
-	<div class="flex flex-col w-[500px] min-w-[500px] flex-shrink-0 p-2">
+	<div class="flex w-[500px] min-w-[500px] flex-shrink-0 flex-col p-2">
 		<div
 			class="button group mb-2 flex max-w-[500px] rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
 		>
@@ -161,7 +161,7 @@
 			</div>
 		</div>
 		<div transition:slide={{ duration: 150 }}>
-			<h3 class="text-base font-semibold text-zinc-200 mb-2">Commit Message</h3>
+			<h3 class="mb-2 text-base font-semibold text-zinc-200">Commit Message</h3>
 			<input
 				type="text"
 				name="subject"
@@ -194,16 +194,16 @@
 				>
 			{/if}
 			{#if !generatedMessage}
-				<a class="cursor-pointer bg-green-800 rounded p-2" on:click={fetchCommitMessage}
+				<a class="cursor-pointer rounded bg-green-800 p-2" on:click={fetchCommitMessage}
 					>Generate a message for me.</a
 				>
 			{:else if generatedMessage == 'loading'}
 				<div class="flex flex-col">
 					<div class="text-zinc-400">Let me take a look at these changes...</div>
 					<!-- status bar filled by loadingPercent -->
-					<div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+					<div class="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
 						<div
-							class="bg-green-600 h-2.5 rounded-full"
+							class="h-2.5 rounded-full bg-green-600"
 							style="width: {Math.round(loadingPercent)}%"
 						/>
 					</div>
@@ -213,7 +213,7 @@
 		<div class="mt-2">
 			<div class="rounded border border-zinc-400 bg-zinc-500 font-mono text-zinc-900">
 				<div
-					class="flex flex-row space-x-2 text-zinc-200 bg-zinc-800 rounded-t border-b border-zinc-600 p-2 mb-2"
+					class="mb-2 flex flex-row space-x-2 rounded-t border-b border-zinc-600 bg-zinc-800 p-2 text-zinc-200"
 				>
 					<h3 class="text-base font-semibold ">File Changes</h3>
 					<a href="#" class="text-yellow-200" on:click={toggleAllOn}>all</a>
@@ -236,12 +236,12 @@
 			</div>
 		</div>
 	</div>
-	<div class="flex-grow p-2 h-full max-h-screen overflow-auto">
+	<div class="h-full max-h-screen flex-grow overflow-auto p-2">
 		{#if gitDiff}
 			{#each Object.entries(gitDiff) as [key, value]}
 				{#if key}
 					<div class="p-2">{key}</div>
-					<pre class="p-2 bg-zinc-900">{value}</pre>
+					<pre class="bg-zinc-900 p-2">{value}</pre>
 				{/if}
 			{/each}
 		{/if}
