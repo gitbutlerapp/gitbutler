@@ -107,7 +107,7 @@ fn build_asset_url(path: &str) -> String {
     format!("asset://localhost/{}", urlencoding::encode(path))
 }
 
-fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
+async fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
     if src.starts_with("asset://") {
         return Ok(src.to_string());
     }
@@ -126,7 +126,7 @@ fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
         return Ok(build_asset_url(&save_to.display().to_string()));
     }
 
-    let resp = reqwest::blocking::get(src)?;
+    let resp = reqwest::get(src).await?;
     if !resp.status().is_success() {
         return Err(anyhow::anyhow!(
             "Failed to download image {}: {}",
@@ -135,7 +135,7 @@ fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
         ));
     }
 
-    let bytes = resp.bytes()?;
+    let bytes = resp.bytes().await?;
     std::fs::create_dir_all(&images_dir)?;
     std::fs::write(&save_to, bytes)?;
 
@@ -191,7 +191,7 @@ fn list_sessions(
 }
 
 #[tauri::command(async)]
-fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
+async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let app_state = handle.state::<App>();
 
     match app_state
@@ -200,7 +200,7 @@ fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
         .with_context(|| "Failed to get user".to_string())?
     {
         Some(user) => {
-            let local_picture = match proxy_image(handle, &user.picture) {
+            let local_picture = match proxy_image(handle, &user.picture).await {
                 Ok(picture) => picture,
                 Err(e) => {
                     log::error!("{:#}", e);
