@@ -97,6 +97,7 @@ impl Deltas {
         repo: &git2::Repository,
         project: &projects::Project,
         deltas_storage: &deltas::Store,
+        session_storage: &sessions::Store,
     ) -> Result<()> {
         let start = time::SystemTime::now();
 
@@ -127,7 +128,9 @@ impl Deltas {
             let session = sessions::Session::from_commit(repo, &commit).with_context(|| {
                 format!("Could not parse commit {} in project", oid.to_string())
             })?;
-            if let Err(e) = self.index_session(repo, project, &session, deltas_storage) {
+            if let Err(e) =
+                self.index_session(project, &session, deltas_storage, session_storage)
+            {
                 log::error!(
                     "Could not index commit {} in {}: {:#}",
                     oid,
@@ -146,19 +149,19 @@ impl Deltas {
 
     pub fn index_session(
         &mut self,
-        repo: &git2::Repository,
         project: &projects::Project,
         session: &sessions::Session,
         deltas_storage: &deltas::Store,
+        session_storage: &sessions::Store,
     ) -> Result<()> {
         log::info!("Indexing session {} in {}", session.id, project.path);
         index_session(
             &self.index,
             &mut self.writer.lock().unwrap(),
             session,
-            repo,
             project,
             deltas_storage,
+            session_storage,
         )?;
         self.meta_storage
             .set(&project.id, &session.id, CURRENT_VERSION)?;
@@ -196,17 +199,15 @@ fn index_session(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
     session: &sessions::Session,
-    repo: &git2::Repository,
     project: &projects::Project,
     deltas_storage: &deltas::Store,
+    session_storage: &sessions::Store,
 ) -> Result<()> {
     let deltas = deltas_storage.list(&session.id, None)?;
     if deltas.is_empty() {
         return Ok(());
     }
-    let files = sessions::list_files(
-        repo,
-        project,
+    let files = session_storage.list_files(
         &session.id,
         Some(deltas.keys().map(|k| k.as_str()).collect()),
     )?;

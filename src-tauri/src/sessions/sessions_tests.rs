@@ -267,6 +267,7 @@ fn test_list() {
 fn test_list_files_from_first_presistent_session() {
     let (repo, project) = test_project().unwrap();
 
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
     let file_path = Path::new(&project.path).join("test.txt");
 
     std::fs::write(file_path.clone(), "zero").unwrap();
@@ -280,7 +281,7 @@ fn test_list_files_from_first_presistent_session() {
     let file_path = Path::new(&project.path).join("test.txt");
     std::fs::write(file_path.clone(), "one").unwrap();
 
-    let files = super::sessions::list_files(&repo, &project, &first.id, None);
+    let files = store.list_files(&first.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
@@ -291,6 +292,7 @@ fn test_list_files_from_first_presistent_session() {
 fn test_list_files_from_second_current_session() {
     let (repo, project) = test_project().unwrap();
 
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
     let file_path = Path::new(&project.path).join("test.txt");
     std::fs::write(file_path.clone(), "zero").unwrap();
 
@@ -308,7 +310,7 @@ fn test_list_files_from_second_current_session() {
     assert!(second.is_ok());
     let second = second.unwrap();
 
-    let files = super::sessions::list_files(&repo, &project, &second.id, None);
+    let files = store.list_files(&second.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
@@ -318,6 +320,7 @@ fn test_list_files_from_second_current_session() {
 #[test]
 fn test_list_files_from_second_presistent_session() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
 
     let file_path = Path::new(&project.path).join("test.txt");
     std::fs::write(file_path.clone(), "zero").unwrap();
@@ -340,7 +343,7 @@ fn test_list_files_from_second_presistent_session() {
 
     std::fs::write(file_path.clone(), "two").unwrap();
 
-    let files = super::sessions::list_files(&repo, &project, &second.id, None);
+    let files = store.list_files(&second.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
@@ -350,6 +353,7 @@ fn test_list_files_from_second_presistent_session() {
 #[test]
 fn test_flush_ensure_wd_structure() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
 
     // create file inside a directory
     let file_dir = Path::new(&project.path).join("dir1").join("dir2");
@@ -412,7 +416,7 @@ fn test_flush_ensure_wd_structure() {
     assert!(all_files_1.contains_key("wd/dir1/dir2"));
     assert!(all_files_1.contains_key("wd/dir1/dir2/test.txt"));
 
-    let files = super::sessions::list_files(&repo, &project, &second.id, None);
+    let files = store.list_files(&second.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 2);

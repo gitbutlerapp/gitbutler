@@ -674,6 +674,7 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             &git_repository,
             &repo.project,
             &repo.deltas_storage,
+            &repo.sessions_storage,
         ) {
             log::error!("{}: failed to reindex project: {:#}", project.id, err);
         }

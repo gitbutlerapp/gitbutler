@@ -33,7 +33,11 @@ impl Repository {
         Ok(Repository {
             project: project.clone(),
             git_repository,
-            deltas_storage: deltas::Store::new(git2::Repository::open(&project.path)?, project, sessions_storage.clone())?,
+            deltas_storage: deltas::Store::new(
+                git2::Repository::open(&project.path)?,
+                project,
+                sessions_storage.clone(),
+            )?,
             sessions_storage,
         })
     }
@@ -47,7 +51,7 @@ impl Repository {
         session_id: &str,
         files: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        sessions::list_files(&self.git_repository, &self.project, session_id, files)
+        self.sessions_storage.list_files(session_id, files)
     }
 
     pub fn deltas(

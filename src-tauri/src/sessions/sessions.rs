@@ -273,15 +273,6 @@ fn delete(project: &projects::Project) -> Result<()> {
     Ok(())
 }
 
-fn is_current_session_id(project: &projects::Project, session_id: &str) -> Result<bool> {
-    let current_id_path = project.session_path().join("meta").join("id");
-    if !current_id_path.exists() {
-        return Ok(false);
-    }
-    let current_id = std::fs::read_to_string(current_id_path)?;
-    return Ok(current_id == session_id);
-}
-
 pub fn id_from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<String> {
     let tree = commit.tree().unwrap();
     let session_id_path = Path::new("session/meta/id");
@@ -302,88 +293,6 @@ fn read_as_string(repo: &git2::Repository, tree: &git2::Tree, path: &Path) -> Re
         )
     })?;
     Ok(contents)
-}
-
-// return a map of file name -> file content for all files in the beginning of a session.
-pub fn list_files(
-    repo: &git2::Repository,
-    project: &projects::Project,
-    session_id: &str,
-    paths: Option<Vec<&str>>,
-) -> Result<HashMap<String, String>> {
-    let reference = repo.find_reference(&project.refname())?;
-    let commit = if is_current_session_id(project, session_id)? {
-        let head_commit = reference.peel_to_commit()?;
-        Some(head_commit)
-    } else {
-        let head_commit = reference.peel_to_commit()?;
-        let mut walker = repo.revwalk()?;
-        walker.push(head_commit.id())?;
-        walker.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)?;
-
-        let mut session_commit = None;
-        let mut previous_session_commit = None;
-        for commit_id in walker {
-            let commit = repo.find_commit(commit_id?)?;
-            if id_from_commit(repo, &commit)? == session_id {
-                session_commit = Some(commit);
-                break;
-            }
-            previous_session_commit = Some(commit.clone());
-        }
-
-        match (previous_session_commit, session_commit) {
-            // if there is a previous session, we want to list the files from the previous session
-            (Some(previous_session_commit), Some(_)) => Some(previous_session_commit),
-            // if there is no previous session, we use the found session, because it's the first one.
-            (None, Some(session_commit)) => Some(session_commit),
-            _ => None,
-        }
-    };
-
-    if commit.is_none() {
-        return Err(anyhow!("session {} has no hash", session_id));
-    }
-    let commit = commit.unwrap();
-
-    let tree = commit.tree()?;
-    let mut files = HashMap::new();
-    tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-        if entry.name().is_none() {
-            return git2::TreeWalkResult::Ok;
-        }
-        let entry_path = Path::new(root).join(entry.name().unwrap());
-        if !entry_path.starts_with("wd") {
-            return git2::TreeWalkResult::Ok;
-        }
-        if "wd".eq(entry_path.to_str().unwrap()) {
-            return git2::TreeWalkResult::Ok;
-        }
-
-        if entry.kind() == Some(git2::ObjectType::Tree) {
-            return git2::TreeWalkResult::Ok;
-        }
-
-        let blob = entry.to_object(repo).and_then(|obj| obj.peel_to_blob());
-        let content = blob.map(|blob| blob.content().to_vec());
-
-        let relpath = entry_path.strip_prefix("wd").unwrap();
-
-        if let Some(paths) = paths.as_ref() {
-            if !paths.contains(&relpath.to_str().unwrap()) {
-                return git2::TreeWalkResult::Ok;
-            }
-        }
-
-        files.insert(
-            relpath.to_owned().to_str().unwrap().to_owned(),
-            String::from_utf8(content.unwrap_or_default()).unwrap_or_default(),
-        );
-
-        git2::TreeWalkResult::Ok
-    })?;
-
-    Ok(files)
 }
 
 fn flush(

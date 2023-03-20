@@ -69,7 +69,7 @@ impl<'a> SessionWatcher {
                         log::debug!("{}: unlocked", project.id);
 
                         self.deltas_searcher
-                            .index_session(&repo, &project, &session, &deltas_storage)
+                            .index_session(&project, &session, &deltas_storage, &sessions_storage)
                             .with_context(|| format!("failed to index session {}", session.id))?;
 
                         sender
