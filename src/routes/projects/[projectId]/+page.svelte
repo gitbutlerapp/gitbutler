@@ -191,7 +191,7 @@
 										</div>
 										<div>
 											<a class="text-orange-200" href={datePlayerURL(dateMilliseconds)}
-												>Play Changes</a
+												>Replay Changes</a
 											>
 										</div>
 									</div>
