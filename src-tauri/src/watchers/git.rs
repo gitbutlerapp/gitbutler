@@ -108,13 +108,8 @@ fn on_file_change(
         return Ok(None);
     }
 
-    let repo = git2::Repository::open(project.path.clone())?;
-    let event = match sessions::Session::current(&repo, &project)? {
-        Some(current_session) => Some(events::Event::session(&project, &current_session)),
-        None => None,
-    };
-
-    Ok(event)
+    let event = events::Event::git(&project);
+    Ok(Some(event))
 }
 
 fn is_interesting_event(kind: &notify::EventKind) -> Option<String> {

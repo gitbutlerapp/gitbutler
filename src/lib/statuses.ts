@@ -29,8 +29,8 @@ export default async (params: { projectId: string }) => {
 
 	const store = writable(statuses);
 
-	appWindow.listen<Session>(`project://${params.projectId}/sessions`, async (event) => {
-		log.info(`Status: Received sessions event, projectId: ${params.projectId}`);
+	appWindow.listen(`project://${params.projectId}/git`, async (event) => {
+		log.info(`Status: Received git event, projectId: ${params.projectId}`);
 		const statusesGit = await listFiles(params);
 		const statuses = convertToStatuses(statusesGit);
 		store.set(statuses);

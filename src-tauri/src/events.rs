@@ -15,6 +15,17 @@ impl Event {
         }
     }
 
+    pub fn git(project: &projects::Project) -> Self {
+        let event_name = format!("project://{}/git", project.id);
+        let payload = serde_json::json!({
+            "logs/HEAD": "updated",
+        });
+        Event {
+            name: event_name,
+            payload: payload,
+        }
+    }
+
     pub fn detlas(
         project: &projects::Project,
         session: &sessions::Session,
