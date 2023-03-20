@@ -1,7 +1,7 @@
 use crate::{deltas, fs, projects, sessions, users};
 use anyhow::{Context, Result};
-use git2::{BranchType, Cred, Signature};
-use std::{collections::HashMap, env, path::Path, str::from_utf8};
+use git2::{BranchType, Cred, DiffOptions, Signature};
+use std::{collections::HashMap, env, path::Path};
 use tauri::regex::Regex;
 use walkdir::WalkDir;
 
@@ -142,24 +142,56 @@ impl Repository {
         Ok(branch.to_string())
     }
 
-    pub fn wd_diff(&self) -> Result<String> {
-        println!("diffing");
+    pub fn wd_diff(&self, max_lines: usize) -> Result<HashMap<String, String>> {
         let repo = &self.git_repository;
         let head = repo.head()?;
         let tree = head.peel_to_tree()?;
-        let diff = repo.diff_tree_to_workdir_with_index(Some(&tree), None)?;
-        let mut buf = String::new();
+
+        // Prepare our diff options based on the arguments given
+        let mut opts = DiffOptions::new();
+        opts.recurse_untracked_dirs(true)
+            .include_untracked(true)
+            .include_ignored(true);
+
+        let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts))?;
+
+        let mut result = HashMap::new();
+        let mut results = String::new();
+
+        let mut current_line_count = 0;
+        let mut last_path = String::new();
+
         diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
-            buf.push_str(&format!(
-                "{:?} {}",
-                delta.status(),
-                delta.new_file().path().unwrap().to_str().unwrap()
-            ));
-            buf.push_str(from_utf8(line.content()).unwrap());
-            buf.push_str("\n");
+            let new_path = delta
+                .new_file()
+                .path()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+            print!(
+                "{} {}",
+                new_path,
+                std::str::from_utf8(line.content()).unwrap()
+            );
+            if new_path != last_path {
+                result.insert(last_path.clone(), results.clone());
+                results = String::new();
+                current_line_count = 0;
+                last_path = new_path.clone();
+            }
+            if current_line_count <= max_lines {
+                match line.origin() {
+                    '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
+                    _ => {}
+                }
+                results.push_str(&format!("{}", std::str::from_utf8(line.content()).unwrap()));
+                current_line_count += 1;
+            }
             true
         })?;
-        Ok(buf)
+        result.insert(last_path.clone(), results.clone());
+        Ok(result)
     }
 
     pub fn switch_branch(&self, branch_name: &str) -> Result<bool> {
@@ -203,7 +235,12 @@ impl Repository {
                 s if s.contains(git2::Status::WT_DELETED) => "deleted",
                 s if s.contains(git2::Status::WT_RENAMED) => "renamed",
                 s if s.contains(git2::Status::WT_TYPECHANGE) => "typechange",
-                _ => continue,
+                s if s.contains(git2::Status::INDEX_NEW) => "added",
+                s if s.contains(git2::Status::INDEX_MODIFIED) => "modified",
+                s if s.contains(git2::Status::INDEX_DELETED) => "deleted",
+                s if s.contains(git2::Status::INDEX_RENAMED) => "renamed",
+                s if s.contains(git2::Status::INDEX_TYPECHANGE) => "typechange",
+                _ => "other",
             };
             files.insert(path.to_string(), istatus.to_string());
         }

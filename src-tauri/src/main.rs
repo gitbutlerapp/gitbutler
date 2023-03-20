@@ -376,9 +376,14 @@ async fn git_status(
 }
 
 #[tauri::command]
-async fn git_wd_diff(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+async fn git_wd_diff(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<HashMap<String, String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
-    let diff = repo.wd_diff().with_context(|| "Failed to get git diff")?;
+    let diff = repo
+        .wd_diff(100) // max 100 lines per file
+        .with_context(|| "Failed to get git diff")?;
     Ok(diff)
 }
 

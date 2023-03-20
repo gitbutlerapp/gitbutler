@@ -1,49 +1,22 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import type { Readable } from 'svelte/store';
 	import type { Session } from '$lib/sessions';
 	import { format, startOfDay } from 'date-fns';
-	import type { Activity } from '$lib/sessions';
 	import type { Delta } from '$lib/deltas';
 	import { shortPath } from '$lib/paths';
 	import { invoke } from '@tauri-apps/api';
 	import { toHumanBranchName } from '$lib/branch';
 	import { list as listDeltas } from '$lib/deltas';
-	import { slide } from 'svelte/transition';
-	import { navigating } from '$app/stores';
-	import toast from 'svelte-french-toast';
 	import { goto } from '$app/navigation';
-	import Api from '$lib/api';
-
-	const api = Api({ fetch });
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
-	const getDiff = (params: { projectId: string }) => invoke<string>('git_wd_diff', params);
 
 	export let data: LayoutData;
 	$: project = data.project;
 	$: filesStatus = data.filesStatus;
 	$: recentActivity = data.recentActivity;
 	$: orderedSessionsFromLastFourDays = data.orderedSessionsFromLastFourDays;
-	$: user = data.user;
-
-	const commit = (params: {
-		projectId: string;
-		message: string;
-		files: Array<string>;
-		push: boolean;
-	}) => invoke<boolean>('git_commit', params);
 
 	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
-	let commitMessage: string;
-	let placeholderMessage = 'Description of changes';
-	let initiatedCommit = false;
-	let filesSelectedForCommit: string[] = [];
-
-	$: if ($navigating) {
-		commitMessage = '';
-		filesSelectedForCommit = [];
-		initiatedCommit = false;
-	}
 
 	function gotoPlayer(filename: string) {
 		if ($project) {
@@ -57,24 +30,6 @@
 
 		if ($project) {
 			return `/projects/${$project.id}/player?date=${datePass}`;
-		}
-	}
-
-	function doCommit() {
-		if ($project) {
-			commit({
-				projectId: $project.id,
-				message: commitMessage,
-				files: filesSelectedForCommit,
-				push: false
-			}).then((result) => {
-				toast.success('Commit successful!', {
-					icon: '🎉'
-				});
-				commitMessage = '';
-				filesSelectedForCommit = [];
-				initiatedCommit = false;
-			});
 		}
 	}
 
@@ -186,27 +141,6 @@
 			}
 		}
 		return sessionsByFile;
-	}
-
-	function fetchCommitMessage() {
-		if ($project && $user) {
-			placeholderMessage = 'Summarizing changes...';
-			console.log('FETCHING DIFF');
-			getDiff({
-				projectId: $project.id
-			}).then((result) => {
-				console.log('DIFF', result);
-				api.summarize
-					.commit($user?.access_token, {
-						diff: result,
-						uid: $project.id
-					})
-					.then((result) => {
-						console.log(result);
-						commitMessage = result.message;
-					});
-			});
-		}
 	}
 
 	// order the sessions and summarize the changes by file
@@ -323,7 +257,13 @@
 								</svg>
 							</div>
 						</div>
-						<div class="branch-count-container text-md hidden hover:text-blue-500 ">6 branches</div>
+						<div>
+							<a
+								href="/projects/{$project?.id}/commit"
+								class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
+								>Commit changes</a
+							>
+						</div>
 					</div>
 				{/if}
 				{#if $filesStatus.length == 0}
@@ -345,77 +285,12 @@
 					<div class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
 						<ul class="w-80 truncate pl-4">
 							{#each $filesStatus as activity}
-								<li class={initiatedCommit ? '-ml-5' : 'list-disc'}>
-									{#if initiatedCommit}
-										<input
-											type="checkbox"
-											bind:group={filesSelectedForCommit}
-											value={activity.path}
-										/>
-									{/if}
+								<li class="list-disc">
 									{activity.status.slice(0, 1)}
 									{shortPath(activity.path)}
 								</li>
 							{/each}
 						</ul>
-					</div>
-					<!-- TODO: Button needs to be hooked up -->
-					<div class="mt-2 flex flex-col">
-						{#if initiatedCommit}
-							<div transition:slide={{ duration: 150 }}>
-								<h3 class="text-base font-semibold text-zinc-200">Commit Message</h3>
-								<textarea
-									rows="4"
-									name="message"
-									placeholder={placeholderMessage}
-									bind:value={commitMessage}
-									class="mb-2 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
-								/>
-							</div>
-						{/if}
-						<div class="w-100 flex flex-row-reverse items-center justify-between gap-4">
-							{#if initiatedCommit}
-								<div class="flex gap-2">
-									<button
-										class="button w-[60px] rounded border border-zinc-600 py-2 text-white hover:bg-zinc-800"
-										on:click={() => {
-											initiatedCommit = false;
-										}}>✘</button
-									>
-									<button
-										disabled={!commitMessage || filesSelectedForCommit.length == 0}
-										class="{!commitMessage || filesSelectedForCommit.length == 0
-											? 'bg-zinc-800 text-zinc-600'
-											: ''} button rounded bg-blue-600 py-2 px-3 text-white"
-										on:click={() => {
-											doCommit();
-											initiatedCommit = false;
-											commitMessage = '';
-										}}>Commit changes</button
-									>
-								</div>
-								<div class="w-100 align-left">
-									{#if filesSelectedForCommit.length == 0}
-										<div>Select at least one file.</div>
-									{:else if !commitMessage}
-										<div>Provide a commit message.</div>
-									{:else}
-										<div>Are you certain of this?</div>
-									{/if}
-								</div>
-							{:else}
-								<button
-									class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
-									on:click={() => {
-										filesSelectedForCommit = $filesStatus.map((file) => {
-											return file.path;
-										});
-										fetchCommitMessage();
-										initiatedCommit = true;
-									}}>Commit changes</button
-								>
-							{/if}
-						</div>
 					</div>
 				{/if}
 			</div>

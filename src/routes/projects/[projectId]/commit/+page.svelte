@@ -1,0 +1,250 @@
+<script lang="ts">
+	import { invoke } from '@tauri-apps/api';
+	import type { PageData } from './$types';
+	import Api from '$lib/api';
+	import { shortPath } from '$lib/paths';
+	import toast from 'svelte-french-toast';
+	import { slide } from 'svelte/transition';
+	import { toHumanBranchName } from '$lib/branch';
+
+	const api = Api({ fetch });
+
+	export let data: PageData;
+	const { project, user, filesStatus } = data;
+
+	let commitSubject: string;
+	let placeholderSubject = 'One line summary of changes';
+	let commitMessage: string;
+	let placeholderMessage = 'Optional fuller description of changes';
+	let messageRows = 6;
+	let filesSelectedForCommit: string[] = [];
+
+	const commit = (params: {
+		projectId: string;
+		message: string;
+		files: Array<string>;
+		push: boolean;
+	}) => invoke<boolean>('git_commit', params);
+
+	function doCommit() {
+		if ($project) {
+			if (commitMessage) {
+				commitSubject = commitSubject + '\n\n' + commitMessage;
+			}
+			commit({
+				projectId: $project.id,
+				message: commitSubject,
+				files: filesSelectedForCommit,
+				push: false
+			}).then((result) => {
+				toast.success('Commit successful!', {
+					icon: '🎉'
+				});
+				commitMessage = '';
+				commitSubject = '';
+				filesSelectedForCommit = [];
+				isLoaded = false;
+			});
+		}
+	}
+
+	const toggleAllOff = () => {
+		filesSelectedForCommit = [];
+	};
+	const toggleAllOn = () => {
+		filesSelectedForCommit = $filesStatus.map((file) => {
+			return file.path;
+		});
+	};
+	const showMessage = (message: string) => {
+		generatedMessage = undefined;
+	};
+
+	const getDiff = (params: { projectId: string }) =>
+		invoke<Record<string, string>>('git_wd_diff', params);
+	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
+
+	let gitBranch = <string | undefined>undefined;
+	let gitDiff = <string | undefined>undefined;
+	let generatedMessage = <string | undefined>undefined;
+	let isLoaded = false;
+
+	$: if ($project) {
+		if (!isLoaded) {
+			getBranch({ projectId: $project?.id }).then((branch) => {
+				gitBranch = branch;
+				filesSelectedForCommit = $filesStatus.map((file) => {
+					return file.path;
+				});
+			});
+			getDiff({ projectId: $project?.id }).then((diff) => {
+				gitDiff = diff;
+			});
+			isLoaded = true;
+		}
+	}
+
+	let loadingPercent = 0;
+	function fetchCommitMessage() {
+		if ($project && $user) {
+			// make diff from keys of gitDiff matching entries in filesSelectedForCommit
+			const partialDiff = Object.fromEntries(
+				Object.entries(gitDiff).filter(([key]) => filesSelectedForCommit.includes(key))
+			);
+			console.log(partialDiff);
+			// convert to string
+			const diff = Object.values(partialDiff).join('\n').slice(0, 5000); // limit for summary
+			console.log(diff);
+
+			placeholderMessage = 'Summarizing changes...';
+			generatedMessage = 'loading';
+			loadingPercent = 0;
+			// every second update loadingPercent by 8%
+			const interval = setInterval(() => {
+				loadingPercent += 6.25;
+				if (loadingPercent >= 100) {
+					clearInterval(interval);
+				}
+			}, 1000);
+
+			api.summarize
+				.commit($user?.access_token, {
+					diff: diff,
+					uid: $project.id
+				})
+				.then((result) => {
+					if (result.message) {
+						// split result into subject and message (first line is subject)
+						commitSubject = result.message.split('\n')[0];
+						commitMessage = result.message.split('\n').slice(2).join('\n');
+						generatedMessage = result.message;
+						// set messageRows as a function of the number of chars in the message
+						messageRows = Math.ceil(commitMessage.length / 75) + 3;
+					}
+					loadingPercent = 100;
+				});
+		}
+	}
+</script>
+
+<div class="flex flex-row">
+	<div class="flex flex-col w-[500px] min-w-[500px] flex-shrink-0 p-2">
+		<div
+			class="button group mb-2 flex max-w-[500px] rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
+		>
+			<div class="h-4 w-4">
+				<svg
+					text="gray"
+					aria-hidden="true"
+					height="16"
+					viewBox="0 0 16 16"
+					version="1.1"
+					width="16"
+					data-view-component="true"
+					class="h-4 w-4 fill-zinc-400"
+				>
+					<path
+						d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"
+					/>
+				</svg>
+			</div>
+			<div class="truncate pl-2 font-mono text-zinc-300">
+				{toHumanBranchName(gitBranch)}
+			</div>
+			<div class="carrot flex hidden items-center pl-3">
+				<svg width="7" height="5" viewBox="0 0 7 5" fill="none" class="fill-zinc-400">
+					<path
+						d="M3.87796 4.56356C3.67858 4.79379 3.32142 4.79379 3.12204 4.56356L0.319371 1.32733C0.0389327 1.00351 0.268959 0.5 0.697336 0.5L6.30267 0.500001C6.73104 0.500001 6.96107 1.00351 6.68063 1.32733L3.87796 4.56356Z"
+						fill="#A1A1AA"
+					/>
+				</svg>
+			</div>
+		</div>
+		<div transition:slide={{ duration: 150 }}>
+			<h3 class="text-base font-semibold text-zinc-200 mb-2">Commit Message</h3>
+			<input
+				type="text"
+				name="subject"
+				bind:value={commitSubject}
+				placeholder={placeholderSubject}
+				class="mb-2 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+			/>
+			<textarea
+				rows={messageRows}
+				name="message"
+				placeholder={placeholderMessage}
+				bind:value={commitMessage}
+				class="mb-2 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+			/>
+		</div>
+		<div class="flex flex-row justify-between">
+			{#if filesSelectedForCommit.length == 0}
+				<div>Select at least one file.</div>
+			{:else if !commitSubject}
+				<div>Provide a commit message.</div>
+			{:else}
+				<button
+					disabled={!commitSubject || filesSelectedForCommit.length == 0}
+					class="{!commitSubject || filesSelectedForCommit.length == 0
+						? 'bg-zinc-800 text-zinc-600'
+						: ''} button rounded bg-blue-600 py-2 px-3 text-white"
+					on:click={() => {
+						doCommit();
+					}}>Commit changes</button
+				>
+			{/if}
+			{#if !generatedMessage}
+				<a class="cursor-pointer bg-green-800 rounded p-2" on:click={fetchCommitMessage}
+					>Generate a message for me.</a
+				>
+			{:else if generatedMessage == 'loading'}
+				<div class="flex flex-col">
+					<div class="text-zinc-400">Let me take a look at these changes...</div>
+					<!-- status bar filled by loadingPercent -->
+					<div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+						<div
+							class="bg-green-600 h-2.5 rounded-full"
+							style="width: {Math.round(loadingPercent)}%"
+						/>
+					</div>
+				</div>
+			{/if}
+		</div>
+		<div class="mt-2">
+			<div class="rounded border border-zinc-400 bg-zinc-500 font-mono text-zinc-900">
+				<div
+					class="flex flex-row space-x-2 text-zinc-200 bg-zinc-800 rounded-t border-b border-zinc-600 p-2 mb-2"
+				>
+					<h3 class="text-base font-semibold ">File Changes</h3>
+					<a href="#" class="text-yellow-200" on:click={toggleAllOn}>all</a>
+					<a href="#" class="text-yellow-200" on:click={toggleAllOff}>none</a>
+				</div>
+				<ul class="w-80 truncate px-2 pb-2">
+					{#each $filesStatus as activity}
+						<li class="list-none">
+							<input
+								type="checkbox"
+								on:click={showMessage}
+								bind:group={filesSelectedForCommit}
+								value={activity.path}
+							/>
+							{activity.status.slice(0, 1)}
+							{shortPath(activity.path)}
+						</li>
+					{/each}
+				</ul>
+			</div>
+		</div>
+	</div>
+	<div class="flex-grow p-2 h-full max-h-screen overflow-auto">
+		{#if gitDiff}
+			{#each Object.entries(gitDiff) as [key, value]}
+				{#if key}
+					<div class="p-2">{key}</div>
+					<pre class="p-2 bg-zinc-900">{value}</pre>
+				{/if}
+			{/each}
+		{/if}
+	</div>
+	<!-- commit message -->
+</div>
