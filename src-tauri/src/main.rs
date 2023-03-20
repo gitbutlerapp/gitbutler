@@ -297,8 +297,14 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
         .get(&project.id)
         .with_context(|| format!("{}: failed to open repository", project.path))?;
 
+    let repo = repo_for_project(handle.clone(), &project.id)?;
+
     let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
-    app_state.watchers.lock().unwrap().watch(tx, &project)?;
+    app_state
+        .watchers
+        .lock()
+        .unwrap()
+        .watch(tx, &project, &repo.deltas_storage)?;
     watch_events(handle, rx);
 
     Ok(project)
@@ -654,15 +660,15 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .watchers
             .lock()
             .unwrap()
-            .watch(tx.clone(), &project)
+            .watch(tx.clone(), &project, &repo.deltas_storage)
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
-        if let Err(err) = app_state
-            .deltas_searcher
-            .lock()
-            .unwrap()
-            .reindex_project(&repo.git_repository, &repo.project)
-        {
+        let git_repository = repo.git_repository;
+        if let Err(err) = app_state.deltas_searcher.lock().unwrap().reindex_project(
+            &git_repository,
+            &repo.project,
+            &repo.deltas_storage,
+        ) {
             log::error!("{}: failed to reindex project: {:#}", project.id, err);
         }
     }

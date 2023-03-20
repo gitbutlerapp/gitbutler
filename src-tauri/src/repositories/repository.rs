@@ -8,48 +8,32 @@ use walkdir::WalkDir;
 pub struct Repository {
     pub project: projects::Project,
     pub git_repository: git2::Repository,
+    pub deltas_storage: deltas::Store,
 }
 
 impl Clone for Repository {
     fn clone(&self) -> Self {
-        Repository {
+        Self {
             project: self.project.clone(),
             git_repository: git2::Repository::open(&self.project.path).unwrap(),
+            deltas_storage: self.deltas_storage.clone(),
         }
     }
 }
 
 impl Repository {
     pub fn new(project: projects::Project, user: Option<users::User>) -> Result<Self> {
-        let git_repository = git2::Repository::init(&project.path)?;
+        let git_repository = git2::Repository::open(&project.path)?;
         init(&git_repository, &project, &user).with_context(|| "failed to init repository")?;
         Ok(Repository {
-            project,
+            project: project.clone(),
             git_repository,
+            deltas_storage: deltas::Store::new(git2::Repository::open(&project.path)?, project),
         })
     }
 
-    fn reference(&self) -> Result<git2::Reference> {
-        let reference_name = self.project.refname();
-        let reference = self
-            .git_repository
-            .find_reference(&reference_name)
-            .with_context(|| {
-                format!(
-                    "failed to find reference {} in repository {}",
-                    reference_name, self.project.path
-                )
-            })?;
-        Ok(reference)
-    }
-
     pub fn sessions(&self, earliest_timestamp_ms: Option<u128>) -> Result<Vec<sessions::Session>> {
-        sessions::list(
-            &self.git_repository,
-            &self.project,
-            &self.reference()?,
-            earliest_timestamp_ms,
-        )
+        sessions::list(&self.git_repository, &self.project, earliest_timestamp_ms)
     }
 
     pub fn files(
@@ -57,13 +41,7 @@ impl Repository {
         session_id: &str,
         files: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        sessions::list_files(
-            &self.git_repository,
-            &self.project,
-            &self.reference()?,
-            session_id,
-            files,
-        )
+        sessions::list_files(&self.git_repository, &self.project, session_id, files)
     }
 
     pub fn deltas(
@@ -71,19 +49,13 @@ impl Repository {
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        deltas::list(
-            &self.git_repository,
-            &self.project,
-            &self.reference()?,
-            session_id,
-            paths,
-        )
+        self.deltas_storage.list(session_id, paths)
     }
 
     // get a list of all files in the working directory
     pub fn file_paths(&self) -> Result<Vec<String>> {
-        let workdir = &self
-            .git_repository
+        let repo = &self.git_repository;
+        let workdir = repo
             .workdir()
             .with_context(|| "failed to get working directory")?;
 
@@ -92,7 +64,7 @@ impl Repository {
 
         let mut files = Vec::new();
         for file in all_files {
-            if !&self.git_repository.is_path_ignored(&file).unwrap_or(true) {
+            if !repo.is_path_ignored(&file).unwrap_or(true) {
                 files.push(file.to_string_lossy().to_string());
             }
         }
@@ -101,8 +73,8 @@ impl Repository {
 
     // get a list of all files in the working directory
     pub fn match_file_paths(&self, match_pattern: &str) -> Result<Vec<String>> {
-        let workdir = &self
-            .git_repository
+        let repo = &self.git_repository;
+        let workdir = repo
             .workdir()
             .with_context(|| "failed to get working directory")?;
 
@@ -124,10 +96,7 @@ impl Repository {
                         e.path().to_str() == workdir.to_str()  // but we need to traverse the first one
                             || ((e.file_type().is_dir() // traverse all directories if they are not ignored by git
                                 || pattern.is_match(match_string)) // but only pass on files that match the regex
-                                && !&self
-                                    .git_repository
-                                    .is_path_ignored(&e.path())
-                                    .unwrap_or(true))
+                                && !repo.is_path_ignored(&e.path()).unwrap_or(true))
                     })
                     .filter_map(Result::ok)
                 {
@@ -157,7 +126,8 @@ impl Repository {
 
     pub fn branches(&self) -> Result<Vec<String>> {
         let mut branches = vec![];
-        for branch in self.git_repository.branches(Some(BranchType::Local))? {
+        let repo = &self.git_repository;
+        for branch in repo.branches(Some(BranchType::Local))? {
             let (branch, _) = branch?;
             branches.push(branch.name()?.unwrap().to_string());
         }
@@ -196,16 +166,14 @@ impl Repository {
         self.flush_session(&None)
             .with_context(|| "failed to flush session before switching branch")?;
 
-        let branch = self
-            .git_repository
-            .find_branch(branch_name, git2::BranchType::Local)?;
+        let repo = &self.git_repository;
+
+        let branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
         let branch = branch.into_reference();
-        self.git_repository
-            .set_head(branch.name().unwrap())
+        repo.set_head(branch.name().unwrap())
             .with_context(|| "failed to set head")?;
         // checkout head
-        self.git_repository
-            .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))
+        repo.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))
             .with_context(|| "failed to checkout head")?;
         Ok(true)
     }
@@ -218,8 +186,7 @@ impl Repository {
         options.recurse_untracked_dirs(true);
 
         // get the status of the repository
-        let statuses = self
-            .git_repository
+        let statuses = &self.git_repository
             .statuses(Some(&mut options))
             .with_context(|| "failed to get repository status")?;
 
@@ -338,11 +305,11 @@ impl Repository {
 
     pub fn flush_session(&self, user: &Option<users::User>) -> Result<()> {
         // if the reference doesn't exist, we create it by creating a flushing a new session
-        let mut current_session =
-            match sessions::Session::current(&self.git_repository, &self.project)? {
-                Some(session) => session,
-                None => sessions::Session::from_head(&self.git_repository, &self.project)?,
-            };
+        let mut current_session = match sessions::Session::current(&self.git_repository, &self.project)?
+        {
+            Some(session) => session,
+            None => sessions::Session::from_head(&self.git_repository, &self.project)?,
+        };
         current_session
             .flush(&self.git_repository, user, &self.project)
             .with_context(|| format!("{}: failed to flush session", &self.project.id))?;

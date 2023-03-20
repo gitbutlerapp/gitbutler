@@ -7,7 +7,7 @@ mod delta_test;
 #[cfg(test)]
 mod test;
 
-use crate::{events, projects, search, users};
+use crate::{deltas, events, projects, search, users};
 use anyhow::Result;
 use std::{
     path::Path,
@@ -41,6 +41,7 @@ impl Watcher {
         &mut self,
         sender: mpsc::Sender<events::Event>,
         project: &projects::Project,
+        deltas_storage: &deltas::Store,
     ) -> Result<()> {
         // shared mutex to prevent concurrent write to gitbutler interal state by multiple watchers
         // at the same time
@@ -53,10 +54,18 @@ impl Watcher {
         let repo = git2::Repository::open(project.path.clone())?;
         repo.add_ignore_rule("*.lock")?;
 
-        self.delta_watcher
-            .watch(sender.clone(), project.clone(), lock_file.clone())?;
-        self.session_watcher
-            .watch(sender.clone(), project.clone(), lock_file.clone())?;
+        self.delta_watcher.watch(
+            sender.clone(),
+            project.clone(),
+            lock_file.clone(),
+            deltas_storage,
+        )?;
+        self.session_watcher.watch(
+            sender.clone(),
+            project.clone(),
+            lock_file.clone(),
+            deltas_storage,
+        )?;
         self.git_watcher.watch(sender.clone(), project.clone())?;
 
         Ok(())

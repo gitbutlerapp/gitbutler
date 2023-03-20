@@ -1,4 +1,4 @@
-use crate::{deltas::operations::Operation, projects, sessions};
+use crate::{deltas::Delta, deltas::Operation, projects, sessions};
 use anyhow::Result;
 use std::path::Path;
 use tempfile::tempdir;
@@ -24,39 +24,42 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
 
 #[test]
 fn test_read_none() {
-    let (_repo, project) = test_project().unwrap();
+    let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(repo, project);
     let file_path = Path::new("test.txt");
-    let deltas = super::read(&project, file_path);
+    let deltas = store.read(file_path);
     assert!(deltas.is_ok());
     assert!(deltas.unwrap().is_none());
 }
 
 #[test]
 fn test_read_invalid() {
-    let (_repo, project) = test_project().unwrap();
+    let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(repo, project.clone());
     let file_path = Path::new("test.txt");
     let full_file_path = project.deltas_path().join(file_path);
 
     std::fs::create_dir_all(full_file_path.parent().unwrap()).unwrap();
     std::fs::write(full_file_path, "invalid").unwrap();
 
-    let deltas = super::read(&project, file_path);
+    let deltas = store.read(file_path);
     assert!(deltas.is_err());
 }
 
 #[test]
 fn test_write_read() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(repo, project);
     let file_path = Path::new("test.txt");
 
-    let deltas = vec![super::Delta {
+    let deltas = vec![Delta {
         operations: vec![Operation::Insert((0, "Hello, world!".to_string()))],
         timestamp_ms: 0,
     }];
-    let write_result = super::write(&repo, &project, file_path, &deltas);
+    let write_result = store.write(file_path, &deltas);
     assert!(write_result.is_ok());
 
-    let read_result = super::read(&project, file_path);
+    let read_result = store.read(file_path);
     assert!(read_result.is_ok());
     assert_eq!(read_result.unwrap().unwrap(), deltas);
 }
@@ -64,13 +67,14 @@ fn test_write_read() {
 #[test]
 fn test_write_must_create_session() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(clone_repo(&repo), project.clone());
     let file_path = Path::new("test.txt");
 
-    let deltas = vec![super::Delta {
+    let deltas = vec![Delta {
         operations: vec![Operation::Insert((0, "Hello, world!".to_string()))],
         timestamp_ms: 0,
     }];
-    let write_result = super::write(&repo, &project, file_path, &deltas);
+    let write_result = store.write(file_path, &deltas);
     assert!(write_result.is_ok());
 
     let current_session = sessions::Session::current(&repo, &project);
@@ -80,20 +84,25 @@ fn test_write_must_create_session() {
     assert!(current_session.is_some());
 }
 
+fn clone_repo(repo: &git2::Repository) -> git2::Repository {
+    git2::Repository::open(repo.path()).unwrap()
+}
+
 #[test]
 fn test_write_must_not_override_session() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(clone_repo(&repo), project.clone());
     let file_path = Path::new("test.txt");
 
     let session_before_write = sessions::Session::from_head(&repo, &project);
     assert!(session_before_write.is_ok());
     let session_before_write = session_before_write.unwrap();
 
-    let deltas = vec![super::Delta {
+    let deltas = vec![Delta {
         operations: vec![Operation::Insert((0, "Hello, world!".to_string()))],
         timestamp_ms: 0,
     }];
-    let write_result = super::write(&repo, &project, file_path, &deltas);
+    let write_result = store.write(file_path, &deltas);
     assert!(write_result.is_ok());
 
     let session_after_write = sessions::Session::current(&repo, &project);

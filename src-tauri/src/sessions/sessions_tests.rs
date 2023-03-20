@@ -245,8 +245,7 @@ fn test_list() {
     assert!(current_session.is_ok());
     let current = current_session.unwrap();
 
-    let reference = repo.find_reference(&project.refname()).unwrap();
-    let sessions = super::sessions::list(&repo, &project, &reference, None);
+    let sessions = super::sessions::list(&repo, &project, None);
     assert!(sessions.is_ok());
     let sessions = sessions.unwrap();
 
@@ -273,8 +272,7 @@ fn test_list_files_from_first_presistent_session() {
     let file_path = Path::new(&project.path).join("test.txt");
     std::fs::write(file_path.clone(), "one").unwrap();
 
-    let reference = repo.find_reference(&project.refname()).unwrap();
-    let files = super::sessions::list_files(&repo, &project, &reference, &first.id, None);
+    let files = super::sessions::list_files(&repo, &project, &first.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
@@ -302,8 +300,7 @@ fn test_list_files_from_second_current_session() {
     assert!(second.is_ok());
     let second = second.unwrap();
 
-    let reference = repo.find_reference(&project.refname()).unwrap();
-    let files = super::sessions::list_files(&repo, &project, &reference, &second.id, None);
+    let files = super::sessions::list_files(&repo, &project, &second.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
@@ -335,8 +332,7 @@ fn test_list_files_from_second_presistent_session() {
 
     std::fs::write(file_path.clone(), "two").unwrap();
 
-    let reference = repo.find_reference(&project.refname()).unwrap();
-    let files = super::sessions::list_files(&repo, &project, &reference, &second.id, None);
+    let files = super::sessions::list_files(&repo, &project, &second.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 1);
@@ -408,13 +404,7 @@ fn test_flush_ensure_wd_structure() {
     assert!(all_files_1.contains_key("wd/dir1/dir2"));
     assert!(all_files_1.contains_key("wd/dir1/dir2/test.txt"));
 
-    let files = super::sessions::list_files(
-        &repo,
-        &project,
-        &repo.find_reference(&project.refname()).unwrap(),
-        &second.id,
-        None,
-    );
+    let files = super::sessions::list_files(&repo, &project, &second.id, None);
     assert!(files.is_ok());
     let files = files.unwrap();
     assert_eq!(files.len(), 2);

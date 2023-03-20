@@ -1,4 +1,4 @@
-use crate::deltas::{read, write, Delta, TextDocument};
+use crate::deltas::{self, Delta, TextDocument};
 use crate::projects;
 use crate::{events, sessions};
 use anyhow::{Context, Result};
@@ -43,6 +43,7 @@ impl DeltaWatchers {
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
         mutex: Arc<Mutex<fslock::LockFile>>,
+        deltas_storage: &deltas::Store,
     ) -> Result<()> {
         log::info!("Watching deltas for {}", project.path);
         let project_path = Path::new(&project.path);
@@ -54,7 +55,9 @@ impl DeltaWatchers {
 
         self.watchers.insert(project.path.clone(), watcher);
 
+        let shared_deltas_storage = deltas_storage.clone();
         tauri::async_runtime::spawn_blocking(move || {
+            let deltas_storage = shared_deltas_storage.clone();
             while let Ok(event) = rx.recv() {
                 match event {
                     Ok(notify_event) => {
@@ -90,7 +93,12 @@ impl DeltaWatchers {
                             fslock.lock().unwrap();
                             log::debug!("{}: locked", project.id);
 
-                            match register_file_change(&project, &repo, &relative_file_path) {
+                            match register_file_change(
+                                &project,
+                                &repo,
+                                &deltas_storage,
+                                &relative_file_path,
+                            ) {
                                 Ok(Some((session, deltas))) => {
                                     if let Err(e) =
                                         sender.send(events::Event::session(&project, &session))
@@ -150,6 +158,7 @@ impl DeltaWatchers {
 pub(crate) fn register_file_change(
     project: &projects::Project,
     repo: &git2::Repository,
+    deltas_storage: &deltas::Store,
     relative_file_path: &Path,
 ) -> Result<Option<(sessions::Session, Vec<Delta>)>> {
     let file_path = repo.workdir().unwrap().join(relative_file_path);
@@ -182,7 +191,7 @@ pub(crate) fn register_file_change(
         })?;
 
     // second, get non-flushed file deltas
-    let deltas = read(project, relative_file_path).with_context(|| {
+    let deltas = deltas_storage.read(relative_file_path).with_context(|| {
         format!(
             "failed to get current file deltas for {}",
             relative_file_path.display()
@@ -208,12 +217,14 @@ pub(crate) fn register_file_change(
 
     // if the file was modified, save the deltas
     let deltas = text_doc.get_deltas();
-    let session = write(&repo, project, relative_file_path, &deltas).with_context(|| {
-        format!(
-            "failed to write file deltas for {}",
-            relative_file_path.display()
-        )
-    })?;
+    let session = deltas_storage
+        .write(relative_file_path, &deltas)
+        .with_context(|| {
+            format!(
+                "failed to write file deltas for {}",
+                relative_file_path.display()
+            )
+        })?;
 
     // save file contents corresponding to the deltas
     fs::create_dir_all(project.wd_path().join(relative_file_path).parent().unwrap())?;

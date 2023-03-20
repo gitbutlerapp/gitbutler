@@ -26,37 +26,41 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
     Ok((repo, project))
 }
 
+fn clone_repo(repo: &git2::Repository) -> git2::Repository {
+    git2::Repository::open(repo.path()).unwrap()
+}
+
 #[test]
 fn test_filter_by_timestamp() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
+    let deltas_storage = deltas::Store::new(clone_repo(&repo), project.clone());
     let mut session = sessions::Session::from_head(&repo, &project).unwrap();
-    deltas::write(
-        &repo,
-        &project,
-        Path::new("test.txt"),
-        &vec![
-            deltas::Delta {
-                operations: vec![Operation::Insert((0, "Hello".to_string()))],
-                timestamp_ms: 0,
-            },
-            deltas::Delta {
-                operations: vec![Operation::Insert((5, "World".to_string()))],
-                timestamp_ms: 1,
-            },
-            deltas::Delta {
-                operations: vec![Operation::Insert((5, " ".to_string()))],
-                timestamp_ms: 2,
-            },
-        ],
-    )
-    .unwrap();
+    deltas_storage
+        .write(
+            Path::new("test.txt"),
+            &vec![
+                deltas::Delta {
+                    operations: vec![Operation::Insert((0, "Hello".to_string()))],
+                    timestamp_ms: 0,
+                },
+                deltas::Delta {
+                    operations: vec![Operation::Insert((5, "World".to_string()))],
+                    timestamp_ms: 1,
+                },
+                deltas::Delta {
+                    operations: vec![Operation::Insert((5, " ".to_string()))],
+                    timestamp_ms: 2,
+                },
+            ],
+        )
+        .unwrap();
     session.flush(&repo, &None, &project).unwrap();
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
-    let write_result = searcher.index_session(&repo, &project, &session);
+    let write_result = searcher.index_session(&repo, &project, &session, &deltas_storage);
     assert!(write_result.is_ok());
 
     let search_result_from = searcher.search(&super::SearchQuery {
@@ -101,28 +105,28 @@ fn test_sorted_by_timestamp() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
+    let deltas_storage = deltas::Store::new(clone_repo(&repo), project.clone());
     let mut session = sessions::Session::from_head(&repo, &project).unwrap();
-    deltas::write(
-        &repo,
-        &project,
-        Path::new("test.txt"),
-        &vec![
-            deltas::Delta {
-                operations: vec![Operation::Insert((0, "Hello".to_string()))],
-                timestamp_ms: 0,
-            },
-            deltas::Delta {
-                operations: vec![Operation::Insert((5, " World".to_string()))],
-                timestamp_ms: 1,
-            },
-        ],
-    )
-    .unwrap();
+    deltas_storage
+        .write(
+            Path::new("test.txt"),
+            &vec![
+                deltas::Delta {
+                    operations: vec![Operation::Insert((0, "Hello".to_string()))],
+                    timestamp_ms: 0,
+                },
+                deltas::Delta {
+                    operations: vec![Operation::Insert((5, " World".to_string()))],
+                    timestamp_ms: 1,
+                },
+            ],
+        )
+        .unwrap();
     session.flush(&repo, &None, &project).unwrap();
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
-    let write_result = searcher.index_session(&repo, &project, &session);
+    let write_result = searcher.index_session(&repo, &project, &session, &deltas_storage);
     assert!(write_result.is_ok());
 
     let search_result = searcher.search(&super::SearchQuery {
@@ -145,28 +149,28 @@ fn test_simple() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
+    let deltas_storage = deltas::Store::new(clone_repo(&repo), project.clone());
     let mut session = sessions::Session::from_head(&repo, &project).unwrap();
-    deltas::write(
-        &repo,
-        &project,
-        Path::new("test.txt"),
-        &vec![
-            deltas::Delta {
-                operations: vec![Operation::Insert((0, "Hello".to_string()))],
-                timestamp_ms: 0,
-            },
-            deltas::Delta {
-                operations: vec![Operation::Insert((5, " World".to_string()))],
-                timestamp_ms: 0,
-            },
-        ],
-    )
-    .unwrap();
+    deltas_storage
+        .write(
+            Path::new("test.txt"),
+            &vec![
+                deltas::Delta {
+                    operations: vec![Operation::Insert((0, "Hello".to_string()))],
+                    timestamp_ms: 0,
+                },
+                deltas::Delta {
+                    operations: vec![Operation::Insert((5, " World".to_string()))],
+                    timestamp_ms: 0,
+                },
+            ],
+        )
+        .unwrap();
     session.flush(&repo, &None, &project).unwrap();
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
-    let write_result = searcher.index_session(&repo, &project, &session);
+    let write_result = searcher.index_session(&repo, &project, &session, &deltas_storage);
     assert!(write_result.is_ok());
 
     let search_result1 = searcher.search(&super::SearchQuery {

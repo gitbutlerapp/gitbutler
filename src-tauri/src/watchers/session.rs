@@ -1,4 +1,4 @@
-use crate::{events, projects, search, sessions, users};
+use crate::{deltas, events, projects, search, sessions, users};
 use anyhow::{Context, Result};
 use git2::Repository;
 use std::{
@@ -35,6 +35,7 @@ impl<'a> SessionWatcher {
         project_id: &str,
         sender: mpsc::Sender<events::Event>,
         mutex: Arc<Mutex<fslock::LockFile>>,
+        deltas_storage: &deltas::Store,
     ) -> Result<()> {
         match self
             .projects_storage
@@ -68,7 +69,7 @@ impl<'a> SessionWatcher {
                         log::debug!("{}: unlocked", project.id);
 
                         self.deltas_searcher
-                            .index_session(&repo, &project, &session)
+                            .index_session(&repo, &project, &session, &deltas_storage)
                             .with_context(|| format!("failed to index session {}", session.id))?;
 
                         sender
@@ -91,6 +92,7 @@ impl<'a> SessionWatcher {
         sender: mpsc::Sender<events::Event>,
         project: projects::Project,
         mutex: Arc<Mutex<fslock::LockFile>>,
+        deltas_storage: &deltas::Store,
     ) -> Result<()> {
         log::info!("{}: watching sessions in {}", project.id, project.path);
 
@@ -98,10 +100,14 @@ impl<'a> SessionWatcher {
         let mut self_copy = shared_self.clone();
         let project_id = project.id;
 
+        let shared_storage = deltas_storage.clone();
         tauri::async_runtime::spawn_blocking(move || loop {
             let local_self = &mut self_copy;
+            let deltas_storage = shared_storage.clone();
 
-            if let Err(e) = local_self.run(&project_id, sender.clone(), mutex.clone()) {
+            if let Err(e) =
+                local_self.run(&project_id, sender.clone(), mutex.clone(), &deltas_storage)
+            {
                 log::error!("{}: error while running git watcher: {:#}", project_id, e);
             }
 

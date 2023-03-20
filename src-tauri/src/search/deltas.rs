@@ -96,6 +96,7 @@ impl Deltas {
         &mut self,
         repo: &git2::Repository,
         project: &projects::Project,
+        deltas_storage: &deltas::Store,
     ) -> Result<()> {
         let start = time::SystemTime::now();
 
@@ -126,7 +127,7 @@ impl Deltas {
             let session = sessions::Session::from_commit(repo, &commit).with_context(|| {
                 format!("Could not parse commit {} in project", oid.to_string())
             })?;
-            if let Err(e) = self.index_session(repo, project, &session) {
+            if let Err(e) = self.index_session(repo, project, &session, deltas_storage) {
                 log::error!(
                     "Could not index commit {} in {}: {:#}",
                     oid,
@@ -148,6 +149,7 @@ impl Deltas {
         repo: &git2::Repository,
         project: &projects::Project,
         session: &sessions::Session,
+        deltas_storage: &deltas::Store,
     ) -> Result<()> {
         log::info!("Indexing session {} in {}", session.id, project.path);
         index_session(
@@ -156,6 +158,7 @@ impl Deltas {
             session,
             repo,
             project,
+            deltas_storage,
         )?;
         self.meta_storage
             .set(&project.id, &session.id, CURRENT_VERSION)?;
@@ -195,16 +198,15 @@ fn index_session(
     session: &sessions::Session,
     repo: &git2::Repository,
     project: &projects::Project,
+    deltas_storage: &deltas::Store,
 ) -> Result<()> {
-    let reference = repo.find_reference(&project.refname())?;
-    let deltas = deltas::list(repo, project, &reference, &session.id, None)?;
+    let deltas = deltas_storage.list(&session.id, None)?;
     if deltas.is_empty() {
         return Ok(());
     }
     let files = sessions::list_files(
         repo,
         project,
-        &reference,
         &session.id,
         Some(deltas.keys().map(|k| k.as_str()).collect()),
     )?;

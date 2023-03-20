@@ -401,10 +401,10 @@ pub fn get(
 pub fn list(
     repo: &git2::Repository,
     project: &projects::Project,
-    reference: &git2::Reference,
     earliest_timestamp_ms: Option<u128>,
 ) -> Result<Vec<Session>> {
-    let mut sessions = list_persistent(repo, reference, earliest_timestamp_ms)?;
+    let reference = repo.find_reference(&project.refname())?;
+    let mut sessions = list_persistent(repo, &reference, earliest_timestamp_ms)?;
     if let Some(session) = Session::current(repo, project)? {
         sessions.insert(0, session);
     }
@@ -471,10 +471,10 @@ fn read_as_string(repo: &git2::Repository, tree: &git2::Tree, path: &Path) -> Re
 pub fn list_files(
     repo: &git2::Repository,
     project: &projects::Project,
-    reference: &git2::Reference,
     session_id: &str,
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, String>> {
+    let reference = repo.find_reference(&project.refname())?;
     let commit = if is_current_session_id(project, session_id)? {
         let head_commit = reference.peel_to_commit()?;
         Some(head_commit)

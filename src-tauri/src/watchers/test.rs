@@ -1,7 +1,4 @@
-use crate::{
-    deltas::{self, Operation},
-    projects, repositories, sessions,
-};
+use crate::{deltas::Operation, projects, repositories, sessions};
 use anyhow::Result;
 use std::path::Path;
 use tempfile::tempdir;
@@ -35,10 +32,12 @@ fn test_flush_session() {
         "hello",
     )
     .unwrap();
+    let git_repo = repo.git_repository;
 
     let result = super::delta::register_file_change(
         &repo.project,
-        &repo.git_repository,
+        &git_repo,
+        &repo.deltas_storage,
         &relative_file_path,
     );
     assert!(result.is_ok());
@@ -48,9 +47,7 @@ fn test_flush_session() {
     assert_eq!(session1.hash, None);
     assert_eq!(deltas1.len(), 1);
 
-    session1
-        .flush(&repo.git_repository, &None, &repo.project)
-        .unwrap();
+    session1.flush(&git_repo, &None, &repo.project).unwrap();
     assert!(session1.hash.is_some());
 
     std::fs::write(
@@ -61,7 +58,8 @@ fn test_flush_session() {
 
     let result = super::delta::register_file_change(
         &repo.project,
-        &repo.git_repository,
+        &git_repo,
+        &repo.deltas_storage,
         &relative_file_path,
     );
     assert!(result.is_ok());
@@ -72,9 +70,7 @@ fn test_flush_session() {
     assert_eq!(deltas2.len(), 1);
     assert_ne!(session1.id, session2.id);
 
-    session2
-        .flush(&repo.git_repository, &None, &repo.project)
-        .unwrap();
+    session2.flush(&git_repo, &None, &repo.project).unwrap();
     assert!(session2.hash.is_some());
 }
 
@@ -96,6 +92,7 @@ fn test_flow() {
         let result = super::delta::register_file_change(
             &repo.project,
             &repo.git_repository,
+            &repo.deltas_storage,
             &relative_file_path,
         );
         assert!(result.is_ok());
@@ -112,12 +109,7 @@ fn test_flow() {
     }
 
     // get all the created sessions
-    let reference = repo
-        .git_repository
-        .find_reference(&repo.project.refname())
-        .unwrap();
-    let mut sessions =
-        sessions::list(&repo.git_repository, &repo.project, &reference, None).unwrap();
+    let mut sessions = sessions::list(&repo.git_repository, &repo.project, None).unwrap();
     assert_eq!(sessions.len(), size);
 
     // verify sessions order is correct
@@ -139,14 +131,7 @@ fn test_flow() {
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
-            let deltas_by_filepath = deltas::list(
-                &repo.git_repository,
-                &repo.project,
-                &reference,
-                &session.id,
-                None,
-            )
-            .unwrap();
+            let deltas_by_filepath = repo.deltas(&session.id, None).unwrap();
             for deltas in deltas_by_filepath.values() {
                 deltas.iter().for_each(|delta| {
                     delta.operations.iter().for_each(|operation| {
@@ -156,14 +141,10 @@ fn test_flow() {
             }
         });
 
-        let files = sessions::list_files(
-            &repo.git_repository,
-            &repo.project,
-            &reference,
-            &sessions_slice.first().unwrap().id,
-            None,
-        )
-        .unwrap();
+        let files = repo
+            .files(&sessions_slice.first().unwrap().id, None)
+            .unwrap();
+
         if i == 0 {
             assert_eq!(files.len(), 0);
         } else {
