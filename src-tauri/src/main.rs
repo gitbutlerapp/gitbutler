@@ -142,8 +142,8 @@ fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
     Ok(build_asset_url(&save_to.display().to_string()))
 }
 
-#[tauri::command]
-async fn search(
+#[tauri::command(async)]
+fn search(
     handle: tauri::AppHandle,
     project_id: &str,
     query: &str,
@@ -176,8 +176,8 @@ async fn search(
     Ok(deltas)
 }
 
-#[tauri::command]
-async fn list_sessions(
+#[tauri::command(async)]
+fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
     earliest_timestamp_ms: Option<u128>,
@@ -190,7 +190,7 @@ async fn list_sessions(
     Ok(sessions)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let app_state = handle.state::<App>();
 
@@ -219,7 +219,7 @@ fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
@@ -233,7 +233,7 @@ fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
@@ -247,7 +247,7 @@ fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn update_project(
     handle: tauri::AppHandle,
     project: projects::UpdateRequest,
@@ -262,7 +262,7 @@ fn update_project(
     Ok(project)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
     let app_state = handle.state::<App>();
 
@@ -310,7 +310,7 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
     Ok(project)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
     let app_state = handle.state::<App>();
 
@@ -319,7 +319,7 @@ fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Err
     Ok(projects)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
@@ -341,8 +341,8 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     }
 }
 
-#[tauri::command]
-async fn list_session_files(
+#[tauri::command(async)]
+fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
@@ -353,8 +353,8 @@ async fn list_session_files(
     Ok(files)
 }
 
-#[tauri::command]
-async fn list_deltas(
+#[tauri::command(async)]
+fn list_deltas(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
@@ -365,8 +365,8 @@ async fn list_deltas(
     Ok(deltas)
 }
 
-#[tauri::command]
-async fn git_status(
+#[tauri::command(async)]
+fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
@@ -375,15 +375,15 @@ async fn git_status(
     Ok(files)
 }
 
-#[tauri::command]
-async fn git_wd_diff(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+#[tauri::command(async)]
+fn git_wd_diff(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let diff = repo.wd_diff().with_context(|| "Failed to get git diff")?;
     Ok(diff)
 }
 
-#[tauri::command]
-async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+#[tauri::command(async)]
+fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .file_paths()
@@ -392,8 +392,8 @@ async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Ve
     Ok(files)
 }
 
-#[tauri::command]
-async fn git_match_paths(
+#[tauri::command(async)]
+fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
     match_pattern: &str,
@@ -422,8 +422,8 @@ fn repo_for_project(
     Ok(repo)
 }
 
-#[tauri::command]
-async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+#[tauri::command(async)]
+fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branches()
@@ -431,8 +431,8 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
     Ok(files)
 }
 
-#[tauri::command]
-async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+#[tauri::command(async)]
+fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branch()
@@ -440,7 +440,7 @@ async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String
     Ok(files)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_switch_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -453,7 +453,7 @@ fn git_switch_branch(
     Ok(result)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_commit(
     handle: tauri::AppHandle,
     project_id: &str,
