@@ -9,6 +9,7 @@ pub struct Repository {
     pub project: projects::Project,
     pub git_repository: git2::Repository,
     pub deltas_storage: deltas::Store,
+    pub sessions_storage: sessions::Store,
 }
 
 impl Clone for Repository {
@@ -17,6 +18,7 @@ impl Clone for Repository {
             project: self.project.clone(),
             git_repository: git2::Repository::open(&self.project.path).unwrap(),
             deltas_storage: self.deltas_storage.clone(),
+            sessions_storage: self.sessions_storage.clone(),
         }
     }
 }
@@ -24,16 +26,20 @@ impl Clone for Repository {
 impl Repository {
     pub fn new(project: projects::Project, user: Option<users::User>) -> Result<Self> {
         let git_repository = git2::Repository::open(&project.path)?;
-        init(&git_repository, &project, &user).with_context(|| "failed to init repository")?;
+        let sessions_storage =
+            sessions::Store::new(git2::Repository::open(&project.path)?, project.clone())?;
+        init(&git_repository, &project, &user, &sessions_storage)
+            .with_context(|| "failed to init repository")?;
         Ok(Repository {
             project: project.clone(),
             git_repository,
-            deltas_storage: deltas::Store::new(git2::Repository::open(&project.path)?, project)?,
+            deltas_storage: deltas::Store::new(git2::Repository::open(&project.path)?, project, sessions_storage.clone())?,
+            sessions_storage,
         })
     }
 
     pub fn sessions(&self, earliest_timestamp_ms: Option<u128>) -> Result<Vec<sessions::Session>> {
-        sessions::list(&self.git_repository, &self.project, earliest_timestamp_ms)
+        self.sessions_storage.list(earliest_timestamp_ms)
     }
 
     pub fn files(
@@ -343,11 +349,10 @@ impl Repository {
 
     pub fn flush_session(&self, user: &Option<users::User>) -> Result<()> {
         // if the reference doesn't exist, we create it by creating a flushing a new session
-        let mut current_session =
-            match sessions::Session::current(&self.git_repository, &self.project)? {
-                Some(session) => session,
-                None => sessions::Session::from_head(&self.git_repository, &self.project)?,
-            };
+        let mut current_session = match self.sessions_storage.get_current()? {
+            Some(session) => session,
+            None => sessions::Session::from_head(&self.git_repository, &self.project)?,
+        };
         current_session
             .flush(&self.git_repository, user, &self.project)
             .with_context(|| format!("{}: failed to flush session", &self.project.id))?;
@@ -359,6 +364,7 @@ fn init(
     git_repository: &git2::Repository,
     project: &projects::Project,
     user: &Option<users::User>,
+    sessions_storage: &sessions::Store,
 ) -> Result<()> {
     let reference_name = project.refname();
     match git_repository.find_reference(&reference_name) {
@@ -368,8 +374,7 @@ fn init(
         Err(error) => {
             if error.code() == git2::ErrorCode::NotFound {
                 // if the reference doesn't exist, we create it by creating a flushing a new session
-                let mut current_session = match sessions::Session::current(git_repository, project)?
-                {
+                let mut current_session = match sessions_storage.get_current()? {
                     Some(session) => session,
                     None => sessions::Session::from_head(git_repository, project)?,
                 };

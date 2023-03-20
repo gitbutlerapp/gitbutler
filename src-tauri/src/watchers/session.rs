@@ -1,6 +1,5 @@
 use crate::{deltas, events, projects, search, sessions, users};
 use anyhow::{Context, Result};
-use git2::Repository;
 use std::{
     sync::{mpsc, Arc, Mutex},
     thread,
@@ -36,6 +35,7 @@ impl<'a> SessionWatcher {
         sender: mpsc::Sender<events::Event>,
         mutex: Arc<Mutex<fslock::LockFile>>,
         deltas_storage: &deltas::Store,
+        sessions_storage: &sessions::Store,
     ) -> Result<()> {
         match self
             .projects_storage
@@ -51,7 +51,7 @@ impl<'a> SessionWatcher {
                 let repo = git2::Repository::open(project.path.clone())
                     .with_context(|| format!("{}: failed to open repository", project.id))?;
 
-                match session_to_commit(&repo, &project)
+                match session_to_commit(&project, &sessions_storage)
                     .with_context(|| "failed to check for session to comit")?
                 {
                     Some(mut session) => {
@@ -93,6 +93,7 @@ impl<'a> SessionWatcher {
         project: projects::Project,
         mutex: Arc<Mutex<fslock::LockFile>>,
         deltas_storage: &deltas::Store,
+        sessions_storage: &sessions::Store,
     ) -> Result<()> {
         log::info!("{}: watching sessions in {}", project.id, project.path);
 
@@ -101,13 +102,19 @@ impl<'a> SessionWatcher {
         let project_id = project.id;
 
         let shared_storage = deltas_storage.clone();
+        let shared_sessions_storage = sessions_storage.clone();
         tauri::async_runtime::spawn_blocking(move || loop {
             let local_self = &mut self_copy;
             let deltas_storage = shared_storage.clone();
+            let sessions_storage = shared_sessions_storage.clone();
 
-            if let Err(e) =
-                local_self.run(&project_id, sender.clone(), mutex.clone(), &deltas_storage)
-            {
+            if let Err(e) = local_self.run(
+                &project_id,
+                sender.clone(),
+                mutex.clone(),
+                &deltas_storage,
+                &sessions_storage,
+            ) {
                 log::error!("{}: error while running git watcher: {:#}", project_id, e);
             }
 
@@ -122,10 +129,11 @@ impl<'a> SessionWatcher {
 // and that there has been no activity in the last 5 minutes (the session appears to be over)
 // and the start was at most an hour ago
 fn session_to_commit(
-    repo: &Repository,
     project: &projects::Project,
+    sessions_store: &sessions::Store,
 ) -> Result<Option<sessions::Session>> {
-    match sessions::Session::current(repo, project)
+    match sessions_store
+        .get_current()
         .with_context(|| format!("{}: failed to get current session", project.id))?
     {
         None => Ok(None),

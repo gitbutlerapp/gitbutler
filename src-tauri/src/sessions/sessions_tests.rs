@@ -44,7 +44,8 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
 #[test]
 fn test_current_none() {
     let (repo, project) = test_project().unwrap();
-    let current_session = super::sessions::Session::current(&repo, &project);
+    let store = super::Store::new(repo, project).unwrap();
+    let current_session = store.get_current();
     assert!(current_session.is_ok());
     assert!(current_session.unwrap().is_none());
 }
@@ -134,14 +135,14 @@ fn test_create_current() {
 #[test]
 fn test_get_current() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
     let created_session = super::sessions::Session::from_head(&repo, &project);
     assert!(created_session.is_ok());
     let created_session = created_session.unwrap();
 
-    let current_session = super::sessions::Session::current(&repo, &project);
+    let current_session = store.get_current();
     assert!(current_session.is_ok());
     let current_session = current_session.unwrap();
-
     assert!(current_session.is_some());
     let current_session = current_session.unwrap();
     assert_eq!(current_session, created_session);
@@ -150,6 +151,7 @@ fn test_get_current() {
 #[test]
 fn test_flush() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
     let created_session = super::sessions::Session::from_head(&repo, &project);
     assert!(created_session.is_ok());
     let mut created_session = created_session.unwrap();
@@ -171,7 +173,7 @@ fn test_flush() {
         "gitbutler@localhost"
     );
 
-    let current_session = super::sessions::Session::current(&repo, &project);
+    let current_session = store.get_current();
     assert!(current_session.is_ok());
     let current_session = current_session.unwrap();
     assert!(current_session.is_none());
@@ -180,6 +182,7 @@ fn test_flush() {
 #[test]
 fn test_flush_with_user() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
     let created_session = super::sessions::Session::from_head(&repo, &project);
     assert!(created_session.is_ok());
     let mut created_session = created_session.unwrap();
@@ -201,7 +204,7 @@ fn test_flush_with_user() {
         "gitbutler@localhost"
     );
 
-    let current_session = super::sessions::Session::current(&repo, &project);
+    let current_session = store.get_current();
     assert!(current_session.is_ok());
     let current_session = current_session.unwrap();
     assert!(current_session.is_none());
@@ -226,9 +229,14 @@ fn test_get_persistent() {
     assert_eq!(reconstructed, created_session);
 }
 
+fn clone_repo(repo: &git2::Repository) -> git2::Repository {
+    git2::Repository::open(repo.path()).unwrap()
+}
+
 #[test]
 fn test_list() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
     let first = super::sessions::Session::from_head(&repo, &project);
     assert!(first.is_ok());
     let mut first = first.unwrap();
@@ -245,7 +253,7 @@ fn test_list() {
     assert!(current_session.is_ok());
     let current = current_session.unwrap();
 
-    let sessions = super::sessions::list(&repo, &project, None);
+    let sessions = store.list(None);
     assert!(sessions.is_ok());
     let sessions = sessions.unwrap();
 

@@ -300,11 +300,12 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
     let repo = repo_for_project(handle.clone(), &project.id)?;
 
     let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
-    app_state
-        .watchers
-        .lock()
-        .unwrap()
-        .watch(tx, &project, &repo.deltas_storage)?;
+    app_state.watchers.lock().unwrap().watch(
+        tx,
+        &project,
+        &repo.deltas_storage,
+        &repo.sessions_storage,
+    )?;
     watch_events(handle, rx);
 
     Ok(project)
@@ -665,7 +666,7 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .watchers
             .lock()
             .unwrap()
-            .watch(tx.clone(), &project, &repo.deltas_storage)
+            .watch(tx.clone(), &project, &repo.deltas_storage, &repo.sessions_storage)
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
         let git_repository = repo.git_repository;

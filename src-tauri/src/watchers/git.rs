@@ -1,4 +1,4 @@
-use crate::{events, projects, sessions};
+use crate::{events, projects};
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, Watcher};
 use std::{

@@ -1,7 +1,9 @@
 mod activity;
 mod sessions;
+mod storage;
 
-pub use sessions::{get, list, list_files, Session, id_from_commit};
+pub use sessions::{id_from_commit, list_files, Meta, Session};
+pub use storage::Store;
 
 #[cfg(test)]
 mod activity_tests;

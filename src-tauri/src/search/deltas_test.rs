@@ -35,7 +35,9 @@ fn test_filter_by_timestamp() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
-    let deltas_storage = deltas::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let deltas_storage =
+        deltas::Store::new(clone_repo(&repo), project.clone(), sessions_storage).unwrap();
     let mut session = sessions::Session::from_head(&repo, &project).unwrap();
     deltas_storage
         .write(
@@ -105,7 +107,9 @@ fn test_sorted_by_timestamp() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
-    let deltas_storage = deltas::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let deltas_storage =
+        deltas::Store::new(clone_repo(&repo), project.clone(), sessions_storage).unwrap();
     let mut session = sessions::Session::from_head(&repo, &project).unwrap();
     deltas_storage
         .write(
@@ -149,7 +153,9 @@ fn test_simple() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
-    let deltas_storage = deltas::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let deltas_storage =
+        deltas::Store::new(clone_repo(&repo), project.clone(), sessions_storage).unwrap();
     let mut session = sessions::Session::from_head(&repo, &project).unwrap();
     deltas_storage
         .write(

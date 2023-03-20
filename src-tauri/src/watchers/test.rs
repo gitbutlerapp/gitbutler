@@ -74,6 +74,10 @@ fn test_flush_session() {
     assert!(session2.hash.is_some());
 }
 
+fn clone_repo(repo: &git2::Repository) -> git2::Repository {
+    git2::Repository::open(repo.path()).unwrap()
+}
+
 #[test]
 fn test_flow() {
     let repo = test_project().unwrap();
@@ -108,8 +112,11 @@ fn test_flow() {
         assert!(session.hash.is_some());
     }
 
+    let sessions_store =
+        sessions::Store::new(clone_repo(&repo.git_repository), repo.project.clone()).unwrap();
+
     // get all the created sessions
-    let mut sessions = sessions::list(&repo.git_repository, &repo.project, None).unwrap();
+    let mut sessions = sessions_store.list(None).unwrap();
     assert_eq!(sessions.len(), size);
 
     // verify sessions order is correct

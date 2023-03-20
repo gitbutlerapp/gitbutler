@@ -1,6 +1,7 @@
-use crate::{deltas, projects};
-use anyhow::Result;
 use std::path::Path;
+
+use crate::{deltas, projects, sessions};
+use anyhow::Result;
 use tempfile::tempdir;
 
 fn test_project() -> Result<(git2::Repository, projects::Project)> {
@@ -33,7 +34,9 @@ fn test_register_file_change_must_create_session() {
     let relative_file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(relative_file_path), "test").unwrap();
 
-    let deltas_storage = deltas::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let deltas_storage =
+        deltas::Store::new(clone_repo(&repo), project.clone(), sessions_storage).unwrap();
     let result =
         super::delta::register_file_change(&project, &repo, &deltas_storage, &relative_file_path);
     println!("{:?}", result);
@@ -52,7 +55,9 @@ fn test_register_file_change_must_not_change_session() {
     let relative_file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(relative_file_path), "test").unwrap();
 
-    let deltas_storage = deltas::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let deltas_storage =
+        deltas::Store::new(clone_repo(&repo), project.clone(), sessions_storage).unwrap();
     let result =
         super::delta::register_file_change(&project, &repo, &deltas_storage, &relative_file_path);
     assert!(result.is_ok());
