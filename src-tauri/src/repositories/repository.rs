@@ -28,7 +28,7 @@ impl Repository {
         Ok(Repository {
             project: project.clone(),
             git_repository,
-            deltas_storage: deltas::Store::new(git2::Repository::open(&project.path)?, project),
+            deltas_storage: deltas::Store::new(git2::Repository::open(&project.path)?, project)?,
         })
     }
 
@@ -186,7 +186,8 @@ impl Repository {
         options.recurse_untracked_dirs(true);
 
         // get the status of the repository
-        let statuses = &self.git_repository
+        let statuses = &self
+            .git_repository
             .statuses(Some(&mut options))
             .with_context(|| "failed to get repository status")?;
 
@@ -305,11 +306,11 @@ impl Repository {
 
     pub fn flush_session(&self, user: &Option<users::User>) -> Result<()> {
         // if the reference doesn't exist, we create it by creating a flushing a new session
-        let mut current_session = match sessions::Session::current(&self.git_repository, &self.project)?
-        {
-            Some(session) => session,
-            None => sessions::Session::from_head(&self.git_repository, &self.project)?,
-        };
+        let mut current_session =
+            match sessions::Session::current(&self.git_repository, &self.project)? {
+                Some(session) => session,
+                None => sessions::Session::from_head(&self.git_repository, &self.project)?,
+            };
         current_session
             .flush(&self.git_repository, user, &self.project)
             .with_context(|| format!("{}: failed to flush session", &self.project.id))?;
