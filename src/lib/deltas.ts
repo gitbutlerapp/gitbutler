@@ -23,8 +23,12 @@ export type DeltasEvent = {
 	filePath: string;
 };
 
-export const list = (params: { projectId: string; sessionId: string; paths?: string[] }) =>
-	invoke<Record<string, Delta[]>>('list_deltas', params);
+export const list = async (params: { projectId: string; sessionId: string; paths?: string[] }) => {
+	const start = performance.now();
+	const result = await invoke<Record<string, Delta[]>>('list_deltas', params);
+	log.debug(`list_deltas took ${performance.now() - start}ms`);
+	return result;
+};
 
 export const subscribe = (
 	params: { projectId: string; sessionId: string },
