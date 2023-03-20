@@ -1,11 +1,16 @@
-use std::{collections::HashMap, path::Path};
-
 use crate::{projects, sessions};
 use anyhow::{Context, Result};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 pub struct Store {
     project: projects::Project,
     git_repository: git2::Repository,
+
+    files_cache: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
 }
 
 impl Clone for Store {
@@ -13,6 +18,7 @@ impl Clone for Store {
         Self {
             project: self.project.clone(),
             git_repository: git2::Repository::open(&self.project.path).unwrap(),
+            files_cache: self.files_cache.clone(),
         }
     }
 }
@@ -22,6 +28,7 @@ impl Store {
         Ok(Self {
             project: project.clone(),
             git_repository,
+            files_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -54,7 +61,15 @@ impl Store {
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        let files = self.list_files_from_disk(session_id)?;
+        let mut files_cache = self.files_cache.lock().unwrap();
+        let files = match files_cache.get(session_id) {
+            Some(files) => files.clone(),
+            None => {
+                let files = self.list_files_from_disk(session_id)?;
+                files_cache.insert(session_id.to_string(), files.clone());
+                files
+            }
+        };
         match paths {
             Some(paths) => {
                 let mut filtered_files = HashMap::new();
