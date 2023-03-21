@@ -25,6 +25,8 @@ fn test_project() -> Result<repositories::Repository> {
 #[test]
 fn test_flush_session() {
     let repo = test_project().unwrap();
+    let sessions_store =
+        sessions::Store::new(clone_repo(&repo.git_repository), repo.project.clone()).unwrap();
 
     let relative_file_path = Path::new("test.txt");
     std::fs::write(
@@ -47,7 +49,7 @@ fn test_flush_session() {
     assert_eq!(session1.hash, None);
     assert_eq!(deltas1.len(), 1);
 
-    session1.flush(&git_repo, &None, &repo.project).unwrap();
+    session1 = sessions_store.flush(&session1, None).unwrap();
     assert!(session1.hash.is_some());
 
     std::fs::write(
@@ -70,7 +72,7 @@ fn test_flush_session() {
     assert_eq!(deltas2.len(), 1);
     assert_ne!(session1.id, session2.id);
 
-    session2.flush(&git_repo, &None, &repo.project).unwrap();
+    session2 = sessions_store.flush(&session2, None).unwrap();
     assert!(session2.hash.is_some());
 }
 
@@ -81,6 +83,8 @@ fn clone_repo(repo: &git2::Repository) -> git2::Repository {
 #[test]
 fn test_flow() {
     let repo = test_project().unwrap();
+    let sessions_store =
+        sessions::Store::new(clone_repo(&repo.git_repository), repo.project.clone()).unwrap();
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -106,14 +110,9 @@ fn test_flow() {
         assert_eq!(session.hash, None);
         assert_eq!(deltas.len(), 1);
 
-        session
-            .flush(&repo.git_repository, &None, &repo.project)
-            .unwrap();
+        session = sessions_store.flush(&session, None).unwrap();
         assert!(session.hash.is_some());
     }
-
-    let sessions_store =
-        sessions::Store::new(clone_repo(&repo.git_repository), repo.project.clone()).unwrap();
 
     // get all the created sessions
     let mut sessions = sessions_store.list(None).unwrap();

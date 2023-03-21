@@ -74,6 +74,15 @@ impl Store {
         Ok(session)
     }
 
+    pub fn delete(&self) -> Result<()> {
+        let session_path = self.project.session_path();
+        log::debug!("{}: deleting current session", self.project.id);
+        if session_path.exists() {
+            std::fs::remove_dir_all(session_path)?;
+        }
+        Ok(())
+    }
+
     pub fn update(&self, session: &sessions::Session) -> Result<()> {
         if session.hash.is_some() {
             return Err(anyhow::anyhow!("cannot update session that is not current"));

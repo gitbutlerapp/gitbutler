@@ -48,9 +48,6 @@ impl<'a> SessionWatcher {
                     .get()
                     .with_context(|| format!("{}: failed to get user", project.id))?;
 
-                let repo = git2::Repository::open(project.path.clone())
-                    .with_context(|| format!("{}: failed to open repository", project.id))?;
-
                 match session_to_commit(&project, &sessions_storage)
                     .with_context(|| "failed to check for session to comit")?
                 {
@@ -60,8 +57,8 @@ impl<'a> SessionWatcher {
                         fslock.lock().unwrap();
                         log::debug!("{}: locked", project.id);
 
-                        session
-                            .flush(&repo, &user, &project)
+                        session = sessions_storage
+                            .flush(&session, user)
                             .with_context(|| format!("failed to flush session {}", session.id))?;
 
                         log::debug!("{}: unlocking", project.id);

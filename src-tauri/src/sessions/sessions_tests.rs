@@ -158,11 +158,11 @@ fn test_flush() {
     let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
     let created_session = store.create_current();
     assert!(created_session.is_ok());
-    let mut created_session = created_session.unwrap();
+    let created_session = created_session.unwrap();
 
-    let flush_result = created_session.flush(&repo, &None, &project);
+    let flush_result = store.flush(&created_session, None);
     assert!(flush_result.is_ok());
-    assert!(created_session.hash.is_some());
+    assert!(flush_result.unwrap().hash.is_some());
 
     let head_commit = repo
         .find_reference(&project.refname())
@@ -189,11 +189,11 @@ fn test_flush_with_user() {
     let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
     let created_session = store.create_current();
     assert!(created_session.is_ok());
-    let mut created_session = created_session.unwrap();
+    let created_session = created_session.unwrap();
 
-    let flush_result = created_session.flush(&repo, &Some(test_user()), &project);
+    let flush_result = store.flush(&created_session, Some(test_user()));
     assert!(flush_result.is_ok());
-    assert!(created_session.hash.is_some());
+    assert!(flush_result.unwrap().hash.is_some());
 
     let head_commit = repo
         .find_reference(&project.refname())
@@ -222,7 +222,7 @@ fn test_get_persistent() {
     assert!(created_session.is_ok());
     let mut created_session = created_session.unwrap();
 
-    created_session.flush(&repo, &None, &project).unwrap();
+    created_session = store.flush(&created_session, None).unwrap();
 
     let commid_oid = git2::Oid::from_str(&created_session.hash.as_ref().unwrap()).unwrap();
     let commit = repo.find_commit(commid_oid).unwrap();
@@ -245,13 +245,13 @@ fn test_list() {
     let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
-    first.flush(&repo, &None, &project).unwrap();
+    first = store.flush(&first, None).unwrap();
     assert!(first.hash.is_some());
 
     let second = store.create_current();
     assert!(second.is_ok());
     let mut second = second.unwrap();
-    second.flush(&repo, &None, &project).unwrap();
+    second = store.flush(&second, None).unwrap();
     assert!(second.hash.is_some());
 
     let current_session = store.create_current();
@@ -280,7 +280,7 @@ fn test_list_files_from_first_presistent_session() {
     let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
-    first.flush(&repo, &None, &project).unwrap();
+    first = store.flush(&first, None).unwrap();
     assert!(first.hash.is_some());
 
     let file_path = Path::new(&project.path).join("test.txt");
@@ -304,7 +304,7 @@ fn test_list_files_from_second_current_session() {
     let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
-    first.flush(&repo, &None, &project).unwrap();
+    first = store.flush(&first, None).unwrap();
     assert!(first.hash.is_some());
 
     std::thread::sleep(std::time::Duration::from_millis(1));
@@ -333,7 +333,7 @@ fn test_list_files_from_second_presistent_session() {
     let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
-    first.flush(&repo, &None, &project).unwrap();
+    first = store.flush(&first, None).unwrap();
     assert!(first.hash.is_some());
 
     std::thread::sleep(std::time::Duration::from_millis(1));
@@ -343,7 +343,7 @@ fn test_list_files_from_second_presistent_session() {
     let second = store.create_current();
     assert!(second.is_ok());
     let mut second = second.unwrap();
-    second.flush(&repo, &None, &project).unwrap();
+    second = store.flush(&second, None).unwrap();
     assert!(second.hash.is_some());
 
     std::fs::write(file_path.clone(), "two").unwrap();
@@ -373,7 +373,7 @@ fn test_flush_ensure_wd_structure() {
     let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
-    first.flush(&repo, &None, &project).unwrap();
+    first = store.flush(&first, None).unwrap();
     assert!(first.hash.is_some());
 
     let mut all_files_1: HashMap<String, bool> = HashMap::new();
@@ -395,7 +395,7 @@ fn test_flush_ensure_wd_structure() {
     let second = store.create_current();
     assert!(second.is_ok());
     let mut second = second.unwrap();
-    second.flush(&repo, &None, &project).unwrap();
+    second = store.flush(&second, None).unwrap();
     assert!(second.hash.is_some());
 
     let mut all_files_2: HashMap<String, bool> = HashMap::new();

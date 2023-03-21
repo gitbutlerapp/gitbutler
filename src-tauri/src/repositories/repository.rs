@@ -28,7 +28,7 @@ impl Repository {
         let git_repository = git2::Repository::open(&project.path)?;
         let sessions_storage =
             sessions::Store::new(git2::Repository::open(&project.path)?, project.clone())?;
-        init(&git_repository, &project, &user, &sessions_storage)
+        init(&git_repository, &project, user, &sessions_storage)
             .with_context(|| "failed to init repository")?;
         Ok(Repository {
             project: project.clone(),
@@ -167,7 +167,7 @@ impl Repository {
         let mut current_line_count = 0;
         let mut last_path = String::new();
 
-        diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
+        diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
             let new_path = delta
                 .new_file()
                 .path()
@@ -201,7 +201,7 @@ impl Repository {
     }
 
     pub fn switch_branch(&self, branch_name: &str) -> Result<bool> {
-        self.flush_session(&None)
+        self.flush_session(None)
             .with_context(|| "failed to flush session before switching branch")?;
 
         let repo = &self.git_repository;
@@ -347,14 +347,14 @@ impl Repository {
         return Ok(true);
     }
 
-    pub fn flush_session(&self, user: &Option<users::User>) -> Result<()> {
+    pub fn flush_session(&self, user: Option<users::User>) -> Result<()> {
         // if the reference doesn't exist, we create it by creating a flushing a new session
-        let mut current_session = match self.sessions_storage.get_current()? {
+        let current_session = match self.sessions_storage.get_current()? {
             Some(session) => session,
             None => self.sessions_storage.create_current()?,
         };
-        current_session
-            .flush(&self.git_repository, user, &self.project)
+        self.sessions_storage
+            .flush(&current_session, user)
             .with_context(|| format!("{}: failed to flush session", &self.project.id))?;
         Ok(())
     }
@@ -363,7 +363,7 @@ impl Repository {
 fn init(
     git_repository: &git2::Repository,
     project: &projects::Project,
-    user: &Option<users::User>,
+    user: Option<users::User>,
     sessions_storage: &sessions::Store,
 ) -> Result<()> {
     let reference_name = project.refname();
@@ -374,12 +374,12 @@ fn init(
         Err(error) => {
             if error.code() == git2::ErrorCode::NotFound {
                 // if the reference doesn't exist, we create it by creating a flushing a new session
-                let mut current_session = match sessions_storage.get_current()? {
+                let current_session = match sessions_storage.get_current()? {
                     Some(session) => session,
                     None => sessions_storage.create_current()?,
                 };
-                current_session
-                    .flush(git_repository, user, project)
+                sessions_storage
+                    .flush(&current_session, user)
                     .with_context(|| format!("{}: failed to flush session", project.id))?;
                 Ok(())
             } else {

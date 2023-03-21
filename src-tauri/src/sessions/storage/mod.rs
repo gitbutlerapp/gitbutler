@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time};
 
-use crate::{projects, sessions};
+use crate::{projects, sessions, users};
 use anyhow::Result;
 
 mod current;
@@ -27,6 +27,29 @@ impl Store {
 
     pub fn create_current(&self) -> Result<sessions::Session> {
         self.current.create()
+    }
+
+    pub fn flush(
+        &self,
+        session: &sessions::Session,
+        user: Option<users::User>,
+    ) -> Result<sessions::Session> {
+        let meta = session.meta.clone();
+        let updated_time = sessions::Session {
+            id: session.id.clone(),
+            hash: session.hash.clone(),
+            activity: session.activity.clone(),
+            meta: sessions::Meta {
+                last_timestamp_ms: time::SystemTime::now()
+                    .duration_since(time::SystemTime::UNIX_EPOCH)?
+                    .as_millis(),
+                ..meta
+            },
+        };
+        self.current.update(&updated_time)?;
+        let flushed_session = self.persistent.flush(user, &updated_time)?;
+        self.current.delete()?;
+        Ok(flushed_session)
     }
 
     pub fn update(&self, session: &sessions::Session) -> Result<()> {

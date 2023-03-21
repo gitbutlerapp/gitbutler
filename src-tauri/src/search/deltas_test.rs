@@ -57,7 +57,7 @@ fn test_filter_by_timestamp() {
             ],
         )
         .unwrap();
-    session.flush(&repo, &None, &project).unwrap();
+    session = sessions_storage.flush(&session, None).unwrap();
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
@@ -125,7 +125,7 @@ fn test_sorted_by_timestamp() {
             ],
         )
         .unwrap();
-    session.flush(&repo, &None, &project).unwrap();
+    session = sessions_storage.flush(&session, None).unwrap();
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
@@ -171,7 +171,7 @@ fn test_simple() {
             ],
         )
         .unwrap();
-    session.flush(&repo, &None, &project).unwrap();
+    session = sessions_storage.flush(&session, None).unwrap();
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 

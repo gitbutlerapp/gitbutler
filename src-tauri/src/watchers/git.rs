@@ -61,32 +61,28 @@ impl GitWatchers {
                         .unwrap();
 
                     match is_interesting_event(&event.kind) {
-                        Some(kind_string) => {
-                            log::info!(
-                                "{}: \"{}\" {}",
-                                project.id,
-                                relative_file_path.display(),
-                                kind_string
-                            );
+                        Some(kind_string) => match on_file_change(&relative_file_path, &project) {
+                            Ok(Some(event)) => {
+                                log::info!(
+                                    "{}: \"{}\" {}",
+                                    project.id,
+                                    relative_file_path.display(),
+                                    kind_string
+                                );
 
-                            match on_file_change(&relative_file_path, &project) {
-                                Ok(Some(event)) => {
-                                    if let Err(e) = sender.send(event) {
-                                        log::error!(
-                                            "{}: notify event error: {:#}",
-                                            project.id.clone(),
-                                            e
-                                        );
-                                    }
+                                if let Err(e) = sender.send(event) {
+                                    log::error!(
+                                        "{}: notify event error: {:#}",
+                                        project.id.clone(),
+                                        e
+                                    );
                                 }
-                                Ok(None) => {}
-                                Err(e) => log::error!(
-                                    "{}: notify event error: {:#}",
-                                    project.id.clone(),
-                                    e
-                                ),
                             }
-                        }
+                            Ok(None) => {}
+                            Err(e) => {
+                                log::error!("{}: notify event error: {:#}", project.id.clone(), e)
+                            }
+                        },
                         None => {
                             // ignore
                         }
