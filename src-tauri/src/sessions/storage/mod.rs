@@ -1,4 +1,8 @@
-use std::{collections::HashMap, time};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time,
+};
 
 use crate::{projects, sessions, users};
 use anyhow::Result;
@@ -14,15 +18,12 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(git_repository: git2::Repository, project: projects::Project) -> Result<Self> {
-        Ok(Self {
-            project: project.clone(),
-            current: current::Store::new(git_repository, project.clone())?,
-            persistent: persistent::Store::new(
-                git2::Repository::open(&project.path)?,
-                project.clone(),
-            )?,
-        })
+    pub fn new(git_repository: Arc<Mutex<git2::Repository>>, project: projects::Project) -> Self {
+        Self {
+            current: current::Store::new(git_repository.clone(), project.clone()),
+            persistent: persistent::Store::new(git_repository, project.clone()),
+            project,
+        }
     }
 
     pub fn create_current(&self) -> Result<sessions::Session> {

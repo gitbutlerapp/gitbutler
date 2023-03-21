@@ -1,6 +1,9 @@
 use crate::{deltas::Operation, projects, repositories, sessions};
 use anyhow::Result;
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 use tempfile::tempdir;
 
 fn test_project() -> Result<repositories::Repository> {
@@ -25,8 +28,10 @@ fn test_project() -> Result<repositories::Repository> {
 #[test]
 fn test_flush_session() {
     let repo = test_project().unwrap();
-    let sessions_store =
-        sessions::Store::new(clone_repo(&repo.git_repository), repo.project.clone()).unwrap();
+    let sessions_store = sessions::Store::new(
+        Arc::new(Mutex::new(clone_repo(&repo.git_repository))),
+        repo.project.clone(),
+    );
 
     let relative_file_path = Path::new("test.txt");
     std::fs::write(
@@ -34,11 +39,10 @@ fn test_flush_session() {
         "hello",
     )
     .unwrap();
-    let git_repo = repo.git_repository;
 
     let result = super::delta::register_file_change(
         &repo.project,
-        &git_repo,
+        &repo.git_repository,
         &repo.deltas_storage,
         &relative_file_path,
     );
@@ -60,7 +64,7 @@ fn test_flush_session() {
 
     let result = super::delta::register_file_change(
         &repo.project,
-        &git_repo,
+        &repo.git_repository,
         &repo.deltas_storage,
         &relative_file_path,
     );
@@ -83,8 +87,10 @@ fn clone_repo(repo: &git2::Repository) -> git2::Repository {
 #[test]
 fn test_flow() {
     let repo = test_project().unwrap();
-    let sessions_store =
-        sessions::Store::new(clone_repo(&repo.git_repository), repo.project.clone()).unwrap();
+    let sessions_store = sessions::Store::new(
+        Arc::new(Mutex::new(clone_repo(&repo.git_repository))),
+        repo.project.clone(),
+    );
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");

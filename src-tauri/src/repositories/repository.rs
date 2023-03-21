@@ -31,18 +31,14 @@ impl Clone for Repository {
 impl Repository {
     pub fn new(project: projects::Project, user: Option<users::User>) -> Result<Self> {
         let git_repository = git2::Repository::open(&project.path)?;
-        let sessions_storage =
-            sessions::Store::new(git2::Repository::open(&project.path)?, project.clone())?;
+        let arepo = Arc::new(Mutex::new(git2::Repository::open(&project.path)?));
+        let sessions_storage = sessions::Store::new(arepo.clone(), project.clone());
         init(&git_repository, &project, user, &sessions_storage)
             .with_context(|| "failed to init repository")?;
         Ok(Repository {
             project: project.clone(),
             git_repository,
-            deltas_storage: deltas::Store::new(
-                Arc::new(Mutex::new(git2::Repository::open(&project.path)?)),
-                project,
-                sessions_storage.clone(),
-            ),
+            deltas_storage: deltas::Store::new(arepo, project, sessions_storage.clone()),
             sessions_storage,
         })
     }

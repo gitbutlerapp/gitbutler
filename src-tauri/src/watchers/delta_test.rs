@@ -33,16 +33,13 @@ fn clone_repo(repo: &git2::Repository) -> git2::Repository {
 #[test]
 fn test_register_file_change_must_create_session() {
     let (repo, project) = test_project().unwrap();
+    let arepo = Arc::new(Mutex::new(clone_repo(&repo)));
 
     let relative_file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(relative_file_path), "test").unwrap();
 
-    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage = deltas::Store::new(
-        Arc::new(Mutex::new(clone_repo(&repo))),
-        project.clone(),
-        sessions_storage,
-    );
+    let sessions_storage = sessions::Store::new(arepo.clone(), project.clone());
+    let deltas_storage = deltas::Store::new(arepo, project.clone(), sessions_storage);
     let result =
         super::delta::register_file_change(&project, &repo, &deltas_storage, &relative_file_path);
     println!("{:?}", result);
@@ -57,16 +54,13 @@ fn test_register_file_change_must_create_session() {
 #[test]
 fn test_register_file_change_must_not_change_session() {
     let (repo, project) = test_project().unwrap();
+    let arepo = Arc::new(Mutex::new(clone_repo(&repo)));
 
     let relative_file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(relative_file_path), "test").unwrap();
 
-    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage = deltas::Store::new(
-        Arc::new(Mutex::new(clone_repo(&repo))),
-        project.clone(),
-        sessions_storage,
-    );
+    let sessions_storage = sessions::Store::new(arepo.clone(), project.clone());
+    let deltas_storage = deltas::Store::new(arepo, project.clone(), sessions_storage);
     let result =
         super::delta::register_file_change(&project, &repo, &deltas_storage, &relative_file_path);
     assert!(result.is_ok());

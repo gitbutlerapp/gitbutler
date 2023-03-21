@@ -38,12 +38,9 @@ fn test_filter_by_timestamp() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
-    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage = deltas::Store::new(
-        Arc::new(Mutex::new(repo)),
-        project.clone(),
-        sessions_storage.clone(),
-    );
+    let repo = Arc::new(Mutex::new(repo));
+    let sessions_storage = sessions::Store::new(repo.clone(), project.clone());
+    let deltas_storage = deltas::Store::new(repo, project.clone(), sessions_storage.clone());
     let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(
@@ -113,13 +110,10 @@ fn test_filter_by_timestamp() {
 fn test_sorted_by_timestamp() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
+    let repo = Arc::new(Mutex::new(repo));
 
-    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage = deltas::Store::new(
-        Arc::new(Mutex::new(repo)),
-        project.clone(),
-        sessions_storage.clone(),
-    );
+    let sessions_storage = sessions::Store::new(repo.clone(), project.clone());
+    let deltas_storage = deltas::Store::new(repo, project.clone(), sessions_storage.clone());
     let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(
@@ -163,13 +157,10 @@ fn test_sorted_by_timestamp() {
 fn test_simple() {
     let (repo, project) = test_project().unwrap();
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
+    let repo = Arc::new(Mutex::new(repo));
 
-    let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage = deltas::Store::new(
-        Arc::new(Mutex::new(repo)),
-        project.clone(),
-        sessions_storage.clone(),
-    );
+    let sessions_storage = sessions::Store::new(repo.clone(), project.clone());
+    let deltas_storage = deltas::Store::new(repo, project.clone(), sessions_storage.clone());
     let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(

@@ -21,13 +21,13 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(git_repository: git2::Repository, project: projects::Project) -> Result<Self> {
-        Ok(Self {
-            project: project.clone(),
-            git_repository: Arc::new(Mutex::new(git_repository)),
+    pub fn new(git_repository: Arc<Mutex<git2::Repository>>, project: projects::Project) -> Self {
+        Self {
+            project,
+            git_repository,
             files_cache: Arc::new(Mutex::new(HashMap::new())),
             sessions_cache: Arc::new(Mutex::new(None)),
-        })
+        }
     }
 
     pub fn get_by_id(&self, session_id: &str) -> Result<Option<sessions::Session>> {

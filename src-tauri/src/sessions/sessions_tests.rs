@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use crate::{projects, users};
 use anyhow::Result;
@@ -44,7 +48,7 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
 #[test]
 fn test_current_none() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(repo, project).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
     let current_session = store.get_current();
     assert!(current_session.is_ok());
     assert!(current_session.unwrap().is_none());
@@ -53,7 +57,7 @@ fn test_current_none() {
 #[test]
 fn test_create_current_fails_when_meta_path_exists() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(repo, project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
 
     let meta_path = project.session_path().join("meta");
     std::fs::create_dir_all(&meta_path).unwrap();
@@ -65,7 +69,7 @@ fn test_create_current_fails_when_meta_path_exists() {
 #[test]
 fn test_create_current_when_session_dir_exists() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(repo, project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
 
     let session_dir = project.session_path();
     std::fs::create_dir_all(&session_dir).unwrap();
@@ -77,7 +81,7 @@ fn test_create_current_when_session_dir_exists() {
 #[test]
 fn test_create_current_empty() {
     let (repo, project) = test_project_empty().unwrap();
-    let store = super::Store::new(repo, project).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
     let current_session = store.create_current();
     assert!(current_session.is_ok());
     assert!(current_session.as_ref().unwrap().id.len() > 0);
@@ -95,7 +99,7 @@ fn test_create_current_empty() {
 #[test]
 fn test_create_current() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(clone_repo(&repo), project).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(clone_repo(&repo))), project.clone());
     let current_session = store.create_current();
     assert!(current_session.is_ok());
     assert!(current_session.as_ref().unwrap().id.len() > 0);
@@ -139,7 +143,7 @@ fn test_create_current() {
 #[test]
 fn test_get_current() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
     let created_session = store.create_current();
     assert!(created_session.is_ok());
     let created_session = created_session.unwrap();
@@ -155,7 +159,7 @@ fn test_get_current() {
 #[test]
 fn test_flush() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(clone_repo(&repo))), project.clone());
     let created_session = store.create_current();
     assert!(created_session.is_ok());
     let created_session = created_session.unwrap();
@@ -186,7 +190,7 @@ fn test_flush() {
 #[test]
 fn test_flush_with_user() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(clone_repo(&repo))), project.clone());
     let created_session = store.create_current();
     assert!(created_session.is_ok());
     let created_session = created_session.unwrap();
@@ -217,7 +221,7 @@ fn test_flush_with_user() {
 #[test]
 fn test_get_persistent() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(clone_repo(&repo))), project.clone());
     let created_session = store.create_current();
     assert!(created_session.is_ok());
     let mut created_session = created_session.unwrap();
@@ -241,7 +245,7 @@ fn clone_repo(repo: &git2::Repository) -> git2::Repository {
 #[test]
 fn test_list() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
     let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
@@ -272,7 +276,7 @@ fn test_list() {
 fn test_list_files_from_first_presistent_session() {
     let (repo, project) = test_project().unwrap();
 
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
     let file_path = Path::new(&project.path).join("test.txt");
 
     std::fs::write(file_path.clone(), "zero").unwrap();
@@ -297,7 +301,7 @@ fn test_list_files_from_first_presistent_session() {
 fn test_list_files_from_second_current_session() {
     let (repo, project) = test_project().unwrap();
 
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
     let file_path = Path::new(&project.path).join("test.txt");
     std::fs::write(file_path.clone(), "zero").unwrap();
 
@@ -325,7 +329,7 @@ fn test_list_files_from_second_current_session() {
 #[test]
 fn test_list_files_from_second_presistent_session() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone());
 
     let file_path = Path::new(&project.path).join("test.txt");
     std::fs::write(file_path.clone(), "zero").unwrap();
@@ -358,7 +362,7 @@ fn test_list_files_from_second_presistent_session() {
 #[test]
 fn test_flush_ensure_wd_structure() {
     let (repo, project) = test_project().unwrap();
-    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(clone_repo(&repo))), project.clone());
 
     // create file inside a directory
     let file_dir = Path::new(&project.path).join("dir1").join("dir2");
