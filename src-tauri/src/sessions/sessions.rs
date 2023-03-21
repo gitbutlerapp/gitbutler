@@ -17,7 +17,7 @@ pub struct Meta {
     pub commit: Option<String>,
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
     pub id: String,

@@ -16,6 +16,7 @@ pub struct Store {
     git_repository: git2::Repository,
 
     files_cache: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
+    sessions_cache: Arc<Mutex<Option<Vec<sessions::Session>>>>,
 }
 
 impl Clone for Store {
@@ -24,6 +25,7 @@ impl Clone for Store {
             project: self.project.clone(),
             git_repository: git2::Repository::open(&self.project.path).unwrap(),
             files_cache: self.files_cache.clone(),
+            sessions_cache: self.sessions_cache.clone(),
         }
     }
 }
@@ -34,6 +36,7 @@ impl Store {
             project: project.clone(),
             git_repository,
             files_cache: Arc::new(Mutex::new(HashMap::new())),
+            sessions_cache: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -168,6 +171,20 @@ impl Store {
     // is special and used to bootstrap the gitbutler state inside a repo.
     // see crate::repositories::inib
     pub fn list(&self, earliest_timestamp_ms: Option<u128>) -> Result<Vec<sessions::Session>> {
+        let mut cached_sessions = self.sessions_cache.lock().unwrap();
+        if let Some(sessions) = cached_sessions.as_ref() {
+            Ok(sessions.clone().to_vec())
+        } else {
+            let sessions = self.list_from_disk(earliest_timestamp_ms)?;
+            cached_sessions.replace(sessions.clone());
+            Ok(sessions)
+        }
+    }
+
+    fn list_from_disk(
+        &self,
+        earliest_timestamp_ms: Option<u128>,
+    ) -> Result<Vec<sessions::Session>> {
         let reference = self
             .git_repository
             .find_reference(&self.project.refname())?;
@@ -209,6 +226,19 @@ impl Store {
     }
 
     pub fn flush(
+        &self,
+        user: Option<users::User>,
+        session: &sessions::Session,
+    ) -> Result<sessions::Session> {
+        let session = self.flush_to_disk(user, session)?;
+        let mut cached_sessions = self.sessions_cache.lock().unwrap();
+        if let Some(sessions) = cached_sessions.as_mut() {
+            sessions.insert(0, session.clone());
+        }
+        Ok(session)
+    }
+
+    fn flush_to_disk(
         &self,
         user: Option<users::User>,
         session: &sessions::Session,
