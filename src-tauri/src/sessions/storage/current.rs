@@ -1,28 +1,23 @@
-use std::time;
+use std::{
+    sync::{Arc, Mutex},
+    time,
+};
 
 use crate::{projects, sessions};
 use anyhow::{Context, Result};
 use uuid::Uuid;
 
+#[derive(Clone)]
 pub struct Store {
     project: projects::Project,
-    git_repository: git2::Repository,
-}
-
-impl Clone for Store {
-    fn clone(&self) -> Self {
-        Self {
-            project: self.project.clone(),
-            git_repository: git2::Repository::open(&self.project.path).unwrap(),
-        }
-    }
+    git_repository: Arc<Mutex<git2::Repository>>,
 }
 
 impl Store {
     pub fn new(git_repository: git2::Repository, project: projects::Project) -> Result<Self> {
         Ok(Self {
             project: project.clone(),
-            git_repository,
+            git_repository: Arc::new(Mutex::new(git_repository)),
         })
     }
 
@@ -32,7 +27,8 @@ impl Store {
             .unwrap()
             .as_millis();
 
-        let activity = match std::fs::read_to_string(self.git_repository.path().join("logs/HEAD")) {
+        let git_repository = self.git_repository.lock().unwrap();
+        let activity = match std::fs::read_to_string(git_repository.path().join("logs/HEAD")) {
             Ok(reflog) => reflog
                 .lines()
                 .filter_map(|line| sessions::activity::parse_reflog_line(line).ok())
@@ -41,7 +37,7 @@ impl Store {
             Err(_) => Vec::new(),
         };
 
-        let meta = match self.git_repository.head() {
+        let meta = match git_repository.head() {
             Ok(head) => sessions::Meta {
                 start_timestamp_ms: now_ts,
                 last_timestamp_ms: now_ts,
@@ -213,13 +209,15 @@ impl Store {
             false => None,
         };
 
-        let activity_path = self.git_repository.path().join("logs/HEAD");
+        let git_repository = self.git_repository.lock().unwrap();
+
+        let activity_path = git_repository.path().join("logs/HEAD");
         let activity = match activity_path.exists() {
             true => std::fs::read_to_string(activity_path)
                 .with_context(|| {
                     format!(
                         "failed to read reflog from {}",
-                        self.git_repository.path().join("logs/HEAD").display()
+                        git_repository.path().join("logs/HEAD").display()
                     )
                 })?
                 .lines()

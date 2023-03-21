@@ -11,51 +11,38 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[derive(Clone)]
 pub struct Store {
     project: projects::Project,
-    git_repository: git2::Repository,
+    git_repository: Arc<Mutex<git2::Repository>>,
 
     files_cache: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
     sessions_cache: Arc<Mutex<Option<Vec<sessions::Session>>>>,
-}
-
-impl Clone for Store {
-    fn clone(&self) -> Self {
-        Self {
-            project: self.project.clone(),
-            git_repository: git2::Repository::open(&self.project.path).unwrap(),
-            files_cache: self.files_cache.clone(),
-            sessions_cache: self.sessions_cache.clone(),
-        }
-    }
 }
 
 impl Store {
     pub fn new(git_repository: git2::Repository, project: projects::Project) -> Result<Self> {
         Ok(Self {
             project: project.clone(),
-            git_repository,
+            git_repository: Arc::new(Mutex::new(git_repository)),
             files_cache: Arc::new(Mutex::new(HashMap::new())),
             sessions_cache: Arc::new(Mutex::new(None)),
         })
     }
 
     pub fn get_by_id(&self, session_id: &str) -> Result<Option<sessions::Session>> {
-        let reference = self
-            .git_repository
-            .find_reference(&self.project.refname())?;
-        let head = self
-            .git_repository
-            .find_commit(reference.target().unwrap())?;
-        let mut walker = self.git_repository.revwalk()?;
+        let git_repository = self.git_repository.lock().unwrap();
+        let reference = git_repository.find_reference(&self.project.refname())?;
+        let head = git_repository.find_commit(reference.target().unwrap())?;
+        let mut walker = git_repository.revwalk()?;
         walker.push(head.id())?;
         walker.set_sorting(git2::Sort::TIME)?;
 
         for commit_id in walker {
-            let commit = self.git_repository.find_commit(commit_id?)?;
-            if sessions::id_from_commit(&self.git_repository, &commit)? == session_id {
+            let commit = git_repository.find_commit(commit_id?)?;
+            if sessions::id_from_commit(&git_repository, &commit)? == session_id {
                 return Ok(Some(sessions::Session::from_commit(
-                    &self.git_repository,
+                    &git_repository,
                     &commit,
                 )?));
             }
@@ -93,23 +80,22 @@ impl Store {
     }
 
     fn list_files_from_disk(&self, session_id: &str) -> Result<HashMap<String, String>> {
-        let reference = self
-            .git_repository
-            .find_reference(&self.project.refname())?;
+        let git_repository = self.git_repository.lock().unwrap();
+        let reference = git_repository.find_reference(&self.project.refname())?;
         let commit = if is_current_session_id(&self.project, session_id)? {
             let head_commit = reference.peel_to_commit()?;
             Some(head_commit)
         } else {
             let head_commit = reference.peel_to_commit()?;
-            let mut walker = self.git_repository.revwalk()?;
+            let mut walker = git_repository.revwalk()?;
             walker.push(head_commit.id())?;
             walker.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)?;
 
             let mut session_commit = None;
             let mut previous_session_commit = None;
             for commit_id in walker {
-                let commit = self.git_repository.find_commit(commit_id?)?;
-                if sessions::id_from_commit(&self.git_repository, &commit)? == session_id {
+                let commit = git_repository.find_commit(commit_id?)?;
+                if sessions::id_from_commit(&git_repository, &commit)? == session_id {
                     session_commit = Some(commit);
                     break;
                 }
@@ -149,7 +135,7 @@ impl Store {
             }
 
             let blob = entry
-                .to_object(&self.git_repository)
+                .to_object(&git_repository)
                 .and_then(|obj| obj.peel_to_blob());
             let content = blob.map(|blob| blob.content().to_vec());
 
@@ -185,29 +171,26 @@ impl Store {
         &self,
         earliest_timestamp_ms: Option<u128>,
     ) -> Result<Vec<sessions::Session>> {
-        let reference = self
-            .git_repository
-            .find_reference(&self.project.refname())?;
-        let head = self
-            .git_repository
-            .find_commit(reference.target().unwrap())?;
+        let git_repository = self.git_repository.lock().unwrap();
+        let reference = git_repository.find_reference(&self.project.refname())?;
+        let head = git_repository.find_commit(reference.target().unwrap())?;
 
         // list all commits from gitbutler head to the first commit
-        let mut walker = self.git_repository.revwalk()?;
+        let mut walker = git_repository.revwalk()?;
         walker.push(head.id())?;
         walker.set_sorting(git2::Sort::TOPOLOGICAL)?;
 
         let mut sessions: Vec<sessions::Session> = vec![];
         for id in walker {
             let id = id?;
-            let commit = self.git_repository.find_commit(id).with_context(|| {
+            let commit = git_repository.find_commit(id).with_context(|| {
                 format!(
                     "failed to find commit {} in repository {}",
                     id.to_string(),
-                    self.git_repository.path().display()
+                    git_repository.path().display()
                 )
             })?;
-            let session = sessions::Session::from_commit(&self.git_repository, &commit)?;
+            let session = sessions::Session::from_commit(&git_repository, &commit)?;
             match earliest_timestamp_ms {
                 Some(earliest_timestamp_ms) => {
                     if session.meta.start_timestamp_ms <= earliest_timestamp_ms {
@@ -250,27 +233,27 @@ impl Store {
             ));
         }
 
-        let wd_tree = build_wd_tree(&self.git_repository, &self.project)
+        let git_repository = self.git_repository.lock().unwrap();
+        let wd_tree = build_wd_tree(&git_repository, &self.project)
             .with_context(|| "failed to build wd tree for project".to_string())?;
 
         let session_index =
             &mut git2::Index::new().with_context(|| format!("failed to create session index"))?;
-        build_session_index(&self.git_repository, &self.project, session_index)
+        build_session_index(&git_repository, &self.project, session_index)
             .with_context(|| format!("failed to build session index"))?;
         let session_tree = session_index
-            .write_tree_to(&self.git_repository)
+            .write_tree_to(&git_repository)
             .with_context(|| format!("failed to write session tree"))?;
 
         let log_index =
             &mut git2::Index::new().with_context(|| format!("failed to create log index"))?;
-        build_log_index(&self.git_repository, log_index)
+        build_log_index(&git_repository, log_index)
             .with_context(|| format!("failed to build log index"))?;
         let log_tree = log_index
-            .write_tree_to(&self.git_repository)
+            .write_tree_to(&git_repository)
             .with_context(|| format!("failed to write log tree"))?;
 
-        let mut tree_builder = self
-            .git_repository
+        let mut tree_builder = git_repository
             .treebuilder(None)
             .with_context(|| format!("failed to create tree builder"))?;
         tree_builder
@@ -287,13 +270,13 @@ impl Store {
             .write()
             .with_context(|| format!("failed to write tree"))?;
 
-        let commit_oid = write_gb_commit(tree, &self.git_repository, user.clone(), &self.project)
+        let commit_oid = write_gb_commit(tree, &git_repository, user.clone(), &self.project)
             .with_context(|| {
-            format!(
-                "failed to write gb commit for {}",
-                self.git_repository.workdir().unwrap().display()
-            )
-        })?;
+                format!(
+                    "failed to write gb commit for {}",
+                    git_repository.workdir().unwrap().display()
+                )
+            })?;
 
         log::info!(
             "{}: flushed session {} into commit {}",
@@ -309,7 +292,7 @@ impl Store {
             hash: Some(commit_oid.to_string()),
         };
 
-        if let Err(e) = push_to_remote(&self.git_repository, user, &self.project) {
+        if let Err(e) = push_to_remote(&git_repository, user, &self.project) {
             log::error!(
                 "{}: failed to push gb commit {} to remote: {:#}",
                 self.project.id,

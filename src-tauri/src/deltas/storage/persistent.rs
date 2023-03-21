@@ -6,28 +6,16 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[derive(Clone)]
 pub struct Store {
-    project: projects::Project,
-    git_repository: git2::Repository,
-
+    git_repository: Arc<Mutex<git2::Repository>>,
     cache: Arc<Mutex<HashMap<String, HashMap<String, Vec<deltas::Delta>>>>>,
-}
-
-impl Clone for Store {
-    fn clone(&self) -> Self {
-        Self {
-            project: self.project.clone(),
-            git_repository: git2::Repository::open(&self.project.path).unwrap(),
-            cache: self.cache.clone(),
-        }
-    }
 }
 
 impl Store {
     pub fn new(project: projects::Project) -> Result<Self> {
         Ok(Self {
-            git_repository: git2::Repository::open(&project.path)?,
-            project,
+            git_repository: Arc::new(Mutex::new(git2::Repository::open(&project.path)?)),
             cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
@@ -40,9 +28,10 @@ impl Store {
             )));
         }
 
+        let git_repository = self.git_repository.lock().unwrap();
         let commit_hash = session.hash.as_ref().unwrap();
         let commit_id = git2::Oid::from_str(commit_hash)?;
-        let commit = self.git_repository.find_commit(commit_id)?;
+        let commit = git_repository.find_commit(commit_id)?;
         let tree = commit.tree()?;
 
         let mut blobs = HashMap::new();
@@ -60,7 +49,7 @@ impl Store {
 
             let relative_file_path = entry_path.strip_prefix("session/deltas").unwrap();
             let blob = entry
-                .to_object(&self.git_repository)
+                .to_object(&git_repository)
                 .and_then(|obj| obj.peel_to_blob());
             let content = blob.map(|blob| blob.content().to_vec());
 

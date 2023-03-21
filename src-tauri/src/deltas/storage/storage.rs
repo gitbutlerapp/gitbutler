@@ -4,30 +4,16 @@ use std::{collections::HashMap, path::Path, time};
 
 use super::{current, persistent};
 
+#[derive(Clone)]
 pub struct Store {
-    project: projects::Project,
-
     persistent: persistent::Store,
     current: current::Store,
-
     sessions_store: sessions::Store,
-}
-
-impl Clone for Store {
-    fn clone(&self) -> Self {
-        Self {
-            project: self.project.clone(),
-            current: self.current.clone(),
-            persistent: self.persistent.clone(),
-            sessions_store: self.sessions_store.clone(),
-        }
-    }
 }
 
 impl Store {
     pub fn new(project: projects::Project, sessions_store: sessions::Store) -> Result<Self> {
         Ok(Self {
-            project: project.clone(),
             current: current::Store::new(project.clone()),
             persistent: persistent::Store::new(project)?,
             sessions_store,
