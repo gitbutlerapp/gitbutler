@@ -4,7 +4,10 @@ use crate::{
 };
 use anyhow::Result;
 use core::ops::Range;
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 use tempfile::tempdir;
 
 fn test_project() -> Result<(git2::Repository, projects::Project)> {
@@ -36,7 +39,11 @@ fn test_filter_by_timestamp() {
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
     let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage = deltas::Store::new(project.clone(), sessions_storage.clone()).unwrap();
+    let deltas_storage = deltas::Store::new(
+        Arc::new(Mutex::new(repo)),
+        project.clone(),
+        sessions_storage.clone(),
+    );
     let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(
@@ -108,7 +115,11 @@ fn test_sorted_by_timestamp() {
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
     let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage = deltas::Store::new(project.clone(), sessions_storage.clone()).unwrap();
+    let deltas_storage = deltas::Store::new(
+        Arc::new(Mutex::new(repo)),
+        project.clone(),
+        sessions_storage.clone(),
+    );
     let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(
@@ -154,7 +165,11 @@ fn test_simple() {
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
     let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage = deltas::Store::new(project.clone(), sessions_storage.clone()).unwrap();
+    let deltas_storage = deltas::Store::new(
+        Arc::new(Mutex::new(repo)),
+        project.clone(),
+        sessions_storage.clone(),
+    );
     let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(

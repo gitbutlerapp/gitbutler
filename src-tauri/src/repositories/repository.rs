@@ -1,7 +1,12 @@
 use crate::{deltas, fs, projects, sessions, users};
 use anyhow::{Context, Result};
 use git2::{BranchType, Cred, DiffOptions, Signature};
-use std::{collections::HashMap, env, path::Path};
+use std::{
+    collections::HashMap,
+    env,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 use tauri::regex::Regex;
 use walkdir::WalkDir;
 
@@ -33,7 +38,11 @@ impl Repository {
         Ok(Repository {
             project: project.clone(),
             git_repository,
-            deltas_storage: deltas::Store::new(project, sessions_storage.clone())?,
+            deltas_storage: deltas::Store::new(
+                Arc::new(Mutex::new(git2::Repository::open(&project.path)?)),
+                project,
+                sessions_storage.clone(),
+            ),
             sessions_storage,
         })
     }

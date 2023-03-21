@@ -1,6 +1,9 @@
 use crate::{deltas::Delta, deltas::Operation, projects, sessions};
 use anyhow::Result;
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 use tempfile::tempdir;
 
 fn test_project() -> Result<(git2::Repository, projects::Project)> {
@@ -26,7 +29,7 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
 fn test_read_none() {
     let (repo, project) = test_project().unwrap();
     let sessions_store = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let store = super::Store::new(project, sessions_store).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project, sessions_store);
     let file_path = Path::new("test.txt");
     let deltas = store.read(file_path);
     assert!(deltas.is_ok());
@@ -37,7 +40,7 @@ fn test_read_none() {
 fn test_read_invalid() {
     let (repo, project) = test_project().unwrap();
     let sessions_store = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let store = super::Store::new(project.clone(), sessions_store).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project.clone(), sessions_store);
     let file_path = Path::new("test.txt");
     let full_file_path = project.deltas_path().join(file_path);
 
@@ -52,7 +55,7 @@ fn test_read_invalid() {
 fn test_write_read() {
     let (repo, project) = test_project().unwrap();
     let sessions_store = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let store = super::Store::new(project, sessions_store).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project, sessions_store);
     let file_path = Path::new("test.txt");
 
     let deltas = vec![Delta {
@@ -71,7 +74,7 @@ fn test_write_read() {
 fn test_write_must_create_session() {
     let (repo, project) = test_project().unwrap();
     let sessions_store = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let store = super::Store::new(project.clone(), sessions_store.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project, sessions_store.clone());
     let file_path = Path::new("test.txt");
 
     let deltas = vec![Delta {
@@ -96,7 +99,7 @@ fn clone_repo(repo: &git2::Repository) -> git2::Repository {
 fn test_write_must_not_override_session() {
     let (repo, project) = test_project().unwrap();
     let sessions_store = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let store = super::Store::new(project.clone(), sessions_store.clone()).unwrap();
+    let store = super::Store::new(Arc::new(Mutex::new(repo)), project, sessions_store.clone());
     let file_path = Path::new("test.txt");
 
     let session_before_write = sessions_store.create_current();

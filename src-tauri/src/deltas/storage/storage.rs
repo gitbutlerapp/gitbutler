@@ -1,6 +1,11 @@
 use crate::{deltas, projects, sessions};
 use anyhow::{anyhow, Context, Result};
-use std::{collections::HashMap, path::Path, time};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex},
+    time,
+};
 
 use super::{current, persistent};
 
@@ -12,12 +17,16 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(project: projects::Project, sessions_store: sessions::Store) -> Result<Self> {
-        Ok(Self {
+    pub fn new(
+        git_repository: Arc<Mutex<git2::Repository>>,
+        project: projects::Project,
+        sessions_store: sessions::Store,
+    ) -> Self {
+        Self {
             current: current::Store::new(project.clone()),
-            persistent: persistent::Store::new(project)?,
+            persistent: persistent::Store::new(git_repository),
             sessions_store,
-        })
+        }
     }
 
     pub fn read<P: AsRef<Path>>(&self, file_path: P) -> Result<Option<Vec<deltas::Delta>>> {
