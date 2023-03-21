@@ -549,9 +549,12 @@ fn main() {
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn_blocking(move || {
+                let start = std::time::Instant::now();
+                log::info!("initializing app");
                 if let Err(e) = init(app_handle) {
                     log::error!("failed to app: {:#}", e);
                 }
+                log::info!("app initialized in {:?}", start.elapsed());
             });
 
             Ok(())
@@ -666,12 +669,16 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .watchers
             .lock()
             .unwrap()
-            .watch(tx.clone(), &project, &repo.deltas_storage, &repo.sessions_storage)
+            .watch(
+                tx.clone(),
+                &project,
+                &repo.deltas_storage,
+                &repo.sessions_storage,
+            )
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
-        let git_repository = repo.git_repository;
         if let Err(err) = app_state.deltas_searcher.lock().unwrap().reindex_project(
-            &git_repository,
+            &repo.git_repository,
             &repo.project,
             &repo.deltas_storage,
             &repo.sessions_storage,

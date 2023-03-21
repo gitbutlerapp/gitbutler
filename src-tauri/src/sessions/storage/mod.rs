@@ -25,6 +25,18 @@ impl Store {
         })
     }
 
+    pub fn create_current(&self) -> Result<sessions::Session> {
+        self.current.create()
+    }
+
+    pub fn update(&self, session: &sessions::Session) -> Result<()> {
+        if session.hash.is_some() {
+            Err(anyhow::anyhow!("cannot update session that is not current"))
+        } else {
+            self.current.update(session)
+        }
+    }
+
     pub fn list_files(
         &self,
         session_id: &str,

@@ -33,11 +33,7 @@ impl Repository {
         Ok(Repository {
             project: project.clone(),
             git_repository,
-            deltas_storage: deltas::Store::new(
-                git2::Repository::open(&project.path)?,
-                project,
-                sessions_storage.clone(),
-            )?,
+            deltas_storage: deltas::Store::new(project, sessions_storage.clone())?,
             sessions_storage,
         })
     }
@@ -355,7 +351,7 @@ impl Repository {
         // if the reference doesn't exist, we create it by creating a flushing a new session
         let mut current_session = match self.sessions_storage.get_current()? {
             Some(session) => session,
-            None => sessions::Session::from_head(&self.git_repository, &self.project)?,
+            None => self.sessions_storage.create_current()?,
         };
         current_session
             .flush(&self.git_repository, user, &self.project)
@@ -380,7 +376,7 @@ fn init(
                 // if the reference doesn't exist, we create it by creating a flushing a new session
                 let mut current_session = match sessions_storage.get_current()? {
                     Some(session) => session,
-                    None => sessions::Session::from_head(git_repository, project)?,
+                    None => sessions_storage.create_current()?,
                 };
                 current_session
                     .flush(git_repository, user, project)

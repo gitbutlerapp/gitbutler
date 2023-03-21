@@ -1,12 +1,11 @@
 use crate::{deltas, projects, sessions};
 use anyhow::{anyhow, Context, Result};
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, time};
 
 use super::{current, persistent};
 
 pub struct Store {
     project: projects::Project,
-    git_repository: git2::Repository,
 
     persistent: persistent::Store,
     current: current::Store,
@@ -18,7 +17,6 @@ impl Clone for Store {
     fn clone(&self) -> Self {
         Self {
             project: self.project.clone(),
-            git_repository: git2::Repository::open(&self.project.path).unwrap(),
             current: self.current.clone(),
             persistent: self.persistent.clone(),
             sessions_store: self.sessions_store.clone(),
@@ -27,14 +25,9 @@ impl Clone for Store {
 }
 
 impl Store {
-    pub fn new(
-        git_repository: git2::Repository,
-        project: projects::Project,
-        sessions_store: sessions::Store,
-    ) -> Result<Self> {
+    pub fn new(project: projects::Project, sessions_store: sessions::Store) -> Result<Self> {
         Ok(Self {
             project: project.clone(),
-            git_repository,
             current: current::Store::new(project.clone()),
             persistent: persistent::Store::new(project)?,
             sessions_store,
@@ -52,13 +45,23 @@ impl Store {
     ) -> Result<sessions::Session> {
         // make sure we always have a session before writing deltas
         let session = match self.sessions_store.get_current()? {
-            Some(mut session) => {
-                session
-                    .touch(&self.project)
-                    .with_context(|| format!("failed to touch session {}", session.id))?;
-                Ok(session)
+            Some(session) => {
+                let updated_session = sessions::Session {
+                    meta: sessions::Meta {
+                        last_timestamp_ms: time::SystemTime::now()
+                            .duration_since(time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis(),
+                        ..session.meta
+                    },
+                    ..session
+                };
+                self.sessions_store
+                    .update(&updated_session)
+                    .with_context(|| format!("failed to touch session {}", updated_session.id))?;
+                Ok(updated_session)
             }
-            None => sessions::Session::from_head(&self.git_repository, &self.project),
+            None => self.sessions_store.create_current(),
         }?;
 
         self.current.write(file_path, deltas)?;

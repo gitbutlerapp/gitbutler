@@ -36,9 +36,8 @@ fn test_filter_by_timestamp() {
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
     let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage =
-        deltas::Store::new(clone_repo(&repo), project.clone(), sessions_storage.clone()).unwrap();
-    let mut session = sessions::Session::from_head(&repo, &project).unwrap();
+    let deltas_storage = deltas::Store::new(project.clone(), sessions_storage.clone()).unwrap();
+    let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(
             Path::new("test.txt"),
@@ -62,12 +61,8 @@ fn test_filter_by_timestamp() {
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
-    let write_result = searcher.index_session(
-        &project,
-        &session,
-        &deltas_storage,
-        &sessions_storage,
-    );
+    let write_result =
+        searcher.index_session(&project, &session, &deltas_storage, &sessions_storage);
     assert!(write_result.is_ok());
 
     let search_result_from = searcher.search(&super::SearchQuery {
@@ -113,9 +108,8 @@ fn test_sorted_by_timestamp() {
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
     let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage =
-        deltas::Store::new(clone_repo(&repo), project.clone(), sessions_storage.clone()).unwrap();
-    let mut session = sessions::Session::from_head(&repo, &project).unwrap();
+    let deltas_storage = deltas::Store::new(project.clone(), sessions_storage.clone()).unwrap();
+    let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(
             Path::new("test.txt"),
@@ -135,12 +129,8 @@ fn test_sorted_by_timestamp() {
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
-    let write_result = searcher.index_session(
-        &project,
-        &session,
-        &deltas_storage,
-        &sessions_storage,
-    );
+    let write_result =
+        searcher.index_session(&project, &session, &deltas_storage, &sessions_storage);
     assert!(write_result.is_ok());
 
     let search_result = searcher.search(&super::SearchQuery {
@@ -164,9 +154,8 @@ fn test_simple() {
     let index_path = tempdir().unwrap().path().to_str().unwrap().to_string();
 
     let sessions_storage = sessions::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let deltas_storage =
-        deltas::Store::new(clone_repo(&repo), project.clone(), sessions_storage.clone()).unwrap();
-    let mut session = sessions::Session::from_head(&repo, &project).unwrap();
+    let deltas_storage = deltas::Store::new(project.clone(), sessions_storage.clone()).unwrap();
+    let mut session = sessions_storage.create_current().unwrap();
     deltas_storage
         .write(
             Path::new("test.txt"),
@@ -186,12 +175,8 @@ fn test_simple() {
 
     let mut searcher = super::Deltas::at(index_path.into()).unwrap();
 
-    let write_result = searcher.index_session(
-        &project,
-        &session,
-        &deltas_storage,
-        &sessions_storage,
-    );
+    let write_result =
+        searcher.index_session(&project, &session, &deltas_storage, &sessions_storage);
     assert!(write_result.is_ok());
 
     let search_result1 = searcher.search(&super::SearchQuery {

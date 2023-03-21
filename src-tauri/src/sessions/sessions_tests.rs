@@ -53,29 +53,32 @@ fn test_current_none() {
 #[test]
 fn test_create_current_fails_when_meta_path_exists() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(repo, project.clone()).unwrap();
 
     let meta_path = project.session_path().join("meta");
     std::fs::create_dir_all(&meta_path).unwrap();
 
-    let current_session = super::sessions::Session::from_head(&repo, &project);
+    let current_session = store.create_current();
     assert!(current_session.is_err());
 }
 
 #[test]
 fn test_create_current_when_session_dir_exists() {
     let (repo, project) = test_project().unwrap();
+    let store = super::Store::new(repo, project.clone()).unwrap();
 
     let session_dir = project.session_path();
     std::fs::create_dir_all(&session_dir).unwrap();
 
-    let current_session = super::sessions::Session::from_head(&repo, &project);
+    let current_session = store.create_current();
     assert!(current_session.is_ok());
 }
 
 #[test]
 fn test_create_current_empty() {
     let (repo, project) = test_project_empty().unwrap();
-    let current_session = super::sessions::Session::from_head(&repo, &project);
+    let store = super::Store::new(repo, project).unwrap();
+    let current_session = store.create_current();
     assert!(current_session.is_ok());
     assert!(current_session.as_ref().unwrap().id.len() > 0);
     assert_eq!(current_session.as_ref().unwrap().hash, None);
@@ -92,7 +95,8 @@ fn test_create_current_empty() {
 #[test]
 fn test_create_current() {
     let (repo, project) = test_project().unwrap();
-    let current_session = super::sessions::Session::from_head(&repo, &project);
+    let store = super::Store::new(clone_repo(&repo), project).unwrap();
+    let current_session = store.create_current();
     assert!(current_session.is_ok());
     assert!(current_session.as_ref().unwrap().id.len() > 0);
     assert_eq!(current_session.as_ref().unwrap().hash, None);
@@ -136,7 +140,7 @@ fn test_create_current() {
 fn test_get_current() {
     let (repo, project) = test_project().unwrap();
     let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let created_session = super::sessions::Session::from_head(&repo, &project);
+    let created_session = store.create_current();
     assert!(created_session.is_ok());
     let created_session = created_session.unwrap();
 
@@ -152,7 +156,7 @@ fn test_get_current() {
 fn test_flush() {
     let (repo, project) = test_project().unwrap();
     let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let created_session = super::sessions::Session::from_head(&repo, &project);
+    let created_session = store.create_current();
     assert!(created_session.is_ok());
     let mut created_session = created_session.unwrap();
 
@@ -183,7 +187,7 @@ fn test_flush() {
 fn test_flush_with_user() {
     let (repo, project) = test_project().unwrap();
     let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let created_session = super::sessions::Session::from_head(&repo, &project);
+    let created_session = store.create_current();
     assert!(created_session.is_ok());
     let mut created_session = created_session.unwrap();
 
@@ -213,7 +217,8 @@ fn test_flush_with_user() {
 #[test]
 fn test_get_persistent() {
     let (repo, project) = test_project().unwrap();
-    let created_session = super::sessions::Session::from_head(&repo, &project);
+    let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
+    let created_session = store.create_current();
     assert!(created_session.is_ok());
     let mut created_session = created_session.unwrap();
 
@@ -237,19 +242,19 @@ fn clone_repo(repo: &git2::Repository) -> git2::Repository {
 fn test_list() {
     let (repo, project) = test_project().unwrap();
     let store = super::Store::new(clone_repo(&repo), project.clone()).unwrap();
-    let first = super::sessions::Session::from_head(&repo, &project);
+    let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
     first.flush(&repo, &None, &project).unwrap();
     assert!(first.hash.is_some());
 
-    let second = super::sessions::Session::from_head(&repo, &project);
+    let second = store.create_current();
     assert!(second.is_ok());
     let mut second = second.unwrap();
     second.flush(&repo, &None, &project).unwrap();
     assert!(second.hash.is_some());
 
-    let current_session = super::sessions::Session::from_head(&repo, &project);
+    let current_session = store.create_current();
     assert!(current_session.is_ok());
     let current = current_session.unwrap();
 
@@ -272,7 +277,7 @@ fn test_list_files_from_first_presistent_session() {
 
     std::fs::write(file_path.clone(), "zero").unwrap();
 
-    let first = super::sessions::Session::from_head(&repo, &project);
+    let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
     first.flush(&repo, &None, &project).unwrap();
@@ -296,7 +301,7 @@ fn test_list_files_from_second_current_session() {
     let file_path = Path::new(&project.path).join("test.txt");
     std::fs::write(file_path.clone(), "zero").unwrap();
 
-    let first = super::sessions::Session::from_head(&repo, &project);
+    let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
     first.flush(&repo, &None, &project).unwrap();
@@ -306,7 +311,7 @@ fn test_list_files_from_second_current_session() {
 
     std::fs::write(file_path.clone(), "one").unwrap();
 
-    let second = super::sessions::Session::from_head(&repo, &project);
+    let second = store.create_current();
     assert!(second.is_ok());
     let second = second.unwrap();
 
@@ -325,7 +330,7 @@ fn test_list_files_from_second_presistent_session() {
     let file_path = Path::new(&project.path).join("test.txt");
     std::fs::write(file_path.clone(), "zero").unwrap();
 
-    let first = super::sessions::Session::from_head(&repo, &project);
+    let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
     first.flush(&repo, &None, &project).unwrap();
@@ -335,7 +340,7 @@ fn test_list_files_from_second_presistent_session() {
 
     std::fs::write(file_path.clone(), "one").unwrap();
 
-    let second = super::sessions::Session::from_head(&repo, &project);
+    let second = store.create_current();
     assert!(second.is_ok());
     let mut second = second.unwrap();
     second.flush(&repo, &None, &project).unwrap();
@@ -365,7 +370,7 @@ fn test_flush_ensure_wd_structure() {
     std::fs::write(file2_path.clone(), "zero").unwrap();
 
     // flush first session
-    let first = super::sessions::Session::from_head(&repo, &project);
+    let first = store.create_current();
     assert!(first.is_ok());
     let mut first = first.unwrap();
     first.flush(&repo, &None, &project).unwrap();
@@ -387,7 +392,7 @@ fn test_flush_ensure_wd_structure() {
         .unwrap();
 
     // flush second session
-    let second = super::sessions::Session::from_head(&repo, &project);
+    let second = store.create_current();
     assert!(second.is_ok());
     let mut second = second.unwrap();
     second.flush(&repo, &None, &project).unwrap();
