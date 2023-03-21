@@ -95,10 +95,6 @@ fn test_write_must_create_session() {
     assert!(current_session.is_some());
 }
 
-fn clone_repo(repo: &git2::Repository) -> git2::Repository {
-    git2::Repository::open(repo.path()).unwrap()
-}
-
 #[test]
 fn test_write_must_not_override_session() {
     let (repo, project) = test_project().unwrap();

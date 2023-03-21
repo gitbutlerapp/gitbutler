@@ -10,35 +10,33 @@ use std::{
 use tauri::regex::Regex;
 use walkdir::WalkDir;
 
+#[derive(Clone)]
 pub struct Repository {
     pub project: projects::Project,
-    pub git_repository: git2::Repository,
+    pub git_repository: Arc<Mutex<git2::Repository>>,
     pub deltas_storage: deltas::Store,
     pub sessions_storage: sessions::Store,
 }
 
-impl Clone for Repository {
-    fn clone(&self) -> Self {
-        Self {
-            project: self.project.clone(),
-            git_repository: git2::Repository::open(&self.project.path).unwrap(),
-            deltas_storage: self.deltas_storage.clone(),
-            sessions_storage: self.sessions_storage.clone(),
-        }
-    }
-}
-
 impl Repository {
     pub fn new(project: projects::Project, user: Option<users::User>) -> Result<Self> {
-        let git_repository = git2::Repository::open(&project.path)?;
-        let arepo = Arc::new(Mutex::new(git2::Repository::open(&project.path)?));
-        let sessions_storage = sessions::Store::new(arepo.clone(), project.clone());
-        init(&git_repository, &project, user, &sessions_storage)
-            .with_context(|| "failed to init repository")?;
+        let git_repository = Arc::new(Mutex::new(git2::Repository::open(&project.path)?));
+        let sessions_storage = sessions::Store::new(git_repository.clone(), project.clone());
+        init(
+            git2::Repository::open(&project.path)?,
+            &project,
+            user,
+            &sessions_storage,
+        )
+        .with_context(|| "failed to init repository")?;
         Ok(Repository {
             project: project.clone(),
+            deltas_storage: deltas::Store::new(
+                git_repository.clone(),
+                project,
+                sessions_storage.clone(),
+            ),
             git_repository,
-            deltas_storage: deltas::Store::new(arepo, project, sessions_storage.clone()),
             sessions_storage,
         })
     }
@@ -65,7 +63,7 @@ impl Repository {
 
     // get a list of all files in the working directory
     pub fn file_paths(&self) -> Result<Vec<String>> {
-        let repo = &self.git_repository;
+        let repo = self.git_repository.lock().unwrap();
         let workdir = repo
             .workdir()
             .with_context(|| "failed to get working directory")?;
@@ -84,7 +82,7 @@ impl Repository {
 
     // get a list of all files in the working directory
     pub fn match_file_paths(&self, match_pattern: &str) -> Result<Vec<String>> {
-        let repo = &self.git_repository;
+        let repo = self.git_repository.lock().unwrap();
         let workdir = repo
             .workdir()
             .with_context(|| "failed to get working directory")?;
@@ -137,7 +135,7 @@ impl Repository {
 
     pub fn branches(&self) -> Result<Vec<String>> {
         let mut branches = vec![];
-        let repo = &self.git_repository;
+        let repo = self.git_repository.lock().unwrap();
         for branch in repo.branches(Some(BranchType::Local))? {
             let (branch, _) = branch?;
             branches.push(branch.name()?.unwrap().to_string());
@@ -147,14 +145,14 @@ impl Repository {
 
     // return current branch name
     pub fn branch(&self) -> Result<String> {
-        let repo = &self.git_repository;
+        let repo = self.git_repository.lock().unwrap();
         let head = repo.head()?;
         let branch = head.name().unwrap();
         Ok(branch.to_string())
     }
 
     pub fn wd_diff(&self, max_lines: usize) -> Result<HashMap<String, String>> {
-        let repo = &self.git_repository;
+        let repo = self.git_repository.lock().unwrap();
         let head = repo.head()?;
         let tree = head.peel_to_tree()?;
 
@@ -209,7 +207,7 @@ impl Repository {
         self.flush_session(None)
             .with_context(|| "failed to flush session before switching branch")?;
 
-        let repo = &self.git_repository;
+        let repo = self.git_repository.lock().unwrap();
 
         let branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
         let branch = branch.into_reference();
@@ -228,9 +226,9 @@ impl Repository {
         options.include_ignored(false);
         options.recurse_untracked_dirs(true);
 
+        let git_repository = self.git_repository.lock().unwrap();
         // get the status of the repository
-        let statuses = &self
-            .git_repository
+        let statuses = git_repository
             .statuses(Some(&mut options))
             .with_context(|| "failed to get repository status")?;
 
@@ -262,7 +260,7 @@ impl Repository {
 
     // commit method
     pub fn commit(&self, message: &str, files: Vec<&str>, push: bool) -> Result<bool> {
-        let repo = &self.git_repository;
+        let repo = self.git_repository.lock().unwrap();
 
         let config = repo.config()?;
         let name = config.get_string("user.name")?;
@@ -366,13 +364,13 @@ impl Repository {
 }
 
 fn init(
-    git_repository: &git2::Repository,
+    git_repository: git2::Repository,
     project: &projects::Project,
     user: Option<users::User>,
     sessions_storage: &sessions::Store,
 ) -> Result<()> {
-    let reference_name = project.refname();
-    match git_repository.find_reference(&reference_name) {
+    let reference = git_repository.find_reference(&project.refname());
+    match reference {
         // if the reference exists, we do nothing
         Ok(_) => Ok(()),
         // if the reference doesn't exist, we create it by creating a flushing a new session

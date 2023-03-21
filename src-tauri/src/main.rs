@@ -677,8 +677,9 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             )
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
+        let git_repository = repo.git_repository.lock().unwrap();
         if let Err(err) = app_state.deltas_searcher.lock().unwrap().reindex_project(
-            &repo.git_repository,
+            &git_repository,
             &repo.project,
             &repo.deltas_storage,
             &repo.sessions_storage,

@@ -1,12 +1,9 @@
-use crate::{deltas::Operation, projects, repositories, sessions};
+use crate::{deltas::Operation, projects, repositories};
 use anyhow::Result;
-use std::{
-    path::Path,
-    sync::{Arc, Mutex},
-};
+use std::path::Path;
 use tempfile::tempdir;
 
-fn test_project() -> Result<repositories::Repository> {
+fn test_project() -> Result<(git2::Repository, repositories::Repository)> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
     std::fs::create_dir_all(&path)?;
     let repo = git2::Repository::init(&path)?;
@@ -22,16 +19,13 @@ fn test_project() -> Result<repositories::Repository> {
         &[],
     )?;
     let project = projects::Project::from_path(path)?;
-    repositories::Repository::new(project.clone(), None)
+    let r = repositories::Repository::new(project.clone(), None)?;
+    Ok((repo, r))
 }
 
 #[test]
 fn test_flush_session() {
-    let repo = test_project().unwrap();
-    let sessions_store = sessions::Store::new(
-        Arc::new(Mutex::new(clone_repo(&repo.git_repository))),
-        repo.project.clone(),
-    );
+    let (git_repo, repo) = test_project().unwrap();
 
     let relative_file_path = Path::new("test.txt");
     std::fs::write(
@@ -42,7 +36,7 @@ fn test_flush_session() {
 
     let result = super::delta::register_file_change(
         &repo.project,
-        &repo.git_repository,
+        &git_repo,
         &repo.deltas_storage,
         &relative_file_path,
     );
@@ -53,7 +47,7 @@ fn test_flush_session() {
     assert_eq!(session1.hash, None);
     assert_eq!(deltas1.len(), 1);
 
-    session1 = sessions_store.flush(&session1, None).unwrap();
+    session1 = repo.sessions_storage.flush(&session1, None).unwrap();
     assert!(session1.hash.is_some());
 
     std::fs::write(
@@ -64,7 +58,7 @@ fn test_flush_session() {
 
     let result = super::delta::register_file_change(
         &repo.project,
-        &repo.git_repository,
+        &git_repo,
         &repo.deltas_storage,
         &relative_file_path,
     );
@@ -76,21 +70,13 @@ fn test_flush_session() {
     assert_eq!(deltas2.len(), 1);
     assert_ne!(session1.id, session2.id);
 
-    session2 = sessions_store.flush(&session2, None).unwrap();
+    session2 = repo.sessions_storage.flush(&session2, None).unwrap();
     assert!(session2.hash.is_some());
-}
-
-fn clone_repo(repo: &git2::Repository) -> git2::Repository {
-    git2::Repository::open(repo.path()).unwrap()
 }
 
 #[test]
 fn test_flow() {
-    let repo = test_project().unwrap();
-    let sessions_store = sessions::Store::new(
-        Arc::new(Mutex::new(clone_repo(&repo.git_repository))),
-        repo.project.clone(),
-    );
+    let (git_repo, repo) = test_project().unwrap();
 
     let size = 10;
     let relative_file_path = Path::new("one/two/test.txt");
@@ -105,7 +91,7 @@ fn test_flow() {
 
         let result = super::delta::register_file_change(
             &repo.project,
-            &repo.git_repository,
+            &git_repo,
             &repo.deltas_storage,
             &relative_file_path,
         );
@@ -116,14 +102,13 @@ fn test_flow() {
         assert_eq!(session.hash, None);
         assert_eq!(deltas.len(), 1);
 
-        session = sessions_store.flush(&session, None).unwrap();
+        session = repo.sessions_storage.flush(&session, None).unwrap();
         assert!(session.hash.is_some());
     }
 
     // get all the created sessions
-    let mut sessions = sessions_store.list(None).unwrap();
+    let mut sessions = repo.sessions(None).unwrap();
     assert_eq!(sessions.len(), size);
-
     // verify sessions order is correct
     let mut last_start = sessions[0].meta.start_timestamp_ms;
     let mut last_end = sessions[0].meta.start_timestamp_ms;
@@ -135,7 +120,6 @@ fn test_flow() {
     });
 
     sessions.reverse();
-
     // try to reconstruct file state from operations for every session slice
     for i in 0..=sessions.len() - 1 {
         let sessions_slice = &mut sessions[i..];

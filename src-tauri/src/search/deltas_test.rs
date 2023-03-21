@@ -29,10 +29,6 @@ fn test_project() -> Result<(git2::Repository, projects::Project)> {
     Ok((repo, project))
 }
 
-fn clone_repo(repo: &git2::Repository) -> git2::Repository {
-    git2::Repository::open(repo.path()).unwrap()
-}
-
 #[test]
 fn test_filter_by_timestamp() {
     let (repo, project) = test_project().unwrap();

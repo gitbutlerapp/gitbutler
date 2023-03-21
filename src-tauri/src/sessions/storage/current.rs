@@ -22,12 +22,13 @@ impl Store {
     }
 
     pub fn create(&self) -> Result<sessions::Session> {
+        let git_repository = self.git_repository.lock().unwrap();
+
         let now_ts = time::SystemTime::now()
             .duration_since(time::UNIX_EPOCH)
             .unwrap()
             .as_millis();
 
-        let git_repository = self.git_repository.lock().unwrap();
         let activity = match std::fs::read_to_string(git_repository.path().join("logs/HEAD")) {
             Ok(reflog) => reflog
                 .lines()
@@ -163,6 +164,8 @@ impl Store {
     }
 
     pub fn get(&self) -> Result<Option<sessions::Session>> {
+        let git_repository = self.git_repository.lock().unwrap();
+
         let session_path = self.project.session_path();
         let meta_path = session_path.join("meta");
         if !meta_path.exists() {
@@ -208,8 +211,6 @@ impl Store {
                 .into(),
             false => None,
         };
-
-        let git_repository = self.git_repository.lock().unwrap();
 
         let activity_path = git_repository.path().join("logs/HEAD");
         let activity = match activity_path.exists() {
