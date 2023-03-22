@@ -89,6 +89,7 @@
 				>
 					&#8984;K
 				</div>
+				<a href="/projects/{$project?.id}/terminal">Terminal</a>
 			</div>
 
 			<ul>

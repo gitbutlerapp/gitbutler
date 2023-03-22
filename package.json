@@ -48,8 +48,11 @@
 		"nanoid": "^4.0.1",
 		"posthog-js": "^1.46.1",
 		"svelte-french-toast": "^1.0.3",
+		"svelte-resize-observer": "^2.0.0",
 		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
-		"tinykeys": "^1.4.0"
+		"tinykeys": "^1.4.0",
+		"xterm": "^5.1.0",
+		"xterm-addon-fit": "^0.7.0"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "next",

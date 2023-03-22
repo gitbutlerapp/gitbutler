@@ -54,12 +54,15 @@ specifiers:
   svelte: ^3.55.1
   svelte-check: ^3.0.1
   svelte-french-toast: ^1.0.3
+  svelte-resize-observer: ^2.0.0
   tailwindcss: ^3.1.5
   tauri-plugin-log-api: github:tauri-apps/tauri-plugin-log
   tinykeys: ^1.4.0
   tslib: ^2.4.1
   typescript: ^4.8.4
   vite: ^4.0.0
+  xterm: ^5.1.0
+  xterm-addon-fit: ^0.7.0
 
 dependencies:
   '@codemirror/autocomplete': 6.4.2_lc2v3dpzp2l5pdzwtgfaudkm3e
@@ -97,8 +100,11 @@ dependencies:
   nanoid: 4.0.1
   posthog-js: 1.46.1
   svelte-french-toast: 1.0.3_svelte@3.55.1
+  svelte-resize-observer: 2.0.0
   tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/05a9bfd9edb9b5f4ab95412bb607691708b65a25
   tinykeys: 1.4.0
+  xterm: 5.1.0
+  xterm-addon-fit: 0.7.0_xterm@5.1.0
 
 devDependencies:
   '@sveltejs/adapter-static': 1.0.0-next.50_l5ueyfihz3gpzzvvyo2ean5u3e
@@ -2233,6 +2239,10 @@ packages:
     engines: {node: '>=8'}
     dev: true
 
+  /resize-observer-polyfill/1.5.1:
+    resolution: {integrity: sha512-LwZrotdHOo12nQuZlHEmtuXdqGoOD0OhaxopaNFxWzInpEgaLWoVuAMbTzixuosCx2nEG58ngzW3vxdWoxIgdg==}
+    dev: false
+
   /resolve-from/4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
     engines: {node: '>=4'}
@@ -2487,6 +2497,12 @@ packages:
       typescript: 4.9.5
     dev: true
 
+  /svelte-resize-observer/2.0.0:
+    resolution: {integrity: sha512-hMG30MeUFiVhAeAGWoasBGNAFWa/K8mAIvbpjdaYRqNcU5nkxvjZYhzOhQ8rYbHSd2Hflk2s21yFR7CNKEHZpw==}
+    dependencies:
+      resize-observer-polyfill: 1.5.1
+    dev: false
+
   /svelte-writable-derived/2.1.6_svelte@3.55.1:
     resolution: {integrity: sha512-vqOXuiESMZyP/kt/RD+nOk2RVHNakDm1K1hmfeGAKc4jzcSp5hEkUi43MDbkVlMurkSBlcMVTQwRQy4LcBT2lw==}
     peerDependencies:
@@ -2693,6 +2709,18 @@ packages:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
     dev: true
+
+  /xterm-addon-fit/0.7.0_xterm@5.1.0:
+    resolution: {integrity: sha512-tQgHGoHqRTgeROPnvmtEJywLKoC/V9eNs4bLLz7iyJr1aW/QFzRwfd3MGiJ6odJd9xEfxcW36/xRU47JkD5NKQ==}
+    peerDependencies:
+      xterm: ^5.0.0
+    dependencies:
+      xterm: 5.1.0
+    dev: false
+
+  /xterm/5.1.0:
+    resolution: {integrity: sha512-LovENH4WDzpwynj+OTkLyZgJPeDom9Gra4DMlGAgz6pZhIDCQ+YuO7yfwanY+gVbn/mmZIStNOnVRU/ikQuAEQ==}
+    dev: false
 
   /yallist/4.0.0:
     resolution: {integrity: sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==}
