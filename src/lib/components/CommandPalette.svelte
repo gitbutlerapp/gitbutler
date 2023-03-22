@@ -12,6 +12,9 @@
 	import { currentProject } from '$lib/current_project';
 	import type { Project } from '$lib/projects';
 	import toast from 'svelte-french-toast';
+	import type { Readable } from 'svelte/store';
+
+	export let projects: Readable<Project[]>;
 
 	let showPalette = <string | false>false;
 	let palette: HTMLElement;
@@ -32,8 +35,6 @@
 
 	const switchBranch = (params: { projectId: string; branch: string }) =>
 		invoke<Array<string>>('git_switch_branch', params);
-
-	const listProjects = () => invoke<Project[]>('list_projects');
 
 	const commit = (params: {
 		projectId: string;
@@ -240,21 +241,19 @@
 	];
 
 	let switchCommands = [];
-	$: {
-		listProjects().then((projects) => {
-			switchCommands = [];
-			projects.forEach((p) => {
-				if (p.id !== $currentProject?.id) {
-					switchCommands.push({
-						text: p.title,
-						icon: ProjectIcon,
-						command: 'switch',
-						context: p.id
-					});
-				}
-			});
+	projects.subscribe((projects) => {
+		switchCommands = [];
+		projects.forEach((p) => {
+			if (p.id !== $currentProject?.id) {
+				switchCommands.push({
+					text: p.title,
+					icon: ProjectIcon,
+					command: 'switch',
+					context: p.id
+				});
+			}
 		});
-	}
+	});
 
 	let baseCommands = [{ text: 'Contact Us', key: 'E', icon: ContactIcon, command: 'contact' }];
 
