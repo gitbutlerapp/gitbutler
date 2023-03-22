@@ -13,11 +13,7 @@ use anyhow::{Context, Result};
 use deltas::Delta;
 use log;
 use serde::{ser::SerializeMap, Serialize};
-use std::{
-    collections::HashMap,
-    ops::Range,
-    sync::{mpsc, Mutex},
-};
+use std::{collections::HashMap, ops::Range, sync::Mutex};
 use storage::Storage;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
@@ -143,7 +139,7 @@ async fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
 }
 
 #[tauri::command(async)]
-fn search(
+async fn search(
     handle: tauri::AppHandle,
     project_id: &str,
     query: &str,
@@ -177,7 +173,7 @@ fn search(
 }
 
 #[tauri::command(async)]
-fn list_sessions(
+async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
     earliest_timestamp_ms: Option<u128>,
@@ -220,7 +216,7 @@ async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error
 }
 
 #[tauri::command(async)]
-fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
+async fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
     app_state
@@ -234,7 +230,7 @@ fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
 }
 
 #[tauri::command(async)]
-fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
+async fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
     app_state
@@ -248,7 +244,7 @@ fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
 }
 
 #[tauri::command(async)]
-fn update_project(
+async fn update_project(
     handle: tauri::AppHandle,
     project: projects::UpdateRequest,
 ) -> Result<projects::Project, Error> {
@@ -263,7 +259,7 @@ fn update_project(
 }
 
 #[tauri::command(async)]
-fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
+async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
     let app_state = handle.state::<App>();
 
     for project in app_state
@@ -299,7 +295,11 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
 
     let repo = repo_for_project(handle.clone(), &project.id)?;
 
-    let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
+    let (tx, rx): (
+        tokio::sync::mpsc::Sender<events::Event>,
+        tokio::sync::mpsc::Receiver<events::Event>,
+    ) = tokio::sync::mpsc::channel(1);
+
     app_state.watchers.lock().unwrap().watch(
         tx,
         &project,
@@ -312,7 +312,7 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
 }
 
 #[tauri::command(async)]
-fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
+async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
     let app_state = handle.state::<App>();
 
     let projects = app_state.projects_storage.list_projects()?;
@@ -321,7 +321,7 @@ fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Err
 }
 
 #[tauri::command(async)]
-fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
+async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
     match app_state.projects_storage.get_project(id)? {
@@ -343,7 +343,7 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
 }
 
 #[tauri::command(async)]
-fn list_session_files(
+async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
@@ -355,7 +355,7 @@ fn list_session_files(
 }
 
 #[tauri::command(async)]
-fn list_deltas(
+async fn list_deltas(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
@@ -367,7 +367,7 @@ fn list_deltas(
 }
 
 #[tauri::command(async)]
-fn git_status(
+async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
@@ -377,7 +377,7 @@ fn git_status(
 }
 
 #[tauri::command(async)]
-fn git_wd_diff(
+async fn git_wd_diff(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
@@ -389,7 +389,7 @@ fn git_wd_diff(
 }
 
 #[tauri::command(async)]
-fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .file_paths()
@@ -399,7 +399,7 @@ fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<Stri
 }
 
 #[tauri::command(async)]
-fn git_match_paths(
+async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
     match_pattern: &str,
@@ -429,7 +429,7 @@ fn repo_for_project(
 }
 
 #[tauri::command(async)]
-fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branches()
@@ -438,7 +438,7 @@ fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String
 }
 
 #[tauri::command(async)]
-fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branch()
@@ -447,7 +447,7 @@ fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Erro
 }
 
 #[tauri::command(async)]
-fn git_switch_branch(
+async fn git_switch_branch(
     handle: tauri::AppHandle,
     project_id: &str,
     branch: &str,
@@ -460,7 +460,7 @@ fn git_switch_branch(
 }
 
 #[tauri::command(async)]
-fn git_commit(
+async fn git_commit(
     handle: tauri::AppHandle,
     project_id: &str,
     message: &str,
@@ -650,7 +650,7 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
     }
 
     // start watching projects
-    let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
+    let (tx, rx) = tokio::sync::mpsc::channel::<events::Event>(32);
 
     let projects = app_state
         .projects_storage
@@ -692,9 +692,9 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
     Ok(())
 }
 
-fn watch_events(handle: tauri::AppHandle, rx: mpsc::Receiver<events::Event>) {
+fn watch_events(handle: tauri::AppHandle, mut rx: tokio::sync::mpsc::Receiver<events::Event>) {
     tauri::async_runtime::spawn(async move {
-        while let Ok(event) = rx.recv() {
+        while let Some(event) = rx.recv().await {
             if let Some(window) = handle.get_window("main") {
                 log::info!("Emitting event: {}", event.name);
                 match window.emit(&event.name, event.payload) {

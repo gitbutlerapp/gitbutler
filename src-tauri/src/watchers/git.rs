@@ -1,10 +1,10 @@
 use crate::{events, projects};
 use anyhow::Result;
-use notify::{Config, RecommendedWatcher, Watcher};
+use notify::{RecommendedWatcher, Watcher};
 use std::{
     collections::HashMap,
     path::Path,
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
 pub struct GitWatchers {
@@ -27,11 +27,13 @@ impl GitWatchers {
 
     pub fn watch(
         &mut self,
-        sender: mpsc::Sender<events::Event>,
+        sender: tokio::sync::mpsc::Sender<events::Event>,
         project: projects::Project,
     ) -> Result<()> {
-        let (tx, rx) = mpsc::channel();
-        let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+        let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+        let mut watcher = notify::recommended_watcher(move |res| {
+            let _ = tx.try_send(res);
+        })?;
 
         watcher.watch(
             Path::new(&Path::new(&project.path).join(".git")),
@@ -41,13 +43,13 @@ impl GitWatchers {
 
         let project = Arc::new(Mutex::new(project.clone()));
 
-        tauri::async_runtime::spawn_blocking(move || {
+        tauri::async_runtime::spawn(async move {
             log::info!("{}: watching git", project.lock().unwrap().id);
 
             let project = project.lock().unwrap().clone();
             let project_path = Path::new(&project.path);
 
-            while let Ok(event) = rx.recv() {
+            while let Some(event) = rx.recv().await {
                 if let Err(e) = event {
                     log::error!("{}: notify event error: {:#}", project.id.clone(), e);
                     continue;
@@ -70,12 +72,12 @@ impl GitWatchers {
                                     kind_string
                                 );
 
-                                if let Err(e) = sender.send(event) {
+                                if let Err(e) = sender.send(event).await {
                                     log::error!(
                                         "{}: notify event error: {:#}",
                                         project.id.clone(),
                                         e
-                                    );
+                                    )
                                 }
                             }
                             Ok(None) => {}
@@ -83,9 +85,7 @@ impl GitWatchers {
                                 log::error!("{}: notify event error: {:#}", project.id.clone(), e)
                             }
                         },
-                        None => {
-                            // ignore
-                        }
+                        None => {}
                     }
                 }
             }

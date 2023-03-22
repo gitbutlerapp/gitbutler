@@ -3,11 +3,11 @@ use crate::projects;
 use crate::{events, sessions};
 use anyhow::{Context, Result};
 use git2;
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::Arc;
 
 pub struct DeltaWatchers {
     watchers: HashMap<String, RecommendedWatcher>,
@@ -40,25 +40,27 @@ impl DeltaWatchers {
 
     pub fn watch(
         &mut self,
-        sender: mpsc::Sender<events::Event>,
+        sender: tokio::sync::mpsc::Sender<events::Event>,
         project: projects::Project,
-        mutex: Arc<Mutex<fslock::LockFile>>,
+        mutex: Arc<tokio::sync::Mutex<fslock::LockFile>>,
         deltas_storage: &deltas::Store,
     ) -> Result<()> {
         log::info!("Watching deltas for {}", project.path);
         let project_path = Path::new(&project.path);
 
-        let (tx, rx) = mpsc::channel();
-        let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+        let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+        let mut watcher = notify::recommended_watcher(move |res| {
+            let _ = tx.try_send(res);
+        })?;
 
         watcher.watch(project_path, RecursiveMode::Recursive)?;
 
         self.watchers.insert(project.path.clone(), watcher);
 
         let shared_deltas_storage = deltas_storage.clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            let deltas_storage = shared_deltas_storage.clone();
-            while let Ok(event) = rx.recv() {
+        tauri::async_runtime::spawn(async move {
+            let deltas_storage = shared_deltas_storage;
+            while let Some(event) = rx.recv().await {
                 match event {
                     Ok(notify_event) => {
                         for file_path in notify_event.paths {
@@ -88,52 +90,60 @@ impl DeltaWatchers {
                                 continue;
                             }
 
-                            let mut fslock = mutex.lock().unwrap();
+                            let mut fslock = mutex.lock().await;
                             log::debug!("{}: locking", project.id);
                             fslock.lock().unwrap();
                             log::debug!("{}: locked", project.id);
 
-                            match register_file_change(
+                            let change = match register_file_change(
                                 &project,
                                 &repo,
                                 &deltas_storage,
                                 &relative_file_path,
                             ) {
-                                Ok(Some((session, deltas))) => {
-                                    if let Err(e) =
-                                        sender.send(events::Event::session(&project, &session))
-                                    {
-                                        log::error!(
-                                            "{}: failed to send session event: {:#}",
-                                            project.id,
-                                            e
-                                        )
-                                    }
-
-                                    if let Err(e) = sender.send(events::Event::detlas(
-                                        &project,
-                                        &session,
-                                        &deltas,
-                                        &relative_file_path,
-                                    )) {
-                                        log::error!(
-                                            "{}: failed to send deltas event: {:#}",
-                                            project.id,
-                                            e
-                                        )
-                                    }
+                                Ok(change) => change,
+                                Err(e) => {
+                                    log::error!(
+                                        "{}: failed to register file change: {:#}",
+                                        project.id,
+                                        e
+                                    );
+                                    None
                                 }
-                                Ok(None) => {}
-                                Err(e) => log::error!(
-                                    "{}: failed to register file change: {:#}",
-                                    project.id,
-                                    e
-                                ),
-                            }
+                            };
 
                             log::debug!("{}: unlocking", project.id);
                             fslock.unlock().unwrap();
                             log::debug!("{}: unlocked", project.id);
+
+                            if let Some((session, deltas)) = change {
+                                if let Err(e) = sender
+                                    .send(events::Event::session(&project, &session))
+                                    .await
+                                {
+                                    log::error!(
+                                        "{}: failed to send session event: {:#}",
+                                        project.id,
+                                        e
+                                    );
+                                }
+
+                                if let Err(e) = sender
+                                    .send(events::Event::detlas(
+                                        &project,
+                                        &session,
+                                        &deltas,
+                                        &relative_file_path,
+                                    ))
+                                    .await
+                                {
+                                    log::error!(
+                                        "{}: failed to send deltas event: {:#}",
+                                        project.id,
+                                        e
+                                    );
+                                }
+                            }
                         }
                     }
                     Err(e) => log::error!("{}: notify event error: {:#}", project.id, e),

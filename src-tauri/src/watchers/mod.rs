@@ -9,10 +9,7 @@ mod test;
 
 use crate::{deltas, events, projects, search, sessions, users};
 use anyhow::Result;
-use std::{
-    path::Path,
-    sync::{mpsc, Arc, Mutex},
-};
+use std::{path::Path, sync::Arc};
 
 pub struct Watcher {
     session_watcher: session::SessionWatcher,
@@ -39,14 +36,14 @@ impl Watcher {
 
     pub fn watch(
         &mut self,
-        sender: mpsc::Sender<events::Event>,
+        sender: tokio::sync::mpsc::Sender<events::Event>,
         project: &projects::Project,
         deltas_storage: &deltas::Store,
         sessions_storage: &sessions::Store,
     ) -> Result<()> {
         // shared mutex to prevent concurrent write to gitbutler interal state by multiple watchers
         // at the same time
-        let lock_file = Arc::new(Mutex::new(fslock::LockFile::open(
+        let lock_file = Arc::new(tokio::sync::Mutex::new(fslock::LockFile::open(
             &Path::new(&project.path)
                 .join(".git")
                 .join(format!("gb-{}", project.id))

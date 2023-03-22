@@ -1,10 +1,7 @@
 use crate::{deltas, events, projects, search, sessions, users};
 use anyhow::{Context, Result};
-use std::{
-    sync::{mpsc, Arc, Mutex},
-    thread,
-    time::{Duration, SystemTime},
-};
+use std::{sync::Arc, time::SystemTime};
+use tokio::time::{sleep, Duration};
 
 const FIVE_MINUTES: u128 = Duration::new(5 * 60, 0).as_millis();
 const ONE_HOUR: u128 = Duration::new(60 * 60, 0).as_millis();
@@ -29,11 +26,11 @@ impl<'a> SessionWatcher {
         }
     }
 
-    fn run(
+    async fn run(
         &mut self,
         project_id: &str,
-        sender: mpsc::Sender<events::Event>,
-        mutex: Arc<Mutex<fslock::LockFile>>,
+        sender: tokio::sync::mpsc::Sender<events::Event>,
+        mutex: Arc<tokio::sync::Mutex<fslock::LockFile>>,
         deltas_storage: &deltas::Store,
         sessions_storage: &sessions::Store,
     ) -> Result<()> {
@@ -52,7 +49,7 @@ impl<'a> SessionWatcher {
                     .with_context(|| "failed to check for session to comit")?
                 {
                     Some(mut session) => {
-                        let mut fslock = mutex.lock().unwrap();
+                        let mut fslock = mutex.lock().await;
                         log::debug!("{}: locking", project.id);
                         fslock.lock().unwrap();
                         log::debug!("{}: locked", project.id);
@@ -71,8 +68,9 @@ impl<'a> SessionWatcher {
 
                         sender
                             .send(events::Event::session(&project, &session))
+                            .await
                             .with_context(|| {
-                                format!("{}: failed to send session event", project.id)
+                                format!("failed to send session {} event", session.id)
                             })?;
 
                         Ok(())
@@ -86,9 +84,9 @@ impl<'a> SessionWatcher {
 
     pub fn watch(
         &self,
-        sender: mpsc::Sender<events::Event>,
+        sender: tokio::sync::mpsc::Sender<events::Event>,
         project: projects::Project,
-        mutex: Arc<Mutex<fslock::LockFile>>,
+        mutex: Arc<tokio::sync::Mutex<fslock::LockFile>>,
         deltas_storage: &deltas::Store,
         sessions_storage: &sessions::Store,
     ) -> Result<()> {
@@ -100,22 +98,27 @@ impl<'a> SessionWatcher {
 
         let shared_storage = deltas_storage.clone();
         let shared_sessions_storage = sessions_storage.clone();
-        tauri::async_runtime::spawn_blocking(move || loop {
-            let local_self = &mut self_copy;
-            let deltas_storage = shared_storage.clone();
-            let sessions_storage = shared_sessions_storage.clone();
+        tauri::async_runtime::spawn(async move {
+            loop {
+                let local_self = &mut self_copy;
+                let deltas_storage = shared_storage.clone();
+                let sessions_storage = shared_sessions_storage.clone();
 
-            if let Err(e) = local_self.run(
-                &project_id,
-                sender.clone(),
-                mutex.clone(),
-                &deltas_storage,
-                &sessions_storage,
-            ) {
-                log::error!("{}: error while running git watcher: {:#}", project_id, e);
+                if let Err(e) = local_self
+                    .run(
+                        &project_id,
+                        sender.clone(),
+                        mutex.clone(),
+                        &deltas_storage,
+                        &sessions_storage,
+                    )
+                    .await
+                {
+                    log::error!("{}: error while running git watcher: {:#}", project_id, e);
+                }
+
+                sleep(Duration::from_secs(10)).await;
             }
-
-            thread::sleep(Duration::from_secs(10));
         });
 
         Ok(())
