@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use git2::{BranchType, Cred, DiffOptions, Signature};
 use std::{
     collections::HashMap,
-    env,
+    env, fs as std_fs,
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -149,6 +149,20 @@ impl Repository {
         let head = repo.head()?;
         let branch = head.name().unwrap();
         Ok(branch.to_string())
+    }
+
+    // return file contents for path in the working directory
+    pub fn get_file_contents(&self, path: &str) -> Result<String> {
+        let repo = self.git_repository.lock().unwrap();
+        let workdir = repo
+            .workdir()
+            .with_context(|| "failed to get working directory")?;
+
+        let file_path = workdir.join(path);
+        // read the file contents
+        let content =
+            std_fs::read_to_string(file_path).with_context(|| "failed to read file contents")?;
+        Ok(content)
     }
 
     pub fn wd_diff(&self, max_lines: usize) -> Result<HashMap<String, String>> {

@@ -66,6 +66,8 @@
 	const getDiff = (params: { projectId: string }) =>
 		invoke<Record<string, string>>('git_wd_diff', params);
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
+	const getFile = (params: { projectId: string; path: string }) =>
+		invoke<string>('get_file_contents', params);
 
 	let gitBranch = <string | undefined>undefined;
 	let gitDiff = <Record<string, string> | undefined>undefined;
@@ -74,11 +76,23 @@
 
 	let currentPath = '';
 	let currentDiff = '';
+	let addedContents = '';
 
 	function selectPath(path) {
+		currentDiff = '';
+		addedContents = '';
+
 		if (gitDiff[path]) {
 			currentPath = path;
 			currentDiff = gitDiff[path];
+		} else {
+			let file = $filesStatus.filter((file) => file.path === path)[0];
+			if (file && file.status === 'added') {
+				getFile({ projectId: $project?.id, path: path }).then((contents) => {
+					currentPath = path;
+					addedContents = contents;
+				});
+			}
 		}
 	}
 
@@ -264,6 +278,8 @@
 	<div class="h-full max-h-screen flex-grow overflow-auto p-2 h-100">
 		{#if currentDiff}
 			<DiffViewer diff={currentDiff} path={currentPath} />
+		{:else if addedContents}
+			<pre class="bg-green-900">{addedContents}</pre>
 		{:else}
 			<div class="text-zinc-400 text-center text-lg p-20">Select a file to view changes.</div>
 		{/if}
