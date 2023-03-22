@@ -1,4 +1,4 @@
-use crate::{deltas, events, projects, search, sessions, users};
+use crate::{events, projects, repositories, search, sessions, users};
 use anyhow::{Context, Result};
 use std::{sync::Arc, time::SystemTime};
 use tokio::time::{sleep, Duration};
@@ -28,16 +28,14 @@ impl SessionWatcher {
 
     async fn run(
         &mut self,
-        project_id: &str,
         sender: tokio::sync::mpsc::Sender<events::Event>,
         fslock: Arc<tokio::sync::Mutex<fslock::LockFile>>,
-        deltas_storage: &deltas::Store,
-        sessions_storage: &sessions::Store,
+        repository: &repositories::Repository,
     ) -> Result<()> {
         match self
             .projects_storage
-            .get_project(&project_id)
-            .with_context(|| format!("{}: failed to get project", project_id))?
+            .get_project(&repository.project.id)
+            .with_context(|| format!("{}: failed to get project", repository.project.id))?
         {
             Some(project) => {
                 let user = self
@@ -45,7 +43,7 @@ impl SessionWatcher {
                     .get()
                     .with_context(|| format!("{}: failed to get user", project.id))?;
 
-                match session_to_commit(&project, &sessions_storage)
+                match session_to_commit(&repository)
                     .with_context(|| "failed to check for session to comit")?
                 {
                     Some(mut session) => {
@@ -54,7 +52,8 @@ impl SessionWatcher {
                         fslock.lock().unwrap();
                         log::debug!("{}: locked", project.id);
 
-                        session = sessions_storage
+                        session = repository
+                            .sessions_storage
                             .flush(&session, user)
                             .with_context(|| format!("failed to flush session {}", session.id))?;
 
@@ -63,7 +62,7 @@ impl SessionWatcher {
                         log::debug!("{}: unlocked", project.id);
 
                         self.deltas_searcher
-                            .index_session(&project, &session, &deltas_storage, &sessions_storage)
+                            .index_session(&repository, &session)
                             .with_context(|| format!("failed to index session {}", session.id))?;
 
                         sender
@@ -85,36 +84,32 @@ impl SessionWatcher {
     pub fn watch(
         &self,
         sender: tokio::sync::mpsc::Sender<events::Event>,
-        project: projects::Project,
         fslock: Arc<tokio::sync::Mutex<fslock::LockFile>>,
-        deltas_storage: &deltas::Store,
-        sessions_storage: &sessions::Store,
+        repository: &repositories::Repository,
     ) -> Result<()> {
-        log::info!("{}: watching sessions in {}", project.id, project.path);
+        log::info!(
+            "{}: watching sessions in {}",
+            repository.project.id,
+            repository.project.path
+        );
 
         let shared_self = self.clone();
         let mut self_copy = shared_self.clone();
-        let project_id = project.id;
-
-        let shared_storage = deltas_storage.clone();
-        let shared_sessions_storage = sessions_storage.clone();
+        let shared_repository = repository.clone();
         tauri::async_runtime::spawn(async move {
             let local_self = &mut self_copy;
-            let deltas_storage = shared_storage.clone();
-            let sessions_storage = shared_sessions_storage.clone();
+            let repository = &shared_repository;
 
             loop {
                 if let Err(e) = local_self
-                    .run(
-                        &project_id,
-                        sender.clone(),
-                        fslock.clone(),
-                        &deltas_storage,
-                        &sessions_storage,
-                    )
+                    .run(sender.clone(), fslock.clone(), &repository)
                     .await
                 {
-                    log::error!("{}: error while running git watcher: {:#}", project_id, e);
+                    log::error!(
+                        "{}: error while running git watcher: {:#}",
+                        repository.project.id,
+                        e
+                    );
                 }
 
                 sleep(Duration::from_secs(10)).await;
@@ -128,13 +123,11 @@ impl SessionWatcher {
 // make sure that the .git/gb/session directory exists (a session is in progress)
 // and that there has been no activity in the last 5 minutes (the session appears to be over)
 // and the start was at most an hour ago
-fn session_to_commit(
-    project: &projects::Project,
-    sessions_store: &sessions::Store,
-) -> Result<Option<sessions::Session>> {
-    match sessions_store
+fn session_to_commit(repository: &repositories::Repository) -> Result<Option<sessions::Session>> {
+    match repository
+        .sessions_storage
         .get_current()
-        .with_context(|| format!("{}: failed to get current session", project.id))?
+        .with_context(|| format!("{}: failed to get current session", repository.project.id))?
     {
         None => Ok(None),
         Some(current_session) => {
@@ -149,8 +142,8 @@ fn session_to_commit(
             if (elapsed_last > FIVE_MINUTES) || (elapsed_start > ONE_HOUR) {
                 log::info!(
                     "{}: ready to commit {} ({} seconds elapsed, {} seconds since start)",
-                    project.id,
-                    project.path,
+                    repository.project.id,
+                    repository.project.path,
                     elapsed_last / 1000,
                     elapsed_start / 1000
                 );
@@ -158,8 +151,8 @@ fn session_to_commit(
             } else {
                 log::debug!(
                     "{}: not ready to commit {} yet. ({} seconds elapsed, {} seconds since start)",
-                    project.id,
-                    project.path,
+                    repository.project.id,
+                    repository.project.path,
                     elapsed_last / 1000,
                     elapsed_start / 1000
                 );

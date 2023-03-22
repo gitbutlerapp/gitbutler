@@ -295,17 +295,9 @@ async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::P
 
     let repo = repo_for_project(handle.clone(), &project.id)?;
 
-    let (tx, rx): (
-        tokio::sync::mpsc::Sender<events::Event>,
-        tokio::sync::mpsc::Receiver<events::Event>,
-    ) = tokio::sync::mpsc::channel(1);
+    let (tx, rx) = tokio::sync::mpsc::channel::<events::Event>(1);
 
-    app_state.watchers.lock().unwrap().watch(
-        tx,
-        &project,
-        &repo.deltas_storage,
-        &repo.sessions_storage,
-    )?;
+    app_state.watchers.lock().unwrap().watch(tx, &repo)?;
     watch_events(handle, rx);
 
     Ok(project)
@@ -669,21 +661,15 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .watchers
             .lock()
             .unwrap()
-            .watch(
-                tx.clone(),
-                &project,
-                &repo.deltas_storage,
-                &repo.sessions_storage,
-            )
+            .watch(tx.clone(), &repo)
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
-        let git_repository = repo.git_repository.lock().unwrap();
-        if let Err(err) = app_state.deltas_searcher.lock().unwrap().reindex_project(
-            &git_repository,
-            &repo.project,
-            &repo.deltas_storage,
-            &repo.sessions_storage,
-        ) {
+        if let Err(err) = app_state
+            .deltas_searcher
+            .lock()
+            .unwrap()
+            .reindex_project(&repo)
+        {
             log::error!("{}: failed to reindex project: {:#}", project.id, err);
         }
     }

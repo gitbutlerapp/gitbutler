@@ -1,4 +1,4 @@
-use crate::{deltas, projects, sessions, storage};
+use crate::{deltas, projects, repositories, sessions, storage};
 use anyhow::{Context, Result};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
@@ -7,7 +7,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time, vec,
+    vec,
 };
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
 
@@ -92,79 +92,55 @@ impl Deltas {
         search(&self.index, &self.reader, query)
     }
 
-    pub fn reindex_project(
-        &mut self,
-        repo: &git2::Repository,
-        project: &projects::Project,
-        deltas_storage: &deltas::Store,
-        session_storage: &sessions::Store,
-    ) -> Result<()> {
-        let start = time::SystemTime::now();
+    pub fn reindex_project(&mut self, repository: &repositories::Repository) -> Result<()> {
+        let sessions = repository
+            .sessions(None)
+            .with_context(|| "Could not list sessions for project")?;
 
-        let reference = repo.find_reference(&project.refname())?;
-        let head = repo.find_commit(reference.target().unwrap())?;
-
-        // list all commits from gitbutler head to the first commit
-        let mut walker = repo.revwalk()?;
-        walker.push(head.id())?;
-        walker.set_sorting(git2::Sort::TIME)?;
-
-        for oid in walker {
-            let oid = oid?;
-            let commit = repo
-                .find_commit(oid)
-                .with_context(|| format!("Could not find commit {}", oid.to_string()))?;
-            let session_id = sessions::id_from_commit(repo, &commit)?;
+        for session in sessions {
+            if session.hash.is_none() {
+                continue;
+            }
 
             let version = self
                 .meta_storage
-                .get(&project.id, &session_id)?
+                .get(&repository.project.id, &session.id)?
                 .unwrap_or(0);
 
             if version == CURRENT_VERSION {
                 continue;
             }
 
-            let session = sessions::Session::from_commit(repo, &commit).with_context(|| {
-                format!("Could not parse commit {} in project", oid.to_string())
-            })?;
-            if let Err(e) =
-                self.index_session(project, &session, deltas_storage, session_storage)
-            {
+            if let Err(e) = self.index_session(repository, &session) {
                 log::error!(
-                    "Could not index commit {} in {}: {:#}",
-                    oid,
-                    project.path,
+                    "Could not index session {} in {}: {:#}",
+                    session.id,
+                    repository.project.path,
                     e
                 );
             }
         }
-        log::info!(
-            "Reindexing project {} done, took {}ms",
-            project.path,
-            time::SystemTime::now().duration_since(start)?.as_millis()
-        );
         Ok(())
     }
 
     pub fn index_session(
         &mut self,
-        project: &projects::Project,
+        repository: &repositories::Repository,
         session: &sessions::Session,
-        deltas_storage: &deltas::Store,
-        session_storage: &sessions::Store,
     ) -> Result<()> {
-        log::info!("Indexing session {} in {}", session.id, project.path);
+        log::info!(
+            "Indexing session {} in {}",
+            session.id,
+            repository.project.path
+        );
         index_session(
             &self.index,
             &mut self.writer.lock().unwrap(),
             session,
-            project,
-            deltas_storage,
-            session_storage,
+            &repository,
         )?;
         self.meta_storage
-            .set(&project.id, &session.id, CURRENT_VERSION)?;
+            .set(&repository.project.id, &session.id, CURRENT_VERSION)?;
         Ok(())
     }
 }
@@ -199,18 +175,20 @@ fn index_session(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
     session: &sessions::Session,
-    project: &projects::Project,
-    deltas_storage: &deltas::Store,
-    session_storage: &sessions::Store,
+    repository: &repositories::Repository,
 ) -> Result<()> {
-    let deltas = deltas_storage.list(&session.id, None)?;
+    let deltas = repository
+        .deltas(&session.id, None)
+        .with_context(|| "could not list deltas for session")?;
     if deltas.is_empty() {
         return Ok(());
     }
-    let files = session_storage.list_files(
-        &session.id,
-        Some(deltas.keys().map(|k| k.as_str()).collect()),
-    )?;
+    let files = repository
+        .files(
+            &session.id,
+            Some(deltas.keys().map(|k| k.as_str()).collect()),
+        )
+        .with_context(|| "could not list files for session")?;
     // index every file
     for (file_path, deltas) in deltas.into_iter() {
         // keep the state of the file after each delta operation
@@ -227,7 +205,7 @@ fn index_session(
                 index,
                 writer,
                 session,
-                project,
+                &repository.project,
                 &mut file_text,
                 &file_path,
                 i,

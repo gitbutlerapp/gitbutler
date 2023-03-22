@@ -8,7 +8,7 @@ mod delta_test;
 #[cfg(test)]
 mod test;
 
-use crate::{deltas, events, projects, search, sessions, users};
+use crate::{events, projects, repositories, search, users};
 use anyhow::Result;
 use std::{path::Path, sync::Arc};
 
@@ -35,33 +35,26 @@ impl Watcher {
     pub fn watch(
         &mut self,
         sender: tokio::sync::mpsc::Sender<events::Event>,
-        project: &projects::Project,
-        deltas_storage: &deltas::Store,
-        sessions_storage: &sessions::Store,
+        repository: &repositories::Repository,
     ) -> Result<()> {
         // shared mutex to prevent concurrent write to gitbutler interal state by multiple watchers
         // at the same time
         let lock_file = fslock::LockFile::open(
-            &Path::new(&project.path)
+            &Path::new(&repository.project.path)
                 .join(".git")
-                .join(format!("gb-{}", project.id))
+                .join(format!("gb-{}", repository.project.id))
                 .join(".lock"),
         )?;
 
-        let repo = git2::Repository::open(project.path.clone())?;
+        let repo = git2::Repository::open(repository.project.path.clone())?;
         repo.add_ignore_rule("*.lock")?;
 
         let shared_sender = Arc::new(sender.clone());
-        let shared_deltas_store = Arc::new(deltas_storage.clone());
+        let shared_deltas_store = Arc::new(repository.deltas_storage.clone());
         let shared_lock_file = Arc::new(tokio::sync::Mutex::new(lock_file));
 
-        self.session_watcher.watch(
-            sender,
-            project.clone(),
-            shared_lock_file.clone(),
-            deltas_storage,
-            sessions_storage,
-        )?;
+        self.session_watcher
+            .watch(sender, shared_lock_file.clone(), repository)?;
 
         let (fstx, mut fsevents) = tokio::sync::mpsc::channel::<files::Event>(32);
 
@@ -94,7 +87,7 @@ impl Watcher {
                 }
             }
         });
-        self.files_watcher.watch(fstx, project.clone())?;
+        self.files_watcher.watch(fstx, repository.project.clone())?;
 
         Ok(())
     }
