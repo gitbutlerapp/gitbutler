@@ -1,11 +1,10 @@
+use crate::{projects, sessions, users};
+use anyhow::{Context, Result};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     time,
 };
-
-use crate::{projects, sessions, users};
-use anyhow::Result;
 
 mod current;
 mod persistent;
@@ -71,8 +70,15 @@ impl Store {
 
     // returns list of sessions in reverse chronological order
     pub fn list(&self, earliest_timestamp_ms: Option<u128>) -> Result<Vec<sessions::Session>> {
-        let mut sessions = self.persistent.list(earliest_timestamp_ms)?;
-        if let Some(session) = self.current.get()? {
+        let mut sessions = self
+            .persistent
+            .list(earliest_timestamp_ms)
+            .with_context(|| "failed to list sessions for project {}")?;
+        if let Some(session) = self
+            .current
+            .get()
+            .with_context(|| "failed to get current session")?
+        {
             sessions.insert(0, session);
         }
         Ok(sessions)

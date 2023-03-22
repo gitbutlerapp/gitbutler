@@ -158,19 +158,27 @@ impl Store {
     // see crate::repositories::inib
     pub fn list(&self, earliest_timestamp_ms: Option<u128>) -> Result<Vec<sessions::Session>> {
         let mut cached_sessions = self.sessions_cache.lock().unwrap();
-        if let Some(sessions) = cached_sessions.as_ref() {
-            Ok(sessions.clone().to_vec())
+        let sessions = if let Some(sessions) = cached_sessions.as_ref() {
+            sessions.clone().to_vec()
         } else {
-            let sessions = self.list_from_disk(earliest_timestamp_ms)?;
+            let sessions = self.list_from_disk()?;
             cached_sessions.replace(sessions.clone());
-            Ok(sessions)
-        }
+            sessions
+        };
+
+        let filtered_sessions = if let Some(earliest_timestamp_ms) = earliest_timestamp_ms {
+            sessions
+                .into_iter()
+                .filter(|session| session.meta.start_timestamp_ms >= earliest_timestamp_ms)
+                .collect()
+        } else {
+            sessions
+        };
+
+        Ok(filtered_sessions)
     }
 
-    fn list_from_disk(
-        &self,
-        earliest_timestamp_ms: Option<u128>,
-    ) -> Result<Vec<sessions::Session>> {
+    fn list_from_disk(&self) -> Result<Vec<sessions::Session>> {
         let git_repository = self.git_repository.lock().unwrap();
         let reference = git_repository.find_reference(&self.project.refname())?;
         let head = git_repository.find_commit(reference.target().unwrap())?;
@@ -191,14 +199,6 @@ impl Store {
                 )
             })?;
             let session = sessions::Session::from_commit(&git_repository, &commit)?;
-            match earliest_timestamp_ms {
-                Some(earliest_timestamp_ms) => {
-                    if session.meta.start_timestamp_ms <= earliest_timestamp_ms {
-                        break;
-                    }
-                }
-                None => {}
-            }
             sessions.push(session);
         }
 
