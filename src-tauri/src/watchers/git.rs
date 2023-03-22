@@ -7,7 +7,7 @@ pub async fn on_git_file_change<P: AsRef<Path>>(
     project: &projects::Project,
     path: P,
 ) -> Result<()> {
-    if path.as_ref().ne(Path::new(".git/log/HEAD")) {
+    if path.as_ref().ne(Path::new(".git/logs/HEAD")) {
         return Ok(());
     }
     let event = events::Event::git(&project);
