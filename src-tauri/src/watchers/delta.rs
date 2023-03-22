@@ -3,163 +3,73 @@ use crate::projects;
 use crate::{events, sessions};
 use anyhow::{Context, Result};
 use git2;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-pub struct DeltaWatchers {
-    watchers: HashMap<String, RecommendedWatcher>,
-}
+pub async fn on_file_change(
+    sender: &tokio::sync::mpsc::Sender<events::Event>,
+    fslock: Arc<tokio::sync::Mutex<fslock::LockFile>>,
+    project: &projects::Project,
+    deltas_storage: &deltas::Store,
+    relative_file_path: &Path,
+) -> Result<()> {
+    let repo = git2::Repository::open(&project.path).expect(
+        format!(
+            "{}: failed to open repo at \"{}\"",
+            project.id, project.path
+        )
+        .as_str(),
+    );
 
-fn is_interesting_event(kind: &notify::EventKind) -> Option<String> {
-    match kind {
-        notify::EventKind::Create(notify::event::CreateKind::File) => {
-            Some("file created".to_string())
-        }
-        notify::EventKind::Modify(notify::event::ModifyKind::Data(_)) => {
-            Some("file modified".to_string())
-        }
-        notify::EventKind::Modify(notify::event::ModifyKind::Name(_)) => {
-            Some("file renamed".to_string())
-        }
-        notify::EventKind::Remove(notify::event::RemoveKind::File) => {
-            Some("file removed".to_string())
-        }
-        _ => None,
+    if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
+        // make sure we're not watching ignored files
+        return Ok(());
     }
-}
+    log::info!(
+        "{}: {} changed",
+        project.id,
+        relative_file_path.to_str().unwrap()
+    );
 
-impl DeltaWatchers {
-    pub fn new() -> Self {
-        Self {
-            watchers: Default::default(),
+    let mut fslock = fslock.lock().await;
+    log::debug!("{}: locking", project.id);
+    fslock.lock().unwrap();
+    log::debug!("{}: locked", project.id);
+
+    let change = match register_file_change(&project, &repo, &deltas_storage, &relative_file_path) {
+        Ok(change) => change,
+        Err(e) => {
+            log::error!("{}: failed to register file change: {:#}", project.id, e);
+            None
+        }
+    };
+
+    log::debug!("{}: unlocking", project.id);
+    fslock.unlock().unwrap();
+    log::debug!("{}: unlocked", project.id);
+
+    if let Some((session, deltas)) = change {
+        if let Err(e) = sender
+            .send(events::Event::session(&project, &session))
+            .await
+        {
+            log::error!("{}: failed to send session event: {:#}", project.id, e);
+        }
+
+        if let Err(e) = sender
+            .send(events::Event::detlas(
+                &project,
+                &session,
+                &deltas,
+                &relative_file_path,
+            ))
+            .await
+        {
+            log::error!("{}: failed to send deltas event: {:#}", project.id, e);
         }
     }
-
-    pub fn watch(
-        &mut self,
-        sender: tokio::sync::mpsc::Sender<events::Event>,
-        project: projects::Project,
-        mutex: Arc<tokio::sync::Mutex<fslock::LockFile>>,
-        deltas_storage: &deltas::Store,
-    ) -> Result<()> {
-        log::info!("Watching deltas for {}", project.path);
-        let project_path = Path::new(&project.path);
-
-        let (tx, mut rx) = tokio::sync::mpsc::channel(32);
-        let mut watcher = notify::recommended_watcher(move |res| {
-            let _ = tx.try_send(res);
-        })?;
-
-        watcher.watch(project_path, RecursiveMode::Recursive)?;
-
-        self.watchers.insert(project.path.clone(), watcher);
-
-        let shared_deltas_storage = deltas_storage.clone();
-        tauri::async_runtime::spawn(async move {
-            let deltas_storage = shared_deltas_storage;
-            while let Some(event) = rx.recv().await {
-                match event {
-                    Ok(notify_event) => {
-                        for file_path in notify_event.paths {
-                            let relative_file_path =
-                                file_path.strip_prefix(project.path.clone()).unwrap();
-                            let repo = git2::Repository::open(&project.path).expect(
-                                format!(
-                                    "{}: failed to open repo at \"{}\"",
-                                    project.id, project.path
-                                )
-                                .as_str(),
-                            );
-
-                            if repo.is_path_ignored(&relative_file_path).unwrap_or(true) {
-                                // make sure we're not watching ignored files
-                                continue;
-                            }
-
-                            if let Some(kind_string) = is_interesting_event(&notify_event.kind) {
-                                log::info!(
-                                    "{}: \"{}\" {}",
-                                    project.id,
-                                    relative_file_path.display(),
-                                    kind_string
-                                );
-                            } else {
-                                continue;
-                            }
-
-                            let mut fslock = mutex.lock().await;
-                            log::debug!("{}: locking", project.id);
-                            fslock.lock().unwrap();
-                            log::debug!("{}: locked", project.id);
-
-                            let change = match register_file_change(
-                                &project,
-                                &repo,
-                                &deltas_storage,
-                                &relative_file_path,
-                            ) {
-                                Ok(change) => change,
-                                Err(e) => {
-                                    log::error!(
-                                        "{}: failed to register file change: {:#}",
-                                        project.id,
-                                        e
-                                    );
-                                    None
-                                }
-                            };
-
-                            log::debug!("{}: unlocking", project.id);
-                            fslock.unlock().unwrap();
-                            log::debug!("{}: unlocked", project.id);
-
-                            if let Some((session, deltas)) = change {
-                                if let Err(e) = sender
-                                    .send(events::Event::session(&project, &session))
-                                    .await
-                                {
-                                    log::error!(
-                                        "{}: failed to send session event: {:#}",
-                                        project.id,
-                                        e
-                                    );
-                                }
-
-                                if let Err(e) = sender
-                                    .send(events::Event::detlas(
-                                        &project,
-                                        &session,
-                                        &deltas,
-                                        &relative_file_path,
-                                    ))
-                                    .await
-                                {
-                                    log::error!(
-                                        "{}: failed to send deltas event: {:#}",
-                                        project.id,
-                                        e
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => log::error!("{}: notify event error: {:#}", project.id, e),
-                }
-            }
-        });
-
-        Ok(())
-    }
-
-    pub fn unwatch(&mut self, project: &projects::Project) -> Result<()> {
-        if let Some(mut watcher) = self.watchers.remove(&project.path) {
-            watcher.unwatch(Path::new(&project.path))?;
-        }
-        Ok(())
-    }
+    Ok(())
 }
 
 // this is what is called when the FS watcher detects a change

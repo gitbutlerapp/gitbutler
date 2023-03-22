@@ -13,7 +13,7 @@ pub struct SessionWatcher {
     deltas_searcher: search::Deltas,
 }
 
-impl<'a> SessionWatcher {
+impl SessionWatcher {
     pub fn new(
         projects_storage: projects::Storage,
         users_storage: users::Storage,
@@ -30,7 +30,7 @@ impl<'a> SessionWatcher {
         &mut self,
         project_id: &str,
         sender: tokio::sync::mpsc::Sender<events::Event>,
-        mutex: Arc<tokio::sync::Mutex<fslock::LockFile>>,
+        fslock: Arc<tokio::sync::Mutex<fslock::LockFile>>,
         deltas_storage: &deltas::Store,
         sessions_storage: &sessions::Store,
     ) -> Result<()> {
@@ -49,7 +49,7 @@ impl<'a> SessionWatcher {
                     .with_context(|| "failed to check for session to comit")?
                 {
                     Some(mut session) => {
-                        let mut fslock = mutex.lock().await;
+                        let mut fslock = fslock.lock().await;
                         log::debug!("{}: locking", project.id);
                         fslock.lock().unwrap();
                         log::debug!("{}: locked", project.id);
@@ -86,7 +86,7 @@ impl<'a> SessionWatcher {
         &self,
         sender: tokio::sync::mpsc::Sender<events::Event>,
         project: projects::Project,
-        mutex: Arc<tokio::sync::Mutex<fslock::LockFile>>,
+        fslock: Arc<tokio::sync::Mutex<fslock::LockFile>>,
         deltas_storage: &deltas::Store,
         sessions_storage: &sessions::Store,
     ) -> Result<()> {
@@ -99,16 +99,16 @@ impl<'a> SessionWatcher {
         let shared_storage = deltas_storage.clone();
         let shared_sessions_storage = sessions_storage.clone();
         tauri::async_runtime::spawn(async move {
-            loop {
-                let local_self = &mut self_copy;
-                let deltas_storage = shared_storage.clone();
-                let sessions_storage = shared_sessions_storage.clone();
+            let local_self = &mut self_copy;
+            let deltas_storage = shared_storage.clone();
+            let sessions_storage = shared_sessions_storage.clone();
 
+            loop {
                 if let Err(e) = local_self
                     .run(
                         &project_id,
                         sender.clone(),
-                        mutex.clone(),
+                        fslock.clone(),
                         &deltas_storage,
                         &sessions_storage,
                     )
