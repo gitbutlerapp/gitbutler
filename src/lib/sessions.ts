@@ -29,23 +29,10 @@ export type Session = {
 	activity: Activity[];
 };
 
-export const listFiles = async (params: {
-	projectId: string;
-	sessionId: string;
-	paths?: string[];
-}) => {
-	const start = performance.now();
-	const result = await invoke<Record<string, string>>('list_session_files', params);
-	log.debug(`list_session_files took ${performance.now() - start}ms`);
-	return result;
-};
+export const listFiles = (params: { projectId: string; sessionId: string; paths?: string[] }) =>
+	invoke<Record<string, string>>('list_session_files', params);
 
-const list = async (params: { projectId: string }) => {
-	const start = performance.now();
-	const result = await invoke<Session[]>('list_sessions', params);
-	log.debug(`list_sessions took ${performance.now() - start}ms`);
-	return result;
-};
+const list = (params: { projectId: string }) => invoke<Session[]>('list_sessions', params);
 
 export default async (params: { projectId: string; earliestTimestampMs?: number }) => {
 	const store = writable([] as Session[]);

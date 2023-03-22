@@ -38,6 +38,7 @@ tantivy = "0.19.2"
 similar = "2.2.1"
 fslock = "0.2.1"
 tokio = { version = "1.26.0", features = ["sync"] }
+timed = "0.2.1"
 
 [features]
 # by default Tauri runs in production mode
