@@ -32,8 +32,9 @@ impl FileWatchers {
 
     pub fn watch(
         &mut self,
+        rtx: tokio::sync::mpsc::Sender<Event>,
         project: projects::Project,
-    ) -> Result<tokio::sync::broadcast::Receiver<Event>> {
+    ) -> Result<()> {
         let (tx, mut rx) = tokio::sync::mpsc::channel(32);
         let mut watcher = notify::recommended_watcher(move |res| {
             let _ = tx.try_send(res);
@@ -44,7 +45,6 @@ impl FileWatchers {
 
         let project = Arc::new(Mutex::new(project.clone()));
 
-        let (rtx, rrx) = tokio::sync::broadcast::channel::<Event>(32);
         tauri::async_runtime::spawn(async move {
             log::info!("{}: watching files", project.lock().unwrap().id);
 
@@ -65,7 +65,7 @@ impl FileWatchers {
                         if let Err(e) = rtx.send(Event::FileChange((
                             project.clone(),
                             relative_file_path.to_path_buf(),
-                        ))) {
+                        ))).await {
                             log::error!(
                                 "{}: failed to send file change event: {:#}",
                                 project.id,
@@ -78,7 +78,7 @@ impl FileWatchers {
             log::info!("{}: stopped watching files", project.id);
         });
 
-        Ok(rrx)
+        Ok(())
     }
 }
 

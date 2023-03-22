@@ -51,8 +51,6 @@ impl Watcher {
         let repo = git2::Repository::open(project.path.clone())?;
         repo.add_ignore_rule("*.lock")?;
 
-        let mut fsevents = self.files_watcher.watch(project.clone())?;
-
         let shared_sender = Arc::new(sender.clone());
         let shared_deltas_store = Arc::new(deltas_storage.clone());
         let shared_lock_file = Arc::new(tokio::sync::Mutex::new(lock_file));
@@ -65,11 +63,13 @@ impl Watcher {
             sessions_storage,
         )?;
 
+        let (fstx, mut fsevents) = tokio::sync::mpsc::channel::<files::Event>(32);
+
         tauri::async_runtime::spawn(async move {
             let sender = shared_sender;
             let deltas_storage = shared_deltas_store;
             let lock_file = shared_lock_file;
-            while let Ok(event) = fsevents.recv().await {
+            while let Some(event) = fsevents.recv().await {
                 match event {
                     files::Event::FileChange((project, path)) => {
                         if path.starts_with(Path::new(".git")) {
@@ -94,6 +94,7 @@ impl Watcher {
                 }
             }
         });
+        self.files_watcher.watch(fstx, project.clone())?;
 
         Ok(())
     }
