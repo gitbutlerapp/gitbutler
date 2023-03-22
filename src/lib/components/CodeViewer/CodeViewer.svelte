@@ -10,6 +10,7 @@
 	export let doc: string;
 	export let deltas: Delta[];
 	export let filepath: string;
+	export let highlight: string[] = [];
 	export let paddingLines = 10000;
 
 	const applyDeltas = (text: string, deltas: Delta[]) => {
@@ -40,7 +41,7 @@
 	$: right = deltas.length > 0 ? applyDeltas(left, deltas.slice(deltas.length - 1)) : left;
 	$: diff = lineDiff(left.split('\n'), right.split('\n'));
 
-	$: diffRows = buildDiffRows(diff, { paddingLines: paddingLines });
+	$: diffRows = buildDiffRows(diff, { paddingLines });
 	$: originalHighlighter = create(diffRows.originalLines.join('\n'), filepath);
 	$: originalMap = documentMap(diffRows.originalLines);
 	$: currentHighlighter = create(diffRows.currentLines.join('\n'), filepath);
@@ -62,8 +63,19 @@
 		for (const token of row.tokens) {
 			let tokenContent = '';
 
-			doc.highlightRange(pos, pos + token.text.length, (text, style) => {
-				tokenContent += style ? `<span class=${style}>${sanitize(text)}</span>` : sanitize(text);
+			doc.highlightRange(pos, pos + token.text.length, (text, classNames) => {
+				const shouldHighlight =
+					(row.type === RowType.Deletion || row.type === RowType.Addition) &&
+					highlight.find((h) => text.includes(h));
+				if (classNames && shouldHighlight) {
+					tokenContent += `<span class=${classNames}><mark>${sanitize(text)}</mark></span>`;
+				} else if (shouldHighlight) {
+					tokenContent += `<mark>${sanitize(text)}</mark>`;
+				} else if (classNames) {
+					tokenContent += `<span class=${classNames}>${sanitize(text)}</span>`;
+				} else {
+					tokenContent += sanitize(text);
+				}
 			});
 
 			content.push(

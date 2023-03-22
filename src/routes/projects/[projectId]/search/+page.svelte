@@ -4,8 +4,9 @@
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
 	import { listFiles } from '$lib/sessions';
+	import { formatDistanceToNow } from 'date-fns';
 	import { list as listDeltas, type Delta } from '$lib/deltas';
-	import ResultSnippet from './ResultSnippet.svelte';
+	import { CodeViewer } from '$lib/components';
 
 	export let data: PageData;
 	const { project } = data;
@@ -70,8 +71,19 @@
 
 	<ul class="flex-auto overflow-auto">
 		{#each processedResults as { doc, deltas, filepath, highlight }}
+			{@const timestamp = deltas[deltas.length - 1].timestampMs}
 			<li class="mt-6">
-				<ResultSnippet {doc} {deltas} {filepath} mark={highlight} />
+				<div class="flex flex-col gap-2">
+					<p class="flex justify-between text-lg">
+						<span>{filepath}</span>
+						<span>{formatDistanceToNow(timestamp)} ago</span>
+					</p>
+					<div
+						class="flex-auto overflow-auto rounded-lg border border-zinc-700 bg-[#2F2F33] text-[#EBDBB2] drop-shadow-lg"
+					>
+						<CodeViewer {doc} {deltas} {filepath} paddingLines={4} {highlight} />
+					</div>
+				</div>
 			</li>
 		{/each}
 	</ul>

@@ -152,7 +152,7 @@
 	}
 </script>
 
-<div class="flex flex-row h-full">
+<div class="flex h-full flex-row">
 	<div class="flex w-[500px] min-w-[500px] flex-shrink-0 flex-col p-2">
 		<div
 			class="button group mb-2 flex max-w-[500px] rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
@@ -188,7 +188,7 @@
 
 		<div class="changed-files-list-container mt-2 mb-4">
 			<div
-				class="changed-files-list rounded border font-mono text-zinc-900 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 bg-gb-900"
+				class="changed-files-list rounded border border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 bg-gb-900 font-mono text-zinc-900"
 			>
 				<div
 					class="mb-2 flex flex-row space-x-2 rounded-t border-b border-b-gb-750 bg-gb-800 p-2 text-zinc-200"
@@ -229,14 +229,14 @@
 				name="subject"
 				bind:value={commitSubject}
 				placeholder={placeholderSubject}
-				class="mb-2 block w-full rounded-md p-4 bg-zinc-700 border-zinc-600 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+				class="mb-2 block w-full rounded-md border-zinc-600 bg-zinc-700 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
 			/>
 			<textarea
 				rows={messageRows}
 				name="message"
 				placeholder={placeholderMessage}
 				bind:value={commitMessage}
-				class="mb-2 block w-full rounded-md p-4 bg-zinc-700 border-zinc-600 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+				class="mb-2 block w-full rounded-md border-zinc-600 bg-zinc-700 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
 			/>
 		</div>
 
@@ -258,7 +258,7 @@
 			{/if}
 			{#if !generatedMessage}
 				<a
-					class="cursor-pointer rounded bg-green-800 p-2 text-zinc-50 bg-gradient-to-b from-[#623871] to-[#502E5C] shadow"
+					class="cursor-pointer rounded bg-green-800 bg-gradient-to-b from-[#623871] to-[#502E5C] p-2 text-zinc-50 shadow"
 					on:click={fetchCommitMessage}>✨ Generate commit message</a
 				>
 			{:else if generatedMessage == 'loading'}
@@ -275,13 +275,13 @@
 			{/if}
 		</div>
 	</div>
-	<div class="h-full max-h-screen flex-grow overflow-auto p-2 h-100">
+	<div class="h-100 h-full max-h-screen flex-grow overflow-auto p-2">
 		{#if currentDiff}
 			<DiffViewer diff={currentDiff} path={currentPath} />
 		{:else if addedContents}
 			<pre class="bg-green-900">{addedContents}</pre>
 		{:else}
-			<div class="text-zinc-400 text-center text-lg p-20">Select a file to view changes.</div>
+			<div class="p-20 text-center text-lg text-zinc-400">Select a file to view changes.</div>
 		{/if}
 	</div>
 	<!-- commit message -->

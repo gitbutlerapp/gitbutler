@@ -53,8 +53,8 @@ export const highlightStyle: HighlightStyle = HighlightStyle.define([
 	{ tag: t.emphasis, class: 'token-emphasis' }
 ]);
 
-export function create(code: string, mimeType: string): CodeHighlighter {
-	const language = languageFromFilename(mimeType);
+export function create(code: string, filepath: string): CodeHighlighter {
+	const language = languageFromFilename(filepath);
 	let tree: Tree;
 	if (language) {
 		tree = language.language.parser.parse(code);
