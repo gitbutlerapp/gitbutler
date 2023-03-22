@@ -548,7 +548,7 @@ fn main() {
             app.manage(app_state);
 
             let app_handle = app.handle();
-            tauri::async_runtime::spawn_blocking(move || {
+            tauri::async_runtime::spawn(async move {
                 let start = std::time::Instant::now();
                 log::info!("initializing app");
                 if let Err(e) = init(app_handle) {
