@@ -7,6 +7,7 @@
 	import Commit from './Commit.svelte';
 	import Replay from './Replay.svelte';
 	import Branch from './Branch.svelte';
+	import { currentProject } from '$lib/current_project';
 
 	let dialog: ComponentType | undefined;
 
@@ -49,13 +50,19 @@
 			window,
 			{
 				c: () => {
-					dialog === Commit ? (dialog = undefined) : (dialog = Commit);
+					if ($currentProject) {
+						dialog === Commit ? (dialog = undefined) : (dialog = Commit);
+					}
 				},
 				r: () => {
-					dialog === Replay ? (dialog = undefined) : (dialog = Replay);
+					if ($currentProject) {
+						dialog === Replay ? (dialog = undefined) : (dialog = Replay);
+					}
 				},
 				b: () => {
-					dialog === Branch ? (dialog = undefined) : (dialog = Branch);
+					if ($currentProject) {
+						dialog === Branch ? (dialog = undefined) : (dialog = Branch);
+					}
 				}
 			},
 			true // disabled when an input is focused
