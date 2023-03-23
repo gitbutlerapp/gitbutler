@@ -64,18 +64,15 @@
 			let tokenContent = '';
 
 			doc.highlightRange(pos, pos + token.text.length, (text, classNames) => {
+				const token = classNames
+					? `<span class=${classNames}>${sanitize(text)}</span>`
+					: sanitize(text);
+
 				const shouldHighlight =
 					(row.type === RowType.Deletion || row.type === RowType.Addition) &&
 					highlight.find((h) => text.includes(h));
-				if (classNames && shouldHighlight) {
-					tokenContent += `<span class=${classNames}><mark>${sanitize(text)}</mark></span>`;
-				} else if (shouldHighlight) {
-					tokenContent += `<mark>${sanitize(text)}</mark>`;
-				} else if (classNames) {
-					tokenContent += `<span class=${classNames}>${sanitize(text)}</span>`;
-				} else {
-					tokenContent += sanitize(text);
-				}
+
+				tokenContent += shouldHighlight ? `<mark>${token}</mark>` : token;
 			});
 
 			content.push(
