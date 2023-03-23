@@ -27,3 +27,4 @@ dist-ssr
 /.svelte-kit
 /package
 !.env.example
+vite.config.js.timestamp-*
