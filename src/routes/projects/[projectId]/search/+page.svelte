@@ -81,7 +81,7 @@
 					<div
 						class="flex-auto overflow-auto rounded-lg border border-zinc-700 bg-[#2F2F33] text-[#EBDBB2] drop-shadow-lg"
 					>
-						<CodeViewer {doc} {deltas} {filepath} paddingLines={4} {highlight} />
+						<CodeViewer {doc} {deltas} {filepath} paddingLines={2} {highlight} />
 					</div>
 				</div>
 			</li>
