@@ -1,3 +1,3 @@
-import { default as CommandPaletteNext } from './CommandPalette.svelte';
+import { default as CommandPalette } from './CommandPalette.svelte';
 
-export default CommandPaletteNext;
+export default CommandPalette;

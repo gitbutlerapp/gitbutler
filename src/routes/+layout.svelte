@@ -7,7 +7,7 @@
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
-	import CommandPalette from '$lib/components/CommandPalette.svelte';
+	import CommandPalette from '$lib/components/CommandPalette';
 
 	export let data: LayoutData;
 	const { user, posthog, projects } = data;
@@ -45,5 +45,5 @@
 		<slot />
 	</div>
 	<Toaster />
-	<CommandPalette {projects} />
+	<CommandPalette />
 </div>
