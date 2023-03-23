@@ -88,7 +88,7 @@ impl Deltas {
         })
     }
 
-    pub fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>> {
+    pub fn search(&self, query: &SearchQuery) -> Result<SearchResults> {
         search(&self.index, &self.reader, query)
     }
 
@@ -169,6 +169,13 @@ pub struct SearchResult {
     pub file_path: String,
     pub index: u64,
     pub highlighted: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResults {
+    pub page: Vec<SearchResult>,
+    pub total: usize,
 }
 
 fn index_session(
@@ -292,7 +299,7 @@ pub fn search(
     index: &tantivy::Index,
     reader: &tantivy::IndexReader,
     q: &SearchQuery,
-) -> Result<Vec<SearchResult>> {
+) -> Result<SearchResults> {
     let query = tantivy::query::QueryParser::for_index(
         index,
         vec![
@@ -311,12 +318,13 @@ pub fn search(
     reader.reload()?;
     let searcher = reader.searcher();
 
-    let top_docs = searcher.search(
-        &query,
-        &collector::TopDocs::with_limit(q.limit)
+    let mut collectors = collector::MultiCollector::new();
+    let top_docs_handle = collectors.add_collector(
+        collector::TopDocs::with_limit(q.limit)
             .and_offset(q.offset.unwrap_or(0))
             .order_by_u64_field(index.schema().get_field("timestamp_ms").unwrap()),
-    )?;
+    );
+    let count_handle = collectors.add_collector(collector::Count);
 
     let snippet_generator = tantivy::SnippetGenerator::create(
         &searcher,
@@ -324,7 +332,11 @@ pub fn search(
         index.schema().get_field("diff").unwrap(),
     )?;
 
-    let results = top_docs
+    let mut result = searcher.search(&query, &collectors)?;
+    let count = count_handle.extract(&mut result);
+    let top_docs = top_docs_handle.extract(&mut result);
+
+    let page = top_docs
         .iter()
         .map(|(_score, doc_address)| {
             let retrieved_doc = searcher.doc(*doc_address)?;
@@ -366,5 +378,5 @@ pub fn search(
         })
         .collect::<Result<Vec<SearchResult>>>()?;
 
-    Ok(results)
+    Ok(SearchResults { page, total: count })
 }

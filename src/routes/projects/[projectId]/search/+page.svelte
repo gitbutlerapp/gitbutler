@@ -31,7 +31,7 @@
 	const fetchResults = async (projectId: string, query: string) => {
 		const results = await search({ projectId, query });
 		stopProcessing = false;
-		for (const result of results) {
+		for (const result of results.page) {
 			if (stopProcessing) {
 				processedResults = [];
 				stopProcessing = false;

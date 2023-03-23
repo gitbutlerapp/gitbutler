@@ -152,7 +152,7 @@ async fn search(
     offset: Option<usize>,
     timestamp_ms_gte: Option<u64>,
     timestamp_ms_lt: Option<u64>,
-) -> Result<Vec<search::SearchResult>, Error> {
+) -> Result<search::SearchResults, Error> {
     let app_state = handle.state::<App>();
 
     let query = search::SearchQuery {

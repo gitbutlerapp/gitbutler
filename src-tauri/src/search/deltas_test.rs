@@ -68,8 +68,8 @@ fn test_filter_by_timestamp() {
     });
     assert!(search_result_from.is_ok());
     let search_result_from = search_result_from.unwrap();
-    assert_eq!(search_result_from.len(), 1);
-    assert_eq!(search_result_from[0].index, 2);
+    assert_eq!(search_result_from.total, 1);
+    assert_eq!(search_result_from.page[0].index, 2);
 
     let search_result_to = searcher.search(&super::SearchQuery {
         project_id: repository.project.id.clone(),
@@ -80,8 +80,8 @@ fn test_filter_by_timestamp() {
     });
     assert!(search_result_to.is_ok());
     let search_result_to = search_result_to.unwrap();
-    assert_eq!(search_result_to.len(), 1);
-    assert_eq!(search_result_to[0].index, 0);
+    assert_eq!(search_result_to.total, 1);
+    assert_eq!(search_result_to.page[0].index, 0);
 
     let search_result_from_to = searcher.search(&super::SearchQuery {
         project_id: repository.project.id.clone(),
@@ -92,8 +92,8 @@ fn test_filter_by_timestamp() {
     });
     assert!(search_result_from_to.is_ok());
     let search_result_from_to = search_result_from_to.unwrap();
-    assert_eq!(search_result_from_to.len(), 1);
-    assert_eq!(search_result_from_to[0].index, 1);
+    assert_eq!(search_result_from_to.total, 1);
+    assert_eq!(search_result_from_to.page[0].index, 1);
 }
 
 #[test]
@@ -135,9 +135,9 @@ fn test_sorted_by_timestamp() {
     assert!(search_result.is_ok());
     let search_result = search_result.unwrap();
     println!("{:?}", search_result);
-    assert_eq!(search_result.len(), 2);
-    assert_eq!(search_result[0].index, 1);
-    assert_eq!(search_result[1].index, 0);
+    assert_eq!(search_result.total, 2);
+    assert_eq!(search_result.page[0].index, 1);
+    assert_eq!(search_result.page[1].index, 0);
 }
 
 #[test]
@@ -179,11 +179,11 @@ fn test_simple() {
     println!("{:?}", search_result1);
     assert!(search_result1.is_ok());
     let search_result1 = search_result1.unwrap();
-    assert_eq!(search_result1.len(), 1);
-    assert_eq!(search_result1[0].session_id, session.id);
-    assert_eq!(search_result1[0].project_id, repository.project.id);
-    assert_eq!(search_result1[0].file_path, "test.txt");
-    assert_eq!(search_result1[0].index, 0);
+    assert_eq!(search_result1.total, 1);
+    assert_eq!(search_result1.page[0].session_id, session.id);
+    assert_eq!(search_result1.page[0].project_id, repository.project.id);
+    assert_eq!(search_result1.page[0].file_path, "test.txt");
+    assert_eq!(search_result1.page[0].index, 0);
 
     let search_result2 = searcher.search(&super::SearchQuery {
         project_id: repository.project.id.clone(),
@@ -193,7 +193,7 @@ fn test_simple() {
         range: Range { start: 0, end: 10 },
     });
     assert!(search_result2.is_ok());
-    let search_result2 = search_result2.unwrap();
+    let search_result2 = search_result2.unwrap().page;
     assert_eq!(search_result2.len(), 1);
     assert_eq!(search_result2[0].session_id, session.id);
     assert_eq!(search_result2[0].project_id, repository.project.id);
@@ -208,7 +208,7 @@ fn test_simple() {
         range: Range { start: 0, end: 10 },
     });
     assert!(search_result3.is_ok());
-    let search_result3 = search_result3.unwrap();
+    let search_result3 = search_result3.unwrap().page;
     assert_eq!(search_result3.len(), 2);
     assert_eq!(search_result3[0].project_id, repository.project.id);
     assert_eq!(search_result3[0].session_id, session.id);
@@ -225,7 +225,7 @@ fn test_simple() {
         range: Range { start: 0, end: 10 },
     });
     assert!(search_by_filename_result.is_ok());
-    let search_by_filename_result = search_by_filename_result.unwrap();
+    let search_by_filename_result = search_by_filename_result.unwrap().page;
     assert_eq!(search_by_filename_result.len(), 2);
     assert_eq!(search_by_filename_result[0].session_id, session.id);
     assert_eq!(
@@ -243,5 +243,5 @@ fn test_simple() {
     });
     assert!(not_found_result.is_ok());
     let not_found_result = not_found_result.unwrap();
-    assert_eq!(not_found_result.len(), 0);
+    assert_eq!(not_found_result.total, 0);
 }
