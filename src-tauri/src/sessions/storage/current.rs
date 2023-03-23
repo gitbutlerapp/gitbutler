@@ -164,8 +164,6 @@ impl Store {
     }
 
     pub fn get(&self) -> Result<Option<sessions::Session>> {
-        let git_repository = self.git_repository.lock().unwrap();
-
         let session_path = self.project.session_path();
         let meta_path = session_path.join("meta");
         if !meta_path.exists() {
@@ -212,6 +210,7 @@ impl Store {
             false => None,
         };
 
+        let git_repository = self.git_repository.lock().unwrap();
         let activity_path = git_repository.path().join("logs/HEAD");
         let activity = match activity_path.exists() {
             true => std::fs::read_to_string(activity_path)
