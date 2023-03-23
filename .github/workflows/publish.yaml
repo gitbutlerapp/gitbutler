@@ -106,4 +106,4 @@ jobs:
                     --request POST \
                     --header 'Content-Type: application/json' \
                     --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
-                    --data '{"version":"${{ env.version }}-${{ github.run_number }}"}'
+                    --data '{"version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
