@@ -31,6 +31,21 @@ impl Store {
     }
 
     pub fn get_by_id(&self, session_id: &str) -> Result<Option<sessions::Session>> {
+        let sessions_cache = self.sessions_cache.lock().unwrap();
+        match sessions_cache.as_ref() {
+            Some(sessions) => {
+                for session in sessions {
+                    if session.id == session_id {
+                        return Ok(Some(session.clone()));
+                    }
+                }
+                Ok(None)
+            }
+            None => self.get_by_id_from_disk(session_id),
+        }
+    }
+
+    fn get_by_id_from_disk(&self, session_id: &str) -> Result<Option<sessions::Session>> {
         let git_repository = self.git_repository.lock().unwrap();
         let reference = git_repository.find_reference(&self.project.refname())?;
         let head = git_repository.find_commit(reference.target().unwrap())?;
