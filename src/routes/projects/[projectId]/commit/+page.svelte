@@ -76,21 +76,24 @@
 
 	let currentPath = '';
 	let currentDiff = '';
-	let addedContents = '';
+	let fileContents = '';
+	let fileContentsStatus = '';
 
+	// Replace HTML tags with an empty string
 	function selectPath(path) {
 		currentDiff = '';
-		addedContents = '';
+		fileContents = '';
 
 		if (gitDiff[path]) {
 			currentPath = path;
 			currentDiff = gitDiff[path];
 		} else {
 			let file = $filesStatus.filter((file) => file.path === path)[0];
-			if (file && file.status === 'added') {
+			if (file) {
+				fileContentsStatus = file.status;
 				getFile({ projectId: $project?.id, path: path }).then((contents) => {
 					currentPath = path;
-					addedContents = contents;
+					fileContents = contents;
 				});
 			}
 		}
@@ -278,8 +281,9 @@
 	<div class="h-100 h-full max-h-screen flex-grow overflow-auto p-2">
 		{#if currentDiff}
 			<DiffViewer diff={currentDiff} path={currentPath} />
-		{:else if addedContents}
-			<pre class="bg-green-900">{addedContents}</pre>
+		{:else if fileContents}
+			<pre
+				class={fileContentsStatus == 'added' ? 'bg-green-900' : 'bg-red-900'}>{fileContents}</pre>
 		{:else}
 			<div class="p-20 text-center text-lg text-zinc-400">Select a file to view changes.</div>
 		{/if}

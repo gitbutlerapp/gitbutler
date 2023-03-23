@@ -14,6 +14,8 @@
 	let middleDiff = '';
 	let currentOffset = 0;
 
+	let htmlTagRegex = /(<([^>]+)>)/gi;
+
 	$: if (diff) {
 		middleDiff = '';
 		currentDiff = '';
@@ -28,15 +30,16 @@
 		let diffLines = middleDiff.split('<br>');
 		diffLines.forEach((line, index) => {
 			lineClass = 'lineContext bg-zinc-800';
+			let firstChar = line.replace(htmlTagRegex, '').slice(0, 1);
 			if (index < 4) {
 				lineClass = 'lineDiff bg-zinc-900 text-zinc-500';
 			} else if (line.slice(0, 2) == '@@') {
 				lineClass = 'lineSplit bg-blue-900';
-			} else if (line.slice(0, 1) == '+') {
+			} else if (firstChar == '+') {
 				if (!line.includes('+++')) {
 					lineClass = 'lineSplit bg-green-900';
 				}
-			} else if (line.slice(0, 1) == '-') {
+			} else if (firstChar == '-') {
 				if (!line.includes('---')) {
 					lineClass = 'lineSplit bg-red-900';
 				}
