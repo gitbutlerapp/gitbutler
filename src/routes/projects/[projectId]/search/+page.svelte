@@ -12,7 +12,9 @@
 	export let data: PageData;
 	const { project } = data;
 
+	const limit = 50;
 	const query = derived(page, (page) => page.url.searchParams.get('q'));
+	const offset = derived(page, (page) => parseInt(page.url.searchParams.get('offset') ?? '0'));
 
 	const fetchResultData = async ({
 		sessionId,
@@ -36,12 +38,13 @@
 	};
 
 	const { store: searchResults, state: searchState } = asyncDerived(
-		[query, project],
-		async ([query, project]) => {
-			if (!query || !project) return { page: [], total: 0 };
-			const results = await search({ projectId: project.id, query, limit: 50 });
+		[query, project, offset],
+		async ([query, project, offset]) => {
+			if (!query || !project) return { page: [], total: 0, haveMore: false };
+			const results = await search({ projectId: project.id, query, limit, offset });
 			return {
 				page: await Promise.all(results.page.map(fetchResultData)),
+				haveMore: offset + limit < results.total,
 				total: results.total
 			};
 		},
