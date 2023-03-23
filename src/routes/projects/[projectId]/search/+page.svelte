@@ -1,12 +1,11 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { search } from '$lib';
-	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
+	import { search, type SearchResult } from '$lib';
 	import { listFiles } from '$lib/sessions';
 	import { formatDistanceToNow } from 'date-fns';
 	import { list as listDeltas, type Delta } from '$lib/deltas';
 	import { CodeViewer } from '$lib/components';
+	import { page } from '$app/stores';
 
 	export let data: PageData;
 	const { project } = data;
@@ -17,16 +16,37 @@
 		filepath: string;
 		highlight: string[];
 	}[];
-	let searchTerm: Writable<string> = getContext('searchTerm');
 	let stopProcessing = false;
 
+	$: query = $page.url.searchParams.get('q');
 	$: {
-		stopProcessing = true;
-		processedResults = [];
-		if ($searchTerm) {
-			fetchResults($project?.id ?? '', $searchTerm);
+		if (query && $project?.id) {
+			stopProcessing = true;
+			processedResults = [];
+			fetchResults($project.id, query);
 		}
 	}
+
+	const fetchResultData = async ({
+		sessionId,
+		projectId,
+		filePath,
+		index,
+		highlighted
+	}: SearchResult) => {
+		const [doc, deltas] = await Promise.all([
+			listFiles({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? ''),
+			listDeltas({ projectId, sessionId, paths: [filePath] })
+				.then((r) => r[filePath] ?? [])
+				.then((d) => d.slice(0, index + 1))
+		]);
+		return {
+			doc,
+			deltas,
+			filepath: filePath,
+			highlight: highlighted
+		};
+	};
 
 	const fetchResults = async (projectId: string, query: string) => {
 		const results = await search({ projectId, query });
@@ -37,22 +57,7 @@
 				stopProcessing = false;
 				return;
 			}
-			const { sessionId, projectId, filePath } = result;
-			const [doc, deltas] = await Promise.all([
-				listFiles({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? ''),
-				listDeltas({ projectId, sessionId, paths: [filePath] })
-					.then((r) => r[filePath] ?? [])
-					.then((d) => d.slice(0, result.index + 1))
-			]);
-			processedResults = [
-				...processedResults,
-				{
-					doc,
-					deltas,
-					filepath: filePath,
-					highlight: result.highlighted
-				}
-			];
+			processedResults = [...processedResults, await fetchResultData(result)];
 		}
 	};
 </script>
@@ -60,12 +65,12 @@
 <figure class="mx-14 flex h-full flex-col gap-2">
 	{#if processedResults.length > 0}
 		<div class="mb-10 mt-14">
-			<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{$searchTerm}"</p>
+			<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{query}"</p>
 			<p class="text-lg text-[#717179]">{processedResults.length} change instances</p>
 		</div>
 	{:else}
 		<div class="mb-10 mt-14">
-			<p class="mb-2 text-xl text-[#D4D4D8]">No results for "{$searchTerm}"</p>
+			<p class="mb-2 text-xl text-[#D4D4D8]">No results for "{query}"</p>
 		</div>
 	{/if}
 
