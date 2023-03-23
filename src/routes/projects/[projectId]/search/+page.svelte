@@ -52,7 +52,7 @@
 	);
 </script>
 
-<figure class="mx-14 flex h-full flex-col gap-2">
+<figure class="search-results flex h-full flex-col gap-2">
 	{#if $searchState?.isLoading || $searchState?.isReloading}
 		<figcaption class="m-auto">
 			<p class="mb-2 text-xl text-[#D4D4D8]">Looking for "{$query}"...</p>
@@ -62,7 +62,7 @@
 			<p class="mb-2 text-xl text-[#D4D4D8]">Error searching for "{$query}"</p>
 		</figcaption>
 	{:else if $searchState?.isLoaded}
-		<figcaption class="mb-10 mt-14">
+		<figcaption class="mx-14 mb-10 mt-14">
 			{#if $searchResults.total > 0}
 				<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{$query}"</p>
 				<p class="text-lg text-[#717179]">{$searchResults.total} change instances</p>
@@ -71,7 +71,7 @@
 			{/if}
 		</figcaption>
 
-		<ul class="flex-auto overflow-auto">
+		<ul class="px-14 flex-auto overflow-auto">
 			{#each $searchResults.page as { doc, deltas, filepath, highlight }}
 				{@const timestamp = deltas[deltas.length - 1].timestampMs}
 				<li class="mt-6">
