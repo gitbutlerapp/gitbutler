@@ -409,8 +409,20 @@ fn build_wd_tree(repo: &git2::Repository, project: &projects::Project) -> Result
                     .with_context(|| "failed to get metadata for".to_string())?;
                 let mtime = FileTime::from_last_modification_time(&metadata);
                 let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
-                let file_content = std::fs::read_to_string(&abs_path)
-                    .with_context(|| format!("failed to read file {}", abs_path.display()))?;
+
+                let file_content = match std::fs::read_to_string(&abs_path) {
+                    Ok(content) => content,
+                    Err(e) => {
+                        log::error!(
+                            "{}: failed to read file {}: {:#}",
+                            project.id,
+                            abs_path.display(),
+                            e
+                        );
+                        continue;
+                    }
+                };
+
                 wd_index
                     .add(&git2::IndexEntry {
                         ctime: git2::IndexTime::new(
