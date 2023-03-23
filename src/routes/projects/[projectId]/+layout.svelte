@@ -6,28 +6,15 @@
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { currentProject } from '$lib/current_project';
-	import { setContext } from 'svelte';
-	import { writable } from 'svelte/store';
+	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 	let query: string;
-	const searchTerm = writable('');
-	setContext('searchTerm', searchTerm);
 
 	$: project = data.project;
 	$: currentProject.set($project);
 
-	const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
-		let timeout: ReturnType<typeof setTimeout>;
-		return (...args: any[]) => {
-			clearTimeout(timeout);
-			timeout = setTimeout(() => fn(...args), delay);
-		};
-	};
-
-	const updateQuery = debounce(async () => {
-		searchTerm.set(query);
-	}, 500);
+	const onSearchSubmit = () => goto(`/projects/${$project?.id}/search?q=${query}`);
 
 	function projectUrl(project: Project) {
 		const gitUrl = project.api?.git_url;
@@ -68,20 +55,23 @@
 								/></svg
 							>
 						</div>
-						<div class="flex w-48 max-w-lg rounded-md shadow-sm">
+						<form
+							on:submit|preventDefault={onSearchSubmit}
+							class="flex w-48 max-w-lg rounded-md shadow-sm"
+						>
+							<input type="submit" class="hidden" />
 							<input
 								type="text"
 								name="search"
 								id="search"
 								placeholder="search history"
 								bind:value={query}
-								on:input={updateQuery}
 								autocomplete="off"
 								aria-label="Search input"
 								class="block w-full min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-800  p-[3px] px-2 pl-10 text-zinc-200 placeholder:text-zinc-500 sm:text-sm sm:leading-6"
 								style=""
 							/>
-						</div>
+						</form>
 					</div>
 				</form>
 				<div
