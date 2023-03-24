@@ -74,7 +74,6 @@
 		</figcaption>
 	{:else if $searchState?.isLoaded}
 		<figcaption class="mx-14 mb-10 mt-14">
-
 			{#if $searchResults.total > 0}
 				<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{$query}"</p>
 				<p class="text-lg text-[#717179]">{$searchResults.total} change instances</p>

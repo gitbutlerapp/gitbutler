@@ -245,7 +245,10 @@
 									/>
 								</svg>
 							</div>
-							<div class="truncate pl-2 font-mono text-zinc-300">
+							<div 
+								title="{toHumanBranchName(gitBranch)}"
+								class="truncate pl-2 font-mono text-zinc-300"
+							>
 								{toHumanBranchName(gitBranch)}
 							</div>
 							<div class="carrot flex hidden items-center pl-3">
@@ -260,6 +263,7 @@
 						<div>
 							<a
 								href="/projects/{$project?.id}/commit"
+								title="Commit changes"
 								class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
 								>Commit changes</a
 							>
