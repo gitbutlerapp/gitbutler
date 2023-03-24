@@ -130,14 +130,14 @@
 			});
 
 			// get the session chapters that are in the current day
-			let dayChapters = Object.entries(sessionChapters)
-				.filter(([sid, chapter]) => {
+			let dayChapters = Object.values(sessionChapters)
+				.filter((chapter) => {
 					let chapterDay = dateToYmd(new Date(chapter.firstDeltaTimestampMs));
 					return chapterDay === $currentDay;
 				})
 				// filter to chapters with more than 0 files
-				.filter(([, chapter]) => Object.keys(chapter.files).length > 0)
-				.map(([, chapter]) => chapter)
+				.filter((chapter) => Object.keys(chapter.files).length > 0)
+				.map((chapter) => chapter)
 				.sort((a, b) => a.firstDeltaTimestampMs - b.firstDeltaTimestampMs);
 
 			// process the playlist metadata
@@ -148,7 +148,7 @@
 			projectId: data.projectId,
 			sessionId: sid
 		}).then((files) => {
-			Object.entries(sessionFiles[sid] ?? {}).forEach(([filepath, _]) => {
+			Object.keys(sessionFiles[sid] ?? {}).forEach((filepath) => {
 				if (files[filepath] !== undefined) {
 					sessionFiles[sid][filepath] = files[filepath];
 				}
@@ -442,7 +442,7 @@
 												</div>
 											</div>
 											<div class="rounded-b bg-zinc-800 p-2 pb-3">
-												{#each Object.entries(chapter.files) as [filenm, changes]}
+												{#each Object.keys(chapter.files) as filenm}
 													{#if currentEdit.filepath == filenm}
 														<div class="truncate font-bold text-zinc-100">{shortPath(filenm)}</div>
 													{:else}
@@ -456,7 +456,7 @@
 									<button
 										on:click={() => {
 											currentDeltasIndex = Math.max(
-												currentPlaylist.editOffsets[chapter.session],
+												currentPlaylist?.editOffsets[chapter.session] || 0,
 												1
 											);
 										}}
