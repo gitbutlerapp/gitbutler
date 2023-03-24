@@ -213,10 +213,3 @@
 		{/each}
 	</tbody>
 </table>
-
-<style>
-	table {
-		/* https://stackoverflow.com/questions/9807620/ipad-safari-scrolling-causes-html-elements-to-disappear-and-reappear-with-a-dela */
-		-webkit-transform: translate3d(0, 0, 0);
-	}
-</style>
