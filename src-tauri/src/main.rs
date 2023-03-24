@@ -2,16 +2,17 @@ mod deltas;
 mod events;
 mod fs;
 mod projects;
+mod pty;
 mod repositories;
 mod search;
 mod sessions;
 mod storage;
 mod users;
 mod watchers;
-
 use anyhow::{Context, Result};
 use deltas::Delta;
 use log;
+use pty::ws_server::pty_serve;
 use serde::{ser::SerializeMap, Serialize};
 use std::{
     collections::HashMap,
@@ -686,6 +687,12 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             log::error!("{}: failed to reindex project: {:#}", project.id, err);
         }
     }
+
+    tauri::async_runtime::spawn(async move {
+        println!("starting pty server");
+        pty_serve().await;
+    });
+
     watch_events(app_handle, rx);
 
     Ok(())
