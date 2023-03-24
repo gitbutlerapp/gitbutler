@@ -80,10 +80,9 @@
 
 	type VideoChapter = {
 		title: string;
-		session: string;
+		sessionId: string;
 		files: Record<string, number>;
-		edits: VideoFileEdit[];
-		editCount: number;
+		deltas: VideoFileEdit[];
 		firstDeltaTimestampMs: number;
 		lastDeltaTimestampMs: number;
 		totalDurationMs: number;
@@ -109,29 +108,27 @@
 			if (sessionChapters[sid] === undefined) {
 				sessionChapters[sid] = {
 					title: sid,
-					session: sid,
+					sessionId: sid,
 					files: {},
-					edits: [],
-					editCount: 0,
+					deltas: [],
 					firstDeltaTimestampMs: 9999999999999,
 					lastDeltaTimestampMs: 0,
 					totalDurationMs: 0
 				};
 			}
-			sessionChapters[sid].edits = [];
+			sessionChapters[sid].deltas = [];
 
 			Object.entries(deltas).forEach(([filepath, deltas]) => {
 				if ($fileFilter && !filepath.includes($fileFilter)) return;
 
 				deltas.forEach((delta) => {
-					sessionChapters[sid].edits.push({
+					sessionChapters[sid].deltas.push({
 						filepath,
 						delta
 					});
 				});
 				if (sessionFiles[sid] === undefined) sessionFiles[sid] = {};
 				sessionFiles[sid][filepath] = '';
-				sessionChapters[sid].editCount = sessionChapters[sid].edits.length;
 				sessionChapters[sid].files[filepath] = deltas.length;
 				sessionChapters[sid].firstDeltaTimestampMs = Math.min(
 					deltas.at(0)?.timestampMs || 0,
@@ -173,13 +170,13 @@
 	};
 
 	function processDayPlaylist(dayChapters: VideoChapter[]): DayVideo {
-		let editCount = dayChapters.reduce((acc, chapter) => acc + chapter.editCount, 0);
+		let editCount = dayChapters.reduce((acc, chapter) => acc + chapter.deltas.length, 0);
 		// for each entry in the day, reduce dayChapters to the number of edits up until that point
 		let offsets: Record<string, number> = {};
 		dayChapters.forEach((chapter, i) => {
-			offsets[chapter.session] = dayChapters
+			offsets[chapter.sessionId] = dayChapters
 				.slice(0, i)
-				.reduce((acc, chapter) => acc + chapter.editCount, 0);
+				.reduce((acc, chapter) => acc + chapter.deltas.length, 0);
 		});
 		return {
 			chapters: dayChapters,
@@ -240,7 +237,7 @@
 		stop();
 	};
 
-	const selectLatestDay = () => {
+	const selectLatest = () => {
 		const latestDay = Object.keys($sessionDays)[0];
 		selectDay(latestDay, true);
 	};
@@ -266,7 +263,7 @@
 				let playlist: VideoChapter[] = [];
 				playlist.push(latestChapter);
 
-				if (latestChapter && latestChapter.edits.length < 20) {
+				if (latestChapter && latestChapter.deltas.length < 20) {
 					// if there are less than 20 edits, get the previous chapter
 					latestChapter = currentPlaylist.chapters[currentPlaylist.chapters.length - 2];
 					if (latestChapter !== undefined) {
@@ -285,25 +282,25 @@
 		let priorDeltas: Delta[] = [];
 		currentEdit = null;
 		currentPlaylist?.chapters.forEach((chapter) => {
-			if (currentEdit == null && $currentDeltaIndex < totalEdits + chapter.editCount) {
-				let thisEdit = chapter.edits[$currentDeltaIndex - totalEdits];
+			if (currentEdit == null && $currentDeltaIndex < totalEdits + chapter.deltas.length) {
+				let thisEdit = chapter.deltas[$currentDeltaIndex - totalEdits];
 				priorDeltas = priorDeltas.concat(
-					chapter.edits
+					chapter.deltas
 						.slice(0, $currentDeltaIndex - totalEdits)
 						.filter((edit) => edit.filepath == thisEdit?.filepath)
 						.map((edit) => edit.delta)
 				);
 
 				currentEdit = {
-					sessionId: chapter.session,
+					sessionId: chapter.sessionId,
 					timestampMs: thisEdit.delta.timestampMs,
 					filepath: thisEdit.filepath,
-					doc: sessionFiles[chapter.session][thisEdit.filepath],
+					doc: sessionFiles[chapter.sessionId][thisEdit.filepath],
 					ops: priorDeltas.concat(thisEdit.delta),
 					delta: thisEdit.delta
 				};
 			}
-			totalEdits += chapter.editCount;
+			totalEdits += chapter.deltas.length;
 		});
 		scrollToSession();
 	}
@@ -394,7 +391,7 @@
 							class:border-gb-700={!showLatest}
 							class:bg-gb-900={!showLatest}
 							class="rounded border border-[0.5px] border-gb-700 border-gb-700 p-2 text-center text-zinc-300 shadow"
-							on:click={() => selectLatestDay()}
+							on:click={() => selectLatest()}
 						>
 							Latest
 						</button>
@@ -433,7 +430,8 @@
 
 					<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-gb-900 p-2">
 						{#each currentPlaylist.chapters as chapter}
-							{@const isCurrent = currentEdit !== null && currentEdit.sessionId == chapter.session}
+							{@const isCurrent =
+								currentEdit !== null && currentEdit.sessionId == chapter.sessionId}
 							<li
 								id={isCurrent ? 'current-session' : ''}
 								class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
@@ -443,7 +441,7 @@
 									class="w-full"
 									on:click={() => {
 										$currentDeltaIndex = Math.max(
-											currentPlaylist?.editOffsets[chapter.session] || 0,
+											currentPlaylist?.editOffsets[chapter.sessionId] || 0,
 											1
 										);
 									}}
@@ -524,7 +522,7 @@
 										<div
 											class="inline-block h-2 rounded bg-white"
 											style="width: {Math.round(
-												(chapter.editCount / currentPlaylist.editCount) * 100
+												(chapter.deltas.length / currentPlaylist.editCount) * 100
 											)}%"
 										>
 											&nbsp;
