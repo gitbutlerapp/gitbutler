@@ -295,7 +295,7 @@
 	}
 
 	function scrollToSession() {
-		const sessionEl = document.getElementById('currentSession');
+		const sessionEl = document.getElementById('current-session');
 		if (sessionEl) {
 			sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
@@ -368,8 +368,8 @@
 					{$fileFilter}
 				</button>
 			{/if}
-			<div class="flex h-full w-full flex-row">
-				<ul id="left" class="flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll p-2">
+			<div class="flex h-full w-full flex-row gap-2 p-2">
+				<ul id="days" class="flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll">
 					<li class="w-full">
 						<button
 							class:bg-gb-800={showLatest}
@@ -399,92 +399,72 @@
 					{/each}
 				</ul>
 
-				<div id="right" class="h-full w-80 flex-shrink-0 p-2 xl:w-96">
-					<div
-						class="flex h-full flex-col rounded border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 bg-gb-900"
-					>
-						<div
-							class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-gb-750 bg-gb-800"
-						>
-							<div class="p-3 text-lg text-zinc-300">
-								<div class="flex flex-row items-center space-x-2">
-									<div>Activities</div>
-									<div class="text-sm text-zinc-400">
-										{currentPlaylist.chapters.length}
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<div
-							class="card-list flex h-full flex-col space-y-2 overflow-auto rounded-b bg-gb-900 p-2 "
-						>
-							{#if currentPlaylist.chapters.length == 0}
-								<div class="mt-4 text-center text-zinc-300">No activities found</div>
-							{/if}
-							{#each currentPlaylist.chapters as chapter}
-								{#if currentEdit !== null && currentEdit.sessionId == chapter.session}
-									<div
-										id="currentSession"
-										class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
-									>
-										<div class="flex flex-row justify-between rounded-t bg-gb-800 px-3 pt-3">
-											<div class="">{dateRange(chapter)}</div>
-											<div>
-												{Math.round(chapter.totalDurationMs / 1000 / 60)} min
-											</div>
-										</div>
-										{#if chapter.files}
-											<div class=" flex flex-row justify-between bg-gb-800 px-3 pb-3">
-												<div>
-													{Object.entries(chapter.files).length}
-													{Object.entries(chapter.files).length > 1 ? 'files' : 'file'}
-												</div>
-											</div>
-											<div class="rounded-b bg-zinc-800 p-2 pb-3">
-												{#each Object.keys(chapter.files) as filenm}
-													{#if currentEdit.filepath == filenm}
-														<div class="truncate font-bold text-zinc-100">{shortPath(filenm)}</div>
-													{:else}
-														<div class="truncate text-zinc-500">{shortPath(filenm)}</div>
-													{/if}
-												{/each}
-											</div>
-										{/if}
-									</div>
-								{:else}
-									<button
-										on:click={() => {
-											currentDeltasIndex = Math.max(
-												currentPlaylist?.editOffsets[chapter.session] || 0,
-												1
-											);
-										}}
-										class="session-card cursor-pointer rounded border-[0.5px] border-gb-700 bg-gb-900 shadow-md transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
-									>
-										<div class="flex flex-row justify-between px-3 pt-3">
-											<div class="font-zinc-600">{dateRange(chapter)}</div>
-											<div>
-												{Math.round(chapter.totalDurationMs / 1000 / 60)} min
-											</div>
-										</div>
-										<div class="flex flex-row justify-between px-3 pb-3 text-zinc-400">
-											<div>
-												{Object.entries(chapter.files).length}
-												{Object.entries(chapter.files).length > 1 ? 'files' : 'file'}
-											</div>
-										</div>
-									</button>
-								{/if}
-							{/each}
-						</div>
-					</div>
-				</div>
-
-				<div
-					id="middle"
-					class="m-2 flex-auto overflow-auto rounded border border-zinc-700 bg-gb-900 "
+				<article
+					id="activities"
+					class="flex h-full h-full w-80 flex-shrink-0 flex-col rounded border-[0.5px] border-gb-700 bg-gb-900 xl:w-96"
 				>
+					<header
+						class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-gb-750 bg-gb-800"
+					>
+						<h2 class="flex flex-row items-baseline space-x-2  p-3 text-lg text-zinc-300">
+							<span>Activities</span>
+							<span class="text-sm text-zinc-400">
+								{currentPlaylist.chapters.length}
+							</span>
+						</h2>
+					</header>
+
+					<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-gb-900 p-2">
+						{#each currentPlaylist.chapters as chapter}
+							{@const isCurrent = currentEdit !== null && currentEdit.sessionId == chapter.session}
+							<li
+								id={isCurrent ? 'current-session' : ''}
+								class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
+							>
+								<button
+									disabled={isCurrent}
+									class="w-full"
+									on:click={() => {
+										currentDeltasIndex = Math.max(
+											currentPlaylist?.editOffsets[chapter.session] || 0,
+											1
+										);
+									}}
+								>
+									<div class="flex flex-row justify-between rounded-t bg-gb-800 px-3 pt-3">
+										<span>{dateRange(chapter)}</span>
+										<span>
+											{Math.round(chapter.totalDurationMs / 1000 / 60)} min
+										</span>
+									</div>
+
+									<span class="flex flex-row justify-between bg-gb-800 px-3 pb-3">
+										{Object.entries(chapter.files).length}
+										{Object.entries(chapter.files).length > 1 ? 'files' : 'file'}
+									</span>
+
+									{#if isCurrent}
+										<ul class="rounded-b bg-zinc-800 p-2">
+											{#each Object.keys(chapter.files) as filename}
+												<li
+													class:text-zinc-100={currentEdit?.filepath == filename}
+													class:font-bold={currentEdit?.filepath == filename}
+													class="truncate text-left text-zinc-500"
+												>
+													{shortPath(filename)}
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								</button>
+							</li>
+						{:else}
+							<div class="mt-4 text-center text-zinc-300">No activities found</div>
+						{/each}
+					</ul>
+				</article>
+
+				<div id="player" class="flex-auto overflow-auto rounded border border-zinc-700 bg-gb-900 ">
 					<div class="relative flex h-full w-full flex-col gap-2 ">
 						<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">
 							{#if dayPlaylist[$currentDay] !== undefined}
