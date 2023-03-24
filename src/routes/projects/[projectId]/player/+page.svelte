@@ -36,10 +36,17 @@
 		}, {})
 	);
 
-	const currentDay = derived(
-		[page, sessionDays],
-		([page, sessionDays]) => page.url.searchParams.get('date') ?? Object.keys(sessionDays)[0] ?? ''
+	const currentDay = writable(
+		$page.url.searchParams.get('date') ?? Object.keys($sessionDays)[0] ?? ''
 	);
+	currentDay.subscribe((day) => {
+		if (day) {
+			$page.url.searchParams.set('date', day);
+		} else {
+			$page.url.searchParams.delete('date');
+		}
+		goto($page.url.href);
+	});
 
 	const fileFilter = writable($page.url.searchParams.get('file'));
 	fileFilter.subscribe((filter) => {
@@ -229,9 +236,8 @@
 	const selectDay = (day: string, latest = false) => {
 		showLatest = latest;
 		$currentDeltaIndex = 0;
+		$currentDay = day;
 		stop();
-		$page.url.searchParams.set('date', day);
-		goto($page.url.href);
 	};
 
 	const selectLatestDay = () => {
