@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BaseDialog from './BaseDialog.svelte';
+	import Modal from '../Modal.svelte';
 	import { format, subDays, subWeeks, subMonths, startOfISOWeek, startOfMonth } from 'date-fns';
 	import { onDestroy, onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
@@ -78,7 +78,7 @@
 	});
 </script>
 
-<BaseDialog on:close>
+<Modal on:close>
 	<div class="mx-2 cursor-default select-none">
 		<p class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300/80">
 			Replay working history from...
@@ -101,4 +101,4 @@
 			{/each}
 		</ul>
 	</div>
-</BaseDialog>
+</Modal>

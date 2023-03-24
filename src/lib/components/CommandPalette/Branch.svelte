@@ -1,7 +1,7 @@
 <script lang="ts">
-	import BaseDialog from './BaseDialog.svelte';
+	import Modal from '../Modal.svelte';
 </script>
 
-<BaseDialog on:close>
+<Modal on:close>
 	<h1>Branch</h1>
-</BaseDialog>
+</Modal>
