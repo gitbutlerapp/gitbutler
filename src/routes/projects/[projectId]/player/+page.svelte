@@ -9,13 +9,18 @@
 	import type { Session } from '$lib/sessions';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { derived } from 'svelte/store';
+	import { derived, writable } from 'svelte/store';
 
 	export let data: PageData;
 
 	const { sessions } = data;
 
-	let currentDeltasIndex = 0;
+	const currentDeltaIndex = writable(parseInt($page.url.searchParams.get('delta') ?? '0'));
+	currentDeltaIndex.subscribe((index) => {
+		$page.url.searchParams.set('delta', index.toString());
+		goto($page.url.href);
+	});
+
 	let showLatest = false;
 	let fullContext = false;
 	let context = 8;
@@ -153,7 +158,6 @@
 					sessionFiles[sid][filepath] = files[filepath];
 				}
 			});
-			currentDeltasIndex = 0;
 		});
 	};
 
@@ -220,7 +224,7 @@
 
 	const selectDay = (day: string, latest = false) => {
 		showLatest = latest;
-		currentDeltasIndex = 0;
+		$currentDeltaIndex = 0;
 		stop();
 		$page.url.searchParams.set('date', day);
 		goto($page.url.href);
@@ -271,11 +275,11 @@
 		let priorDeltas: Delta[] = [];
 		currentEdit = null;
 		currentPlaylist?.chapters.forEach((chapter) => {
-			if (currentEdit == null && currentDeltasIndex < totalEdits + chapter.editCount) {
-				let thisEdit = chapter.edits[currentDeltasIndex - totalEdits];
+			if (currentEdit == null && $currentDeltaIndex < totalEdits + chapter.editCount) {
+				let thisEdit = chapter.edits[$currentDeltaIndex - totalEdits];
 				priorDeltas = priorDeltas.concat(
 					chapter.edits
-						.slice(0, currentDeltasIndex - totalEdits)
+						.slice(0, $currentDeltaIndex - totalEdits)
 						.filter((edit) => edit.filepath == thisEdit?.filepath)
 						.map((edit) => edit.delta)
 				);
@@ -327,15 +331,15 @@
 	};
 
 	const changePlayerValue = (amount: number) => {
-		if (currentDeltasIndex !== null) {
-			currentDeltasIndex += amount;
-			if (currentDeltasIndex < 0) {
-				currentDeltasIndex = 0;
-			} else if (currentPlaylist && currentDeltasIndex >= currentPlaylist.editCount) {
-				currentDeltasIndex = currentPlaylist.editCount - 1;
+		if ($currentDeltaIndex !== null) {
+			$currentDeltaIndex += amount;
+			if ($currentDeltaIndex < 0) {
+				$currentDeltaIndex = 0;
+			} else if (currentPlaylist && $currentDeltaIndex >= currentPlaylist.editCount) {
+				$currentDeltaIndex = currentPlaylist.editCount - 1;
 			}
 		} else {
-			currentDeltasIndex = 0;
+			$currentDeltaIndex = 0;
 		}
 	};
 
@@ -425,7 +429,7 @@
 									disabled={isCurrent}
 									class="w-full"
 									on:click={() => {
-										currentDeltasIndex = Math.max(
+										$currentDeltaIndex = Math.max(
 											currentPlaylist?.editOffsets[chapter.session] || 0,
 											1
 										);
@@ -521,7 +525,7 @@
 										class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
 										max={currentPlaylist.editCount - 1}
 										step="1"
-										bind:value={currentDeltasIndex}
+										bind:value={$currentDeltaIndex}
 									/>
 								</div>
 
