@@ -41,11 +41,15 @@
 		([page, sessionDays]) => page.url.searchParams.get('date') ?? Object.keys(sessionDays)[0] ?? ''
 	);
 
-	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
-	const resetFileFilter = () => {
-		$page.url.searchParams.delete('file');
+	const fileFilter = writable($page.url.searchParams.get('file'));
+	fileFilter.subscribe((filter) => {
+		if (filter) {
+			$page.url.searchParams.set('file', filter);
+		} else {
+			$page.url.searchParams.delete('file');
+		}
 		goto($page.url.href);
-	};
+	});
 
 	$: currentSessions = $sessions.filter((session) => {
 		let sessionDay = dateToYmd(new Date(session.meta.startTimestampMs));
@@ -368,7 +372,10 @@
 	<div id="player-page" class="flex h-full w-full">
 		<div class="flex h-full w-full flex-col">
 			{#if $fileFilter}
-				<button class="w-full p-2 font-mono text-lg" on:click={resetFileFilter}>
+				<button
+					class="w-full p-2 text-left font-mono text-lg"
+					on:click={() => ($fileFilter = null)}
+				>
 					{$fileFilter}
 				</button>
 			{/if}
