@@ -9,16 +9,15 @@ mod sessions;
 mod storage;
 mod users;
 mod watchers;
+
+#[macro_use]
+extern crate log;
+
 use anyhow::{Context, Result};
 use deltas::Delta;
-use log;
 use pty::ws_server::pty_serve;
 use serde::{ser::SerializeMap, Serialize};
-use std::{
-    collections::HashMap,
-    ops::Range,
-    sync::{mpsc, Mutex},
-};
+use std::{collections::HashMap, ops::Range, sync::Mutex};
 use storage::Storage;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
@@ -26,6 +25,7 @@ use tauri_plugin_log::{
     LogTarget,
 };
 use thiserror::Error;
+use timed::timed;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -108,6 +108,7 @@ fn build_asset_url(path: &str) -> String {
     format!("asset://localhost/{}", urlencoding::encode(path))
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
     if src.starts_with("asset://") {
         return Ok(src.to_string());
@@ -143,8 +144,9 @@ async fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
     Ok(build_asset_url(&save_to.display().to_string()))
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn search(
+async fn search(
     handle: tauri::AppHandle,
     project_id: &str,
     query: &str,
@@ -152,7 +154,7 @@ fn search(
     offset: Option<usize>,
     timestamp_ms_gte: Option<u64>,
     timestamp_ms_lt: Option<u64>,
-) -> Result<Vec<search::SearchResult>, Error> {
+) -> Result<search::SearchResults, Error> {
     let app_state = handle.state::<App>();
 
     let query = search::SearchQuery {
@@ -177,8 +179,9 @@ fn search(
     Ok(deltas)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn list_sessions(
+async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
     earliest_timestamp_ms: Option<u128>,
@@ -191,6 +194,7 @@ fn list_sessions(
     Ok(sessions)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let app_state = handle.state::<App>();
@@ -220,8 +224,9 @@ async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error
     }
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
+async fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
     app_state
@@ -234,8 +239,9 @@ fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     Ok(())
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
+async fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
     app_state
@@ -248,8 +254,9 @@ fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     Ok(())
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn update_project(
+async fn update_project(
     handle: tauri::AppHandle,
     project: projects::UpdateRequest,
 ) -> Result<projects::Project, Error> {
@@ -263,8 +270,9 @@ fn update_project(
     Ok(project)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
+async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
     let app_state = handle.state::<App>();
 
     for project in app_state
@@ -300,20 +308,17 @@ fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project
 
     let repo = repo_for_project(handle.clone(), &project.id)?;
 
-    let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
-    app_state.watchers.lock().unwrap().watch(
-        tx,
-        &project,
-        &repo.deltas_storage,
-        &repo.sessions_storage,
-    )?;
+    let (tx, rx) = tokio::sync::mpsc::channel::<events::Event>(1);
+
+    app_state.watchers.lock().unwrap().watch(tx, &repo)?;
     watch_events(handle, rx);
 
     Ok(project)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
+async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
     let app_state = handle.state::<App>();
 
     let projects = app_state.projects_storage.list_projects()?;
@@ -321,8 +326,9 @@ fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Err
     Ok(projects)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
+async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app_state = handle.state::<App>();
 
     match app_state.projects_storage.get_project(id)? {
@@ -343,8 +349,9 @@ fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     }
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn list_session_files(
+async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
@@ -355,8 +362,9 @@ fn list_session_files(
     Ok(files)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn list_deltas(
+async fn list_deltas(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
@@ -367,8 +375,9 @@ fn list_deltas(
     Ok(deltas)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn git_status(
+async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
@@ -377,8 +386,9 @@ fn git_status(
     Ok(files)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn git_wd_diff(
+async fn git_wd_diff(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
@@ -389,8 +399,9 @@ fn git_wd_diff(
     Ok(diff)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .file_paths()
@@ -399,8 +410,9 @@ fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<Stri
     Ok(files)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn git_match_paths(
+async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
     match_pattern: &str,
@@ -411,6 +423,20 @@ fn git_match_paths(
         .with_context(|| "Failed to get file paths")?;
 
     Ok(files)
+}
+
+#[tauri::command(async)]
+async fn get_file_contents(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    path: &str,
+) -> Result<String, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let file = repo
+        .get_file_contents(path)
+        .with_context(|| "Failed to get file contents")?;
+
+    Ok(file)
 }
 
 fn repo_for_project(
@@ -429,8 +455,9 @@ fn repo_for_project(
     Ok(repo)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branches()
@@ -438,8 +465,9 @@ fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String
     Ok(files)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branch()
@@ -447,8 +475,9 @@ fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Erro
     Ok(files)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn git_switch_branch(
+async fn git_switch_branch(
     handle: tauri::AppHandle,
     project_id: &str,
     branch: &str,
@@ -460,8 +489,9 @@ fn git_switch_branch(
     Ok(result)
 }
 
+#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-fn git_commit(
+async fn git_commit(
     handle: tauri::AppHandle,
     project_id: &str,
     message: &str,
@@ -549,13 +579,10 @@ fn main() {
             app.manage(app_state);
 
             let app_handle = app.handle();
-            tauri::async_runtime::spawn_blocking(move || {
-                let start = std::time::Instant::now();
-                log::info!("initializing app");
+            tauri::async_runtime::spawn(async move {
                 if let Err(e) = init(app_handle) {
                     log::error!("failed to app: {:#}", e);
                 }
-                log::info!("app initialized in {:?}", start.elapsed());
             });
 
             Ok(())
@@ -603,7 +630,8 @@ fn main() {
             git_branch,
             git_switch_branch,
             git_commit,
-            git_wd_diff
+            git_wd_diff,
+            get_file_contents
         ]);
 
     let tauri_context = generate_context!();
@@ -651,7 +679,7 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
     }
 
     // start watching projects
-    let (tx, rx): (mpsc::Sender<events::Event>, mpsc::Receiver<events::Event>) = mpsc::channel();
+    let (tx, rx) = tokio::sync::mpsc::channel::<events::Event>(32);
 
     let projects = app_state
         .projects_storage
@@ -670,20 +698,15 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .watchers
             .lock()
             .unwrap()
-            .watch(
-                tx.clone(),
-                &project,
-                &repo.deltas_storage,
-                &repo.sessions_storage,
-            )
+            .watch(tx.clone(), &repo)
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
-        if let Err(err) = app_state.deltas_searcher.lock().unwrap().reindex_project(
-            &repo.git_repository,
-            &repo.project,
-            &repo.deltas_storage,
-            &repo.sessions_storage,
-        ) {
+        if let Err(err) = app_state
+            .deltas_searcher
+            .lock()
+            .unwrap()
+            .reindex_project(&repo)
+        {
             log::error!("{}: failed to reindex project: {:#}", project.id, err);
         }
     }
@@ -698,9 +721,9 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
     Ok(())
 }
 
-fn watch_events(handle: tauri::AppHandle, rx: mpsc::Receiver<events::Event>) {
+fn watch_events(handle: tauri::AppHandle, mut rx: tokio::sync::mpsc::Receiver<events::Event>) {
     tauri::async_runtime::spawn(async move {
-        while let Ok(event) = rx.recv() {
+        while let Some(event) = rx.recv().await {
             if let Some(window) = handle.get_window("main") {
                 log::info!("Emitting event: {}", event.name);
                 match window.emit(&event.name, event.payload) {

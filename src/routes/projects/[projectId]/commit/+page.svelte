@@ -6,6 +6,7 @@
 	import toast from 'svelte-french-toast';
 	import { slide } from 'svelte/transition';
 	import { toHumanBranchName } from '$lib/branch';
+	import DiffViewer from '$lib/components/DiffViewer.svelte';
 
 	const api = Api({ fetch });
 
@@ -43,6 +44,8 @@
 				commitMessage = '';
 				commitSubject = '';
 				filesSelectedForCommit = [];
+				currentDiff = '';
+				currentPath = '';
 				isLoaded = false;
 			});
 		}
@@ -63,11 +66,38 @@
 	const getDiff = (params: { projectId: string }) =>
 		invoke<Record<string, string>>('git_wd_diff', params);
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
+	const getFile = (params: { projectId: string; path: string }) =>
+		invoke<string>('get_file_contents', params);
 
 	let gitBranch = <string | undefined>undefined;
-	let gitDiff = <string | undefined>undefined;
+	let gitDiff = <Record<string, string> | undefined>undefined;
 	let generatedMessage = <string | undefined>undefined;
 	let isLoaded = false;
+
+	let currentPath = '';
+	let currentDiff = '';
+	let fileContents = '';
+	let fileContentsStatus = '';
+
+	// Replace HTML tags with an empty string
+	function selectPath(path) {
+		currentDiff = '';
+		fileContents = '';
+
+		if (gitDiff[path]) {
+			currentPath = path;
+			currentDiff = gitDiff[path];
+		} else {
+			let file = $filesStatus.filter((file) => file.path === path)[0];
+			if (file) {
+				fileContentsStatus = file.status;
+				getFile({ projectId: $project?.id, path: path }).then((contents) => {
+					currentPath = path;
+					fileContents = contents;
+				});
+			}
+		}
+	}
 
 	$: if ($project) {
 		if (!isLoaded) {
@@ -91,10 +121,8 @@
 			const partialDiff = Object.fromEntries(
 				Object.entries(gitDiff).filter(([key]) => filesSelectedForCommit.includes(key))
 			);
-			console.log(partialDiff);
 			// convert to string
 			const diff = Object.values(partialDiff).join('\n').slice(0, 5000); // limit for summary
-			console.log(diff);
 
 			placeholderMessage = 'Summarizing changes...';
 			generatedMessage = 'loading';
@@ -127,7 +155,7 @@
 	}
 </script>
 
-<div class="flex flex-row h-full">
+<div class="flex h-full flex-row">
 	<div class="flex w-[500px] min-w-[500px] flex-shrink-0 flex-col p-2">
 		<div
 			class="button group mb-2 flex max-w-[500px] rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
@@ -160,9 +188,11 @@
 				</svg>
 			</div>
 		</div>
-		
+
 		<div class="changed-files-list-container mt-2 mb-4">
-			<div class="changed-files-list rounded border font-mono text-zinc-900 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 bg-gb-900">
+			<div
+				class="changed-files-list rounded border border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 bg-gb-900 font-mono text-zinc-900"
+			>
 				<div
 					class="mb-2 flex flex-row space-x-2 rounded-t border-b border-b-gb-750 bg-gb-800 p-2 text-zinc-200"
 				>
@@ -173,20 +203,28 @@
 				<ul class="w-80 truncate px-2 pb-2">
 					{#each $filesStatus as activity}
 						<li class="list-none text-zinc-300">
-							<input
-								type="checkbox"
-								on:click={showMessage}
-								bind:group={filesSelectedForCommit}
-								value={activity.path}
-							/>
-							{activity.status.slice(0, 1)}
-							{shortPath(activity.path)}
+							<div class="flex flex-row space-x-2">
+								<input
+									type="checkbox"
+									on:click={showMessage}
+									bind:group={filesSelectedForCommit}
+									value={activity.path}
+								/>
+								<div>{activity.status.slice(0, 1)}</div>
+								<!-- svelte-ignore a11y-click-events-have-key-events -->
+								<div
+									class="cursor-pointer {currentPath == activity.path ? 'text-white' : ''}"
+									on:click={selectPath(activity.path)}
+								>
+									{shortPath(activity.path)}
+								</div>
+							</div>
 						</li>
 					{/each}
 				</ul>
 			</div>
 		</div>
-		
+
 		<div class="commit-input-container" transition:slide={{ duration: 150 }}>
 			<h3 class="mb-2 text-base font-semibold text-zinc-300">Commit Message</h3>
 			<input
@@ -194,14 +232,14 @@
 				name="subject"
 				bind:value={commitSubject}
 				placeholder={placeholderSubject}
-				class="mb-2 block w-full rounded-md p-4 bg-zinc-700 border-zinc-600 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+				class="mb-2 block w-full rounded-md border-zinc-600 bg-zinc-700 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
 			/>
 			<textarea
 				rows={messageRows}
 				name="message"
 				placeholder={placeholderMessage}
 				bind:value={commitMessage}
-				class="mb-2 block w-full rounded-md p-4 bg-zinc-700 border-zinc-600 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+				class="mb-2 block w-full rounded-md border-zinc-600 bg-zinc-700 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
 			/>
 		</div>
 
@@ -222,8 +260,9 @@
 				>
 			{/if}
 			{#if !generatedMessage}
-				<a class="cursor-pointer rounded bg-green-800 p-2 text-zinc-50 bg-gradient-to-b from-[#623871] to-[#502E5C] shadow" on:click={fetchCommitMessage}
-					>✨ Generate commit message</a
+				<a
+					class="cursor-pointer rounded bg-green-800 bg-gradient-to-b from-[#623871] to-[#502E5C] p-2 text-zinc-50 shadow"
+					on:click={fetchCommitMessage}>✨ Generate commit message</a
 				>
 			{:else if generatedMessage == 'loading'}
 				<div class="flex flex-col">
@@ -238,16 +277,15 @@
 				</div>
 			{/if}
 		</div>
-
 	</div>
-	<div class="h-full max-h-screen flex-grow overflow-auto p-2 h-100">
-		{#if gitDiff}
-			{#each Object.entries(gitDiff) as [key, value]}
-				{#if key}
-					<div class="p-2">{key}</div>
-					<pre class="bg-zinc-900 p-2">{value}</pre>
-				{/if}
-			{/each}
+	<div class="h-100 h-full max-h-screen flex-grow overflow-auto p-2">
+		{#if currentDiff}
+			<DiffViewer diff={currentDiff} path={currentPath} />
+		{:else if fileContents}
+			<pre
+				class={fileContentsStatus == 'added' ? 'bg-green-900' : 'bg-red-900'}>{fileContents}</pre>
+		{:else}
+			<div class="p-20 text-center text-lg text-zinc-400">Select a file to view changes.</div>
 		{/if}
 	</div>
 	<!-- commit message -->

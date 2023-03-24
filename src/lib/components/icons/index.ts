@@ -14,3 +14,5 @@ export { default as IconSquareRoundedFilled } from './IconSquareRoundedFilled.sv
 export { default as IconMapPinFilled } from './IconMapPinFilled.svelte';
 export { default as IconCircleFilled } from './IconCircleFilled.svelte';
 export { default as IconCircleCancel } from './IconCircleCancel.svelte';
+export { default as IconChevronLeft } from './IconChevronLeft.svelte';
+export { default as IconChevronRight } from './IconChevronRight.svelte';

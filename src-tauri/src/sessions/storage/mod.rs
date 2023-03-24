@@ -1,7 +1,10 @@
-use std::{collections::HashMap, time};
-
 use crate::{projects, sessions, users};
-use anyhow::Result;
+use anyhow::{Context, Result};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time,
+};
 
 mod current;
 mod persistent;
@@ -14,15 +17,12 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(git_repository: git2::Repository, project: projects::Project) -> Result<Self> {
-        Ok(Self {
-            project: project.clone(),
-            current: current::Store::new(git_repository, project.clone())?,
-            persistent: persistent::Store::new(
-                git2::Repository::open(&project.path)?,
-                project.clone(),
-            )?,
-        })
+    pub fn new(git_repository: Arc<Mutex<git2::Repository>>, project: projects::Project) -> Self {
+        Self {
+            current: current::Store::new(git_repository.clone(), project.clone()),
+            persistent: persistent::Store::new(git_repository, project.clone()),
+            project,
+        }
     }
 
     pub fn create_current(&self) -> Result<sessions::Session> {
@@ -70,8 +70,15 @@ impl Store {
 
     // returns list of sessions in reverse chronological order
     pub fn list(&self, earliest_timestamp_ms: Option<u128>) -> Result<Vec<sessions::Session>> {
-        let mut sessions = self.persistent.list(earliest_timestamp_ms)?;
-        if let Some(session) = self.current.get()? {
+        let mut sessions = self
+            .persistent
+            .list(earliest_timestamp_ms)
+            .with_context(|| "failed to list sessions for project {}")?;
+        if let Some(session) = self
+            .current
+            .get()
+            .with_context(|| "failed to get current session")?
+        {
             sessions.insert(0, session);
         }
         Ok(sessions)

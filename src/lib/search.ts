@@ -6,7 +6,8 @@ export type SearchResult = {
 	filePath: string;
 	// index of the delta in the session.
 	index: number;
-	highlighted: string[]; // contains the highlighted text
+	// contains the highlighted text snippets.
+	highlighted: string[];
 };
 
 export const search = (params: {
@@ -14,4 +15,4 @@ export const search = (params: {
 	query: string;
 	limit?: number;
 	offset?: number;
-}) => invoke<SearchResult[]>('search', params);
+}) => invoke<{ total: number; page: SearchResult[] }>('search', params);

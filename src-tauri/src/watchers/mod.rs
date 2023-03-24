@@ -1,4 +1,5 @@
 mod delta;
+mod files;
 mod git;
 mod session;
 
@@ -7,17 +8,13 @@ mod delta_test;
 #[cfg(test)]
 mod test;
 
-use crate::{deltas, events, projects, search, sessions, users};
+use crate::{events, projects, repositories, search, users};
 use anyhow::Result;
-use std::{
-    path::Path,
-    sync::{mpsc, Arc, Mutex},
-};
+use std::{path::Path, sync::Arc};
 
 pub struct Watcher {
     session_watcher: session::SessionWatcher,
-    delta_watcher: delta::DeltaWatchers,
-    git_watcher: git::GitWatchers,
+    files_watcher: files::FileWatchers,
 }
 
 impl Watcher {
@@ -28,54 +25,75 @@ impl Watcher {
     ) -> Self {
         let session_watcher =
             session::SessionWatcher::new(projects_storage, users_storage, deltas_searcher);
-        let delta_watcher = delta::DeltaWatchers::new();
-        let git_watcher = git::GitWatchers::new();
+        let files_watcher = files::FileWatchers::new();
         Self {
             session_watcher,
-            delta_watcher,
-            git_watcher,
+            files_watcher,
         }
     }
 
     pub fn watch(
         &mut self,
-        sender: mpsc::Sender<events::Event>,
-        project: &projects::Project,
-        deltas_storage: &deltas::Store,
-        sessions_storage: &sessions::Store,
+        sender: tokio::sync::mpsc::Sender<events::Event>,
+        repository: &repositories::Repository,
     ) -> Result<()> {
         // shared mutex to prevent concurrent write to gitbutler interal state by multiple watchers
         // at the same time
-        let lock_file = Arc::new(Mutex::new(fslock::LockFile::open(
-            &Path::new(&project.path)
+        let lock_file = fslock::LockFile::open(
+            &Path::new(&repository.project.path)
                 .join(".git")
-                .join(format!("gb-{}", project.id))
+                .join(format!("gb-{}", repository.project.id))
                 .join(".lock"),
-        )?));
-        let repo = git2::Repository::open(project.path.clone())?;
+        )?;
+
+        let repo = git2::Repository::open(repository.project.path.clone())?;
         repo.add_ignore_rule("*.lock")?;
 
-        self.delta_watcher.watch(
-            sender.clone(),
-            project.clone(),
-            lock_file.clone(),
-            deltas_storage,
-        )?;
-        self.session_watcher.watch(
-            sender.clone(),
-            project.clone(),
-            lock_file.clone(),
-            deltas_storage,
-            sessions_storage,
-        )?;
-        self.git_watcher.watch(sender.clone(), project.clone())?;
+        let shared_sender = Arc::new(sender.clone());
+        let shared_deltas_store = Arc::new(repository.deltas_storage.clone());
+        let shared_lock_file = Arc::new(tokio::sync::Mutex::new(lock_file));
+
+        self.session_watcher
+            .watch(sender, shared_lock_file.clone(), repository)?;
+
+        let (fstx, mut fsevents) = tokio::sync::mpsc::channel::<files::Event>(32);
+
+        tauri::async_runtime::spawn(async move {
+            let sender = shared_sender;
+            let deltas_storage = shared_deltas_store;
+            let lock_file = shared_lock_file;
+            while let Some(event) = fsevents.recv().await {
+                match event {
+                    files::Event::FileChange((project, path)) => {
+                        if path.starts_with(Path::new(".git")) {
+                            if let Err(e) = git::on_git_file_change(&sender, &project, &path).await
+                            {
+                                log::error!("{}: {:#}", project.id, e);
+                            }
+                        } else {
+                            if let Err(e) = delta::on_file_change(
+                                &sender,
+                                lock_file.clone(),
+                                &project,
+                                &deltas_storage,
+                                &path,
+                            )
+                            .await
+                            {
+                                log::error!("{}: {:#}", project.id, e);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        self.files_watcher.watch(fstx, repository.project.clone())?;
 
         Ok(())
     }
 
     pub fn unwatch(&mut self, project: projects::Project) -> Result<()> {
-        self.delta_watcher.unwatch(&project)?;
-        self.git_watcher.unwatch(&project)?;
+        self.files_watcher.unwatch(&project)?;
         // TODO: how to unwatch session ?
         Ok(())
     }

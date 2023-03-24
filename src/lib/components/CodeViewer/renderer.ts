@@ -10,6 +10,7 @@ export interface Row {
 	currentLineNumber: number;
 	tokens: Token[];
 	type: RowType;
+	size: number;
 }
 
 export const enum RowType {
@@ -75,7 +76,11 @@ export function buildDiffRows(
 			}
 			if (lines.length > paddingLines * 2 + 1 && !atEnd) {
 				equalRows.push(
-					createRow(`skipping ${lines.length - paddingLines * 2} matching lines`, RowType.Spacer)
+					createRow(
+						`skipping ${lines.length - paddingLines * 2} matching lines`,
+						RowType.Spacer,
+						lines.length - paddingLines * 2
+					)
 				);
 			}
 		}
@@ -128,7 +133,7 @@ export function buildDiffRows(
 		return deletionRows.concat(insertionRows);
 	}
 
-	function createRow(text: string, type: RowType): Row {
+	function createRow(text: string, type: RowType, size = 1): Row {
 		if (type === RowType.Addition) {
 			currentLineNumber++;
 		}
@@ -144,7 +149,8 @@ export function buildDiffRows(
 			originalLineNumber,
 			currentLineNumber,
 			tokens: text ? [{ text, className: 'inner-diff' }] : [],
-			type
+			type,
+			size
 		};
 	}
 }

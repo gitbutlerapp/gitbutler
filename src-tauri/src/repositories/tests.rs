@@ -39,8 +39,6 @@ fn test_open_creates_reference() {
     assert!(repository.is_ok());
     let repository = repository.unwrap();
 
-    assert!(repository
-        .git_repository
-        .find_reference(&project.refname())
-        .is_ok());
+    let git_repo = repository.git_repository.lock().unwrap();
+    assert!(git_repo.find_reference(&project.refname()).is_ok());
 }

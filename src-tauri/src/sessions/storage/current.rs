@@ -14,20 +14,21 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(git_repository: git2::Repository, project: projects::Project) -> Result<Self> {
-        Ok(Self {
-            project: project.clone(),
-            git_repository: Arc::new(Mutex::new(git_repository)),
-        })
+    pub fn new(git_repository: Arc<Mutex<git2::Repository>>, project: projects::Project) -> Self {
+        Self {
+            project,
+            git_repository,
+        }
     }
 
     pub fn create(&self) -> Result<sessions::Session> {
+        let git_repository = self.git_repository.lock().unwrap();
+
         let now_ts = time::SystemTime::now()
             .duration_since(time::UNIX_EPOCH)
             .unwrap()
             .as_millis();
 
-        let git_repository = self.git_repository.lock().unwrap();
         let activity = match std::fs::read_to_string(git_repository.path().join("logs/HEAD")) {
             Ok(reflog) => reflog
                 .lines()
@@ -210,7 +211,6 @@ impl Store {
         };
 
         let git_repository = self.git_repository.lock().unwrap();
-
         let activity_path = git_repository.path().join("logs/HEAD");
         let activity = match activity_path.exists() {
             true => std::fs::read_to_string(activity_path)

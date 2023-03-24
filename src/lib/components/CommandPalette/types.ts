@@ -1,4 +1,3 @@
-import fi from 'date-fns/esm/locale/fi/index.js';
 import type { ComponentType } from 'svelte';
 
 export type ActionLink = { href: string };

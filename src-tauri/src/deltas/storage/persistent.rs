@@ -1,4 +1,4 @@
-use crate::{deltas, projects, sessions};
+use crate::{deltas, sessions};
 use anyhow::Result;
 use std::{
     collections::HashMap,
@@ -13,11 +13,11 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(project: projects::Project) -> Result<Self> {
-        Ok(Self {
-            git_repository: Arc::new(Mutex::new(git2::Repository::open(&project.path)?)),
+    pub fn new(git_repository: Arc<Mutex<git2::Repository>>) -> Self {
+        Self {
+            git_repository,
             cache: Arc::new(Mutex::new(HashMap::new())),
-        })
+        }
     }
 
     fn list_all(&self, session: &sessions::Session) -> Result<HashMap<String, Vec<deltas::Delta>>> {
