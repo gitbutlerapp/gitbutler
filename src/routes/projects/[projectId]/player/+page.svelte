@@ -218,23 +218,18 @@
 		return format(new Date(dateString), 'MMM');
 	}
 
-	function selectDay(day: string) {
-		return () => {
-			$currentDay = day;
-			showLatest = false;
-			currentDeltasIndex = 0;
-			stop();
-		};
-	}
+	const selectDay = (day: string, latest = false) => {
+		showLatest = latest;
+		currentDeltasIndex = 0;
+		stop();
+		$page.url.searchParams.set('date', day);
+		goto($page.url.href);
+	};
 
-	function selectLatest() {
-		return () => {
-			showLatest = true;
-			$currentDay = Object.keys($sessionDays)[0]; // get latest day
-			currentDeltasIndex = 0;
-			stop();
-		};
-	}
+	const selectLatestDay = () => {
+		const latestDay = Object.keys($sessionDays)[0];
+		selectDay(latestDay, true);
+	};
 
 	type EditFrame = {
 		sessionId: string;
@@ -248,7 +243,7 @@
 	let currentPlaylist: DayVideo | null = null;
 	let currentEdit: EditFrame | null = null;
 
-	$: if (currentDay && dayPlaylist && dayPlaylist[$currentDay]) {
+	$: if ($currentDay && dayPlaylist && dayPlaylist[$currentDay]) {
 		currentPlaylist = dayPlaylist[$currentDay];
 		if (currentPlaylist !== null) {
 			if (showLatest) {
@@ -356,9 +351,6 @@
 		speed = speed * 2;
 		start({ direction, speed });
 	};
-
-	// <!-- svelte-ignore a11y-click-events-have-key-events -->
-	function handleKey() {}
 </script>
 
 {#if $sessions.length === 0}
@@ -377,33 +369,35 @@
 				</button>
 			{/if}
 			<div class="flex h-full w-full flex-row">
-				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
-					<div class="overflow-y-auto">
-						<div
-							class="card-latest mb-2 flex cursor-pointer flex-col rounded border border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 text-zinc-300 {showLatest
-								? 'border-gb-700 bg-gb-800 text-white'
-								: 'border-gb-700 bg-gb-900'} p-2 text-center shadow"
-							on:keydown={handleKey}
-							on:click={selectLatest()}
+				<ul id="left" class="flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll p-2">
+					<li class="w-full">
+						<button
+							class:bg-gb-800={showLatest}
+							class:text-white={showLatest}
+							class:border-gb-700={!showLatest}
+							class:bg-gb-900={!showLatest}
+							class="rounded border border-[0.5px] border-gb-700 border-gb-700 p-2 text-center text-zinc-300 shadow"
+							on:click={() => selectLatestDay()}
 						>
-							<div class="">Latest</div>
-						</div>
-						{#each Object.entries($sessionDays) as [day, sessions]}
-							<div
-								class:bg-gb-800={day == $currentDay && !showLatest}
-								class:text-white={day == $currentDay && !showLatest}
-								class:border-gb-700={day !== $currentDay && !showLatest}
-								class:bg-gb-900={day !== $currentDay && !showLatest}
-								class="card-day-of-week mb-2  flex cursor-pointer flex-col rounded border border-t-[0.5px] border-r-[0.5px]  border-b-[0.5px] border-l-[0.5px] border-gb-700 border-gb-700 p-2 pb-1 text-center text-zinc-300 shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
-								on:keydown={handleKey}
-								on:click={selectDay(day)}
+							Latest
+						</button>
+					</li>
+					{#each Object.keys($sessionDays) as day}
+						<li class="w-full">
+							<button
+								class:bg-gb-800={day === $currentDay && !showLatest}
+								class:text-white={day === $currentDay && !showLatest}
+								class:border-gb-700={day !== $currentDay || showLatest}
+								class:bg-gb-900={day !== $currentDay || showLatest}
+								class="flex w-full flex-col items-center rounded border border-[0.5px] border-gb-700 border-gb-700 p-2 text-zinc-300 shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
+								on:click={() => selectDay(day)}
 							>
 								<div class="text-xl leading-5">{ymdToDay(day)}</div>
 								<div class="leading-4">{ymdToMonth(day)}</div>
-							</div>
-						{/each}
-					</div>
-				</div>
+							</button>
+						</li>
+					{/each}
+				</ul>
 
 				<div id="right" class="h-full w-80 flex-shrink-0 p-2 xl:w-96">
 					<div
@@ -459,8 +453,7 @@
 										{/if}
 									</div>
 								{:else}
-									<div
-										on:keydown={handleKey}
+									<button
 										on:click={() => {
 											currentDeltasIndex = Math.max(
 												currentPlaylist.editOffsets[chapter.session],
@@ -481,7 +474,7 @@
 												{Object.entries(chapter.files).length > 1 ? 'files' : 'file'}
 											</div>
 										</div>
-									</div>
+									</button>
 								{/if}
 							{/each}
 						</div>
@@ -558,15 +551,15 @@
 									<div class="left-side flex space-x-8">
 										<div class="play-button-button-container">
 											{#if interval}
-												<button on:click={stop}
-													><IconPlayerPauseFilled
+												<button on:click={stop}>
+													<IconPlayerPauseFilled
 														class="playback-button-play icon-pointer h-6 w-6"
-													/></button
-												>
+													/>
+												</button>
 											{:else}
-												<button on:click={play}
-													><IconPlayerPlayFilled class="icon-pointer h-6 w-6" /></button
-												>
+												<button on:click={play}>
+													<IconPlayerPlayFilled class="icon-pointer h-6 w-6" />
+												</button>
 											{/if}
 										</div>
 
