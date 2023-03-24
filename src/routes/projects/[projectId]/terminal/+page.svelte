@@ -11,11 +11,6 @@
 	let ptyWebSocket: WebSocket;
 	const PTY_WS_ADDRESS = 'ws://127.0.0.1:7703';
 
-	$: {
-		if (terminalController) {
-			// ...
-		}
-	}
 	function initalizeXterm() {
 		terminalController = new xterm.Terminal();
 		termFit = new fit.FitAddon();
@@ -23,6 +18,11 @@
 		terminalController.open(terminalElement);
 		termFit.fit();
 		terminalController.onData((data) => termInterfaceHandleUserInputData(data));
+		focus();
+	}
+
+	function focus() {
+		console.log('focus');
 		terminalController.focus();
 	}
 
@@ -74,11 +74,18 @@
 		if (termFit) {
 			termFit.fit();
 		}
+		focus();
 	}
 </script>
 
 <!-- Actual terminal -->
-<div id="terminal" class="w-full h-full" bind:this={terminalElement} />
+<div
+	id="terminal"
+	class="w-full h-full"
+	bind:this={terminalElement}
+	on:click={focus}
+	on:keydown={focus}
+/>
 
 <!-- Resize observer -->
 <div class="absolute top-0 bottom-0 left-0 right-0">
