@@ -80,12 +80,9 @@
 
 	type VideoChapter = {
 		title: string;
-		sessionId: string;
+		session: Session;
 		files: Record<string, number>;
 		deltas: VideoFileEdit[];
-		firstDeltaTimestampMs: number;
-		lastDeltaTimestampMs: number;
-		totalDurationMs: number;
 	};
 
 	type DayVideo = {
@@ -101,19 +98,17 @@
 	let sessionFiles: Record<string, Record<string, string>> = {};
 	let sessionChapters: Record<string, VideoChapter> = {};
 
-	$: currentSessions.forEach((s) => processSession(s.id));
+	$: currentSessions.forEach(processSession);
 
-	const processSession = (sid: string) => {
+	const processSession = (session: Session) => {
+		const sid = session.id;
 		currentDeltas[sid].then((deltas) => {
 			if (sessionChapters[sid] === undefined) {
 				sessionChapters[sid] = {
 					title: sid,
-					sessionId: sid,
+					session,
 					files: {},
-					deltas: [],
-					firstDeltaTimestampMs: 9999999999999,
-					lastDeltaTimestampMs: 0,
-					totalDurationMs: 0
+					deltas: []
 				};
 			}
 			sessionChapters[sid].deltas = [];
@@ -130,28 +125,21 @@
 				if (sessionFiles[sid] === undefined) sessionFiles[sid] = {};
 				sessionFiles[sid][filepath] = '';
 				sessionChapters[sid].files[filepath] = deltas.length;
-				sessionChapters[sid].firstDeltaTimestampMs = Math.min(
-					deltas.at(0)?.timestampMs || 0,
-					sessionChapters[sid].firstDeltaTimestampMs
-				);
-				sessionChapters[sid].lastDeltaTimestampMs = Math.max(
-					deltas.at(-1)?.timestampMs || 0,
-					sessionChapters[sid].lastDeltaTimestampMs
-				);
-				sessionChapters[sid].totalDurationMs =
-					sessionChapters[sid].lastDeltaTimestampMs - sessionChapters[sid].firstDeltaTimestampMs;
 			});
 
 			// get the session chapters that are in the current day
 			let dayChapters = Object.values(sessionChapters)
 				.filter((chapter) => {
-					let chapterDay = dateToYmd(new Date(chapter.firstDeltaTimestampMs));
+					let chapterDay = dateToYmd(new Date(chapter.deltas.at(0)?.delta?.timestampMs || 0));
 					return chapterDay === $currentDay;
 				})
 				// filter to chapters with more than 0 files
 				.filter((chapter) => Object.keys(chapter.files).length > 0)
 				.map((chapter) => chapter)
-				.sort((a, b) => a.firstDeltaTimestampMs - b.firstDeltaTimestampMs);
+				.sort(
+					(a, b) =>
+						(a.deltas.at(0)?.delta?.timestampMs || 0) - (b.deltas.at(0)?.delta?.timestampMs || 0)
+				);
 
 			// process the playlist metadata
 			dayPlaylist[$currentDay] = processDayPlaylist(dayChapters);
@@ -174,7 +162,7 @@
 		// for each entry in the day, reduce dayChapters to the number of edits up until that point
 		let offsets: Record<string, number> = {};
 		dayChapters.forEach((chapter, i) => {
-			offsets[chapter.sessionId] = dayChapters
+			offsets[chapter.session.id] = dayChapters
 				.slice(0, i)
 				.reduce((acc, chapter) => acc + chapter.deltas.length, 0);
 		});
@@ -183,15 +171,18 @@
 			editCount: editCount,
 			editOffsets: offsets,
 			totalDurationMs: Object.values(dayChapters).reduce(
-				(acc, chapter) => acc + chapter.totalDurationMs,
+				(acc, chapter) =>
+					acc +
+					(chapter.deltas.at(-1)?.delta?.timestampMs || 0) -
+					(chapter.deltas.at(0)?.delta?.timestampMs || 0),
 				0
 			),
 			firstDeltaTimestampMs: Object.values(dayChapters).reduce(
-				(acc, chapter) => Math.min(acc, chapter.firstDeltaTimestampMs),
-				9999999999999
+				(acc, chapter) => Math.min(acc, chapter.deltas.at(0)?.delta?.timestampMs || 0),
+				Infinity
 			),
 			lastDeltaTimestampMs: Object.values(dayChapters).reduce(
-				(acc, chapter) => Math.max(acc, chapter.lastDeltaTimestampMs),
+				(acc, chapter) => Math.max(acc, chapter.deltas.at(-1)?.delta?.timestampMs || 0),
 				0
 			)
 		};
@@ -206,15 +197,15 @@
 	}
 
 	function dateRange(chapter: VideoChapter) {
-		let day = new Date(chapter.firstDeltaTimestampMs).toLocaleString('en-US', {
+		let day = new Date(chapter.session.meta.startTimestampMs).toLocaleString('en-US', {
 			month: 'short',
 			day: 'numeric'
 		});
-		let start = new Date(chapter.firstDeltaTimestampMs).toLocaleString('en-US', {
+		let start = new Date(chapter.session.meta.startTimestampMs).toLocaleString('en-US', {
 			hour: 'numeric',
 			minute: 'numeric'
 		});
-		let end = new Date(chapter.lastDeltaTimestampMs).toLocaleString('en-US', {
+		let end = new Date(chapter.session.meta.lastTimestampMs).toLocaleString('en-US', {
 			hour: 'numeric',
 			minute: 'numeric'
 		});
@@ -292,10 +283,10 @@
 				);
 
 				currentEdit = {
-					sessionId: chapter.sessionId,
+					sessionId: chapter.session.id,
 					timestampMs: thisEdit.delta.timestampMs,
 					filepath: thisEdit.filepath,
-					doc: sessionFiles[chapter.sessionId][thisEdit.filepath],
+					doc: sessionFiles[chapter.session.id][thisEdit.filepath],
 					ops: priorDeltas.concat(thisEdit.delta),
 					delta: thisEdit.delta
 				};
@@ -431,7 +422,7 @@
 					<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-gb-900 p-2">
 						{#each currentPlaylist.chapters as chapter}
 							{@const isCurrent =
-								currentEdit !== null && currentEdit.sessionId == chapter.sessionId}
+								currentEdit !== null && currentEdit.sessionId == chapter.session.id}
 							<li
 								id={isCurrent ? 'current-session' : ''}
 								class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
@@ -441,7 +432,7 @@
 									class="w-full"
 									on:click={() => {
 										$currentDeltaIndex = Math.max(
-											currentPlaylist?.editOffsets[chapter.sessionId] || 0,
+											currentPlaylist?.editOffsets[chapter.session.id] || 0,
 											1
 										);
 									}}
@@ -449,7 +440,12 @@
 									<div class="flex flex-row justify-between rounded-t bg-gb-800 px-3 pt-3">
 										<span>{dateRange(chapter)}</span>
 										<span>
-											{Math.round(chapter.totalDurationMs / 1000 / 60)} min
+											{Math.round(
+												(chapter.session.meta.lastTimestampMs -
+													chapter.session.meta.startTimestampMs) /
+													1000 /
+													60
+											)} min
 										</span>
 									</div>
 
