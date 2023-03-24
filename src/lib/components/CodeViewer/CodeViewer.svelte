@@ -94,7 +94,7 @@
 
 	type RenderedRow = (typeof rows)[0];
 
-	const applyPadding = (rows: RenderedRow[]): RenderedRow[] => {
+	const padHighlighted = (rows: RenderedRow[]): RenderedRow[] => {
 		const chunks: (RenderedRow[] | RenderedRow)[] = [];
 
 		const mergeChunk = (rows: RenderedRow[], isFirst: boolean, isLast: boolean): RenderedRow[] => {
@@ -171,7 +171,7 @@
 </script>
 
 <div class="diff-listing w-full select-text whitespace-pre font-mono">
-	{#each applyPadding(rows) as row}
+	{#each highlight.length > 0 ? padHighlighted(rows) : rows as row}
 		{@const baseNumber =
 			row.type === RowType.Equal || row.type === RowType.Deletion
 				? String(row.originalLineNumber)
