@@ -82,10 +82,10 @@
 			{/if}
 		</figcaption>
 
-		<ul class="flex-auto overflow-auto">
+		<ul class="-mr-14 flex flex-auto flex-col gap-6 overflow-auto">
 			{#each $searchResults.page as { doc, deltas, filepath, highlight }}
 				{@const timestamp = deltas[deltas.length - 1].timestampMs}
-				<li class="mt-6">
+				<li class="mr-14">
 					<div class="flex flex-col gap-2">
 						<p class="flex justify-between text-lg">
 							<span>{filepath}</span>
