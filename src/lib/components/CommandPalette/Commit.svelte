@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BaseDialog from './BaseDialog.svelte';
+	import Modal from '../Modal.svelte';
 	import { shortPath } from '$lib/paths';
 	import { invoke } from '@tauri-apps/api';
 	import { currentProject } from '$lib/current_project';
@@ -55,7 +55,7 @@
 	}
 </script>
 
-<BaseDialog on:close>
+<Modal on:close>
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div class="flex flex-col rounded text-zinc-400" on:click|stopPropagation>
 		<div class="mb-4 w-full border-b border-zinc-700 p-4 text-lg text-white">
@@ -111,4 +111,4 @@
 			{/if}
 		</div>
 	</div>
-</BaseDialog>
+</Modal>
