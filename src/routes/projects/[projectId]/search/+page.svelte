@@ -59,7 +59,7 @@
 	);
 </script>
 
-<figure id="search-results" class="flex h-full flex-col gap-10 p-14">
+<figure id="search-results" class="flex h-full flex-col gap-10 px-14">
 	{#if $searchState?.isLoading || $searchState?.isReloading}
 		<figcaption>
 			<p class="mb-2 text-xl text-[#D4D4D8]">Searching for "{$query}"...</p>
@@ -73,7 +73,7 @@
 			<p class="mb-2 text-xl text-[#D4D4D8]">Error searching for "{$query}"</p>
 		</figcaption>
 	{:else if $searchState?.isLoaded}
-		<figcaption>
+		<figcaption class="mt-14">
 			{#if $searchResults.total > 0}
 				<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{$query}"</p>
 				<p class="text-lg text-[#717179]">{$searchResults.total} change instances</p>
@@ -82,10 +82,10 @@
 			{/if}
 		</figcaption>
 
-		<ul class="-mr-14 flex flex-auto flex-col gap-6 overflow-auto">
+		<ul class="search-result-list -mr-14 flex flex-auto flex-col gap-6 pb-6 overflow-auto">
 			{#each $searchResults.page as { doc, deltas, filepath, highlight }}
 				{@const timestamp = deltas[deltas.length - 1].timestampMs}
-				<li class="mr-14">
+				<li class="search-result mr-14">
 					<div class="flex flex-col gap-2">
 						<p class="flex justify-between text-lg">
 							<span>{filepath}</span>
@@ -99,25 +99,29 @@
 					</div>
 				</li>
 			{/each}
+
+			<nav class="mx-auto flex  text-zinc-400">
+				<button
+					on:click={openPrevPage}
+					disabled={!$searchResults.havePrev}
+					title="Back"
+					class:text-zinc-50={$searchResults.havePrev}
+					class="border border-zinc-700 border-r-0 rounded-tl-md rounded-bl-md h-9 w-9 hover:bg-zinc-700"
+				>
+					<IconChevronLeft class="ml-1 h-5 w-6" />
+				</button>
+				<button
+					on:click={openNextPage}
+					disabled={!$searchResults.haveNext}
+					title="Next"
+					class:text-zinc-50={$searchResults.haveNext}
+					class="border border-zinc-700 h-9 w-9 rounded-tr-md rounded-br-md border-l hover:bg-zinc-700"
+				>
+					<IconChevronRight class="ml-1 h-5 w-6" />
+				</button>
+			</nav>
 		</ul>
 
-		<nav class="mx-auto flex rounded-md border border-zinc-700 text-zinc-400">
-			<button
-				on:click={openPrevPage}
-				disabled={!$searchResults.havePrev}
-				class:text-zinc-50={$searchResults.havePrev}
-				class="h-9 w-9"
-			>
-				<IconChevronLeft class="ml-1 h-5 w-6" />
-			</button>
-			<button
-				on:click={openNextPage}
-				disabled={!$searchResults.haveNext}
-				class:text-zinc-50={$searchResults.haveNext}
-				class="h-9 w-9 border-l border-zinc-700"
-			>
-				<IconChevronRight class="ml-1 h-5 w-6" />
-			</button>
-		</nav>
+		
 	{/if}
 </figure>
