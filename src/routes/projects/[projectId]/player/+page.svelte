@@ -7,33 +7,44 @@
 	import { shortPath } from '$lib/paths';
 	import { format } from 'date-fns';
 	import type { Session } from '$lib/sessions';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { derived } from 'svelte/store';
 
 	export let data: PageData;
 
 	const { sessions } = data;
 
-	let currentPlayerValue: number | null = null;
+	let currentDeltasIndex = 0;
 	let showLatest = false;
 	let fullContext = false;
 	let context = 8;
 
-	const urlParams = new URLSearchParams(window.location.search);
-	$: currentDay = urlParams.get('date') ?? Object.keys(sessionDays)[0] ?? '';
+	const sessionDays = derived(sessions, (sessions) =>
+		sessions.reduce((group: Record<string, Session[]>, session) => {
+			const day = dateToYmd(new Date(session.meta.startTimestampMs));
+			group[day] = group[day] ?? [];
+			group[day].push(session);
+			// sort by startTimestampMs
+			group[day].sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
+			return group;
+		}, {})
+	);
 
-	let fileFilter = urlParams.get('file');
+	const currentDay = derived(
+		[page, sessionDays],
+		([page, sessionDays]) => page.url.searchParams.get('date') ?? Object.keys(sessionDays)[0] ?? ''
+	);
 
-	$: sessionDays = $sessions.reduce((group: Record<string, Session[]>, session) => {
-		const day = dateToYmd(new Date(session.meta.startTimestampMs));
-		group[day] = group[day] ?? [];
-		group[day].push(session);
-		// sort by startTimestampMs
-		group[day].sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
-		return group;
-	}, {});
+	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
+	const resetFileFilter = () => {
+		$page.url.searchParams.delete('file');
+		goto($page.url.href);
+	};
 
 	$: currentSessions = $sessions.filter((session) => {
 		let sessionDay = dateToYmd(new Date(session.meta.startTimestampMs));
-		return sessionDay === currentDay;
+		return sessionDay === $currentDay;
 	});
 
 	let currentDeltas: Record<string, Promise<Record<string, Delta[]>>> = {};
@@ -77,7 +88,7 @@
 
 	$: currentSessions.forEach((s) => processSession(s.id));
 
-	function processSession(sid: string) {
+	const processSession = (sid: string) => {
 		currentDeltas[sid].then((deltas) => {
 			if (sessionChapters[sid] === undefined) {
 				sessionChapters[sid] = {
@@ -94,7 +105,7 @@
 			sessionChapters[sid].edits = [];
 
 			Object.entries(deltas).forEach(([filepath, deltas]) => {
-				if (fileFilter && !filepath.includes(fileFilter)) return;
+				if ($fileFilter && !filepath.includes($fileFilter)) return;
 
 				deltas.forEach((delta) => {
 					sessionChapters[sid].edits.push({
@@ -107,11 +118,11 @@
 				sessionChapters[sid].editCount = sessionChapters[sid].edits.length;
 				sessionChapters[sid].files[filepath] = deltas.length;
 				sessionChapters[sid].firstDeltaTimestampMs = Math.min(
-					deltas.at(0)!.timestampMs,
+					deltas.at(0)?.timestampMs || 0,
 					sessionChapters[sid].firstDeltaTimestampMs
 				);
 				sessionChapters[sid].lastDeltaTimestampMs = Math.max(
-					deltas.at(-1)!.timestampMs,
+					deltas.at(-1)?.timestampMs || 0,
 					sessionChapters[sid].lastDeltaTimestampMs
 				);
 				sessionChapters[sid].totalDurationMs =
@@ -122,7 +133,7 @@
 			let dayChapters = Object.entries(sessionChapters)
 				.filter(([sid, chapter]) => {
 					let chapterDay = dateToYmd(new Date(chapter.firstDeltaTimestampMs));
-					return chapterDay === currentDay;
+					return chapterDay === $currentDay;
 				})
 				// filter to chapters with more than 0 files
 				.filter(([, chapter]) => Object.keys(chapter.files).length > 0)
@@ -130,7 +141,7 @@
 				.sort((a, b) => a.firstDeltaTimestampMs - b.firstDeltaTimestampMs);
 
 			// process the playlist metadata
-			dayPlaylist[currentDay] = processDayPlaylist(dayChapters);
+			dayPlaylist[$currentDay] = processDayPlaylist(dayChapters);
 		});
 
 		listFiles({
@@ -142,11 +153,9 @@
 					sessionFiles[sid][filepath] = files[filepath];
 				}
 			});
-			setTimeout(() => {
-				currentPlayerValue = 0;
-			}, 1000);
+			currentDeltasIndex = 0;
 		});
-	}
+	};
 
 	function processDayPlaylist(dayChapters: VideoChapter[]): DayVideo {
 		let editCount = dayChapters.reduce((acc, chapter) => acc + chapter.editCount, 0);
@@ -211,20 +220,18 @@
 
 	function selectDay(day: string) {
 		return () => {
-			console.log('select day', day);
-			currentDay = day;
+			$currentDay = day;
 			showLatest = false;
-			currentPlayerValue = 0;
+			currentDeltasIndex = 0;
 			stop();
 		};
 	}
 
 	function selectLatest() {
 		return () => {
-			console.log('select latest', Object.keys(sessionDays)[0]);
 			showLatest = true;
-			currentDay = Object.keys(sessionDays)[0]; // get latest day
-			currentPlayerValue = 0;
+			$currentDay = Object.keys($sessionDays)[0]; // get latest day
+			currentDeltasIndex = 0;
 			stop();
 		};
 	}
@@ -241,8 +248,8 @@
 	let currentPlaylist: DayVideo | null = null;
 	let currentEdit: EditFrame | null = null;
 
-	$: if (currentDay && dayPlaylist && dayPlaylist[currentDay]) {
-		currentPlaylist = dayPlaylist[currentDay];
+	$: if (currentDay && dayPlaylist && dayPlaylist[$currentDay]) {
+		currentPlaylist = dayPlaylist[$currentDay];
 		if (currentPlaylist !== null) {
 			if (showLatest) {
 				// make currentPlaylist.chapters just the last chapter
@@ -269,11 +276,11 @@
 		let priorDeltas: Delta[] = [];
 		currentEdit = null;
 		currentPlaylist?.chapters.forEach((chapter) => {
-			if (currentEdit == null && currentPlayerValue < totalEdits + chapter.editCount) {
-				let thisEdit = chapter.edits[currentPlayerValue - totalEdits];
+			if (currentEdit == null && currentDeltasIndex < totalEdits + chapter.editCount) {
+				let thisEdit = chapter.edits[currentDeltasIndex - totalEdits];
 				priorDeltas = priorDeltas.concat(
 					chapter.edits
-						.slice(0, currentPlayerValue - totalEdits)
+						.slice(0, currentDeltasIndex - totalEdits)
 						.filter((edit) => edit.filepath == thisEdit?.filepath)
 						.map((edit) => edit.delta)
 				);
@@ -325,15 +332,15 @@
 	};
 
 	const changePlayerValue = (amount: number) => {
-		if (currentPlayerValue !== null) {
-			currentPlayerValue += amount;
-			if (currentPlayerValue < 0) {
-				currentPlayerValue = 0;
-			} else if (currentPlaylist && currentPlayerValue >= currentPlaylist.editCount) {
-				currentPlayerValue = currentPlaylist.editCount - 1;
+		if (currentDeltasIndex !== null) {
+			currentDeltasIndex += amount;
+			if (currentDeltasIndex < 0) {
+				currentDeltasIndex = 0;
+			} else if (currentPlaylist && currentDeltasIndex >= currentPlaylist.editCount) {
+				currentDeltasIndex = currentPlaylist.editCount - 1;
 			}
 		} else {
-			currentPlayerValue = 0;
+			currentDeltasIndex = 0;
 		}
 	};
 
@@ -364,10 +371,10 @@
 {:else if currentPlaylist !== null}
 	<div id="player-page" class="flex h-full w-full">
 		<div class="flex h-full w-full flex-col">
-			{#if fileFilter}
-				<div class="w-full p-2 font-mono text-lg" on:click={() => (fileFilter = null)}>
-					{fileFilter}
-				</div>
+			{#if $fileFilter}
+				<button class="w-full p-2 font-mono text-lg" on:click={resetFileFilter}>
+					{$fileFilter}
+				</button>
 			{/if}
 			<div class="flex h-full w-full flex-row">
 				<div id="left" class="day-of-week flex h-full flex-shrink-0 flex-col p-2 pb-1">
@@ -381,12 +388,13 @@
 						>
 							<div class="">Latest</div>
 						</div>
-						{#each Object.entries(sessionDays) as [day, sessions]}
+						{#each Object.entries($sessionDays) as [day, sessions]}
 							<div
-								class="card-day-of-week mb-2 border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 text-zinc-300 {day ==
-									currentDay && !showLatest
-									? 'border-gb-700 bg-gb-800 text-white'
-									: 'border-gb-700 bg-gb-900'} flex cursor-pointer flex-col rounded border p-2 pb-1 text-center shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
+								class:bg-gb-800={day == $currentDay && !showLatest}
+								class:text-white={day == $currentDay && !showLatest}
+								class:border-gb-700={day !== $currentDay && !showLatest}
+								class:bg-gb-900={day !== $currentDay && !showLatest}
+								class="card-day-of-week mb-2  flex cursor-pointer flex-col rounded border border-t-[0.5px] border-r-[0.5px]  border-b-[0.5px] border-l-[0.5px] border-gb-700 border-gb-700 p-2 pb-1 text-center text-zinc-300 shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
 								on:keydown={handleKey}
 								on:click={selectDay(day)}
 							>
@@ -454,7 +462,7 @@
 									<div
 										on:keydown={handleKey}
 										on:click={() => {
-											currentPlayerValue = Math.max(
+											currentDeltasIndex = Math.max(
 												currentPlaylist.editOffsets[chapter.session],
 												1
 											);
@@ -486,7 +494,7 @@
 				>
 					<div class="relative flex h-full w-full flex-col gap-2 ">
 						<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">
-							{#if dayPlaylist[currentDay] !== undefined}
+							{#if dayPlaylist[$currentDay] !== undefined}
 								{#if currentEdit !== null}
 									<CodeViewer
 										doc={currentEdit.doc}
@@ -540,7 +548,7 @@
 										class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
 										max={currentPlaylist.editCount - 1}
 										step="1"
-										bind:value={currentPlayerValue}
+										bind:value={currentDeltasIndex}
 									/>
 								</div>
 
