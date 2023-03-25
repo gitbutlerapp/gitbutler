@@ -90,9 +90,9 @@
 		return { html: content, highlighted };
 	};
 
-	$: rows = diffRows.rows.map((row) => ({ ...row, render: renderRowContent(row) }));
+	$: renderedRows = diffRows.rows.map((row) => ({ ...row, render: renderRowContent(row) }));
 
-	type RenderedRow = (typeof rows)[0];
+	type RenderedRow = (typeof renderedRows)[0];
 
 	const padHighlighted = (rows: RenderedRow[]): RenderedRow[] => {
 		const chunks: (RenderedRow[] | RenderedRow)[] = [];
@@ -168,35 +168,48 @@
 		}
 		return chunks.flatMap((chunk) => chunk);
 	};
+
+	$: rows = highlight.length > 0 ? padHighlighted(renderedRows) : renderedRows;
+	$: originalLineNumberDigits = String(rows.at(-1)?.originalLineNumber || '0').length;
+	$: currentLineNumberDigits = String(rows.at(-1)?.currentLineNumber || '0').length;
 </script>
 
-<div class="diff-listing w-full select-text whitespace-pre font-mono">
-	{#each highlight.length > 0 ? padHighlighted(rows) : rows as row}
-		{@const baseNumber =
-			row.type === RowType.Equal || row.type === RowType.Deletion
-				? String(row.originalLineNumber)
-				: ''}
-		{@const curNumber =
-			row.type === RowType.Equal || row.type === RowType.Addition
-				? String(row.currentLineNumber)
-				: ''}
-		<div class="select-none pr-1 pl-2.5 text-right text-[#8C8178]">{baseNumber}</div>
-		<div class="select-none pr-1 pl-2.5 text-right text-[#8C8178]">{curNumber}</div>
-		<div
-			class="diff-line-marker"
-			class:diff-line-addition={row.type === RowType.Addition}
-			class:diff-line-deletion={row.type === RowType.Deletion}
-		>
-			{row.type === RowType.Addition ? '+' : row.type === RowType.Deletion ? '-' : ''}
-		</div>
-		<div
-			class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
-			class="px-1 diff-line-{row.type}"
-			data-line-number={curNumber}
-		>
-			{#each row.render.html as content}
-				{@html content}
-			{/each}
-		</div>
-	{/each}
-</div>
+<table class="w-full whitespace-pre font-mono">
+	<tbody>
+		{#each rows as row}
+			{@const baseNumber =
+				row.type === RowType.Equal || row.type === RowType.Deletion
+					? String(row.originalLineNumber)
+					: ''}
+			{@const curNumber =
+				row.type === RowType.Equal || row.type === RowType.Addition
+					? String(row.currentLineNumber)
+					: ''}
+			<tr>
+				<td
+					class="pr-1 pl-2.5 min-w-[{originalLineNumberDigits}ch] text-right text-[#8C8178] before:content-[attr(data-line-number)]"
+					data-line-number={baseNumber}
+				/>
+				<td
+					class="pr-1 pl-2.5 min-w-[{currentLineNumberDigits}ch] text-right text-[#8C8178] before:content-[attr(data-line-number)]"
+					data-line-number={curNumber}
+				/>
+				<td
+					class="px-1.5 before:content-[attr(data-marker)]"
+					class:diff-line-addition={row.type === RowType.Addition}
+					class:diff-line-deletion={row.type === RowType.Deletion}
+					data-marker={row.type === RowType.Addition
+						? '+'
+						: row.type === RowType.Deletion
+						? '-'
+						: ' '}
+				/>
+				<td class="px-1 diff-line-{row.type}">
+					{#each row.render.html as content}
+						{@html content}
+					{/each}
+				</td>
+			</tr>
+		{/each}
+	</tbody>
+</table>

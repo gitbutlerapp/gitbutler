@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BaseDialog from './BaseDialog.svelte';
+	import Modal from '../Modal.svelte';
 	import { currentProject } from '$lib/current_project';
 	import { getContext } from 'svelte';
 	import type { Readable } from 'svelte/store';
@@ -168,7 +168,7 @@
 	});
 </script>
 
-<BaseDialog on:close>
+<Modal on:close>
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div class="flex h-[640px] w-[640px] flex-col rounded text-zinc-400" on:click|stopPropagation>
 		<!-- Search input area -->
@@ -245,4 +245,4 @@
 			{/each}
 		</div>
 	</div>
-</BaseDialog>
+</Modal>
