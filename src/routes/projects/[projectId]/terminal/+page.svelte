@@ -3,19 +3,58 @@
 	import 'xterm/css/xterm.css';
 	import * as xterm from 'xterm';
 	import * as fit from 'xterm-addon-fit';
+	import { CanvasAddon } from 'xterm-addon-canvas';
+	import { WebglAddon } from 'xterm-addon-webgl';
+	import { LigaturesAddon } from 'xterm-addon-ligatures';
+	import { Unicode11Addon } from 'xterm-addon-unicode11';
 	import ResizeObserver from 'svelte-resize-observer';
+	import type { PageData } from './$types';
+	import { shortPath } from '$lib/paths';
 
 	let terminalElement: HTMLElement;
 	let terminalController: xterm.Terminal;
 	let termFit: fit.FitAddon;
 	let ptyWebSocket: WebSocket;
+	let addons: object;
+
+	export let data: PageData;
+	const { user, filesStatus } = data;
+
 	const PTY_WS_ADDRESS = 'ws://127.0.0.1:7703';
 
+	const webglIsSupported = () => {
+		// looks like xterm-addon-webgl is not working with webgl2
+		var canvas = document.createElement('canvas');
+		var gl = canvas.getContext('webgl2');
+		if (gl && gl instanceof WebGL2RenderingContext) {
+			return true;
+		} else {
+			return false;
+		}
+	};
+
 	function initalizeXterm() {
-		terminalController = new xterm.Terminal();
+		terminalController = new xterm.Terminal({
+			cursorBlink: false,
+			cursorStyle: 'block',
+			fontSize: 13,
+			rows: 24,
+			cols: 80,
+			allowProposedApi: true
+		});
+
+		terminalController.loadAddon(new Unicode11Addon());
+		terminalController.unicode.activeVersion = '11';
+
 		termFit = new fit.FitAddon();
 		terminalController.loadAddon(termFit);
+		if (webglIsSupported()) {
+			terminalController.loadAddon(new WebglAddon());
+		} else {
+			terminalController.loadAddon(new CanvasAddon());
+		}
 		terminalController.open(terminalElement);
+		terminalController.loadAddon(new LigaturesAddon());
 		termFit.fit();
 		terminalController.onData((data) => termInterfaceHandleUserInputData(data));
 		focus();
@@ -40,12 +79,15 @@
 			alert('unknown data type ' + evt.data);
 			return;
 		}
+		console.log('terminal input', evt.data);
 		const dataString: string = arrayBufferToString(evt.data.slice(1));
+		console.log('terminal input string', dataString);
 		terminalController.write(dataString);
 		return dataString;
 	};
 
 	const termInterfaceHandleUserInputData = (data: string) => {
+		console.log('user input', data);
 		const encodedData = new TextEncoder().encode('\x00' + data);
 		ptyWebSocket.send(encodedData);
 	};
@@ -74,20 +116,28 @@
 		if (termFit) {
 			termFit.fit();
 		}
-		focus();
 	}
 </script>
 
 <!-- Actual terminal -->
-<div
-	id="terminal"
-	class="w-full h-full"
-	bind:this={terminalElement}
-	on:click={focus}
-	on:keydown={focus}
-/>
-
-<!-- Resize observer -->
-<div class="absolute top-0 bottom-0 left-0 right-0">
+<div class="flex flex-row w-full h-full">
+	<div class="w-80">
+		<div>Git Status</div>
+		{#if $filesStatus}
+			{#each $filesStatus as activity}
+				<li class="list-disc">
+					{activity.status.slice(0, 1)}
+					{shortPath(activity.path)}
+				</li>
+			{/each}
+		{/if}
+	</div>
+	<div
+		id="terminal"
+		class="w-full h-full"
+		bind:this={terminalElement}
+		on:click={focus}
+		on:keydown={focus}
+	/>
 	<ResizeObserver on:resize={handleTermResize} />
 </div>

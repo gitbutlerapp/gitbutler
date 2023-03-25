@@ -62,7 +62,11 @@ specifiers:
   typescript: ^4.8.4
   vite: ^4.0.0
   xterm: ^5.1.0
+  xterm-addon-canvas: ^0.3.0
   xterm-addon-fit: ^0.7.0
+  xterm-addon-ligatures: ^0.6.0
+  xterm-addon-unicode11: ^0.5.0
+  xterm-addon-webgl: ^0.14.0
 
 dependencies:
   '@codemirror/autocomplete': 6.4.2_lc2v3dpzp2l5pdzwtgfaudkm3e
@@ -104,7 +108,11 @@ dependencies:
   tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/05a9bfd9edb9b5f4ab95412bb607691708b65a25
   tinykeys: 1.4.0
   xterm: 5.1.0
+  xterm-addon-canvas: 0.3.0_xterm@5.1.0
   xterm-addon-fit: 0.7.0_xterm@5.1.0
+  xterm-addon-ligatures: 0.6.0_xterm@5.1.0
+  xterm-addon-unicode11: 0.5.0_xterm@5.1.0
+  xterm-addon-webgl: 0.14.0_xterm@5.1.0
 
 devDependencies:
   '@sveltejs/adapter-static': 1.0.0-next.50_l5ueyfihz3gpzzvvyo2ean5u3e
@@ -1603,6 +1611,23 @@ packages:
     resolution: {integrity: sha512-5nqDSxl8nn5BSNxyR3n4I6eDmbolI6WT+QqR547RwxQapgjQBmtktdP+HTBb/a/zLsbzERTONyUB5pefh5TtjQ==}
     dev: true
 
+  /font-finder/1.1.0:
+    resolution: {integrity: sha512-wpCL2uIbi6GurJbU7ZlQ3nGd61Ho+dSU6U83/xJT5UPFfN35EeCW/rOtS+5k+IuEZu2SYmHzDIPL9eA5tSYRAw==}
+    engines: {node: '>8.0.0'}
+    dependencies:
+      get-system-fonts: 2.0.2
+      promise-stream-reader: 1.0.1
+    dev: false
+
+  /font-ligatures/1.4.1:
+    resolution: {integrity: sha512-7W6zlfyhvCqShZ5ReUWqmSd9vBaUudW0Hxis+tqUjtHhsPU+L3Grf8mcZAtCiXHTzorhwdRTId2WeH/88gdFkw==}
+    engines: {node: '>8.0.0'}
+    dependencies:
+      font-finder: 1.1.0
+      lru-cache: 6.0.0
+      opentype.js: 0.8.0
+    dev: false
+
   /fraction.js/4.2.0:
     resolution: {integrity: sha512-MhLuK+2gUcnZe8ZHlaaINnQLl0xRIGRfcGk2yl8xoQAfHrSsL3rYu6FCmBdkdbhc9EPlwyGHewaRsvwRMJtAlA==}
     dev: true
@@ -1622,6 +1647,11 @@ packages:
   /function-bind/1.1.1:
     resolution: {integrity: sha512-yIovAzMX49sF8Yl58fSCWJ5svSLuaibPxXQJFLmBObTuCr0Mf1KiPopGM9NiFjiYBCbfaa2Fh6breQ6ANVTI0A==}
     dev: true
+
+  /get-system-fonts/2.0.2:
+    resolution: {integrity: sha512-zzlgaYnHMIEgHRrfC7x0Qp0Ylhw/sHpM6MHXeVBTYIsvGf5GpbnClB+Q6rAPdn+0gd2oZZIo6Tj3EaWrt4VhDQ==}
+    engines: {node: '>8.0.0'}
+    dev: false
 
   /glob-parent/5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
@@ -1844,7 +1874,6 @@ packages:
     engines: {node: '>=10'}
     dependencies:
       yallist: 4.0.0
-    dev: true
 
   /magic-string/0.27.0:
     resolution: {integrity: sha512-8UnnX2PeRAPZuN12svgR9j7M1uWMovg/CEnIwIG0LFkXSJJe4PdfUGiTGl8V9bsBHFUtfVINcSyYxd7q+kx9fA==}
@@ -1964,6 +1993,13 @@ packages:
     dependencies:
       wrappy: 1.0.2
     dev: true
+
+  /opentype.js/0.8.0:
+    resolution: {integrity: sha512-FQHR4oGP+a0m/f6yHoRpBOIbn/5ZWxKd4D/djHVJu8+KpBTYrJda0b7mLcgDEMWXE9xBCJm+qb0yv6FcvPjukg==}
+    hasBin: true
+    dependencies:
+      tiny-inflate: 1.0.3
+    dev: false
 
   /optionator/0.9.1:
     resolution: {integrity: sha512-74RlY5FCnhq4jRxVUPKDaRwrVNXMqsGsiW6AJw4XK8hmtm10wC0ypZBLw5IIp85NZMr91+qd1RvvENwg7jjRFw==}
@@ -2206,6 +2242,11 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
     dev: true
+
+  /promise-stream-reader/1.0.1:
+    resolution: {integrity: sha512-Tnxit5trUjBAqqZCGWwjyxhmgMN4hGrtpW3Oc/tRI4bpm/O2+ej72BB08l6JBnGQgVDGCLvHFGjGgQS6vzhwXg==}
+    engines: {node: '>8.0.0'}
+    dev: false
 
   /punycode/2.3.0:
     resolution: {integrity: sha512-rRV+zQD8tVFys26lAGR9WUuS4iUAngJScM+ZRSKtvl5tKeZ2t5bvdNFdNHBW9FWR4guGHlgmsZ1G7BSm2wTbuA==}
@@ -2560,6 +2601,10 @@ packages:
       globrex: 0.1.2
     dev: true
 
+  /tiny-inflate/1.0.3:
+    resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
+    dev: false
+
   /tinykeys/1.4.0:
     resolution: {integrity: sha512-ysnVd2E4nWbNXIbHaUidcKGLTmNimqP0hdpsD0Ph5hPJ84ntCF6PHj+Jg3im9nZt9/hNsBg/E6m1psHc2KaPnQ==}
     dev: false
@@ -2710,8 +2755,43 @@ packages:
     engines: {node: '>=0.4'}
     dev: true
 
+  /xterm-addon-canvas/0.3.0_xterm@5.1.0:
+    resolution: {integrity: sha512-2deF4ev6T+NjgSM56H+jcAWz4k5viEoaBtuDEyfo5Qdh1r7HOvNzLC45HSeegdH38qmEcL9XIt0KXyOINpSFRA==}
+    peerDependencies:
+      xterm: ^5.0.0
+    dependencies:
+      xterm: 5.1.0
+    dev: false
+
   /xterm-addon-fit/0.7.0_xterm@5.1.0:
     resolution: {integrity: sha512-tQgHGoHqRTgeROPnvmtEJywLKoC/V9eNs4bLLz7iyJr1aW/QFzRwfd3MGiJ6odJd9xEfxcW36/xRU47JkD5NKQ==}
+    peerDependencies:
+      xterm: ^5.0.0
+    dependencies:
+      xterm: 5.1.0
+    dev: false
+
+  /xterm-addon-ligatures/0.6.0_xterm@5.1.0:
+    resolution: {integrity: sha512-DxiYCXXYEpnwr8li4/QhG64exjrLX1nHBfNNfrQgx5e8Z9tK2SjWKpxI6PZEy++8+YdL1F7VjWI4aKOaDt2VVw==}
+    engines: {node: '>8.0.0'}
+    peerDependencies:
+      xterm: ^5.0.0
+    dependencies:
+      font-finder: 1.1.0
+      font-ligatures: 1.4.1
+      xterm: 5.1.0
+    dev: false
+
+  /xterm-addon-unicode11/0.5.0_xterm@5.1.0:
+    resolution: {integrity: sha512-Jm4/g4QiTxiKiTbYICQgC791ubhIZyoIwxAIgOW8z8HWFNY+lwk+dwaKEaEeGBfM48Vk8fklsUW9u/PlenYEBg==}
+    peerDependencies:
+      xterm: ^5.0.0
+    dependencies:
+      xterm: 5.1.0
+    dev: false
+
+  /xterm-addon-webgl/0.14.0_xterm@5.1.0:
+    resolution: {integrity: sha512-zcxL4RVVjeS7NNFeKe5HHQI8OUEx3wZpE4EqLoTVipa2UrTR+qLsigo16UEp/yVcYBMhK7tsJ/AJokoEe/f0mw==}
     peerDependencies:
       xterm: ^5.0.0
     dependencies:
@@ -2724,7 +2804,6 @@ packages:
 
   /yallist/4.0.0:
     resolution: {integrity: sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==}
-    dev: true
 
   /yaml/1.10.2:
     resolution: {integrity: sha512-r3vXyErRCYJ7wg28yvBY5VSoAF8ZvlcW9/BwUzEtUsjvX/DKs24dIkuwjtuprwJJHsbyUbLApepYTR1BN4uHrg==}

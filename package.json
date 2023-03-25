@@ -52,7 +52,11 @@
 		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
 		"tinykeys": "^1.4.0",
 		"xterm": "^5.1.0",
-		"xterm-addon-fit": "^0.7.0"
+		"xterm-addon-canvas": "^0.3.0",
+		"xterm-addon-fit": "^0.7.0",
+		"xterm-addon-ligatures": "^0.6.0",
+		"xterm-addon-unicode11": "^0.5.0",
+		"xterm-addon-webgl": "^0.14.0"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "next",
