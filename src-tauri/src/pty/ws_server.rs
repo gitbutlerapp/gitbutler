@@ -80,6 +80,7 @@ async fn handle_client(stream: TcpStream) {
         let prompt_command_scripts = format!(r#"echo -en "\033]0; [manter] "{}" \a""#, scripts_str);
 
         let mut cmd = CommandBuilder::new(user_default_shell);
+        cmd.cwd("/Users/scottchacon/projects/gitbutler-client");
         cmd.env("PROMPT_COMMAND", prompt_command_scripts);
         cmd.env("TERM", TERM);
         cmd.args(["-i"]);

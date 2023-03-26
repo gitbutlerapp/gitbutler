@@ -15,7 +15,6 @@
 	let terminalController: xterm.Terminal;
 	let termFit: fit.FitAddon;
 	let ptyWebSocket: WebSocket;
-	let addons: object;
 
 	export let data: PageData;
 	const { user, filesStatus } = data;
@@ -117,6 +116,13 @@
 			termFit.fit();
 		}
 	}
+
+	function runCommand(command: string) {
+		command = command + '\r';
+		console.log('command input', command);
+		const encodedData = new TextEncoder().encode('\x00' + command);
+		ptyWebSocket.send(encodedData);
+	}
 </script>
 
 <!-- Actual terminal -->
@@ -131,6 +137,11 @@
 				</li>
 			{/each}
 		{/if}
+		<hr />
+		<div>Commands</div>
+		<ul>
+			<li on:click={() => runCommand('git push')}>git push</li>
+		</ul>
 	</div>
 	<div
 		id="terminal"
