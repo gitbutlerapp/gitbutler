@@ -6,12 +6,7 @@
 	export let data: PageData;
 	const { user, filesStatus } = data;
 
-	function runCommand(command: string) {
-		command = command + '\r';
-		console.log('command input', command);
-		const encodedData = new TextEncoder().encode('\x00' + command);
-		//ptyWebSocket.send(encodedData);
-	}
+	let terminal: Terminal;
 
 	function changeTab(tabName: string) {
 		const tabs = document.querySelectorAll('.tab');
@@ -22,12 +17,16 @@
 		document.querySelector(`#${tabName}`)?.classList.remove('hidden');
 		console.log('show tab', document.querySelector(`#${tabName}`));
 	}
+
+	function runCommand(command: string) {
+		terminal.runCommand(command);
+	}
 </script>
 
 <!-- Actual terminal -->
 <div class="flex flex-row w-full h-full">
-	<div class="w-80">
-		<div>Git Status</div>
+	<div class="w-80 p-2">
+		<div class="p-2 font-bold">Git Status</div>
 		{#if $filesStatus}
 			{#each $filesStatus as activity}
 				<li class="list-disc">
@@ -36,10 +35,10 @@
 				</li>
 			{/each}
 		{/if}
-		<hr />
-		<div>Commands</div>
-		<ul>
-			<li on:click={() => runCommand('git push')}>git push</li>
+
+		<div class="mt-4 p-2 font-bold">Commands</div>
+		<ul class="px-2">
+			<li class="cursor-pointer" on:click={() => runCommand('git push')}>git push</li>
 		</ul>
 	</div>
 	<div class="w-full h-full">
@@ -53,7 +52,7 @@
 		</div>
 		<div class="h-full w-full overflow-auto">
 			<div class="tab h-full" id="tab-1">
-				<Terminal />
+				<Terminal bind:this={terminal} />
 			</div>
 			<div class="tab h-full hidden" id="tab-2">
 				<Terminal />

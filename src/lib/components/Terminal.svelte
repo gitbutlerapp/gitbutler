@@ -8,7 +8,6 @@
 	import { LigaturesAddon } from 'xterm-addon-ligatures';
 	import { Unicode11Addon } from 'xterm-addon-unicode11';
 	import ResizeObserver from 'svelte-resize-observer';
-	import { shortPath } from '$lib/paths';
 
 	let terminalElement: HTMLElement;
 	let terminalController: xterm.Terminal;
@@ -115,12 +114,12 @@
 		}
 	}
 
-	function runCommand(command: string) {
+	export const runCommand = (command: string): void => {
 		command = command + '\r';
 		console.log('command input', command);
 		const encodedData = new TextEncoder().encode('\x00' + command);
 		ptyWebSocket.send(encodedData);
-	}
+	};
 </script>
 
 <!-- Actual terminal -->
