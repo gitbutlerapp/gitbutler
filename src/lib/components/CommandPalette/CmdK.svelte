@@ -14,6 +14,7 @@
 	import { invoke } from '@tauri-apps/api';
 	import { createEventDispatcher } from 'svelte';
 	import { RewindIcon } from '$lib/components/icons';
+	import { GitCommitIcon } from '$lib/components/icons';
 
 	const dispatch = createEventDispatcher();
 
@@ -91,7 +92,7 @@
 					action: {
 						component: Commit
 					},
-					icon: RewindIcon,
+					icon: GitCommitIcon,
 					visible: 'commit'.includes(userInput?.toLowerCase())
 				},
 				{
