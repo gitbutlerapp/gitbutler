@@ -16,13 +16,13 @@ export type Command = {
 	action: Action;
 	selected: boolean;
 	visible: boolean;
+	icon: ComponentType;
 };
 export type CommandGroup = {
 	name: string;
 	description?: string;
 	visible: boolean;
 	commands: Command[];
-	icon: ComponentType;
 };
 
 export const firstVisibleCommand = (commandGroups: CommandGroup[]): [number, number] => {
