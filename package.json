@@ -10,9 +10,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --plugin-search-dir . --check . && eslint .",
 		"format": "prettier --plugin-search-dir . --write .",
-		"tauri": "tauri",
-		"storybook": "storybook dev -p 6006",
-		"build-storybook": "storybook build"
+		"tauri": "tauri"
 	},
 	"dependencies": {
 		"@codemirror/autocomplete": "^6.4.2",
@@ -54,13 +52,6 @@
 		"tinykeys": "^1.4.0"
 	},
 	"devDependencies": {
-		"@storybook/addon-essentials": "^7.0.0-rc.8",
-		"@storybook/addon-interactions": "^7.0.0-rc.8",
-		"@storybook/addon-links": "^7.0.0-rc.8",
-		"@storybook/blocks": "^7.0.0-rc.8",
-		"@storybook/svelte": "^7.0.0-rc.8",
-		"@storybook/sveltekit": "^7.0.0-rc.8",
-		"@storybook/testing-library": "^0.0.14-next.1",
 		"@sveltejs/adapter-static": "next",
 		"@sveltejs/kit": "next",
 		"@tauri-apps/cli": "^1.2.2",
@@ -71,16 +62,12 @@
 		"autoprefixer": "^10.4.7",
 		"eslint": "^8.28.0",
 		"eslint-config-prettier": "^8.5.0",
-		"eslint-plugin-storybook": "^0.6.11",
 		"eslint-plugin-svelte3": "^4.0.0",
 		"postcss": "^8.4.14",
 		"postcss-load-config": "^4.0.1",
 		"prettier": "^2.8.0",
 		"prettier-plugin-svelte": "^2.8.1",
 		"prettier-plugin-tailwindcss": "^0.2.4",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0",
-		"storybook": "^7.0.0-rc.8",
 		"svelte": "^3.55.1",
 		"svelte-check": "^3.0.1",
 		"tailwindcss": "^3.1.5",
