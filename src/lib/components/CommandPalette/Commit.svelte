@@ -23,7 +23,9 @@
 		push: boolean;
 	}) => invoke<boolean>('git_commit', params);
 
+	let modal: Modal;
 	onMount(() => {
+		modal.show();
 		listFiles({ projectId: $currentProject?.id || '' }).then((files) => {
 			changedFiles = files;
 		});
@@ -55,7 +57,7 @@
 	}
 </script>
 
-<Modal on:close>
+<Modal on:close bind:this={modal}>
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div class="flex flex-col rounded text-zinc-400" on:click|stopPropagation>
 		<div class="mb-4 w-full border-b border-zinc-700 p-4 text-lg text-white">

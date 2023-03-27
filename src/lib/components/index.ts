@@ -6,3 +6,4 @@ export { default as CommandPalette } from './CommandPalette';
 export { default as Modal } from './Modal.svelte';
 export { default as Button } from './Button.svelte';
 export { default as ButtonGroup } from './ButtonGroup.svelte';
+export { default as Dialog } from './Dialog.svelte';

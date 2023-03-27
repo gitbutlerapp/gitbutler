@@ -1,26 +1,45 @@
 <script lang="ts">
 	import { scale } from 'svelte/transition';
 	let dialog: HTMLDialogElement;
-	import { onMount } from 'svelte';
 
-	onMount(() => {
+	export const show = () => {
 		dialog.showModal();
-	});
+	};
+	export const hide = () => {
+		dialog.close();
+	};
 </script>
+
+<!--
+@component
+In most cases, you should use the Dialog component, which builds on top of this, instead of this one.
+This is a base Modal component which makes sure that all mouse and keyboard events are handled correctly.
+It does minimal styling. A close event is fired when the modal is closed.
+
+- Usage:
+  ```tsx
+<Modal on:close>
+	your content slotted in
+</Modal>
+  ```
+-->
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <dialog
-	class="w-[640px] 
-    overflow-hidden rounded-lg
-    border-[0.5px] border-[#3F3F3F] bg-zinc-900/70
-    p-0
-	shadow-lg
-	backdrop-blur-xl
-    "
+	class="modal p-0 shadow-lg"
 	in:scale={{ duration: 150 }}
 	bind:this={dialog}
-	on:click|self={() => dialog.close()}
+	on:click|self={hide}
 	on:close
 >
 	<slot />
 </dialog>
+
+<style>
+	.modal {
+		background: rgba(60, 60, 68, 0.6);
+		border: 1px solid rgba(63, 63, 63, 0.5);
+		backdrop-filter: blur(10px);
+		border-radius: 8px;
+	}
+</style>

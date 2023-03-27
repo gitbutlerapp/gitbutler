@@ -152,7 +152,9 @@
 
 	let unsubscribeKeyboardHandler: () => void;
 
+	let modal: Modal;
 	onMount(() => {
+		modal.show();
 		unsubscribeKeyboardHandler = tinykeys(window, {
 			Backspace: () => {
 				if (!userInput) {
@@ -182,7 +184,7 @@
 	});
 </script>
 
-<Modal on:close>
+<Modal on:close bind:this={modal}>
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div
 		class="commnand-palette flex max-h-[360px] w-[640px] flex-col rounded text-zinc-400"
