@@ -257,7 +257,9 @@
 												<svelte:component this={command.icon} />
 											</span>
 											<span class="quick-command flex-grow">{command.title}</span>
-											<span class="quick-command-key">{command.description}</span>
+											{#each command.description.split(' ') as token}
+												<span class="quick-command-key">{token}</span>
+											{/each}
 										</div>
 									{/if}
 								{/if}
