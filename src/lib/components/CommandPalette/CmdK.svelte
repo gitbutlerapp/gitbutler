@@ -101,7 +101,7 @@
 					action: {
 						component: Replay
 					},
-					icon: 'RewindIcon',
+					icon: RewindIcon,
 					visible: 'replay history'.includes(userInput?.toLowerCase())
 				}
 			]
@@ -237,7 +237,7 @@
 												: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none gap-2"
 										>
 											<span class="quick-command-icon">
-												{command.icon}
+												<svelte:component this={command.icon} />
 											</span>
 											<span class="quick-command flex-grow">{command.title}</span>
 											<span class="quick-command-key ">{command.description}</span>
