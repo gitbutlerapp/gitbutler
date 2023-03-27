@@ -202,7 +202,7 @@
 
 <article
 	id="activities"
-	class="flex h-full h-full w-80 flex-shrink-0 flex-col rounded border-[0.5px] border-gb-700 bg-gb-900 xl:w-96"
+	class="my-2 flex w-80 flex-shrink-0 flex-col rounded border-[0.5px] border-gb-700 bg-gb-900 xl:w-96"
 >
 	{#await richSessions.load()}
 		<div class="flex h-full flex-col items-center justify-center">
@@ -270,7 +270,7 @@
 	{/await}
 </article>
 
-<div id="player" class="flex-auto overflow-auto rounded border border-zinc-700 bg-gb-900 ">
+<div id="player" class="my-2 flex-auto overflow-auto rounded border border-zinc-700 bg-gb-900 ">
 	{#if $frame}
 		<div class="relative flex h-full w-full flex-col gap-2 ">
 			<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">

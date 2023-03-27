@@ -35,8 +35,11 @@
 		</a>
 	{/if}
 
-	<div class="flex h-full w-full flex-auto flex-row gap-2 overflow-auto p-2">
-		<ul id="days" class="flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll">
+	<div class="flex h-full w-full flex-row gap-2 px-2">
+		<ul
+			id="days"
+			class="scrollbar-hidden flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll py-2 pr-[1px]"
+		>
 			{#each $dates as date}
 				<li class="w-full">
 					<a

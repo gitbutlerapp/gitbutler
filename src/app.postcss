@@ -9,6 +9,25 @@
 	-webkit-perspective: 1000;
 }
 
+.scrollbar-hidden::-webkit-scrollbar {
+	-webkit-appearance: none;
+	width: 0;
+	height: 0;
+}
+
+
+
+
+/* COMMAND PALETTE */
+
+.result-section-header {
+	@apply mb-2 mt-2 mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300;
+}
+
+.quick-command-item {
+	@apply gap-2 rounded-lg p-2 px-2 outline-none;
+}
+
 .quick-command-key {
-	@apply shadow bg-[#343338] font-mono px-[3px] rounded-sm border border-[#3A393F] text-[11px];
+	@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
 }
