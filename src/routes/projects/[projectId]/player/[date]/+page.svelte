@@ -14,5 +14,7 @@
 
 	$: firstSession = dateSessions[dateSessions.length - 1];
 
-	onMount(() => goto(`/projects/${projectId}/player/${$page.params.date}/${firstSession.id}`));
+	onMount(() =>
+		goto(`/projects/${projectId}/player/${$page.params.date}/${firstSession.id}${$page.url.search}`)
+	);
 </script>

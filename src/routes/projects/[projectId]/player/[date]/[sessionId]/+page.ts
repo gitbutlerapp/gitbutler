@@ -23,7 +23,7 @@ const enrichSession = async (projectId: string, session: Session) => {
     };
 };
 
-export const load: PageLoad = async ({ params, parent }) => {
+export const load: PageLoad = async ({ params, parent, url }) => {
     const { sessions } = await parent();
     return {
         sessions: asyncDerived(sessions, async (sessions) =>
@@ -31,9 +31,22 @@ export const load: PageLoad = async ({ params, parent }) => {
                 sessions
                     .filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === params.date)
                     .map((session) => enrichSession(params.projectId, session))
-            ).then((sessions) =>
-                sessions.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
-            )
+            ).then((sessions) => {
+                sessions = sessions.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
+                const fileFilter = url.searchParams.get('file');
+                if (fileFilter) {
+                    sessions = sessions
+                        .filter((session) => session.files[fileFilter])
+                        .map((session) => ({
+                            ...session,
+                            deltas: session.deltas.filter(([path]) => path === fileFilter),
+                            files: {
+                                [fileFilter]: session.files[fileFilter]
+                            }
+                        }));
+                }
+                return sessions;
+            })
         )
     };
 };

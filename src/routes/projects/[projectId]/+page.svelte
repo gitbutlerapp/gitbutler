@@ -7,7 +7,6 @@
 	import { invoke } from '@tauri-apps/api';
 	import { toHumanBranchName } from '$lib/branch';
 	import { list as listDeltas } from '$lib/deltas';
-	import { goto } from '$app/navigation';
 	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 
 	export let data: LayoutData;
@@ -18,17 +17,14 @@
 
 	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
 
-	function gotoPlayer(filename: string) {
-		if ($project) {
-			goto(`/projects/${$project.id}/player?file=${encodeURIComponent(filename)}`);
-		}
-	}
-
-	function datePlayerURL(ms: string) {
+	function playerURL(ms: string, file?: string) {
 		let date = new Date(parseInt(ms));
 		let datePass = format(date, 'yyyy-MM-dd');
 
 		if ($project) {
+			if (file) {
+				return `/projects/${$project.id}/player/${datePass}?file=${encodeURIComponent(file)}`;
+			}
 			return `/projects/${$project.id}/player/${datePass}`;
 		}
 	}
@@ -190,7 +186,7 @@
 											})}
 										</div>
 										<div>
-											<a class="text-orange-200" href={datePlayerURL(dateMilliseconds)}
+											<a class="text-orange-200" href={playerURL(dateMilliseconds)}
 												>Replay Changes</a
 											>
 										</div>
@@ -201,7 +197,7 @@
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
 												<div class="w-96 truncate font-mono text-zinc-300">
-													<a class="cursor-pointer" on:click={gotoPlayer(filetime[0])}>
+													<a class="cursor-pointer" href={playerURL(dateMilliseconds, filetime[0])}>
 														{shortPath(filetime[0], 3, 70)}
 													</a>
 												</div>

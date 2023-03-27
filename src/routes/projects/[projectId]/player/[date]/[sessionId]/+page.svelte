@@ -23,9 +23,13 @@
 		if (sessionEl) {
 			sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
+		const changedLines = document.getElementsByClassName('line-changed');
+		if (changedLines.length > 0) {
+			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
 	};
 
-	currentDeltaIndex.subscribe(scrollToSession);
+	currentSessionId.subscribe(scrollToSession);
 
 	page.subscribe((page) => {
 		currentDeltaIndex.set(parseInt(page.url.searchParams.get('delta') || '0'));
@@ -128,6 +132,11 @@
 		}
 	};
 
+	const removeFromSearchParams = (params: URLSearchParams, key: string) => {
+		params.delete(key);
+		return params;
+	};
+
 	const decrementPlayerValue = () => {
 		if ($inputValue > 0) {
 			$inputValue -= 1;
@@ -173,7 +182,10 @@
 					class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
 				>
 					<a
-						href="/projects/{projectId}/player/{$currentDate}/{session.id}?delta=0"
+						href="/projects/{projectId}/player/{$currentDate}/{session.id}?{removeFromSearchParams(
+							$page.url.searchParams,
+							'delta'
+						).toString()}"
 						disabled={isCurrent}
 						class="w-full"
 					>

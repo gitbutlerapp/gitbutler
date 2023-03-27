@@ -56,7 +56,6 @@
 		const name = formData.get('name') as string | undefined;
 		const description = formData.get('description') as string | undefined;
 
-		console.log({ name, description });
 		try {
 			if (name) {
 				const updated = await api.projects.update($user.access_token, $project?.api.repository_id, {
