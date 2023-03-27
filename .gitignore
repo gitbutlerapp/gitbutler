@@ -28,4 +28,3 @@ dist-ssr
 /package
 !.env.example
 vite.config.js.timestamp-*
-.storybook
