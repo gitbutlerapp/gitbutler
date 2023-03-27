@@ -8,3 +8,55 @@
 	-webkit-transform: translate3d(0, 0, 0);
 	-webkit-perspective: 1000;
 }
+
+/* SCROLL BAR STYLING */
+
+/* width */
+::-webkit-scrollbar {
+	width: 8px;
+	margin-right: 2px;
+	padding-right: 2px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+	border-radius: 2px;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+	background: #44444A; 
+	border-radius: 10px;
+	padding-right: 2px;
+	width: 8px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+	background: #6E6E78; 
+}
+.scrollbar-hidden::-webkit-scrollbar {
+	-webkit-appearance: none;
+	width: 0;
+	height: 0;
+}
+
+
+
+/* COMMAND PALETTE */
+
+.result-section-header {
+	@apply mb-2 mt-2 mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300;
+}
+
+.quick-command-item {
+	@apply gap-2 rounded-lg p-2 px-2 outline-none;
+}
+
+.quick-command-key {
+	@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
+}
+
+
+
+
