@@ -34,7 +34,8 @@
 			{$fileFilter}
 		</a>
 	{/if}
-	<div class="flex h-full w-full flex-row gap-2 p-2">
+
+	<div class="flex-auto overflow-auto flex h-full w-full flex-row gap-2 p-2">
 		<ul id="days" class="flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll">
 			{#each $dates as date}
 				<li class="w-full">
