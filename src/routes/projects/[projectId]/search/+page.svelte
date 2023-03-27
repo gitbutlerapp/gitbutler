@@ -5,7 +5,7 @@
 	import { listFiles } from '$lib/sessions';
 	import { asyncDerived } from '@square/svelte-store';
 	import { IconRotateClockwise } from '$lib/components/icons';
-	import { formatDistanceToNow } from 'date-fns';
+	import { format, formatDistanceToNow } from 'date-fns';
 	import { list as listDeltas } from '$lib/deltas';
 	import { CodeViewer } from '$lib/components';
 	import { page } from '$app/stores';
@@ -35,11 +35,15 @@
 				.then((r) => r[filePath] ?? [])
 				.then((d) => d.slice(0, index + 1))
 		]);
+		const date = format(deltas[deltas.length - 1].timestampMs, 'yyyy-MM-dd');
 		return {
 			doc,
 			deltas,
 			filepath: filePath,
-			highlight: highlighted
+			highlight: highlighted,
+			sessionId,
+			projectId,
+			date
 		};
 	};
 
@@ -82,11 +86,14 @@
 			{/if}
 		</figcaption>
 
-		<ul class="search-result-list -mr-14 flex flex-auto flex-col gap-6 pb-6 overflow-auto">
-			{#each $searchResults.page as { doc, deltas, filepath, highlight }}
+		<ul class="search-result-list -mr-14 flex flex-auto flex-col gap-6 overflow-auto pb-6">
+			{#each $searchResults.page as { doc, deltas, filepath, highlight, sessionId, projectId, date }}
 				{@const timestamp = deltas[deltas.length - 1].timestampMs}
 				<li class="search-result mr-14">
-					<div class="flex flex-col gap-2">
+					<a
+						href="/projects/{projectId}/player/{date}/{sessionId}?delta={deltas.length}"
+						class="flex flex-col gap-2"
+					>
 						<p class="flex justify-between text-lg">
 							<span>{filepath}</span>
 							<span>{formatDistanceToNow(timestamp)} ago</span>
@@ -96,7 +103,7 @@
 						>
 							<CodeViewer {doc} {deltas} {filepath} paddingLines={2} {highlight} />
 						</div>
-					</div>
+					</a>
 				</li>
 			{/each}
 
@@ -106,7 +113,7 @@
 					disabled={!$searchResults.havePrev}
 					title="Back"
 					class:text-zinc-50={$searchResults.havePrev}
-					class="border border-zinc-700 border-r-0 rounded-tl-md rounded-bl-md h-9 w-9 hover:bg-zinc-700"
+					class="h-9 w-9 rounded-tl-md rounded-bl-md border border-r-0 border-zinc-700 hover:bg-zinc-700"
 				>
 					<IconChevronLeft class="ml-1 h-5 w-6" />
 				</button>
@@ -115,13 +122,11 @@
 					disabled={!$searchResults.haveNext}
 					title="Next"
 					class:text-zinc-50={$searchResults.haveNext}
-					class="border border-zinc-700 h-9 w-9 rounded-tr-md rounded-br-md border-l hover:bg-zinc-700"
+					class="h-9 w-9 rounded-tr-md rounded-br-md border border-l border-zinc-700 hover:bg-zinc-700"
 				>
 					<IconChevronRight class="ml-1 h-5 w-6" />
 				</button>
 			</nav>
 		</ul>
-
-		
 	{/if}
 </figure>
