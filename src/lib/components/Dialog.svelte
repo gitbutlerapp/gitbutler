@@ -1,0 +1,56 @@
+<script lang="ts">
+	import ButtonGroup from './ButtonGroup.svelte';
+	import Modal from './Modal.svelte';
+
+	export let title: string;
+	export let content: string | undefined = undefined;
+	export let secondaryActionLabel = 'Cancel';
+	export let primaryActionLabel = 'Confirm';
+	export let primaryAction: () => void;
+
+	export let size = 'default';
+
+	let modal: Modal;
+	export const show = () => {
+		modal.show();
+	};
+</script>
+
+<Modal on:close bind:this={modal}>
+	<div
+		class="flex flex-col text-[#D4D4D8] 
+		{size === 'small' ? 'w-[380px]' : size === 'large' ? 'w-[980px]' : 'w-[620px]'}
+    "
+	>
+		<div class="mx-4 my-4 flex">
+			<div class="flex-grow text-[18px]">{title}</div>
+			<button on:click={() => modal.hide()}>
+				<svg
+					width="20"
+					height="20"
+					viewBox="0 0 20 20"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						fill-rule="evenodd"
+						clip-rule="evenodd"
+						d="M15.6569 4.65685C15.364 4.36396 14.8891 4.36396 14.5962 4.65685L10 9.25305L5.40381 4.65685C5.11091 4.36396 4.63604 4.36396 4.34315 4.65685C4.05025 4.94975 4.05025 5.42462 4.34315 5.71751L8.93934 10.3137L4.34315 14.9099C4.05025 15.2028 4.05025 15.6777 4.34315 15.9706C4.63604 16.2635 5.11091 16.2635 5.40381 15.9706L10 11.3744L14.5962 15.9706C14.8891 16.2635 15.364 16.2635 15.6569 15.9706C15.9497 15.6777 15.9497 15.2028 15.6569 14.9099L11.0607 10.3137L15.6569 5.71751C15.9497 5.42462 15.9497 4.94975 15.6569 4.65685Z"
+						fill="#A1A1AA"
+					/>
+				</svg>
+			</button>
+		</div>
+		{#if content}
+			<p class="mx-4 my-4 text-base">{content}</p>
+		{/if}
+		<div class="m-4 flex flex-row-reverse">
+			<ButtonGroup
+				leftLabel={secondaryActionLabel}
+				leftAction={() => modal.hide()}
+				rightLabel={primaryActionLabel}
+				rightAction={primaryAction}
+			/>
+		</div>
+	</div>
+</Modal>

@@ -53,7 +53,9 @@
 
 	let unsubscribeKeyboardHandler: () => void;
 
+	let modal: Modal;
 	onMount(() => {
+		modal.show();
 		unsubscribeKeyboardHandler = tinykeys(window, {
 			Enter: () => {
 				gotoDestination();
@@ -78,7 +80,7 @@
 	});
 </script>
 
-<Modal on:close>
+<Modal on:close bind:this={modal}>
 	<div class="mx-2 cursor-default select-none">
 		<p class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300">
 			Replay working history from...

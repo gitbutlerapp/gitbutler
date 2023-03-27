@@ -5,8 +5,8 @@
 	export let leftAction: () => void;
 	export let rightLabel: string;
 	export let rightAction: () => void;
-	export let middleLabel: string | undefined;
-	export let middleAction: () => void | undefined;
+	export let middleLabel: string | undefined = undefined;
+	export let middleAction: (() => void) | undefined = undefined;
 	export let wide = false;
 </script>
 
