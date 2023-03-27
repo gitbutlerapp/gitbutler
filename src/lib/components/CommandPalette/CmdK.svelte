@@ -86,8 +86,18 @@
 			visible: scopeToProject,
 			commands: [
 				{
-					title: 'Commit',
+					title: 'Quick commit',
 					description: 'C',
+					selected: false,
+					action: {
+						component: Commit
+					},
+					icon: GitCommitIcon,
+					visible: 'commit'.includes(userInput?.toLowerCase())
+				},
+				{
+					title: 'Commit',
+					description: 'Shift C',
 					selected: false,
 					action: {
 						component: Commit
@@ -174,7 +184,10 @@
 
 <Modal on:close>
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<div class="commnand-pallete flex h-[640px] w-[640px] flex-col rounded text-zinc-400" on:click|stopPropagation>
+	<div
+		class="commnand-palette flex max-h-[360px] w-[640px] flex-col rounded text-zinc-400"
+		on:click|stopPropagation
+	>
 		<!-- Search input area -->
 		<div class="search-input flex items-center border-b border-zinc-400/20 py-2">
 			<div class="ml-4 mr-2 flex flex-grow items-center">
@@ -202,17 +215,19 @@
 			</div>
 		</div>
 		<!-- Main part -->
-		<div class="search-results h-[640px] flex-auto overflow-y-auto">
+		<div class="search-results flex-auto overflow-y-auto">
 			{#each commandGroups as group, groupIdx}
 				{#if group.visible}
 					<div class="mx-2 cursor-default select-none">
-						<p class="result-section-header mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300">
+						<p
+							class="result-section-header"
+						>
 							<span>{group.name}</span>
 							{#if group.description}
 								<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
 							{/if}
 						</p>
-						<ul class="section-list text-zinc-300">
+						<ul class="quick-command-list text-zinc-300">
 							{#each group.commands as command, commandIdx}
 								{#if command.visible}
 									{#if Action.isLink(command.action)}
@@ -221,7 +236,8 @@
 											on:focus={() => (selection = [groupIdx, commandIdx])}
 											id={`${groupIdx}-${commandIdx}`}
 											href={command.action.href}
-											class="{selection[0] === groupIdx && selection[1] === commandIdx
+											class="quick-command-item {selection[0] === groupIdx &&
+											selection[1] === commandIdx
 												? 'bg-zinc-700/70'
 												: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
 										>
@@ -235,13 +251,13 @@
 											on:click={triggerCommand}
 											class="{selection[0] === groupIdx && selection[1] === commandIdx
 												? 'bg-zinc-50/10'
-												: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none gap-2"
+												: ''} quick-command-item flex cursor-default items-center "
 										>
 											<span class="quick-command-icon">
 												<svelte:component this={command.icon} />
 											</span>
 											<span class="quick-command flex-grow">{command.title}</span>
-											<span class="quick-command-key ">{command.description}</span>
+											<span class="quick-command-key">{command.description}</span>
 										</div>
 									{/if}
 								{/if}

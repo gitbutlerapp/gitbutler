@@ -84,19 +84,19 @@
 			Replay working history from...
 		</p>
 
-		<ul class="">
+		<ul class="quick-command-list">
 			{#each listOptions as listItem, idx}
 				<a
 					on:mouseover={() => (selectionIdx = idx)}
 					on:focus={() => (selectionIdx = idx)}
 					on:click={gotoDestination}
 					class="{selectionIdx === idx
-						? 'bg-zinc-700/70'
-						: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
+						? 'bg-zinc-50/10'
+						: ''} quick-command-item flex cursor-default items-center"
 					href="/"
 				>
-					<span class="flex-grow">{listItem.label}</span>
-					<span>{idx + 1}</span>
+					<span class="quick-command flex-grow">{listItem.label}</span>
+					<span class="quick-command-key">{idx + 1}</span>
 				</a>
 			{/each}
 		</ul>
