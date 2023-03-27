@@ -18,6 +18,15 @@
 	const currentSessionId = writable($page.params.sessionId);
 	const currentDate = writable($page.params.date);
 
+	const scrollToSession = () => {
+		const sessionEl = document.getElementById('current-session');
+		if (sessionEl) {
+			sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+	};
+
+	currentDeltaIndex.subscribe(scrollToSession);
+
 	page.subscribe((page) => {
 		currentDeltaIndex.set(parseInt(page.url.searchParams.get('delta') || '0'));
 		currentSessionId.set(page.params.sessionId);
@@ -164,7 +173,7 @@
 					class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
 				>
 					<a
-						href="/projects/{projectId}/player/{currentDate}/{session.id}?delta=0"
+						href="/projects/{projectId}/player/{$currentDate}/{session.id}?delta=0"
 						disabled={isCurrent}
 						class="w-full"
 					>
