@@ -35,12 +35,12 @@
 		</a>
 	{/if}
 
-	<div class="flex-auto overflow-auto flex h-full w-full flex-row gap-2 p-2">
+	<div class="flex h-full w-full flex-auto flex-row gap-2 overflow-auto p-2">
 		<ul id="days" class="flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll">
 			{#each $dates as date}
 				<li class="w-full">
 					<a
-						href="/projects/{projectId}/player/{date}"
+						href="/projects/{projectId}/player/{date}{$page.url.search}"
 						class:bg-gb-800={date === $currentDate}
 						class:text-white={date === $currentDate}
 						class:border-gb-700={date !== $currentDate}
