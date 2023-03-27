@@ -16,6 +16,8 @@
 	);
 
 	const currentDate = derived(page, (page) => page.params.date);
+
+	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
 </script>
 
 {#if $sessions.length === 0}
@@ -24,6 +26,14 @@
 		<p class="text-gray-500">Go code something!</p>
 	</div>
 {:else}
+	{#if $fileFilter}
+		<a
+			href="/projects/{$page.params.projectId}/player/{$page.params.date}/{$page.params.sessionId}"
+			class="w-full p-2 text-left font-mono text-lg"
+		>
+			{$fileFilter}
+		</a>
+	{/if}
 	<div class="flex h-full w-full flex-row gap-2 p-2">
 		<ul id="days" class="flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll">
 			{#each $dates as date}
