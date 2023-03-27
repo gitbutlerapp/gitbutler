@@ -32,9 +32,7 @@ export const load: PageLoad = async ({ params, parent }) => {
                     .filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === params.date)
                     .map((session) => enrichSession(params.projectId, session))
             ).then((sessions) =>
-                sessions
-                    .filter((s) => Object.keys(s.files).length > 0)
-                    .sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
+                sessions.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
             )
         )
     };
