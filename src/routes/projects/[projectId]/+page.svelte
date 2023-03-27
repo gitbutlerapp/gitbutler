@@ -29,7 +29,7 @@
 		let datePass = format(date, 'yyyy-MM-dd');
 
 		if ($project) {
-			return `/projects/${$project.id}/player?date=${datePass}`;
+			return `/projects/${$project.id}/player/${datePass}`;
 		}
 	}
 

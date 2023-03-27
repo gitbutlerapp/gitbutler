@@ -4,54 +4,54 @@ import { writable, type Readable } from 'svelte/store';
 import { log } from '$lib';
 
 export type Activity = {
-	type: string;
-	timestampMs: number;
-	message: string;
+    type: string;
+    timestampMs: number;
+    message: string;
 };
 
 export namespace Session {
-	export const within = (session: Session | undefined, timestampMs: number) => {
-		if (!session) return false;
-		const { startTimestampMs, lastTimestampMs } = session.meta;
-		return startTimestampMs <= timestampMs && timestampMs <= lastTimestampMs;
-	};
+    export const within = (session: Session | undefined, timestampMs: number) => {
+        if (!session) return false;
+        const { startTimestampMs, lastTimestampMs } = session.meta;
+        return startTimestampMs <= timestampMs && timestampMs <= lastTimestampMs;
+    };
 }
 
 export type Session = {
-	id: string;
-	hash?: string;
-	meta: {
-		startTimestampMs: number;
-		lastTimestampMs: number;
-		branch?: string;
-		commit?: string;
-	};
-	activity: Activity[];
+    id: string;
+    hash?: string;
+    meta: {
+        startTimestampMs: number;
+        lastTimestampMs: number;
+        branch?: string;
+        commit?: string;
+    };
+    activity: Activity[];
 };
 
 export const listFiles = (params: { projectId: string; sessionId: string; paths?: string[] }) =>
-	invoke<Record<string, string>>('list_session_files', params);
+    invoke<Record<string, string>>('list_session_files', params);
 
 const list = (params: { projectId: string }) => invoke<Session[]>('list_sessions', params);
 
 export default async (params: { projectId: string; earliestTimestampMs?: number }) => {
-	const store = writable([] as Session[]);
-	list(params).then((sessions) => {
-		store.set(sessions);
-	});
+    const store = writable([] as Session[]);
+    list(params).then((sessions) => {
+        store.set(sessions);
+    });
 
-	appWindow.listen<Session>(`project://${params.projectId}/sessions`, async (event) => {
-		log.info(`Received sessions event, projectId: ${params.projectId}`);
-		const session = event.payload;
-		store.update((sessions) => {
-			const index = sessions.findIndex((session) => session.id === event.payload.id);
-			if (index === -1) {
-				return [...sessions, session];
-			} else {
-				return [...sessions.slice(0, index), session, ...sessions.slice(index + 1)];
-			}
-		});
-	});
+    appWindow.listen<Session>(`project://${params.projectId}/sessions`, async (event) => {
+        log.info(`Received sessions event, projectId: ${params.projectId}`);
+        const session = event.payload;
+        store.update((sessions) => {
+            const index = sessions.findIndex((session) => session.id === event.payload.id);
+            if (index === -1) {
+                return [...sessions, session];
+            } else {
+                return [...sessions.slice(0, index), session, ...sessions.slice(index + 1)];
+            }
+        });
+    });
 
-	return store as Readable<Session[]>;
+    return store as Readable<Session[]>;
 };
