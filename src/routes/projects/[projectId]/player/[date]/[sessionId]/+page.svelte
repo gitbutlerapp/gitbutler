@@ -1,11 +1,33 @@
+<script lang="ts" context="module">
+	import { listFiles, type Session } from '$lib/sessions';
+	import { list as listDeltas, type Delta } from '$lib/deltas';
+	const enrichSession = async (projectId: string, session: Session, paths?: string[]) => {
+		const files = await listFiles({ projectId, sessionId: session.id, paths });
+		const deltas = await listDeltas({ projectId, sessionId: session.id, paths }).then((deltas) =>
+			Object.entries(deltas)
+				.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
+				.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
+		);
+		const deltasFiles = new Set(deltas.map(([path]) => path));
+		return {
+			...session,
+			files: Object.fromEntries(
+				Object.entries(files).filter(([filepath]) => deltasFiles.has(filepath))
+			),
+			deltas
+		};
+	};
+</script>
+
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { derived, writable } from 'svelte/store';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/components/icons';
 	import { shortPath } from '$lib/paths';
 	import { page } from '$app/stores';
-	import type { Session } from '$lib/sessions';
 	import { CodeViewer } from '$lib/components';
+	import { asyncDerived } from '@square/svelte-store';
+	import { format } from 'date-fns';
 
 	export let data: PageData;
 
@@ -13,6 +35,22 @@
 	let context = 8;
 
 	const { sessions, projectId } = data;
+
+	const richSessions = asyncDerived([sessions, page], async ([sessions, page]) => {
+		const fileFilter = page.url.searchParams.get('file');
+		const paths = fileFilter ? [fileFilter] : undefined;
+		return Promise.all(
+			sessions
+				.filter(
+					(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date
+				)
+				.map((s) => enrichSession(projectId, s, paths))
+		).then((sessions) =>
+			sessions
+				.filter((s) => s.deltas.length > 0)
+				.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
+		);
+	});
 
 	const currentDeltaIndex = writable(parseInt($page.url.searchParams.get('delta') || '0'));
 	const currentSessionId = writable($page.params.sessionId);
@@ -37,9 +75,12 @@
 		currentDate.set(page.params.date);
 	});
 
-	const currentSession = derived([currentSessionId, sessions], ([currentSessionId, sessions]) => {
-		return sessions?.find((session) => session.id === currentSessionId);
-	});
+	const currentSession = derived(
+		[currentSessionId, richSessions],
+		([currentSessionId, sessions]) => {
+			return sessions?.find((session) => session.id === currentSessionId);
+		}
+	);
 
 	const frame = derived([currentSession, currentDeltaIndex], ([session, currentDeltaIndex]) => {
 		if (!session) return null;
@@ -73,19 +114,19 @@
 		`${Math.round((session.meta.lastTimestampMs - session.meta.startTimestampMs) / 1000 / 60)} min`;
 
 	// scroller
-	const maxInput = derived(sessions, (sessions) =>
+	const maxInput = derived(richSessions, (sessions) =>
 		sessions ? sessions.flatMap((session) => session.deltas).length : 0
 	);
 
 	const inputValue = writable(0);
 	$: {
-		if ($sessions) {
-			const currentSessionIndex = $sessions.findIndex(
+		if ($richSessions) {
+			const currentSessionIndex = $richSessions.findIndex(
 				(session) => session.id === $currentSessionId
 			);
 			if (currentSessionIndex > -1) {
 				$inputValue =
-					$sessions.slice(0, currentSessionIndex).flatMap((session) => session.deltas).length +
+					$richSessions.slice(0, currentSessionIndex).flatMap((session) => session.deltas).length +
 					$currentDeltaIndex;
 			}
 		}
@@ -93,7 +134,7 @@
 
 	inputValue.subscribe((value) => {
 		let i = 0;
-		for (const session of $sessions || []) {
+		for (const session of $richSessions || []) {
 			if (i < value && value < i + session.deltas.length) {
 				currentSessionId.set(session.id);
 				currentDeltaIndex.set(value - i);
@@ -155,7 +196,7 @@
 	id="activities"
 	class="flex h-full h-full w-80 flex-shrink-0 flex-col rounded border-[0.5px] border-gb-700 bg-gb-900 xl:w-96"
 >
-	{#await sessions.load()}
+	{#await richSessions.load()}
 		<div class="flex h-full flex-col items-center justify-center">
 			<div
 				class="loader mb-4 h-12 w-12 rounded-full border-4 border-t-4 border-gray-200 ease-linear"
@@ -169,13 +210,13 @@
 			<h2 class="flex flex-row items-baseline space-x-2  p-3 text-lg text-zinc-300">
 				<span>Activities</span>
 				<span class="text-sm text-zinc-400">
-					{$sessions.length}
+					{$richSessions.length}
 				</span>
 			</h2>
 		</header>
 
 		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-gb-900 p-2">
-			{#each $sessions as session}
+			{#each $richSessions as session}
 				{@const isCurrent = session.id === $currentSessionId}
 				<li
 					id={isCurrent ? 'current-session' : ''}
@@ -254,7 +295,7 @@
                 "
 			>
 				<div class="flex h-0 w-full justify-between">
-					{#each $sessions as session}
+					{#each $richSessions as session}
 						<div
 							class="inline-block h-2 rounded bg-white"
 							style="width: {Math.round(
