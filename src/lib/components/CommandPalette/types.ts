@@ -22,6 +22,7 @@ export type CommandGroup = {
 	description?: string;
 	visible: boolean;
 	commands: Command[];
+	icon: ComponentType;
 };
 
 export const firstVisibleCommand = (commandGroups: CommandGroup[]): [number, number] => {

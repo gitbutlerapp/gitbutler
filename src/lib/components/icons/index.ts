@@ -6,6 +6,7 @@ export { default as FileIcon } from './FileIcon.svelte';
 export { default as FolderIcon } from './FolderIcon.svelte';
 export { default as LabelIcon } from './LabelIcon.svelte';
 export { default as ProjectIcon } from './ProjectIcon.svelte';
+export { default as RewindIcon } from './RewindIcon.svelte';
 export { default as IconRotateClockwise } from './IconRotateClockwise.svelte';
 export { default as IconPlayerPauseFilled } from './IconPlayerPauseFilled.svelte';
 export { default as IconPlayerPlayFilled } from './IconPlayerPlayFilled.svelte';
