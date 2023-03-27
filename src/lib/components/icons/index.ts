@@ -5,6 +5,7 @@ export { default as ContactIcon } from './ContactIcon.svelte';
 export { default as FileIcon } from './FileIcon.svelte';
 export { default as FolderIcon } from './FolderIcon.svelte';
 export { default as LabelIcon } from './LabelIcon.svelte';
+export { default as GitCommitIcon } from './GitCommitIcon.svelte';
 export { default as ProjectIcon } from './ProjectIcon.svelte';
 export { default as RewindIcon } from './RewindIcon.svelte';
 export { default as IconRotateClockwise } from './IconRotateClockwise.svelte';
