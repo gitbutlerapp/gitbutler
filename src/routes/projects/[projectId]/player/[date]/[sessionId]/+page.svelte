@@ -47,7 +47,7 @@
 				.map((s) => enrichSession(projectId, s, paths))
 		).then((sessions) =>
 			sessions
-				.filter((s) => s.deltas.length > 0)
+				.filter((s) => s.deltas.length > 0 && Object.keys(s.files).length > 0)
 				.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
 		);
 	});
@@ -55,6 +55,14 @@
 	const currentDeltaIndex = writable(parseInt($page.url.searchParams.get('delta') || '0'));
 	const currentSessionId = writable($page.params.sessionId);
 	const currentDate = writable($page.params.date);
+
+	richSessions.subscribe((sessions) => {
+		if (!sessions) return;
+		if (sessions.length === 0) return;
+		if (!sessions.some((s) => s.id === $currentSessionId)) {
+			currentSessionId.set(sessions[0].id);
+		}
+	});
 
 	const scrollToSession = () => {
 		const sessionEl = document.getElementById('current-session');
