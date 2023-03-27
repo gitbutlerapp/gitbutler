@@ -91,7 +91,8 @@
 				{@const timestamp = deltas[deltas.length - 1].timestampMs}
 				<li class="search-result mr-14">
 					<a
-						href="/projects/{projectId}/player/{date}/{sessionId}?delta={deltas.length}"
+						href="/projects/{projectId}/player/{date}/{sessionId}?delta={deltas.length -
+							1}&file={filepath}"
 						class="flex flex-col gap-2"
 					>
 						<p class="flex justify-between text-lg">
