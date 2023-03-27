@@ -241,8 +241,8 @@
 									/>
 								</svg>
 							</div>
-							<div 
-								title="{toHumanBranchName(gitBranch)}"
+							<div
+								title={toHumanBranchName(gitBranch)}
 								class="truncate pl-2 font-mono text-zinc-300"
 							>
 								{toHumanBranchName(gitBranch)}
