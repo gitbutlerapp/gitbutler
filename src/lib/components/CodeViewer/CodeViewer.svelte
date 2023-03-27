@@ -172,6 +172,14 @@
 	$: rows = highlight.length > 0 ? padHighlighted(renderedRows) : renderedRows;
 	$: originalLineNumberDigits = String(rows.at(-1)?.originalLineNumber || '0').length;
 	$: currentLineNumberDigits = String(rows.at(-1)?.currentLineNumber || '0').length;
+
+	const scrollToChangedLine = () => {
+		const changedLines = document.getElementsByClassName('line-changed');
+		if (changedLines.length > 0) {
+			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+	};
+	$: deltas.length && scrollToChangedLine();
 </script>
 
 <table class="w-full whitespace-pre font-mono">
@@ -198,6 +206,7 @@
 					class="px-1.5 before:content-[attr(data-marker)]"
 					class:diff-line-addition={row.type === RowType.Addition}
 					class:diff-line-deletion={row.type === RowType.Deletion}
+					class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
 					data-marker={row.type === RowType.Addition
 						? '+'
 						: row.type === RowType.Deletion
