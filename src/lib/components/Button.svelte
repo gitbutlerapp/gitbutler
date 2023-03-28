@@ -2,6 +2,7 @@
 	export let primary = false;
 	export let filled = true;
 	export let small = false;
+	export let wide = false;
 	export let label: string;
 </script>
 
@@ -34,7 +35,8 @@ And the following optional props:
 		: filled
 		? 'default-filled'
 		: 'default-nofill'}
-    {small ? 'size-small' : 'size-normal'}
+    {small ? 'short' : ''}
+	{wide ? 'wide' : ''}
         "
 	type="button"
 	on:click
@@ -97,5 +99,8 @@ And the following optional props:
 	}
 	.size-small {
 		@apply px-2 py-1;
+	}
+	.wide {
+		width: 119.5px;
 	}
 </style>
