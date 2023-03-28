@@ -58,7 +58,6 @@
 				'Shift+c': () => {
 					if ($currentProject) {
 						goto(`/projects/${$currentProject?.id}/commit`);
-						
 					}
 				},
 				r: () => {

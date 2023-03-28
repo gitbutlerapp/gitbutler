@@ -26,7 +26,6 @@ const config = {
 			}
 		}
 	},
-
 	plugins: []
 };
 

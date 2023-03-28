@@ -51,7 +51,7 @@
 						class:text-white={date === $currentDate}
 						class:border-gb-700={date !== $currentDate}
 						class:bg-gb-900={date !== $currentDate}
-						class="items-center justify-around flex flex-col max-h-content w-full rounded border border-[0.5px] p-2 text-zinc-300 shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
+						class="max-h-content flex w-full flex-col items-center justify-around rounded border border-[0.5px] p-2 text-zinc-300 shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
 					>
 						{#if isToday}
 							<div class="py-2 text-lg leading-5">Today</div>

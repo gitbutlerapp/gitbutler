@@ -219,9 +219,7 @@
 			{#each commandGroups as group, groupIdx}
 				{#if group.visible}
 					<div class="mx-2 cursor-default select-none">
-						<p
-							class="result-section-header"
-						>
+						<p class="result-section-header">
 							<span>{group.name}</span>
 							{#if group.description}
 								<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
