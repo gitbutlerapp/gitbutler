@@ -4,3 +4,4 @@ export { default as Breadcrumbs } from './Breadcrumbs.svelte';
 export { default as CodeViewer } from './CodeViewer';
 export { default as CommandPalette } from './CommandPalette';
 export { default as Modal } from './Modal.svelte';
+export { default as Button } from './Button.svelte';

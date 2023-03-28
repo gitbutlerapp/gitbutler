@@ -1,18 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/svelte';
 
-import Button from './Button.svelte';
+import Button from '$lib/components/Button.svelte';
 
 // More on how to set up stories at: https://storybook.js.org/docs/7.0/svelte/writing-stories/introduction
 const meta: Meta<Button> = {
-	title: 'Example/Button',
+	title: 'GitButler/Button',
 	component: Button,
 	tags: ['autodocs'],
 	argTypes: {
-		backgroundColor: { control: 'color' },
-		size: {
-			control: { type: 'select' },
-			options: ['small', 'medium', 'large']
-		}
+		primary: { control: 'boolean' },
+		filled: { control: 'boolean' },
+		small: { control: 'boolean' },
+		label: { control: 'text' }
 	}
 };
 
@@ -26,23 +25,58 @@ export const Primary: Story = {
 		label: 'Button'
 	}
 };
-
-export const Secondary: Story = {
+export const PrimaryFilled: Story = {
 	args: {
+		primary: true,
+		filled: true,
+		label: 'Button'
+	}
+};
+export const PrimarySmall: Story = {
+	args: {
+		primary: true,
+		small: true,
 		label: 'Button'
 	}
 };
 
-export const Large: Story = {
+export const PrimaryFilledSmall: Story = {
 	args: {
-		size: 'large',
+		primary: true,
+		filled: true,
+		small: true,
 		label: 'Button'
 	}
 };
 
-export const Small: Story = {
+export const Default: Story = {
 	args: {
-		size: 'small',
+		primary: false,
+		label: 'Button'
+	}
+};
+
+export const DefaultFilled: Story = {
+	args: {
+		primary: false,
+		filled: true,
+		label: 'Button'
+	}
+};
+
+export const DefaultSmall: Story = {
+	args: {
+		primary: false,
+		small: true,
+		label: 'Button'
+	}
+};
+
+export const DefaultFilledSmall: Story = {
+	args: {
+		primary: false,
+		filled: true,
+		small: true,
 		label: 'Button'
 	}
 };
