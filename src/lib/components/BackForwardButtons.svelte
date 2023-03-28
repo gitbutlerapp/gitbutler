@@ -2,15 +2,17 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
+	const getUri = (url: URL) => url.pathname + url.search + url.hash;
+
 	let position = 0;
-	const history = [$page.url.pathname];
+	const history = [getUri($page.url)];
 
 	$: canGoBack = history.length > 1 && position > 0;
 	$: canGoForward = history.length > 1 && position < history.length - 1;
 
 	afterNavigate((nav) => {
 		if (nav.to === null) return;
-		const to = nav.to.url.pathname;
+		const to = getUri(nav.to.url);
 		if (to === history[position]) {
 			return;
 		} else if (to === history[position + 1]) {
