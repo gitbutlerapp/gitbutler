@@ -200,20 +200,21 @@
 					<a href="#" class="text-yellow-200" on:click={toggleAllOn}>all</a>
 					<a href="#" class="text-yellow-200" on:click={toggleAllOff}>none</a>
 				</div>
-				<ul class="w-80 truncate px-2 pb-2">
+				<ul class="truncate px-2 pb-2">
 					{#each $filesStatus as activity}
 						<li class="list-none text-zinc-300">
-							<div class="flex flex-row space-x-2">
+							<div class="flex flex-row align-middle">
 								<input
 									type="checkbox"
 									on:click={showMessage}
 									bind:group={filesSelectedForCommit}
 									value={activity.path}
+									class="w-4 mr-2 mt-1"
 								/>
-								<div>{activity.status.slice(0, 1)}</div>
+								<div class="w-4">{activity.status.slice(0, 1)}</div>
 								<!-- svelte-ignore a11y-click-events-have-key-events -->
 								<div
-									class="cursor-pointer {currentPath == activity.path ? 'text-white' : ''}"
+									class="w-[100%] truncate cursor-pointer {currentPath == activity.path ? 'text-white' : ''}"
 									on:click={selectPath(activity.path)}
 									use:collapsable={{ value: activity.path, separator: '/' }}
 								/>
@@ -231,14 +232,14 @@
 				name="subject"
 				bind:value={commitSubject}
 				placeholder={placeholderSubject}
-				class="mb-2 block w-full rounded-md border-zinc-600 bg-zinc-700 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+				class="mb-2 block w-full rounded-md border-zinc-600 bg-zinc-700 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-3 sm:text-sm sm:leading-4"
 			/>
 			<textarea
 				rows={messageRows}
 				name="message"
 				placeholder={placeholderMessage}
 				bind:value={commitMessage}
-				class="mb-2 block w-full rounded-md border-zinc-600 bg-zinc-700 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+				class="mb-2 block w-full rounded-md border-zinc-600 bg-zinc-700 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-3 sm:text-sm sm:leading-4"
 			/>
 		</div>
 
