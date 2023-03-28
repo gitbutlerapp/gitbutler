@@ -93,6 +93,8 @@ jobs:
                       ~/.cargo/git/db/
                       src-tauri/target/
                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: |
+                    ${{ runner.os }}-cargo-
             
             - name: Install system dependencies
               uses: daaku/gh-action-apt-install@v4
