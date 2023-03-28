@@ -4,10 +4,11 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { BackForwardButtons } from '$lib/components';
-	import { setContext } from 'svelte';
+	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import CommandPalette from '$lib/components/CommandPalette';
+	import { list as listSessions, listFiles } from '$lib/sessions';
 
 	export let data: LayoutData;
 	const { user, posthog, projects } = data;
@@ -15,6 +16,16 @@
 	setContext('project', writable(null));
 	setContext('session', writable(null));
 	setContext('projects', projects);
+
+	onMount(() =>
+		// warm up the cache
+		$projects.forEach(async (project) => {
+			const sessions = await listSessions({ projectId: project.id });
+			sessions.forEach(async (session) => {
+				listFiles({ projectId: project.id, sessionId: session.id });
+			});
+		})
+	);
 
 	user.subscribe(posthog.identify);
 </script>

@@ -11,6 +11,7 @@ const meta: Meta<Button> = {
 		primary: { control: 'boolean' },
 		outlined: { control: 'boolean' },
 		small: { control: 'boolean' },
+		wide: { control: 'boolean' },
 		label: { control: 'text' }
 	}
 };
@@ -19,6 +20,41 @@ export default meta;
 type Story = StoryObj<Button>;
 
 // More on writing stories with args: https://storybook.js.org/docs/7.0/svelte/writing-stories/args
+export const Basic: Story = {
+	args: {
+		primary: false,
+		outlined: false,
+		label: 'Label'
+	}
+};
+
+export const BasicOutlined: Story = {
+	args: {
+		primary: false,
+		outlined: true,
+		label: 'Button'
+	}
+};
+
+export const BasicSmall: Story = {
+	args: {
+		primary: false,
+		outlined: false,
+		small: true,
+		label: 'Button'
+	}
+};
+
+export const BasicOutlinedSmall: Story = {
+	args: {
+		primary: false,
+		outlined: true,
+		small: true,
+		label: 'Button'
+	}
+};
+
+
 export const Primary: Story = {
 	args: {
 		primary: true,
@@ -70,36 +106,4 @@ export const PrimaryOutlinedSmall: Story = {
 	}
 };
 
-export const Default: Story = {
-	args: {
-		primary: false,
-		outlined: false,
-		label: 'Label'
-	}
-};
 
-export const DefaultOutlined: Story = {
-	args: {
-		primary: false,
-		outlined: true,
-		label: 'Button'
-	}
-};
-
-export const DefaultSmall: Story = {
-	args: {
-		primary: false,
-		outlined: false,
-		small: true,
-		label: 'Button'
-	}
-};
-
-export const DefaultOutlinedSmall: Story = {
-	args: {
-		primary: false,
-		outlined: true,
-		small: true,
-		label: 'Button'
-	}
-};

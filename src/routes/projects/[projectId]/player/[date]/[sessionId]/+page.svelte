@@ -271,7 +271,7 @@
 
 <div
 	id="player"
-	class="relative my-2 flex flex-auto overflow-auto rounded border border-zinc-700 bg-gb-900"
+	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border border-zinc-700 bg-gb-900"
 >
 	{#if $frame}
 		<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">
@@ -298,14 +298,7 @@
 
 		<div
 			id="controls"
-			class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
-			style="
-                    border-width: 0.5px; 
-                    -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
-                    backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
-                    background-color: rgba(24, 24, 27, 0.60);
-                    border: 0.5px solid rgba(63, 63, 70, 0.50);
-                "
+			class="flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 		>
 			<div class="flex h-0 w-full justify-between">
 				{#each $richSessions as session}
