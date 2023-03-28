@@ -100,7 +100,7 @@
 							<span>{formatDistanceToNow(timestamp)} ago</span>
 						</p>
 						<div
-							class="flex-auto overflow-auto rounded-lg border border-zinc-700 bg-[#2F2F33] text-[#EBDBB2] drop-shadow-lg"
+							class="flex-auto overflow-auto rounded-lg border border-zinc-700 bg-[#2F2F33] p-2 text-[#EBDBB2] drop-shadow-lg"
 						>
 							<CodeViewer {doc} {deltas} {filepath} paddingLines={2} {highlight} />
 						</div>
