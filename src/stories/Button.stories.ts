@@ -11,6 +11,7 @@ const meta: Meta<Button> = {
 		primary: { control: 'boolean' },
 		filled: { control: 'boolean' },
 		small: { control: 'boolean' },
+		wide: { control: 'boolean' },
 		label: { control: 'text' }
 	}
 };
