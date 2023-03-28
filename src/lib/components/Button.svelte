@@ -1,6 +1,6 @@
 <script lang="ts">
 	export let primary = false;
-	export let filled = false;
+	export let filled = true;
 	export let small = false;
 	export let label: string;
 </script>
@@ -39,37 +39,63 @@ And the following optional props:
 	type="button"
 	on:click
 >
-	<span class="overflow-hidden text-ellipsis">{label}</span>
+	{label}
 </button>
 
 <style>
 	.base {
-		@apply flex items-center justify-center rounded text-base text-white;
-	}
-	.base:hover {
-		/* @apply bg-gray-100; */
+		@apply flex items-center justify-center rounded text-base text-zinc-50 shadow transition ease-in-out;
 	}
 	.base:disabled {
 		@apply opacity-40;
 	}
-	.primary-nofill {
-		border: 1px solid #3662e3;
-	}
+
+	/* Primary */
 	.primary-filled {
+		border: 1px solid #3662e3;
 		background: #3662e3;
 	}
-	.default-nofill {
-		background: #71717a;
+	.primary-filled:hover {
+		border: 1px solid #1c48c9;
+		background: #1c48c9;
+		@apply transition ease-in-out;
 	}
+	.primary-nofill {
+		background: rgba(28, 72, 201, 0);
+		border: 1px solid #3662e3;
+		@apply transition ease-in-out;
+	}
+	.primary-nofill:hover {
+		background: rgba(28, 72, 201, 0.3);
+		border: 1px solid #3662e3;
+		@apply transition ease-in-out;
+	}
+
+	/* Default */
 	.default-filled {
 		border: 1px solid #71717a;
+		background: #71717a;
+		@apply transition ease-in-out;
 	}
+	.default-filled:hover {
+		@apply border-zinc-600 bg-zinc-600;
+	}
+	.default-nofill {
+		background: rgba(113, 113, 122, 0);
+		border: 1px solid #71717a;
+		@apply transition ease-in-out;
+	}
+	.default-nofill:hover {
+		background: rgba(113, 113, 122, 0.4);
+		border: 1px solid #71717a;
+		@apply transition ease-in-out;
+	}
+
+	/* Size */
 	.size-normal {
-		width: 66px;
-		height: 36px;
+		@apply px-4 py-2;
 	}
 	.size-small {
-		width: 66px;
-		height: 24px;
+		@apply px-2 py-1;
 	}
 </style>
