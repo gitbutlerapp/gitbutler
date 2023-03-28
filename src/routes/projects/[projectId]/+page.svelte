@@ -3,7 +3,7 @@
 	import type { Session } from '$lib/sessions';
 	import { format, startOfDay } from 'date-fns';
 	import type { Delta } from '$lib/deltas';
-	import { shortPath } from '$lib/paths';
+	import { collapsable } from '$lib/paths';
 	import { invoke } from '@tauri-apps/api';
 	import { toHumanBranchName } from '$lib/branch';
 	import { list as listDeltas } from '$lib/deltas';
@@ -198,7 +198,7 @@
 											<div class="flex flex-row justify-between">
 												<div class="w-96 truncate font-mono text-zinc-300">
 													<a class="cursor-pointer" href={playerURL(dateMilliseconds, filetime[0])}>
-														{shortPath(filetime[0], 3, 70)}
+														<span use:collapsable={{ value: filetime[0], separator: '/' }} />
 													</a>
 												</div>
 												<div class="font-mono text-zinc-400">
@@ -287,7 +287,7 @@
 							{#each $filesStatus as activity}
 								<li class="list-disc">
 									{activity.status.slice(0, 1)}
-									{shortPath(activity.path)}
+									<span use:collapsable={{ value: activity.path, separator: '/' }} />
 								</li>
 							{/each}
 						</ul>

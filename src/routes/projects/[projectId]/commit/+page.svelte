@@ -2,7 +2,7 @@
 	import { invoke } from '@tauri-apps/api';
 	import type { PageData } from './$types';
 	import Api from '$lib/api';
-	import { shortPath } from '$lib/paths';
+	import { collapsable } from '$lib/paths';
 	import toast from 'svelte-french-toast';
 	import { slide } from 'svelte/transition';
 	import { toHumanBranchName } from '$lib/branch';
@@ -215,9 +215,8 @@
 								<div
 									class="cursor-pointer {currentPath == activity.path ? 'text-white' : ''}"
 									on:click={selectPath(activity.path)}
-								>
-									{shortPath(activity.path)}
-								</div>
+									use:collapsable={{ value: activity.path, separator: '/' }}
+								/>
 							</div>
 						</li>
 					{/each}
