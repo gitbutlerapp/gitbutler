@@ -186,10 +186,11 @@
 											})}
 										</div>
 										<div>
-											<a 
-												title="Reply changes (R)" 
-												class="text-orange-200" href={playerURL(dateMilliseconds)}
-											>Replay Changes
+											<a
+												title="Reply changes (R)"
+												class="text-orange-200"
+												href={playerURL(dateMilliseconds)}
+												>Replay Changes
 											</a>
 										</div>
 									</div>
