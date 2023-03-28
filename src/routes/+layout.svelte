@@ -29,7 +29,11 @@
 		</div>
 		<div class="ml-6"><Breadcrumbs /></div>
 		<div class="flex-grow" />
-		<a href="/users/" class="mr-4 flex items-center gap-1 font-medium hover:text-zinc-200">
+		<a
+			title="Account settings"
+			href="/users/"
+			class="user-settings-button mr-4 flex items-center gap-1 font-medium hover:text-zinc-200"
+		>
 			{#if $user}
 				{#if $user.picture}
 					<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
