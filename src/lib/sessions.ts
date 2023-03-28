@@ -62,7 +62,7 @@ export const listFiles = async (params: {
 
 const sessionsCache: Record<string, Promise<Session[]>> = {};
 
-const list = async (params: { projectId: string; earliestTimestampMs?: number }) => {
+export const list = async (params: { projectId: string; earliestTimestampMs?: number }) => {
 	if (params.projectId in sessionsCache) {
 		return sessionsCache[params.projectId].then((sessions) =>
 			sessions.filter((s) =>
