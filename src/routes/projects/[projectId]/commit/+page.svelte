@@ -209,12 +209,14 @@
 									on:click={showMessage}
 									bind:group={filesSelectedForCommit}
 									value={activity.path}
-									class="w-4 mr-2 mt-1"
+									class="mr-2 mt-1 w-4"
 								/>
 								<div class="w-4">{activity.status.slice(0, 1)}</div>
 								<!-- svelte-ignore a11y-click-events-have-key-events -->
 								<div
-									class="w-[100%] truncate cursor-pointer {currentPath == activity.path ? 'text-white' : ''}"
+									class="w-[100%] cursor-pointer truncate {currentPath == activity.path
+										? 'text-white'
+										: ''}"
 									on:click={selectPath(activity.path)}
 									use:collapsable={{ value: activity.path, separator: '/' }}
 								/>

@@ -44,7 +44,7 @@ And the following optional props:
 
 <style>
 	.base {
-		@apply flex items-center justify-center rounded text-base text-white transition ease-in-out;
+		@apply flex items-center justify-center rounded text-base text-zinc-50 shadow transition ease-in-out;
 	}
 	.base:disabled {
 		@apply opacity-40;
@@ -56,12 +56,12 @@ And the following optional props:
 		background: #3662e3;
 	}
 	.primary-filled:hover {
-		border: 1px solid #1C48C9;
-		background: #1C48C9;
+		border: 1px solid #1c48c9;
+		background: #1c48c9;
 		@apply transition ease-in-out;
 	}
 	.primary-nofill {
-		background: rgba(28, 72, 201, 0.0);
+		background: rgba(28, 72, 201, 0);
 		border: 1px solid #3662e3;
 		@apply transition ease-in-out;
 	}
@@ -81,7 +81,7 @@ And the following optional props:
 		@apply border-zinc-600 bg-zinc-600;
 	}
 	.default-nofill {
-		background: rgba(113, 113, 122, 0.0);
+		background: rgba(113, 113, 122, 0);
 		border: 1px solid #71717a;
 		@apply transition ease-in-out;
 	}
@@ -98,5 +98,4 @@ And the following optional props:
 	.size-small {
 		@apply px-2 py-1;
 	}
-
 </style>
