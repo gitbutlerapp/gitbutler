@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Modal from '../Modal.svelte';
-	import { shortPath } from '$lib/paths';
+	import { collapsable } from '$lib/paths';
 	import { invoke } from '@tauri-apps/api';
 	import { currentProject } from '$lib/current_project';
 	import { onMount } from 'svelte';
@@ -100,9 +100,7 @@
 							<div>
 								{file[1]}
 							</div>
-							<div class="font-mono">
-								{shortPath(file[0])}
-							</div>
+							<span class="font-mono" use:collapsable={{ value: file[0], separator: '/' }} />
 						</div>
 					{/each}
 				</div>
