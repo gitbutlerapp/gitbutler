@@ -23,32 +23,8 @@ export type DeltasEvent = {
 	filePath: string;
 };
 
-const cache: Record<string, Record<string, Promise<Record<string, Delta[]>>>> = {};
-
-export const list = async (params: { projectId: string; sessionId: string; paths?: string[] }) => {
-	const sessionCache = cache[params.projectId] || {};
-	if (params.sessionId in sessionCache) {
-		return sessionCache[params.sessionId].then((deltas) =>
-			Object.fromEntries(
-				Object.entries(deltas).filter(([path]) =>
-					params.paths ? params.paths.includes(path) : true
-				)
-			)
-		);
-	}
-
-	const promise = invoke<Record<string, Delta[]>>('list_deltas', {
-		projectId: params.projectId,
-		sessionId: params.sessionId
-	});
-	sessionCache[params.sessionId] = promise;
-	cache[params.projectId] = sessionCache;
-	return promise.then((deltas) =>
-		Object.fromEntries(
-			Object.entries(deltas).filter(([path]) => (params.paths ? params.paths.includes(path) : true))
-		)
-	);
-};
+export const list = async (params: { projectId: string; sessionId: string; paths?: string[] }) =>
+	invoke<Record<string, Delta[]>>('list_deltas', params);
 
 export const subscribe = (
 	params: { projectId: string; sessionId: string },
