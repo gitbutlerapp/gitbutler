@@ -35,8 +35,8 @@ And the following optional props:
 		: filled
 		? 'default-filled'
 		: 'default-nofill'}
-    {small ? 'short' : ''}
-	{wide ? 'wide' : ''}
+    {small ? 'height-small' : 'height-normal'}
+	{wide ? 'width-normal' : 'width-small'}
         "
 	type="button"
 	on:click
@@ -94,13 +94,16 @@ And the following optional props:
 	}
 
 	/* Size */
-	.size-normal {
-		@apply px-4 py-2;
+	.height-normal {
+		@apply py-2;
 	}
-	.size-small {
-		@apply px-2 py-1;
+	.height-small {
+		@apply py-1;
 	}
-	.wide {
-		width: 119.5px;
+	.width-normal {
+		@apply px-[42.75px];
+	}
+	.width-small {
+		@apply px-[16px];
 	}
 </style>
