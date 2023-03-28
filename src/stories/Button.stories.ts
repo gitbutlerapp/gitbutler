@@ -9,7 +9,7 @@ const meta: Meta<Button> = {
 	tags: ['autodocs'],
 	argTypes: {
 		primary: { control: 'boolean' },
-		filled: { control: 'boolean' },
+		outlined: { control: 'boolean' },
 		small: { control: 'boolean' },
 		wide: { control: 'boolean' },
 		label: { control: 'text' }
@@ -20,87 +20,87 @@ export default meta;
 type Story = StoryObj<Button>;
 
 // More on writing stories with args: https://storybook.js.org/docs/7.0/svelte/writing-stories/args
-export const Primary: Story = {
+export const Basic: Story = {
 	args: {
-		primary: true,
-		filled: false,
+		primary: false,
+		outlined: false,
+		label: 'Label'
+	}
+};
+
+export const BasicOutlined: Story = {
+	args: {
+		primary: false,
+		outlined: true,
 		label: 'Button'
 	}
 };
-export const PrimaryFilled: Story = {
+
+export const BasicSmall: Story = {
+	args: {
+		primary: false,
+		outlined: false,
+		small: true,
+		label: 'Button'
+	}
+};
+
+export const BasicOutlinedSmall: Story = {
+	args: {
+		primary: false,
+		outlined: true,
+		small: true,
+		label: 'Button'
+	}
+};
+
+export const Primary: Story = {
 	args: {
 		primary: true,
-		filled: true,
-		label: 'Button'
+		outlined: false,
+		label: 'Label'
+	}
+};
+export const PrimaryOutlined: Story = {
+	args: {
+		primary: true,
+		outlined: true,
+		label: 'Label'
 	}
 };
 export const PrimarySmall: Story = {
 	args: {
 		primary: true,
-		filled: false,
+		outlined: false,
 		small: true,
-		label: 'Button'
+		label: 'Label'
 	}
 };
 
 export const PrimaryWide: Story = {
 	args: {
 		primary: true,
-		filled: false,
+		outlined: false,
 		wide: true,
-		label: 'Button'
+		label: 'Label'
 	}
 };
 
 export const PrimarySmallWide: Story = {
 	args: {
 		primary: true,
-		filled: false,
+		outlined: false,
 		wide: true,
 		small: true,
-		label: 'Button'
+		label: 'Label'
 	}
 };
 
-export const PrimaryFilledSmall: Story = {
+export const PrimaryOutlinedSmall: Story = {
 	args: {
 		primary: true,
-		filled: true,
+		outlined: true,
 		small: true,
-		label: 'Button'
-	}
-};
-
-export const Default: Story = {
-	args: {
-		primary: false,
-		filled: false,
-		label: 'Button'
-	}
-};
-
-export const DefaultFilled: Story = {
-	args: {
-		primary: false,
-		filled: true,
-		label: 'Button'
-	}
-};
-
-export const DefaultSmall: Story = {
-	args: {
-		primary: false,
-		filled: false,
-		small: true,
-		label: 'Button'
-	}
-};
-
-export const DefaultFilledSmall: Story = {
-	args: {
-		primary: false,
-		filled: true,
-		small: true,
-		label: 'Button'
+		label: 'Label'
 	}
 };

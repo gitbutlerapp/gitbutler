@@ -1,6 +1,6 @@
 <script lang="ts">
 	export let primary = false;
-	export let filled = true;
+	export let outlined = true;
 	export let small = false;
 	export let wide = false;
 	export let label: string;
@@ -16,27 +16,27 @@ It takes the following required props:
 
 And the following optional props:
 - `primary` - boolean - whether the button should be primary or not
-- `filled` - boolean - whether the button should be filled or not
+- `outlined` - boolean - whether the button should be outlined or not
 - `small` - boolean - whether the button should be small or not
 
 - Usage:
   ```tsx
-<Button label="OK" on:click={yourFunction}/>
+<Button label="Label" on:click={yourFunction}/>
   ```
 -->
 
 <button
 	class="
-    base
+    btn-base
     {primary
-		? filled
-			? 'primary-filled'
-			: 'primary-nofill'
-		: filled
-		? 'default-filled'
-		: 'default-nofill'}
-    {small ? 'height-small' : 'height-normal'}
-	{wide ? 'width-normal' : 'width-small'}
+		? outlined
+			? 'btn-primary-outline'
+			: 'btn-primary'
+		: outlined
+		? 'btn-basic-outline'
+		: 'btn-basic'}
+    {small ? 'btn-height-small' : 'btn-height-normal'}
+	{wide ? 'btn-width-normal' : 'btn-width-small'}
         "
 	type="button"
 	on:click
@@ -45,65 +45,65 @@ And the following optional props:
 </button>
 
 <style>
-	.base {
+	.btn-base {
 		@apply flex items-center justify-center rounded text-base text-zinc-50 shadow transition ease-in-out;
 	}
-	.base:disabled {
+	.btn-base:disabled {
 		@apply opacity-40;
 	}
 
 	/* Primary */
-	.primary-filled {
+	.btn-primary {
 		border: 1px solid #3662e3;
 		background: #3662e3;
 	}
-	.primary-filled:hover {
+	.btn-primary:hover {
 		border: 1px solid #1c48c9;
 		background: #1c48c9;
 		@apply transition ease-in-out;
 	}
-	.primary-nofill {
+	.btn-primary-outline {
 		background: rgba(28, 72, 201, 0);
 		border: 1px solid #3662e3;
 		@apply transition ease-in-out;
 	}
-	.primary-nofill:hover {
+	.btn-primary-outline:hover {
 		background: rgba(28, 72, 201, 0.3);
 		border: 1px solid #3662e3;
 		@apply transition ease-in-out;
 	}
 
-	/* Default */
-	.default-filled {
+	/* Basic */
+	.btn-basic {
 		border: 1px solid #71717a;
 		background: #71717a;
 		@apply transition ease-in-out;
 	}
-	.default-filled:hover {
+	.btn-basic:hover {
 		@apply border-zinc-600 bg-zinc-600;
 	}
-	.default-nofill {
+	.btn-basic-outline {
 		background: rgba(113, 113, 122, 0);
 		border: 1px solid #71717a;
 		@apply transition ease-in-out;
 	}
-	.default-nofill:hover {
+	.btn-basic-outline:hover {
 		background: rgba(113, 113, 122, 0.4);
 		border: 1px solid #71717a;
 		@apply transition ease-in-out;
 	}
 
 	/* Size */
-	.height-normal {
+	.btn-height-normal {
 		@apply py-2;
 	}
-	.height-small {
+	.btn-height-small {
 		@apply py-1;
 	}
-	.width-normal {
+	.btn-width-normal {
 		@apply px-[42.75px];
 	}
-	.width-small {
+	.btn-width-small {
 		@apply px-[16px];
 	}
 </style>
