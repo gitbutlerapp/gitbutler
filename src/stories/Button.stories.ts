@@ -22,6 +22,7 @@ type Story = StoryObj<Button>;
 export const Primary: Story = {
 	args: {
 		primary: true,
+		filled: false,
 		label: 'Button'
 	}
 };
@@ -35,6 +36,7 @@ export const PrimaryFilled: Story = {
 export const PrimarySmall: Story = {
 	args: {
 		primary: true,
+		filled: false,
 		small: true,
 		label: 'Button'
 	}
@@ -43,6 +45,7 @@ export const PrimarySmall: Story = {
 export const PrimaryWide: Story = {
 	args: {
 		primary: true,
+		filled: false,
 		wide: true,
 		label: 'Button'
 	}
@@ -51,6 +54,7 @@ export const PrimaryWide: Story = {
 export const PrimarySmallWide: Story = {
 	args: {
 		primary: true,
+		filled: false,
 		wide: true,
 		small: true,
 		label: 'Button'
@@ -70,6 +74,7 @@ export const PrimaryFilledSmall: Story = {
 export const Default: Story = {
 	args: {
 		primary: false,
+		filled: false,
 		label: 'Button'
 	}
 };
@@ -85,6 +90,7 @@ export const DefaultFilled: Story = {
 export const DefaultSmall: Story = {
 	args: {
 		primary: false,
+		filled: false,
 		small: true,
 		label: 'Button'
 	}
