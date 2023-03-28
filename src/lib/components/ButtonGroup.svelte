@@ -12,7 +12,7 @@
 
 {#if !middleLabel}
 	<div class="flex gap-3">
-		<Button label={leftLabel} on:click={leftAction} {wide} />
+		<Button label={leftLabel} on:click={leftAction} filled={false} {wide} />
 		<Button label={rightLabel} on:click={rightAction} primary={true} filled={true} {wide} />
 	</div>
 {:else}
