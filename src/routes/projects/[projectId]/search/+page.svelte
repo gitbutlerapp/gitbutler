@@ -131,3 +131,11 @@
 		</ul>
 	{/if}
 </figure>
+
+<style>
+	/* this is trick to make webkit use hardware acceleration */
+	figure {
+		-webkit-transform: translate3d(0, 0, 0);
+		-webkit-perspective: 1000;
+	}
+</style>
