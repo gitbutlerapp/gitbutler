@@ -3,6 +3,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* SCROLL BAR STYLING */
+
+/* width */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+	border-radius: 2px;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+	/* background: #44444A;  */
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 10px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+	background: #6E6E78; 
+}
+.scrollbar-hidden::-webkit-scrollbar {
+	-webkit-appearance: none;
+	width: 0;
+	height: 0;
+}
 .scrollbar-hidden::-webkit-scrollbar {
 	-webkit-appearance: none;
 	width: 0;
