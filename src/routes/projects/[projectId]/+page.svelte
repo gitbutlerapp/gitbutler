@@ -285,11 +285,11 @@
 						<ul class="pl-4">
 							{#each $filesStatus as activity}
 								<li class="list-disc">
-									<div class="w-full flex gap-2 ">
+									<div class="flex w-full gap-2 ">
 										{activity.status.slice(0, 1)}
-										<div 
-											class="truncate" 
-											use:collapsable={{ value: activity.path, separator: '/' }} 
+										<div
+											class="truncate"
+											use:collapsable={{ value: activity.path, separator: '/' }}
 										/>
 									</div>
 								</li>
