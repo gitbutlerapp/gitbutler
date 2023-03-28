@@ -9,7 +9,7 @@ const meta: Meta<Button> = {
 	tags: ['autodocs'],
 	argTypes: {
 		primary: { control: 'boolean' },
-		filled: { control: 'boolean' },
+		outlined: { control: 'boolean' },
 		small: { control: 'boolean' },
 		label: { control: 'text' }
 	}
@@ -22,66 +22,66 @@ type Story = StoryObj<Button>;
 export const Primary: Story = {
 	args: {
 		primary: true,
-		filled: false,
-		label: 'Button'
+		outlined: false,
+		label: 'Label'
 	}
 };
-export const PrimaryFilled: Story = {
+export const PrimaryOutlined: Story = {
 	args: {
 		primary: true,
-		filled: true,
-		label: 'Button'
+		outlined: true,
+		label: 'Label'
 	}
 };
 export const PrimarySmall: Story = {
 	args: {
 		primary: true,
-		filled: false,
+		outlined: false,
 		small: true,
-		label: 'Button'
+		label: 'Label'
 	}
 };
 
 export const PrimaryWide: Story = {
 	args: {
 		primary: true,
-		filled: false,
+		outlined: false,
 		wide: true,
-		label: 'Button'
+		label: 'Label'
 	}
 };
 
 export const PrimarySmallWide: Story = {
 	args: {
 		primary: true,
-		filled: false,
+		outlined: false,
 		wide: true,
 		small: true,
-		label: 'Button'
+		label: 'Label'
 	}
 };
 
-export const PrimaryFilledSmall: Story = {
+export const PrimaryOutlinedSmall: Story = {
 	args: {
 		primary: true,
-		filled: true,
+		outlined: true,
 		small: true,
-		label: 'Button'
+		label: 'Label'
 	}
 };
 
 export const Default: Story = {
 	args: {
 		primary: false,
-		filled: false,
-		label: 'Button'
+		outlined: false,
+		label: 'Label'
 	}
 };
 
-export const DefaultFilled: Story = {
+export const DefaultOutlined: Story = {
 	args: {
 		primary: false,
-		filled: true,
+		outlined: true,
 		label: 'Button'
 	}
 };
@@ -89,16 +89,16 @@ export const DefaultFilled: Story = {
 export const DefaultSmall: Story = {
 	args: {
 		primary: false,
-		filled: false,
+		outlined: false,
 		small: true,
 		label: 'Button'
 	}
 };
 
-export const DefaultFilledSmall: Story = {
+export const DefaultOutlinedSmall: Story = {
 	args: {
 		primary: false,
-		filled: true,
+		outlined: true,
 		small: true,
 		label: 'Button'
 	}

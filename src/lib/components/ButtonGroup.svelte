@@ -11,12 +11,12 @@
 </script>
 
 {#if !middleLabel}
-	<div class="flex gap-3">
-		<Button label={leftLabel} on:click={leftAction} filled={false} {wide} />
-		<Button label={rightLabel} on:click={rightAction} primary={true} filled={true} {wide} />
+	<div class="btn-group">
+		<Button label={leftLabel} on:click={leftAction} outlined={true} {wide} />
+		<Button label={rightLabel} on:click={rightAction} primary={true} outlined={false} {wide} />
 	</div>
 {:else}
-	<div class="flex">
+	<div class="btn-group btn-group--segmented">
 		<button class="joined-base rounded-l-lg border-l border-t border-b" on:click={leftAction}>
 			<span class="my-2 {wide ? 'mx-[31.5px]' : 'mx-[16px]'}">{leftLabel}</span>
 		</button>
@@ -32,5 +32,11 @@
 <style>
 	.joined-base {
 		@apply flex items-center justify-center border-[#71717a] text-base text-white;
+	}
+	.btn-group {
+		@apply flex gap-3;
+	}
+	.btn-group--segmented {
+		@apply flex gap-0;
 	}
 </style>
