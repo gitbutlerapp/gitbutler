@@ -8,6 +8,7 @@
 	import Replay from './Replay.svelte';
 	import Branch from './Branch.svelte';
 	import { currentProject } from '$lib/current_project';
+	import { goto } from '$app/navigation';
 
 	let dialog: ComponentType | undefined;
 
@@ -52,6 +53,11 @@
 				c: () => {
 					if ($currentProject) {
 						dialog === Commit ? (dialog = undefined) : (dialog = Commit);
+					}
+				},
+				'Shift+c': () => {
+					if ($currentProject) {
+						goto(`/projects/${$currentProject?.id}/commit`);
 					}
 				},
 				r: () => {

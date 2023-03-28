@@ -13,6 +13,8 @@
 	import Commit from './Commit.svelte';
 	import { invoke } from '@tauri-apps/api';
 	import { createEventDispatcher } from 'svelte';
+	import { RewindIcon } from '$lib/components/icons';
+	import { GitCommitIcon } from '$lib/components/icons';
 
 	const dispatch = createEventDispatcher();
 
@@ -84,12 +86,23 @@
 			visible: scopeToProject,
 			commands: [
 				{
-					title: 'Commit',
+					title: 'Quick commit',
 					description: 'C',
 					selected: false,
 					action: {
 						component: Commit
 					},
+					icon: GitCommitIcon,
+					visible: 'commit'.includes(userInput?.toLowerCase())
+				},
+				{
+					title: 'Commit',
+					description: 'Shift C',
+					selected: false,
+					action: {
+						component: Commit
+					},
+					icon: GitCommitIcon,
 					visible: 'commit'.includes(userInput?.toLowerCase())
 				},
 				{
@@ -99,6 +112,7 @@
 					action: {
 						component: Replay
 					},
+					icon: RewindIcon,
 					visible: 'replay history'.includes(userInput?.toLowerCase())
 				}
 			]
@@ -170,9 +184,12 @@
 
 <Modal on:close>
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<div class="flex h-[640px] w-[640px] flex-col rounded text-zinc-400" on:click|stopPropagation>
+	<div
+		class="commnand-palette flex max-h-[360px] w-[640px] flex-col rounded text-zinc-400"
+		on:click|stopPropagation
+	>
 		<!-- Search input area -->
-		<div class="flex items-center border-b border-zinc-400/20 py-2">
+		<div class="search-input flex items-center border-b border-zinc-400/20 py-2">
 			<div class="ml-4 mr-2 flex flex-grow items-center">
 				<!-- Project scope -->
 				{#if scopeToProject}
@@ -198,17 +215,17 @@
 			</div>
 		</div>
 		<!-- Main part -->
-		<div class="flex-auto overflow-y-auto">
+		<div class="search-results flex-auto overflow-y-auto">
 			{#each commandGroups as group, groupIdx}
 				{#if group.visible}
 					<div class="mx-2 cursor-default select-none">
-						<p class="mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300/80">
+						<p class="result-section-header">
 							<span>{group.name}</span>
 							{#if group.description}
-								<span class="ml-2 font-light italic text-zinc-300/60">({group.description})</span>
+								<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
 							{/if}
 						</p>
-						<ul class="">
+						<ul class="quick-command-list text-zinc-300">
 							{#each group.commands as command, commandIdx}
 								{#if command.visible}
 									{#if Action.isLink(command.action)}
@@ -217,12 +234,13 @@
 											on:focus={() => (selection = [groupIdx, commandIdx])}
 											id={`${groupIdx}-${commandIdx}`}
 											href={command.action.href}
-											class="{selection[0] === groupIdx && selection[1] === commandIdx
+											class="quick-command-item {selection[0] === groupIdx &&
+											selection[1] === commandIdx
 												? 'bg-zinc-700/70'
 												: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
 										>
-											<span class="flex-grow">{command.title}</span>
-											<span>{command.description}</span>
+											<span class="quick-command flex-grow">{command.title}</span>
+											<span class="quick-command-key">{command.description}</span>
 										</a>
 									{:else if Action.isActionInPalette(command.action)}
 										<div
@@ -230,11 +248,16 @@
 											on:focus={() => (selection = [groupIdx, commandIdx])}
 											on:click={triggerCommand}
 											class="{selection[0] === groupIdx && selection[1] === commandIdx
-												? 'bg-zinc-700/70'
-												: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
+												? 'bg-zinc-50/10'
+												: ''} quick-command-item flex cursor-default items-center "
 										>
-											<span class="flex-grow">{command.title}</span>
-											<span>{command.description}</span>
+											<span class="quick-command-icon">
+												<svelte:component this={command.icon} />
+											</span>
+											<span class="quick-command flex-grow">{command.title}</span>
+											{#each command.description.split(' ') as token}
+												<span class="quick-command-key">{token}</span>
+											{/each}
 										</div>
 									{/if}
 								{/if}

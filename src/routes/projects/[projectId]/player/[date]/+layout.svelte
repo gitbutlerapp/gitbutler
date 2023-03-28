@@ -17,6 +17,8 @@
 
 	const currentDate = derived(page, (page) => page.params.date);
 
+	const today = format(new Date(), 'yyyy-MM-dd');
+
 	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
 </script>
 
@@ -35,20 +37,28 @@
 		</a>
 	{/if}
 
-	<div class="flex h-full w-full flex-auto flex-row gap-2 overflow-auto p-2">
-		<ul id="days" class="flex h-full flex-shrink-0 flex-col gap-2 overflow-y-scroll">
+	<div class="flex h-full w-full flex-row gap-2 px-2">
+		<ul
+			id="days"
+			class="scrollbar-hidden grid h-full flex-shrink-0 auto-rows-min gap-2 overflow-y-scroll py-2"
+		>
 			{#each $dates as date}
-				<li class="w-full">
+				{@const isToday = format(new Date(date), 'yyyy-MM-dd') === today}
+				<li>
 					<a
 						href="/projects/{projectId}/player/{date}{$page.url.search}"
 						class:bg-gb-800={date === $currentDate}
 						class:text-white={date === $currentDate}
 						class:border-gb-700={date !== $currentDate}
 						class:bg-gb-900={date !== $currentDate}
-						class="flex w-full flex-col items-center rounded border border-[0.5px] p-2 text-zinc-300 shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
+						class="max-h-content flex w-full flex-col items-center justify-around rounded border border-[0.5px] p-2 text-zinc-300 shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
 					>
-						<div class="text-xl leading-5">{new Date(date).getDate()}</div>
-						<div class="leading-4">{format(new Date(date), 'MMM')}</div>
+						{#if isToday}
+							<div class="py-2 text-lg leading-5">Today</div>
+						{:else}
+							<div class="text-xl leading-5">{new Date(date).getDate()}</div>
+							<div class="leading-4">{format(new Date(date), 'MMM')}</div>
+						{/if}
 					</a>
 				</li>
 			{/each}
