@@ -61,7 +61,6 @@ export const PrimarySmallWide: Story = {
 	}
 };
 
-
 export const PrimaryFilledSmall: Story = {
 	args: {
 		primary: true,

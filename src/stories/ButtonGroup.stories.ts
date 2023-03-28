@@ -8,9 +8,9 @@ const meta: Meta<ButtonGroup> = {
 	component: ButtonGroup,
 	tags: ['autodocs'],
 	argTypes: {
-        leftLabel: { control: 'text' },
-        rightLabel: { control: 'text' },
-        middleLabel: { control: 'text' },
+		leftLabel: { control: 'text' },
+		rightLabel: { control: 'text' },
+		middleLabel: { control: 'text' }
 	}
 };
 
@@ -19,32 +19,32 @@ type Story = StoryObj<ButtonGroup>;
 
 export const TwoButtons: Story = {
 	args: {
-        leftLabel: 'Cancel',
-        rightLabel: 'Submit',
+		leftLabel: 'Cancel',
+		rightLabel: 'Submit'
 	}
 };
 
 export const TwoButtonsWide: Story = {
 	args: {
-        leftLabel: 'Cancel',
-        rightLabel: 'Submit',
-        wide: true,
+		leftLabel: 'Cancel',
+		rightLabel: 'Submit',
+		wide: true
 	}
 };
 
 export const ThreeButtons: Story = {
 	args: {
-        leftLabel: 'Left',
-        middleLabel: 'Middle',
-        rightLabel: 'Right',
+		leftLabel: 'Left',
+		middleLabel: 'Middle',
+		rightLabel: 'Right'
 	}
 };
 
 export const ThreeButtonsWide: Story = {
 	args: {
-        leftLabel: 'Left',
-        middleLabel: 'Middle',
-        rightLabel: 'Right',
-        wide: true,
+		leftLabel: 'Left',
+		middleLabel: 'Middle',
+		rightLabel: 'Right',
+		wide: true
 	}
 };
