@@ -283,11 +283,16 @@
 					</div>
 				{:else}
 					<div class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
-						<ul class="w-80 truncate pl-4">
+						<ul class="pl-4">
 							{#each $filesStatus as activity}
 								<li class="list-disc">
-									{activity.status.slice(0, 1)}
-									<span use:collapsable={{ value: activity.path, separator: '/' }} />
+									<div class="w-full flex gap-2 ">
+										{activity.status.slice(0, 1)}
+										<div 
+											class="truncate" 
+											use:collapsable={{ value: activity.path, separator: '/' }} 
+										/>
+									</div>
 								</li>
 							{/each}
 						</ul>
