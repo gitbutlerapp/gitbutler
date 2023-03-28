@@ -143,9 +143,9 @@
 	function orderedSessions(dateSessions: Record<number, Record<string, Delta[][]>[]>) {
 		return Object.entries(dateSessions)
 			.sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
-			.map(([date, sessions]) => {
-				return [date, sessionFileMap(sessions)];
-			});
+			.map(
+				([date, sessions]) => [date, sessionFileMap(sessions)] as [string, Record<string, number[]>]
+			);
 	}
 </script>
 
@@ -227,7 +227,6 @@
 						>
 							<div class="h-4 w-4">
 								<svg
-									text="gray"
 									aria-hidden="true"
 									height="16"
 									viewBox="0 0 16 16"

@@ -235,7 +235,7 @@
 							$page.url.searchParams,
 							'delta'
 						).toString()}"
-						disabled={isCurrent}
+						class:pointer-events-none={isCurrent}
 						class="w-full"
 					>
 						<div class="flex flex-row justify-between rounded-t bg-gb-800 px-3 pt-3">

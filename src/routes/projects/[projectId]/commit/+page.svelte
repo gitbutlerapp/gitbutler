@@ -69,9 +69,9 @@
 	const getFile = (params: { projectId: string; path: string }) =>
 		invoke<string>('get_file_contents', params);
 
-	let gitBranch = <string | undefined>undefined;
-	let gitDiff = <Record<string, string> | undefined>undefined;
-	let generatedMessage = <string | undefined>undefined;
+	let gitBranch: string | undefined = undefined;
+	let gitDiff: Record<string, string> = {};
+	let generatedMessage: string | undefined = undefined;
 	let isLoaded = false;
 
 	let currentPath = '';
@@ -80,7 +80,7 @@
 	let fileContentsStatus = '';
 
 	// Replace HTML tags with an empty string
-	function selectPath(path) {
+	function selectPath(path: string) {
 		currentDiff = '';
 		fileContents = '';
 
@@ -89,9 +89,9 @@
 			currentDiff = gitDiff[path];
 		} else {
 			let file = $filesStatus.filter((file) => file.path === path)[0];
-			if (file) {
+			if ($project && file) {
 				fileContentsStatus = file.status;
-				getFile({ projectId: $project?.id, path: path }).then((contents) => {
+				getFile({ projectId: $project.id, path: path }).then((contents) => {
 					currentPath = path;
 					fileContents = contents;
 				});
@@ -140,12 +140,12 @@
 					diff: diff,
 					uid: $project.id
 				})
-				.then((result) => {
-					if (result.message) {
+				.then((message) => {
+					if (message) {
 						// split result into subject and message (first line is subject)
-						commitSubject = result.message.split('\n')[0];
-						commitMessage = result.message.split('\n').slice(2).join('\n');
-						generatedMessage = result.message;
+						commitSubject = message.split('\n')[0];
+						commitMessage = message.split('\n').slice(2).join('\n');
+						generatedMessage = message;
 						// set messageRows as a function of the number of chars in the message
 						messageRows = Math.ceil(commitMessage.length / 75) + 3;
 					}
@@ -162,7 +162,6 @@
 		>
 			<div class="h-4 w-4">
 				<svg
-					text="gray"
 					aria-hidden="true"
 					height="16"
 					viewBox="0 0 16 16"
@@ -191,14 +190,14 @@
 
 		<div class="changed-files-list-container mt-2 mb-4">
 			<div
-				class="changed-files-list rounded border border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px] border-gb-700 bg-gb-900 font-mono text-zinc-900"
+				class="changed-files-list flex flex-col rounded border border-[0.5px] border-gb-700 bg-gb-900 font-mono text-zinc-900"
 			>
 				<div
 					class="mb-2 flex flex-row space-x-2 rounded-t border-b border-b-gb-750 bg-gb-800 p-2 text-zinc-200"
 				>
 					<h3 class="text-base font-semibold ">File Changes</h3>
-					<a href="#" class="text-yellow-200" on:click={toggleAllOn}>all</a>
-					<a href="#" class="text-yellow-200" on:click={toggleAllOff}>none</a>
+					<button class="text-yellow-200" on:click={toggleAllOn}>all</button>
+					<button class="text-yellow-200" on:click={toggleAllOff}>none</button>
 				</div>
 				<ul class="truncate px-2 pb-2">
 					{#each $filesStatus as activity}
@@ -206,18 +205,17 @@
 							<div class="flex flex-row align-middle">
 								<input
 									type="checkbox"
-									on:click={showMessage}
+									on:click={() => showMessage}
 									bind:group={filesSelectedForCommit}
 									value={activity.path}
 									class="mr-2 mt-1 w-4"
 								/>
 								<div class="w-4">{activity.status.slice(0, 1)}</div>
-								<!-- svelte-ignore a11y-click-events-have-key-events -->
-								<div
+								<button
 									class="w-[100%] cursor-pointer truncate {currentPath == activity.path
 										? 'text-white'
 										: ''}"
-									on:click={selectPath(activity.path)}
+									on:click={() => selectPath(activity.path)}
 									use:collapsable={{ value: activity.path, separator: '/' }}
 								/>
 							</div>
