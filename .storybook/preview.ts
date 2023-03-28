@@ -12,12 +12,12 @@ const preview: Preview = {
 		backgrounds: {
 			default: 'GitButler_1',
 			values: [
-			  {
-				name: 'GitButler_1',
-				value: '#27272A',
-			  },
-			],
-		  },
+				{
+					name: 'GitButler_1',
+					value: '#27272A'
+				}
+			]
+		}
 	}
 };
 

@@ -3,11 +3,43 @@
 @tailwind components;
 @tailwind utilities;
 
+/* this is trick to make webkit use hardware acceleration */
+*:not(html) {
+	-webkit-transform: translate3d(0, 0, 0);
+	-webkit-perspective: 1000;
+}
+
+
+/* SCROLL BAR STYLING */
+
+/* width */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+	border-radius: 2px;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+	/* background: #44444A;  */
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 10px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+	background: #6E6E78; 
+}
 .scrollbar-hidden::-webkit-scrollbar {
 	-webkit-appearance: none;
 	width: 0;
 	height: 0;
 }
+
 
 /* COMMAND PALETTE */
 
