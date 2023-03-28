@@ -249,12 +249,12 @@
 						</span>
 
 						{#if isCurrent}
-							<ul class="rounded-b bg-zinc-800 p-2">
+							<ul class="list-disk bg-zinc-800 p-2" style:list-style="disc">
 								{#each Object.keys(session.files) as filename}
 									<li
 										class:text-zinc-100={$frame?.filepath === filename}
 										class:font-bold={$frame?.filepath === filename}
-										class="truncate text-left text-zinc-500"
+										class="ml-5 text-zinc-500"
 									>
 										{shortPath(filename)}
 									</li>
