@@ -8,7 +8,16 @@ const preview: Preview = {
 				color: /(background|color)$/i,
 				date: /Date$/
 			}
-		}
+		},
+		backgrounds: {
+			default: 'GitButler_1',
+			values: [
+			  {
+				name: 'GitButler_1',
+				value: '#27272A',
+			  },
+			],
+		  },
 	}
 };
 
