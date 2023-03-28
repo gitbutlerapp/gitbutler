@@ -193,25 +193,17 @@
 				class="changed-files-list flex flex-col rounded border border-[0.5px] border-gb-700 bg-gb-900 font-mono text-zinc-900"
 			>
 				<div
-					class="flex flex-row space-x-2 justify-between rounded-t border-b border-b-gb-750 bg-gb-800 p-2 text-zinc-200"
+					class="flex flex-row justify-between space-x-2 rounded-t border-b border-b-gb-750 bg-gb-800 p-2 text-zinc-200"
 				>
 					<h3 class="text-base font-semibold">Changed files</h3>
 					<div>
-						<button 
-							title="Select all"
-							class="text-yellow-200" 
-							on:click={toggleAllOn}>
-							all
-						</button>
-						<button 
-							title="Deselect all"
-							class="text-yellow-200" 
-							on:click={toggleAllOff}>
+						<button title="Select all" class="text-yellow-200" on:click={toggleAllOn}> all </button>
+						<button title="Deselect all" class="text-yellow-200" on:click={toggleAllOff}>
 							none
 						</button>
 					</div>
 				</div>
-				<ul class="truncate px-2 py-2 min-h-[35px]">
+				<ul class="min-h-[35px] truncate px-2 py-2">
 					{#each $filesStatus as activity}
 						<li class="list-none text-zinc-300">
 							<div class="flex flex-row align-middle">
@@ -224,8 +216,8 @@
 								/>
 								<div class="w-4">{activity.status.slice(0, 1)}</div>
 								<button
-									title="{activity.path}"
-									class="text-left w-[100%] cursor-pointer truncate {currentPath == activity.path
+									title={activity.path}
+									class="w-[100%] cursor-pointer truncate text-left {currentPath == activity.path
 										? 'text-white'
 										: ''}"
 									on:click={() => selectPath(activity.path)}
@@ -273,11 +265,11 @@
 				>
 			{/if}
 			{#if !generatedMessage}
-
 				<a
 					title="Generate commit message"
 					class="cursor-pointer rounded bg-green-800 bg-gradient-to-b from-[#623871] to-[#502E5C] p-2 text-zinc-50 shadow"
-					on:click={fetchCommitMessage}>
+					on:click={fetchCommitMessage}
+				>
 					✨ Generate commit message
 				</a>
 			{:else if generatedMessage == 'loading'}
@@ -298,8 +290,7 @@
 		{#if currentDiff}
 			<DiffViewer diff={currentDiff} path={currentPath} />
 		{:else if fileContents}
-			<pre
-				class={fileContentsStatus == 'added' ? 'bg-green-900' : 'bg-red-900'}>{fileContents}
+			<pre class={fileContentsStatus == 'added' ? 'bg-green-900' : 'bg-red-900'}>{fileContents}
 			</pre>
 		{:else}
 			<div class="p-20 text-center text-lg text-zinc-400">Select a file to view changes.</div>
