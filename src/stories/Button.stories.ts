@@ -40,6 +40,24 @@ export const PrimarySmall: Story = {
 	}
 };
 
+export const PrimaryWide: Story = {
+	args: {
+		primary: true,
+		wide: true,
+		label: 'Button'
+	}
+};
+
+export const PrimarySmallWide: Story = {
+	args: {
+		primary: true,
+		wide: true,
+		small: true,
+		label: 'Button'
+	}
+};
+
+
 export const PrimaryFilledSmall: Story = {
 	args: {
 		primary: true,
