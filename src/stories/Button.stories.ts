@@ -54,7 +54,6 @@ export const BasicOutlinedSmall: Story = {
 	}
 };
 
-
 export const Primary: Story = {
 	args: {
 		primary: true,
@@ -105,5 +104,3 @@ export const PrimaryOutlinedSmall: Story = {
 		label: 'Label'
 	}
 };
-
-
