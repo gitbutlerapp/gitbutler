@@ -428,20 +428,6 @@ async fn git_match_paths(
     Ok(files)
 }
 
-#[tauri::command(async)]
-async fn get_file_contents(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    path: &str,
-) -> Result<String, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let file = repo
-        .get_file_contents(path)
-        .with_context(|| "Failed to get file contents")?;
-
-    Ok(file)
-}
-
 fn repo_for_project(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -634,7 +620,6 @@ fn main() {
             git_switch_branch,
             git_commit,
             git_wd_diff,
-            get_file_contents
         ]);
 
     let tauri_context = generate_context!();

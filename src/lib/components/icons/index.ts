@@ -18,3 +18,4 @@ export { default as IconCircleFilled } from './IconCircleFilled.svelte';
 export { default as IconCircleCancel } from './IconCircleCancel.svelte';
 export { default as IconChevronLeft } from './IconChevronLeft.svelte';
 export { default as IconChevronRight } from './IconChevronRight.svelte';
+export { default as IconGitBranch } from './IconGitBranch.svelte';

@@ -4,7 +4,7 @@ use git2::{BranchType, Cred, DiffOptions, Signature};
 use serde::Serialize;
 use std::{
     collections::HashMap,
-    env, fs as std_fs,
+    env,
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -146,20 +146,6 @@ impl Repository {
             .unwrap_or("undefined".to_string()))
     }
 
-    // return file contents for path in the working directory
-    pub fn get_file_contents(&self, path: &str) -> Result<String> {
-        let repo = self.git_repository.lock().unwrap();
-        let workdir = repo
-            .workdir()
-            .with_context(|| "failed to get working directory")?;
-
-        let file_path = workdir.join(path);
-        // read the file contents
-        let content =
-            std_fs::read_to_string(file_path).with_context(|| "failed to read file contents")?;
-        Ok(content)
-    }
-
     pub fn wd_diff(&self, max_lines: usize) -> Result<HashMap<String, String>> {
         let repo = self.git_repository.lock().unwrap();
         let head = repo.head()?;
@@ -187,11 +173,6 @@ impl Repository {
                 .to_str()
                 .unwrap()
                 .to_string();
-            print!(
-                "{} {}",
-                new_path,
-                std::str::from_utf8(line.content()).unwrap()
-            );
             if new_path != last_path {
                 result.insert(last_path.clone(), results.clone());
                 results = String::new();
@@ -299,9 +280,13 @@ impl Repository {
     pub fn commit(&self, message: &str, files: Vec<&str>, push: bool) -> Result<()> {
         let repo = self.git_repository.lock().unwrap();
 
-        let config = repo.config()?;
-        let name = config.get_string("user.name")?;
-        let email = config.get_string("user.email")?;
+        let config = repo.config().with_context(|| "failed to get config")?;
+        let name = config
+            .get_string("user.name")
+            .with_context(|| "failed to get user.name")?;
+        let email = config
+            .get_string("user.email")
+            .with_context(|| "failed to get user.email")?;
 
         // Get the repository's index
         let mut index = repo.index()?;
@@ -309,14 +294,16 @@ impl Repository {
         // Add the specified files to the index
         for path_str in files {
             let path = Path::new(path_str);
-            index.add_path(path)?;
+            index
+                .add_path(path)
+                .with_context(|| format!("failed to add path {} to index", path_str.to_string()))?;
         }
 
         // Write the updated index to disk
-        index.write()?;
+        index.write().with_context(|| "failed to write index")?;
 
         // Get the default signature for the repository
-        let signature = Signature::now(&name, &email)?;
+        let signature = Signature::now(&name, &email).with_context(|| "failed to get signature")?;
 
         // Create the commit with the updated index
         let tree_id = index.write_tree()?;

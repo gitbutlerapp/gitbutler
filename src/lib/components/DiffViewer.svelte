@@ -52,4 +52,4 @@
 	}
 </script>
 
-<pre>{@html currentDiff}</pre>
+<pre class="h-full w-full">{@html currentDiff}</pre>
