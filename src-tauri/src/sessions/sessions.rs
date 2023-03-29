@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::activity;
+use crate::git::activity;
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 

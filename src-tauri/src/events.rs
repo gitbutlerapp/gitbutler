@@ -15,14 +15,27 @@ impl Event {
         }
     }
 
-    pub fn git(project: &projects::Project) -> Self {
-        let event_name = format!("project://{}/git", project.id);
-        let payload = serde_json::json!({
-            "logs/HEAD": "updated",
-        });
+    pub fn git_index(project: &projects::Project) -> Self {
+        let event_name = format!("project://{}/git/index", project.id);
         Event {
             name: event_name,
-            payload: payload,
+            payload: serde_json::json!({}),
+        }
+    }
+
+    pub fn git_head(project: &projects::Project, head: &str) -> Self {
+        let event_name = format!("project://{}/git/head", project.id);
+        Event {
+            name: event_name,
+            payload: serde_json::json!({ "head": head }),
+        }
+    }
+
+    pub fn git_activity(project: &projects::Project) -> Self {
+        let event_name = format!("project://{}/git/activity", project.id);
+        Event {
+            name: event_name,
+            payload: serde_json::json!({}),
         }
     }
 

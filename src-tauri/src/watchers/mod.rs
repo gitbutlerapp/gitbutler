@@ -52,6 +52,7 @@ impl Watcher {
         let shared_sender = Arc::new(sender.clone());
         let shared_deltas_store = Arc::new(repository.deltas_storage.clone());
         let shared_lock_file = Arc::new(tokio::sync::Mutex::new(lock_file));
+        let shared_repository = Arc::new(repository.clone());
 
         self.session_watcher
             .watch(sender, shared_lock_file.clone(), repository)?;
@@ -62,11 +63,13 @@ impl Watcher {
             let sender = shared_sender;
             let deltas_storage = shared_deltas_store;
             let lock_file = shared_lock_file;
+            let repository = shared_repository;
             while let Some(event) = fsevents.recv().await {
                 match event {
                     files::Event::FileChange((project, path)) => {
                         if path.starts_with(Path::new(".git")) {
-                            if let Err(e) = git::on_git_file_change(&sender, &project, &path).await
+                            if let Err(e) =
+                                git::on_git_file_change(&sender, &repository, &path).await
                             {
                                 log::error!("{}: {:#}", project.id, e);
                             }

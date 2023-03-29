@@ -1,6 +1,7 @@
 mod deltas;
 mod events;
 mod fs;
+mod git;
 mod projects;
 mod repositories;
 mod search;
@@ -14,6 +15,7 @@ extern crate log;
 
 use anyhow::{Context, Result};
 use deltas::Delta;
+use git::activity;
 use serde::{ser::SerializeMap, Serialize};
 use std::{collections::HashMap, ops::Range, sync::Mutex};
 use storage::Storage;
@@ -375,10 +377,24 @@ async fn list_deltas(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn git_activity(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    start_time_ms: Option<u128>,
+) -> Result<Vec<activity::Activity>, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let activity = repo
+        .activity(start_time_ms)
+        .with_context(|| "Failed to get git activity")?;
+    Ok(activity)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<HashMap<String, String>, Error> {
+) -> Result<HashMap<String, repositories::FileStatus>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo.status().with_context(|| "Failed to get git status")?;
     Ok(files)
@@ -454,12 +470,12 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let repo = repo_for_project(handle, project_id)?;
-    let files = repo
-        .branch()
+    let head = repo
+        .head()
         .with_context(|| "Failed to get the git branch ref name")?;
-    Ok(files)
+    Ok(head)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -611,9 +627,10 @@ fn main() {
             get_user,
             search,
             git_status,
+            git_activity,
             git_match_paths,
             git_branches,
-            git_branch,
+            git_head,
             git_switch_branch,
             git_commit,
             git_wd_diff,

@@ -1,19 +1,14 @@
 <script lang="ts">
-	import type { LayoutData } from './$types';
 	import type { Session } from '$lib/sessions';
-	import { format, startOfDay } from 'date-fns';
+	import { format, getTime, startOfDay, subDays } from 'date-fns';
 	import type { Delta } from '$lib/deltas';
 	import { collapsable } from '$lib/paths';
-	import { invoke } from '@tauri-apps/api';
-	import { toHumanBranchName } from '$lib/branch';
 	import { list as listDeltas } from '$lib/deltas';
-	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
+	import type { PageData } from './$types';
+	import { derived } from 'svelte/store';
 
-	export let data: LayoutData;
-	$: project = data.project;
-	$: filesStatus = data.filesStatus;
-	$: recentActivity = data.recentActivity;
-	$: orderedSessionsFromLastFourDays = data.orderedSessionsFromLastFourDays;
+	export let data: PageData;
+	const { activity, project, statuses, sessions, head } = data;
 
 	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
 
@@ -29,10 +24,24 @@
 		}
 	}
 
+	const recentSessions = derived(sessions, (sessions) => {
+		const lastFourDaysOfSessions = sessions.filter(
+			(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
+		);
+		if (lastFourDaysOfSessions.length >= 4) return lastFourDaysOfSessions;
+		return sessions.slice(0, 4);
+	});
+
+	const recentActivity = derived([activity, recentSessions], ([activity, recentSessions]) =>
+		activity
+			.filter((a) => a.timestampMs >= (recentSessions.at(-1)?.meta.startTimestampMs ?? 0))
+			.sort((a, b) => b.timestampMs - a.timestampMs)
+	);
+
 	$: if ($project) {
 		latestDeltasByDateByFile = {};
 		const dateSessions: Record<number, Session[]> = {};
-		$orderedSessionsFromLastFourDays.forEach((session) => {
+		$recentSessions.forEach((session) => {
 			const date = startOfDay(new Date(session.meta.startTimestampMs));
 			if (dateSessions[date.getTime()]) {
 				dateSessions[date.getTime()]?.push(session);
@@ -71,13 +80,6 @@
 			).then((sessionsByFile) => {
 				latestDeltasByDateByFile[parseInt(date)] = sessionsByFile;
 			});
-		});
-	}
-
-	let gitBranch = <string | undefined>undefined;
-	$: if ($project) {
-		getBranch({ projectId: $project?.id }).then((branch) => {
-			gitBranch = branch;
 		});
 	}
 
@@ -223,52 +225,47 @@
 		>
 			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4 ">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
-				{#if gitBranch}
-					<div class="w-100 mb-4 flex items-center justify-between">
-						<div
-							class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
-						>
-							<div class="h-4 w-4">
-								<svg
-									aria-hidden="true"
-									height="16"
-									viewBox="0 0 16 16"
-									version="1.1"
-									width="16"
-									data-view-component="true"
-									class="h-4 w-4 fill-zinc-400"
-								>
-									<path
-										d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"
-									/>
-								</svg>
-							</div>
-							<div
-								title={toHumanBranchName(gitBranch)}
-								class="truncate pl-2 font-mono text-zinc-300"
+				<div class="w-100 mb-4 flex items-center justify-between">
+					<div
+						class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
+					>
+						<div class="h-4 w-4">
+							<svg
+								aria-hidden="true"
+								height="16"
+								viewBox="0 0 16 16"
+								version="1.1"
+								width="16"
+								data-view-component="true"
+								class="h-4 w-4 fill-zinc-400"
 							>
-								{toHumanBranchName(gitBranch)}
-							</div>
-							<div class="carrot flex hidden items-center pl-3">
-								<svg width="7" height="5" viewBox="0 0 7 5" fill="none" class="fill-zinc-400">
-									<path
-										d="M3.87796 4.56356C3.67858 4.79379 3.32142 4.79379 3.12204 4.56356L0.319371 1.32733C0.0389327 1.00351 0.268959 0.5 0.697336 0.5L6.30267 0.500001C6.73104 0.500001 6.96107 1.00351 6.68063 1.32733L3.87796 4.56356Z"
-										fill="#A1A1AA"
-									/>
-								</svg>
-							</div>
+								<path
+									d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"
+								/>
+							</svg>
 						</div>
-						<div>
-							<a
-								href="/projects/{$project?.id}/commit"
-								title="Commit changes"
-								class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
-								>Commit changes</a
-							>
+						<div title={$head} class="truncate pl-2 font-mono text-zinc-300">
+							{$head}
+						</div>
+						<div class="carrot flex hidden items-center pl-3">
+							<svg width="7" height="5" viewBox="0 0 7 5" fill="none" class="fill-zinc-400">
+								<path
+									d="M3.87796 4.56356C3.67858 4.79379 3.32142 4.79379 3.12204 4.56356L0.319371 1.32733C0.0389327 1.00351 0.268959 0.5 0.697336 0.5L6.30267 0.500001C6.73104 0.500001 6.96107 1.00351 6.68063 1.32733L3.87796 4.56356Z"
+									fill="#A1A1AA"
+								/>
+							</svg>
 						</div>
 					</div>
-				{/if}
-				{#if $filesStatus.length == 0}
+					<div>
+						<a
+							href="/projects/{$project?.id}/commit"
+							title="Commit changes"
+							class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
+							>Commit changes</a
+						>
+					</div>
+				</div>
+				{#if $statuses.length == 0}
 					<div
 						class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400"
 					>
@@ -284,21 +281,14 @@
 						Everything is committed
 					</div>
 				{:else}
-					<div class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
-						<ul class="pl-4">
-							{#each $filesStatus as activity}
-								<li class="list-disc">
-									<div class="flex w-full gap-2 ">
-										{activity.status.slice(0, 1)}
-										<div
-											class="truncate"
-											use:collapsable={{ value: activity.path, separator: '/' }}
-										/>
-									</div>
-								</li>
-							{/each}
-						</ul>
-					</div>
+					<ul class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
+						{#each $statuses as activity}
+							<li class="flex w-full gap-2">
+								<span class="font-semibold">{activity.status.slice(0, 1).toUpperCase()}</span>
+								<span class="truncate" use:collapsable={{ value: activity.path, separator: '/' }} />
+							</li>
+						{/each}
+					</ul>
 				{/if}
 			</div>
 			<div
