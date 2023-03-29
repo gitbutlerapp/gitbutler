@@ -44,7 +44,7 @@
 				<form action="/projects/{$project?.id}/search" method="GET">
 					<label
 						for="default-search"
-						class="sr-only mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label
+						class="text-gray-900 sr-only mb-2 text-sm font-medium dark:text-white">Search</label
 					>
 					<div class="relative">
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
