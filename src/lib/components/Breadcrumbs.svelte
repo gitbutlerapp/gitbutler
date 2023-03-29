@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Project } from '$lib/projects';
 	import type { Readable } from 'svelte/store';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	export let project: Readable<Project | undefined>;
 </script>
@@ -28,13 +29,19 @@
 			</svg>
 		</div>
 	</a>
+
 	{#if $project}
 		<div class="ml-1">
-			<div Title="Project" class="project-home-button flex rounded-md py-2 px-2 hover:bg-zinc-700">
-				<a class="flex h-4 cursor-default items-center" href={`/projects/${$project.id}`}>
-					{$project.title}
+			<Tooltip label="{$project.title} home">
+				<a
+					class="project-home-button group flex rounded-md py-2 px-2 hover:bg-zinc-700"
+					href={`/projects/${$project.id}`}
+				>
+					<span class="flex h-4 items-center group-hover:text-zinc-200">
+						{$project.title}
+					</span>
 				</a>
-			</div>
+			</Tooltip>
 		</div>
 	{/if}
 </div>
