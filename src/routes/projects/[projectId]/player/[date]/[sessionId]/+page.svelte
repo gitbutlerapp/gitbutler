@@ -34,6 +34,9 @@
 	let fullContext = false;
 	let context = 8;
 
+	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
+	const lexically = (a: string, b: string) => a.localeCompare(b);
+
 	const { sessions, projectId } = data;
 
 	const richSessions = asyncDerived([sessions, page], async ([sessions, page]) => {
@@ -250,11 +253,14 @@
 
 						{#if isCurrent}
 							<ul class="list-disk bg-zinc-800 p-2" style:list-style="disc">
-								{#each Object.keys(session.files) as filename}
+								{#each session.deltas
+									.map((d) => d[0])
+									.filter(unique)
+									.sort(lexically) as filename}
 									<li
 										class:text-zinc-100={$frame?.filepath === filename}
 										class:font-bold={$frame?.filepath === filename}
-										class="ml-5 text-zinc-500"
+										class="mx-5 text-zinc-500"
 										use:collapsable={{ value: filename, separator: '/' }}
 									/>
 								{/each}
