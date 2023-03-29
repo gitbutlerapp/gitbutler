@@ -1,6 +1,7 @@
-use crate::{deltas, fs, projects, sessions, users};
+use crate::{deltas, git::activity, projects, sessions, users};
 use anyhow::{Context, Result};
 use git2::{BranchType, Cred, DiffOptions, Signature};
+use serde::Serialize;
 use std::{
     collections::HashMap,
     env, fs as std_fs,
@@ -9,6 +10,17 @@ use std::{
 };
 use tauri::regex::Regex;
 use walkdir::WalkDir;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FileStatus {
+    Added,
+    Modified,
+    Deleted,
+    Renamed,
+    TypeChange,
+    Other,
+}
 
 #[derive(Clone)]
 pub struct Repository {
@@ -124,12 +136,14 @@ impl Repository {
         Ok(branches)
     }
 
-    // return current branch name
-    pub fn branch(&self) -> Result<String> {
+    // return current head name
+    pub fn head(&self) -> Result<String> {
         let repo = self.git_repository.lock().unwrap();
         let head = repo.head()?;
-        let branch = head.name().unwrap();
-        Ok(branch.to_string())
+        Ok(head
+            .name()
+            .map(|s| s.to_string())
+            .unwrap_or("undefined".to_string()))
     }
 
     // return file contents for path in the working directory
@@ -214,8 +228,36 @@ impl Repository {
         Ok(true)
     }
 
+    pub fn activity(&self, start_time_ms: Option<u128>) -> Result<Vec<activity::Activity>> {
+        let head_logs_path = Path::new(&self.project.path)
+            .join(".git")
+            .join("logs")
+            .join("HEAD");
+
+        if !head_logs_path.exists() {
+            return Ok(Vec::new());
+        }
+
+        let activity = std::fs::read_to_string(head_logs_path)
+            .with_context(|| "failed to read HEAD logs")?
+            .lines()
+            .filter_map(|line| activity::parse_reflog_line(line).ok())
+            .collect::<Vec<activity::Activity>>();
+
+        let activity = if let Some(start_timestamp_ms) = start_time_ms {
+            activity
+                .into_iter()
+                .filter(|activity| activity.timestamp_ms > start_timestamp_ms)
+                .collect::<Vec<activity::Activity>>()
+        } else {
+            activity
+        };
+
+        Ok(activity)
+    }
+
     // get file status from git
-    pub fn status(&self) -> Result<HashMap<String, String>> {
+    pub fn status(&self) -> Result<HashMap<String, FileStatus>> {
         let mut options = git2::StatusOptions::new();
         options.include_untracked(true);
         options.include_ignored(false);
@@ -235,19 +277,19 @@ impl Repository {
             let path = entry.path().unwrap();
             // get the status as a string
             let istatus = match entry.status() {
-                s if s.contains(git2::Status::WT_NEW) => "added",
-                s if s.contains(git2::Status::WT_MODIFIED) => "modified",
-                s if s.contains(git2::Status::WT_DELETED) => "deleted",
-                s if s.contains(git2::Status::WT_RENAMED) => "renamed",
-                s if s.contains(git2::Status::WT_TYPECHANGE) => "typechange",
-                s if s.contains(git2::Status::INDEX_NEW) => "added",
-                s if s.contains(git2::Status::INDEX_MODIFIED) => "modified",
-                s if s.contains(git2::Status::INDEX_DELETED) => "deleted",
-                s if s.contains(git2::Status::INDEX_RENAMED) => "renamed",
-                s if s.contains(git2::Status::INDEX_TYPECHANGE) => "typechange",
-                _ => "other",
+                git2::Status::WT_NEW => FileStatus::Added,
+                git2::Status::WT_MODIFIED => FileStatus::Modified,
+                git2::Status::WT_DELETED => FileStatus::Deleted,
+                git2::Status::WT_RENAMED => FileStatus::Renamed,
+                git2::Status::WT_TYPECHANGE => FileStatus::TypeChange,
+                git2::Status::INDEX_NEW => FileStatus::Added,
+                git2::Status::INDEX_MODIFIED => FileStatus::Modified,
+                git2::Status::INDEX_DELETED => FileStatus::Deleted,
+                git2::Status::INDEX_RENAMED => FileStatus::Renamed,
+                git2::Status::INDEX_TYPECHANGE => FileStatus::TypeChange,
+                _ => FileStatus::Other,
             };
-            files.insert(path.to_string(), istatus.to_string());
+            files.insert(path.to_string(), istatus);
         }
 
         return Ok(files);

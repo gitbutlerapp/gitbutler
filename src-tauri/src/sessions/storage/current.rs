@@ -3,7 +3,7 @@ use std::{
     time,
 };
 
-use crate::{projects, sessions};
+use crate::{git, projects, sessions};
 use anyhow::{Context, Result};
 use uuid::Uuid;
 
@@ -32,9 +32,9 @@ impl Store {
         let activity = match std::fs::read_to_string(git_repository.path().join("logs/HEAD")) {
             Ok(reflog) => reflog
                 .lines()
-                .filter_map(|line| sessions::activity::parse_reflog_line(line).ok())
+                .filter_map(|line| git::activity::parse_reflog_line(line).ok())
                 .filter(|activity| activity.timestamp_ms >= now_ts)
-                .collect::<Vec<sessions::activity::Activity>>(),
+                .collect::<Vec<git::activity::Activity>>(),
             Err(_) => Vec::new(),
         };
 
@@ -221,9 +221,9 @@ impl Store {
                     )
                 })?
                 .lines()
-                .filter_map(|line| sessions::activity::parse_reflog_line(line).ok())
+                .filter_map(|line| git::activity::parse_reflog_line(line).ok())
                 .filter(|activity| activity.timestamp_ms >= start_ts)
-                .collect::<Vec<sessions::activity::Activity>>(),
+                .collect::<Vec<git::activity::Activity>>(),
             false => Vec::new(),
         };
 

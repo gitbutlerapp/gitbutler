@@ -5,13 +5,12 @@
 	import { collapsable } from '$lib/paths';
 	import toast from 'svelte-french-toast';
 	import { slide } from 'svelte/transition';
-	import { toHumanBranchName } from '$lib/branch';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 
 	const api = Api({ fetch });
 
 	export let data: PageData;
-	const { project, user, filesStatus } = data;
+	const { project, user, statuses, head } = data;
 
 	let commitSubject: string;
 	let placeholderSubject = 'Summary (required)';
@@ -37,7 +36,7 @@
 				message: commitSubject,
 				files: filesSelectedForCommit,
 				push: false
-			}).then((result) => {
+			}).then(() => {
 				toast.success('Commit successful!', {
 					icon: '🎉'
 				});
@@ -55,7 +54,7 @@
 		filesSelectedForCommit = [];
 	};
 	const toggleAllOn = () => {
-		filesSelectedForCommit = $filesStatus.map((file) => {
+		filesSelectedForCommit = $statuses.map((file) => {
 			return file.path;
 		});
 	};
@@ -65,11 +64,9 @@
 
 	const getDiff = (params: { projectId: string }) =>
 		invoke<Record<string, string>>('git_wd_diff', params);
-	const getBranch = (params: { projectId: string }) => invoke<string>('git_branch', params);
 	const getFile = (params: { projectId: string; path: string }) =>
 		invoke<string>('get_file_contents', params);
 
-	let gitBranch: string | undefined = undefined;
 	let gitDiff: Record<string, string> = {};
 	let generatedMessage: string | undefined = undefined;
 	let isLoaded = false;
@@ -88,7 +85,7 @@
 			currentPath = path;
 			currentDiff = gitDiff[path];
 		} else {
-			let file = $filesStatus.filter((file) => file.path === path)[0];
+			let file = $statuses.filter((file) => file.path === path)[0];
 			if ($project && file) {
 				fileContentsStatus = file.status;
 				getFile({ projectId: $project.id, path: path }).then((contents) => {
@@ -101,12 +98,6 @@
 
 	$: if ($project) {
 		if (!isLoaded) {
-			getBranch({ projectId: $project?.id }).then((branch) => {
-				gitBranch = branch;
-				filesSelectedForCommit = $filesStatus.map((file) => {
-					return file.path;
-				});
-			});
 			getDiff({ projectId: $project?.id }).then((diff) => {
 				gitDiff = diff;
 			});
@@ -176,7 +167,7 @@
 				</svg>
 			</div>
 			<div class="truncate pl-2 font-mono text-zinc-300">
-				{toHumanBranchName(gitBranch)}
+				{$head}
 			</div>
 			<div class="carrot flex hidden items-center pl-3">
 				<svg width="7" height="5" viewBox="0 0 7 5" fill="none" class="fill-zinc-400">
@@ -204,7 +195,7 @@
 					</div>
 				</div>
 				<ul class="min-h-[35px] truncate px-2 py-2">
-					{#each $filesStatus as activity}
+					{#each $statuses as activity}
 						<li class="list-none text-zinc-300">
 							<div class="flex flex-row align-middle">
 								<input
