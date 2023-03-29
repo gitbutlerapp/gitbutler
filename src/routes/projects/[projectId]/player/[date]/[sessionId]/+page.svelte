@@ -280,13 +280,15 @@
 	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border border-zinc-700 bg-gb-900"
 >
 	{#if $frame}
-		<div id="code" class="h-full w-full flex-auto overflow-auto px-2 pb-[120px]">
-			<CodeViewer
-				doc={$frame.doc}
-				deltas={$frame.deltas}
-				filepath={$frame.filepath}
-				paddingLines={fullContext ? 100000 : context}
-			/>
+		<div id="code" class="flex-auto overflow-auto px-2">
+			<div class="pb-[120px]">
+				<CodeViewer
+					doc={$frame.doc}
+					deltas={$frame.deltas}
+					filepath={$frame.filepath}
+					paddingLines={fullContext ? 100000 : context}
+				/>
+			</div>
 		</div>
 
 		<div
@@ -304,7 +306,14 @@
 
 		<div
 			id="controls"
-			class="flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
+			class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
+			style="
+                border-width: 0.5px; 
+                -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
+                backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
+                background-color: rgba(24, 24, 27, 0.60);
+                border: 0.5px solid rgba(63, 63, 70, 0.50);
+            "
 		>
 			<div class="flex h-0 w-full justify-between">
 				{#each $richSessions as session}
@@ -387,7 +396,7 @@
 				</div>
 
 				<div class="align-center flex flex-row-reverse gap-2">
-					<button class="checkbox-button ">
+					<button class="checkbox-button">
 						<label
 							for="full-context-checkbox"
 							class="group block cursor-pointer rounded  transition-colors duration-200 ease-in-out hover:bg-zinc-700 "
