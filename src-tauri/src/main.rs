@@ -399,17 +399,6 @@ async fn git_wd_diff(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let files = repo
-        .file_paths()
-        .with_context(|| "Failed to get file paths")?;
-
-    Ok(files)
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -495,7 +484,7 @@ async fn git_commit(
     message: &str,
     files: Vec<&str>,
     push: bool,
-) -> Result<bool, Error> {
+) -> Result<(), Error> {
     let repo = repo_for_project(handle, project_id)?;
     let success = repo
         .commit(message, files, push)
@@ -622,7 +611,6 @@ fn main() {
             get_user,
             search,
             git_status,
-            git_file_paths,
             git_match_paths,
             git_branches,
             git_branch,
