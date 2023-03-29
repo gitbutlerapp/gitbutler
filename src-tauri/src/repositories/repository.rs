@@ -62,25 +62,6 @@ impl Repository {
     }
 
     // get a list of all files in the working directory
-    pub fn file_paths(&self) -> Result<Vec<String>> {
-        let repo = self.git_repository.lock().unwrap();
-        let workdir = repo
-            .workdir()
-            .with_context(|| "failed to get working directory")?;
-
-        let all_files = fs::list_files(&workdir)
-            .with_context(|| format!("Failed to list files in {}", workdir.to_str().unwrap()))?;
-
-        let mut files = Vec::new();
-        for file in all_files {
-            if !repo.is_path_ignored(&file).unwrap_or(true) {
-                files.push(file.to_string_lossy().to_string());
-            }
-        }
-        return Ok(files);
-    }
-
-    // get a list of all files in the working directory
     pub fn match_file_paths(&self, match_pattern: &str) -> Result<Vec<String>> {
         let repo = self.git_repository.lock().unwrap();
         let workdir = repo
@@ -273,7 +254,7 @@ impl Repository {
     }
 
     // commit method
-    pub fn commit(&self, message: &str, files: Vec<&str>, push: bool) -> Result<bool> {
+    pub fn commit(&self, message: &str, files: Vec<&str>, push: bool) -> Result<()> {
         let repo = self.git_repository.lock().unwrap();
 
         let config = repo.config()?;
@@ -361,7 +342,7 @@ impl Repository {
                 })?;
         }
 
-        return Ok(true);
+        return Ok(());
     }
 
     pub fn flush_session(&self, user: Option<users::User>) -> Result<()> {
