@@ -63,6 +63,7 @@ specifiers:
   storybook: ^7.0.0-rc.8
   svelte: ^3.55.1
   svelte-check: ^3.0.1
+  svelte-floating-ui: ^1.5.2
   svelte-french-toast: ^1.0.3
   tailwindcss: ^3.1.5
   tauri-plugin-log-api: github:tauri-apps/tauri-plugin-log
@@ -139,6 +140,7 @@ devDependencies:
   storybook: 7.0.0-rc.8
   svelte: 3.55.1
   svelte-check: 3.0.3_gqx7lw3sljhsd4bstor5m2aa2u
+  svelte-floating-ui: 1.5.2
   tailwindcss: 3.2.4_postcss@8.4.21
   tslib: 2.5.0
   typescript: 4.9.5
@@ -2029,6 +2031,16 @@ packages:
     resolution: {integrity: sha512-cEee/Z+I12mZcFJshKcCqC8tuX5hG3s+d+9nZ3LabqKF1vKdF41B92pJVCBggjAGORAeOzyyDDKrZwIkLffeOQ==}
     dev: true
 
+  /@floating-ui/core/1.2.5:
+    resolution: {integrity: sha512-qrcbyfnRVziRlB6IYwjCopYhO7Vud750JlJyuljruIXcPxr22y8zdckcJGsuOdnQ639uVD1tTXddrcH3t3QYIQ==}
+    dev: true
+
+  /@floating-ui/dom/1.2.5:
+    resolution: {integrity: sha512-+sAUfpQ3Frz+VCbPCqj+cZzvEESy3fjSeT/pDWkYCWOBXYNNKZfuVsHuv8/JO2zze8+Eb/Q7a6hZVgzS81fLbQ==}
+    dependencies:
+      '@floating-ui/core': 1.2.5
+    dev: true
+
   /@humanwhocodes/config-array/0.11.8:
     resolution: {integrity: sha512-UybHIJzJnR5Qc/MsD9Kr+RpO2h+/P1GhOwdiLPXK5TWk5sgTdu88bTD9UP+CKbPPh5Rni1u0GjAdYQLemG8g+g==}
     engines: {node: '>=10.10.0'}
@@ -2759,6 +2771,17 @@ packages:
       telejson: 7.0.4
     dev: true
 
+  /@storybook/channel-postmessage/7.0.0-rc.9:
+    resolution: {integrity: sha512-iaEwRN4PvIzxzH8dGXKSKVkepC2+70O6MM4Z+zDOyN1Q6p4grYOddM2Olqdb9cf3TaYES5JENPe5ig62JLu2zg==}
+    dependencies:
+      '@storybook/channels': 7.0.0-rc.9
+      '@storybook/client-logger': 7.0.0-rc.9
+      '@storybook/core-events': 7.0.0-rc.9
+      '@storybook/global': 5.0.0
+      qs: 6.11.1
+      telejson: 7.0.4
+    dev: true
+
   /@storybook/channel-websocket/7.0.0-rc.8:
     resolution: {integrity: sha512-BcWlji7W98+pmn8Xhk7mC/oKVljipyOIqxzJFPDgLE9GFRshwoL3j5qBVhHS5aSGFyqNi8VhBp5FztFgsbLNJA==}
     dependencies:
@@ -2770,6 +2793,10 @@ packages:
 
   /@storybook/channels/7.0.0-rc.8:
     resolution: {integrity: sha512-2tI/ECbQcXjncYGLVdrttNT8adIp6kV/bnQGJWmF5hBXZ7Izwyq1WRPTgPT++RihmOOTHvkRx4GCKfwluOrNpA==}
+    dev: true
+
+  /@storybook/channels/7.0.0-rc.9:
+    resolution: {integrity: sha512-XqgHzEqAlNG9lfNjYTLepXQNafoD7cUSDSFbZkpOAUlYRsBz0cyhCGyxAWDyH7er8ZJCCIfxsEwZVaMGg9bLFQ==}
     dev: true
 
   /@storybook/cli/7.0.0-rc.8:
@@ -2823,6 +2850,12 @@ packages:
 
   /@storybook/client-logger/7.0.0-rc.8:
     resolution: {integrity: sha512-6pBwnK0vB0mgkO8opiHbZxBVGyaKFSpJXglfx8F15gIwA3r1njgtOZvvYx+03DCz0ExaTiSXrrbWp39mI8mo5w==}
+    dependencies:
+      '@storybook/global': 5.0.0
+    dev: true
+
+  /@storybook/client-logger/7.0.0-rc.9:
+    resolution: {integrity: sha512-ihBDLgfECGXaP54KXMcTLokOXdKryoKSF6UEErJpzb/Foq8g/OQSaklSjx0xdoEt01JT+cJEdQOLAewNK/4fYg==}
     dependencies:
       '@storybook/global': 5.0.0
     dev: true
@@ -2901,6 +2934,10 @@ packages:
 
   /@storybook/core-events/7.0.0-rc.8:
     resolution: {integrity: sha512-KsKf+Ob6zQ8+IJ9oDD5xqASwYGzcjT08azBjSt4yocHIJ3mY741h88YDS0wcwnM+JrV6iFYlY0hiK35lnBEddA==}
+    dev: true
+
+  /@storybook/core-events/7.0.0-rc.9:
+    resolution: {integrity: sha512-FDEDaaksKJFGeaME1lnxwQr7AQxBFZoPJD8jX9t5hniFtouJ7Pdn8lGDueJME2XNuklT4VZHAUwFVO3WcbxbzA==}
     dev: true
 
   /@storybook/core-server/7.0.0-rc.8:
@@ -3019,6 +3056,16 @@ packages:
       '@storybook/preview-api': 7.0.0-rc.8
     dev: true
 
+  /@storybook/instrumenter/7.0.0-rc.9:
+    resolution: {integrity: sha512-Uyq4ZjuEcG7ThZqq4L0YsGX5LnbP85yi25k+1ySkr677eft0VpTp5U37jmyChGkoI03kghVNvM16LTgVuQ83kw==}
+    dependencies:
+      '@storybook/channels': 7.0.0-rc.9
+      '@storybook/client-logger': 7.0.0-rc.9
+      '@storybook/core-events': 7.0.0-rc.9
+      '@storybook/global': 5.0.0
+      '@storybook/preview-api': 7.0.0-rc.9
+    dev: true
+
   /@storybook/manager-api/7.0.0-rc.8_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-PV3N2tvUp6BTehgKt7JwwYH+ALoe7k2iKMeMKPNGwoRvbESmJfFEdAK95DyIZoLm8LUUtX1FpzcUek/7YWJ17w==}
     peerDependencies:
@@ -3081,6 +3128,26 @@ packages:
       memoizerific: 1.11.3
       qs: 6.11.1
       slash: 3.0.0
+      synchronous-promise: 2.0.17
+      ts-dedent: 2.2.0
+      util-deprecate: 1.0.2
+    dev: true
+
+  /@storybook/preview-api/7.0.0-rc.9:
+    resolution: {integrity: sha512-KcbqKm4Ge0G8iZNzCnIzGKY7ZD4L6140BQexid0t6dDvBRGavkUXvg3IH+nzXFTHW4H9lW3yFY3zbPANjUexXw==}
+    dependencies:
+      '@storybook/channel-postmessage': 7.0.0-rc.9
+      '@storybook/channels': 7.0.0-rc.9
+      '@storybook/client-logger': 7.0.0-rc.9
+      '@storybook/core-events': 7.0.0-rc.9
+      '@storybook/csf': 0.0.2-next.10
+      '@storybook/global': 5.0.0
+      '@storybook/types': 7.0.0-rc.9
+      '@types/qs': 6.9.7
+      dequal: 2.0.3
+      lodash: 4.17.21
+      memoizerific: 1.11.3
+      qs: 6.11.1
       synchronous-promise: 2.0.17
       ts-dedent: 2.2.0
       util-deprecate: 1.0.2
@@ -3201,8 +3268,8 @@ packages:
   /@storybook/testing-library/0.0.14-next.1:
     resolution: {integrity: sha512-1CAl40IKIhcPaCC4pYCG0b9IiYNymktfV/jTrX7ctquRY3akaN7f4A1SippVHosksft0M+rQTFE0ccfWW581fw==}
     dependencies:
-      '@storybook/client-logger': 7.0.0-rc.8
-      '@storybook/instrumenter': 7.0.0-rc.8
+      '@storybook/client-logger': 7.0.0-rc.9
+      '@storybook/instrumenter': 7.0.0-rc.9
       '@testing-library/dom': 8.20.0
       '@testing-library/user-event': 13.5.0_yxlyej73nftwmh2fiao7paxmlm
       ts-dedent: 2.2.0
@@ -3226,6 +3293,15 @@ packages:
     resolution: {integrity: sha512-Jz3MLLKs+Jy8dZVd+HVHuKAbxa7xcF/MLfUNldu0HxtJr3b7ybUlvjWjT5h2I60V5TYkWGf9wcKmegI6TGiJXQ==}
     dependencies:
       '@storybook/channels': 7.0.0-rc.8
+      '@types/babel__core': 7.20.0
+      '@types/express': 4.17.17
+      file-system-cache: 2.0.2
+    dev: true
+
+  /@storybook/types/7.0.0-rc.9:
+    resolution: {integrity: sha512-fnlEM+p1h8KAESKa0g+JK6FC5pwS6rci+vG1TexzMWPyk87bJeqZb7aFhhhd5t7UK5CQnZjka9t8RXD7atXk7A==}
+    dependencies:
+      '@storybook/channels': 7.0.0-rc.9
       '@types/babel__core': 7.20.0
       '@types/express': 4.17.17
       file-system-cache: 2.0.2
@@ -7860,6 +7936,13 @@ packages:
       - sass
       - stylus
       - sugarss
+    dev: true
+
+  /svelte-floating-ui/1.5.2:
+    resolution: {integrity: sha512-nV50eno74CEsFfFJ6iyN/oNYDEOck1TZjGV3lmJksVRbiiUAVF6bHspyAhR7GZ7c/4qbRWp9UyX24J+UXdEpag==}
+    dependencies:
+      '@floating-ui/core': 1.2.5
+      '@floating-ui/dom': 1.2.5
     dev: true
 
   /svelte-french-toast/1.0.3_svelte@3.55.1:
