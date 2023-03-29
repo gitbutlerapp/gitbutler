@@ -12,7 +12,7 @@
 	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
 
 	const dates = asyncDerived([sessions, fileFilter], async ([sessions, fileFilter]) => {
-		const sessionFiles = await Promise.all(
+		const sessionDeltas = await Promise.all(
 			sessions.map((session) =>
 				listDeltas({
 					projectId,
@@ -22,7 +22,7 @@
 			)
 		);
 		return sessions
-			.filter((_, index) => Object.keys(sessionFiles[index]).length > 0)
+			.filter((_, index) => Object.keys(sessionDeltas[index]).length > 0)
 			.map((session) => session.meta.startTimestampMs)
 			.sort((a, b) => b - a)
 			.map((ts) => format(new Date(ts), 'yyyy-MM-dd'))
