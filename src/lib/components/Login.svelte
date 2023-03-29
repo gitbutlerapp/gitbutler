@@ -27,7 +27,7 @@
 
 <div>
 	{#if $user}
-		<button class="text-zinc-400 hover:text-red-400 hover:underline" on:click={() => user.delete()}
+		<button class="hover:text-red-400 text-zinc-400 hover:underline" on:click={() => user.delete()}
 			>Log out</button
 		>
 	{:else if $token !== null}

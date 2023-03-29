@@ -61,11 +61,11 @@
 					<li>
 						<a
 							href="/projects/{projectId}/player/{date}{$page.url.search}"
-							class:bg-gb-800={date === $currentDate}
+							class:bg-card-active={date === $currentDate}
 							class:text-white={date === $currentDate}
 							class:border-gb-700={date !== $currentDate}
-							class:bg-gb-900={date !== $currentDate}
-							class="max-h-content flex w-full flex-col items-center justify-around rounded border border-[0.5px] p-2 text-zinc-300 shadow transition duration-150 ease-out hover:bg-gb-800 hover:ease-in"
+							class:bg-card-default={date !== $currentDate}
+							class="max-h-content flex w-full flex-col items-center justify-around rounded border border-[0.5px] p-2 text-zinc-300 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
 						>
 							{#if isToday}
 								<div class="py-2 text-lg leading-5">Today</div>

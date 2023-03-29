@@ -100,7 +100,7 @@
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
-			<ul class="flex w-full flex-col rounded border border-gb-900 bg-gb-800">
+			<ul class="flex w-full flex-col rounded border border-card-default bg-card-active">
 				<header class="flex w-full items-center py-2 px-4">
 					<input
 						type="checkbox"
@@ -118,9 +118,9 @@
 				{#each $statuses as { path }, i}
 					<li
 						class:bg-gb-700={$selectedDiffPath === path}
-						class:hover:bg-gb-750={$selectedDiffPath !== path}
+						class:hover:bg-divider={$selectedDiffPath !== path}
 						class:border-b={i < $statuses.length - 1}
-						class="flex items-center gap-2 border-gb-700 bg-gb-900"
+						class="flex items-center gap-2 border-gb-700 bg-card-default"
 					>
 						<input
 							class="ml-4 cursor-pointer py-2 disabled:opacity-50"
@@ -145,7 +145,7 @@
 
 			<input
 				name="summary"
-				class="rounded border border-gb-900 bg-gb-800 p-3 disabled:opacity-50"
+				class="rounded border border-card-default bg-card-active p-3 disabled:opacity-50"
 				disabled={isGeneratingCommitMessage || isCommitting}
 				type="text"
 				placeholder="Summary (required)"
@@ -156,7 +156,7 @@
 			<textarea
 				name="description"
 				disabled={isGeneratingCommitMessage || isCommitting}
-				class="rounded border border-gb-900 bg-gb-800 p-3 disabled:opacity-50"
+				class="rounded border border-card-default bg-card-active p-3 disabled:opacity-50"
 				rows="10"
 				placeholder="Description (optional)"
 				bind:value={description}
