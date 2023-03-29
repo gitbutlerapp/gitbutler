@@ -32,7 +32,7 @@
 	});
 
 	let showTooltip = false;
-	const timeoutMilliseconds = 200;
+	const timeoutMilliseconds = 1000;
 	let timeout: ReturnType<typeof setTimeout>;
 </script>
 
@@ -56,9 +56,10 @@
             rounded-[5px]
             bg-[#171717]
             p-2
-            text-base
-            text-[#FAFAFA]
+            text-[12px]
+            text-zinc-300
             shadow-lg
+			z-[9000]
     "
 		use:floatingContent
 	>
