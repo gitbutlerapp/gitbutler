@@ -11,7 +11,7 @@
 	const [floatingRef, floatingContent, update] = createFloatingActions({
 		strategy: 'absolute',
 		placement: 'bottom',
-		middleware: [offset(6), flip(), shift(), arrow({ element: arrowRef })],
+		middleware: [offset(8), flip(), shift(), arrow({ element: arrowRef })],
 		onComputed({ placement, middlewareData }) {
 			if (!middlewareData.arrow) return;
 			const { x, y } = middlewareData.arrow;
@@ -32,12 +32,17 @@
 	});
 
 	let showTooltip = false;
+	const timeoutMilliseconds = 200;
+	let timeout: ReturnType<typeof setTimeout>;
 </script>
 
 <div
 	class="h-fit w-fit"
-	on:mouseenter={() => (showTooltip = true)}
-	on:mouseleave={() => (showTooltip = false)}
+	on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
+	on:mouseleave={() => {
+		clearTimeout(timeout);
+		showTooltip = false;
+	}}
 	use:floatingRef
 >
 	<slot />
