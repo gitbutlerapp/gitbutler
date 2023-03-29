@@ -146,20 +146,6 @@ impl Repository {
             .unwrap_or("undefined".to_string()))
     }
 
-    // return file contents for path in the working directory
-    pub fn get_file_contents(&self, path: &str) -> Result<String> {
-        let repo = self.git_repository.lock().unwrap();
-        let workdir = repo
-            .workdir()
-            .with_context(|| "failed to get working directory")?;
-
-        let file_path = workdir.join(path);
-        // read the file contents
-        let content =
-            std_fs::read_to_string(file_path).with_context(|| "failed to read file contents")?;
-        Ok(content)
-    }
-
     pub fn wd_diff(&self, max_lines: usize) -> Result<HashMap<String, String>> {
         let repo = self.git_repository.lock().unwrap();
         let head = repo.head()?;
