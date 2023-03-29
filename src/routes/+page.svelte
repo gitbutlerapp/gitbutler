@@ -3,6 +3,7 @@
 	import type { LayoutData } from './$types';
 	import { toasts } from '$lib';
 	import { currentProject } from '$lib/current_project';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	export let data: LayoutData;
 
@@ -161,14 +162,16 @@
 							</div>
 						</div>
 						<div>
-							<button
-								title="Track a new project"
-								on:click={onAddLocalRepositoryClick}
-								type="button"
-								class="add-new-project-button inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-							>
-								Track a New Project
-							</button>
+							<Tooltip label="Adds a git repository on your computer to GitButler">
+								<button
+									title="Track a new project"
+									on:click={onAddLocalRepositoryClick}
+									type="button"
+									class="add-new-project-button inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+								>
+									Track a New Project
+								</button>
+							</Tooltip>
 						</div>
 					</div>
 					<div class="h-full max-h-screen overflow-auto">
