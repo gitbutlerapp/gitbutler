@@ -53,13 +53,13 @@
 		role="tooltip"
 		class="
             absolute
+            z-[9000]
             rounded-[5px]
             bg-[#171717]
             p-2
             text-[12px]
             text-zinc-300
-            shadow-lg
-			z-[9000]
+			shadow-lg
     "
 		use:floatingContent
 	>
