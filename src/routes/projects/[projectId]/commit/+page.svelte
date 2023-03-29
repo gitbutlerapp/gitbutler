@@ -130,7 +130,7 @@
 							bind:group={selectedFiles}
 							value={path}
 						/>
-						<label class="flex w-full" for="path">
+						<label class="flex w-full overflow-auto" for="path">
 							<button
 								disabled={isCommitting || isGeneratingCommitMessage}
 								on:click|preventDefault={() => ($selectedDiffPath = path)}
