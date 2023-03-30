@@ -4,7 +4,7 @@
 	import { getContext } from 'svelte';
 	import type { Readable } from 'svelte/store';
 	import type { Project } from '$lib/projects';
-	import type { CommandGroup, Command } from './types';
+	import type { CommandGroup } from './types';
 	import { onDestroy, onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
 	import { goto } from '$app/navigation';
