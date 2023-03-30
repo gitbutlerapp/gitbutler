@@ -102,7 +102,7 @@
 							</div>
 							<a
 								title="Reply changes (R)"
-								class="text-orange-200"
+								class="text-blue-500 hover:text-blue-400 hover:underline"
 								href="/projects/{$project.id}/player/{format(date, 'yyyy-MM-dd')}"
 							>
 								Replay Changes
