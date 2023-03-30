@@ -7,11 +7,12 @@
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { page } from '$app/stores';
 	import CommandPalette from '$lib/components/CommandPalette/CommandPalette.svelte';
+	import { readable } from 'svelte/store';
 
 	export let data: LayoutData;
 	const { user, posthog, projects } = data;
 
-	$: project = projects.get($page.params.projectId);
+	$: project = $page.params.projectId ? projects.get($page.params.projectId) : readable(undefined);
 
 	user.subscribe(posthog.identify);
 </script>
