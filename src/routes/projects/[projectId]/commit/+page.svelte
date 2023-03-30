@@ -224,7 +224,7 @@
 		</form>
 	</div>
 
-	<div id="preview" class="m-2 flex flex-auto overflow-auto">
+	<div id="preview" class="m-2 flex flex-auto overflow-auto select-text cursor-text">
 		{#if $selectedDiff !== undefined}
 			<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
 		{:else}

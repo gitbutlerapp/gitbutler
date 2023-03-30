@@ -252,7 +252,7 @@
 						</span>
 
 						{#if isCurrent}
-							<ul class="list-disk bg-zinc-800 p-2" style:list-style="disc">
+							<ul class="list-disk bg-zinc-800 p-2 rounded-bl rounded-br" style:list-style="disc">
 								{#each session.deltas
 									.map((d) => d[0])
 									.filter(unique)

@@ -193,7 +193,7 @@
 							<span>Updating...</span>
 						</div>
 					{:else}
-						<button type="submit" class="rounded bg-blue-600 py-2 px-3 text-white"
+						<button type="submit" class="rounded bg-blue-600 py-2 px-3 text-white cursor-default hover:bg-blue-700"
 							>Update profile</button
 						>
 					{/if}

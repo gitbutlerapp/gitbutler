@@ -155,9 +155,9 @@
 			<div class="select-none p-8">
 				<div class="flex flex-col">
 					<div class="flex flex-row justify-between">
-						<div class="mb-1 text-2xl text-zinc-300">
+						<div class="mb-1 text-2xl text-zinc-300 select-none pointer-events-none">
 							My Projects
-							<div class="mb-1 text-lg text-zinc-500">
+							<div class="mb-1 text-lg text-zinc-500 select-none pointer-events-none">
 								All the projects that I am currently assisting you with.
 							</div>
 						</div>
@@ -167,7 +167,7 @@
 									title="Track a new project"
 									on:click={onAddLocalRepositoryClick}
 									type="button"
-									class="add-new-project-button inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+									class="add-new-project-button inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 select-none cursor-default"
 								>
 									Track a New Project
 								</button>
@@ -175,14 +175,14 @@
 						</div>
 					</div>
 					<div class="h-full max-h-screen overflow-auto">
-						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 ">
 							{#each $projects as project}
 								<a
-									class="text-lg text-zinc-300 hover:text-zinc-200  "
+									class="project-card-container text-lg text-zinc-300 hover:text-zinc-200 cursor-default "
 									href="/projects/{project.id}/"
 								>
 									<div
-										class="group flex flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-[#2F2F33] shadow transition duration-150 ease-out hover:bg-[#3B3B3F] hover:ease-in"
+										class="project-card group flex flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-[#2F2F33] shadow transition duration-150 ease-out hover:bg-[#3B3B3F] hover:ease-in"
 									>
 										<div class="flex-grow-0 px-4 py-4">
 											<div class="text-lg text-zinc-300 hover:text-zinc-200">

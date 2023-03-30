@@ -43,7 +43,7 @@
 
 <div class="flex items-center justify-center space-x-3 text-zinc-600">
 	<button
-		class="group rounded-md p-2"
+		class="group rounded-md p-2 select-none"
 		class:hover:bg-zinc-700={canGoBack}
 		class:cursor-pointer={canGoBack}
 		on:click={onBackClicked}

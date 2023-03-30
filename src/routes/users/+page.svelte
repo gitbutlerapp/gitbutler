@@ -107,7 +107,7 @@
 								<button
 									title="Update profile"
 									type="submit"
-									class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none"
+									class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none cursor-default"
 									>Update profile</button
 								>
 							{/if}
@@ -126,7 +126,7 @@
 						<label
 							title="Edit profile photo"
 							for="picture"
-							class="font-sm -mt-6 -ml-16 cursor-pointer rounded-lg border border-zinc-600 bg-zinc-800 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
+							class="font-sm -mt-6 -ml-16 cursor-default rounded-lg border border-zinc-600 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
 						>
 							Edit
 							<input

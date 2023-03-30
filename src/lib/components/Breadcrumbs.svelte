@@ -14,7 +14,7 @@
 <div class="flex flex-row items-center text-zinc-400">
 	<a
 		Title="GitButler home"
-		class="button-home group rounded-md p-2 hover:bg-zinc-700 hover:text-zinc-200"
+		class="button-home group rounded-md p-2 hover:bg-zinc-700 hover:text-zinc-200 cursor-default"
 		href="/"
 	>
 		<div class="flex h-4 w-4 items-center justify-center">
@@ -37,7 +37,7 @@
 	{#if $project}
 		<div class="ml-1">
 			<div Title="Project" class="project-home-button flex rounded-md py-2 px-2 hover:bg-zinc-700">
-				<a class="flex h-4 items-center" href={`/projects/${$project.id}`}>
+				<a class="flex h-4 items-center cursor-default" href={`/projects/${$project.id}`}>
 					{$project.title}
 				</a>
 			</div>

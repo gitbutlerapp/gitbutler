@@ -86,7 +86,7 @@
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
 						<div
 							title="Project settings"
-							class="project-settings-button rounded-md p-1 hover:bg-zinc-700 hover:bg-zinc-700 hover:text-zinc-200"
+							class="project-settings-button rounded-md p-1 hover:bg-zinc-700 hover:text-zinc-200 cursor-default"
 						>
 							<div class="h-6 w-6 ">
 								<svg
