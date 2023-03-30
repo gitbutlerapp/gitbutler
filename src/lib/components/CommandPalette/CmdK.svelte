@@ -1,10 +1,8 @@
 <script lang="ts">
 	import Modal from '../Modal.svelte';
-	import { currentProject } from '$lib/current_project';
-	import { getContext } from 'svelte';
 	import type { Readable } from 'svelte/store';
 	import type { Project } from '$lib/projects';
-	import type { CommandGroup, Command } from './types';
+	import type { ActionInPalette, CommandGroup } from './types';
 	import { onDestroy, onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
 	import { goto } from '$app/navigation';
@@ -16,9 +14,15 @@
 	import { RewindIcon } from '$lib/components/icons';
 	import { GitCommitIcon } from '$lib/components/icons';
 
-	const dispatch = createEventDispatcher();
+	export let projects: Readable<Project[]>;
+	export let project: Readable<Project | undefined>;
 
-	$: scopeToProject = $currentProject ? true : false;
+	const dispatch = createEventDispatcher<{
+		close: void;
+		newdialog: ActionInPalette<Commit | Replay>;
+	}>();
+
+	$: scopeToProject = $project ? true : false;
 
 	let userInput = '';
 
@@ -37,16 +41,12 @@
 		invoke<Array<string>>('git_match_paths', params);
 	let matchingFiles: Array<string> = [];
 	$: if (matchFilesQuery) {
-		matchFiles({ projectId: $currentProject?.id || '', matchPattern: matchFilesQuery }).then(
-			(files) => {
-				matchingFiles = files;
-			}
-		);
+		matchFiles({ projectId: $project?.id || '', matchPattern: matchFilesQuery }).then((files) => {
+			matchingFiles = files;
+		});
 	} else {
 		matchingFiles = [];
 	}
-
-	let projects: Readable<any> = getContext('projects');
 
 	let selection: [number, number] = [0, 0];
 	// if the group or the command are no longer visible, select the first visible group and first visible command
@@ -90,7 +90,8 @@
 					description: 'C',
 					selected: false,
 					action: {
-						component: Commit
+						component: Commit,
+						props: { project }
 					},
 					icon: GitCommitIcon,
 					visible: 'commit'.includes(userInput?.toLowerCase())
@@ -100,7 +101,7 @@
 					description: 'Shift C',
 					selected: false,
 					action: {
-						component: Commit
+						href: `/projects/${$project?.id}/commit`
 					},
 					icon: GitCommitIcon,
 					visible: 'commit'.includes(userInput?.toLowerCase())
@@ -110,7 +111,8 @@
 					description: 'R',
 					selected: false,
 					action: {
-						component: Replay
+						component: Replay,
+						props: { project }
 					},
 					icon: RewindIcon,
 					visible: 'replay history'.includes(userInput?.toLowerCase())
@@ -141,12 +143,11 @@
 
 	const triggerCommand = () => {
 		// If the selected command is a link, navigate to it, otherwise, emit a 'newdialog' event, handled in the parent component
-		dispatch('newdialog', Commit);
 		if (Action.isLink(selectedCommand.action)) {
 			goto(selectedCommand.action.href);
 			dispatch('close');
 		} else if (Action.isActionInPalette(selectedCommand.action)) {
-			dispatch('newdialog', selectedCommand.action.component);
+			dispatch('newdialog', selectedCommand.action);
 		}
 	};
 
@@ -185,18 +186,14 @@
 </script>
 
 <Modal on:close bind:this={modal}>
-	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<div
-		class="commnand-palette flex max-h-[360px] w-[640px] flex-col rounded text-zinc-400"
-		on:click|stopPropagation
-	>
+	<div class="commnand-palette flex max-h-[360px] w-[640px] flex-col rounded text-zinc-400">
 		<!-- Search input area -->
 		<div class="search-input flex items-center border-b border-zinc-400/20 py-2">
 			<div class="ml-4 mr-2 flex flex-grow items-center">
 				<!-- Project scope -->
 				{#if scopeToProject}
 					<div class="mr-1 flex items-center">
-						<span class="font-semibold text-zinc-300">{$currentProject?.title}</span>
+						<span class="font-semibold text-zinc-300">{$project?.title}</span>
 						<span class="ml-1 text-lg">/</span>
 					</div>
 				{/if}
@@ -227,41 +224,25 @@
 								<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
 							{/if}
 						</p>
-						<ul class="quick-command-list text-zinc-300">
+						<ul class="quick-command-list flex flex-col text-zinc-300">
 							{#each group.commands as command, commandIdx}
 								{#if command.visible}
-									{#if Action.isLink(command.action)}
-										<a
-											on:mouseover={() => (selection = [groupIdx, commandIdx])}
-											on:focus={() => (selection = [groupIdx, commandIdx])}
-											id={`${groupIdx}-${commandIdx}`}
-											href={command.action.href}
-											class="quick-command-item {selection[0] === groupIdx &&
-											selection[1] === commandIdx
-												? 'bg-zinc-700/70'
-												: ''} flex cursor-default items-center rounded-lg p-2 px-2 outline-none"
-										>
-											<span class="quick-command flex-grow">{command.title}</span>
-											<span class="quick-command-key">{command.description}</span>
-										</a>
-									{:else if Action.isActionInPalette(command.action)}
-										<div
+									<li
+										class="{selection[0] === groupIdx && selection[1] === commandIdx
+											? 'bg-zinc-50/10'
+											: ''} quick-command-item flex w-full cursor-default"
+									>
+										<button
 											on:mouseover={() => (selection = [groupIdx, commandIdx])}
 											on:focus={() => (selection = [groupIdx, commandIdx])}
 											on:click={triggerCommand}
-											class="{selection[0] === groupIdx && selection[1] === commandIdx
-												? 'bg-zinc-50/10'
-												: ''} quick-command-item flex cursor-default items-center "
+											class="flex w-full gap-2"
 										>
-											<span class="quick-command-icon">
-												<svelte:component this={command.icon} />
-											</span>
-											<span class="quick-command flex-grow">{command.title}</span>
-											{#each command.description.split(' ') as token}
-												<span class="quick-command-key">{token}</span>
-											{/each}
-										</div>
-									{/if}
+											<svelte:component this={command.icon} />
+											<span class="quick-command flex-1 text-left">{command.title}</span>
+											<span class="quick-command-key">{command.description}</span>
+										</button>
+									</li>
 								{/if}
 							{/each}
 						</ul>

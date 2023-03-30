@@ -17,7 +17,7 @@ use anyhow::{Context, Result};
 use deltas::Delta;
 use git::activity;
 use serde::{ser::SerializeMap, Serialize};
-use std::{collections::HashMap, ops::Range, sync::Mutex};
+use std::{collections::HashMap, ops::Range, path::Path, sync::Mutex};
 use storage::Storage;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
@@ -394,7 +394,7 @@ async fn git_activity(
 async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<HashMap<String, repositories::FileStatus>, Error> {
+) -> Result<HashMap<String, (repositories::FileStatus, bool)>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo.status().with_context(|| "Failed to get git status")?;
     Ok(files)
@@ -480,19 +480,43 @@ async fn git_switch_branch(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn git_stage(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    paths: Vec<&str>,
+) -> Result<(), Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    repo.stage_files(paths.iter().map(|p| Path::new(p)).collect())
+        .with_context(|| "failed to stage file")?;
+    Ok(())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn git_unstage(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    paths: Vec<&str>,
+) -> Result<(), Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    repo.unstage_files(paths.iter().map(|p| Path::new(p)).collect())
+        .with_context(|| "failed to unstage file")?;
+    Ok(())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn git_commit(
     handle: tauri::AppHandle,
     project_id: &str,
     message: &str,
-    files: Vec<&str>,
     push: bool,
 ) -> Result<(), Error> {
     let repo = repo_for_project(handle, project_id)?;
-    let success = repo
-        .commit(message, files, push)
+    repo.commit(message, push)
         .with_context(|| "Failed to commit")?;
 
-    Ok(success)
+    Ok(())
 }
 
 fn main() {
@@ -619,6 +643,8 @@ fn main() {
             git_head,
             git_switch_branch,
             git_commit,
+            git_stage,
+            git_unstage,
             git_wd_diff,
         ]);
 

@@ -3,6 +3,10 @@
 @tailwind components;
 @tailwind utilities;
 
+a {
+	@apply cursor-default;
+}
+
 /* SCROLL BAR STYLING */
 
 /* width */
@@ -50,4 +54,9 @@
 
 .quick-command-key {
 	@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
+}
+
+/* Text Editor */
+.token-attribute {
+	@apply cursor-default select-none;
 }

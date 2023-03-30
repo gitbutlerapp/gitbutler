@@ -1,28 +1,18 @@
 <script lang="ts">
-	import type { Session } from '$lib/sessions';
-	import { format, getTime, startOfDay, subDays } from 'date-fns';
-	import type { Delta } from '$lib/deltas';
+	import { format, getTime, isEqual, startOfDay, subDays } from 'date-fns';
 	import { collapsable } from '$lib/paths';
-	import { list as listDeltas } from '$lib/deltas';
 	import type { PageData } from './$types';
 	import { derived } from 'svelte/store';
+	import Tooltip from '$lib/components/Tooltip.svelte';
+	import { IconGitBranch } from '$lib/components/icons';
+	import type { Session } from '$lib/sessions';
+	import { asyncDerived } from '@square/svelte-store';
+	import { list as listDeltas, type Delta } from '$lib/deltas';
+	import IconRotateClockwise from '$lib/components/icons/IconRotateClockwise.svelte';
+	import FileActivity from './FileActivity.svelte';
 
 	export let data: PageData;
 	const { activity, project, statuses, sessions, head } = data;
-
-	let latestDeltasByDateByFile: Record<number, Record<string, Delta[][]>[]> = {};
-
-	function playerURL(ms: string, file?: string) {
-		let date = new Date(parseInt(ms));
-		let datePass = format(date, 'yyyy-MM-dd');
-
-		if ($project) {
-			if (file) {
-				return `/projects/${$project.id}/player/${datePass}?file=${encodeURIComponent(file)}`;
-			}
-			return `/projects/${$project.id}/player/${datePass}`;
-		}
-	}
 
 	const recentSessions = derived(sessions, (sessions) => {
 		const lastFourDaysOfSessions = sessions.filter(
@@ -38,288 +28,194 @@
 			.sort((a, b) => b.timestampMs - a.timestampMs)
 	);
 
-	$: if ($project) {
-		latestDeltasByDateByFile = {};
-		const dateSessions: Record<number, Session[]> = {};
-		$recentSessions.forEach((session) => {
+	const sessionByDates = derived(recentSessions, (sessions) =>
+		sessions.reduce((list: [Session[], Date][], session) => {
 			const date = startOfDay(new Date(session.meta.startTimestampMs));
-			if (dateSessions[date.getTime()]) {
-				dateSessions[date.getTime()]?.push(session);
+			if (list.length === 0) {
+				list.push([[session], date]);
 			} else {
-				dateSessions[date.getTime()] = [session];
-			}
-		});
-
-		const latestDateSessions: Record<number, Session[]> = Object.fromEntries(
-			Object.entries(dateSessions)
-				.sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
-				.slice(0, 3)
-		); // Only show the last 3 days
-
-		Object.keys(latestDateSessions).forEach((date: string) => {
-			Promise.all(
-				latestDateSessions[parseInt(date)].map(async (session) => {
-					const sessionDeltas = await listDeltas({
-						projectId: $project?.id ?? '',
-						sessionId: session.id
-					});
-
-					const fileDeltas: Record<string, Delta[][]> = {};
-
-					Object.keys(sessionDeltas).forEach((filePath) => {
-						if (sessionDeltas[filePath].length > 0) {
-							if (fileDeltas[filePath]) {
-								fileDeltas[filePath]?.push(sessionDeltas[filePath]);
-							} else {
-								fileDeltas[filePath] = [sessionDeltas[filePath]];
-							}
-						}
-					});
-					return fileDeltas;
-				})
-			).then((sessionsByFile) => {
-				latestDeltasByDateByFile[parseInt(date)] = sessionsByFile;
-			});
-		});
-	}
-
-	// convert a list of timestamps to a sparkline
-	function timestampsToSpark(tsArray: number[]) {
-		let range = tsArray[0] - tsArray[tsArray.length - 1];
-
-		let totalBuckets = 18;
-		let bucketSize = range / totalBuckets;
-		let buckets: number[][] = [];
-		for (let i = 0; i <= totalBuckets; i++) {
-			buckets.push([]);
-		}
-		tsArray.forEach((ts) => {
-			let bucket = Math.floor((tsArray[0] - ts) / bucketSize);
-			if (bucket && ts) {
-				buckets[bucket].push(ts);
-			}
-		});
-
-		let spark = '';
-		buckets.forEach((entries) => {
-			let size = entries.length;
-			if (size < 1) {
-				spark += '<span class="text-zinc-600">▁</span>';
-			} else if (size < 2) {
-				spark += '<span class="text-blue-200">▂</span>';
-			} else if (size < 3) {
-				spark += '<span class="text-blue-200">▃</span>';
-			} else if (size < 4) {
-				spark += '<span class="text-blue-200">▄</span>';
-			} else if (size < 5) {
-				spark += '<span class="text-blue-200">▅</span>';
-			} else if (size < 6) {
-				spark += '<span class="text-blue-200">▆</span>';
-			} else if (size < 7) {
-				spark += '<span class="text-blue-200">▇</span>';
-			} else {
-				spark += '<span class="text-blue-200">█</span>';
-			}
-		});
-		return spark;
-	}
-
-	// reduce a group of sessions to a map of filename to timestamps array
-	function sessionFileMap(sessions: Record<string, Delta[][]>[]): Record<string, number[]> {
-		let sessionsByFile: Record<string, number[]> = {};
-
-		for (const s of sessions) {
-			for (const [filename, deltas] of Object.entries(s)) {
-				let timestamps = deltas.flatMap((d) => d.map((dd) => dd.timestampMs));
-				if (sessionsByFile[filename]) {
-					sessionsByFile[filename] = sessionsByFile[filename].concat(timestamps).sort();
+				const last = list[list.length - 1];
+				if (isEqual(last[1], date)) {
+					last[0].push(session);
 				} else {
-					sessionsByFile[filename] = timestamps;
+					list.push([[session], date]);
 				}
 			}
-		}
-		return sessionsByFile;
-	}
+			return list;
+		}, [])
+	);
 
-	// order the sessions and summarize the changes by file
-	function orderedSessions(dateSessions: Record<number, Record<string, Delta[][]>[]>) {
-		return Object.entries(dateSessions)
-			.sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
-			.map(
-				([date, sessions]) => [date, sessionFileMap(sessions)] as [string, Record<string, number[]>]
-			);
-	}
+	const filesActivityByDate = asyncDerived(
+		[project, sessionByDates],
+		async ([project, sessionByDates]) =>
+			await Promise.all(
+				sessionByDates.map(async ([sessions, date]) => {
+					const deltas = await Promise.all(
+						sessions.map((session) =>
+							listDeltas({
+								projectId: project.id,
+								sessionId: session.id
+							})
+						)
+					);
+					const merged: Record<string, Delta[]> = {};
+					deltas.forEach((delta) =>
+						Object.entries(delta).forEach(([filepath, deltas]) => {
+							if (merged[filepath]) {
+								merged[filepath].push(...deltas);
+							} else {
+								merged[filepath] = deltas;
+							}
+						})
+					);
+					return [merged, date] as [Record<string, Delta[]>, Date];
+				})
+			)
+	);
 </script>
 
-<div class="project-section-component" style="height: calc(-114px + 100vh); overflow: hidden;">
-	<div class="flex h-full">
-		<div
-			class="main-column-containercol-span-2 mt-4"
-			style="width: calc(100% * 0.66); height: calc(-126px + 100vh)"
-		>
-			<h1 class="flex py-4 px-8 text-xl text-zinc-300">
-				{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
-			</h1>
-			<div class="mt-4">
-				<div class="recent-file-changes-container h-full w-full">
-					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
-					{#if latestDeltasByDateByFile === undefined}
-						<div class="p-8 text-center text-zinc-400">Loading...</div>
-					{:else}
-						<div
-							class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8"
-							style="height: calc(100vh - 249px);"
-						>
-							{#if orderedSessions(latestDeltasByDateByFile).length == 0}
-								<div class="text-zinc-400">
-									Waiting for your first file changes. Go edit something and come back.
-								</div>
-							{/if}
+<div id="project-overview" class="flex h-full w-full">
+	<div class="flex w-2/3 flex-col gap-4">
+		<h1 class="flex py-4 px-8 text-xl text-zinc-300">
+			<span>{$project?.title}</span>
+			<span class="ml-2 text-zinc-600">Project</span>
+		</h1>
 
-							{#each orderedSessions(latestDeltasByDateByFile) as [dateMilliseconds, fileSessions]}
-								<div class="flex flex-col">
-									<div class="flex flex-row justify-between space-x-2">
-										<div class="mb-1 text-zinc-300">
-											{new Date(parseInt(dateMilliseconds)).toLocaleDateString('en-us', {
-												weekday: 'long',
-												year: 'numeric',
-												month: 'short',
-												day: 'numeric'
-											})}
-										</div>
-										<div>
-											<a
-												title="Reply changes (R)"
-												class="text-orange-200"
-												href={playerURL(dateMilliseconds)}
-												>Replay Changes
-											</a>
-										</div>
-									</div>
-									<div
-										class="results-card rounded border border-zinc-700 bg-[#2F2F33] p-4 drop-shadow-lg"
-									>
-										{#each Object.entries(fileSessions) as filetime}
-											<div class="flex flex-row justify-between">
-												<div class="w-96 truncate font-mono text-zinc-300">
-													<a class="cursor-pointer" href={playerURL(dateMilliseconds, filetime[0])}>
-														<span use:collapsable={{ value: filetime[0], separator: '/' }} />
-													</a>
-												</div>
-												<div class="font-mono text-zinc-400">
-													{@html timestampsToSpark(filetime[1])}
-												</div>
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			</div>
-		</div>
-		<div
-			class="secondary-column-container col-span-1 flex flex-col border-l border-l-zinc-700"
-			style="width: 37%;"
-		>
-			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4 ">
-				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
-				<div class="w-100 mb-4 flex items-center justify-between">
-					<div
-						class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
-					>
-						<div class="h-4 w-4">
-							<svg
-								aria-hidden="true"
-								height="16"
-								viewBox="0 0 16 16"
-								version="1.1"
-								width="16"
-								data-view-component="true"
-								class="h-4 w-4 fill-zinc-400"
-							>
-								<path
-									d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"
-								/>
-							</svg>
-						</div>
-						<div title={$head} class="truncate pl-2 font-mono text-zinc-300">
-							{$head}
-						</div>
-						<div class="carrot flex hidden items-center pl-3">
-							<svg width="7" height="5" viewBox="0 0 7 5" fill="none" class="fill-zinc-400">
-								<path
-									d="M3.87796 4.56356C3.67858 4.79379 3.32142 4.79379 3.12204 4.56356L0.319371 1.32733C0.0389327 1.00351 0.268959 0.5 0.697336 0.5L6.30267 0.500001C6.73104 0.500001 6.96107 1.00351 6.68063 1.32733L3.87796 4.56356Z"
-									fill="#A1A1AA"
-								/>
-							</svg>
-						</div>
-					</div>
-					<div>
-						<a
-							href="/projects/{$project?.id}/commit"
-							title="Commit changes"
-							class="button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
-							>Commit changes</a
-						>
-					</div>
-				</div>
-				{#if $statuses.length == 0}
-					<div
-						class="flex rounded border border-green-700 bg-green-900 p-4 align-middle text-green-400"
-					>
-						<div class="icon mr-2 h-5 w-5">
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-								<path
-									fill="#4ADE80"
-									fill-rule="evenodd"
-									d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z"
-								/>
-							</svg>
-						</div>
-						Everything is committed
-					</div>
-				{:else}
-					<ul class="rounded border border-yellow-400 bg-yellow-500 p-4 font-mono text-yellow-900">
-						{#each $statuses as activity}
-							<li class="flex w-full gap-2">
-								<span class="font-semibold">{activity.status.slice(0, 1).toUpperCase()}</span>
-								<span class="truncate" use:collapsable={{ value: activity.path, separator: '/' }} />
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
-			<div
-				class="recent-activity-container p-4"
-				style="height: calc(100vh - 110px); overflow-y: auto;"
-			>
-				<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
-				{#if $recentActivity.length == 0}
-					<div class="text-zinc-400">No activity yet.</div>
-				{/if}
-				{#each $recentActivity as activity}
-					<div
-						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
-					>
-						<div class="flex flex-col rounded bg-[#2F2F33] p-3">
-							<div class="flex flex-row justify-between pb-2 text-zinc-500">
-								<div class="">
-									{new Date(activity.timestampMs).toLocaleDateString('en-us', {
-										weekday: 'short',
-										year: 'numeric',
-										month: 'short',
-										day: 'numeric'
-									})}
-								</div>
-								<div class="text-right font-mono ">{activity.type}</div>
+		<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
+
+		<ul class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8">
+			{#await filesActivityByDate.load()}
+				<li>
+					<IconRotateClockwise class="animate-spin" />
+				</li>
+			{:then}
+				{#each $filesActivityByDate as [activity, date]}
+					<li class="flex flex-col">
+						<header class="flex flex-row justify-between gap-2">
+							<div class="mb-1 text-zinc-300">
+								{date.toLocaleDateString('en-us', {
+									weekday: 'long',
+									year: 'numeric',
+									month: 'short',
+									day: 'numeric'
+								})}
 							</div>
-							<div class="rounded-b bg-[#2F2F33] text-zinc-100">{activity.message}</div>
-						</div>
-					</div>
+							<a
+								title="Reply changes (R)"
+								class="text-orange-200"
+								href="/projects/{$project.id}/player/{format(date, 'yyyy-MM-dd')}"
+							>
+								Replay Changes
+							</a>
+						</header>
+						<ul class="flex flex-col rounded border border-zinc-700 bg-[#2F2F33] p-4">
+							{#each Object.entries(activity) as [filepath, deltas]}
+								<li class="flex items-center justify-between gap-4">
+									<a
+										class="flex w-full overflow-auto"
+										href="/projects/{$project.id}/player/{format(
+											date,
+											'yyyy-MM-dd'
+										)}?file={encodeURIComponent(filepath)}"
+									>
+										<span
+											class="w-full truncate"
+											use:collapsable={{ value: filepath, separator: '/' }}
+										/>
+									</a>
+									<FileActivity {deltas} />
+								</li>
+							{/each}
+						</ul>
+					</li>
+				{:else}
+					<li class="text-zinc-400">
+						Waiting for your first file changes. Go edit something and come back.
+					</li>
 				{/each}
+			{/await}
+		</ul>
+	</div>
+
+	<div class="flex w-1/3 flex-col gap-4 border-l border-l-zinc-700 p-2">
+		<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
+
+		<div class="flex items-center justify-between gap-2">
+			<Tooltip label={$head}>
+				<div
+					class="flex items-center gap-2 rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300"
+				>
+					<IconGitBranch class="h-4 w-4 fill-zinc-400 stroke-none" />
+					<span title={$head} class="truncate font-mono text-zinc-300">
+						{$head}
+					</span>
+				</div>
+			</Tooltip>
+			<a
+				href="/projects/{$project?.id}/commit"
+				title="Commit changes"
+				class="button whitespace-nowrap rounded bg-blue-600 p-2 text-white hover:bg-blue-700"
+			>
+				Commit changes
+			</a>
+		</div>
+
+		{#if $statuses.length === 0}
+			<div
+				class="flex rounded border border-green-700 bg-green-900 p-2 align-middle text-green-400"
+			>
+				<div class="icon mr-2 h-5 w-5">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+						<path
+							fill="#4ADE80"
+							fill-rule="evenodd"
+							d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z"
+						/>
+					</svg>
+				</div>
+				Everything is committed
 			</div>
+		{:else}
+			<ul class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-yellow-900">
+				{#each $statuses as activity}
+					<li class="flex w-full gap-2">
+						<span
+							class:text-left={activity.staged}
+							class:text-right={!activity.staged}
+							class="w-[3ch] font-semibold">{activity.status.slice(0, 1).toUpperCase()}</span
+						>
+						<span class="truncate" use:collapsable={{ value: activity.path, separator: '/' }} />
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<div class="flex flex-auto flex-col gap-4 overflow-auto">
+			<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
+
+			<ul class="flex flex-auto flex-col gap-2 overflow-auto">
+				{#each $recentActivity as activity}
+					<li
+						class="flex flex-col gap-2 rounded rounded border border-zinc-700 bg-[#2F2F33] p-3 text-zinc-400"
+					>
+						<div class="flex flex-row justify-between text-zinc-500">
+							<span>
+								{new Date(activity.timestampMs).toLocaleDateString('en-us', {
+									weekday: 'short',
+									year: 'numeric',
+									month: 'short',
+									day: 'numeric'
+								})}
+							</span>
+							<div class="text-right font-mono">{activity.type}</div>
+						</div>
+
+						<div class="rounded-b bg-[#2F2F33] text-zinc-100">{activity.message}</div>
+					</li>
+				{:else}
+					<li class="text-zinc-400">No activity yet.</li>
+				{/each}
+			</ul>
 		</div>
 	</div>
 </div>

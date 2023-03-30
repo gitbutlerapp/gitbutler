@@ -26,7 +26,7 @@ It does minimal styling. A close event is fired when the modal is closed.
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <dialog
-	class="modal p-0 shadow-lg"
+	class="modal flex p-0 shadow-lg"
 	in:scale={{ duration: 150 }}
 	bind:this={dialog}
 	on:click|self={hide}

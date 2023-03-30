@@ -30,7 +30,11 @@ export default async () => {
 	return {
 		subscribe: store.subscribe,
 		get: (id: string) => {
-			const project = derived(store, (store) => store.find((p) => p.id === id));
+			const project = derived(store, (projects) => {
+				const project = projects.find((p) => p.id === id);
+				if (!project) throw new Error(`Project ${id} not found`);
+				return project;
+			});
 			return {
 				subscribe: project.subscribe,
 				update: (params: { title?: string; api?: Project['api'] }) =>

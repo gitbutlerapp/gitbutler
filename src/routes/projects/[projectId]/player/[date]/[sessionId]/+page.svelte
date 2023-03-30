@@ -205,18 +205,18 @@
 
 <article
 	id="activities"
-	class="my-2 flex w-80 flex-shrink-0 flex-grow-0 flex-col rounded border-[0.5px] border-gb-700 bg-gb-900 xl:w-96"
+	class="my-2 flex w-80 flex-shrink-0 flex-grow-0 flex-col rounded border-[0.5px] border-gb-700 bg-card-default xl:w-96"
 >
 	{#await richSessions.load()}
 		<div class="flex h-full flex-col items-center justify-center">
 			<div
-				class="loader mb-4 h-12 w-12 rounded-full border-4 border-t-4 border-gray-200 ease-linear"
+				class="loader border-gray-200 mb-4 h-12 w-12 rounded-full border-4 border-t-4 ease-linear"
 			/>
 			<h2 class="text-center text-xl font-medium text-gray-500">Loading...</h2>
 		</div>
 	{:then}
 		<header
-			class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-gb-750 bg-gb-800"
+			class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-divider bg-card-active"
 		>
 			<h2 class="flex flex-row items-baseline space-x-2  p-3 text-lg text-zinc-300">
 				<span>Activities</span>
@@ -226,7 +226,7 @@
 			</h2>
 		</header>
 
-		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-gb-900 p-2">
+		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default p-2">
 			{#each $richSessions as session}
 				{@const isCurrent = session.id === $currentSessionId}
 				<li
@@ -241,18 +241,18 @@
 						class:pointer-events-none={isCurrent}
 						class="w-full"
 					>
-						<div class="flex flex-row justify-between rounded-t bg-gb-800 px-3 pt-3">
+						<div class="flex flex-row justify-between rounded-t bg-card-active px-3 pt-3">
 							<span>{sessionRange(session)}</span>
 							<span>{sessionDuration(session)}</span>
 						</div>
 
-						<span class="flex flex-row justify-between bg-gb-800 px-3 pb-3">
+						<span class="flex flex-row justify-between bg-card-active px-3 pb-3">
 							{Object.keys(session.files).length}
 							{Object.keys(session.files).length > 1 ? 'files' : 'file'}
 						</span>
 
 						{#if isCurrent}
-							<ul class="list-disk bg-zinc-800 p-2" style:list-style="disc">
+							<ul class="list-disk rounded-bl rounded-br bg-zinc-800 p-2" style:list-style="disc">
 								{#each session.deltas
 									.map((d) => d[0])
 									.filter(unique)
@@ -277,7 +277,7 @@
 
 <div
 	id="player"
-	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border border-zinc-700 bg-gb-900"
+	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border border-zinc-700 bg-card-default"
 >
 	{#if $frame}
 		<div id="code" class="flex-auto overflow-auto px-2">
@@ -331,7 +331,7 @@
 			<div class="w-full">
 				<input
 					type="range"
-					class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
+					class="-mt-3 w-full cursor-default appearance-none rounded-lg border-transparent bg-transparent"
 					max={$maxInput}
 					step="1"
 					bind:value={$inputValue}
@@ -399,7 +399,7 @@
 					<button class="checkbox-button">
 						<label
 							for="full-context-checkbox"
-							class="group block cursor-pointer rounded  transition-colors duration-200 ease-in-out hover:bg-zinc-700 "
+							class="group block cursor-default rounded  transition-colors duration-200 ease-in-out hover:bg-zinc-700 "
 						>
 							<input
 								type="checkbox"

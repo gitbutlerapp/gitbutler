@@ -11,7 +11,7 @@ use std::{
 use tauri::regex::Regex;
 use walkdir::WalkDir;
 
-#[derive(Serialize)]
+#[derive(Serialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum FileStatus {
     Added,
@@ -20,6 +20,24 @@ pub enum FileStatus {
     Renamed,
     TypeChange,
     Other,
+}
+
+impl From<git2::Status> for FileStatus {
+    fn from(status: git2::Status) -> Self {
+        if status.is_index_new() || status.is_wt_new() {
+            FileStatus::Added
+        } else if status.is_index_modified() || status.is_wt_modified() {
+            FileStatus::Modified
+        } else if status.is_index_deleted() || status.is_wt_deleted() {
+            FileStatus::Deleted
+        } else if status.is_index_renamed() || status.is_wt_renamed() {
+            FileStatus::Renamed
+        } else if status.is_index_typechange() || status.is_wt_typechange() {
+            FileStatus::TypeChange
+        } else {
+            FileStatus::Other
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -237,12 +255,13 @@ impl Repository {
         Ok(activity)
     }
 
-    // get file status from git
-    pub fn status(&self) -> Result<HashMap<String, FileStatus>> {
+    // returns statuses of the unstaged files in the repository
+    fn unstaged_statuses(&self) -> Result<HashMap<String, FileStatus>> {
         let mut options = git2::StatusOptions::new();
         options.include_untracked(true);
-        options.include_ignored(false);
         options.recurse_untracked_dirs(true);
+        options.include_ignored(false);
+        options.show(git2::StatusShow::Workdir);
 
         let git_repository = self.git_repository.lock().unwrap();
         // get the status of the repository
@@ -250,34 +269,58 @@ impl Repository {
             .statuses(Some(&mut options))
             .with_context(|| "failed to get repository status")?;
 
-        let mut files = HashMap::new();
-
-        // iterate over the statuses
-        for entry in statuses.iter() {
-            // get the path of the entry
-            let path = entry.path().unwrap();
-            // get the status as a string
-            let istatus = match entry.status() {
-                git2::Status::WT_NEW => FileStatus::Added,
-                git2::Status::WT_MODIFIED => FileStatus::Modified,
-                git2::Status::WT_DELETED => FileStatus::Deleted,
-                git2::Status::WT_RENAMED => FileStatus::Renamed,
-                git2::Status::WT_TYPECHANGE => FileStatus::TypeChange,
-                git2::Status::INDEX_NEW => FileStatus::Added,
-                git2::Status::INDEX_MODIFIED => FileStatus::Modified,
-                git2::Status::INDEX_DELETED => FileStatus::Deleted,
-                git2::Status::INDEX_RENAMED => FileStatus::Renamed,
-                git2::Status::INDEX_TYPECHANGE => FileStatus::TypeChange,
-                _ => FileStatus::Other,
-            };
-            files.insert(path.to_string(), istatus);
-        }
+        let files = statuses
+            .iter()
+            .map(|entry| {
+                let path = entry.path().unwrap();
+                (path.to_string(), FileStatus::from(entry.status()))
+            })
+            .collect();
 
         return Ok(files);
     }
 
+    // returns statuses of the staged files in the repository
+    fn staged_statuses(&self) -> Result<HashMap<String, FileStatus>> {
+        let mut options = git2::StatusOptions::new();
+        options.include_untracked(true);
+        options.include_ignored(false);
+        options.recurse_untracked_dirs(true);
+        options.show(git2::StatusShow::Index);
+
+        let git_repository = self.git_repository.lock().unwrap();
+        // get the status of the repository
+        let statuses = git_repository
+            .statuses(Some(&mut options))
+            .with_context(|| "failed to get repository status")?;
+
+        let files = statuses
+            .iter()
+            .map(|entry| {
+                let path = entry.path().unwrap();
+                (path.to_string(), FileStatus::from(entry.status()))
+            })
+            .collect();
+
+        return Ok(files);
+    }
+
+    // get file status from git
+    pub fn status(&self) -> Result<HashMap<String, (FileStatus, bool)>> {
+        let staged_statuses = self.staged_statuses()?;
+        let unstaged_statuses = self.unstaged_statuses()?;
+        let mut statuses = HashMap::new();
+        unstaged_statuses.iter().for_each(|(path, status)| {
+            statuses.insert(path.clone(), (*status, false));
+        });
+        staged_statuses.iter().for_each(|(path, status)| {
+            statuses.insert(path.clone(), (*status, true));
+        });
+        Ok(statuses)
+    }
+
     // commit method
-    pub fn commit(&self, message: &str, files: Vec<&str>, push: bool) -> Result<()> {
+    pub fn commit(&self, message: &str, push: bool) -> Result<()> {
         let repo = self.git_repository.lock().unwrap();
 
         let config = repo.config().with_context(|| "failed to get config")?;
@@ -288,25 +331,11 @@ impl Repository {
             .get_string("user.email")
             .with_context(|| "failed to get user.email")?;
 
-        // Get the repository's index
-        let mut index = repo.index()?;
-
-        // Add the specified files to the index
-        for path_str in files {
-            let path = Path::new(path_str);
-            index
-                .add_path(path)
-                .with_context(|| format!("failed to add path {} to index", path_str.to_string()))?;
-        }
-
-        // Write the updated index to disk
-        index.write().with_context(|| "failed to write index")?;
-
         // Get the default signature for the repository
         let signature = Signature::now(&name, &email).with_context(|| "failed to get signature")?;
 
-        // Create the commit with the updated index
-        let tree_id = index.write_tree()?;
+        // Create the commit with current index
+        let tree_id = repo.index()?.write_tree()?;
         let tree = repo.find_tree(tree_id)?;
         let parent_commit = repo.head()?.peel_to_commit()?;
         let commit = repo.commit(
@@ -383,6 +412,55 @@ impl Repository {
         self.sessions_storage
             .flush(&current_session, user)
             .with_context(|| format!("{}: failed to flush session", &self.project.id))?;
+        Ok(())
+    }
+
+    pub fn stage_files(&self, paths: Vec<&Path>) -> Result<()> {
+        let repo = self.git_repository.lock().unwrap();
+        let mut index = repo.index()?;
+        for path in paths {
+            // to "stage" a file means to:
+            // - remove it from the index if file is deleted
+            // - overwrite it in the index otherwise
+            if !Path::new(&self.project.path).join(path).exists() {
+                index.remove_path(path).with_context(|| {
+                    format!("failed to remove path {} from index", path.display())
+                })?;
+            } else {
+                index
+                    .add_path(path)
+                    .with_context(|| format!("failed to add path {} to index", path.display()))?;
+            }
+        }
+        index.write().with_context(|| "failed to write index")?;
+        Ok(())
+    }
+
+    pub fn unstage_files(&self, paths: Vec<&Path>) -> Result<()> {
+        let repo = self.git_repository.lock().unwrap();
+        let head_tree = repo.head()?.peel_to_tree()?;
+        let mut head_index = git2::Index::new()?;
+        head_index.read_tree(&head_tree)?;
+        let mut index = repo.index()?;
+        for path in paths {
+            // to "unstage" a file means to:
+            // - put head version of the file in the index if it exists
+            // - remove it from the index otherwise
+            let head_index_entry = head_index.iter().find(|entry| {
+                let entry_path = String::from_utf8(entry.path.clone());
+                entry_path.as_ref().unwrap() == path.to_str().unwrap()
+            });
+            if let Some(entry) = head_index_entry {
+                index
+                    .add(&entry)
+                    .with_context(|| format!("failed to add path {} to index", path.display()))?;
+            } else {
+                index.remove_path(path).with_context(|| {
+                    format!("failed to remove path {} from index", path.display())
+                })?;
+            }
+        }
+        index.write().with_context(|| "failed to write index")?;
         Ok(())
     }
 }
