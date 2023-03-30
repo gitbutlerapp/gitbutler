@@ -2,7 +2,7 @@
 	import type { PageData } from './$types';
 	import { collapsable } from '$lib/paths';
 	import { derived, writable } from 'svelte/store';
-	import { commit } from '$lib/git';
+	import * as git from '$lib/git';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
 	import { IconRotateClockwise } from '$lib/components/icons';
@@ -13,7 +13,6 @@
 	let summary = '';
 	let description = '';
 
-	let selectedFiles = $statuses.map(({ path }) => path);
 	const selectedDiffPath = writable($statuses.at(0)?.path);
 	const selectedDiff = derived(
 		[diffs, selectedDiffPath],
@@ -36,14 +35,15 @@
 		const paths = formData.getAll('path') as string[];
 
 		isCommitting = true;
-		commit({
-			projectId,
-			message: description.length > 0 ? `${summary}\n\n${description}` : summary,
-			files: paths,
-			push: false
-		})
+		git
+			.commit({
+				projectId,
+				message: description.length > 0 ? `${summary}\n\n${description}` : summary,
+				files: paths,
+				push: false
+			})
 			.then(() => {
-				success('Commit successfull!');
+				success('Commit created');
 				reset();
 			})
 			.catch(() => {
@@ -58,7 +58,9 @@
 		if ($user === undefined) return;
 
 		const partialDiff = Object.fromEntries(
-			Object.entries($diffs).filter(([key]) => selectedFiles.includes(key))
+			Object.entries($diffs).filter(([key]) =>
+				$statuses.some((status) => status.path === key && status.staged)
+			)
 		);
 		const diff = Object.values(partialDiff).join('\n').slice(0, 5000);
 
@@ -86,13 +88,27 @@
 	const onGroupCheckboxClick = (e: Event) => {
 		const target = e.target as HTMLInputElement;
 		if (target.checked) {
-			selectedFiles = $statuses.map(({ path }) => path);
+			git
+				.stage({
+					projectId,
+					paths: $statuses.filter(({ staged }) => !staged).map(({ path }) => path)
+				})
+				.catch(() => {
+					error('Failed to stage files');
+				});
 		} else {
-			selectedFiles = [];
+			git
+				.unstage({
+					projectId,
+					paths: $statuses.filter(({ staged }) => staged).map(({ path }) => path)
+				})
+				.catch(() => {
+					error('Failed to unstage files');
+				});
 		}
 	};
 
-	$: isEnabled = summary.length > 0 && selectedFiles.length > 0;
+	$: isCommitEnabled = summary.length > 0 && $statuses.filter(({ staged }) => staged).length > 0;
 </script>
 
 <div id="commit-page" class="flex h-full w-full gap-2 p-2">
@@ -106,8 +122,10 @@
 						type="checkbox"
 						class="cursor-pointer disabled:opacity-50"
 						on:click={onGroupCheckboxClick}
-						checked={$statuses.length === selectedFiles.length}
-						indeterminate={$statuses.length > selectedFiles.length && selectedFiles.length > 0}
+						checked={$statuses.every(({ staged }) => staged)}
+						indeterminate={$statuses.some(({ staged }) => staged) &&
+							$statuses.some(({ staged }) => !staged) &&
+							$statuses.length > 0}
 						disabled={isCommitting || isGeneratingCommitMessage}
 					/>
 					<h1 class="m-auto flex">
@@ -115,7 +133,7 @@
 					</h1>
 				</header>
 
-				{#each $statuses as { path }, i}
+				{#each $statuses as { path, staged }, i}
 					<li
 						class:bg-gb-700={$selectedDiffPath === path}
 						class:hover:bg-divider={$selectedDiffPath !== path}
@@ -125,9 +143,18 @@
 						<input
 							class="ml-4 cursor-pointer py-2 disabled:opacity-50"
 							disabled={isCommitting || isGeneratingCommitMessage}
+							on:click|preventDefault={() => {
+								staged
+									? git.unstage({ projectId, paths: [path] }).catch(() => {
+											error('Failed to unstage file');
+									  })
+									: git.stage({ projectId, paths: [path] }).catch(() => {
+											error('Failed to stage file');
+									  });
+							}}
 							name="path"
 							type="checkbox"
-							bind:group={selectedFiles}
+							checked={staged}
 							value={path}
 						/>
 						<label class="flex w-full overflow-auto" for="path">
@@ -172,7 +199,7 @@
 					</div>
 				{:else}
 					<button
-						disabled={!isEnabled || isGeneratingCommitMessage}
+						disabled={!isCommitEnabled || isGeneratingCommitMessage}
 						type="submit"
 						class="rounded bg-[#2563EB] py-2 px-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
 					>
