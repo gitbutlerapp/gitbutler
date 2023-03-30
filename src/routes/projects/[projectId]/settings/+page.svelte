@@ -157,7 +157,7 @@
 							id="path"
 							name="path"
 							type="text"
-							class="w-full rounded-lg border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
+							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
 							value={$project?.path}
 						/>
 					</div>
@@ -167,7 +167,7 @@
 							id="name"
 							name="name"
 							type="text"
-							class="w-full rounded-lg border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
+							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
 							value={$project?.title}
 							required
 						/>
@@ -178,7 +178,7 @@
 							id="description"
 							name="description"
 							rows="3"
-							class="w-full rounded-lg border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
+							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
 							value={$project?.api?.description}
 						/>
 					</div>
