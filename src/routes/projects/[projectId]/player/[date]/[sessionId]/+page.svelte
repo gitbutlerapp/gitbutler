@@ -343,11 +343,15 @@
 					<div class="play-button-button-container group">
 						{#if interval}
 							<button class="playback-button group" on:click={stop}>
-								<IconPlayerPauseFilled class="playback-button-play icon-pointer h-6 w-6 fill-red-400 group-hover:fill-zinc-100" />
+								<IconPlayerPauseFilled
+									class="playback-button-play icon-pointer fill-red-400 h-6 w-6 group-hover:fill-zinc-100"
+								/>
 							</button>
 						{:else}
 							<button class="playback-button group" on:click={play}>
-								<IconPlayerPlayFilled class="playback-button-pause icon-pointer h-6 w-6 fill-red-400 group-hover:fill-zinc-100" />
+								<IconPlayerPlayFilled
+									class="playback-button-pause icon-pointer fill-red-400 h-6 w-6 group-hover:fill-zinc-100"
+								/>
 							</button>
 						{/if}
 					</div>
