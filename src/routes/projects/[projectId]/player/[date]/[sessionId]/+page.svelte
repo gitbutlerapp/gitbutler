@@ -252,7 +252,7 @@
 						</span>
 
 						{#if isCurrent}
-							<ul class="list-disk bg-zinc-800 p-2" style:list-style="disc">
+							<ul class="list-disk rounded-bl rounded-br bg-zinc-800 p-2" style:list-style="disc">
 								{#each session.deltas
 									.map((d) => d[0])
 									.filter(unique)
@@ -331,7 +331,7 @@
 			<div class="w-full">
 				<input
 					type="range"
-					class="-mt-3 w-full cursor-pointer appearance-none rounded-lg border-transparent bg-transparent"
+					class="-mt-3 w-full cursor-default appearance-none rounded-lg border-transparent bg-transparent"
 					max={$maxInput}
 					step="1"
 					bind:value={$inputValue}
@@ -399,7 +399,7 @@
 					<button class="checkbox-button">
 						<label
 							for="full-context-checkbox"
-							class="group block cursor-pointer rounded  transition-colors duration-200 ease-in-out hover:bg-zinc-700 "
+							class="group block cursor-default rounded  transition-colors duration-200 ease-in-out hover:bg-zinc-700 "
 						>
 							<input
 								type="checkbox"

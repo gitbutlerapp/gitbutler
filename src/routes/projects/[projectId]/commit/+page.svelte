@@ -116,7 +116,7 @@
 				<header class="flex w-full items-center py-2 px-4">
 					<input
 						type="checkbox"
-						class="cursor-pointer disabled:opacity-50"
+						class="cursor-default disabled:opacity-50"
 						on:click={onGroupCheckboxClick}
 						checked={$statuses.every(({ staged }) => staged)}
 						indeterminate={$statuses.some(({ staged }) => staged) &&
@@ -134,10 +134,10 @@
 						class:bg-gb-700={$selectedDiffPath === path}
 						class:hover:bg-divider={$selectedDiffPath !== path}
 						class:border-b={i < $statuses.length - 1}
-						class="flex items-center gap-2 border-gb-700 bg-card-default"
+						class="file-changed-item flex cursor-text select-text items-center gap-2 border-gb-700 bg-card-default"
 					>
 						<input
-							class="ml-4 cursor-pointer py-2 disabled:opacity-50"
+							class="ml-4 cursor-default py-2 disabled:opacity-50"
 							disabled={isCommitting || isGeneratingCommitMessage}
 							on:click|preventDefault={() => {
 								staged
@@ -158,7 +158,7 @@
 								disabled={isCommitting || isGeneratingCommitMessage}
 								on:click|preventDefault={() => ($selectedDiffPath = path)}
 								type="button"
-								class="h-full w-full py-2 pr-4 text-left font-mono disabled:opacity-50"
+								class="h-full w-full cursor-text select-auto py-2 pr-4 text-left font-mono disabled:opacity-50"
 								use:collapsable={{ value: path, separator: '/' }}
 							/>
 						</label>
@@ -224,7 +224,7 @@
 		</form>
 	</div>
 
-	<div id="preview" class="m-2 flex flex-auto overflow-auto">
+	<div id="preview" class="m-2 flex flex-auto cursor-text select-text overflow-auto">
 		{#if $selectedDiff !== undefined}
 			<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
 		{:else}

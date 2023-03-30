@@ -130,7 +130,7 @@
 					<header class="flex w-full items-center py-2 px-4">
 						<input
 							type="checkbox"
-							class="cursor-pointer disabled:opacity-50"
+							class="cursor-default disabled:opacity-50"
 							on:click={onGroupCheckboxClick}
 							checked={$statuses.every(({ staged }) => staged)}
 							indeterminate={$statuses.some(({ staged }) => staged) &&
@@ -150,7 +150,7 @@
 						>
 							<input
 								type="checkbox"
-								class="ml-4 cursor-pointer py-2 disabled:opacity-50"
+								class="ml-4 cursor-default py-2 disabled:opacity-50"
 								checked={staged}
 								on:click|preventDefault={() => {
 									staged
