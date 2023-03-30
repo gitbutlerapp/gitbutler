@@ -1,48 +1,45 @@
 <script lang="ts">
 	import Modal from '../Modal.svelte';
 	import { format, subDays, subWeeks, subMonths, startOfISOWeek, startOfMonth } from 'date-fns';
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
 	import { goto } from '$app/navigation';
 	import { createEventDispatcher } from 'svelte';
-	import { currentProject } from '$lib/current_project';
+	import type { Project } from '$lib/projects';
+	import type { Readable } from 'svelte/store';
 
-	const dispatch = createEventDispatcher();
+	export let project: Readable<Project>;
+
+	const dispatch = createEventDispatcher<{ close: void }>();
 
 	let selectionIdx = 0;
 
 	let listOptions = [
 		{
 			label: 'Earlier today',
-			href: `/projects/${$currentProject?.id}/player?date=${format(new Date(), 'yyyy-MM-dd')}`
+			href: `/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}/`
 		},
 		{
 			label: 'Yesterday',
-			href: `/projects/${$currentProject?.id}/player?date=${format(
-				subDays(new Date(), 1),
-				'yyyy-MM-dd'
-			)}`
+			href: `/projects/${$project.id}/player/${format(subDays(new Date(), 1), 'yyyy-MM-dd')}/`
 		},
 		{
 			label: 'The day before yesterday',
-			href: `/projects/${$currentProject?.id}/player?date=${format(
-				subDays(new Date(), 2),
-				'yyyy-MM-dd'
-			)}`
+			href: `/projects/${$project.id}/player/${format(subDays(new Date(), 2), 'yyyy-MM-dd')}/`
 		},
 		{
 			label: 'The beginning of last week',
-			href: `/projects/${$currentProject?.id}/player?date=${format(
+			href: `/projects/${$project.id}/player/${format(
 				startOfISOWeek(subWeeks(new Date(), 1)),
 				'yyyy-MM-dd'
-			)}`
+			)}/`
 		},
 		{
 			label: 'The beginning of last month',
-			href: `/projects/${$currentProject?.id}/player?date=${format(
+			href: `/projects/${$project.id}/player/${format(
 				startOfMonth(subMonths(new Date(), 1)),
 				'yyyy-MM-dd'
-			)}`
+			)}/`
 		}
 	];
 
@@ -51,12 +48,10 @@
 		dispatch('close');
 	};
 
-	let unsubscribeKeyboardHandler: () => void;
-
 	let modal: Modal;
 	onMount(() => {
 		modal.show();
-		unsubscribeKeyboardHandler = tinykeys(window, {
+		const unsubscribeKeyboardHandler = tinykeys(window, {
 			Enter: () => {
 				gotoDestination();
 			},
@@ -73,10 +68,9 @@
 				selectionIdx = (selectionIdx - 1 + listOptions.length) % listOptions.length;
 			}
 		});
-	});
-
-	onDestroy(() => {
-		unsubscribeKeyboardHandler?.();
+		return () => {
+			unsubscribeKeyboardHandler();
+		};
 	});
 </script>
 

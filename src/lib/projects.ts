@@ -33,8 +33,9 @@ export default async () => {
 			const project = derived(store, (store) => store.find((p) => p.id === id));
 			return {
 				subscribe: project.subscribe,
-				update: (params: { title?: string; api?: Project['api'] }) =>
-					update({
+				update: (params: { title?: string; api?: Project['api'] }) => {
+					if (id === undefined) return;
+					return update({
 						project: {
 							id,
 							...params
@@ -42,7 +43,8 @@ export default async () => {
 					}).then((project) => {
 						store.update((projects) => projects.map((p) => (p.id === project.id ? project : p)));
 						return project;
-					})
+					});
+				}
 			};
 		},
 		add: (params: { path: string }) =>

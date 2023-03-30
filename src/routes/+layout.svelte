@@ -4,17 +4,14 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { BackForwardButtons } from '$lib/components';
-	import { setContext } from 'svelte';
-	import { writable } from 'svelte/store';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
-	import CommandPalette from '$lib/components/CommandPalette';
+	import { page } from '$app/stores';
+	import CommandPalette from '$lib/components/CommandPalette/CommandPalette.svelte';
 
 	export let data: LayoutData;
 	const { user, posthog, projects } = data;
 
-	setContext('project', writable(null));
-	setContext('session', writable(null));
-	setContext('projects', projects);
+	$: project = projects.get($page.params.projectId);
 
 	user.subscribe(posthog.identify);
 </script>
@@ -27,7 +24,9 @@
 		<div class="ml-24">
 			<BackForwardButtons />
 		</div>
-		<div class="ml-6"><Breadcrumbs /></div>
+		<div class="ml-6">
+			<Breadcrumbs {project} />
+		</div>
 		<div class="flex-grow" />
 		<a
 			title="Account settings"
@@ -49,5 +48,5 @@
 		<slot />
 	</div>
 	<Toaster />
-	<CommandPalette />
+	<CommandPalette {projects} {project} />
 </div>

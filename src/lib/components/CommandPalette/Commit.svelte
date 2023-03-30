@@ -2,22 +2,24 @@
 	import Modal from '../Modal.svelte';
 	import { collapsable } from '$lib/paths';
 	import * as git from '$lib/git';
-	import { currentProject } from '$lib/current_project';
 	import { onMount } from 'svelte';
 	import { success, error } from '$lib/toasts';
 	import { createEventDispatcher } from 'svelte';
-	import { readable } from 'svelte/store';
+	import { readable, type Readable } from 'svelte/store';
 	import type { Status } from '$lib/git/statuses';
 	import { IconRotateClockwise } from '../icons';
+	import type { Project } from '$lib/projects';
 
 	const dispatch = createEventDispatcher();
 
 	let statuses = readable<Status[]>([]);
 
+	export let project: Readable<Project>;
+
 	let modal: Modal;
 	onMount(() => {
 		modal.show();
-		git.statuses({ projectId: $currentProject?.id ?? '' }).then((r) => (statuses = r));
+		git.statuses({ projectId: $project.id ?? '' }).then((r) => (statuses = r));
 	});
 
 	let summary = '';
@@ -31,8 +33,6 @@
 	};
 
 	const onCommit = (e: SubmitEvent) => {
-		if (!$currentProject) return;
-
 		const form = e.target as HTMLFormElement;
 		const formData = new FormData(form);
 		const summary = formData.get('summary') as string;
@@ -41,7 +41,7 @@
 		isCommitting = true;
 		git
 			.commit({
-				projectId: $currentProject.id,
+				projectId: $project.id,
 				message: description.length > 0 ? `${summary}\n\n${description}` : summary,
 				push: false
 			})
@@ -59,12 +59,11 @@
 	};
 
 	const onGroupCheckboxClick = (e: Event) => {
-		if (!$currentProject) return;
 		const target = e.target as HTMLInputElement;
 		if (target.checked) {
 			git
 				.stage({
-					projectId: $currentProject.id,
+					projectId: $project.id,
 					paths: $statuses.filter(({ staged }) => !staged).map(({ path }) => path)
 				})
 				.catch(() => {
@@ -73,7 +72,7 @@
 		} else {
 			git
 				.unstage({
-					projectId: $currentProject.id,
+					projectId: $project.id,
 					paths: $statuses.filter(({ staged }) => staged).map(({ path }) => path)
 				})
 				.catch(() => {
@@ -84,17 +83,12 @@
 </script>
 
 <Modal on:close bind:this={modal}>
-	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<form
-		class="flex flex-col gap-4 rounded p-4"
-		on:click|stopPropagation
-		on:submit|preventDefault={onCommit}
-	>
+	<form class="flex flex-col gap-4 rounded p-4" on:submit|preventDefault={onCommit}>
 		<header class="w-full border-b border-zinc-700 text-lg font-semibold text-white">
 			Commit Your Changes
 		</header>
 
-		<fieldset class="flex transform flex-col gap-2 transition-all sm:w-full sm:max-w-sm">
+		<fieldset class="flex flex-auto transform flex-col gap-2 overflow-auto transition-all">
 			{#if $statuses.length > 0}
 				<input
 					class="ring-gray-600 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
@@ -130,7 +124,9 @@
 					</button>
 				{/if}
 
-				<ul class="flex w-full flex-col rounded border border-card-default bg-card-active">
+				<ul
+					class="flex flex-auto flex-col overflow-auto rounded border border-card-default bg-card-active"
+				>
 					<header class="flex w-full items-center py-2 px-4">
 						<input
 							type="checkbox"
@@ -157,18 +153,17 @@
 								class="ml-4 cursor-pointer py-2 disabled:opacity-50"
 								checked={staged}
 								on:click|preventDefault={() => {
-									if (!$currentProject) return;
 									staged
-										? git.unstage({ projectId: $currentProject.id, paths: [path] }).catch(() => {
+										? git.unstage({ projectId: $project.id, paths: [path] }).catch(() => {
 												error('Failed to unstage file');
 										  })
-										: git.stage({ projectId: $currentProject.id, paths: [path] }).catch(() => {
+										: git.stage({ projectId: $project.id, paths: [path] }).catch(() => {
 												error('Failed to stage file');
 										  });
 								}}
 							/>
 							<span
-								class="h-full w-full py-2 pr-4 text-left font-mono disabled:opacity-50"
+								class="h-full w-full flex-auto overflow-auto py-2 pr-4 text-left font-mono disabled:opacity-50"
 								use:collapsable={{ value: path, separator: '/' }}
 							/>
 						</li>
