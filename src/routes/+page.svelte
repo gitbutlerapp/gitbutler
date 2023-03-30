@@ -155,9 +155,9 @@
 			<div class="select-none p-8">
 				<div class="flex flex-col">
 					<div class="flex flex-row justify-between">
-						<div class="mb-1 text-2xl text-zinc-300 select-none pointer-events-none">
+						<div class="pointer-events-none mb-1 select-none text-2xl text-zinc-300">
 							My Projects
-							<div class="mb-1 text-lg text-zinc-500 select-none pointer-events-none">
+							<div class="pointer-events-none mb-1 select-none text-lg text-zinc-500">
 								All the projects that I am currently assisting you with.
 							</div>
 						</div>
@@ -167,7 +167,7 @@
 									title="Track a new project"
 									on:click={onAddLocalRepositoryClick}
 									type="button"
-									class="add-new-project-button inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 select-none cursor-default"
+									class="add-new-project-button inline-flex cursor-default select-none items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
 								>
 									Track a New Project
 								</button>
@@ -178,7 +178,7 @@
 						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 ">
 							{#each $projects as project}
 								<a
-									class="project-card-container text-lg text-zinc-300 hover:text-zinc-200 cursor-default "
+									class="project-card-container cursor-default text-lg text-zinc-300 hover:text-zinc-200 "
 									href="/projects/{project.id}/"
 								>
 									<div

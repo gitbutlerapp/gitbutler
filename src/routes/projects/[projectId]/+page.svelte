@@ -158,12 +158,16 @@
 			class="main-column-containercol-span-2 mt-4"
 			style="width: calc(100% * 0.66); height: calc(-126px + 100vh)"
 		>
-			<h1 class="project-title flex py-4 px-8 text-xl text-zinc-300 select-none pointer-events-none">
+			<h1
+				class="project-title pointer-events-none flex select-none py-4 px-8 text-xl text-zinc-300"
+			>
 				{$project?.title} <span class="ml-2 text-zinc-600">Project</span>
 			</h1>
 			<div class="mt-4">
 				<div class="recent-file-changes-container h-full w-full">
-					<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300 select-none pointer-events-none">Recently changed files</h2>
+					<h2 class="pointer-events-none mb-4 select-none px-8 text-lg font-bold text-zinc-300">
+						Recently changed files
+					</h2>
 					{#if latestDeltasByDateByFile === undefined}
 						<div class="p-8 text-center text-zinc-400">Loading...</div>
 					{:else}
@@ -203,7 +207,7 @@
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
 												<div class="w-96 truncate font-mono text-zinc-300">
-													<a class="cursor-pointer" href={playerURL(dateMilliseconds, filetime[0])}>
+													<a class="cursor-default" href={playerURL(dateMilliseconds, filetime[0])}>
 														<span use:collapsable={{ value: filetime[0], separator: '/' }} />
 													</a>
 												</div>
@@ -227,8 +231,10 @@
 			<div class="work-in-progress-container border-b border-zinc-700 py-4 px-4 ">
 				<h2 class="mb-2 text-lg font-bold text-zinc-300">Work in Progress</h2>
 				<div class="w-100 mb-4 flex items-center justify-between">
-					<Tooltip label="{$head}">
-						<div class="button group flex max-w-[200px] justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow select-text">
+					<Tooltip label={$head}>
+						<div
+							class="button group flex max-w-[200px] select-text justify-between rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300 shadow"
+						>
 							<div class="h-4 w-4">
 								<svg
 									aria-hidden="true"
@@ -261,7 +267,7 @@
 						<a
 							href="/projects/{$project?.id}/commit"
 							title="Commit changes"
-							class="btn-commit-changes button rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700 cursor-default select-none"
+							class="btn-commit-changes button cursor-default select-none rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
 							>Commit changes</a
 						>
 					</div>
@@ -308,7 +314,7 @@
 					<div
 						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
 					>
-						<div class="flex flex-col rounded bg-[#2F2F33] p-3 select-text">
+						<div class="flex select-text flex-col rounded bg-[#2F2F33] p-3">
 							<div class="flex flex-row justify-between pb-2 text-zinc-500">
 								<div class="">
 									{new Date(activity.timestampMs).toLocaleDateString('en-us', {

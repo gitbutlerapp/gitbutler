@@ -107,7 +107,7 @@
 								<button
 									title="Update profile"
 									type="submit"
-									class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none cursor-default"
+									class="cursor-default rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none"
 									>Update profile</button
 								>
 							{/if}

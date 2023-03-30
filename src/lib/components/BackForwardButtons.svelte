@@ -43,9 +43,9 @@
 
 <div class="flex items-center justify-center space-x-3 text-zinc-600">
 	<button
-		class="group rounded-md p-2 select-none"
+		class="group cursor-default select-none rounded-md p-2"
 		class:hover:bg-zinc-700={canGoBack}
-		class:cursor-pointer={canGoBack}
+		class:cursor-default={canGoBack}
 		on:click={onBackClicked}
 		disabled={!canGoBack}
 		title="Go back"
@@ -69,7 +69,7 @@
 		</div>
 	</button>
 	<button
-		class="group rounded-md p-2"
+		class="group cursor-default rounded-md p-2"
 		title="Go forward"
 		class:hover:bg-zinc-700={canGoForward}
 		on:click={onForwardClicked}
