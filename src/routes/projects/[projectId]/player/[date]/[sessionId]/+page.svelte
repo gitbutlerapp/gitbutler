@@ -340,14 +340,14 @@
 
 			<div class="playback-controller-ui mx-auto flex w-full items-center justify-between gap-2">
 				<div class="left-side flex space-x-8">
-					<div class="play-button-button-container">
+					<div class="play-button-button-container group">
 						{#if interval}
-							<button on:click={stop}>
-								<IconPlayerPauseFilled class="playback-button-play icon-pointer h-6 w-6" />
+							<button class="playback-button group" on:click={stop}>
+								<IconPlayerPauseFilled class="playback-button-play icon-pointer h-6 w-6 fill-red-400 group-hover:fill-zinc-100" />
 							</button>
 						{:else}
-							<button on:click={play}>
-								<IconPlayerPlayFilled class="icon-pointer h-6 w-6" />
+							<button class="playback-button group" on:click={play}>
+								<IconPlayerPlayFilled class="playback-button-pause icon-pointer h-6 w-6 fill-red-400 group-hover:fill-zinc-100" />
 							</button>
 						{/if}
 					</div>
