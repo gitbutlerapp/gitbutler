@@ -47,6 +47,11 @@ And the following optional props:
 <style>
 	.btn-base {
 		@apply flex items-center justify-center rounded text-base text-zinc-50 shadow transition ease-in-out;
+		border-top: 1px solid rgba(255, 255, 255, 0.2);
+		border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+		border-left: 1px solid rgba(255, 255, 255, 0);
+		border-right: 1px solid rgba(255, 255, 255, 0);
+		text-shadow: 0px 2px #00000021;
 	}
 	.btn-base:disabled {
 		@apply opacity-40;
@@ -54,11 +59,9 @@ And the following optional props:
 
 	/* Primary */
 	.btn-primary {
-		border: 1px solid #3662e3;
 		background: #3662e3;
 	}
 	.btn-primary:hover {
-		border: 1px solid #1c48c9;
 		background: #1c48c9;
 		@apply transition ease-in-out;
 	}
@@ -75,7 +78,6 @@ And the following optional props:
 
 	/* Basic */
 	.btn-basic {
-		border: 1px solid #71717a;
 		background: #71717a;
 		@apply transition ease-in-out;
 	}
