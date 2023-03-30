@@ -78,7 +78,7 @@
 								name="name"
 								bind:value={userName}
 								type="text"
-								class="w-full rounded-lg border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
+								class="w-full rounded border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
 								required
 							/>
 						</div>
@@ -91,7 +91,7 @@
 								name="email"
 								bind:value={$user.email}
 								type="text"
-								class="w-full rounded-lg border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
+								class="w-full rounded border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
 							/>
 						</div>
 
