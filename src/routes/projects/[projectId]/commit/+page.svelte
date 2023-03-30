@@ -32,14 +32,12 @@
 		const formData = new FormData(form);
 		const summary = formData.get('summary') as string;
 		const description = formData.get('description') as string;
-		const paths = formData.getAll('path') as string[];
 
 		isCommitting = true;
 		git
 			.commit({
 				projectId,
 				message: description.length > 0 ? `${summary}\n\n${description}` : summary,
-				files: paths,
 				push: false
 			})
 			.then(() => {
