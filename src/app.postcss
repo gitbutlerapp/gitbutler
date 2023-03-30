@@ -3,8 +3,20 @@
 @tailwind components;
 @tailwind utilities;
 
-a {
+a,
+button {
 	@apply cursor-default;
+	-webkit-user-select: none;
+	-webkit-user-drag: none;
+	-webkit-app-region: no-drag;
+	cursor: default;
+}
+
+.drag-none {
+	-webkit-user-select: none;
+	-webkit-user-drag: none;
+	-webkit-app-region: no-drag;
+	cursor: default;
 }
 
 /* SCROLL BAR STYLING */
