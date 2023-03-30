@@ -21,8 +21,15 @@ export const collapsable = (e: HTMLElement, params: Params) => {
 
 	collapse(e, params);
 
+	const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
+		let timeout: ReturnType<typeof setTimeout>;
+		return (...args: any[]) => {
+			clearTimeout(timeout);
+			timeout = setTimeout(() => fn(...args), delay);
+		};
+	};
 	const onResize = () => collapse(e, params);
-	window.addEventListener('resize', onResize);
+	window.addEventListener('resize', debounce(onResize, 300));
 	return {
 		update: (params: Params) => collapse(e, params),
 		destroy: () => window.removeEventListener('resize', onResize)
