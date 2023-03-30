@@ -202,7 +202,7 @@
 										</div>
 									</div>
 									<div
-										class="results-card rounded border border-zinc-700 bg-[#2F2F33] p-4 drop-shadow-lg"
+										class="results-card rounded border border-zinc-700 bg-[#2F2F33] p-4 shadow-lg"
 									>
 										{#each Object.entries(fileSessions) as filetime}
 											<div class="flex flex-row justify-between">
@@ -312,7 +312,7 @@
 				{/if}
 				{#each $recentActivity as activity}
 					<div
-						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 drop-shadow-lg"
+						class="recent-activity-card mt-4 mb-1 rounded border border-zinc-700 text-zinc-400 shadow-lg"
 					>
 						<div class="flex select-text flex-col rounded bg-[#2F2F33] p-3">
 							<div class="flex flex-row justify-between pb-2 text-zinc-500">
