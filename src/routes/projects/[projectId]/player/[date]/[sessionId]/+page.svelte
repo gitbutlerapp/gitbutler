@@ -281,7 +281,7 @@
 >
 	{#if $frame}
 		<div id="code" class="flex-auto overflow-auto px-2">
-			<div class="pb-[120px]">
+			<div class="pb-[200px]">
 				<CodeViewer
 					doc={$frame.doc}
 					deltas={$frame.deltas}
@@ -293,7 +293,7 @@
 
 		<div
 			id="info"
-			class="w-content absolute bottom-[86px] ml-4 flex max-w-full gap-2 rounded-lg bg-zinc-800 p-2"
+			class="w-content absolute bottom-[86px] ml-4 flex max-w-full gap-2 rounded-full bg-zinc-500 py-2 px-4"
 		>
 			<span
 				class="flex-auto overflow-auto font-mono font-bold text-white"

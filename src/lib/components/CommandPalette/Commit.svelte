@@ -109,7 +109,7 @@
 
 				{#if isCommitting}
 					<div
-						class="flex gap-1 rounded bg-[#2563EB] py-2 px-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex gap-1 rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<IconRotateClockwise class="h-5 w-5 animate-spin" />
 						<span>Comitting...</span>
@@ -118,7 +118,7 @@
 					<button
 						disabled={!isCommitEnabled}
 						type="submit"
-						class="rounded bg-[#2563EB] py-2 px-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+						class="rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						Commit changes
 					</button>

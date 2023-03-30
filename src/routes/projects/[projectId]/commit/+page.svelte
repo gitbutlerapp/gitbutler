@@ -188,7 +188,7 @@
 			<div class="flex justify-between">
 				{#if isCommitting}
 					<div
-						class="flex gap-1 rounded bg-[#2563EB] py-2 px-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex gap-1 rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<IconRotateClockwise class="h-5 w-5 animate-spin" />
 						<span>Comitting...</span>
@@ -197,7 +197,7 @@
 					<button
 						disabled={!isCommitEnabled || isGeneratingCommitMessage}
 						type="submit"
-						class="rounded bg-[#2563EB] py-2 px-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+						class="rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						Commit changes
 					</button>
@@ -205,7 +205,7 @@
 
 				{#if isGeneratingCommitMessage}
 					<div
-						class="flex items-center gap-1 rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex items-center gap-1 rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<IconRotateClockwise class="h-5 w-5 animate-spin" />
 						<span>Generating commit message...</span>
@@ -214,7 +214,7 @@
 					<button
 						type="button"
 						disabled={$user === undefined}
-						class="rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+						class="rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 						on:click|preventDefault={onGenerateCommitMessage}
 					>
 						✨ Generate commit message
