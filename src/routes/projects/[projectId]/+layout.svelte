@@ -1,18 +1,13 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
 	import type { Project } from '$lib/projects';
-	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
-	import { currentProject } from '$lib/current_project';
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	let query: string;
+	const { project } = data;
 
-	$: project = data.project;
-	$: currentProject.set($project);
+	let query: string;
 
 	const onSearchSubmit = () => goto(`/projects/${$project?.id}/search?q=${query}`);
 
@@ -25,12 +20,6 @@
 
 		return `${host}/projects/${projectId}`;
 	}
-
-	const contextProjectStore: Writable<Project | null | undefined> = getContext('project');
-	$: contextProjectStore.set($project);
-	onDestroy(() => {
-		contextProjectStore.set(null);
-	});
 
 	$: selection = $page?.route?.id?.split('/')?.[3];
 </script>

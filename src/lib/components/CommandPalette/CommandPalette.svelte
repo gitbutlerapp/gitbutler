@@ -1,16 +1,19 @@
 <script lang="ts">
 	import type { ComponentType } from 'svelte';
-
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import tinykeys, { type KeyBindingMap } from 'tinykeys';
 	import CmdK from './CmdK.svelte';
 	import Commit from './Commit.svelte';
 	import Replay from './Replay.svelte';
-	import Branch from './Branch.svelte';
-	import { currentProject } from '$lib/current_project';
 	import { goto } from '$app/navigation';
+	import type { Project } from '$lib/projects';
+	import { readable, type Readable } from 'svelte/store';
 
 	let dialog: ComponentType | undefined;
+	let props: Record<string, unknown> = {};
+
+	export let projects: Readable<Project[]>;
+	export let project = readable<Project | undefined>(undefined);
 
 	function isEventTargetInputOrTextArea(target: any) {
 		if (target === null) return false;
@@ -35,60 +38,54 @@
 		return tinykeys(target, wrappedBindings);
 	}
 
-	let unsubscribeKeyboardHandler: () => void;
-	let unsubscribeKeyboardHandlerDisabledOnInput: () => void;
 	onMount(() => {
-		unsubscribeKeyboardHandler = hotkeys(
+		const unsubscribeKeyboardHandler = hotkeys(
 			window,
 			{
 				'Meta+k': () => {
-					dialog === CmdK ? (dialog = undefined) : (dialog = CmdK);
+					dialog === CmdK
+						? (dialog = undefined)
+						: ((dialog = CmdK), (props = { projects, project }));
 				}
 			},
 			false // works even when an input is focused
 		);
-		unsubscribeKeyboardHandlerDisabledOnInput = hotkeys(
+		const unsubscribeKeyboardHandlerDisabledOnInput = hotkeys(
 			window,
 			{
 				c: () => {
-					if ($currentProject) {
-						dialog === Commit ? (dialog = undefined) : (dialog = Commit);
+					if ($project) {
+						dialog === Commit ? (dialog = undefined) : ((dialog = Commit), (props = { project }));
 					}
 				},
 				'Shift+c': () => {
-					if ($currentProject) {
-						goto(`/projects/${$currentProject?.id}/commit`);
+					if ($project) {
+						goto(`/projects/${$project.id}/commit`);
 					}
 				},
 				r: () => {
-					if ($currentProject) {
-						dialog === Replay ? (dialog = undefined) : (dialog = Replay);
-					}
-				},
-				b: () => {
-					if ($currentProject) {
-						dialog === Branch ? (dialog = undefined) : (dialog = Branch);
+					if ($project) {
+						dialog === Replay ? (dialog = undefined) : ((dialog = Replay), (props = { project }));
 					}
 				}
 			},
 			true // disabled when an input is focused
 		);
-	});
-
-	onDestroy(() => {
-		unsubscribeKeyboardHandler?.();
-		unsubscribeKeyboardHandlerDisabledOnInput?.();
+		return () => {
+			unsubscribeKeyboardHandler();
+			unsubscribeKeyboardHandlerDisabledOnInput();
+		};
 	});
 
 	const onDialogClose = () => {
 		dialog = undefined;
+		props = {};
 	};
 
 	const onNewDialog = (e: CustomEvent) => {
-		dialog = e.detail;
+		dialog = e.detail.component;
+		props = e.detail.props;
 	};
 </script>
 
-{#if dialog}
-	<svelte:component this={dialog} on:close={onDialogClose} on:newdialog={onNewDialog} />
-{/if}
+<svelte:component this={dialog} on:close={onDialogClose} on:newdialog={onNewDialog} {...props} />

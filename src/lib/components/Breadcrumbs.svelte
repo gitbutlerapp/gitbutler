@@ -1,14 +1,8 @@
 <script lang="ts">
 	import type { Project } from '$lib/projects';
-	import type { Session } from '$lib/sessions';
-	import { toHumanReadableTime } from '$lib/time';
-	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import Popover from '$lib/components/Popover';
+	import type { Readable } from 'svelte/store';
 
-	let project: Writable<Project | null | undefined> = getContext('project');
-	let session: Writable<Session | null | undefined> = getContext('session');
-	let projects: Writable<any> = getContext('projects');
+	export let project: Readable<Project | undefined>;
 </script>
 
 <div class="flex flex-row items-center text-zinc-400">
@@ -42,11 +36,5 @@
 				</a>
 			</div>
 		</div>
-	{/if}
-	{#if $project && $session}
-		<a class="hover:text-zinc-200" href="/projects/{$project.id}/sessions/{$session.id}">
-			{toHumanReadableTime($session.meta.startTimestampMs)}
-			{toHumanReadableTime($session.meta.lastTimestampMs)}
-		</a>
 	{/if}
 </div>
