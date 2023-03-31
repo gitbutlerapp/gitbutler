@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { ComponentType } from 'svelte';
+
 	export let role: 'basic' | 'primary' | 'destructive' = 'basic';
 	export let filled = true;
 	const outlined = true;
@@ -7,12 +9,13 @@
 	export let width: 'basic' | 'long' = 'basic';
 	export let type: 'button' | 'submit' = 'button';
 	export let href: string | undefined = undefined;
+	export let icon: ComponentType | undefined = undefined;
 </script>
 
 {#if href}
 	<a
 		{href}
-		class="{role} flex w-fit items-center justify-center gap-2 whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
+		class="{role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:filled
@@ -21,16 +24,12 @@
 		on:click
 		class:disabled
 	>
-		{#if $$slots.icon}
-			<div class="icon">
-				<slot name="icon" />
-			</div>
-		{/if}
+		<svelte:component this={icon} class="h-[16px] w-[16px]" />
 		<slot />
 	</a>
 {:else}
 	<button
-		class="{role} flex w-fit items-center justify-center gap-2 whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
+		class="{role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:filled
@@ -40,11 +39,7 @@
 		on:click
 		class:disabled
 	>
-		{#if $$slots.icon}
-			<div class="icon">
-				<slot name="icon" />
-			</div>
-		{/if}
+		<svelte:component this={icon} class="h-[16px] w-[16px]" />
 		<slot />
 	</button>
 {/if}
