@@ -62,19 +62,28 @@ And the following optional props:
 		class:btn-width-normal={wide}
 		class:btn-width-small={!wide}
 	>
+		{#if $$slots.icon}
+			<div class="icon">
+				<slot name="icon" />
+			</div>
+		{/if}
 		{label}
 	</button>
 {/if}
 
 <style lang="postcss">
+	.icon {
+		@apply h-4 w-4 text-zinc-50;
+	}
+
 	.btn-base {
-		@apply flex items-center justify-center rounded text-base text-zinc-50 shadow transition ease-in-out;
+		@apply flex w-fit items-center justify-center gap-2 whitespace-nowrap rounded text-base text-zinc-50 shadow transition ease-in-out;
+
 		border-top: 1px solid rgba(255, 255, 255, 0.2);
 		border-bottom: 1px solid rgba(0, 0, 0, 0.3);
 		border-left: 1px solid rgba(255, 255, 255, 0);
 		border-right: 1px solid rgba(255, 255, 255, 0);
 		text-shadow: 0px 2px #00000021;
-		white-space: nowrap;
 	}
 
 	.btn-disabled {
