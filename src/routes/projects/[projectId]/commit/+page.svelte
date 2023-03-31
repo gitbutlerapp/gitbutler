@@ -195,7 +195,11 @@
 						<span>Comitting...</span>
 					</div>
 				{:else}
-					<Button disabled={!isCommitEnabled || isGeneratingCommitMessage} primary type="submit">
+					<Button
+						disabled={!isCommitEnabled || isGeneratingCommitMessage}
+						role="primary"
+						type="submit"
+					>
 						Commit changes
 					</Button>
 				{/if}
