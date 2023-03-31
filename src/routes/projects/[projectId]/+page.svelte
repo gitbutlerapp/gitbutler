@@ -152,7 +152,12 @@
 					</span>
 				</div>
 			</Tooltip>
-			<Button primary href="/projects/{$project?.id}/commit" label="Commit changes" />
+			<Button
+				disabled={$statuses.length === 0}
+				primary
+				href="/projects/{$project?.id}/commit"
+				label="Commit changes"
+			/>
 		</div>
 
 		{#if $statuses.length === 0}
