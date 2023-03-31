@@ -6,6 +6,7 @@
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
 	import { IconRotateClockwise } from '$lib/components/icons';
+	import { Button } from '$lib/components';
 
 	export let data: PageData;
 	const { statuses, diffs, user, api, projectId } = data;
@@ -194,13 +195,12 @@
 						<span>Comitting...</span>
 					</div>
 				{:else}
-					<button
+					<Button
 						disabled={!isCommitEnabled || isGeneratingCommitMessage}
+						primary
 						type="submit"
-						class="rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						Commit changes
-					</button>
+						label="Commit changes"
+					/>
 				{/if}
 
 				{#if isGeneratingCommitMessage}

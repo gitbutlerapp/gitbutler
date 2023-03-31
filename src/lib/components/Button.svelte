@@ -1,9 +1,12 @@
 <script lang="ts">
 	export let primary = false;
-	export let outlined = true;
+	export let outlined = false;
+	export let disabled = false;
 	export let small = false;
 	export let wide = false;
 	export let label: string;
+	export let type: 'button' | 'submit' = 'button';
+	export let href: string | undefined = undefined;
 </script>
 
 <!--
@@ -18,6 +21,9 @@ And the following optional props:
 - `primary` - boolean - whether the button should be primary or not
 - `outlined` - boolean - whether the button should be outlined or not
 - `small` - boolean - whether the button should be small or not
+- `href` - string - if this is set, the button will be a link instead of a button
+- `type` - string - the type of button, defaults to `button`
+- `disabled` - boolean - whether the button is disabled or not
 
 - Usage:
   ```tsx
@@ -25,23 +31,42 @@ And the following optional props:
   ```
 -->
 
-<button
-	class="btn-base"
-	class:btn-primary-outline={primary && outlined}
-	class:btn-primary={primary && !outlined}
-	class:btn-basic-outline={!primary && outlined}
-	class:btn-basic={!primary && !outlined}
-	class:btn-height-small={small}
-	class:btn-height-normal={!small}
-	class:btn-width-normal={wide}
-	class:btn-width-small={!wide}
-	type="button"
-	on:click
->
-	{label}
-</button>
+{#if href}
+	<a
+		{href}
+		class="btn-base"
+		class:btn-disabled={disabled}
+		class:btn-primary-outline={primary && outlined}
+		class:btn-primary={primary && !outlined}
+		class:btn-basic-outline={!primary && outlined}
+		class:btn-basic={!primary && !outlined}
+		class:btn-height-small={small}
+		class:btn-height-normal={!small}
+		class:btn-width-normal={wide}
+		class:btn-width-small={!wide}
+	>
+		{label}
+	</a>
+{:else}
+	<button
+		{type}
+		on:click
+		class="btn-base"
+		class:btn-disabled={disabled}
+		class:btn-primary-outline={primary && outlined}
+		class:btn-primary={primary && !outlined}
+		class:btn-basic-outline={!primary && outlined}
+		class:btn-basic={!primary && !outlined}
+		class:btn-height-small={small}
+		class:btn-height-normal={!small}
+		class:btn-width-normal={wide}
+		class:btn-width-small={!wide}
+	>
+		{label}
+	</button>
+{/if}
 
-<style>
+<style lang="postcss">
 	.btn-base {
 		@apply flex items-center justify-center rounded text-base text-zinc-50 shadow transition ease-in-out;
 		border-top: 1px solid rgba(255, 255, 255, 0.2);
@@ -49,9 +74,12 @@ And the following optional props:
 		border-left: 1px solid rgba(255, 255, 255, 0);
 		border-right: 1px solid rgba(255, 255, 255, 0);
 		text-shadow: 0px 2px #00000021;
+		white-space: nowrap;
 	}
-	.btn-base:disabled {
+
+	.btn-disabled {
 		@apply opacity-40;
+		pointer-events: none;
 	}
 
 	/* Primary */

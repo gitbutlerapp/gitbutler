@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { derived } from 'svelte/store';
-	import { Login } from '$lib/components';
+	import { Button, Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts } from '$lib';
 	import { IconRotateClockwise } from '$lib/components/icons';
@@ -193,11 +193,7 @@
 							<span>Updating...</span>
 						</div>
 					{:else}
-						<button
-							type="submit"
-							class="cursor-default rounded bg-blue-600 py-2 px-3 text-white hover:bg-blue-700"
-							>Update profile</button
-						>
+						<Button primary type="submit" label="Update profile" />
 					{/if}
 				</footer>
 			</form>
