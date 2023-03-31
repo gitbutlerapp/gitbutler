@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ComponentType } from 'svelte';
+	import { IconLoading } from '../icons';
 
 	export let role: 'basic' | 'primary' | 'destructive' = 'basic';
 	export let filled = true;
@@ -10,37 +11,75 @@
 	export let type: 'button' | 'submit' = 'button';
 	export let href: string | undefined = undefined;
 	export let icon: ComponentType | undefined = undefined;
+	export let loading = false;
+
+	const onClick = (e: MouseEvent) => {
+		if (loading) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
+	};
 </script>
 
 {#if href}
 	<a
 		{href}
-		class="{role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
+		class="relative {role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:filled
+		class:pointer-events-none={loading}
 		class:outlined
 		{type}
-		on:click
 		class:disabled
+		on:click={onClick}
 	>
-		<svelte:component this={icon} class="h-[16px] w-[16px]" />
-		<slot />
+		{#if loading}
+			{#if icon}
+				<IconLoading class="h-[16px] w-[16px] animate-spin" />
+				<slot />
+			{:else}
+				<div class="items-around absolute flex h-full w-full justify-center">
+					<IconLoading class="h-[16px] w-[16px] animate-spin" />
+				</div>
+				<div class="opacity-0">
+					<slot />
+				</div>
+			{/if}
+		{:else}
+			<svelte:component this={icon} class="h-[16px] w-[16px]" />
+			<slot />
+		{/if}
 	</a>
 {:else}
 	<button
-		class="{role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
+		class="relative {role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
 		class:small={height === 'small'}
 		class:long={width === 'long'}
+		class:pointer-events-none={loading}
 		class:filled
 		class:outlined
 		{disabled}
 		{type}
-		on:click
 		class:disabled
+		on:click={onClick}
 	>
-		<svelte:component this={icon} class="h-[16px] w-[16px]" />
-		<slot />
+		{#if loading}
+			{#if icon}
+				<IconLoading class="h-[16px] w-[16px] animate-spin" />
+				<slot />
+			{:else}
+				<div class="items-around absolute flex h-full w-full justify-center">
+					<IconLoading class="h-[16px] w-[16px] animate-spin" />
+				</div>
+				<div class="opacity-0">
+					<slot />
+				</div>
+			{/if}
+		{:else}
+			<svelte:component this={icon} class="h-[16px] w-[16px]" />
+			<slot />
+		{/if}
 	</button>
 {/if}
 

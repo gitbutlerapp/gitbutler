@@ -25,8 +25,12 @@
 					{#each [true, false] as filled}
 						{#each content as [icon, label]}
 							<div class="flex gap-2">
-								{#each [false, true] as disabled}
-									<Button role="basic" {filled} {disabled} {height} {width} {icon}>{label}</Button>
+								{#each [false, true] as loading}
+									{#each [false, true] as disabled}
+										<Button role="basic" {filled} {disabled} {height} {width} {icon} {loading}>
+											{label}
+										</Button>
+									{/each}
 								{/each}
 							</div>
 						{/each}
@@ -45,9 +49,12 @@
 					{#each [true, false] as filled}
 						{#each content as [icon, label]}
 							<div class="flex gap-2">
-								{#each [false, true] as disabled}
-									<Button role="primary" {filled} {disabled} {height} {width} {icon}>{label}</Button
-									>
+								{#each [false, true] as loading}
+									{#each [false, true] as disabled}
+										<Button role="primary" {filled} {disabled} {height} {width} {icon} {loading}>
+											{label}
+										</Button>
+									{/each}
 								{/each}
 							</div>
 						{/each}
@@ -66,10 +73,20 @@
 					{#each [true, false] as filled}
 						{#each content as [icon, label]}
 							<div class="flex gap-2">
-								{#each [false, true] as disabled}
-									<Button role="destructive" {filled} {disabled} {height} {width} {icon}
-										>{label}</Button
-									>
+								{#each [false, true] as loading}
+									{#each [false, true] as disabled}
+										<Button
+											role="destructive"
+											{filled}
+											{disabled}
+											{height}
+											{width}
+											{icon}
+											{loading}
+										>
+											{label}
+										</Button>
+									{/each}
 								{/each}
 							</div>
 						{/each}
@@ -89,17 +106,20 @@
 						{#each content as [icon, label]}
 							<div class="flex gap-2">
 								{#each [false, true] as disabled}
-									<Button
-										href="https://gitbutler.com"
-										role="basic"
-										{filled}
-										{disabled}
-										{height}
-										{width}
-										{icon}
-									>
-										{label}
-									</Button>
+									{#each [false, true] as loading}
+										<Button
+											href="https://gitbutler.com"
+											role="basic"
+											{filled}
+											{disabled}
+											{height}
+											{width}
+											{icon}
+											{loading}
+										>
+											{label}
+										</Button>
+									{/each}
 								{/each}
 							</div>
 						{/each}
@@ -118,18 +138,21 @@
 					{#each [true, false] as filled}
 						{#each content as [icon, label]}
 							<div class="flex gap-2">
-								{#each [false, true] as disabled}
-									<Button
-										href="https://gitbutler.com"
-										role="primary"
-										{filled}
-										{disabled}
-										{height}
-										{width}
-										{icon}
-									>
-										{label}
-									</Button>
+								{#each [false, true] as loading}
+									{#each [false, true] as disabled}
+										<Button
+											href="https://gitbutler.com"
+											role="primary"
+											{filled}
+											{disabled}
+											{height}
+											{width}
+											{icon}
+											{loading}
+										>
+											{label}
+										</Button>
+									{/each}
 								{/each}
 							</div>
 						{/each}
@@ -148,18 +171,21 @@
 					{#each [true, false] as filled}
 						{#each content as [icon, label]}
 							<div class="flex gap-2">
-								{#each [false, true] as disabled}
-									<Button
-										href="https://gitbutler.com"
-										role="destructive"
-										{filled}
-										{disabled}
-										{height}
-										{width}
-										{icon}
-									>
-										{label}
-									</Button>
+								{#each [false, true] as loading}
+									{#each [false, true] as disabled}
+										<Button
+											href="https://gitbutler.com"
+											role="destructive"
+											{filled}
+											{disabled}
+											{height}
+											{width}
+											{icon}
+											{loading}
+										>
+											{label}
+										</Button>
+									{/each}
 								{/each}
 							</div>
 						{/each}
