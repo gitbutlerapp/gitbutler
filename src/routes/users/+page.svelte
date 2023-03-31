@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Login } from '$lib/components';
+	import { Button, Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { IconRotateClockwise } from '$lib/components/icons';
 	import { log, toasts } from '$lib';
@@ -104,12 +104,7 @@
 									<span>Updating...</span>
 								</div>
 							{:else}
-								<button
-									title="Update profile"
-									type="submit"
-									class="cursor-default rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none"
-									>Update profile</button
-								>
+								<Button primary type="submit" label="Update profile" />
 							{/if}
 						</footer>
 					</fields>

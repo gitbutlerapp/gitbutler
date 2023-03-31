@@ -10,6 +10,7 @@
 	import { list as listDeltas, type Delta } from '$lib/deltas';
 	import IconRotateClockwise from '$lib/components/icons/IconRotateClockwise.svelte';
 	import FileActivity from './FileActivity.svelte';
+	import { Button } from '$lib/components';
 
 	export let data: PageData;
 	const { activity, project, statuses, sessions, head } = data;
@@ -151,13 +152,7 @@
 					</span>
 				</div>
 			</Tooltip>
-			<a
-				href="/projects/{$project?.id}/commit"
-				title="Commit changes"
-				class="button whitespace-nowrap rounded bg-blue-600 p-2 text-white hover:bg-blue-700"
-			>
-				Commit changes
-			</a>
+			<Button primary href="/projects/{$project?.id}/commit" label="Commit changes" />
 		</div>
 
 		{#if $statuses.length === 0}
