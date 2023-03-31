@@ -114,10 +114,10 @@
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
 			<ul class="flex w-full flex-col rounded border border-card-default bg-card-active">
-				<header class="flex w-full items-center py-2 px-4">
+				<header class="flex w-full items-center p-2">
 					<input
 						type="checkbox"
-						class="cursor-default disabled:opacity-50"
+						class="cursor-default disabled:opacity-50 h-[15px] w-[15px]"
 						on:click={onGroupCheckboxClick}
 						checked={$statuses.every(({ staged }) => staged)}
 						indeterminate={$statuses.some(({ staged }) => staged) &&
@@ -135,10 +135,10 @@
 						class:bg-gb-700={$selectedDiffPath === path}
 						class:hover:bg-divider={$selectedDiffPath !== path}
 						class:border-b={i < $statuses.length - 1}
-						class="file-changed-item flex cursor-text select-text items-center gap-2 border-gb-700 bg-card-default"
+						class="file-changed-item flex cursor-text select-text items-center gap-2 border-gb-700 bg-card-default px-2 py-2"
 					>
 						<input
-							class="ml-4 cursor-default py-2 disabled:opacity-50"
+							class="cursor-default disabled:opacity-50 h-[15px] w-[15px]"
 							disabled={isCommitting || isGeneratingCommitMessage}
 							on:click|preventDefault={() => {
 								staged
@@ -154,12 +154,12 @@
 							checked={staged}
 							value={path}
 						/>
-						<label class="flex w-full overflow-auto" for="path">
+						<label class="flex w-full overflow-auto h-5" for="path">
 							<button
 								disabled={isCommitting || isGeneratingCommitMessage}
 								on:click|preventDefault={() => ($selectedDiffPath = path)}
 								type="button"
-								class="h-full w-full cursor-text select-auto py-2 pr-4 text-left font-mono disabled:opacity-50"
+								class="h-full w-full cursor-text select-auto text-left font-mono disabled:opacity-50"
 								use:collapsable={{ value: path, separator: '/' }}
 							/>
 						</label>

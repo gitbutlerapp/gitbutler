@@ -65,7 +65,7 @@
 							class:text-white={date === $currentDate}
 							class:border-zinc-700={date !== $currentDate}
 							class:bg-card-default={date !== $currentDate}
-							class="max-h-content flex w-full flex-col items-center justify-around rounded border-[0.5px] border-gb-700 p-2 text-zinc-300 shadow transition duration-150 ease-out hover:ease-in"
+							class="calendar-card max-h-content flex w-full flex-col items-center justify-around rounded border-[0.5px] border-gb-700 p-2 text-zinc-300 shadow transition duration-150 ease-out hover:ease-in"
 						>
 							{#if isToday}
 								<div class="py-2 text-lg leading-5">Today</div>
