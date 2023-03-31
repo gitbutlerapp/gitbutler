@@ -12,19 +12,12 @@
 	export let href: string | undefined = undefined;
 	export let icon: ComponentType | undefined = undefined;
 	export let loading = false;
-
-	const onClick = (e: MouseEvent) => {
-		if (loading) {
-			e.preventDefault();
-			e.stopPropagation();
-		}
-	};
 </script>
 
 {#if href}
 	<a
 		{href}
-		class="relative {role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
+		class="relative cursor-pointer {role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:filled
@@ -32,7 +25,6 @@
 		class:outlined
 		{type}
 		class:disabled
-		on:click={onClick}
 	>
 		{#if loading}
 			{#if icon}
@@ -53,7 +45,7 @@
 	</a>
 {:else}
 	<button
-		class="relative {role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
+		class="relative cursor-pointer {role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:pointer-events-none={loading}
@@ -62,7 +54,7 @@
 		{disabled}
 		{type}
 		class:disabled
-		on:click={onClick}
+		on:click
 	>
 		{#if loading}
 			{#if icon}
