@@ -37,7 +37,7 @@ It does minimal styling. A close event is fired when the modal is closed.
 
 <style>
 	.modal {
-		@apply w-[640px] flex p-0 shadow-lg overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 shadow-lg ;
+		@apply flex w-[640px] overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 p-0 shadow-lg shadow-lg;
 		backdrop-filter: blur(10px);
 	}
 </style>

@@ -217,7 +217,7 @@
 		<div class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
 			{#each commandGroups as group, groupIdx}
 				{#if group.visible}
-					<div class="px-2 cursor-default select-none w-full">
+					<div class="w-full cursor-default select-none px-2">
 						<p class="commnand-palette-section-header result-section-header">
 							<span>{group.name}</span>
 							{#if group.description}

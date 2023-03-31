@@ -83,7 +83,10 @@
 </script>
 
 <Modal on:close bind:this={modal}>
-	<form class="command-palette-commit flex flex-col gap-4 rounded p-4 w-full" on:submit|preventDefault={onCommit}>
+	<form
+		class="command-palette-commit flex w-full flex-col gap-4 rounded p-4"
+		on:submit|preventDefault={onCommit}
+	>
 		<header class="w-full border-b border-zinc-700 text-lg font-semibold text-white">
 			Commit Your Changes
 		</header>
