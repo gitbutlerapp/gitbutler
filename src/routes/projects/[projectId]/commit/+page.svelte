@@ -113,7 +113,7 @@
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
-			<ul class="flex w-full flex-col rounded border border-card-default bg-card-active">
+			<ul class="flex w-full flex-col rounded border bg-card-active border-gb-700">
 				<header class="flex w-full items-center p-2">
 					<input
 						type="checkbox"
@@ -169,7 +169,7 @@
 
 			<input
 				name="summary"
-				class="rounded border border-card-default bg-card-active p-3 disabled:opacity-50"
+				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100"
 				disabled={isGeneratingCommitMessage || isCommitting}
 				type="text"
 				placeholder="Summary (required)"
@@ -180,7 +180,8 @@
 			<textarea
 				name="description"
 				disabled={isGeneratingCommitMessage || isCommitting}
-				class="rounded border border-card-default bg-card-active p-3 disabled:opacity-50"
+
+				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100"
 				rows="10"
 				placeholder="Description (optional)"
 				bind:value={description}
