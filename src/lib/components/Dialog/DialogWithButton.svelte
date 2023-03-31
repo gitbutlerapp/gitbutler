@@ -1,6 +1,5 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
-	import Dialog from '$lib/components/Dialog.svelte';
+	import { Button, Dialog } from '$lib/components';
 
 	export let title: string;
 	export let content: string | undefined = undefined;
