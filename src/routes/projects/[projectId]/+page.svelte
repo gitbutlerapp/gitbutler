@@ -160,7 +160,6 @@
 					Commit changes
 				</Button>
 			</div>
-
 			{#if $statuses.length === 0}
 				<div
 					class="flex rounded border border-green-700 bg-green-900 p-2 align-middle text-green-400"
