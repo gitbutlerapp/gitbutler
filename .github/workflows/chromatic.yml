@@ -34,5 +34,6 @@ jobs:
         uses: chromaui/action@v1
         # Chromatic GitHub Action options
         with:
+          buildScriptName: 'storybook:build'
           # 👇 Chromatic projectToken, refer to the manage page to obtain it.
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}

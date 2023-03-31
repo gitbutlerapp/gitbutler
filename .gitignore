@@ -31,3 +31,6 @@ vite.config.js.timestamp-*
 
 # gitbutler
 .git/gb-*
+
+# storybook
+storybook-static

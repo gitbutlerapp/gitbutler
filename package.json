@@ -11,8 +11,8 @@
 		"lint": "prettier --plugin-search-dir . --check . && eslint .",
 		"format": "prettier --plugin-search-dir . --write .",
 		"tauri": "tauri",
-		"storybook": "storybook dev -p 6006",
-		"build-storybook": "storybook build"
+		"storybook": "storybook",
+		"storybook:build": "storybook build"
 	},
 	"dependencies": {
 		"@codemirror/autocomplete": "^6.4.2",
