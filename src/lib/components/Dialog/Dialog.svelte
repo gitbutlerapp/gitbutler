@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { ButtonGroup, Modal } from '$lib/components';
+	import ButtonGroup from '../ButtonGroup/ButtonGroup.svelte';
+	import Modal from '../Modal.svelte';
 
 	export let title: string;
 	export let content: string | undefined = undefined;
@@ -7,7 +8,7 @@
 	export let primaryActionLabel = 'Confirm';
 	export let primaryAction: () => void;
 
-	export let size = 'default';
+	export let size: 'default' | 'small' | 'large' = 'default';
 
 	let modal: Modal;
 	export const show = () => {
