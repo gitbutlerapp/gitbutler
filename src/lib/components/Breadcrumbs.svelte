@@ -13,7 +13,7 @@
 		class="button-home group cursor-default rounded-md p-2 hover:bg-zinc-700 hover:text-zinc-200"
 		href="/"
 	>
-		<IconHome class="group-hover:fill-zinc-300 group-hover:text-zinc-200" />
+		<IconHome class="hover:fill-zinc-300 hover:text-zinc-200" />
 	</a>
 
 	{#if $project}
