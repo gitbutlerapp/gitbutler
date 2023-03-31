@@ -187,22 +187,14 @@
 			/>
 
 			<div class="flex justify-between">
-				{#if isCommitting}
-					<div
-						class="flex gap-1 rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<IconRotateClockwise class="h-5 w-5 animate-spin" />
-						<span>Comitting...</span>
-					</div>
-				{:else}
-					<Button
-						disabled={!isCommitEnabled || isGeneratingCommitMessage}
-						role="primary"
-						type="submit"
-					>
-						Commit changes
-					</Button>
-				{/if}
+				<Button
+					loading={isCommitting}
+					disabled={!isCommitEnabled || isGeneratingCommitMessage}
+					role="primary"
+					type="submit"
+				>
+					Commit changes
+				</Button>
 
 				{#if isGeneratingCommitMessage}
 					<div
