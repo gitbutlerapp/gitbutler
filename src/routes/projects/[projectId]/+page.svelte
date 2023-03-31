@@ -77,14 +77,14 @@
 
 <div id="project-overview" class="flex h-full w-full">
 	<div class="flex w-2/3 flex-col gap-4">
-		<h1 class="flex py-4 px-8 text-xl text-zinc-300">
+		<h1 class="flex px-8 pt-4 text-xl text-zinc-300">
 			<span>{$project?.title}</span>
 			<span class="ml-2 text-zinc-600">Project</span>
 		</h1>
 
-		<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
+		<h2 class="px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
 
-		<ul class="flex flex-col space-y-4 overflow-y-auto pl-8 pr-7 pb-8 mr-1">
+		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-7 pb-8">
 			{#await filesActivityByDate.load()}
 				<li>
 					<IconRotateClockwise class="animate-spin" />
@@ -139,7 +139,7 @@
 	</div>
 
 	<div class="work-in-progress-sidebar flex w-1/3 flex-col border-l border-l-zinc-700">
-		<div class="recent-changes flex flex-col gap-4 border-b border-b-gb-700 p-4">
+		<div class="recent-changes flex flex-col gap-4 border-b border-b-zinc-700 p-4">
 			<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
 
 			<div class="flex items-center justify-between gap-2">
@@ -196,10 +196,10 @@
 		<div class="flex flex-auto flex-col overflow-auto ">
 			<h2 class="p-4 text-lg font-bold text-zinc-300">Recent Activity</h2>
 
-			<ul class="mx-1 flex flex-auto flex-col gap-2 overflow-auto">
+			<ul class="mx-1 flex flex-auto flex-col overflow-auto">
 				{#each $recentActivity as activity}
 					<li
-						class="mx-3 flex flex-col gap-2 rounded border border-zinc-700 bg-[#2F2F33] p-3 text-zinc-400"
+						class="mb-2 ml-3 mr-1 flex flex-col gap-2 rounded border border-zinc-700 bg-[#2F2F33] p-3 text-zinc-400"
 					>
 						<div class="flex flex-row justify-between text-zinc-500">
 							<span>
@@ -216,7 +216,7 @@
 						<div class="rounded-b bg-[#2F2F33] text-zinc-100">{activity.message}</div>
 					</li>
 				{:else}
-					<li class="text-zinc-400">No activity yet.</li>
+					<li class="px-3 text-zinc-400">No activity yet.</li>
 				{/each}
 			</ul>
 		</div>
