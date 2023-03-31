@@ -8,7 +8,7 @@
 
 	export let label: string;
 
-	const [floatingRef, floatingContent, update] = createFloatingActions({
+	const [floatingRef, floatingContent] = createFloatingActions({
 		strategy: 'absolute',
 		placement: 'bottom',
 		middleware: [offset(8), flip(), shift(), arrow({ element: arrowRef })],

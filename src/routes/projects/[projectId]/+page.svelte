@@ -3,14 +3,13 @@
 	import { collapsable } from '$lib/paths';
 	import type { PageData } from './$types';
 	import { derived } from 'svelte/store';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { IconGitBranch } from '$lib/components/icons';
 	import type { Session } from '$lib/sessions';
 	import { asyncDerived } from '@square/svelte-store';
 	import { list as listDeltas, type Delta } from '$lib/deltas';
 	import IconRotateClockwise from '$lib/components/icons/IconRotateClockwise.svelte';
 	import FileActivity from './FileActivity.svelte';
-	import { Button } from '$lib/components';
+	import { Button, Tooltip } from '$lib/components';
 
 	export let data: PageData;
 	const { activity, project, statuses, sessions, head } = data;
