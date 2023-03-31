@@ -70,8 +70,8 @@
 			})
 			.then(({ message }) => {
 				const firstNewLine = message.indexOf('\n');
-				summary = firstNewLine > -1 ? message.slice(0, firstNewLine) : message;
-				description = firstNewLine > -1 ? message.slice(firstNewLine + 1) : '';
+				summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
+				description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
 			})
 			.catch(() => {
 				error('Failed to generate commit message');
