@@ -4,7 +4,6 @@
 	export let disabled = false;
 	export let small = false;
 	export let wide = false;
-	export let label: string;
 	export let type: 'button' | 'submit' = 'button';
 	export let href: string | undefined = undefined;
 </script>
@@ -15,7 +14,6 @@ This is the only button we should be using in the app.
 It emits a click event like any self respecting button should.
 
 It takes the following required props:
-- `label` - string - the text to display on the button
 
 And the following optional props:
 - `primary` - boolean - whether the button should be primary or not
@@ -27,7 +25,9 @@ And the following optional props:
 
 - Usage:
   ```tsx
-<Button label="Label" on:click={yourFunction}/>
+<Button {...props} on:click={yourFunction} >
+    label
+</Button>
   ```
 -->
 
@@ -45,7 +45,12 @@ And the following optional props:
 		class:btn-width-normal={wide}
 		class:btn-width-small={!wide}
 	>
-		{label}
+		{#if $$slots.icon}
+			<div class="icon">
+				<slot name="icon" />
+			</div>
+		{/if}
+		<slot />
 	</a>
 {:else}
 	<button
@@ -67,7 +72,7 @@ And the following optional props:
 				<slot name="icon" />
 			</div>
 		{/if}
-		{label}
+		<slot />
 	</button>
 {/if}
 

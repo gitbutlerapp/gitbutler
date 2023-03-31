@@ -11,7 +11,7 @@
 <Meta title="GitButler/Dialog" component={Dialog} />
 
 <Story name="Dialog with title only">
-	<Button label="Open Dialog" on:click={() => dialog.show()} />
+	<Button on:click={() => dialog.show()}>"Open Dialog"</Button>
 	<Dialog
 		title="Dialog title"
 		secondaryActionLabel="Cancel"
@@ -22,7 +22,7 @@
 </Story>
 
 <Story name="Dialog with title and body">
-	<Button label="Open Dialog" on:click={() => dialog.show()} />
+	<Button on:click={() => dialog.show()}>"Open Dialog"</Button>
 	<Dialog
 		title="Dialog title"
 		content="Dialog body content"
@@ -34,7 +34,7 @@
 </Story>
 
 <Story name="Dialog small">
-	<Button label="Open Dialog" on:click={() => dialog.show()} />
+	<Button on:click={() => dialog.show()}>"Open Dialog"</Button>
 	<Dialog
 		title="Dialog title"
 		content="Dialog body content"
@@ -47,7 +47,7 @@
 </Story>
 
 <Story name="Dialog large">
-	<Button label="Open Dialog" on:click={() => dialog.show()} />
+	<Button on:click={() => dialog.show()}>"Open Dialog"</Button>
 	<Dialog
 		title="Dialog title"
 		content="Dialog body content"
