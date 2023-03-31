@@ -197,10 +197,11 @@
 				{:else}
 					<Button
 						disabled={!isCommitEnabled || isGeneratingCommitMessage}
-						primary
+						role="primary"
 						type="submit"
-						label="Commit changes"
-					/>
+					>
+						Commit changes
+					</Button>
 				{/if}
 
 				{#if isGeneratingCommitMessage}

@@ -160,7 +160,9 @@
 						</div>
 						<div>
 							<Tooltip label="Adds a git repository on your computer to GitButler">
-								<Button primary on:click={onAddLocalRepositoryClick} label="Track a New Project" />
+								<Button role="primary" on:click={onAddLocalRepositoryClick}
+									>Track a New Project</Button
+								>
 							</Tooltip>
 						</div>
 					</div>
