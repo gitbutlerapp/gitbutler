@@ -12,8 +12,12 @@
 
 {#if !middleLabel}
 	<div class="btn-group">
-		<Button label={leftLabel} on:click={leftAction} outlined={true} {wide} />
-		<Button label={rightLabel} on:click={rightAction} primary={true} outlined={false} {wide} />
+		<Button on:click={leftAction} outlined={true} {wide}>
+			{leftLabel}
+		</Button>
+		<Button on:click={rightAction} primary={true} outlined={false} {wide}>
+			{rightLabel}
+		</Button>
 	</div>
 {:else}
 	<div class="btn-group btn-group--segmented">
