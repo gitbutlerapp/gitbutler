@@ -138,65 +138,68 @@
 		</ul>
 	</div>
 
-	<div class="flex w-1/3 flex-col gap-4 border-l border-l-zinc-700 p-2">
-		<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
+	<div class="work-in-progress-sidebar flex w-1/3 flex-col border-l border-l-zinc-700">
+		<div class="recent-changes flex flex-col gap-4 border-b border-b-gb-700 p-4">
+			<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
 
-		<div class="flex items-center justify-between gap-2">
-			<Tooltip label={$head}>
-				<div
-					class="flex items-center gap-1 rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300"
+			<div class="flex items-center justify-between gap-2">
+				<Tooltip label={$head}>
+					<div
+						class="flex items-center gap-1 rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300"
+					>
+						<IconGitBranch class="h-4 w-7 fill-zinc-400 stroke-none" />
+						<span title={$head} class="truncate font-mono text-zinc-300">
+							{$head}
+						</span>
+					</div>
+				</Tooltip>
+				<a
+					href="/projects/{$project?.id}/commit"
+					title="Commit changes"
+					class="button whitespace-nowrap rounded bg-blue-600 p-2 text-white hover:bg-blue-700"
 				>
-					<IconGitBranch class="h-7 w-7 fill-zinc-400 stroke-none" />
-					<span title={$head} class="truncate font-mono text-zinc-300">
-						{$head}
-					</span>
+					Commit changes
+				</a>
+			</div>
+
+			{#if $statuses.length === 0}
+				<div
+					class="flex rounded border border-green-700 bg-green-900 p-2 align-middle text-green-400"
+				>
+					<div class="icon mr-2 h-5 w-5">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+							<path
+								fill="#4ADE80"
+								fill-rule="evenodd"
+								d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z"
+							/>
+						</svg>
+					</div>
+					Everything is committed
 				</div>
-			</Tooltip>
-			<Button
-				disabled={$statuses.length === 0}
-				primary
-				href="/projects/{$project?.id}/commit"
-				label="Commit changes"
-			/>
+			{:else}
+				<ul class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-yellow-900">
+					{#each $statuses as activity}
+						<li class="flex w-full gap-2">
+							<span
+								class:text-left={activity.staged}
+								class:text-right={!activity.staged}
+								class="w-[3ch] font-semibold">{activity.status.slice(0, 1).toUpperCase()}</span
+							>
+							<span class="truncate" use:collapsable={{ value: activity.path, separator: '/' }} />
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</div>
 
-		{#if $statuses.length === 0}
-			<div
-				class="flex rounded border border-green-700 bg-green-900 p-2 align-middle text-green-400"
-			>
-				<div class="icon mr-2 h-5 w-5">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-						<path
-							fill="#4ADE80"
-							fill-rule="evenodd"
-							d="M2 10a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm12.16-1.44a.8.8 0 0 0-1.12-1.12L9.2 11.28 7.36 9.44a.8.8 0 0 0-1.12 1.12l2.4 2.4c.32.32.8.32 1.12 0l4.4-4.4Z"
-						/>
-					</svg>
-				</div>
-				Everything is committed
-			</div>
-		{:else}
-			<ul class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-yellow-900">
-				{#each $statuses as activity}
-					<li class="flex w-full gap-2">
-						<span
-							class:text-left={activity.staged}
-							class:text-right={!activity.staged}
-							class="w-[3ch] font-semibold">{activity.status.slice(0, 1).toUpperCase()}</span
-						>
-						<span class="truncate" use:collapsable={{ value: activity.path, separator: '/' }} />
-					</li>
-				{/each}
-			</ul>
-		{/if}
+		<div class="flex flex-auto flex-col overflow-auto ">
+			<h2 class="p-4 text-lg font-bold text-zinc-300">Recent Activity</h2>
 
-		<div class="flex flex-auto flex-col gap-4 overflow-auto">
-			<h2 class="text-lg font-bold text-zinc-300">Recent Activity</h2>
-
-			<ul class="flex flex-auto flex-col gap-2 overflow-auto">
+			<ul class="mx-1 flex flex-auto flex-col gap-2 overflow-auto">
 				{#each $recentActivity as activity}
 					<li
-						class="flex flex-col gap-2 rounded rounded border border-zinc-700 bg-[#2F2F33] p-3 text-zinc-400"
+						class="mx-3 flex flex-col gap-2 rounded border border-zinc-700 bg-[#2F2F33] p-3 text-zinc-400"
 					>
 						<div class="flex flex-row justify-between text-zinc-500">
 							<span>
