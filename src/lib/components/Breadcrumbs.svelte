@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Project } from '$lib/projects';
 	import type { Readable } from 'svelte/store';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { IconHome } from './icons';
+	import { Tooltip } from '$lib/components';
 
 	export let project: Readable<Project | undefined>;
 </script>

@@ -2,8 +2,7 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import type { LayoutData } from './$types';
 	import { toasts } from '$lib';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import { Button } from '$lib/components';
+	import { Button, Tooltip } from '$lib/components';
 
 	export let data: LayoutData;
 
