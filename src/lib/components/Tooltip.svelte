@@ -37,7 +37,7 @@
 </script>
 
 <div
-	class="h-fit w-fit"
+	class="flex-auto overflow-auto"
 	on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
 	on:mouseleave={() => {
 		clearTimeout(timeout);
