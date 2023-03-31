@@ -207,6 +207,13 @@
 				{#if isGeneratingCommitMessage}
 					<div
 						class="flex items-center gap-1 rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
+						style="
+							border-top: 1px solid rgba(255, 255, 255, 0.2);
+							border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+							border-left: 1px solid rgba(255, 255, 255, 0);
+							border-right: 1px solid rgba(255, 255, 255, 0);
+							text-shadow: 0px 2px #00000021;
+						"
 					>
 						<IconRotateClockwise class="h-5 w-5 animate-spin" />
 						<span>Generating commit message...</span>
@@ -216,6 +223,13 @@
 						type="button"
 						disabled={$user === undefined}
 						class="rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
+						style="
+							border-top: 1px solid rgba(255, 255, 255, 0.2);
+							border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+							border-left: 1px solid rgba(255, 255, 255, 0);
+							border-right: 1px solid rgba(255, 255, 255, 0);
+							text-shadow: 0px 2px #00000021;
+						"
 						on:click|preventDefault={onGenerateCommitMessage}
 					>
 						✨ Generate commit message
