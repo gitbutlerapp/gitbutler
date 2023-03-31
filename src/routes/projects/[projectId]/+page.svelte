@@ -153,13 +153,7 @@
 						</span>
 					</div>
 				</Tooltip>
-				<a
-					href="/projects/{$project?.id}/commit"
-					title="Commit changes"
-					class="button whitespace-nowrap rounded bg-blue-600 p-2 text-white hover:bg-blue-700"
-				>
-					Commit changes
-				</a>
+				<Button primary href="/projects/{$project?.id}/commit" label="Commit changes" />
 			</div>
 
 			{#if $statuses.length === 0}
