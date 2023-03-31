@@ -214,11 +214,11 @@
 			</div>
 		</div>
 		<!-- Main part -->
-		<div class="search-results flex-auto overflow-y-auto">
+		<div class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
 			{#each commandGroups as group, groupIdx}
 				{#if group.visible}
-					<div class="mx-2 cursor-default select-none">
-						<p class="result-section-header">
+					<div class="px-2 cursor-default select-none w-full">
+						<p class="commnand-palette-section-header result-section-header">
 							<span>{group.name}</span>
 							{#if group.description}
 								<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
