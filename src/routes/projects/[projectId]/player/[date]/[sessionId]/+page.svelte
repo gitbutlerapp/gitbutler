@@ -252,8 +252,8 @@
 		<header
 			class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-divider bg-card-active px-3 py-2 leading-[21px]"
 		>
-			<div class="flex gap-2 relative">
-				<div class="text-sm h-4 w-4 relative bottom-[1px]">🧰</div>
+			<div class="relative flex gap-2">
+				<div class="relative bottom-[1px] h-4 w-4 text-sm">🧰</div>
 				<div>Working History</div>
 				<div class="text-zinc-400">
 					{$richSessions.length}
@@ -261,7 +261,9 @@
 			</div>
 		</header>
 
-		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default pt-2 pb-2 pl-2 pr-1 mr-1">
+		<ul
+			class="mr-1 flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default pt-2 pb-2 pl-2 pr-1"
+		>
 			{#each $richSessions as session}
 				{@const isCurrent = session.id === $currentSessionId}
 				<li
@@ -288,7 +290,10 @@
 						</span>
 
 						{#if isCurrent}
-							<ul class="list-disk rounded-bl rounded-br bg-zinc-800 p-2 overflow-hidden" style:list-style="disc">
+							<ul
+								class="list-disk overflow-hidden rounded-bl rounded-br bg-zinc-800 p-2"
+								style:list-style="disc"
+							>
 								{#each session.deltas
 									.map((d) => d[0])
 									.filter(unique)
@@ -313,7 +318,7 @@
 
 <div
 	id="player"
-	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border-gb-700 bg-card-default border-[0.5px]"
+	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border-[0.5px] border-gb-700 bg-card-default"
 >
 	{#if $frame}
 		<header class="flex items-center gap-3 bg-card-active px-3 py-2">
@@ -369,7 +374,7 @@
 
 		<div
 			id="controls"
-			class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4 rounded-br rounded-bl"
+			class="absolute bottom-0 flex w-full flex-col rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 			style="
                 border-width: 0.5px; 
                 -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);

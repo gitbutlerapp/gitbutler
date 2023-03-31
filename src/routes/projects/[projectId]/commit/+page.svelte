@@ -113,11 +113,11 @@
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
-			<ul class="flex w-full flex-col rounded border bg-card-active border-gb-700">
+			<ul class="flex w-full flex-col rounded border border-gb-700 bg-card-active">
 				<header class="flex w-full items-center p-2">
 					<input
 						type="checkbox"
-						class="cursor-default disabled:opacity-50 h-[15px] w-[15px]"
+						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 						on:click={onGroupCheckboxClick}
 						checked={$statuses.every(({ staged }) => staged)}
 						indeterminate={$statuses.some(({ staged }) => staged) &&
@@ -138,7 +138,7 @@
 						class="file-changed-item flex cursor-text select-text items-center gap-2 border-gb-700 bg-card-default px-2 py-2"
 					>
 						<input
-							class="cursor-default disabled:opacity-50 h-[15px] w-[15px]"
+							class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 							disabled={isCommitting || isGeneratingCommitMessage}
 							on:click|preventDefault={() => {
 								staged
@@ -154,7 +154,7 @@
 							checked={staged}
 							value={path}
 						/>
-						<label class="flex w-full overflow-auto h-5" for="path">
+						<label class="flex h-5 w-full overflow-auto" for="path">
 							<button
 								disabled={isCommitting || isGeneratingCommitMessage}
 								on:click|preventDefault={() => ($selectedDiffPath = path)}
@@ -180,7 +180,6 @@
 			<textarea
 				name="description"
 				disabled={isGeneratingCommitMessage || isCommitting}
-
 				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100"
 				rows="10"
 				placeholder="Description (optional)"
