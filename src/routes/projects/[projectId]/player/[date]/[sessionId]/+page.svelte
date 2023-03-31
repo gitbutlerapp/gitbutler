@@ -22,7 +22,12 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { derived, writable } from 'svelte/store';
-	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/components/icons';
+	import {
+		IconChevronLeft,
+		IconChevronRight,
+		IconPlayerPauseFilled,
+		IconPlayerPlayFilled
+	} from '$lib/components/icons';
 	import { collapsable } from '$lib/paths';
 	import { page } from '$app/stores';
 	import { CodeViewer } from '$lib/components';
@@ -86,11 +91,20 @@
 		currentDate.set(page.params.date);
 	});
 
-	const currentSession = derived(
+	const currentSession = derived([currentSessionId, richSessions], ([currentSessionId, sessions]) =>
+		sessions?.find((session) => session.id === currentSessionId)
+	);
+
+	const hasNextSession = derived(
 		[currentSessionId, richSessions],
-		([currentSessionId, sessions]) => {
-			return sessions?.find((session) => session.id === currentSessionId);
-		}
+		([currentSessionId, sessions]) =>
+			sessions?.findIndex((session) => session.id === currentSessionId) < sessions?.length - 1
+	);
+
+	const hasPrevSession = derived(
+		[currentSessionId, richSessions],
+		([currentSessionId, sessions]) =>
+			sessions?.findIndex((session) => session.id === currentSessionId) > 0
 	);
 
 	const frame = derived([currentSession, currentDeltaIndex], ([session, currentDeltaIndex]) => {
@@ -142,6 +156,26 @@
 			}
 		}
 	}
+
+	const goToNextSession = () => {
+		if ($hasNextSession) {
+			const currentSessionIndex = $richSessions.findIndex(
+				(session) => session.id === $currentSessionId
+			);
+			const nextSession = $richSessions[currentSessionIndex + 1];
+			currentSessionId.set(nextSession.id);
+		}
+	};
+
+	const goToPrevSession = () => {
+		if ($hasPrevSession) {
+			const currentSessionIndex = $richSessions.findIndex(
+				(session) => session.id === $currentSessionId
+			);
+			const prevSession = $richSessions[currentSessionIndex - 1];
+			currentSessionId.set(prevSession.id);
+		}
+	};
 
 	inputValue.subscribe((value) => {
 		let i = 0;
@@ -216,14 +250,15 @@
 		</div>
 	{:then}
 		<header
-			class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-divider bg-card-active"
+			class="card-header flex flex-row justify-between rounded-t border-b-[1px]  border-b-divider bg-card-active px-3 py-2"
 		>
-			<h2 class="flex flex-row items-baseline space-x-2  p-3 text-lg text-zinc-300">
-				<span>Activities</span>
-				<span class="text-sm text-zinc-400">
+			<span class="flex gap-1">
+				<span class="text-sm">🧰</span>
+				<span>Working History</span>
+				<span class="text-zinc-400">
 					{$richSessions.length}
 				</span>
-			</h2>
+			</span>
 		</header>
 
 		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default p-2">
@@ -280,6 +315,33 @@
 	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border border-zinc-700 bg-card-default"
 >
 	{#if $frame}
+		<header class="flex items-center gap-3 bg-card-active px-3 py-2">
+			<span>
+				{format($frame.session.meta.startTimestampMs, 'EEEE, LLL d, HH:mm')}
+				-
+				{format($frame.session.meta.lastTimestampMs, 'HH:mm')}
+			</span>
+			<div class="flex items-center gap-1">
+				<button
+					on:click={goToPrevSession}
+					class="cursor-pointer rounded border border-zinc-500 bg-zinc-600 p-0.5"
+					class:hover:bg-zinc-500={$hasPrevSession}
+					class:cursor-not-allowed={!$hasPrevSession}
+					class:text-zinc-500={!$hasPrevSession}
+				>
+					<IconChevronLeft class="h-4 w-4" />
+				</button>
+				<button
+					on:click={goToNextSession}
+					class="cursor-pointer rounded border border-zinc-500 bg-zinc-600 p-0.5"
+					class:hover:bg-zinc-500={$hasNextSession}
+					class:cursor-not-allowed={!$hasNextSession}
+					class:text-zinc-500={!$hasNextSession}
+				>
+					<IconChevronRight class="h-4 w-4" />
+				</button>
+			</div>
+		</header>
 		<div id="code" class="flex-auto overflow-auto px-2">
 			<div class="pb-[200px]">
 				<CodeViewer
