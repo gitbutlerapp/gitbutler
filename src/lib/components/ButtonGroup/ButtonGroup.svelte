@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '$lib/components';
+	import Button from '../Button/Button.svelte';
 
 	export let leftLabel: string;
 	export let leftAction: () => void;
@@ -29,7 +29,7 @@
 	</div>
 {/if}
 
-<style>
+<style lang="postcss">
 	.joined-base {
 		@apply flex items-center justify-center border-[#71717a] text-base text-white;
 	}
