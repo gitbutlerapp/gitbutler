@@ -26,18 +26,15 @@ And the following optional props:
 -->
 
 <button
-	class="
-    btn-base
-    {primary
-		? outlined
-			? 'btn-primary-outline'
-			: 'btn-primary'
-		: outlined
-		? 'btn-basic-outline'
-		: 'btn-basic'}
-    {small ? 'btn-height-small' : 'btn-height-normal'}
-	{wide ? 'btn-width-normal' : 'btn-width-small'}
-        "
+	class="btn-base"
+	class:btn-primary-outline={primary && outlined}
+	class:btn-primary={primary && !outlined}
+	class:btn-basic-outline={!primary && outlined}
+	class:btn-basic={!primary && !outlined}
+	class:btn-height-small={small}
+	class:btn-height-normal={!small}
+	class:btn-width-normal={wide}
+	class:btn-width-small={!wide}
 	type="button"
 	on:click
 >
