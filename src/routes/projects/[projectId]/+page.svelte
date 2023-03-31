@@ -138,7 +138,7 @@
 	</div>
 
 	<div class="work-in-progress-sidebar flex w-1/3 flex-col border-l border-l-zinc-700">
-		<div class="recent-changes flex flex-col gap-4 border-b border-b-gb-700 p-4">
+		<div class="recent-changes flex flex-col gap-4 border-b border-b-zinc-700 p-4">
 			<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
 
 			<div class="flex items-center justify-between gap-2">
@@ -195,10 +195,10 @@
 		<div class="flex flex-auto flex-col overflow-auto ">
 			<h2 class="p-4 text-lg font-bold text-zinc-300">Recent Activity</h2>
 
-			<ul class="mx-1 flex flex-auto flex-col gap-2 overflow-auto">
+			<ul class="mx-1 flex flex-auto flex-col overflow-auto">
 				{#each $recentActivity as activity}
 					<li
-						class="mx-3 flex flex-col gap-2 rounded border border-zinc-700 bg-[#2F2F33] p-3 text-zinc-400"
+						class="mb-2 ml-3 mr-1 flex flex-col gap-2 rounded border border-zinc-700 bg-[#2F2F33] p-3 text-zinc-400"
 					>
 						<div class="flex flex-row justify-between text-zinc-500">
 							<span>
