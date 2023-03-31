@@ -261,11 +261,12 @@
 			</span>
 		</header>
 
-		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default p-2">
+		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default pt-2 pl-2 pr-1 mr-1">
 			{#each $richSessions as session}
 				{@const isCurrent = session.id === $currentSessionId}
 				<li
 					id={isCurrent ? 'current-session' : ''}
+					class:bg-card-active={isCurrent}
 					class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
 				>
 					<a
@@ -276,18 +277,18 @@
 						class:pointer-events-none={isCurrent}
 						class="w-full"
 					>
-						<div class="flex flex-row justify-between rounded-t bg-card-active px-3 pt-3">
+						<div class="flex flex-row justify-between rounded-t px-3 pt-3">
 							<span>{sessionRange(session)}</span>
 							<span>{sessionDuration(session)}</span>
 						</div>
 
-						<span class="flex flex-row justify-between bg-card-active px-3 pb-3">
+						<span class="flex flex-row justify-between px-3 pb-3">
 							{Object.keys(session.files).length}
 							{Object.keys(session.files).length > 1 ? 'files' : 'file'}
 						</span>
 
 						{#if isCurrent}
-							<ul class="list-disk rounded-bl rounded-br bg-zinc-800 p-2" style:list-style="disc">
+							<ul class="list-disk rounded-bl rounded-br bg-zinc-800 p-2 overflow-hidden" style:list-style="disc">
 								{#each session.deltas
 									.map((d) => d[0])
 									.filter(unique)
@@ -316,7 +317,7 @@
 >
 	{#if $frame}
 		<header class="flex items-center gap-3 bg-card-active px-3 py-2">
-			<span>
+			<span class="min-w-[200px]">
 				{format($frame.session.meta.startTimestampMs, 'EEEE, LLL d, HH:mm')}
 				-
 				{format($frame.session.meta.lastTimestampMs, 'HH:mm')}
