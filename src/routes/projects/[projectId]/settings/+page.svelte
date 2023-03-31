@@ -193,7 +193,7 @@
 							<span>Updating...</span>
 						</div>
 					{:else}
-						<Button primary type="submit">Update profile</Button>
+						<Button role="primary" type="submit">Update profile</Button>
 					{/if}
 				</footer>
 			</form>

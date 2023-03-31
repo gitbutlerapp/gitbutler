@@ -1,112 +1,139 @@
 <script lang="ts">
 	import { Meta, Story } from '@storybook/addon-svelte-csf';
-	import { IconHome } from '../icons';
 
 	import Button from './Button.svelte';
 
-	let count = 0;
+	const heights = ['basic', 'small'] as const;
+	const widths = ['basic', 'long'] as const;
 </script>
 
 <Meta title="GitButler/Button" component={Button} />
 
-<Story name="Basic">
-	<Button on:click={() => count++}>
-		You clicked: {count}
-	</Button>
+<Story name="Basic Button">
+	<div class="flex gap-6">
+		{#each widths as width}
+			{#each heights as height}
+				<div class="flex flex-col gap-2">
+					{#each [true, false] as filled}
+						<div class="flex gap-2">
+							{#each [false, true] as disabled}
+								<Button role="basic" {filled} {disabled} {height} {width}>Label</Button>
+							{/each}
+						</div>
+					{/each}
+				</div>
+			{/each}
+		{/each}
+	</div>
 </Story>
 
-<Story name="Basic With Icon">
-	<Button on:click={() => count++}>
-		<svelte:fragment slot="icon">
-			<IconHome />
-		</svelte:fragment>
-		You clicked: {count}
-	</Button>
+<Story name="Primary Button">
+	<div class="flex gap-6">
+		{#each widths as width}
+			{#each heights as height}
+				<div class="flex flex-col gap-2">
+					{#each [true, false] as filled}
+						<div class="flex gap-2">
+							{#each [false, true] as disabled}
+								<Button role="primary" {filled} {disabled} {height} {width}>Label</Button>
+							{/each}
+						</div>
+					{/each}
+				</div>
+			{/each}
+		{/each}
+	</div>
 </Story>
 
-<Story name="Small With Icon">
-	<Button on:click={() => count++} small>
-		<svelte:fragment slot="icon">
-			<IconHome />
-		</svelte:fragment>
-		You clicked: {count}
-	</Button>
+<Story name="Destructive Button">
+	<div class="flex gap-6">
+		{#each widths as width}
+			{#each heights as height}
+				<div class="flex flex-col gap-2">
+					{#each [true, false] as filled}
+						<div class="flex gap-2">
+							{#each [false, true] as disabled}
+								<Button role="destructive" {filled} {disabled} {height} {width}>Label</Button>
+							{/each}
+						</div>
+					{/each}
+				</div>
+			{/each}
+		{/each}
+	</div>
 </Story>
 
-<Story name="Outlined icon">
-	<Button on:click={() => count++} outlined>
-		<svelte:fragment slot="icon">
-			<IconHome />
-		</svelte:fragment>
-	</Button>
+<Story name="Basic Link">
+	<div class="flex gap-6">
+		{#each widths as width}
+			{#each heights as height}
+				<div class="flex flex-col gap-2">
+					{#each [true, false] as filled}
+						<div class="flex gap-2">
+							{#each [false, true] as disabled}
+								<Button
+									href="https://gitbutler.com"
+									role="basic"
+									{filled}
+									{disabled}
+									{height}
+									{width}>Label</Button
+								>
+							{/each}
+						</div>
+					{/each}
+				</div>
+			{/each}
+		{/each}
+	</div>
 </Story>
 
-<Story name="Wide With Icon">
-	<Button on:click={() => count++} wide>
-		<svelte:fragment slot="icon">
-			<IconHome />
-		</svelte:fragment>
-		You clicked: {count}
-	</Button>
+<Story name="Primary Link">
+	<div class="flex gap-6">
+		{#each widths as width}
+			{#each heights as height}
+				<div class="flex flex-col gap-2">
+					{#each [true, false] as filled}
+						<div class="flex gap-2">
+							{#each [false, true] as disabled}
+								<Button
+									href="https://gitbutler.com"
+									role="primary"
+									{filled}
+									{disabled}
+									{height}
+									{width}>Label</Button
+								>
+							{/each}
+						</div>
+					{/each}
+				</div>
+			{/each}
+		{/each}
+	</div>
 </Story>
 
-<Story name="Basic Outlined">
-	<Button on:click={() => count++} outlined>
-		You clicked: {count}
-	</Button>
-</Story>
-
-<Story name="Basic Small">
-	<Button on:click={() => count++} small>
-		You clicked: {count}
-	</Button>
-</Story>
-
-<Story name="Basic Outlined Small">
-	<Button on:click={() => count++} small outlined>
-		You clicked: {count}
-	</Button>
-</Story>
-
-<Story name="Primary">
-	<Button on:click={() => count++} primary>
-		You clicked: {count}
-	</Button>
-</Story>
-
-<Story name="Primary Small">
-	<Button on:click={() => count++} primary small>
-		You clicked: {count}
-	</Button>
-</Story>
-
-<Story name="Primary Wide">
-	<Button on:click={() => count++} primary wide>
-		You clicked: {count}
-	</Button>
-</Story>
-
-<Story name="Primary Small Wide">
-	<Button on:click={() => count++} primary wide small>
-		You clicked: {count}
-	</Button>
-</Story>
-
-<Story name="Primary Outlined Small">
-	<Button on:click={() => count++} primary outlined small>
-		You clicked: {count}
-	</Button>
-</Story>
-
-<Story name="Link">
-	<Button href="https://gitbutler.com">Go to https://gitbutler.com</Button>
-</Story>
-
-<Story name="Link with icon">
-	<Button href="https://gitbutler.com">
-		<svelte:fragment slot="icon">
-			<IconHome />
-		</svelte:fragment>
-		Go to https://gitbutler.com
-	</Button>
+<Story name="Destructive Link">
+	<div class="flex gap-6">
+		{#each widths as width}
+			{#each heights as height}
+				<div class="flex flex-col gap-2">
+					{#each [true, false] as filled}
+						<div class="flex gap-2">
+							{#each [false, true] as disabled}
+								<Button
+									href="https://gitbutler.com"
+									role="destructive"
+									{filled}
+									{disabled}
+									{height}
+									{width}>Label</Button
+								>
+							{/each}
+						</div>
+					{/each}
+				</div>
+			{/each}
+		{/each}
+	</div>
 </Story>

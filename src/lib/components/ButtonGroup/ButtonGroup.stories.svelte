@@ -13,7 +13,13 @@
 </Story>
 
 <Story name="Two buttons wide">
-	<ButtonGroup leftLabel="Cancel" rightLabel="Submit" wide leftAction={noop} rightAction={noop} />
+	<ButtonGroup
+		leftLabel="Cancel"
+		rightLabel="Submit"
+		width="long"
+		leftAction={noop}
+		rightAction={noop}
+	/>
 </Story>
 
 <Story name="Three buttons">
@@ -31,7 +37,7 @@
 		leftLabel="Cancel"
 		rightLabel="Submit"
 		middleLabel="Middle"
-		wide
+		width="long"
 		leftAction={noop}
 		rightAction={noop}
 	/>
