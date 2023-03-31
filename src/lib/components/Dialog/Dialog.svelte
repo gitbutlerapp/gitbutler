@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { ButtonGroup } from '$lib/components';
-	import Modal from './Modal.svelte';
+	import { ButtonGroup, Modal } from '$lib/components';
 
 	export let title: string;
 	export let content: string | undefined = undefined;
