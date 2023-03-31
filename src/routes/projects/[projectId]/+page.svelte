@@ -155,8 +155,10 @@
 				<Button
 					disabled={$statuses.length === 0}
 					role="primary"
-					href="/projects/{$project?.id}/commit">Commit changes</Button
+					href="/projects/{$project?.id}/commit"
 				>
+					Commit changes
+				</Button>
 			</div>
 
 			{#if $statuses.length === 0}

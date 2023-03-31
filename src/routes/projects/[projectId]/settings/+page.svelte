@@ -3,7 +3,6 @@
 	import { Button, Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts } from '$lib';
-	import { IconRotateClockwise } from '$lib/components/icons';
 
 	export let data: PageData;
 	const { project, user, api } = data;
@@ -185,16 +184,7 @@
 				</fieldset>
 
 				<footer>
-					{#if saving}
-						<div
-							class="w-content flex w-32 flex-row items-center justify-center gap-1 rounded bg-blue-400 py-2 px-3 text-white"
-						>
-							<IconRotateClockwise class="h-5 w-5 animate-spin" />
-							<span>Updating...</span>
-						</div>
-					{:else}
-						<Button role="primary" type="submit">Update profile</Button>
-					{/if}
+					<Button loading={saving} role="primary" type="submit">Update profile</Button>
 				</footer>
 			</form>
 		</div>

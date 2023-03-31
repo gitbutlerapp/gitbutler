@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Button, Login } from '$lib/components';
 	import type { PageData } from './$types';
-	import { IconRotateClockwise } from '$lib/components/icons';
 	import { log, toasts } from '$lib';
 
 	export let data: PageData;
@@ -96,16 +95,7 @@
 						</div>
 
 						<footer class="pt-4">
-							{#if saving}
-								<div
-									class="w-content flex w-32 flex-row items-center justify-center gap-1 rounded bg-blue-600 px-4 py-2 text-white"
-								>
-									<IconRotateClockwise class="h-5 w-5 animate-spin" />
-									<span>Updating...</span>
-								</div>
-							{:else}
-								<Button role="primary" type="submit">Update profile</Button>
-							{/if}
+							<Button loading={saving} role="primary" type="submit">Update profile</Button>
 						</footer>
 					</fields>
 
