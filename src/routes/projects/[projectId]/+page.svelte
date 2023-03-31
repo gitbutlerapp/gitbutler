@@ -112,7 +112,7 @@
 							{#each Object.entries(activity) as [filepath, deltas]}
 								<li class="flex items-center justify-between gap-4">
 									<a
-										class="flex w-full overflow-auto"
+										class="flex w-full overflow-auto hover:underline"
 										href="/projects/{$project.id}/player/{format(
 											date,
 											'yyyy-MM-dd'
