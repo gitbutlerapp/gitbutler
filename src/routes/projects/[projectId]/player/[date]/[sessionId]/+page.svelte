@@ -250,18 +250,18 @@
 		</div>
 	{:then}
 		<header
-			class="card-header flex flex-row justify-between rounded-t border-b-[1px]  border-b-divider bg-card-active px-3 py-2"
+			class="card-header flex flex-row justify-between rounded-t border-b-[1px] border-b-divider bg-card-active px-3 py-2 leading-[21px]"
 		>
-			<span class="flex gap-1">
-				<span class="text-sm">🧰</span>
-				<span>Working History</span>
-				<span class="text-zinc-400">
+			<div class="flex gap-2 relative">
+				<div class="text-sm h-4 w-4 relative bottom-[1px]">🧰</div>
+				<div>Working History</div>
+				<div class="text-zinc-400">
 					{$richSessions.length}
-				</span>
-			</span>
+				</div>
+			</div>
 		</header>
 
-		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default pt-2 pl-2 pr-1 mr-1">
+		<ul class="flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default pt-2 pb-2 pl-2 pr-1 mr-1">
 			{#each $richSessions as session}
 				{@const isCurrent = session.id === $currentSessionId}
 				<li
@@ -313,7 +313,7 @@
 
 <div
 	id="player"
-	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border border-zinc-700 bg-card-default"
+	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border-gb-700 bg-card-default border-[0.5px]"
 >
 	{#if $frame}
 		<header class="flex items-center gap-3 bg-card-active px-3 py-2">
@@ -369,7 +369,7 @@
 
 		<div
 			id="controls"
-			class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
+			class="absolute bottom-0 flex w-full flex-col border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4 rounded-br rounded-bl"
 			style="
                 border-width: 0.5px; 
                 -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
