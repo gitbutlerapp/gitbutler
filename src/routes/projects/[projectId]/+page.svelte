@@ -84,7 +84,7 @@
 
 		<h2 class="mb-4 px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
 
-		<ul class="flex flex-col space-y-4 overflow-y-auto px-8 pb-8">
+		<ul class="flex flex-col space-y-4 overflow-y-auto pl-8 pr-7 pb-8 mr-1">
 			{#await filesActivityByDate.load()}
 				<li>
 					<IconRotateClockwise class="animate-spin" />
