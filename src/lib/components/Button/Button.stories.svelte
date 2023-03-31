@@ -27,7 +27,16 @@
 							<div class="flex gap-2">
 								{#each [false, true] as loading}
 									{#each [false, true] as disabled}
-										<Button role="basic" {filled} {disabled} {height} {width} {icon} {loading}>
+										<Button
+											role="basic"
+											{filled}
+											{disabled}
+											{height}
+											{width}
+											{icon}
+											{loading}
+											on:click={() => alert('Clicked!')}
+										>
 											{label}
 										</Button>
 									{/each}
@@ -51,7 +60,16 @@
 							<div class="flex gap-2">
 								{#each [false, true] as loading}
 									{#each [false, true] as disabled}
-										<Button role="primary" {filled} {disabled} {height} {width} {icon} {loading}>
+										<Button
+											role="primary"
+											{filled}
+											{disabled}
+											{height}
+											{width}
+											{icon}
+											{loading}
+											on:click={() => alert('Clicked!')}
+										>
 											{label}
 										</Button>
 									{/each}
@@ -83,6 +101,7 @@
 											{width}
 											{icon}
 											{loading}
+											on:click={() => alert('Clicked!')}
 										>
 											{label}
 										</Button>
