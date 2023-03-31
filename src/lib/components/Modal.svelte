@@ -26,7 +26,7 @@ It does minimal styling. A close event is fired when the modal is closed.
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <dialog
-	class="modal flex p-0 shadow-lg"
+	class="modal "
 	in:scale={{ duration: 150 }}
 	bind:this={dialog}
 	on:click|self={hide}
@@ -37,9 +37,7 @@ It does minimal styling. A close event is fired when the modal is closed.
 
 <style>
 	.modal {
-		background: rgba(60, 60, 68, 0.6);
-		border: 1px solid rgba(63, 63, 63, 0.5);
+		@apply w-[640px] flex p-0 shadow-lg overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 shadow-lg ;
 		backdrop-filter: blur(10px);
-		border-radius: 8px;
 	}
 </style>
