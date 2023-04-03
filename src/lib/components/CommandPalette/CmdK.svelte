@@ -201,7 +201,7 @@
 				<div class="mr-1 flex-grow">
 					<!-- svelte-ignore a11y-autofocus -->
 					<input
-						class="command-palette-input w-full bg-transparent text-zinc-300 text-lg leading-10 focus:outline-none"
+						class="command-palette-input w-full bg-transparent text-lg leading-10 text-zinc-300 focus:outline-none"
 						bind:value={userInput}
 						on:input|stopPropagation={updateMatchFilesQuery}
 						type="text"

@@ -69,9 +69,7 @@
 					on:submit={onSubmit}
 					class="user-form flex flex-row items-start justify-between gap-12 rounded-lg py-2"
 				>
-
-
-					<fields id="right" class="pt-6 flex flex-col items-center gap-2">
+					<fields id="right" class="flex flex-col items-center gap-2 pt-6">
 						{#if $user.picture}
 							<img
 								class="h-28 w-28 rounded-full border-zinc-300"
@@ -96,7 +94,6 @@
 							/>
 						</label>
 					</fields>
-
 
 					<fields id="left" class="flex flex-1 flex-col gap-3">
 						<div class="flex flex-col gap-1">
@@ -123,12 +120,10 @@
 							/>
 						</div>
 
-						<footer class="pt-4 flex justify-end">
+						<footer class="flex justify-end pt-4">
 							<Button loading={saving} role="primary" type="submit">Update profile</Button>
 						</footer>
 					</fields>
-
-
 				</form>
 			</div>
 		{:else}
@@ -201,20 +196,19 @@
 
 		<div class="mt-8 flex flex-col border-t border-zinc-400 pt-4">
 			<div class="mt-4">
-				<a 
-					class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default hover:bg-card-active shadow p-3 text-zinc-400 transition duration-150 ease-out hover:ease-in"  
-					href="mailto:hello@gitbutler.com?subject=Feedback or question!">
+				<a
+					class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
+					href="mailto:hello@gitbutler.com?subject=Feedback or question!"
+				>
 					<h2 class="text-lg text-zinc-300">Get Support</h2>
 					<div>If you have an issue or any questions, please email us.</div>
-
-					
 				</a>
 			</div>
 			<div class="mt-4">
-				<a  
-					class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default hover:bg-card-active shadow p-3 text-zinc-400 transition duration-150 ease-out hover:ease-in" 
-					href="https://discord.gg/wDKZCPEjXC" 
-					target="_blank" 
+				<a
+					class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
+					href="https://discord.gg/wDKZCPEjXC"
+					target="_blank"
 					rel="noreferrer"
 				>
 					<h2 class="text-lg text-zinc-300">Join our Discord</h2>

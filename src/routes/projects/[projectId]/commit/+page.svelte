@@ -181,7 +181,7 @@
 			/>
 
 			<div class="commit-description-container relative">
-				<div class="generating-commit bg-zinc-600 px-3 py-1 absolute top-1 left-1 rounded">
+				<div class="generating-commit absolute top-1 left-1 rounded bg-zinc-600 px-3 py-1">
 					✨ Summarizing changes...
 				</div>
 				<textarea
@@ -239,7 +239,10 @@
 		</form>
 	</div>
 
-	<div id="preview" class="m-4 flex flex-auto cursor-text select-text overflow-auto border rounded p-4 border-gb-700 bg-card-default">
+	<div
+		id="preview"
+		class="m-4 flex flex-auto cursor-text select-text overflow-auto rounded border border-gb-700 bg-card-default p-4"
+	>
 		{#if $selectedDiffPath !== undefined}
 			{#if $selectedDiff !== undefined}
 				<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
