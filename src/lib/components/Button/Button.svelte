@@ -78,9 +78,8 @@
 <style lang="postcss">
 	a,
 	button {
-		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition ease-in-out hover:underline transition duration-150 ease-out hover:ease-in;
+		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition transition duration-150 ease-in-out ease-out hover:underline hover:ease-in;
 		text-underline-offset: 3px;
-		
 	}
 
 	.basic {
