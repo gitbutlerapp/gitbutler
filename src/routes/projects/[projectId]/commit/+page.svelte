@@ -111,7 +111,7 @@
 	$: isCommitEnabled = summary.length > 0 && $statuses.filter(({ staged }) => staged).length > 0;
 </script>
 
-<div id="commit-page" class="flex h-full w-full gap-2">
+<div id="commit-page" class="flex h-full w-full">
 	<div class="commit-panel-container border-r border-zinc-700 p-4">
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
@@ -180,14 +180,19 @@
 				required
 			/>
 
-			<textarea
-				name="description"
-				disabled={isGeneratingCommitMessage || isCommitting}
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100  focus:border-blue-600"
-				rows="10"
-				placeholder="Description (optional)"
-				bind:value={description}
-			/>
+			<div class="commit-description-container relative">
+				<div class="generating-commit bg-zinc-600 px-3 py-1 absolute top-1 left-1 rounded">
+					✨ Summarizing changes...
+				</div>
+				<textarea
+					name="description"
+					disabled={isGeneratingCommitMessage || isCommitting}
+					class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100  focus:border-blue-600"
+					rows="10"
+					placeholder="Description (optional)"
+					bind:value={description}
+				/>
+			</div>
 
 			<div class="flex justify-between">
 				{#if isGeneratingCommitMessage}
@@ -234,7 +239,7 @@
 		</form>
 	</div>
 
-	<div id="preview" class="m-2 flex flex-auto cursor-text select-text overflow-auto">
+	<div id="preview" class="m-4 flex flex-auto cursor-text select-text overflow-auto border rounded p-4 border-gb-700 bg-card-default">
 		{#if $selectedDiffPath !== undefined}
 			{#if $selectedDiff !== undefined}
 				<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
