@@ -31,7 +31,7 @@
 				<IconLoading class="h-[16px] w-[16px] animate-spin" />
 				<slot />
 			{:else}
-				<div class="items-around absolute flex h-full w-full justify-center">
+				<div class="items-around absolute flex w-full justify-center">
 					<IconLoading class="h-[16px] w-[16px] animate-spin" />
 				</div>
 				<div class="opacity-0">
@@ -61,7 +61,7 @@
 				<IconLoading class="h-[16px] w-[16px] animate-spin" />
 				<slot />
 			{:else}
-				<div class="items-around absolute flex h-full w-full justify-center">
+				<div class="items-around absolute flex w-full justify-center">
 					<IconLoading class="h-[16px] w-[16px] animate-spin" />
 				</div>
 				<div class="opacity-0">
@@ -78,7 +78,7 @@
 <style lang="postcss">
 	a,
 	button {
-		@apply relative flex w-fit cursor-pointer justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition ease-in-out hover:underline;
+		@apply relative flex items-center w-fit cursor-pointer justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition ease-in-out hover:underline;
 		text-underline-offset: 3px;
 	}
 
@@ -92,10 +92,15 @@
 		@apply bg-[#FFFFFF1A]/10;
 	}
 	.basic.filled {
-		@apply border-transparent bg-zinc-500;
+		@apply bg-zinc-500;
 	}
 	.basic.filled:hover {
 		@apply bg-zinc-600;
+	}
+
+
+	.basic, .primary, .destructive {
+		line-height: 20px;
 	}
 
 	.primary {
@@ -103,12 +108,13 @@
 	}
 	.primary.outlined {
 		@apply border-[#3662E3];
+		
 	}
 	.primary.outlined:hover {
 		@apply bg-[#1C48C94D]/30;
 	}
 	.primary.filled {
-		@apply border-transparent bg-blue-600;
+		@apply bg-blue-600;
 	}
 	.primary.filled:hover {
 		@apply bg-[#1C48C9];
@@ -124,7 +130,7 @@
 		@apply bg-[#E336364D]/30;
 	}
 	.destructive.filled {
-		@apply border-transparent bg-[#E33636];
+		@apply bg-[#E33636];
 	}
 	.destructive.filled:hover {
 		@apply bg-[#C91C1C];
@@ -139,9 +145,17 @@
 		@apply opacity-40;
 	}
 
+	.filled {
+		border-top: 1px solid rgba(255, 255, 255, 0.2);
+		border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+		border-left: 1px solid rgba(255, 255, 255, 0);
+		border-right: 1px solid rgba(255, 255, 255, 0);
+		text-shadow: 0px 2px #00000021;
+	}
+
 	.filled,
 	.outlined {
-		@apply px-[16px] py-[10px] text-zinc-50 hover:no-underline;
+		@apply px-[16px] py-[7px] text-zinc-50 hover:no-underline;
 	}
 
 	.outlined {
@@ -150,7 +164,7 @@
 
 	.filled.small,
 	.outlined.small {
-		@apply py-[4px];
+		@apply py-[1px];
 	}
 
 	.filled.long,
