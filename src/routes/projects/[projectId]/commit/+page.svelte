@@ -112,7 +112,7 @@
 </script>
 
 <div id="commit-page" class="flex h-full w-full gap-2">
-	<div class="commit-panel-container border-r p-4 border-zinc-700">
+	<div class="commit-panel-container border-r border-zinc-700 p-4">
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
@@ -230,8 +230,6 @@
 				>
 					Commit changes
 				</Button>
-
-
 			</div>
 		</form>
 	</div>
