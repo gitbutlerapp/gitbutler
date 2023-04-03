@@ -14,15 +14,18 @@
 	let summary = '';
 	let description = '';
 
-	const selectedDiffPath = writable($statuses.at(0)?.path);
-	const selectedDiff = derived(
-		[diffs, selectedDiffPath],
-		([diffs, selectedDiffPath]) => diffs[selectedDiffPath]
+	const selectedDiffPath = writable<string | undefined>($statuses.at(0)?.path);
+	statuses.subscribe((statuses) => {
+		$selectedDiffPath = statuses.at(0)?.path;
+	});
+	const selectedDiff = derived([diffs, selectedDiffPath], ([diffs, selectedDiffPath]) =>
+		selectedDiffPath ? diffs[selectedDiffPath] : undefined
 	);
 
 	const reset = () => {
 		summary = '';
 		description = '';
+		selectedDiffPath.set(undefined);
 	};
 
 	let isCommitting = false;
@@ -119,7 +122,7 @@
 						type="checkbox"
 						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 						on:click={onGroupCheckboxClick}
-						checked={$statuses.every(({ staged }) => staged)}
+						checked={$statuses.every(({ staged }) => staged) && $statuses.length > 0}
 						indeterminate={$statuses.some(({ staged }) => staged) &&
 							$statuses.some(({ staged }) => !staged) &&
 							$statuses.length > 0}
@@ -232,11 +235,17 @@
 	</div>
 
 	<div id="preview" class="m-2 flex flex-auto cursor-text select-text overflow-auto">
-		{#if $selectedDiff !== undefined}
-			<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
+		{#if $selectedDiffPath !== undefined}
+			{#if $selectedDiff !== undefined}
+				<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
+			{:else}
+				<div class="flex h-full w-full flex-col items-center justify-center">
+					<p class="text-lg">Unable to load diff</p>
+				</div>
+			{/if}
 		{:else}
 			<div class="flex h-full w-full flex-col items-center justify-center">
-				<p class="text-lg">Unable to load diff</p>
+				<p class="text-lg">Select a file to preview changes</p>
 			</div>
 		{/if}
 	</div>
