@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { Login } from '$lib/components';
+	import { Button, Login } from '$lib/components';
 	import type { PageData } from './$types';
-	import { IconRotateClockwise } from '$lib/components/icons';
 	import { log, toasts } from '$lib';
 
 	export let data: PageData;
@@ -78,7 +77,7 @@
 								name="name"
 								bind:value={userName}
 								type="text"
-								class="w-full rounded-lg border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
+								class="w-full rounded border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
 								required
 							/>
 						</div>
@@ -91,25 +90,12 @@
 								name="email"
 								bind:value={$user.email}
 								type="text"
-								class="w-full rounded-lg border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
+								class="w-full rounded border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
 							/>
 						</div>
 
 						<footer class="pt-4">
-							{#if saving}
-								<div
-									class="w-content flex w-32 flex-row items-center justify-center gap-1 rounded bg-blue-600 px-4 py-2 text-white"
-								>
-									<IconRotateClockwise class="h-5 w-5 animate-spin" />
-									<span>Updating...</span>
-								</div>
-							{:else}
-								<button
-									type="submit"
-									class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none"
-									>Update profile</button
-								>
-							{/if}
+							<Button loading={saving} role="primary" type="submit">Update profile</Button>
 						</footer>
 					</fields>
 
@@ -123,8 +109,9 @@
 						{/if}
 
 						<label
+							title="Edit profile photo"
 							for="picture"
-							class="font-sm -mt-6 -ml-16 cursor-pointer rounded-lg border border-zinc-600 bg-zinc-800 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
+							class="font-sm -mt-6 -ml-16 cursor-default rounded-lg border border-zinc-600 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
 						>
 							Edit
 							<input

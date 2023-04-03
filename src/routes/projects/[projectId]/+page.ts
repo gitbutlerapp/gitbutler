@@ -1,20 +1,13 @@
 import { building } from '$app/environment';
-import { readable } from 'svelte/store';
 import type { PageLoad } from './$types';
+import { readable } from 'svelte/store';
+import type { Activity } from '$lib/git/activity';
 
-export const load: PageLoad = async () => {
-	const user = building
-		? {
-				...readable<undefined>(undefined),
-				set: () => {
-					throw new Error('not implemented');
-				},
-				delete: () => {
-					throw new Error('not implemented');
-				}
-		  }
-		: await (await import('$lib/users')).default();
+export const load: PageLoad = async ({ params }) => {
+	const activity = building
+		? readable<Activity[]>([])
+		: await import('$lib/git/activity').then((m) => m.default({ projectId: params.projectId }));
 	return {
-		user
+		activity
 	};
 };

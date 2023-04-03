@@ -1,114 +1,180 @@
 <script lang="ts">
 	import Modal from '../Modal.svelte';
-	import { shortPath } from '$lib/paths';
-	import { invoke } from '@tauri-apps/api';
-	import { currentProject } from '$lib/current_project';
+	import { collapsable } from '$lib/paths';
+	import * as git from '$lib/git';
 	import { onMount } from 'svelte';
-	import toast from 'svelte-french-toast';
+	import { success, error } from '$lib/toasts';
 	import { createEventDispatcher } from 'svelte';
+	import { readable, type Readable } from 'svelte/store';
+	import type { Status } from '$lib/git/statuses';
+	import { IconRotateClockwise } from '../icons';
+	import type { Project } from '$lib/projects';
 
 	const dispatch = createEventDispatcher();
 
-	let commitMessage = '';
+	let statuses = readable<Status[]>([]);
 
-	let changedFiles: Record<string, string> = {};
+	export let project: Readable<Project>;
 
-	const listFiles = (params: { projectId: string }) =>
-		invoke<Record<string, string>>('git_status', params);
-
-	const commit = (params: {
-		projectId: string;
-		message: string;
-		files: Array<string>;
-		push: boolean;
-	}) => invoke<boolean>('git_commit', params);
-
+	let modal: Modal;
 	onMount(() => {
-		listFiles({ projectId: $currentProject?.id || '' }).then((files) => {
-			changedFiles = files;
-		});
+		modal.show();
+		git.statuses({ projectId: $project.id ?? '' }).then((r) => (statuses = r));
 	});
 
-	function doCommit() {
-		// get checked files
-		let changedFiles: Array<string> = [];
-		let doc = document.getElementsByClassName('file-checkbox');
-		Array.from(doc).forEach((c: any) => {
-			if (c.checked) {
-				changedFiles.push(c.dataset['file']);
-			}
-		});
-		if ($currentProject) {
-			commit({
-				projectId: $currentProject.id,
-				message: commitMessage,
-				files: changedFiles,
+	let summary = '';
+	let description = '';
+	let isCommitting = false;
+	$: isCommitEnabled = summary.length > 0 && $statuses.some(({ staged }) => staged);
+
+	const reset = () => {
+		summary = '';
+		description = '';
+	};
+
+	const onCommit = (e: SubmitEvent) => {
+		const form = e.target as HTMLFormElement;
+		const formData = new FormData(form);
+		const summary = formData.get('summary') as string;
+		const description = formData.get('description') as string;
+
+		isCommitting = true;
+		git
+			.commit({
+				projectId: $project.id,
+				message: description.length > 0 ? `${summary}\n\n${description}` : summary,
 				push: false
-			}).then((result) => {
-				toast.success('Commit successful!', {
-					icon: '🎉'
-				});
-				commitMessage = '';
+			})
+			.then(() => {
+				success('Commit created');
+				reset();
 				dispatch('close');
+			})
+			.catch(() => {
+				error('Failed to commit');
+			})
+			.finally(() => {
+				isCommitting = false;
 			});
+	};
+
+	const onGroupCheckboxClick = (e: Event) => {
+		const target = e.target as HTMLInputElement;
+		if (target.checked) {
+			git
+				.stage({
+					projectId: $project.id,
+					paths: $statuses.filter(({ staged }) => !staged).map(({ path }) => path)
+				})
+				.catch(() => {
+					error('Failed to stage files');
+				});
+		} else {
+			git
+				.unstage({
+					projectId: $project.id,
+					paths: $statuses.filter(({ staged }) => staged).map(({ path }) => path)
+				})
+				.catch(() => {
+					error('Failed to unstage files');
+				});
 		}
-	}
+	};
 </script>
 
-<Modal on:close>
-	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<div class="flex flex-col rounded text-zinc-400" on:click|stopPropagation>
-		<div class="mb-4 w-full border-b border-zinc-700 p-4 text-lg text-white">
+<Modal on:close bind:this={modal}>
+	<form
+		class="command-palette-commit flex w-full flex-col gap-4 rounded p-4"
+		on:submit|preventDefault={onCommit}
+	>
+		<header class="w-full border-b border-zinc-700 text-lg font-semibold text-white">
 			Commit Your Changes
-		</div>
-		<div
-			class="relative mx-auto transform overflow-hidden p-2 text-left transition-all sm:w-full sm:max-w-sm"
-		>
-			{#if Object.entries(changedFiles).length > 0}
-				<div>
-					<div class="">
-						<h3 class="text-base font-semibold text-zinc-200" id="modal-title">Commit Message</h3>
-						<div class="mt-2">
-							<div class="mt-2">
-								<textarea
-									rows="4"
-									name="message"
-									placeholder="Description of changes"
-									id="commit-message"
-									bind:value={commitMessage}
-									class="block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
-								/>
-							</div>
-						</div>
-					</div>
-				</div>
-				<div class="mt-5 sm:mt-6">
-					<button
-						type="button"
-						on:click={doCommit}
-						class="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-						>Commit Your Changes</button
+		</header>
+
+		<fieldset class="flex flex-auto transform flex-col gap-2 overflow-auto transition-all">
+			{#if $statuses.length > 0}
+				<input
+					class="ring-gray-600 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+					type="text"
+					name="summary"
+					placeholder="Summary (required)"
+					bind:value={summary}
+					required
+				/>
+
+				<textarea
+					rows="4"
+					name="description"
+					placeholder="Description (optional)"
+					bind:value={description}
+					class="ring-gray-600 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+				/>
+
+				{#if isCommitting}
+					<div
+						class="flex gap-1 rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 					>
-				</div>
-				<div class="mt-4 py-4 text-zinc-200">
-					<h3 class="text-base font-semibold text-zinc-200" id="modal-title">Changed Files</h3>
-					{#each Object.entries(changedFiles) as file}
-						<div class="flex flex-row space-x-2">
-							<div>
-								<input type="checkbox" class="file-checkbox" data-file={file[0]} checked />
-							</div>
-							<div>
-								{file[1]}
-							</div>
-							<div class="font-mono">
-								{shortPath(file[0])}
-							</div>
-						</div>
+						<IconRotateClockwise class="h-5 w-5 animate-spin" />
+						<span>Comitting...</span>
+					</div>
+				{:else}
+					<button
+						disabled={!isCommitEnabled}
+						type="submit"
+						class="rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						Commit changes
+					</button>
+				{/if}
+
+				<ul
+					class="flex flex-auto flex-col overflow-auto rounded border border-card-default bg-card-active"
+				>
+					<header class="flex w-full items-center py-2 px-4">
+						<input
+							type="checkbox"
+							class="cursor-default disabled:opacity-50"
+							on:click={onGroupCheckboxClick}
+							checked={$statuses.every(({ staged }) => staged)}
+							indeterminate={$statuses.some(({ staged }) => staged) &&
+								$statuses.some(({ staged }) => !staged) &&
+								$statuses.length > 0}
+							disabled={isCommitting}
+						/>
+						<h1 class="m-auto flex">
+							<span class="w-full text-center">{$statuses.length} changed files</span>
+						</h1>
+					</header>
+
+					{#each $statuses as { path, staged }, i}
+						<li
+							class:border-b={i < $statuses.length - 1}
+							class="flex items-center gap-2 border-gb-700 bg-card-default"
+						>
+							<input
+								type="checkbox"
+								class="ml-4 cursor-default py-2 disabled:opacity-50"
+								checked={staged}
+								on:click|preventDefault={() => {
+									staged
+										? git.unstage({ projectId: $project.id, paths: [path] }).catch(() => {
+												error('Failed to unstage file');
+										  })
+										: git.stage({ projectId: $project.id, paths: [path] }).catch(() => {
+												error('Failed to stage file');
+										  });
+								}}
+							/>
+							<span
+								class="h-full w-full flex-auto overflow-auto py-2 pr-4 text-left font-mono disabled:opacity-50"
+								use:collapsable={{ value: path, separator: '/' }}
+							/>
+						</li>
 					{/each}
-				</div>
+				</ul>
 			{:else}
 				<div class="mx-auto text-center text-white">No changes to commit</div>
 			{/if}
-		</div>
-	</div>
+		</fieldset>
+	</form>
 </Modal>

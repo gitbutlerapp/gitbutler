@@ -172,10 +172,18 @@
 	$: rows = highlight.length > 0 ? padHighlighted(renderedRows) : renderedRows;
 	$: originalLineNumberDigits = String(rows.at(-1)?.originalLineNumber || '0').length;
 	$: currentLineNumberDigits = String(rows.at(-1)?.currentLineNumber || '0').length;
+
+	const scrollToChangedLine = () => {
+		const changedLines = document.getElementsByClassName('line-changed');
+		if (changedLines.length > 0) {
+			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+	};
+	$: deltas.length && scrollToChangedLine();
 </script>
 
-<table class="w-full whitespace-pre font-mono">
-	<tbody>
+<div class="flex h-full w-full whitespace-pre font-mono">
+	<div id="numbers" class="flex flex-shrink-0 select-none flex-col">
 		{#each rows as row}
 			{@const baseNumber =
 				row.type === RowType.Equal || row.type === RowType.Deletion
@@ -185,31 +193,35 @@
 				row.type === RowType.Equal || row.type === RowType.Addition
 					? String(row.currentLineNumber)
 					: ''}
-			<tr>
-				<td
-					class="pr-1 pl-2.5 min-w-[{originalLineNumberDigits}ch] text-right text-[#8C8178] before:content-[attr(data-line-number)]"
-					data-line-number={baseNumber}
-				/>
-				<td
-					class="pr-1 pl-2.5 min-w-[{currentLineNumberDigits}ch] text-right text-[#8C8178] before:content-[attr(data-line-number)]"
-					data-line-number={curNumber}
-				/>
-				<td
-					class="px-1.5 before:content-[attr(data-marker)]"
+			<div class="grid-cols-min grid grid-cols-3 gap-2">
+				<span class="min-w-[{originalLineNumberDigits}ch] text-right text-[#8C8178]">
+					{baseNumber}
+				</span>
+				<span class="min-w-[{currentLineNumberDigits}ch] text-right text-[#8C8178]">
+					{curNumber}
+				</span>
+				<span
+					class="min-w-[1ch] text-center before:content-[attr(data-marker)]"
 					class:diff-line-addition={row.type === RowType.Addition}
 					class:diff-line-deletion={row.type === RowType.Deletion}
+					class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
 					data-marker={row.type === RowType.Addition
 						? '+'
 						: row.type === RowType.Deletion
 						? '-'
 						: ' '}
 				/>
-				<td class="px-1 diff-line-{row.type}">
-					{#each row.render.html as content}
-						{@html content}
-					{/each}
-				</td>
-			</tr>
+			</div>
 		{/each}
-	</tbody>
-</table>
+	</div>
+
+	<div id="content" class="flex flex-auto flex-col">
+		{#each rows as row}
+			<span class="diff-line-{row.type}">
+				{#each row.render.html as content}
+					{@html content}
+				{/each}
+			</span>
+		{/each}
+	</div>
+</div>

@@ -84,15 +84,9 @@ jobs:
               uses: dtolnay/rust-toolchain@stable
 
             - name: Cache rust dependencies
-              uses: actions/cache@v3
+              uses: Swatinem/rust-cache@v2
               with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      src-tauri/target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                workspaces: src-tauri
             
             - name: Install system dependencies
               uses: daaku/gh-action-apt-install@v4

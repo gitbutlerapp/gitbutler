@@ -1,12 +1,19 @@
-import type { ComponentType } from 'svelte';
+import type { ComponentProps, ComponentType, SvelteComponent } from 'svelte';
+import type Commit from './Commit.svelte';
+import type Replay from './Replay.svelte';
 
 export type ActionLink = { href: string };
-export type ActionInPalette = { component: ComponentType };
-export type Action = ActionLink | ActionInPalette;
+
+export type ActionInPalette<Component extends SvelteComponent> = {
+	component: Component;
+	props: ComponentProps<Component>;
+};
+
+export type Action = ActionLink | ActionInPalette<Commit | Replay>;
 
 export namespace Action {
 	export const isLink = (action: Action): action is ActionLink => 'href' in action;
-	export const isActionInPalette = (action: Action): action is ActionInPalette =>
+	export const isActionInPalette = (action: Action): action is ActionInPalette<any> =>
 		'component' in action;
 }
 
@@ -16,12 +23,15 @@ export type Command = {
 	action: Action;
 	selected: boolean;
 	visible: boolean;
+	icon: ComponentType;
 };
+
 export type CommandGroup = {
 	name: string;
 	description?: string;
 	visible: boolean;
 	commands: Command[];
+	icon: ComponentType;
 };
 
 export const firstVisibleCommand = (commandGroups: CommandGroup[]): [number, number] => {

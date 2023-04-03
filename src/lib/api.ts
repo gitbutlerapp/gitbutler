@@ -129,7 +129,10 @@ export default (
 			}
 		},
 		summarize: {
-			commit: (token: string, params: { diff: string; uid?: string }): Promise<string> =>
+			commit: (
+				token: string,
+				params: { diff: string; uid?: string }
+			): Promise<{ message: string }> =>
 				fetch(getUrl('summarize/commit.json'), {
 					method: 'POST',
 					headers: {

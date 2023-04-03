@@ -2,12 +2,7 @@ import { invoke } from '@tauri-apps/api';
 import { appWindow } from '@tauri-apps/api/window';
 import { writable, type Readable } from 'svelte/store';
 import { log } from '$lib';
-
-export type Activity = {
-	type: string;
-	timestampMs: number;
-	message: string;
-};
+import type { Activity } from './git/activity';
 
 export namespace Session {
 	export const within = (session: Session | undefined, timestampMs: number) => {
@@ -29,10 +24,56 @@ export type Session = {
 	activity: Activity[];
 };
 
-export const listFiles = (params: { projectId: string; sessionId: string; paths?: string[] }) =>
-	invoke<Record<string, string>>('list_session_files', params);
+const filesCache: Record<string, Record<string, Promise<Record<string, string>>>> = {};
 
-const list = (params: { projectId: string }) => invoke<Session[]>('list_sessions', params);
+export const listFiles = async (params: {
+	projectId: string;
+	sessionId: string;
+	paths?: string[];
+}) => {
+	const sessionFilesCache = filesCache[params.projectId] || {};
+	if (params.sessionId in sessionFilesCache) {
+		return sessionFilesCache[params.sessionId].then((files) => {
+			return Object.fromEntries(
+				Object.entries(files).filter(([path]) =>
+					params.paths ? params.paths.includes(path) : true
+				)
+			);
+		});
+	}
+
+	const promise = invoke<Record<string, string>>('list_session_files', {
+		sessionId: params.sessionId,
+		projectId: params.projectId
+	});
+	sessionFilesCache[params.sessionId] = promise;
+	filesCache[params.projectId] = sessionFilesCache;
+	return promise.then((files) => {
+		return Object.fromEntries(
+			Object.entries(files).filter(([path]) => (params.paths ? params.paths.includes(path) : true))
+		);
+	});
+};
+
+const sessionsCache: Record<string, Promise<Session[]>> = {};
+
+const list = async (params: { projectId: string; earliestTimestampMs?: number }) => {
+	if (params.projectId in sessionsCache) {
+		return sessionsCache[params.projectId].then((sessions) =>
+			sessions.filter((s) =>
+				params.earliestTimestampMs ? s.meta.startTimestampMs >= params.earliestTimestampMs : true
+			)
+		);
+	}
+	sessionsCache[params.projectId] = invoke<Session[]>('list_sessions', {
+		projectId: params.projectId
+	});
+	return sessionsCache[params.projectId].then((sessions) =>
+		sessions.filter((s) =>
+			params.earliestTimestampMs ? s.meta.startTimestampMs >= params.earliestTimestampMs : true
+		)
+	);
+};
 
 export default async (params: { projectId: string; earliestTimestampMs?: number }) => {
 	const store = writable([] as Session[]);

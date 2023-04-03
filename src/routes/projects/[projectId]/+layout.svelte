@@ -1,18 +1,13 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
 	import type { Project } from '$lib/projects';
-	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
-	import { currentProject } from '$lib/current_project';
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	let query: string;
+	const { project } = data;
 
-	$: project = data.project;
-	$: currentProject.set($project);
+	let query: string;
 
 	const onSearchSubmit = () => goto(`/projects/${$project?.id}/search?q=${query}`);
 
@@ -26,25 +21,19 @@
 		return `${host}/projects/${projectId}`;
 	}
 
-	const contextProjectStore: Writable<Project | null | undefined> = getContext('project');
-	$: contextProjectStore.set($project);
-	onDestroy(() => {
-		contextProjectStore.set(null);
-	});
-
 	$: selection = $page?.route?.id?.split('/')?.[3];
 </script>
 
 <div class="flex h-full w-full flex-col">
 	{#if selection !== 'player'}
 		<nav
-			class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-8 text-zinc-300"
+			class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-2 text-zinc-300"
 		>
 			<div class="flex flex-row items-center space-x-2">
 				<form action="/projects/{$project?.id}/search" method="GET">
 					<label
 						for="default-search"
-						class="sr-only mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label
+						class="text-gray-900 sr-only mb-2 text-sm font-medium dark:text-white">Search</label
 					>
 					<div class="relative">
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -100,7 +89,10 @@
 			<ul>
 				<li>
 					<a href="/projects/{$project?.id}/settings" class="text-zinc-400 hover:text-zinc-300">
-						<div class="rounded-md p-1 hover:bg-zinc-700 hover:bg-zinc-700 hover:text-zinc-200">
+						<div
+							title="Project settings"
+							class="project-settings-button cursor-default rounded-md p-1 hover:bg-zinc-700 hover:text-zinc-200"
+						>
 							<div class="h-6 w-6 ">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"

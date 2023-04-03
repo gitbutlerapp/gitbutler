@@ -16,3 +16,6 @@ yarn.lock
 /.github
 /.vscode
 /src-tauri
+
+#storybbok
+!.storybook

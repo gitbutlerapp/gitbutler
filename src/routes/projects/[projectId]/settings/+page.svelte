@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { derived } from 'svelte/store';
-	import { Login } from '$lib/components';
+	import { Button, Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts } from '$lib';
-	import { IconRotateClockwise } from '$lib/components/icons';
 
 	export let data: PageData;
 	const { project, user, api } = data;
@@ -56,7 +55,6 @@
 		const name = formData.get('name') as string | undefined;
 		const description = formData.get('description') as string | undefined;
 
-		console.log({ name, description });
 		try {
 			if (name) {
 				const updated = await api.projects.update($user.access_token, $project?.api.repository_id, {
@@ -158,7 +156,7 @@
 							id="path"
 							name="path"
 							type="text"
-							class="w-full rounded-lg border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
+							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
 							value={$project?.path}
 						/>
 					</div>
@@ -168,7 +166,7 @@
 							id="name"
 							name="name"
 							type="text"
-							class="w-full rounded-lg border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
+							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
 							value={$project?.title}
 							required
 						/>
@@ -179,25 +177,14 @@
 							id="description"
 							name="description"
 							rows="3"
-							class="w-full rounded-lg border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
+							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
 							value={$project?.api?.description}
 						/>
 					</div>
 				</fieldset>
 
 				<footer>
-					{#if saving}
-						<div
-							class="w-content flex w-32 flex-row items-center justify-center gap-1 rounded bg-blue-400 py-2 px-3 text-white"
-						>
-							<IconRotateClockwise class="h-5 w-5 animate-spin" />
-							<span>Updating...</span>
-						</div>
-					{:else}
-						<button type="submit" class="rounded bg-blue-600 py-2 px-3 text-white"
-							>Update profile</button
-						>
-					{/if}
+					<Button loading={saving} role="primary" type="submit">Update profile</Button>
 				</footer>
 			</form>
 		</div>

@@ -1,6 +1,7 @@
 mod deltas;
 mod events;
 mod fs;
+mod git;
 mod projects;
 mod pty;
 mod repositories;
@@ -15,9 +16,10 @@ extern crate log;
 
 use anyhow::{Context, Result};
 use deltas::Delta;
+use git::activity;
 use pty::ws_server::pty_serve;
 use serde::{ser::SerializeMap, Serialize};
-use std::{collections::HashMap, ops::Range, sync::Mutex};
+use std::{collections::HashMap, ops::Range, path::Path, sync::Mutex};
 use storage::Storage;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
@@ -377,10 +379,24 @@ async fn list_deltas(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn git_activity(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    start_time_ms: Option<u128>,
+) -> Result<Vec<activity::Activity>, Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    let activity = repo
+        .activity(start_time_ms)
+        .with_context(|| "Failed to get git activity")?;
+    Ok(activity)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<HashMap<String, String>, Error> {
+) -> Result<HashMap<String, (repositories::FileStatus, bool)>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo.status().with_context(|| "Failed to get git status")?;
     Ok(files)
@@ -401,17 +417,6 @@ async fn git_wd_diff(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_file_paths(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let files = repo
-        .file_paths()
-        .with_context(|| "Failed to get file paths")?;
-
-    Ok(files)
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -423,20 +428,6 @@ async fn git_match_paths(
         .with_context(|| "Failed to get file paths")?;
 
     Ok(files)
-}
-
-#[tauri::command(async)]
-async fn get_file_contents(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    path: &str,
-) -> Result<String, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let file = repo
-        .get_file_contents(path)
-        .with_context(|| "Failed to get file contents")?;
-
-    Ok(file)
 }
 
 fn repo_for_project(
@@ -467,12 +458,12 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_branch(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
+async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let repo = repo_for_project(handle, project_id)?;
-    let files = repo
-        .branch()
+    let head = repo
+        .head()
         .with_context(|| "Failed to get the git branch ref name")?;
-    Ok(files)
+    Ok(head)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -491,19 +482,43 @@ async fn git_switch_branch(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn git_stage(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    paths: Vec<&str>,
+) -> Result<(), Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    repo.stage_files(paths.iter().map(|p| Path::new(p)).collect())
+        .with_context(|| "failed to stage file")?;
+    Ok(())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn git_unstage(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    paths: Vec<&str>,
+) -> Result<(), Error> {
+    let repo = repo_for_project(handle, project_id)?;
+    repo.unstage_files(paths.iter().map(|p| Path::new(p)).collect())
+        .with_context(|| "failed to unstage file")?;
+    Ok(())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn git_commit(
     handle: tauri::AppHandle,
     project_id: &str,
     message: &str,
-    files: Vec<&str>,
     push: bool,
-) -> Result<bool, Error> {
+) -> Result<(), Error> {
     let repo = repo_for_project(handle, project_id)?;
-    let success = repo
-        .commit(message, files, push)
+    repo.commit(message, push)
         .with_context(|| "Failed to commit")?;
 
-    Ok(success)
+    Ok(())
 }
 
 fn main() {
@@ -624,14 +639,15 @@ fn main() {
             get_user,
             search,
             git_status,
-            git_file_paths,
+            git_activity,
             git_match_paths,
             git_branches,
-            git_branch,
+            git_head,
             git_switch_branch,
             git_commit,
+            git_stage,
+            git_unstage,
             git_wd_diff,
-            get_file_contents
         ]);
 
     let tauri_context = generate_context!();

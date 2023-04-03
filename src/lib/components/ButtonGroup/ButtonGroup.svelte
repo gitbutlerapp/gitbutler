@@ -1,0 +1,46 @@
+<script lang="ts">
+	import Button from '../Button/Button.svelte';
+
+	export let leftLabel: string;
+	export let leftAction: () => void;
+	export let rightLabel: string;
+	export let rightAction: () => void;
+	export let middleLabel: string | undefined = undefined;
+	export let middleAction: (() => void) | undefined = undefined;
+	export let width: 'basic' | 'long' = 'basic';
+</script>
+
+{#if !middleLabel}
+	<div class="btn-group">
+		<Button on:click={leftAction} {width}>
+			{leftLabel}
+		</Button>
+		<Button on:click={rightAction} role="primary" {width}>
+			{rightLabel}
+		</Button>
+	</div>
+{:else}
+	<div class="btn-group btn-group--segmented">
+		<button class="joined-base rounded-l-lg border-l border-t border-b" on:click={leftAction}>
+			<span class="my-2 {width === 'long' ? 'mx-[31.5px]' : 'mx-[16px]'}">{leftLabel}</span>
+		</button>
+		<button class="joined-base border" on:click={middleAction}>
+			<span class="my-2 {width === 'long' ? 'mx-[31.5px]' : 'mx-[16px]'}">{middleLabel}</span>
+		</button>
+		<button class="joined-base rounded-r-lg border-r border-t border-b" on:click={rightAction}>
+			<span class="my-2 {width === 'long' ? 'mx-[31.5px]' : 'mx-[16px]'}">{rightLabel}</span>
+		</button>
+	</div>
+{/if}
+
+<style lang="postcss">
+	.joined-base {
+		@apply flex items-center justify-center border-[#71717a] text-base text-white;
+	}
+	.btn-group {
+		@apply flex gap-3;
+	}
+	.btn-group--segmented {
+		@apply flex gap-0;
+	}
+</style>

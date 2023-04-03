@@ -3,8 +3,75 @@
 @tailwind components;
 @tailwind utilities;
 
-/* this is trick to make webkit use hardware acceleration */
-*:not(html) {
-	-webkit-transform: translate3d(0, 0, 0);
-	-webkit-perspective: 1000;
+a,
+button {
+	@apply cursor-default;
+	-webkit-user-select: none;
+	-webkit-user-drag: none;
+	-webkit-app-region: no-drag;
+	cursor: default;
+}
+
+.drag-none {
+	-webkit-user-select: none;
+	-webkit-user-drag: none;
+	-webkit-app-region: no-drag;
+	cursor: default;
+}
+
+/* SCROLL BAR STYLING */
+
+/* width */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+	border-radius: 2px;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+	/* background: #44444A;  */
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 10px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.3);
+}
+.scrollbar-hidden::-webkit-scrollbar {
+	-webkit-appearance: none;
+	width: 0;
+	height: 0;
+}
+.scrollbar-hidden::-webkit-scrollbar {
+	-webkit-appearance: none;
+	width: 0;
+	height: 0;
+}
+
+/* COMMAND PALETTE */
+
+.commnand-palette-section-header {
+	@apply mx-2 mb-2 mt-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300;
+}
+
+.quick-command-item {
+	@apply gap-2 rounded-lg p-2 px-2 outline-none;
+}
+
+.quick-command-key {
+	@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
+}
+
+/* Text Editor */
+.token-attribute {
+	@apply cursor-default select-none;
+}
+.inner-diff {
+	border-radius: 2px;
 }
