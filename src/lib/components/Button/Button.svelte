@@ -4,7 +4,7 @@
 
 	export let role: 'basic' | 'primary' | 'destructive' = 'basic';
 	export let filled = true;
-	const outlined = true;
+	export let outlined = false;
 	export let disabled = false;
 	export let height: 'basic' | 'small' = 'basic';
 	export let width: 'basic' | 'long' = 'basic';
@@ -17,7 +17,7 @@
 {#if href}
 	<a
 		{href}
-		class="relative cursor-pointer {role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
+		class={role}
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:filled
@@ -45,7 +45,7 @@
 	</a>
 {:else}
 	<button
-		class="relative cursor-pointer {role} flex w-fit justify-center gap-[10px] whitespace-nowrap rounded border text-base font-medium text-zinc-50 transition ease-in-out"
+		class={role}
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:pointer-events-none={loading}
@@ -76,29 +76,19 @@
 {/if}
 
 <style lang="postcss">
-	.disabled {
-		@apply pointer-events-none opacity-40;
-	}
-
-	.filled,
-	.outlined {
-		@apply px-[16px] py-[10px];
-	}
-
-	.filled.small,
-	.outlined.small {
-		@apply py-[4px];
-	}
-
-	.filled.long,
-	.outlined.long {
-		@apply px-[42px];
+	a,
+	button {
+		@apply relative flex w-fit cursor-pointer justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition ease-in-out hover:underline;
+		text-underline-offset: 3px;
 	}
 
 	.basic {
+		@apply text-zinc-300;
+	}
+	.basic.outlined {
 		@apply border-zinc-500;
 	}
-	.basic:hover {
+	.basic.outlined:hover {
 		@apply bg-[#FFFFFF1A]/10;
 	}
 	.basic.filled {
@@ -109,9 +99,12 @@
 	}
 
 	.primary {
+		@apply text-blue-500;
+	}
+	.primary.outlined {
 		@apply border-[#3662E3];
 	}
-	.primary:hover {
+	.primary.outlined:hover {
 		@apply bg-[#1C48C94D]/30;
 	}
 	.primary.filled {
@@ -122,9 +115,12 @@
 	}
 
 	.destructive {
+		@apply text-red-600;
+	}
+	.destructive.outlined {
 		@apply border-[#E33636];
 	}
-	.destructive:hover {
+	.destructive.outlined:hover {
 		@apply bg-[#E336364D]/30;
 	}
 	.destructive.filled {
@@ -132,5 +128,33 @@
 	}
 	.destructive.filled:hover {
 		@apply bg-[#C91C1C];
+	}
+
+	.disabled {
+		@apply pointer-events-none text-zinc-500;
+	}
+
+	.filled.disabled,
+	.outlined.disabled {
+		@apply opacity-40;
+	}
+
+	.filled,
+	.outlined {
+		@apply px-[16px] py-[10px] text-zinc-50 hover:no-underline;
+	}
+
+	.outlined {
+		@apply border;
+	}
+
+	.filled.small,
+	.outlined.small {
+		@apply py-[4px];
+	}
+
+	.filled.long,
+	.outlined.long {
+		@apply px-[42px];
 	}
 </style>
