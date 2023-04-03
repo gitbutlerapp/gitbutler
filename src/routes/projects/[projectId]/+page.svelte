@@ -15,6 +15,7 @@
 	const { activity, project, statuses, sessions, head } = data;
 
 	const recentSessions = derived(sessions, (sessions) => {
+		sessions ||= [];
 		const lastFourDaysOfSessions = sessions.filter(
 			(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
 		);
