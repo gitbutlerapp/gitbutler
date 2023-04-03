@@ -20,6 +20,7 @@
 </script>
 
 <script lang="ts">
+	import Slider from './Slider.svelte';
 	import type { PageData } from './$types';
 	import { derived, writable } from 'svelte/store';
 	import {
@@ -393,7 +394,7 @@
 
 		<div
 			id="controls"
-			class="absolute bottom-0 flex w-full flex-col rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
+			class="absolute bottom-0 flex w-full flex-col gap-4 rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 			style="
                 border-width: 0.5px; 
                 -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
@@ -402,28 +403,7 @@
                 border: 0.5px solid rgba(63, 63, 70, 0.50);
             "
 		>
-			<div class="flex h-0 w-full justify-between">
-				{#each $richSessions as session}
-					<div
-						class="inline-block h-2 rounded bg-white"
-						style="width: {Math.round(
-							(session.deltas.length / $frame.session.deltas.length) * 100
-						)}%"
-					>
-						&nbsp;
-					</div>
-				{/each}
-			</div>
-
-			<div class="w-full">
-				<input
-					type="range"
-					class="-mt-3 w-full cursor-default appearance-none rounded-lg border-transparent bg-transparent"
-					max={$maxInput}
-					step="1"
-					bind:value={$inputValue}
-				/>
-			</div>
+			<Slider sessions={$richSessions} bind:value={$inputValue} />
 
 			<div class="playback-controller-ui mx-auto flex w-full items-center justify-between gap-2">
 				<div class="left-side flex space-x-8">
