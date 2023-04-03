@@ -111,8 +111,8 @@
 	$: isCommitEnabled = summary.length > 0 && $statuses.filter(({ staged }) => staged).length > 0;
 </script>
 
-<div id="commit-page" class="flex h-full w-full gap-2 p-2">
-	<div>
+<div id="commit-page" class="flex h-full w-full gap-2">
+	<div class="commit-panel-container border-r p-4 border-zinc-700">
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
@@ -172,7 +172,7 @@
 
 			<input
 				name="summary"
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100"
+				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 ring-blue-600/30 focus:border-blue-600 "
 				disabled={isGeneratingCommitMessage || isCommitting}
 				type="text"
 				placeholder="Summary (required)"
@@ -183,22 +183,13 @@
 			<textarea
 				name="description"
 				disabled={isGeneratingCommitMessage || isCommitting}
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100"
+				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100  focus:border-blue-600"
 				rows="10"
 				placeholder="Description (optional)"
 				bind:value={description}
 			/>
 
 			<div class="flex justify-between">
-				<Button
-					loading={isCommitting}
-					disabled={!isCommitEnabled || isGeneratingCommitMessage}
-					role="primary"
-					type="submit"
-				>
-					Commit changes
-				</Button>
-
 				{#if isGeneratingCommitMessage}
 					<div
 						class="flex items-center gap-1 rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
@@ -230,6 +221,17 @@
 						✨ Generate commit message
 					</button>
 				{/if}
+
+				<Button
+					loading={isCommitting}
+					disabled={!isCommitEnabled || isGeneratingCommitMessage}
+					role="primary"
+					type="submit"
+				>
+					Commit changes
+				</Button>
+
+
 			</div>
 		</form>
 	</div>
