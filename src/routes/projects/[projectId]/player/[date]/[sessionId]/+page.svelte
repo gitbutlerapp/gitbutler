@@ -33,6 +33,8 @@
 	import { CodeViewer } from '$lib/components';
 	import { asyncDerived } from '@square/svelte-store';
 	import { format } from 'date-fns';
+	import { onMount } from 'svelte';
+	import tinykeys from 'tinykeys';
 
 	export let data: PageData;
 
@@ -194,6 +196,7 @@
 	let direction: -1 | 1 = 1;
 	let speed = 1;
 	let oneSecond = 1000;
+	$: isPlaying = !!interval;
 
 	const stop = () => {
 		clearInterval(interval);
@@ -206,11 +209,11 @@
 	const start = (params: { direction: 1 | -1; speed: number }) => {
 		if (interval) clearInterval(interval);
 		interval = setInterval(() => {
-			incrementPlayerValue();
+			gotoNextDelta();
 		}, oneSecond / params.speed);
 	};
 
-	const incrementPlayerValue = () => {
+	const gotoNextDelta = () => {
 		if ($inputValue < $maxInput) {
 			$inputValue += 1;
 		} else {
@@ -223,7 +226,7 @@
 		return params;
 	};
 
-	const decrementPlayerValue = () => {
+	const gotoPrevDelta = () => {
 		if ($inputValue > 0) {
 			$inputValue -= 1;
 		} else {
@@ -235,6 +238,22 @@
 		speed = speed * 2;
 		start({ direction, speed });
 	};
+
+	onMount(() =>
+		tinykeys(window, {
+			ArrowRight: gotoNextDelta,
+			'Shift+ArrowRight': goToNextSession,
+			ArrowLeft: gotoPrevDelta,
+			'Shift+ArrowLeft': goToPrevSession,
+			Space: () => {
+				if (isPlaying) {
+					stop();
+				} else {
+					play();
+				}
+			}
+		})
+	);
 </script>
 
 <article
@@ -425,7 +444,7 @@
 					</div>
 
 					<div class="back-forward-button-container ">
-						<button on:click={decrementPlayerValue} class="playback-button-back group">
+						<button on:click={gotoPrevDelta} class="playback-button-back group">
 							<svg
 								width="20"
 								height="20"
@@ -444,7 +463,7 @@
 							</svg>
 						</button>
 
-						<button on:click={incrementPlayerValue} class="playback-button-forward group">
+						<button on:click={gotoNextDelta} class="playback-button-forward group">
 							<svg
 								width="20"
 								height="20"
