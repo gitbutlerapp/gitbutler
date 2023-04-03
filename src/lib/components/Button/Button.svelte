@@ -78,7 +78,7 @@
 <style lang="postcss">
 	a,
 	button {
-		@apply relative flex items-center w-fit cursor-pointer justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition ease-in-out hover:underline;
+		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition ease-in-out hover:underline;
 		text-underline-offset: 3px;
 	}
 
@@ -98,8 +98,9 @@
 		@apply bg-zinc-600;
 	}
 
-
-	.basic, .primary, .destructive {
+	.basic,
+	.primary,
+	.destructive {
 		line-height: 20px;
 	}
 
@@ -108,7 +109,6 @@
 	}
 	.primary.outlined {
 		@apply border-[#3662E3];
-		
 	}
 	.primary.outlined:hover {
 		@apply bg-[#1C48C94D]/30;
