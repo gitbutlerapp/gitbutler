@@ -194,6 +194,8 @@ async fn handle_client(stream: TcpStream) {
 // easily initialize the cwd, which is where we want to write this data (under .git)
 // HELP
 fn record_data(data: &Vec<u8>) {
+    /*
+    // A little too aggressive:
     let mut file = OpenOptions::new()
         .write(true)
         .append(true)
@@ -201,6 +203,7 @@ fn record_data(data: &Vec<u8>) {
         .open("data.txt")
         .unwrap();
     file.write_all(data).unwrap();
+    */
 }
 
 pub async fn pty_serve() {
