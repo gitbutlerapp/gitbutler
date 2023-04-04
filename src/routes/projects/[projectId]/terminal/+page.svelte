@@ -15,7 +15,7 @@
 
 <!-- Actual terminal -->
 <div class="flex flex-row w-full h-full">
-	<div class="w-80 p-2">
+	<div class="w-80 h-full p-2">
 		<div class="p-2 font-bold">Git Status</div>
 		{#if $statuses}
 			<ul class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-yellow-900">
@@ -36,7 +36,7 @@
 			<li class="cursor-pointer" on:click={() => runCommand('git push')}>git push</li>
 		</ul>
 	</div>
-	<div>
+	<div class="h-full w-full">
 		<Terminal bind:this={terminal} />
 	</div>
 </div>

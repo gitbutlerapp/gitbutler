@@ -111,4 +111,5 @@
 		on:click={focus}
 		on:keydown={focus}
 	/>
+	<ResizeObserver on:resize={handleTermResize} />
 </div>
