@@ -10,7 +10,6 @@
 	import IconRotateClockwise from '$lib/components/icons/IconRotateClockwise.svelte';
 	import FileActivity from './FileActivity.svelte';
 	import { Button, Tooltip } from '$lib/components';
-	import ButtonGroup from '$lib/components/ButtonGroup/ButtonGroup.stories.svelte';
 
 	export let data: PageData;
 	$: activity = derived(data.activity, (activity) => activity);
@@ -19,35 +18,46 @@
 	$: sessions = derived(data.sessions, (sessions) => sessions);
 	$: head = derived(data.head, (head) => head);
 
-	$: recentSessions = derived(sessions, (sessions) => {
-		const lastFourDaysOfSessions = sessions.filter(
-			(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
-		);
-		if (lastFourDaysOfSessions.length >= 4) return lastFourDaysOfSessions;
-		return sessions.slice(0, 4);
-	});
+	$: recentSessions = derived(
+		sessions,
+		(sessions) => {
+			const lastFourDaysOfSessions = sessions.filter(
+				(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
+			);
+			if (lastFourDaysOfSessions.length >= 4) return lastFourDaysOfSessions;
+			return sessions.slice(0, 4);
+		},
+		[]
+	);
 
-	$: recentActivity = derived([activity, recentSessions], ([activity, recentSessions]) => {
-		return activity
-			.filter((a) => a.timestampMs >= (recentSessions.at(-1)?.meta.startTimestampMs ?? 0))
-			.sort((a, b) => b.timestampMs - a.timestampMs);
-	});
+	$: recentActivity = derived(
+		[activity, recentSessions],
+		([activity, recentSessions]) => {
+			return activity
+				.filter((a) => a.timestampMs >= (recentSessions.at(-1)?.meta.startTimestampMs ?? 0))
+				.sort((a, b) => b.timestampMs - a.timestampMs);
+		},
+		[]
+	);
 
-	$: sessionByDates = derived(recentSessions, (sessions) =>
-		sessions.reduce((list: [Session[], Date][], session) => {
-			const date = startOfDay(new Date(session.meta.startTimestampMs));
-			if (list.length === 0) {
-				list.push([[session], date]);
-			} else {
-				const last = list[list.length - 1];
-				if (isEqual(last[1], date)) {
-					last[0].push(session);
-				} else {
+	$: sessionByDates = derived(
+		recentSessions,
+		(sessions) =>
+			sessions.reduce((list: [Session[], Date][], session) => {
+				const date = startOfDay(new Date(session.meta.startTimestampMs));
+				if (list.length === 0) {
 					list.push([[session], date]);
+				} else {
+					const last = list[list.length - 1];
+					if (isEqual(last[1], date)) {
+						last[0].push(session);
+					} else {
+						list.push([[session], date]);
+					}
 				}
-			}
-			return list;
-		}, [])
+				return list;
+			}, []),
+		[]
 	);
 
 	$: filesActivityByDate = asyncDerived(
@@ -75,7 +85,8 @@
 					);
 					return [merged, date] as [Record<string, Delta[]>, Date];
 				})
-			)
+			),
+		{ initial: [] }
 	);
 </script>
 
