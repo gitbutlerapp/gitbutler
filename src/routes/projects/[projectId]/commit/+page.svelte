@@ -14,15 +14,18 @@
 	let summary = '';
 	let description = '';
 
-	const selectedDiffPath = writable($statuses.at(0)?.path);
-	const selectedDiff = derived(
-		[diffs, selectedDiffPath],
-		([diffs, selectedDiffPath]) => diffs[selectedDiffPath]
+	const selectedDiffPath = writable<string | undefined>($statuses.at(0)?.path);
+	statuses.subscribe((statuses) => {
+		$selectedDiffPath = statuses.at(0)?.path;
+	});
+	const selectedDiff = derived([diffs, selectedDiffPath], ([diffs, selectedDiffPath]) =>
+		selectedDiffPath ? diffs[selectedDiffPath] : undefined
 	);
 
 	const reset = () => {
 		summary = '';
 		description = '';
+		selectedDiffPath.set(undefined);
 	};
 
 	let isCommitting = false;
@@ -108,8 +111,8 @@
 	$: isCommitEnabled = summary.length > 0 && $statuses.filter(({ staged }) => staged).length > 0;
 </script>
 
-<div id="commit-page" class="flex h-full w-full gap-2 p-2">
-	<div>
+<div id="commit-page" class="flex h-full w-full">
+	<div class="commit-panel-container border-r border-zinc-700 p-4">
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
@@ -119,7 +122,7 @@
 						type="checkbox"
 						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 						on:click={onGroupCheckboxClick}
-						checked={$statuses.every(({ staged }) => staged)}
+						checked={$statuses.every(({ staged }) => staged) && $statuses.length > 0}
 						indeterminate={$statuses.some(({ staged }) => staged) &&
 							$statuses.some(({ staged }) => !staged) &&
 							$statuses.length > 0}
@@ -169,7 +172,7 @@
 
 			<input
 				name="summary"
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100"
+				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 ring-blue-600/30 focus:border-blue-600 "
 				disabled={isGeneratingCommitMessage || isCommitting}
 				type="text"
 				placeholder="Summary (required)"
@@ -177,25 +180,23 @@
 				required
 			/>
 
-			<textarea
-				name="description"
-				disabled={isGeneratingCommitMessage || isCommitting}
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100"
-				rows="10"
-				placeholder="Description (optional)"
-				bind:value={description}
-			/>
+			<div class="commit-description-container relative">
+				{#if isGeneratingCommitMessage}
+					<div class="generating-commit absolute top-1 left-1 rounded bg-zinc-600 px-3 py-1">
+						✨ Summarizing changes...
+					</div>
+				{/if}
+				<textarea
+					name="description"
+					disabled={isGeneratingCommitMessage || isCommitting}
+					class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100  focus:border-blue-600"
+					rows="10"
+					placeholder="Description (optional)"
+					bind:value={description}
+				/>
+			</div>
 
 			<div class="flex justify-between">
-				<Button
-					loading={isCommitting}
-					disabled={!isCommitEnabled || isGeneratingCommitMessage}
-					role="primary"
-					type="submit"
-				>
-					Commit changes
-				</Button>
-
 				{#if isGeneratingCommitMessage}
 					<div
 						class="flex items-center gap-1 rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
@@ -227,16 +228,34 @@
 						✨ Generate commit message
 					</button>
 				{/if}
+
+				<Button
+					loading={isCommitting}
+					disabled={!isCommitEnabled || isGeneratingCommitMessage}
+					role="primary"
+					type="submit"
+				>
+					Commit changes
+				</Button>
 			</div>
 		</form>
 	</div>
 
-	<div id="preview" class="m-2 flex flex-auto cursor-text select-text overflow-auto">
-		{#if $selectedDiff !== undefined}
-			<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
+	<div
+		id="preview"
+		class="m-4 flex flex-auto cursor-text select-text overflow-auto rounded border border-gb-700 bg-card-default p-4"
+	>
+		{#if $selectedDiffPath !== undefined}
+			{#if $selectedDiff !== undefined}
+				<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
+			{:else}
+				<div class="flex h-full w-full flex-col items-center justify-center">
+					<p class="text-lg">Unable to load diff</p>
+				</div>
+			{/if}
 		{:else}
 			<div class="flex h-full w-full flex-col items-center justify-center">
-				<p class="text-lg">Unable to load diff</p>
+				<p class="text-lg">Select a file to preview changes</p>
 			</div>
 		{/if}
 	</div>

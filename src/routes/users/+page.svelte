@@ -69,6 +69,32 @@
 					on:submit={onSubmit}
 					class="user-form flex flex-row items-start justify-between gap-12 rounded-lg py-2"
 				>
+					<fields id="right" class="flex flex-col items-center gap-2 pt-6">
+						{#if $user.picture}
+							<img
+								class="h-28 w-28 rounded-full border-zinc-300"
+								src={userPicture}
+								alt="Your avatar"
+							/>
+						{/if}
+
+						<label
+							title="Edit profile photo"
+							for="picture"
+							class="font-sm -mt-6 -ml-16 cursor-default rounded-lg border border-zinc-600 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
+						>
+							Edit
+							<input
+								on:change={onPictureChange}
+								type="file"
+								id="picture"
+								name="picture"
+								accept={fileTypes.join('')}
+								class="hidden"
+							/>
+						</label>
+					</fields>
+
 					<fields id="left" class="flex flex-1 flex-col gap-3">
 						<div class="flex flex-col gap-1">
 							<label for="name" class="text-zinc-400">Name</label>
@@ -94,35 +120,9 @@
 							/>
 						</div>
 
-						<footer class="pt-4">
+						<footer class="flex justify-end pt-4">
 							<Button loading={saving} role="primary" type="submit">Update profile</Button>
 						</footer>
-					</fields>
-
-					<fields id="right" class="flex flex-col items-center gap-2">
-						{#if $user.picture}
-							<img
-								class="h-28 w-28 rounded-full border-zinc-300"
-								src={userPicture}
-								alt="Your avatar"
-							/>
-						{/if}
-
-						<label
-							title="Edit profile photo"
-							for="picture"
-							class="font-sm -mt-6 -ml-16 cursor-default rounded-lg border border-zinc-600 bg-zinc-800 px-2 text-center text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
-						>
-							Edit
-							<input
-								on:change={onPictureChange}
-								type="file"
-								id="picture"
-								name="picture"
-								accept={fileTypes.join('')}
-								class="hidden"
-							/>
-						</label>
 					</fields>
 				</form>
 			</div>
@@ -195,12 +195,25 @@
 		{/if}
 
 		<div class="mt-8 flex flex-col border-t border-zinc-400 pt-4">
-			<h2 class="text-lg font-medium text-zinc-100">Get Support</h2>
-			<div class="text-sm text-zinc-300">
-				If you have an issue or any questions, please email us.
+			<div class="mt-4">
+				<a
+					class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
+					href="mailto:hello@gitbutler.com?subject=Feedback or question!"
+				>
+					<h2 class="text-lg text-zinc-300">Get Support</h2>
+					<div>If you have an issue or any questions, please email us.</div>
+				</a>
 			</div>
 			<div class="mt-4">
-				<a class="text-blue-200" href="mailto:hello@gitbutler.com">hello@gitbutler.com</a>
+				<a
+					class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
+					href="https://discord.gg/wDKZCPEjXC"
+					target="_blank"
+					rel="noreferrer"
+				>
+					<h2 class="text-lg text-zinc-300">Join our Discord</h2>
+					<div class="text-sm text-zinc-500">Share feedback, request, or ask questions</div>
+				</a>
 			</div>
 		</div>
 	</div>

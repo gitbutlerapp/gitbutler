@@ -20,6 +20,7 @@
 </script>
 
 <script lang="ts">
+	import Slider from './Slider.svelte';
 	import type { PageData } from './$types';
 	import { derived, writable } from 'svelte/store';
 	import {
@@ -33,6 +34,8 @@
 	import { CodeViewer } from '$lib/components';
 	import { asyncDerived } from '@square/svelte-store';
 	import { format } from 'date-fns';
+	import { onMount } from 'svelte';
+	import tinykeys from 'tinykeys';
 
 	export let data: PageData;
 
@@ -194,6 +197,7 @@
 	let direction: -1 | 1 = 1;
 	let speed = 1;
 	let oneSecond = 1000;
+	$: isPlaying = !!interval;
 
 	const stop = () => {
 		clearInterval(interval);
@@ -206,11 +210,11 @@
 	const start = (params: { direction: 1 | -1; speed: number }) => {
 		if (interval) clearInterval(interval);
 		interval = setInterval(() => {
-			incrementPlayerValue();
+			gotoNextDelta();
 		}, oneSecond / params.speed);
 	};
 
-	const incrementPlayerValue = () => {
+	const gotoNextDelta = () => {
 		if ($inputValue < $maxInput) {
 			$inputValue += 1;
 		} else {
@@ -223,7 +227,7 @@
 		return params;
 	};
 
-	const decrementPlayerValue = () => {
+	const gotoPrevDelta = () => {
 		if ($inputValue > 0) {
 			$inputValue -= 1;
 		} else {
@@ -235,6 +239,22 @@
 		speed = speed * 2;
 		start({ direction, speed });
 	};
+
+	onMount(() =>
+		tinykeys(window, {
+			ArrowRight: gotoNextDelta,
+			'Shift+ArrowRight': goToNextSession,
+			ArrowLeft: gotoPrevDelta,
+			'Shift+ArrowLeft': goToPrevSession,
+			Space: () => {
+				if (isPlaying) {
+					stop();
+				} else {
+					play();
+				}
+			}
+		})
+	);
 </script>
 
 <article
@@ -374,7 +394,7 @@
 
 		<div
 			id="controls"
-			class="absolute bottom-0 flex w-full flex-col rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
+			class="absolute bottom-0 flex w-full flex-col gap-4 rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 			style="
                 border-width: 0.5px; 
                 -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
@@ -383,28 +403,7 @@
                 border: 0.5px solid rgba(63, 63, 70, 0.50);
             "
 		>
-			<div class="flex h-0 w-full justify-between">
-				{#each $richSessions as session}
-					<div
-						class="inline-block h-2 rounded bg-white"
-						style="width: {Math.round(
-							(session.deltas.length / $frame.session.deltas.length) * 100
-						)}%"
-					>
-						&nbsp;
-					</div>
-				{/each}
-			</div>
-
-			<div class="w-full">
-				<input
-					type="range"
-					class="-mt-3 w-full cursor-default appearance-none rounded-lg border-transparent bg-transparent"
-					max={$maxInput}
-					step="1"
-					bind:value={$inputValue}
-				/>
-			</div>
+			<Slider sessions={$richSessions} bind:value={$inputValue} />
 
 			<div class="playback-controller-ui mx-auto flex w-full items-center justify-between gap-2">
 				<div class="left-side flex space-x-8">
@@ -425,7 +424,7 @@
 					</div>
 
 					<div class="back-forward-button-container ">
-						<button on:click={decrementPlayerValue} class="playback-button-back group">
+						<button on:click={gotoPrevDelta} class="playback-button-back group">
 							<svg
 								width="20"
 								height="20"
@@ -444,7 +443,7 @@
 							</svg>
 						</button>
 
-						<button on:click={incrementPlayerValue} class="playback-button-forward group">
+						<button on:click={gotoNextDelta} class="playback-button-forward group">
 							<svg
 								width="20"
 								height="20"

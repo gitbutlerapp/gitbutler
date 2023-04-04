@@ -7,7 +7,7 @@ import Posthog from '$lib/posthog';
 import * as log from '$lib/log';
 
 export const ssr = false;
-export const prerender = false;
+export const prerender = true;
 export const csr = true;
 
 export const load: LayoutLoad = async ({ fetch }) => {

@@ -186,14 +186,14 @@
 </script>
 
 <Modal on:close bind:this={modal}>
-	<div class="commnand-palette flex max-h-[360px] w-[640px] flex-col rounded text-zinc-400">
+	<div class="command-palette flex max-h-[360px] w-[640px] flex-col rounded text-zinc-400">
 		<!-- Search input area -->
 		<div class="search-input flex items-center border-b border-zinc-400/20 py-2">
 			<div class="ml-4 mr-2 flex flex-grow items-center">
 				<!-- Project scope -->
 				{#if scopeToProject}
 					<div class="mr-1 flex items-center">
-						<span class="font-semibold text-zinc-300">{$project?.title}</span>
+						<span class="text-lg font-semibold text-zinc-300">{$project?.title}</span>
 						<span class="ml-1 text-lg">/</span>
 					</div>
 				{/if}
@@ -201,7 +201,7 @@
 				<div class="mr-1 flex-grow">
 					<!-- svelte-ignore a11y-autofocus -->
 					<input
-						class="w-full bg-transparent text-zinc-300 focus:outline-none"
+						class="command-palette-input w-full bg-transparent text-lg leading-10 text-zinc-300 focus:outline-none"
 						bind:value={userInput}
 						on:input|stopPropagation={updateMatchFilesQuery}
 						type="text"
@@ -218,7 +218,7 @@
 			{#each commandGroups as group, groupIdx}
 				{#if group.visible}
 					<div class="w-full cursor-default select-none px-2">
-						<p class="commnand-palette-section-header result-section-header">
+						<p class="command-palette-section-header result-section-header">
 							<span>{group.name}</span>
 							{#if group.description}
 								<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>

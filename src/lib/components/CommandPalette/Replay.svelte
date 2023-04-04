@@ -77,7 +77,7 @@
 <Modal on:close bind:this={modal}>
 	<div class="mx-2 mb-2 w-full cursor-default select-none">
 		<p
-			class="commnand-palette-section-header mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300"
+			class="command-palette-section-header mx-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300"
 		>
 			Replay working history
 		</p>

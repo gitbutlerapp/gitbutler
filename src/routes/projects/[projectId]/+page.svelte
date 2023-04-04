@@ -15,6 +15,7 @@
 	const { activity, project, statuses, sessions, head } = data;
 
 	const recentSessions = derived(sessions, (sessions) => {
+		sessions ||= [];
 		const lastFourDaysOfSessions = sessions.filter(
 			(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
 		);
@@ -160,7 +161,6 @@
 					Commit changes
 				</Button>
 			</div>
-
 			{#if $statuses.length === 0}
 				<div
 					class="flex rounded border border-green-700 bg-green-900 p-2 align-middle text-green-400"

@@ -23,25 +23,28 @@
 			{#each heights as height}
 				<div class="flex flex-col gap-2">
 					{#each [true, false] as filled}
-						{#each content as [icon, label]}
-							<div class="flex gap-2">
-								{#each [false, true] as loading}
-									{#each [false, true] as disabled}
-										<Button
-											role="basic"
-											{filled}
-											{disabled}
-											{height}
-											{width}
-											{icon}
-											{loading}
-											on:click={() => alert('Clicked!')}
-										>
-											{label}
-										</Button>
+						{#each [true, false] as outlined}
+							{#each content as [icon, label]}
+								<div class="flex gap-2">
+									{#each [false, true] as loading}
+										{#each [false, true] as disabled}
+											<Button
+												role="basic"
+												{filled}
+												{disabled}
+												{outlined}
+												{height}
+												{width}
+												{icon}
+												{loading}
+												on:click={() => alert('Clicked!')}
+											>
+												{label}
+											</Button>
+										{/each}
 									{/each}
-								{/each}
-							</div>
+								</div>
+							{/each}
 						{/each}
 					{/each}
 				</div>
@@ -56,25 +59,28 @@
 			{#each heights as height}
 				<div class="flex flex-col gap-2">
 					{#each [true, false] as filled}
-						{#each content as [icon, label]}
-							<div class="flex gap-2">
-								{#each [false, true] as loading}
-									{#each [false, true] as disabled}
-										<Button
-											role="primary"
-											{filled}
-											{disabled}
-											{height}
-											{width}
-											{icon}
-											{loading}
-											on:click={() => alert('Clicked!')}
-										>
-											{label}
-										</Button>
+						{#each [true, false] as outlined}
+							{#each content as [icon, label]}
+								<div class="flex gap-2">
+									{#each [false, true] as loading}
+										{#each [false, true] as disabled}
+											<Button
+												role="primary"
+												{filled}
+												{outlined}
+												{disabled}
+												{height}
+												{width}
+												{icon}
+												{loading}
+												on:click={() => alert('Clicked!')}
+											>
+												{label}
+											</Button>
+										{/each}
 									{/each}
-								{/each}
-							</div>
+								</div>
+							{/each}
 						{/each}
 					{/each}
 				</div>
@@ -89,25 +95,28 @@
 			{#each heights as height}
 				<div class="flex flex-col gap-2">
 					{#each [true, false] as filled}
-						{#each content as [icon, label]}
-							<div class="flex gap-2">
-								{#each [false, true] as loading}
-									{#each [false, true] as disabled}
-										<Button
-											role="destructive"
-											{filled}
-											{disabled}
-											{height}
-											{width}
-											{icon}
-											{loading}
-											on:click={() => alert('Clicked!')}
-										>
-											{label}
-										</Button>
+						{#each [true, false] as outlined}
+							{#each content as [icon, label]}
+								<div class="flex gap-2">
+									{#each [false, true] as loading}
+										{#each [false, true] as disabled}
+											<Button
+												role="destructive"
+												{filled}
+												{disabled}
+												{outlined}
+												{height}
+												{width}
+												{icon}
+												{loading}
+												on:click={() => alert('Clicked!')}
+											>
+												{label}
+											</Button>
+										{/each}
 									{/each}
-								{/each}
-							</div>
+								</div>
+							{/each}
 						{/each}
 					{/each}
 				</div>
@@ -122,25 +131,28 @@
 			{#each heights as height}
 				<div class="flex flex-col gap-2">
 					{#each [true, false] as filled}
-						{#each content as [icon, label]}
-							<div class="flex gap-2">
-								{#each [false, true] as disabled}
-									{#each [false, true] as loading}
-										<Button
-											href="https://gitbutler.com"
-											role="basic"
-											{filled}
-											{disabled}
-											{height}
-											{width}
-											{icon}
-											{loading}
-										>
-											{label}
-										</Button>
+						{#each [true, false] as outlined}
+							{#each content as [icon, label]}
+								<div class="flex gap-2">
+									{#each [false, true] as disabled}
+										{#each [false, true] as loading}
+											<Button
+												href="https://gitbutler.com"
+												role="basic"
+												{outlined}
+												{filled}
+												{disabled}
+												{height}
+												{width}
+												{icon}
+												{loading}
+											>
+												{label}
+											</Button>
+										{/each}
 									{/each}
-								{/each}
-							</div>
+								</div>
+							{/each}
 						{/each}
 					{/each}
 				</div>
@@ -155,25 +167,28 @@
 			{#each heights as height}
 				<div class="flex flex-col gap-2">
 					{#each [true, false] as filled}
-						{#each content as [icon, label]}
-							<div class="flex gap-2">
-								{#each [false, true] as loading}
-									{#each [false, true] as disabled}
-										<Button
-											href="https://gitbutler.com"
-											role="primary"
-											{filled}
-											{disabled}
-											{height}
-											{width}
-											{icon}
-											{loading}
-										>
-											{label}
-										</Button>
+						{#each [true, false] as outlined}
+							{#each content as [icon, label]}
+								<div class="flex gap-2">
+									{#each [false, true] as loading}
+										{#each [false, true] as disabled}
+											<Button
+												href="https://gitbutler.com"
+												role="primary"
+												{filled}
+												{disabled}
+												{outlined}
+												{height}
+												{width}
+												{icon}
+												{loading}
+											>
+												{label}
+											</Button>
+										{/each}
 									{/each}
-								{/each}
-							</div>
+								</div>
+							{/each}
 						{/each}
 					{/each}
 				</div>
@@ -188,25 +203,28 @@
 			{#each heights as height}
 				<div class="flex flex-col gap-2">
 					{#each [true, false] as filled}
-						{#each content as [icon, label]}
-							<div class="flex gap-2">
-								{#each [false, true] as loading}
-									{#each [false, true] as disabled}
-										<Button
-											href="https://gitbutler.com"
-											role="destructive"
-											{filled}
-											{disabled}
-											{height}
-											{width}
-											{icon}
-											{loading}
-										>
-											{label}
-										</Button>
+						{#each [true, false] as outlined}
+							{#each content as [icon, label]}
+								<div class="flex gap-2">
+									{#each [false, true] as loading}
+										{#each [false, true] as disabled}
+											<Button
+												href="https://gitbutler.com"
+												role="destructive"
+												{filled}
+												{disabled}
+												{outlined}
+												{height}
+												{width}
+												{icon}
+												{loading}
+											>
+												{label}
+											</Button>
+										{/each}
 									{/each}
-								{/each}
-							</div>
+								</div>
+							{/each}
 						{/each}
 					{/each}
 				</div>
