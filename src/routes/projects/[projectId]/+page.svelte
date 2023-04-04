@@ -106,8 +106,12 @@
 				</li>
 			{:then}
 				{#each $filesActivityByDate as [activity, date]}
-					<li class="card changed-day-card flex flex-col border-[0.5px] border-gb-700 bg-card-default rounded">
-						<header class="header flex flex-row justify-between px-3 py-2 gap-2 bg-card-active border-b-gb-700 rounded-tl rounded-tr">
+					<li
+						class="card changed-day-card flex flex-col rounded border-[0.5px] border-gb-700 bg-card-default"
+					>
+						<header
+							class="header flex flex-row justify-between gap-2 rounded-tl rounded-tr border-b-gb-700 bg-card-active px-3 py-2"
+						>
 							<div class="mb-1 text-zinc-300 ">
 								{date.toLocaleDateString('en-us', {
 									weekday: 'long',
@@ -128,7 +132,7 @@
 							{#each Object.entries(activity) as [filepath, deltas]}
 								<li class="changed-file flex items-center justify-between gap-4  ">
 									<a
-										class="file-name flex w-[50%] overflow-auto font-mono hover:underline py-2"
+										class="file-name flex w-[50%] overflow-auto py-2 font-mono hover:underline"
 										href="/projects/{$project.id}/player/{format(
 											date,
 											'yyyy-MM-dd'
