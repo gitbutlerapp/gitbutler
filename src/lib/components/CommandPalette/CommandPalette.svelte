@@ -67,6 +67,12 @@
 					if ($project) {
 						dialog === Replay ? (dialog = undefined) : ((dialog = Replay), (props = { project }));
 					}
+				},
+				'a i p': () => {
+					// my secret hotkey to go to AI Playground, nobody should know about it
+					if ($project) {
+						goto(`/projects/${$project.id}/aiplayground`);
+					}
 				}
 			},
 			true // disabled when an input is focused
