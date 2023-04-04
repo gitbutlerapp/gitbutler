@@ -30,7 +30,7 @@
 		</div>
 		<div class="flex-grow" />
 		<div class="mr-6">
-			<Button filled={false} href="/users/" >
+			<Button filled={false} href="/users/">
 				{#if $user}
 					{#if $user.picture}
 						<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
