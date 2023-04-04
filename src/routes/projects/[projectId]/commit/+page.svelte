@@ -8,7 +8,6 @@
 	import { error, success } from '$lib/toasts';
 	import { fade, fly } from 'svelte/transition';
 	import { IconRotateClockwise } from '$lib/components/icons';
-	
 
 	export let data: PageData;
 	const { statuses, diffs, user, api, projectId } = data;
@@ -184,12 +183,16 @@
 
 			<div class="commit-description-container relative">
 				{#if isGeneratingCommitMessage}
-					<div in:fly="{{ y: 8, duration: 500 }}" out:fly="{{ y: -8, duration: 500 }}" class="generating-commit absolute top-2 left-2 rounded bg-[#583366] border-[0.5px] border-[#52305F] shadow px-3 py-1">
+					<div
+						in:fly={{ y: 8, duration: 500 }}
+						out:fly={{ y: -8, duration: 500 }}
+						class="generating-commit absolute top-2 left-2 rounded border-[0.5px] border-[#52305F] bg-[#583366] px-3 py-1 shadow"
+					>
 						<span>✨ Summarizing changes</span>
 						<span class="dot-container">
-							<div class="dot"></div>
-							<div class="dot"></div>
-							<div class="dot"></div>
+							<div class="dot" />
+							<div class="dot" />
+							<div class="dot" />
 						</span>
 					</div>
 				{/if}
@@ -268,7 +271,6 @@
 	</div>
 </div>
 
-
 <style>
 	/**
 	* ==============================================
@@ -276,11 +278,11 @@
 	* ==============================================
 	*/
 	dot-container {
-		display:flex;
-		justify-content:center;
+		display: flex;
+		justify-content: center;
 	}
 
-	.dot-container{
+	.dot-container {
 		padding-left: 4px;
 		padding-bottom: 3px;
 	}
@@ -294,7 +296,6 @@
 		bottom: 3px;
 	}
 
-
 	.dot-container .dot:nth-last-child(1) {
 		animation: jumpingAnimation 1.2s 0.6s linear infinite;
 	}
@@ -306,18 +307,17 @@
 	}
 
 	@keyframes jumpingAnimation {
-	0% {
-		transform: translate(0, 0);
+		0% {
+			transform: translate(0, 0);
+		}
+		16% {
+			transform: translate(0, -5px);
+		}
+		33% {
+			transform: translate(0, 0);
+		}
+		100% {
+			transform: translate(0, 0);
+		}
 	}
-	16% {
-		transform: translate(0, -5px);
-	}
-	33% {
-		transform: translate(0, 0);
-	}
-	100% {
-		transform: translate(0, 0);
-	}
-	}
-
 </style>
