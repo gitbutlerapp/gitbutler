@@ -4,8 +4,6 @@
 	import * as xterm from 'xterm';
 	import * as fit from 'xterm-addon-fit';
 	import { CanvasAddon } from 'xterm-addon-canvas';
-	import { WebglAddon } from 'xterm-addon-webgl';
-	import { LigaturesAddon } from 'xterm-addon-ligatures';
 	import { Unicode11Addon } from 'xterm-addon-unicode11';
 	import ResizeObserver from 'svelte-resize-observer';
 
@@ -15,17 +13,6 @@
 	let ptyWebSocket: WebSocket;
 
 	const PTY_WS_ADDRESS = 'ws://127.0.0.1:7703';
-
-	const webglIsSupported = () => {
-		// looks like xterm-addon-webgl is not working with webgl2
-		var canvas = document.createElement('canvas');
-		var gl = canvas.getContext('webgl2');
-		if (gl && gl instanceof WebGL2RenderingContext) {
-			return true;
-		} else {
-			return false;
-		}
-	};
 
 	function initalizeXterm() {
 		terminalController = new xterm.Terminal({
@@ -42,15 +29,8 @@
 
 		termFit = new fit.FitAddon();
 		terminalController.loadAddon(termFit);
-		/*
-		if (webglIsSupported()) {
-			terminalController.loadAddon(new WebglAddon());
-		} else {
-		}
-    */
 		terminalController.loadAddon(new CanvasAddon());
 		terminalController.open(terminalElement);
-		terminalController.loadAddon(new LigaturesAddon());
 		termFit.fit();
 		terminalController.onData((data) => termInterfaceHandleUserInputData(data));
 		focus();
@@ -131,5 +111,4 @@
 		on:click={focus}
 		on:keydown={focus}
 	/>
-	<ResizeObserver on:resize={handleTermResize} />
 </div>
