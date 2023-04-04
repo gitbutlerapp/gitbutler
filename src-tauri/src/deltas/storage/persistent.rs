@@ -60,7 +60,12 @@ impl Store {
                     blobs.insert(relative_file_path.to_owned(), deltas);
                 }
                 Err(e) => {
-                    log::error!("Could not get blob for {}: {:#}", entry_path.display(), e);
+                    log::error!(
+                        "{}: could not get blob for {}: {:#}",
+                        commit_id,
+                        entry_path.display(),
+                        e
+                    );
                 }
             }
             git2::TreeWalkResult::Ok
@@ -68,6 +73,18 @@ impl Store {
 
         let deltas = blobs
             .into_iter()
+            .filter(|(path, deltas)| {
+                let is_ok = deltas.is_ok();
+                if !is_ok {
+                    log::error!(
+                        "{}: could not parse deltas in {}: {:#}",
+                        commit_id,
+                        path.display(),
+                        deltas.as_ref().err().unwrap()
+                    );
+                }
+                is_ok
+            })
             .map(|(path, deltas)| (path.to_str().unwrap().to_owned(), deltas.unwrap()))
             .collect();
         Ok(deltas)
