@@ -99,16 +99,16 @@
 
 		<h2 class="px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
 
-		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-7 pb-8">
+		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-5 pb-8">
 			{#await filesActivityByDate.load()}
 				<li>
 					<IconRotateClockwise class="animate-spin" />
 				</li>
 			{:then}
 				{#each $filesActivityByDate as [activity, date]}
-					<li class="flex flex-col">
-						<header class="flex flex-row justify-between gap-2">
-							<div class="mb-1 text-zinc-300">
+					<li class="card changed-day-card flex flex-col border-[0.5px] border-gb-700 bg-card-default rounded">
+						<header class="header flex flex-row justify-between px-3 py-2 gap-2 bg-card-active border-b-gb-700 rounded-tl rounded-tr">
+							<div class="mb-1 text-zinc-300 ">
 								{date.toLocaleDateString('en-us', {
 									weekday: 'long',
 									year: 'numeric',
@@ -124,11 +124,11 @@
 								Replay Changes
 							</Button>
 						</header>
-						<ul class="flex flex-col rounded border border-zinc-700 bg-[#2F2F33] p-4">
+						<ul class="all-files-changed flex flex-col rounded p-4">
 							{#each Object.entries(activity) as [filepath, deltas]}
-								<li class="flex items-center justify-between gap-4">
-									<Button
-										filled={false}
+								<li class="changed-file flex items-center justify-between gap-4 mb-1">
+									<a
+										class="file-name flex w-[50%] overflow-auto font-mono hover:underline"
 										href="/projects/{$project.id}/player/{format(
 											date,
 											'yyyy-MM-dd'
