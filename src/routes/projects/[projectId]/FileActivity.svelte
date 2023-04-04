@@ -40,7 +40,7 @@
 
 <style>
 	.file-activity {
-		@apply flex h-full items-baseline gap-1 pt-2 pl-1 pr-1;
+		@apply flex h-full items-baseline gap-1 px-4 pt-2;
 		align-items: flex-end;
 		border-bottom: 1px solid rgb(55, 55, 55);
 		background-color: rgba(0, 0, 0, 0.1);
