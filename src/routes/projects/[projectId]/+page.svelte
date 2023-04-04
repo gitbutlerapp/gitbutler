@@ -142,7 +142,7 @@
 											class="w-full truncate"
 											use:collapsable={{ value: filepath, separator: '/' }}
 										/>
-									</Button>
+									</a>
 									<FileActivity {deltas} />
 								</li>
 							{/each}
