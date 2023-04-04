@@ -181,9 +181,11 @@
 			/>
 
 			<div class="commit-description-container relative">
-				<div class="generating-commit absolute top-1 left-1 rounded bg-zinc-600 px-3 py-1">
-					✨ Summarizing changes...
-				</div>
+				{#if isGeneratingCommitMessage}
+					<div class="generating-commit absolute top-1 left-1 rounded bg-zinc-600 px-3 py-1">
+						✨ Summarizing changes...
+					</div>
+				{/if}
 				<textarea
 					name="description"
 					disabled={isGeneratingCommitMessage || isCommitting}
