@@ -53,7 +53,7 @@
 		role="tooltip"
 		class="
             absolute
-            z-[9000]
+        z-[9000]
             rounded-[5px]
             bg-[#171717]
             p-2
@@ -63,7 +63,7 @@
     "
 		use:floatingContent
 	>
-		{label}
+		<span class="whitespace-nowrap">{label}</span>
 		<div
 			class="
                 absolute
