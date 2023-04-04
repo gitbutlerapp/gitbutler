@@ -17,7 +17,11 @@
 <div class="flex flex-row w-full h-full">
 	<div class="w-80 h-full p-2">
 		<div class="p-2 font-bold">Git Status</div>
-		{#if $statuses}
+		{#if $statuses.length == 0}
+			<div class="rounded border border-green-400 bg-green-500 p-2 font-mono text-green-900">
+				No changes
+			</div>
+		{:else}
 			<ul class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-yellow-900">
 				{#each $statuses as activity}
 					<li class="flex w-full gap-2">
