@@ -124,11 +124,11 @@
 								Replay Changes
 							</Button>
 						</header>
-						<ul class="all-files-changed flex flex-col rounded p-4">
+						<ul class="all-files-changed flex flex-col rounded pl-3">
 							{#each Object.entries(activity) as [filepath, deltas]}
-								<li class="changed-file flex items-center justify-between gap-4 mb-1">
+								<li class="changed-file flex items-center justify-between gap-4  ">
 									<a
-										class="file-name flex w-[50%] overflow-auto font-mono hover:underline"
+										class="file-name flex w-[50%] overflow-auto font-mono hover:underline py-2"
 										href="/projects/{$project.id}/player/{format(
 											date,
 											'yyyy-MM-dd'
