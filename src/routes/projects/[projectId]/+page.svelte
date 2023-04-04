@@ -104,13 +104,13 @@
 									day: 'numeric'
 								})}
 							</div>
-							<a
-								title="Reply changes (R)"
-								class="text-blue-500 hover:text-blue-400 hover:underline"
+							<Button
 								href="/projects/{$project.id}/player/{format(date, 'yyyy-MM-dd')}"
+								filled={false}
+								role="primary"
 							>
 								Replay Changes
-							</a>
+							</Button>
 						</header>
 						<ul class="flex flex-col rounded border border-zinc-700 bg-[#2F2F33] p-4">
 							{#each Object.entries(activity) as [filepath, deltas]}
