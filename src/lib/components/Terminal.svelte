@@ -1,96 +1,18 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import 'xterm/css/xterm.css';
-	import * as xterm from 'xterm';
-	import * as fit from 'xterm-addon-fit';
-	import { CanvasAddon } from 'xterm-addon-canvas';
-	import { Unicode11Addon } from 'xterm-addon-unicode11';
 	import ResizeObserver from 'svelte-resize-observer';
+	import * as terminals from '$lib/terminals';
+	import { onMount } from 'svelte';
 
-	let terminalElement: HTMLElement;
-	let terminalController: xterm.Terminal;
-	let termFit: fit.FitAddon;
-	let ptyWebSocket: WebSocket;
+	export let session: terminals.TerminalSession;
 
-	const PTY_WS_ADDRESS = 'ws://127.0.0.1:7703';
-
-	function initalizeXterm() {
-		terminalController = new xterm.Terminal({
-			cursorBlink: false,
-			cursorStyle: 'block',
-			fontSize: 13,
-			rows: 24,
-			cols: 80,
-			allowProposedApi: true
-		});
-
-		terminalController.loadAddon(new Unicode11Addon());
-		terminalController.unicode.activeVersion = '11';
-
-		termFit = new fit.FitAddon();
-		terminalController.loadAddon(termFit);
-		terminalController.loadAddon(new CanvasAddon());
-		terminalController.open(terminalElement);
-		termFit.fit();
-		terminalController.onData((data) => termInterfaceHandleUserInputData(data));
-		focus();
-	}
-
-	function focus() {
-		console.log('focus');
-		terminalController.focus();
-	}
-
-	const newTerminalSession = async () => {
-		ptyWebSocket = new WebSocket(PTY_WS_ADDRESS);
-		ptyWebSocket.binaryType = 'arraybuffer';
-		ptyWebSocket.onmessage = writePtyIncomingToTermInterface;
-		ptyWebSocket.onclose = (evt) => handlePtyWsClose(evt);
-		ptyWebSocket.onerror = (evt) => handlePtyWsError(evt);
-		ptyWebSocket.onopen = async (_evt) => initalizeXterm();
-	};
-
-	const writePtyIncomingToTermInterface = (evt) => {
-		if (!(evt.data instanceof ArrayBuffer)) {
-			alert('unknown data type ' + evt.data);
-			return;
-		}
-		//console.log('terminal input', evt.data);
-		const dataString: string = arrayBufferToString(evt.data.slice(1));
-		//console.log('terminal input string', dataString);
-		terminalController.write(dataString);
-		return dataString;
-	};
-
-	const termInterfaceHandleUserInputData = (data: string) => {
-		//console.log('user input', data);
-		const encodedData = new TextEncoder().encode('\x00' + data);
-		ptyWebSocket.send(encodedData);
-	};
-
-	const arrayBufferToString = (buf: ArrayBuffer) => {
-		return String.fromCharCode.apply(null, new Uint8Array(buf));
-	};
-
-	const handlePtyWsClose = (_evt) => {
-		terminalController.write('Terminal session terminated');
-		terminalController.dispose();
-		console.log('websocket closes from backend side');
-	};
-
-	const handlePtyWsError = (evt) => {
-		if (typeof console.log == 'function') {
-			console.log('ws error', evt);
-		}
-	};
-
-	onMount(async () => {
-		newTerminalSession();
+	onMount(() => {
+		terminals.newTerminalSession(session);
 	});
 
 	function handleTermResize() {
-		if (termFit) {
-			termFit.fit();
+		if (session.fit) {
+			session.fit.fit();
 		}
 	}
 
@@ -98,7 +20,7 @@
 		command = command + '\r';
 		console.log('command input', command);
 		const encodedData = new TextEncoder().encode('\x00' + command);
-		ptyWebSocket.send(encodedData);
+		session.pty.send(encodedData);
 	};
 </script>
 
@@ -107,7 +29,7 @@
 	<div
 		id="terminal"
 		class="w-full h-full"
-		bind:this={terminalElement}
+		bind:this={session.element}
 		on:click={focus}
 		on:keydown={focus}
 	/>
