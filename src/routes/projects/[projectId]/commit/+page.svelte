@@ -128,7 +128,7 @@
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
 			<ul class="flex w-full flex-col rounded border border-gb-700  bg-card-default pb-1">
-				<header class="flex w-full items-center p-2 bg-card-active">
+				<header class="flex w-full items-center bg-card-active p-2">
 					<input
 						type="checkbox"
 						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
@@ -145,15 +145,12 @@
 				</header>
 
 				{#each $statuses as { path, staged }, i}
-					<li
-						class="bg-card-default "
-					>
-						<div 
-						class:bg-gb-700={$selectedDiffPath === path}
-						class:hover:bg-divider={$selectedDiffPath !== path}
-						
-						class="file-changed-item flex cursor-text select-text items-center gap-2  bg-card-default px-1 py-2 mx-1 mt-1 rounded"
-					>
+					<li class="bg-card-default ">
+						<div
+							class:bg-gb-700={$selectedDiffPath === path}
+							class:hover:bg-divider={$selectedDiffPath !== path}
+							class="file-changed-item mx-1 mt-1 flex cursor-text select-text  items-center gap-2 rounded bg-card-default px-1 py-2"
+						>
 							<input
 								class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 								disabled={isCommitting || isGeneratingCommitMessage}
@@ -161,10 +158,10 @@
 									staged
 										? git.unstage({ projectId, paths: [path] }).catch(() => {
 												error('Failed to unstage file');
-										})
+										  })
 										: git.stage({ projectId, paths: [path] }).catch(() => {
 												error('Failed to stage file');
-										});
+										  });
 								}}
 								name="path"
 								type="checkbox"
@@ -190,8 +187,8 @@
 				class="
 					w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
 					hover:border-zinc-500/80
-					focus:ring-2 focus:ring-blue-600/30 
-					focus:focus:border-blue-600 focus:border-[1px]
+					focus:border-[1px] focus:focus:border-blue-600 
+					focus:ring-2 focus:ring-blue-600/30
 				"
 				disabled={isGeneratingCommitMessage || isCommitting}
 				type="text"
@@ -221,8 +218,8 @@
 					class="
 						w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
 						hover:border-zinc-500/80
-						focus:ring-2 focus:ring-blue-600/30 
-						focus:focus:border-blue-600 focus:border-[1px]
+						focus:border-[1px] focus:focus:border-blue-600 
+						focus:ring-2 focus:ring-blue-600/30
 					"
 					rows="10"
 					placeholder="Description (optional)"
