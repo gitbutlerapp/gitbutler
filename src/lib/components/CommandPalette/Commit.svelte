@@ -94,7 +94,7 @@
 		<fieldset class="flex flex-auto transform flex-col gap-2 overflow-auto transition-all">
 			{#if $statuses.length > 0}
 				<input
-					class="ring-gray-600 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+					class="ring-gray-600 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-100 sm:py-1.5 sm:text-sm sm:leading-6"
 					type="text"
 					name="summary"
 					placeholder="Summary (required)"
@@ -107,7 +107,7 @@
 					name="description"
 					placeholder="Description (optional)"
 					bind:value={description}
-					class="ring-gray-600 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:py-1.5 sm:text-sm sm:leading-6"
+					class="ring-gray-600 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-100 sm:py-1.5 sm:text-sm sm:leading-6"
 				/>
 
 				{#if isCommitting}
