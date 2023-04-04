@@ -1,5 +1,7 @@
 use std::env;
+use std::fs::OpenOptions;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 
 use bytes::BytesMut;
 use futures::{SinkExt, StreamExt};
@@ -80,7 +82,6 @@ async fn handle_client(stream: TcpStream) {
         let prompt_command_scripts = format!(r#"echo -en "\033]0; [manter] "{}" \a""#, scripts_str);
 
         let mut cmd = CommandBuilder::new(user_default_shell);
-        cmd.cwd("/Users/scottchacon/projects/gitbutler-client");
         cmd.env("PROMPT_COMMAND", prompt_command_scripts);
         cmd.env("TERM", TERM);
         cmd.args(["-i"]);
@@ -92,6 +93,7 @@ async fn handle_client(stream: TcpStream) {
     let mut pty_reader = pty_pair.master.try_clone_reader().unwrap();
     let mut pty_writer = pty_pair.master.take_writer().unwrap();
 
+    // set to cwd
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
@@ -114,6 +116,7 @@ async fn handle_client(stream: TcpStream) {
                         }
                         let mut data_to_send = Vec::with_capacity(n + 1);
                         data_to_send.extend_from_slice(&buffer[..n + 1]);
+                        record_data(&data_to_send);
                         let message = Message::Binary(data_to_send);
                         ws_sender.send(message).await.unwrap();
                     }
@@ -137,6 +140,7 @@ async fn handle_client(stream: TcpStream) {
                 match msg_bytes[0] {
                     0 => {
                         if msg_bytes.len().gt(&0) {
+                            record_data(&msg);
                             pty_writer.write_all(&msg_bytes[1..]).unwrap();
                         }
                     }
@@ -150,6 +154,15 @@ async fn handle_client(stream: TcpStream) {
                             pixel_height: resize_msg.pixel_height,
                         };
                         pty_pair.master.resize(pty_size).unwrap();
+                    }
+                    2 => {
+                        // takes the directory we should be recording data to
+                        if msg_bytes.len().gt(&0) {
+                            // convert bytes to string
+                            let command = String::from_utf8_lossy(&msg_bytes[1..]);
+                            let project_path = PathBuf::from(command.as_ref());
+                            println!("Recording to {:?}", project_path);
+                        }
                     }
                     _ => mt_log!(Level::Error, "Unknown command {}", msg_bytes[0]),
                 }
@@ -171,6 +184,23 @@ async fn handle_client(stream: TcpStream) {
         Level::Info,
         "The Websocket was closed and the thread for WS listening will end soon."
     );
+}
+
+// this sort of works, but it's not how we want to do it
+// it just appends the data from every pty to the same file
+// what we want to do is set the directory to record to, but since
+// the reader is in a spawe thread, it's difficult to pass the directory to it
+// I also can't seem to send data to the pty on opening a new one, so I can't
+// easily initialize the cwd, which is where we want to write this data (under .git)
+// HELP
+fn record_data(data: &Vec<u8>) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open("data.txt")
+        .unwrap();
+    file.write_all(data).unwrap();
 }
 
 pub async fn pty_serve() {

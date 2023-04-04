@@ -11,6 +11,7 @@ const PTY_WS_ADDRESS = 'ws://127.0.0.1:7703';
 
 export type TerminalSession = {
 	projectId: string;
+	path: string;
 	element: HTMLElement | null;
 	controller: Terminal | null;
 	fit: FitAddon | null;
@@ -19,7 +20,7 @@ export type TerminalSession = {
 
 export const terminals = writable<Record<string, TerminalSession>>({});
 
-export const getTerminalSession = (projectId: string) => {
+export const getTerminalSession = (projectId: string, projectPath: string) => {
 	let object: TerminalSession | undefined;
 
 	terminals.subscribe((terms) => {
@@ -29,6 +30,7 @@ export const getTerminalSession = (projectId: string) => {
 	if (!object) {
 		object = {
 			projectId: projectId,
+			path: projectPath,
 			element: null,
 			controller: null,
 			fit: null,
@@ -78,9 +80,10 @@ function initalizeXterm(session: TerminalSession) {
 	session.fit = new fit.FitAddon();
 	session.controller.loadAddon(session.fit);
 	session.controller.loadAddon(new CanvasAddon());
-  session.controller.open(session.element);
-  fitSession(session)
+	session.controller.open(session.element);
+	fitSession(session);
 	session.controller.onData((data) => termInterfaceHandleUserInputData(data, session));
+	sendPathToPty(session);
 	updateStore(session);
 	focus(session);
 }
@@ -104,22 +107,31 @@ const termInterfaceHandleUserInputData = (data: string, session: TerminalSession
 };
 
 export const fitSession = (session: TerminalSession) => {
-  session.fit.fit()
-  sendProposedSizeToPty(session)
-}
+	session.fit.fit();
+	sendProposedSizeToPty(session);
+};
 
 const sendProposedSizeToPty = (session: TerminalSession) => {
-  const proposedSize = session.fit.proposeDimensions()
-  const resizeData = {
-    cols: proposedSize.cols,
-    rows: proposedSize.rows,
-    pixel_width: 0,
-    pixel_height: 0
-  }
-  session.pty.send(
-    new TextEncoder().encode('\x01' + JSON.stringify(resizeData))
-  )
-}
+	const proposedSize = session.fit.proposeDimensions();
+	const resizeData = {
+		cols: proposedSize.cols,
+		rows: proposedSize.rows,
+		pixel_width: 0,
+		pixel_height: 0
+	};
+	session.pty.send(new TextEncoder().encode('\x01' + JSON.stringify(resizeData)));
+};
+
+// this is a pretty stupid cheat, but it works on unix systems
+const sendPathToPty = (session: TerminalSession) => {
+	// send the path so th pty knows where to record data
+	const encodedPath = new TextEncoder().encode('\x02' + session.path);
+	session.pty.send(encodedPath);
+
+	// send a command to change the directory and clear the screen
+	const encodedData = new TextEncoder().encode('\x00' + 'cd ' + session.path + ';clear\n');
+	session.pty.send(encodedData);
+};
 
 const arrayBufferToString = (buf: ArrayBuffer) => {
 	return String.fromCharCode.apply(null, new Uint8Array(buf));

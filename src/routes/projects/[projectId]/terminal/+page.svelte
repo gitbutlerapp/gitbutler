@@ -12,7 +12,7 @@
 
 	$: if ($project) {
 		console.log($project);
-		terminalSession = terminals.getTerminalSession($project.id);
+		terminalSession = terminals.getTerminalSession($project.id, $project.path);
 		console.log('session', terminalSession);
 	}
 
