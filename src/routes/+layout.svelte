@@ -3,7 +3,7 @@
 
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
-	import { BackForwardButtons } from '$lib/components';
+	import { BackForwardButtons, Button } from '$lib/components';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { page } from '$app/stores';
 	import CommandPalette from '$lib/components/CommandPalette/CommandPalette.svelte';
@@ -29,20 +29,18 @@
 			<Breadcrumbs {project} />
 		</div>
 		<div class="flex-grow" />
-		<a
-			title="Account settings"
-			href="/users/"
-			class="user-settings-button mr-4 flex items-center gap-1 font-medium hover:text-zinc-200"
-		>
-			{#if $user}
-				{#if $user.picture}
-					<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
+		<div class="mr-6">
+			<Button filled={false} href="/users/">
+				{#if $user}
+					{#if $user.picture}
+						<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
+					{/if}
+					<span>{$user.name}</span>
+				{:else}
+					<span>Connect to GitButler Cloud</span>
 				{/if}
-				<span>{$user.name}</span>
-			{:else}
-				<span>Connect to GitButler Cloud</span>
-			{/if}
-		</a>
+			</Button>
+		</div>
 	</header>
 
 	<div class="flex-auto overflow-auto">
