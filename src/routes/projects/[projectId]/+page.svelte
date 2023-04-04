@@ -14,36 +14,45 @@
 	export let data: PageData;
 	const { activity, project, statuses, sessions, head } = data;
 
-	const recentSessions = derived(sessions, (sessions) => {
-		sessions ||= [];
-		const lastFourDaysOfSessions = sessions.filter(
-			(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
-		);
-		if (lastFourDaysOfSessions.length >= 4) return lastFourDaysOfSessions;
-		return sessions.slice(0, 4);
-	});
-
-	const recentActivity = derived([activity, recentSessions], ([activity, recentSessions]) =>
-		activity
-			.filter((a) => a.timestampMs >= (recentSessions.at(-1)?.meta.startTimestampMs ?? 0))
-			.sort((a, b) => b.timestampMs - a.timestampMs)
+	const recentSessions = derived(
+		sessions,
+		(sessions) => {
+			const lastFourDaysOfSessions = sessions.filter(
+				(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
+			);
+			if (lastFourDaysOfSessions.length >= 4) return lastFourDaysOfSessions;
+			return sessions.slice(0, 4);
+		},
+		[]
 	);
 
-	const sessionByDates = derived(recentSessions, (sessions) =>
-		sessions.reduce((list: [Session[], Date][], session) => {
-			const date = startOfDay(new Date(session.meta.startTimestampMs));
-			if (list.length === 0) {
-				list.push([[session], date]);
-			} else {
-				const last = list[list.length - 1];
-				if (isEqual(last[1], date)) {
-					last[0].push(session);
-				} else {
+	const recentActivity = derived(
+		[activity, recentSessions],
+		([activity, recentSessions]) =>
+			activity
+				.filter((a) => a.timestampMs >= (recentSessions.at(-1)?.meta.startTimestampMs ?? 0))
+				.sort((a, b) => b.timestampMs - a.timestampMs),
+		[]
+	);
+
+	const sessionByDates = derived(
+		recentSessions,
+		(sessions) =>
+			sessions.reduce((list: [Session[], Date][], session) => {
+				const date = startOfDay(new Date(session.meta.startTimestampMs));
+				if (list.length === 0) {
 					list.push([[session], date]);
+				} else {
+					const last = list[list.length - 1];
+					if (isEqual(last[1], date)) {
+						last[0].push(session);
+					} else {
+						list.push([[session], date]);
+					}
 				}
-			}
-			return list;
-		}, [])
+				return list;
+			}, []),
+		[]
 	);
 
 	const filesActivityByDate = asyncDerived(
