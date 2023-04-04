@@ -7,7 +7,7 @@
 	export let session: terminals.TerminalSession;
 
 	onMount(() => {
-		terminals.newTerminalSession(session);
+		session.controller?.open(session.element);
 	});
 
 	function handleTermResize() {
@@ -25,10 +25,10 @@
 </script>
 
 <!-- Actual terminal -->
-<div class="flex flex-row w-full h-full">
+<div class="flex h-full w-full flex-row">
 	<div
 		id="terminal"
-		class="w-full h-full"
+		class="h-full w-full"
 		bind:this={session.element}
 		on:click={focus}
 		on:keydown={focus}

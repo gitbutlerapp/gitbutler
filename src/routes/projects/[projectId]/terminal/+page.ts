@@ -3,7 +3,7 @@ import type { Status } from '$lib/git/statuses';
 import { building } from '$app/environment';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({parent, params}) => {
+export const load: PageLoad = async ({ parent, params }) => {
 	const statuses = building
 		? readable<Status[]>([])
 		: await import('$lib/git/statuses').then((m) => m.default({ projectId: params.projectId }));
@@ -19,7 +19,7 @@ export const load: PageLoad = async ({parent, params}) => {
 		  }
 		: await (await import('$lib/users')).default();
 	return {
-    user,
-    statuses
+		user,
+		statuses
 	};
 };

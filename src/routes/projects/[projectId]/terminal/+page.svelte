@@ -1,25 +1,20 @@
 <script lang="ts">
 	import { collapsable } from '$lib/paths';
-	import type { PageData } from '$lib/types';
+	import type { LayoutData } from '$lib/types';
 	import Terminal from '$lib/components/Terminal.svelte';
 	import * as terminals from '$lib/terminals';
-	import { onMount } from 'svelte';
 
-	export let data: PageData;
-	const { _user, statuses } = data;
+	export let data: LayoutData;
+	const { project, statuses } = data;
 
 	let terminal: Terminal;
 	let terminalSession: terminals.TerminalSession;
 
-	onMount(() => {
-		terminalSession = {
-			projectId: data.project.id,
-			controller: null,
-			element: null,
-			pty: null,
-			fit: null
-		};
-	});
+	$: if ($project) {
+		console.log($project);
+		terminalSession = terminals.getTerminalSession($project.id);
+		console.log('session', terminalSession);
+	}
 
 	function runCommand(command: string) {
 		terminal.runCommand(command);
@@ -27,8 +22,8 @@
 </script>
 
 <!-- Actual terminal -->
-<div class="flex flex-row w-full h-full">
-	<div class="w-80 h-full p-2">
+<div class="flex h-full w-full flex-row">
+	<div class="h-full w-80 p-2">
 		<div class="p-2 font-bold">Git Status</div>
 		{#if $statuses.length == 0}
 			<div class="rounded border border-green-400 bg-green-600 p-2 font-mono text-green-900">
