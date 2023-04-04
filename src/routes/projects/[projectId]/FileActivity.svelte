@@ -41,7 +41,7 @@
 
 <style>
 	.file-activity {
-		@apply h-full flex items-baseline gap-1 pt-1 pl-1 pr-1;
+		@apply h-full flex items-baseline gap-1 pt-2 pl-1 pr-1;
 		align-items: flex-end;
 		border-bottom: 1px solid rgb(55, 55, 55);
 		background-color: rgba(0, 0, 0, 0.1);
@@ -52,7 +52,7 @@
 	.bar {
 		display: inline-block;
 		width: 100%;
-		height: 1rem;
+		height: 100%;
 		background-color: #6959DF ;
 		border-radius: 2px 2px 0 0;
 
