@@ -10,6 +10,7 @@
 	import IconRotateClockwise from '$lib/components/icons/IconRotateClockwise.svelte';
 	import FileActivity from './FileActivity.svelte';
 	import { Button, Tooltip } from '$lib/components';
+	import ButtonGroup from '$lib/components/ButtonGroup/ButtonGroup.stories.svelte';
 
 	export let data: PageData;
 	$: activity = derived(data.activity, (activity) => activity);
@@ -115,8 +116,8 @@
 						<ul class="flex flex-col rounded border border-zinc-700 bg-[#2F2F33] p-4">
 							{#each Object.entries(activity) as [filepath, deltas]}
 								<li class="flex items-center justify-between gap-4">
-									<a
-										class="flex w-full overflow-auto hover:underline"
+									<Button
+										filled={false}
 										href="/projects/{$project.id}/player/{format(
 											date,
 											'yyyy-MM-dd'
@@ -126,7 +127,7 @@
 											class="w-full truncate"
 											use:collapsable={{ value: filepath, separator: '/' }}
 										/>
-									</a>
+									</Button>
 									<FileActivity {deltas} />
 								</li>
 							{/each}
