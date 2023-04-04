@@ -3,6 +3,8 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* Boilerplate CSS */
 a,
 button {
 	@apply cursor-default;
@@ -10,6 +12,16 @@ button {
 	-webkit-user-drag: none;
 	-webkit-app-region: no-drag;
 	cursor: default;
+}
+
+textarea, input {
+	@apply rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100;
+}
+textarea:focus, input:focus{
+    outline: none;
+	@apply hover:border-zinc-500/80;
+	@apply focus:ring-2 focus:ring-blue-600/30;
+	@apply focus:focus:border-blue-600 focus:border-[1px];
 }
 
 .drag-none {

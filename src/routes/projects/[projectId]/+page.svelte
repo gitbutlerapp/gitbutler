@@ -112,7 +112,7 @@
 						<header
 							class="header flex flex-row justify-between gap-2 rounded-tl rounded-tr border-b-gb-700 bg-card-active px-3 py-2"
 						>
-							<div class="mb-1 text-zinc-300 ">
+							<div class=" text-zinc-300 ">
 								{date.toLocaleDateString('en-us', {
 									weekday: 'long',
 									year: 'numeric',

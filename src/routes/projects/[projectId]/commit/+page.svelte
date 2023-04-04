@@ -127,8 +127,8 @@
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
-			<ul class="flex w-full flex-col rounded border border-gb-700 bg-card-active">
-				<header class="flex w-full items-center p-2">
+			<ul class="flex w-full flex-col rounded border border-gb-700  bg-card-default pb-1">
+				<header class="flex w-full items-center p-2 bg-card-active">
 					<input
 						type="checkbox"
 						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
@@ -146,44 +146,53 @@
 
 				{#each $statuses as { path, staged }, i}
 					<li
+						class="bg-card-default "
+					>
+						<div 
 						class:bg-gb-700={$selectedDiffPath === path}
 						class:hover:bg-divider={$selectedDiffPath !== path}
-						class:border-b={i < $statuses.length - 1}
-						class="file-changed-item flex cursor-text select-text items-center gap-2 border-gb-700 bg-card-default px-2 py-2"
+						
+						class="file-changed-item flex cursor-text select-text items-center gap-2  bg-card-default px-1 py-2 mx-1 mt-1 rounded"
 					>
-						<input
-							class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
-							disabled={isCommitting || isGeneratingCommitMessage}
-							on:click|preventDefault={() => {
-								staged
-									? git.unstage({ projectId, paths: [path] }).catch(() => {
-											error('Failed to unstage file');
-									  })
-									: git.stage({ projectId, paths: [path] }).catch(() => {
-											error('Failed to stage file');
-									  });
-							}}
-							name="path"
-							type="checkbox"
-							checked={staged}
-							value={path}
-						/>
-						<label class="flex h-5 w-full overflow-auto" for="path">
-							<button
+							<input
+								class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 								disabled={isCommitting || isGeneratingCommitMessage}
-								on:click|preventDefault={() => ($selectedDiffPath = path)}
-								type="button"
-								class="h-full w-full cursor-text select-auto text-left font-mono disabled:opacity-50"
-								use:collapsable={{ value: path, separator: '/' }}
+								on:click|preventDefault={() => {
+									staged
+										? git.unstage({ projectId, paths: [path] }).catch(() => {
+												error('Failed to unstage file');
+										})
+										: git.stage({ projectId, paths: [path] }).catch(() => {
+												error('Failed to stage file');
+										});
+								}}
+								name="path"
+								type="checkbox"
+								checked={staged}
+								value={path}
 							/>
-						</label>
+							<label class="flex h-5 w-full overflow-auto" for="path">
+								<button
+									disabled={isCommitting || isGeneratingCommitMessage}
+									on:click|preventDefault={() => ($selectedDiffPath = path)}
+									type="button"
+									class="h-full w-full cursor-text select-auto text-left font-mono disabled:opacity-50"
+									use:collapsable={{ value: path, separator: '/' }}
+								/>
+							</label>
+						</div>
 					</li>
 				{/each}
 			</ul>
 
 			<input
 				name="summary"
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 ring-blue-600/30 focus:border-blue-600 "
+				class="
+					w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
+					hover:border-zinc-500/80
+					focus:ring-2 focus:ring-blue-600/30 
+					focus:focus:border-blue-600 focus:border-[1px]
+				"
 				disabled={isGeneratingCommitMessage || isCommitting}
 				type="text"
 				placeholder="Summary (required)"
@@ -209,7 +218,12 @@
 				<textarea
 					name="description"
 					disabled={isGeneratingCommitMessage || isCommitting}
-					class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100  focus:border-blue-600"
+					class="
+						w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
+						hover:border-zinc-500/80
+						focus:ring-2 focus:ring-blue-600/30 
+						focus:focus:border-blue-600 focus:border-[1px]
+					"
 					rows="10"
 					placeholder="Description (optional)"
 					bind:value={description}
