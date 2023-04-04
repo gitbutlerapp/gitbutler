@@ -138,6 +138,7 @@
 										{#each [false, true] as loading}
 											<Button
 												href="https://gitbutler.com"
+												target="_blank"
 												role="basic"
 												{outlined}
 												{filled}
@@ -174,6 +175,7 @@
 										{#each [false, true] as disabled}
 											<Button
 												href="https://gitbutler.com"
+												target="_blank"
 												role="primary"
 												{filled}
 												{disabled}
@@ -210,6 +212,7 @@
 										{#each [false, true] as disabled}
 											<Button
 												href="https://gitbutler.com"
+												target="_blank"
 												role="destructive"
 												{filled}
 												{disabled}

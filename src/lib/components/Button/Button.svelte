@@ -2,6 +2,8 @@
 	import type { ComponentType } from 'svelte';
 	import { IconLoading } from '../icons';
 
+	export let target: string | undefined = undefined;
+	export let rel: string | undefined = undefined;
 	export let role: 'basic' | 'primary' | 'destructive' = 'basic';
 	export let filled = true;
 	export let outlined = false;
@@ -17,6 +19,8 @@
 {#if href}
 	<a
 		{href}
+		{target}
+		{rel}
 		class={role}
 		class:small={height === 'small'}
 		class:long={width === 'long'}
