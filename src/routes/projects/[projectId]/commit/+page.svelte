@@ -6,7 +6,7 @@
 	import * as git from '$lib/git';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
-	import { fade, fly } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import { IconRotateClockwise } from '$lib/components/icons';
 
 	export let data: PageData;
@@ -67,6 +67,11 @@
 		);
 		const diff = Object.values(partialDiff).join('\n').slice(0, 5000);
 
+		const backupSummary = summary;
+		const backupDescription = description;
+		summary = '';
+		description = '';
+
 		isGeneratingCommitMessage = true;
 		api.summarize
 			.commit($user.access_token, {
@@ -79,6 +84,8 @@
 				description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
 			})
 			.catch(() => {
+				summary = backupSummary;
+				description = backupDescription;
 				error('Failed to generate commit message');
 			})
 			.finally(() => {
@@ -110,6 +117,9 @@
 	};
 
 	$: isCommitEnabled = summary.length > 0 && $statuses.filter(({ staged }) => staged).length > 0;
+	$: isLoggedIn = $user !== undefined;
+	$: isSomeFilesSelected = $statuses.some(({ staged }) => staged) && $statuses.length > 0;
+	$: isGenerateCommitEnabled = isLoggedIn && isSomeFilesSelected;
 </script>
 
 <div id="commit-page" class="flex h-full w-full">
@@ -224,7 +234,7 @@
 				{:else}
 					<button
 						type="button"
-						disabled={$user === undefined}
+						disabled={!isGenerateCommitEnabled}
 						class="rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 						style="
 							border-top: 1px solid rgba(255, 255, 255, 0.2);
@@ -277,11 +287,6 @@
 	* Dot Typing
 	* ==============================================
 	*/
-	dot-container {
-		display: flex;
-		justify-content: center;
-	}
-
 	.dot-container {
 		padding-left: 4px;
 		padding-bottom: 3px;
