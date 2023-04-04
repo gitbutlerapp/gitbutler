@@ -1,12 +1,14 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { Button } from '$lib/components';
 	import { collapsable } from '$lib/paths';
 	import { derived, writable } from 'svelte/store';
 	import * as git from '$lib/git';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
+	import { fade, fly } from 'svelte/transition';
 	import { IconRotateClockwise } from '$lib/components/icons';
-	import { Button } from '$lib/components';
+	
 
 	export let data: PageData;
 	const { statuses, diffs, user, api, projectId } = data;
@@ -182,8 +184,13 @@
 
 			<div class="commit-description-container relative">
 				{#if isGeneratingCommitMessage}
-					<div class="generating-commit absolute top-1 left-1 rounded bg-zinc-600 px-3 py-1">
-						✨ Summarizing changes...
+					<div in:fly="{{ y: 8, duration: 500 }}" out:fly="{{ y: -8, duration: 500 }}" class="generating-commit absolute top-2 left-2 rounded bg-[#583366] border-[0.5px] border-[#52305F] shadow px-3 py-1">
+						<span>✨ Summarizing changes</span>
+						<span class="dot-container">
+							<div class="dot"></div>
+							<div class="dot"></div>
+							<div class="dot"></div>
+						</span>
 					</div>
 				{/if}
 				<textarea
@@ -209,7 +216,7 @@
 						"
 					>
 						<IconRotateClockwise class="h-5 w-5 animate-spin" />
-						<span>Generating commit message...</span>
+						Generating commit message
 					</div>
 				{:else}
 					<button
@@ -260,3 +267,57 @@
 		{/if}
 	</div>
 </div>
+
+
+<style>
+	/**
+	* ==============================================
+	* Dot Typing
+	* ==============================================
+	*/
+	dot-container {
+		display:flex;
+		justify-content:center;
+	}
+
+	.dot-container{
+		padding-left: 4px;
+		padding-bottom: 3px;
+	}
+	.dot {
+		@apply bg-zinc-200;
+		display: inline-block;
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		position: relative;
+		bottom: 3px;
+	}
+
+
+	.dot-container .dot:nth-last-child(1) {
+		animation: jumpingAnimation 1.2s 0.6s linear infinite;
+	}
+	.dot-container .dot:nth-last-child(2) {
+		animation: jumpingAnimation 1.2s 0.3s linear infinite;
+	}
+	.dot-container .dot:nth-last-child(3) {
+		animation: jumpingAnimation 1.2s 0s linear infinite;
+	}
+
+	@keyframes jumpingAnimation {
+	0% {
+		transform: translate(0, 0);
+	}
+	16% {
+		transform: translate(0, -5px);
+	}
+	33% {
+		transform: translate(0, 0);
+	}
+	100% {
+		transform: translate(0, 0);
+	}
+	}
+
+</style>
