@@ -11,9 +11,7 @@
 	});
 
 	function handleTermResize() {
-		if (session.fit) {
-			session.fit.fit();
-		}
+		terminals.fitSession(session);
 	}
 
 	export const runCommand = (command: string): void => {
