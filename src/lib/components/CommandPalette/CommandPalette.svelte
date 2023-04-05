@@ -25,6 +25,13 @@
 	);
 
 	let selection = [0, 0] as [number, number];
+	commandGroups.subscribe((groups) => {
+		const newGroupIndex = Math.min(selection[0], groups.length - 1);
+		Promise.resolve(groups[newGroupIndex]).then((group) => {
+			const newCommandIndex = Math.min(selection[1], group.commands.length - 1);
+			selection = [newGroupIndex, newCommandIndex];
+		});
+	});
 
 	const selectNextCommand = () => {
 		if (!modal?.isOpen()) return;
@@ -103,7 +110,9 @@
 						if (command.hotkey) {
 							unregisterCommandHotkeys.push(
 								tinykeys(window, {
-									[command.hotkey]: () => {
+									[command.hotkey]: (event: KeyboardEvent) => {
+										const target = event.target as HTMLElement;
+										if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
 										// only trigger if the modal is visible
 										modal?.isOpen() && trigger(command.action);
 									}
