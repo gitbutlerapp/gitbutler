@@ -8,10 +8,12 @@
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { IconRotateClockwise } from '$lib/components/icons';
+	import { Dialog } from '$lib/components';
 
 	export let data: PageData;
-	const { statuses, diffs, user, api, projectId } = data;
+	const { statuses, diffs, user, api, projectId, project } = data;
 
+	let connectToCloudDialog: Dialog;
 	let summary = '';
 	let description = '';
 
@@ -58,6 +60,14 @@
 	};
 
 	const onGenerateCommitMessage = async () => {
+		if (!isLoggedIn) {
+			// TODO: Modal prompting the user to log in
+			return;
+		}
+		if (!isCloudEnabled) {
+			connectToCloudDialog.show();
+			return;
+		}
 		if ($user === undefined) return;
 
 		const partialDiff = Object.fromEntries(
@@ -118,10 +128,46 @@
 
 	$: isCommitEnabled = summary.length > 0 && $statuses.filter(({ staged }) => staged).length > 0;
 	$: isLoggedIn = $user !== undefined;
+	$: isCloudEnabled = $project?.api?.sync;
 	$: isSomeFilesSelected = $statuses.some(({ staged }) => staged) && $statuses.length > 0;
 	$: isGenerateCommitEnabled = isLoggedIn && isSomeFilesSelected;
 </script>
 
+<Dialog bind:this={connectToCloudDialog}>
+	<svelte:fragment slot="title">GitButler Cloud required</svelte:fragment>
+	<svelte:fragment>
+		<p>
+			By connecting to GitButler Cloud you'll unlock improved, cloud only features, including
+			AI-generated commit summaries, and the assurance of never losing your work with synced
+			project.
+		</p>
+		<p class="mt-2 flex flex-col">
+			<span class="font-semibold">AI-genearate commits</span>
+			<span>
+				This not only saves you time and effort but also ensures consistency in tone and style,
+				ultimately helping you to boost sales and improve customer satisfaction.
+			</span>
+		</p>
+		<p class="mt-2 flex flex-col">
+			<span class="font-semibold">Secure and reliable backup</span>
+			<span>
+				GitButler backup guarantees that anything you’ve ever written in your projects are safe,
+				secure and easily recoverable.
+			</span>
+		</p>
+	</svelte:fragment>
+	<svelte:fragment slot="controls" let:hide let:show>
+		<Button filled on:click={hide}>Cancel</Button>
+		<Button
+			filled
+			role="primary"
+			on:click={() => {
+				// TODO
+				hide();
+			}}>Connect</Button
+		>
+	</svelte:fragment>
+</Dialog>
 <div id="commit-page" class="flex h-full w-full">
 	<div class="commit-panel-container border-r border-zinc-700 p-4">
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>

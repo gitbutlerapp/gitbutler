@@ -22,3 +22,4 @@ export { default as IconGitBranch } from './IconGitBranch.svelte';
 export { default as IconHome } from './IconHome.svelte';
 export { default as IconLoading } from './IconLoading.svelte';
 export { default as IconTerminal } from './IconTerminal.svelte';
+export { default as IconClose } from './IconClose.svelte';

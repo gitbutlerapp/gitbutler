@@ -11,50 +11,6 @@
 <Meta title="GitButler/Dialog" component={Dialog} />
 
 <Story name="Dialog with title only">
-	<Button on:click={() => dialog.show()}>"Open Dialog"</Button>
-	<Dialog
-		title="Dialog title"
-		secondaryActionLabel="Cancel"
-		primaryActionLabel="You clicked: {count}"
-		primaryAction={() => count++}
-		bind:this={dialog}
-	/>
-</Story>
-
-<Story name="Dialog with title and body">
-	<Button on:click={() => dialog.show()}>"Open Dialog"</Button>
-	<Dialog
-		title="Dialog title"
-		content="Dialog body content"
-		secondaryActionLabel="Cancel"
-		primaryActionLabel="You clicked: {count}"
-		primaryAction={() => count++}
-		bind:this={dialog}
-	/>
-</Story>
-
-<Story name="Dialog small">
-	<Button on:click={() => dialog.show()}>"Open Dialog"</Button>
-	<Dialog
-		title="Dialog title"
-		content="Dialog body content"
-		size="small"
-		secondaryActionLabel="Cancel"
-		primaryActionLabel="You clicked: {count}"
-		primaryAction={() => count++}
-		bind:this={dialog}
-	/>
-</Story>
-
-<Story name="Dialog large">
-	<Button on:click={() => dialog.show()}>"Open Dialog"</Button>
-	<Dialog
-		title="Dialog title"
-		content="Dialog body content"
-		size="large"
-		secondaryActionLabel="Cancel"
-		primaryActionLabel="You clicked: {count}"
-		primaryAction={() => count++}
-		bind:this={dialog}
-	/>
+	<Button on:click={() => dialog.show()}>Open Dialog</Button>
+	<Dialog bind:this={dialog} />
 </Story>

@@ -12,6 +12,7 @@
 
 	export const show = () => {
 		open = true;
+		console.log('lfkjdsflkdsj');
 		dialog.showModal();
 	};
 	export const hide = () => {
@@ -22,7 +23,7 @@
 	export const isOpen = () => open;
 
 	const handleClick = (event: MouseEvent) => {
-		if (content && !content.contains(event.target as Node | null)) {
+		if (content && !content.contains(event.target as Node | null) && !event.defaultPrevented) {
 			hide();
 		}
 	};
