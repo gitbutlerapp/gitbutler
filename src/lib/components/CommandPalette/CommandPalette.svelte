@@ -179,9 +179,9 @@
 											on:mouseover={() => (selection = [groupIdx, commandIdx])}
 											on:focus={() => (selection = [groupIdx, commandIdx])}
 											on:click={() => trigger(command.action)}
-											class="flex w-full gap-2"
+											class="flex w-full items-center gap-2"
 										>
-											<svelte:component this={command.icon} />
+											<svelte:component this={command.icon} class="h-5 w-5 text-zinc-100" />
 											<span class="quick-command flex-1 text-left">{command.title}</span>
 											{#if command.hotkey}
 												<span class="quick-command-key">{command.hotkey}</span>
