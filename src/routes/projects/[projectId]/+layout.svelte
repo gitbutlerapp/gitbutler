@@ -75,14 +75,20 @@
 			<ul class="flex gap-2">
 				<li>
 					<Tooltip label="Terminal">
-						<a class="block rounded p-1 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200" href="/projects/{$project?.id}/terminal">
+						<a
+							class="block rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+							href="/projects/{$project?.id}/terminal"
+						>
 							<IconTerminal class="h-6 w-6" />
 						</a>
 					</Tooltip>
 				</li>
 				<li>
 					<Tooltip label="Project settings">
-						<a class="block rounded p-1 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200" href="/projects/{$project?.id}/settings">
+						<a
+							class="block rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+							href="/projects/{$project?.id}/settings"
+						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								fill="none"
