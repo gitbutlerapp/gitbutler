@@ -122,7 +122,7 @@ export const fitSession = (session: TerminalSession) => {
 const sendProposedSizeToPty = (session: TerminalSession) => {
 	if (session.fit && session.pty) {
 		const proposedSize = session.fit.proposeDimensions();
-		if(!proposedSize) return;
+		if (!proposedSize) return;
 		const resizeData = {
 			cols: proposedSize.cols,
 			rows: proposedSize.rows,
@@ -147,7 +147,7 @@ const sendPathToPty = (session: TerminalSession) => {
 };
 
 const arrayBufferToString = (buf: ArrayBuffer) => {
-  return String.fromCharCode.apply(null, Array.from(new Uint8Array(buf)));
+	return String.fromCharCode.apply(null, Array.from(new Uint8Array(buf)));
 };
 
 const handlePtyWsClose = (evt: Event, session: TerminalSession) => {
