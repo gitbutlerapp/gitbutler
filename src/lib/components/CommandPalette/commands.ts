@@ -1,8 +1,8 @@
 import QuickCommit from './QuickCommit.svelte';
 import type { Project } from '$lib/projects';
-import { GitCommitIcon, RewindIcon } from '../icons';
+import { GitCommitIcon, IconTerminal, RewindIcon } from '../icons';
 import { matchFiles } from '$lib/git';
-import type { SvelteComponentTyped } from 'svelte';
+import type { SvelteComponent, SvelteComponentTyped } from 'svelte';
 import { format, startOfISOWeek, startOfMonth, subDays, subMonths, subWeeks } from 'date-fns';
 
 type ActionLink = {
@@ -32,13 +32,11 @@ export namespace Action {
     export const isGroup = (action: Action): action is Group => 'commands' in action;
 }
 
-type Icon = Newable<GitCommitIcon> | Newable<RewindIcon>;
-
 export type Command = {
     title: string;
     hotkey?: string;
     action: Action;
-    icon?: Icon;
+    icon?: Newable<SvelteComponent>;
 };
 
 export type Group = {
@@ -64,14 +62,6 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
     title: 'Actions',
     commands: [
         {
-            title: 'Terminal',
-            hotkey: 'Shift+t',
-            action: {
-                href: `/projects/${project?.id}/terminal/`
-            },
-            icon: GitCommitIcon
-        },
-        {
             title: 'Quick commit',
             hotkey: 'c',
             action: {
@@ -88,6 +78,14 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
                 href: `/projects/${project.id}/commit/`
             },
             icon: GitCommitIcon
+        },
+        {
+            title: 'Terminal',
+            hotkey: 'Shift+t',
+            action: {
+                href: `/projects/${project?.id}/terminal/`
+            },
+            icon: IconTerminal
         },
         {
             title: 'Replay History',
