@@ -14,7 +14,7 @@
 		"storybook": "storybook",
 		"storybook:build": "storybook build"
 	},
-	"dependencies": {
+	"devDependencies": {
 		"@codemirror/autocomplete": "^6.4.2",
 		"@codemirror/lang-cpp": "^6.0.2",
 		"@codemirror/lang-css": "^6.1.1",
@@ -40,13 +40,8 @@
 		"@square/svelte-store": "^1.0.14",
 		"@tauri-apps/api": "^1.2.0",
 		"date-fns": "^2.29.3",
-		"diff": "^5.1.0",
 		"diff-match-patch": "^1.0.5",
-		"diff2html": "^3.4.33",
-		"highlight.js": "^11.7.0",
-		"highlightjs-svelte": "^1.0.6",
 		"inter-ui": "^3.19.3",
-		"lang-svelte": "link:@replit/codemirror/lang-svelte",
 		"nanoid": "^4.0.1",
 		"posthog-js": "^1.46.1",
 		"svelte-french-toast": "^1.0.3",
@@ -58,9 +53,7 @@
 		"xterm-addon-fit": "^0.7.0",
 		"xterm-addon-ligatures": "^0.6.0",
 		"xterm-addon-unicode11": "^0.5.0",
-		"xterm-addon-webgl": "^0.14.0"
-	},
-	"devDependencies": {
+		"xterm-addon-webgl": "^0.14.0",
 		"@storybook/addon-essentials": "next",
 		"@storybook/addon-interactions": "next",
 		"@storybook/addon-links": "next",
