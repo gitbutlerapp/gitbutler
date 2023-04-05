@@ -9,7 +9,7 @@
 	export let outlined = false;
 	export let disabled = false;
 	export let height: 'basic' | 'small' = 'basic';
-	export let width: 'basic' | 'long' = 'basic';
+	export let width: 'basic' | 'full-width' = 'basic';
 	export let type: 'button' | 'submit' = 'button';
 	export let href: string | undefined = undefined;
 	export let icon: ComponentType | undefined = undefined;
@@ -30,7 +30,7 @@
 		class={role}
 		bind:this={element}
 		class:small={height === 'small'}
-		class:long={width === 'long'}
+		class:full-width={width === 'full-width'}
 		class:filled
 		class:pointer-events-none={loading}
 		class:outlined
@@ -58,7 +58,7 @@
 	<button
 		class={role}
 		class:small={height === 'small'}
-		class:long={width === 'long'}
+		class:full-width={width === 'full-width'}
 		class:pointer-events-none={loading}
 		bind:this={element}
 		class:filled
@@ -179,8 +179,8 @@
 		@apply py-[1px];
 	}
 
-	.filled.long,
-	.outlined.long {
-		@apply px-[42px];
+	.filled.full-width,
+	.outlined.full-width {
+		@apply w-full;
 	}
 </style>

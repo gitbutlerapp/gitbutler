@@ -27,7 +27,7 @@
 </script>
 
 <!-- Actual terminal -->
-<div class="flex h-full w-full flex-row">
+<div class="terminal-component flex h-full w-full flex-row">
 	<div
 		id="terminal"
 		class="h-full w-full"
@@ -37,3 +37,12 @@
 	/>
 	<ResizeObserver on:resize={handleTermResize} />
 </div>
+
+<style>
+	.terminal-component {
+		@apply flex h-full w-full flex-row;
+	}
+	.terminal-component #terminal {
+		@apply h-full w-full;
+	}
+</style>

@@ -70,15 +70,19 @@
 				>
 					&#8984;K
 				</div>
-				<a href="/projects/{$project?.id}/terminal">
-					<IconTerminal class="h-6 w-6" />
-				</a>
 			</div>
 
-			<ul>
+			<ul class="flex gap-2">
+				<li>
+					<Tooltip label="Terminal">
+						<a class="block rounded p-1 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200" href="/projects/{$project?.id}/terminal">
+							<IconTerminal class="h-6 w-6" />
+						</a>
+					</Tooltip>
+				</li>
 				<li>
 					<Tooltip label="Project settings">
-						<Button filled={false} href="/projects/{$project?.id}/settings">
+						<a class="block rounded p-1 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200" href="/projects/{$project?.id}/settings">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								fill="none"
@@ -98,7 +102,7 @@
 									d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
 								/>
 							</svg>
-						</Button>
+						</a>
 					</Tooltip>
 				</li>
 			</ul>
