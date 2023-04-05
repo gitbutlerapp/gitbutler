@@ -16,7 +16,7 @@
 	<ButtonGroup
 		leftLabel="Cancel"
 		rightLabel="Submit"
-		width="long"
+		width="full-width"
 		leftAction={noop}
 		rightAction={noop}
 	/>
@@ -37,7 +37,7 @@
 		leftLabel="Cancel"
 		rightLabel="Submit"
 		middleLabel="Middle"
-		width="long"
+		width="full-width"
 		leftAction={noop}
 		rightAction={noop}
 	/>
