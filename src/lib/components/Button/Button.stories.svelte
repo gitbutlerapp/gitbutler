@@ -6,7 +6,7 @@
 	import Button from './Button.svelte';
 
 	const heights = ['basic', 'small'] as const;
-	const widths = ['basic', 'long'] as const;
+	const widths = ['basic', 'full-width'] as const;
 
 	const content = [
 		[IconHome, 'Label'],
