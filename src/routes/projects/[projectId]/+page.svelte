@@ -12,41 +12,55 @@
 	import { Button, Tooltip } from '$lib/components';
 
 	export let data: PageData;
-	const { activity, project, statuses, sessions, head } = data;
+	$: activity = derived(data.activity, (activity) => activity);
+	$: project = derived(data.project, (project) => project);
+	$: statuses = derived(data.statuses, (statuses) => statuses);
+	$: sessions = derived(data.sessions, (sessions) => sessions);
+	$: head = derived(data.head, (head) => head);
 
-	const recentSessions = derived(sessions, (sessions) => {
-		sessions ||= [];
-		const lastFourDaysOfSessions = sessions.filter(
-			(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
-		);
-		if (lastFourDaysOfSessions.length >= 4) return lastFourDaysOfSessions;
-		return sessions.slice(0, 4);
-	});
-
-	const recentActivity = derived([activity, recentSessions], ([activity, recentSessions]) =>
-		activity
-			.filter((a) => a.timestampMs >= (recentSessions.at(-1)?.meta.startTimestampMs ?? 0))
-			.sort((a, b) => b.timestampMs - a.timestampMs)
+	$: recentSessions = derived(
+		sessions,
+		(sessions) => {
+			const lastFourDaysOfSessions = sessions.filter(
+				(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
+			);
+			if (lastFourDaysOfSessions.length >= 4) return lastFourDaysOfSessions;
+			return sessions.slice(0, 4);
+		},
+		[]
 	);
 
-	const sessionByDates = derived(recentSessions, (sessions) =>
-		sessions.reduce((list: [Session[], Date][], session) => {
-			const date = startOfDay(new Date(session.meta.startTimestampMs));
-			if (list.length === 0) {
-				list.push([[session], date]);
-			} else {
-				const last = list[list.length - 1];
-				if (isEqual(last[1], date)) {
-					last[0].push(session);
-				} else {
+	$: recentActivity = derived(
+		[activity, recentSessions],
+		([activity, recentSessions]) => {
+			return activity
+				.filter((a) => a.timestampMs >= (recentSessions.at(-1)?.meta.startTimestampMs ?? 0))
+				.sort((a, b) => b.timestampMs - a.timestampMs);
+		},
+		[]
+	);
+
+	$: sessionByDates = derived(
+		recentSessions,
+		(sessions) =>
+			sessions.reduce((list: [Session[], Date][], session) => {
+				const date = startOfDay(new Date(session.meta.startTimestampMs));
+				if (list.length === 0) {
 					list.push([[session], date]);
+				} else {
+					const last = list[list.length - 1];
+					if (isEqual(last[1], date)) {
+						last[0].push(session);
+					} else {
+						list.push([[session], date]);
+					}
 				}
-			}
-			return list;
-		}, [])
+				return list;
+			}, []),
+		[]
 	);
 
-	const filesActivityByDate = asyncDerived(
+	$: filesActivityByDate = asyncDerived(
 		[project, sessionByDates],
 		async ([project, sessionByDates]) =>
 			await Promise.all(
@@ -71,7 +85,8 @@
 					);
 					return [merged, date] as [Record<string, Delta[]>, Date];
 				})
-			)
+			),
+		{ initial: [] }
 	);
 </script>
 
@@ -84,16 +99,20 @@
 
 		<h2 class="px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
 
-		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-7 pb-8">
+		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-5 pb-8">
 			{#await filesActivityByDate.load()}
 				<li>
 					<IconRotateClockwise class="animate-spin" />
 				</li>
 			{:then}
 				{#each $filesActivityByDate as [activity, date]}
-					<li class="flex flex-col">
-						<header class="flex flex-row justify-between gap-2">
-							<div class="mb-1 text-zinc-300">
+					<li
+						class="card changed-day-card flex flex-col rounded border-[0.5px] border-gb-700 bg-card-default"
+					>
+						<header
+							class="header flex flex-row justify-between gap-2 rounded-tl rounded-tr border-b-gb-700 bg-card-active px-3 py-2"
+						>
+							<div class=" text-zinc-300 ">
 								{date.toLocaleDateString('en-us', {
 									weekday: 'long',
 									year: 'numeric',
@@ -101,19 +120,19 @@
 									day: 'numeric'
 								})}
 							</div>
-							<a
-								title="Reply changes (R)"
-								class="text-blue-500 hover:text-blue-400 hover:underline"
+							<Button
 								href="/projects/{$project.id}/player/{format(date, 'yyyy-MM-dd')}"
+								filled={false}
+								role="primary"
 							>
 								Replay Changes
-							</a>
+							</Button>
 						</header>
-						<ul class="flex flex-col rounded border border-zinc-700 bg-[#2F2F33] p-4">
+						<ul class="all-files-changed flex flex-col rounded pl-3">
 							{#each Object.entries(activity) as [filepath, deltas]}
-								<li class="flex items-center justify-between gap-4">
+								<li class="changed-file flex items-center justify-between gap-4  ">
 									<a
-										class="flex w-full overflow-auto hover:underline"
+										class="file-name flex w-[50%] overflow-auto py-2 font-mono hover:underline"
 										href="/projects/{$project.id}/player/{format(
 											date,
 											'yyyy-MM-dd'

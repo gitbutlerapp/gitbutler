@@ -1,7 +1,9 @@
 <script lang="ts">
-	import type { ComponentType } from 'svelte';
+	import { onMount, type ComponentType } from 'svelte';
 	import { IconLoading } from '../icons';
 
+	export let target: string | undefined = undefined;
+	export let rel: string | undefined = undefined;
 	export let role: 'basic' | 'primary' | 'destructive' = 'basic';
 	export let filled = true;
 	export let outlined = false;
@@ -12,12 +14,21 @@
 	export let href: string | undefined = undefined;
 	export let icon: ComponentType | undefined = undefined;
 	export let loading = false;
+
+	let element: HTMLAnchorElement | HTMLButtonElement;
+
+	onMount(() => {
+		element.ariaLabel = element.innerText.trim();
+	});
 </script>
 
 {#if href}
 	<a
 		{href}
+		{target}
+		{rel}
 		class={role}
+		bind:this={element}
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:filled
@@ -49,6 +60,7 @@
 		class:small={height === 'small'}
 		class:long={width === 'long'}
 		class:pointer-events-none={loading}
+		bind:this={element}
 		class:filled
 		class:outlined
 		{disabled}

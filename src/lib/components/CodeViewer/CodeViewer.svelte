@@ -182,7 +182,7 @@
 	$: deltas.length && scrollToChangedLine();
 </script>
 
-<div class="flex h-full w-full whitespace-pre font-mono">
+<div class="flex h-full w-full select-text whitespace-pre font-mono">
 	<div id="numbers" class="flex flex-shrink-0 select-none flex-col">
 		{#each rows as row}
 			{@const baseNumber =
