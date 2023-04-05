@@ -80,7 +80,7 @@
 </script>
 
 <form
-	class="command-palette-commit flex w-full flex-col gap-4 rounded p-4 h-full"
+	class="command-palette-commit flex h-full w-full flex-col gap-4 rounded p-4"
 	on:submit|preventDefault={onCommit}
 >
 	<header class="w-full border-b border-zinc-700 text-lg font-semibold text-white">
