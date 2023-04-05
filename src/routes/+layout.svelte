@@ -1,18 +1,34 @@
 <script lang="ts">
 	import '../app.postcss';
 
+	import tinykeys from 'tinykeys';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { BackForwardButtons, Button } from '$lib/components';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { page } from '$app/stores';
 	import CommandPalette from '$lib/components/CommandPalette/CommandPalette.svelte';
-	import { readable } from 'svelte/store';
+	import { derived } from 'svelte/store';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 	const { user, posthog, projects } = data;
 
-	$: project = $page.params.projectId ? projects.get($page.params.projectId) : readable(undefined);
+	const project = derived([page, projects], ([page, projects]) =>
+		projects.find((project) => project.id === page.params.projectId)
+	);
+
+	export let commandPalette: CommandPalette;
+
+	onMount(() =>
+		tinykeys(window, {
+			'Meta+k': () => commandPalette.show(),
+			'Shift+c': () => $project && goto(`/projects/${$project.id}/commit/`),
+			'Shift+t': () => $project && goto(`/projects/${$project.id}/terminal/`),
+			'a i p': () => $project && goto(`/projects/${$project.id}/aiplayground/`)
+		})
+	);
 
 	user.subscribe(posthog.identify);
 </script>
@@ -47,5 +63,5 @@
 		<slot />
 	</div>
 	<Toaster />
-	<CommandPalette {projects} {project} />
+	<CommandPalette bind:this={commandPalette} {projects} {project} />
 </div>
