@@ -39,7 +39,7 @@
 
 	export let data: PageData;
 
-	let fullContext = false;
+	let fullContext = true;
 	let context = 8;
 
 	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
