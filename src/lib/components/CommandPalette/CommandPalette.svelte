@@ -46,6 +46,11 @@
 					dialog === CmdK
 						? (dialog = undefined)
 						: ((dialog = CmdK), (props = { projects, project }));
+				},
+				'Meta+t': () => {
+					if ($project) {
+						goto(`/projects/${$project.id}/terminal`);
+					}
 				}
 			},
 			false // works even when an input is focused

@@ -116,6 +116,16 @@
 					},
 					icon: RewindIcon,
 					visible: 'replay history'.includes(userInput?.toLowerCase())
+				},
+				{
+					title: 'Terminal',
+					description: 'Cmd C',
+					selected: false,
+					action: {
+						href: `/projects/${$project?.id}/terminal`
+					},
+					icon: GitCommitIcon,
+					visible: 'commit'.includes(userInput?.toLowerCase())
 				}
 			]
 		},
