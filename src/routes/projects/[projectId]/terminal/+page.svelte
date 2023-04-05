@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { collapsable } from '$lib/paths';
-	import type { LayoutData } from '$lib/types';
+	import type { LayoutData } from '../$types';
 	import Terminal from '$lib/components/Terminal.svelte';
 	import * as terminals from '$lib/terminals';
 
@@ -45,6 +45,7 @@
 		{/if}
 		<div class="mt-4 p-2 font-bold">Commands</div>
 		<ul class="px-2">
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<li class="cursor-pointer" on:click={() => runCommand('git push')}>Push Commit</li>
 		</ul>
 	</div>

@@ -7,7 +7,9 @@
 	export let session: terminals.TerminalSession;
 
 	onMount(() => {
-		session.controller?.open(session.element);
+		if (session.element) {
+			session.controller?.open(session.element);
+		}
 	});
 
 	function handleTermResize() {
@@ -15,10 +17,12 @@
 	}
 
 	export const runCommand = (command: string): void => {
-		command = command + '\r';
-		console.log('command input', command);
-		const encodedData = new TextEncoder().encode('\x00' + command);
-		session.pty.send(encodedData);
+		if (session.pty) {
+			command = command + '\r';
+			console.log('command input', command);
+			const encodedData = new TextEncoder().encode('\x00' + command);
+			session.pty.send(encodedData);
+		}
 	};
 </script>
 

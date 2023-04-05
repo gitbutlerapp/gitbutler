@@ -80,7 +80,9 @@ function initalizeXterm(session: TerminalSession) {
 	session.fit = new fit.FitAddon();
 	session.controller.loadAddon(session.fit);
 	session.controller.loadAddon(new CanvasAddon());
-	session.controller.open(session.element);
+	if (session.element) {
+		session.controller.open(session.element);
+	}
 	fitSession(session);
 	session.controller.onData((data) => termInterfaceHandleUserInputData(data, session));
 	sendPathToPty(session);
@@ -96,34 +98,45 @@ const writePtyIncomingToTermInterface = (evt: MessageEvent, session: TerminalSes
 	//console.log('terminal input', evt.data);
 	const dataString: string = arrayBufferToString(evt.data.slice(1));
 	//console.log('terminal input string', dataString);
-	session.controller.write(dataString);
+	if (session.controller) {
+		session.controller.write(dataString);
+	}
 	return dataString;
 };
 
 const termInterfaceHandleUserInputData = (data: string, session: TerminalSession) => {
 	console.log('user input', data);
 	const encodedData = new TextEncoder().encode('\x00' + data);
-	session.pty.send(encodedData);
+	if (session.pty) {
+		session.pty.send(encodedData);
+	}
 };
 
 export const fitSession = (session: TerminalSession) => {
-	session.fit.fit();
+	if (session.fit) {
+		session.fit.fit();
+	}
 	sendProposedSizeToPty(session);
 };
 
 const sendProposedSizeToPty = (session: TerminalSession) => {
-	const proposedSize = session.fit.proposeDimensions();
-	const resizeData = {
-		cols: proposedSize.cols,
-		rows: proposedSize.rows,
-		pixel_width: 0,
-		pixel_height: 0
-	};
-	session.pty.send(new TextEncoder().encode('\x01' + JSON.stringify(resizeData)));
+	if (session.fit && session.pty) {
+		const proposedSize = session.fit.proposeDimensions();
+		if(!proposedSize) return;
+		const resizeData = {
+			cols: proposedSize.cols,
+			rows: proposedSize.rows,
+			pixel_width: 0,
+			pixel_height: 0
+		};
+		session.pty.send(new TextEncoder().encode('\x01' + JSON.stringify(resizeData)));
+	}
 };
 
 // this is a pretty stupid cheat, but it works on unix systems
 const sendPathToPty = (session: TerminalSession) => {
+	if (!session.pty) return;
+
 	// send the path so th pty knows where to record data
 	const encodedPath = new TextEncoder().encode('\x02' + session.path);
 	session.pty.send(encodedPath);
@@ -134,13 +147,15 @@ const sendPathToPty = (session: TerminalSession) => {
 };
 
 const arrayBufferToString = (buf: ArrayBuffer) => {
-	return String.fromCharCode.apply(null, new Uint8Array(buf));
+  return String.fromCharCode.apply(null, Array.from(new Uint8Array(buf)));
 };
 
 const handlePtyWsClose = (evt: Event, session: TerminalSession) => {
-	session.controller.write('Terminal session terminated');
-	session.controller.dispose();
-	console.log('websocket closes from backend side');
+	if (session.controller) {
+		session.controller.write('Terminal session terminated');
+		session.controller.dispose();
+		console.log('websocket closes from backend side');
+	}
 };
 
 const handlePtyWsError = (evt: Event, session: TerminalSession) => {
