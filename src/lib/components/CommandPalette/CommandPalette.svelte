@@ -127,38 +127,36 @@
 </script>
 
 <Modal bind:this={modal}>
-	<div class="command-palette flex w-[640px] flex-col rounded text-zinc-400">
+	<div class="command-palette flex h-[400px] w-[640px] flex-col rounded text-zinc-400">
 		<!-- Search input area -->
 		<header class="search-input flex items-center border-b border-zinc-400/20 py-2">
-			<div class="ml-4 mr-2 flex flex-grow items-center">
+			<div class="ml-4 mr-2 flex w-full items-center gap-1 text-lg text-zinc-300">
 				<!-- Project scope -->
 				{#if $scopeToProject && $project}
-					<div class="mr-1 flex items-center">
-						<span class="text-lg font-semibold text-zinc-300">{$project.title}</span>
-						<span class="ml-1 text-lg">/</span>
-					</div>
+					<span class="py-2 font-semibold">
+						{$project.title}
+					</span>
+					<span>/</span>
 				{/if}
 				{#if $selectedGroup}
-					<div class="mr-1 flex items-center">
-						<span class="text-lg font-semibold text-zinc-300">{$selectedGroup.title}</span>
-					</div>
+					<span class="font-semibold">
+						{$selectedGroup.title}
+					</span>
 				{:else if $selectedComponent}
-					<div class="mr-1 flex items-center">
-						<span class="text-lg font-semibold text-zinc-300">{$selectedComponent.title}</span>
-					</div>
+					<span class="font-semibold">
+						{$selectedComponent.title}
+					</span>
 				{:else}
-					<div class="mr-1 flex-grow">
-						<!-- svelte-ignore a11y-autofocus -->
-						<input
-							class="command-palette-input w-full bg-transparent text-lg leading-10 text-zinc-300 focus:outline-none"
-							bind:value={$input}
-							type="text"
-							autofocus
-							placeholder={!$project
-								? 'Search for repositories'
-								: 'Search for commands, files and code changes...'}
-						/>
-					</div>
+					<!-- svelte-ignore a11y-autofocus -->
+					<input
+						class="flex-1 border-0 bg-transparent p-2 outline-none focus:outline-none active:outline-none"
+						bind:value={$input}
+						type="text"
+						autofocus
+						placeholder={!$project
+							? 'Search for repositories'
+							: 'Search for commands, files and code changes...'}
+					/>
 				{/if}
 			</div>
 		</header>
