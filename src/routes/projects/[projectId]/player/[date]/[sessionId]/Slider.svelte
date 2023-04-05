@@ -39,7 +39,7 @@
 		bind:this={timeline}
 	>
 		{#each sliderValues as { from, to, width }, i}
-			{@const isCurrent = value >= from && value < to}
+			{@const isCurrent = value >= from && value <= to}
 			{@const filledPrecentage = Math.max(0, Math.min(100, ((value - from) / (to - from)) * 100))}
 			<li class="relative flex cursor-pointer items-center" style:width="{width}%">
 				<div
