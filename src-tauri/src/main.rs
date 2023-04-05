@@ -3,6 +3,7 @@ mod events;
 mod fs;
 mod git;
 mod projects;
+mod pty;
 mod repositories;
 mod search;
 mod sessions;
@@ -16,6 +17,7 @@ extern crate log;
 use anyhow::{Context, Result};
 use deltas::Delta;
 use git::activity;
+use pty::ws_server::pty_serve;
 use serde::{ser::SerializeMap, Serialize};
 use std::{collections::HashMap, ops::Range, path::Path, sync::Mutex};
 use storage::Storage;
@@ -724,6 +726,12 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             log::error!("{}: failed to reindex project: {:#}", project.id, err);
         }
     }
+
+    tauri::async_runtime::spawn(async move {
+        println!("starting pty server");
+        pty_serve().await;
+    });
+
     watch_events(app_handle, rx);
 
     Ok(())

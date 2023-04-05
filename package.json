@@ -50,8 +50,15 @@
 		"nanoid": "^4.0.1",
 		"posthog-js": "^1.46.1",
 		"svelte-french-toast": "^1.0.3",
+		"svelte-resize-observer": "^2.0.0",
 		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
-		"tinykeys": "^1.4.0"
+		"tinykeys": "^1.4.0",
+		"xterm": "^5.1.0",
+		"xterm-addon-canvas": "^0.3.0",
+		"xterm-addon-fit": "^0.7.0",
+		"xterm-addon-ligatures": "^0.6.0",
+		"xterm-addon-unicode11": "^0.5.0",
+		"xterm-addon-webgl": "^0.14.0"
 	},
 	"devDependencies": {
 		"@storybook/addon-essentials": "next",

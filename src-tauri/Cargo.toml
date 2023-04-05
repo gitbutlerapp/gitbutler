@@ -37,7 +37,13 @@ thiserror = "1.0.38"
 tantivy = "0.19.2"
 similar = "2.2.1"
 fslock = "0.2.1"
-tokio = { version = "1.26.0", features = ["sync"] }
+tokio = { version = "1.26.0", features = ["full", "sync"] }
+tokio-tungstenite = "0.18.0"
+portable-pty = "0.8.0"
+mt_logger = "3.0.2"
+bytes = "1.1.0"
+futures = "0.3"
+futures-util = "0.3.8"
 timed = "0.2.1"
 
 [features]
