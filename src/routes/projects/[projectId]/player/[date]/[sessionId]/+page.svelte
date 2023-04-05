@@ -394,7 +394,7 @@
 
 		<div
 			id="controls"
-			class="absolute bottom-0 flex w-full flex-col gap-4 rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
+			class="absolute bottom-0 flex w-full flex-col gap-4 overflow-hidden rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 			style="
                 border-width: 0.5px; 
                 -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
