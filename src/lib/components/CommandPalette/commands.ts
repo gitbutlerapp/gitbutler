@@ -1,6 +1,6 @@
 import QuickCommit from './QuickCommit.svelte';
 import type { Project } from '$lib/projects';
-import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon  } from '../icons';
+import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon } from '../icons';
 import { matchFiles } from '$lib/git';
 import type { SvelteComponent, SvelteComponentTyped } from 'svelte';
 import { format, startOfISOWeek, startOfMonth, subDays, subMonths, subWeeks } from 'date-fns';

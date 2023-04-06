@@ -103,7 +103,7 @@
 					</div>
 				</form>
 				<div
-					class="right-1 top-1 inline-flex items-center rounded border border-zinc-700/20 bg-zinc-700/50 px-1 py-[2px] text-zinc-200 shadow sm:text-sm font-mono"
+					class="right-1 top-1 inline-flex items-center rounded border border-zinc-700/20 bg-zinc-700/50 px-1 py-[2px] font-mono text-zinc-200 shadow sm:text-sm"
 				>
 					&#8984;K
 				</div>
