@@ -6,7 +6,8 @@ use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::env;
 use std::io::{Read, Write};
 use tokio::net;
-use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
+use tokio_tungstenite;
+use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 
 const TERM: &str = "xterm-256color";
 
@@ -15,38 +16,19 @@ pub async fn accept_connection(
     stream: net::TcpStream,
 ) -> Result<()> {
     let mut project = None;
-    let copy_uri_callback =
-        |req: &Request, response: Response| -> Result<Response, ErrorResponse> {
-            let path = req.uri().path().to_string();
-            let project_id = match path.split("/").last() {
-                Some(project_id) => project_id,
-                None => {
-                    return Err(http::response::Response::builder()
-                        .status(http::StatusCode::NOT_FOUND)
-                        .body(None)
-                        .unwrap());
-                }
-            };
-
+    let copy_uri_callback = |req: &Request, response: Response| {
+        let path = req.uri().path().to_string();
+        if let Some(project_id) = path.split("/").last() {
             project = match projects_store.get_project(project_id) {
-                Ok(Some(p)) => Some(p),
-                Ok(None) => {
-                    return Err(http::response::Response::builder()
-                        .status(http::StatusCode::NOT_FOUND)
-                        .body(None)
-                        .unwrap());
-                }
+                Ok(p) => p,
                 Err(e) => {
                     log::error!("failed to get project: {}", e);
-                    return Err(http::response::Response::builder()
-                        .status(http::StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(None)
-                        .unwrap());
+                    None
                 }
             };
-
-            Ok(response)
-        };
+        }
+        Ok(response)
+    };
 
     let mut ws_stream = tokio_tungstenite::accept_hdr_async(stream, copy_uri_callback)
         .await
