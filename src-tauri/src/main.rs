@@ -17,7 +17,6 @@ extern crate log;
 use anyhow::{Context, Result};
 use deltas::Delta;
 use git::activity;
-use pty::ws_server::pty_serve;
 use serde::{ser::SerializeMap, Serialize};
 use std::{collections::HashMap, ops::Range, path::Path, sync::Mutex};
 use storage::Storage;
@@ -602,6 +601,7 @@ fn main() {
 
             Ok(())
         })
+        .plugin(tauri_plugin_websocket::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin({
             let targets = [
@@ -727,10 +727,7 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
         }
     }
 
-    tauri::async_runtime::spawn(async move {
-        println!("starting pty server");
-        pty_serve().await;
-    });
+    tauri::async_runtime::spawn(pty::start_server());
 
     watch_events(app_handle, rx);
 

@@ -17,6 +17,7 @@ tauri-build = { version = "1.2", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.2", features = ["dialog-open", "path-all", "protocol-asset", "shell-open", "system-tray", "window-start-dragging"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev" }
+tauri-plugin-websocket = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev" }
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev", features = ["colored"]  }
 log = "0.4.17"
 notify = "5.1.0"
@@ -40,7 +41,6 @@ fslock = "0.2.1"
 tokio = { version = "1.26.0", features = ["full", "sync"] }
 tokio-tungstenite = "0.18.0"
 portable-pty = "0.8.0"
-mt_logger = "3.0.2"
 bytes = "1.1.0"
 futures = "0.3"
 futures-util = "0.3.8"
