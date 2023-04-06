@@ -46,7 +46,7 @@ It does minimal styling. A close event is fired when the modal is closed.
 <svelte:window on:click={handleClick} />
 
 <dialog
-	class="@apply flex w-[640px] overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 p-0 shadow-lg backdrop-blur-lg"
+	class="flex w-[640px] overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 shadow-lg backdrop-blur-lg"
 	in:scale={{ duration: 150 }}
 	bind:this={dialog}
 	on:close={hide}
