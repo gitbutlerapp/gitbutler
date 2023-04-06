@@ -43,7 +43,7 @@ const resizeMessage = (size: {
 
 const pathMessage = (path: string) => encodeString(`\x02${path}`);
 
-export default (target: HTMLElement, params: { project: Project }) =>
+const newSession = (params: { project: Project }) =>
 	WebSocket.connect('ws://127.0.0.1:7703').then((conn) => {
 		const { project } = params;
 
@@ -72,9 +72,6 @@ export default (target: HTMLElement, params: { project: Project }) =>
 		}
 
 		term.unicode.activeVersion = '11';
-		term.open(target);
-		fitAddon.fit();
-		term.focus();
 
 		const inputListener = term.onData((data: string) => sendMessage(userInputMessage(data)));
 
@@ -111,6 +108,22 @@ export default (target: HTMLElement, params: { project: Project }) =>
 			},
 			run: (command: string) => {
 				sendMessage(userInputMessage(`${command}\n`));
+			},
+			bind: (target: HTMLElement) => {
+				term.open(target);
+				fitAddon.fit();
+				term.focus();
 			}
 		};
 	});
+
+const sessions = new Map<string, ReturnType<typeof newSession>>();
+
+export default (params: { project: Project }) => {
+	const { project } = params;
+	const session = sessions.get(project.id);
+	if (session) return session;
+	const s = newSession(params);
+	sessions.set(project.id, s);
+	return s;
+};
