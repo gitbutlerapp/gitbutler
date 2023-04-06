@@ -90,7 +90,6 @@
 	<fieldset class="flex flex-auto transform flex-col gap-2 overflow-auto transition-all">
 		{#if $statuses.length > 0}
 			<input
-				class="ring-gray-600 focus:ring-blue-100 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:py-1.5 sm:text-sm sm:leading-6"
 				type="text"
 				name="summary"
 				placeholder="Summary (required)"
@@ -99,11 +98,10 @@
 			/>
 
 			<textarea
-				rows="4"
 				name="description"
 				placeholder="Description (optional)"
+				rows="4"
 				bind:value={description}
-				class="ring-gray-600 focus:ring-blue-100 block w-full rounded-md border-0 p-4 text-zinc-200 ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:py-1.5 sm:text-sm sm:leading-6"
 			/>
 
 			{#if isCommitting}
@@ -111,7 +109,7 @@
 					class="flex gap-1 rounded bg-[#2563EB] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					<IconRotateClockwise class="h-5 w-5 animate-spin" />
-					<span>Comitting...</span>
+					<span>Committing...</span>
 				</div>
 			{:else}
 				<button
