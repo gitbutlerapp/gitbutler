@@ -18,15 +18,16 @@
 	const runCommand = (command: string) => term?.run(command);
 
 	const terminal = (target: HTMLElement, params: { project: Project }) => {
-		let setupPromise = setupTerminal(target, params);
+		let setupPromise = setupTerminal(params);
 		setupPromise.then((terminal) => (term = terminal));
+		setupPromise.then((terminal) => terminal.bind(target));
 		return {
 			update: (params: { project: Project }) => {
 				setupPromise.then((term) => term.destroy());
-				setupPromise = setupTerminal(target, params);
+				setupPromise = setupTerminal(params);
 				setupPromise.then((terminal) => (term = terminal));
-			},
-			destroy: () => setupPromise.then((term) => term.destroy())
+				setupPromise.then((terminal) => terminal.bind(target));
+			}
 		};
 	};
 </script>
