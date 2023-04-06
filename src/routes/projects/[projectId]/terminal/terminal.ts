@@ -41,12 +41,9 @@ const resizeMessage = (size: {
 	pixel_height: number;
 }) => encodeString(`\x01${JSON.stringify(size)}`);
 
-const pathMessage = (path: string) => encodeString(`\x02${path}`);
-
-const newSession = (params: { project: Project }) =>
-	WebSocket.connect('ws://127.0.0.1:7703').then((conn) => {
-		const { project } = params;
-
+const newSession = async (params: { project: Project }) => {
+	const { project } = params;
+	return WebSocket.connect(`ws://127.0.0.1:7703/${project.id}`).then((conn) => {
 		const sendMessage = (message: Message) => {
 			conn.send(message).catch((e: any) => {
 				log.error(`failed to send message to terminal: ${e}`);
@@ -81,9 +78,6 @@ const newSession = (params: { project: Project }) =>
 			}
 		});
 
-		sendMessage(pathMessage(project.path));
-		sendMessage(userInputMessage(`cd ${project.path}; clear\n`));
-
 		conn.addListener((message) => {
 			message.type === 'Close' && term.dispose();
 		});
@@ -116,6 +110,7 @@ const newSession = (params: { project: Project }) =>
 			}
 		};
 	});
+};
 
 const sessions = new Map<string, ReturnType<typeof newSession>>();
 
