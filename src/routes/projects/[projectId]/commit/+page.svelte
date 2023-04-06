@@ -9,6 +9,7 @@
 	import { fly } from 'svelte/transition';
 	import { IconRotateClockwise } from '$lib/components/icons';
 	import { Dialog } from '$lib/components';
+	import { log, toasts } from '$lib';
 
 	export let data: PageData;
 	const { statuses, diffs, user, api, projectId, project } = data;
@@ -126,6 +127,26 @@
 		}
 	};
 
+	const enableProjectSync = async () => {
+		if ($project === undefined) return;
+		if ($user === undefined) return;
+
+		try {
+			if (!$project.api) {
+				const apiProject = await api.projects.create($user.access_token, {
+					name: $project.title,
+					uid: $project.id
+				});
+				await project.update({ api: { ...apiProject, sync: true } });
+			} else {
+				await project.update({ api: { ...$project.api, sync: true } });
+			}
+		} catch (error) {
+			log.error(`Failed to update project sync status: ${error}`);
+			toasts.error('Failed to update project sync status');
+		}
+	};
+
 	$: isCommitEnabled = summary.length > 0 && $statuses.filter(({ staged }) => staged).length > 0;
 	$: isLoggedIn = $user !== undefined;
 	$: isCloudEnabled = $project?.api?.sync;
@@ -162,7 +183,7 @@
 			filled
 			role="primary"
 			on:click={() => {
-				// TODO
+				enableProjectSync();
 				hide();
 			}}>Connect</Button
 		>
