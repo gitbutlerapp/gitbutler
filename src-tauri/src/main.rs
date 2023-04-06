@@ -727,7 +727,7 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
         }
     }
 
-    tauri::async_runtime::spawn(pty::start_server());
+    tauri::async_runtime::spawn(pty::start_server(app_state.projects_storage.clone()));
 
     watch_events(app_handle, rx);
 

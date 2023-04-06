@@ -1,15 +1,14 @@
-use anyhow::Result;
+use crate::projects;
+use anyhow::{Context, Result};
 use bytes::BytesMut;
 use futures::{SinkExt, StreamExt};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::Deserialize;
-use serde_json::{json, Value};
 use std::env;
 use std::io::{Read, Write};
-use std::path::PathBuf;
 use tokio::net;
-use tokio_tungstenite::accept_async;
-use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite;
+use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 
 const TERM: &str = "xterm-256color";
 
@@ -27,8 +26,38 @@ struct WindowSize {
     pub pixel_height: u16,
 }
 
-pub async fn accept_connection(stream: net::TcpStream) -> Result<()> {
-    let ws_stream = accept_async(stream).await?;
+pub async fn accept_connection(
+    projects_store: projects::Storage,
+    stream: net::TcpStream,
+) -> Result<()> {
+    let mut project = None;
+    let copy_uri_callback = |req: &Request, response: Response| {
+        let path = req.uri().path().to_string();
+        if let Some(project_id) = path.split("/").last() {
+            project = match projects_store.get_project(project_id) {
+                Ok(p) => p,
+                Err(e) => {
+                    log::error!("failed to get project: {}", e);
+                    None
+                }
+            };
+        }
+        Ok(response)
+    };
+
+    let mut ws_stream = tokio_tungstenite::accept_hdr_async(stream, copy_uri_callback)
+        .await
+        .with_context(|| format!("failed to accept connection"))?;
+
+    if project.is_none() {
+        ws_stream
+            .close(None)
+            .await
+            .with_context(|| format!("failed to close connection"))?;
+        return Ok(());
+    }
+    let project = project.unwrap();
+
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
     let pty_system = native_pty_system();
@@ -44,7 +73,7 @@ pub async fn accept_connection(stream: net::TcpStream) -> Result<()> {
         pixel_height: 0,
     })?;
 
-    let cmd = if cfg!(target_os = "windows") {
+    let mut cmd = if cfg!(target_os = "windows") {
         // CommandBuilder::new(r"powershell")
         // CommandBuilder::new(r"C:\Program Files\Git\bin\bash.exe")
         // CommandBuilder::new(r"ubuntu.exe") // if WSL is active
@@ -60,35 +89,20 @@ pub async fn accept_connection(stream: net::TcpStream) -> Result<()> {
         cmd
     } else {
         let user_default_shell = env::var("SHELL")?;
-
-        log::info!("user_default_shell={}", user_default_shell);
-
-        let user_scripts = &Value::Null;
-
-        let scripts = json!({
-          "cwd": "$(pwd)",
-          "user_scripts": user_scripts
-        });
-        let scripts = scripts.to_string();
-        let scripts_str = serde_json::to_string(&scripts)?;
-
-        log::info!("scripts={}", scripts_str);
-
-        let prompt_command_scripts = format!(r#"echo -en "\033]0; [manter] "{}" \a""#, scripts_str);
-
         let mut cmd = CommandBuilder::new(user_default_shell);
-        cmd.env("PROMPT_COMMAND", prompt_command_scripts);
         cmd.env("TERM", TERM);
         cmd.args(["-i"]);
         cmd
     };
+
+    // set to project path
+    cmd.cwd(project.path);
 
     let mut pty_child_process = pty_pair.slave.spawn_command(cmd).unwrap();
 
     let mut pty_reader = pty_pair.master.try_clone_reader().unwrap();
     let mut pty_writer = pty_pair.master.take_writer().unwrap();
 
-    // set to cwd
     tauri::async_runtime::spawn(async move {
         let mut buffer = BytesMut::with_capacity(1024);
         buffer.resize(1024, 0u8);
@@ -103,14 +117,10 @@ pub async fn accept_connection(stream: net::TcpStream) -> Result<()> {
                     break;
                 }
                 Ok(n) => {
-                    if n == 0 {
-                        // this may be redundant because of Ok(0), but not sure
-                        break;
-                    }
                     let mut data_to_send = Vec::with_capacity(n + 1);
                     data_to_send.extend_from_slice(&buffer[..n + 1]);
                     record_data(&data_to_send);
-                    let message = Message::Binary(data_to_send);
+                    let message = tokio_tungstenite::tungstenite::Message::Binary(data_to_send);
                     ws_sender.send(message).await.unwrap();
                 }
                 Err(e) => {
@@ -125,9 +135,8 @@ pub async fn accept_connection(stream: net::TcpStream) -> Result<()> {
     });
 
     while let Some(message) = ws_receiver.next().await {
-        let message = message.unwrap();
         match message {
-            Message::Binary(msg) => {
+            Ok(tokio_tungstenite::tungstenite::Message::Binary(msg)) => {
                 let msg_bytes = msg.as_slice();
                 match msg_bytes[0] {
                     0 => {
@@ -147,18 +156,10 @@ pub async fn accept_connection(stream: net::TcpStream) -> Result<()> {
                         };
                         pty_pair.master.resize(pty_size).unwrap();
                     }
-                    2 => {
-                        // takes the directory we should be recording data to
-                        if msg_bytes.len().gt(&0) {
-                            // convert bytes to string
-                            let command = String::from_utf8_lossy(&msg_bytes[1..]);
-                            let project_path = PathBuf::from(command.as_ref());
-                        }
-                    }
                     _ => log::error!("Unknown command {}", msg_bytes[0]),
                 }
             }
-            Message::Close(_) => {
+            Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => {
                 log::info!("Closing the websocket connection...");
 
                 log::info!("Killing PTY child process...");
@@ -167,7 +168,11 @@ pub async fn accept_connection(stream: net::TcpStream) -> Result<()> {
                 log::info!("Breakes the loop. This will terminate the ws socket thread and the ws will close");
                 break;
             }
-            _ => log::error!("Unknown received data type"),
+            Ok(_) => log::error!("Unknown received data type"),
+            Err(e) => {
+                log::error!("Error receiving data: {}", e);
+                break;
+            }
         }
     }
 
