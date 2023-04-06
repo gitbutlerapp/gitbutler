@@ -149,6 +149,7 @@
 				{:else}
 					<!-- svelte-ignore a11y-autofocus -->
 					<input
+						spellcheck="false"
 						class="flex-1 border-0 bg-transparent p-2 outline-none focus:outline-none active:outline-none"
 						bind:value={$input}
 						type="text"
