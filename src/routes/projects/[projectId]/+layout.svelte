@@ -5,9 +5,13 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconTerminal } from '$lib/components/icons';
+	import { onMount } from 'svelte';
+	import tinykeys from 'tinykeys';
+	import { derived } from 'svelte/store';
 
 	export let data: LayoutData;
 	const { project } = data;
+	$: statuses = derived(data.statuses, (statuses) => statuses);
 
 	let query: string;
 
@@ -22,6 +26,23 @@
 
 		return `${host}/projects/${projectId}`;
 	}
+
+	onMount(() =>
+		tinykeys(window, {
+			'Shift+c': (event: KeyboardEvent) => {
+				const target = event.target as HTMLElement;
+				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+				if ($statuses.length === 0) return;
+				$project && goto(`/projects/${$project.id}/commit/`);
+			},
+			'Shift+t': (event: KeyboardEvent) => {
+				const target = event.target as HTMLElement;
+				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+				$project && goto(`/projects/${$project.id}/terminal/`);
+			},
+			'a i p': () => $project && goto(`/projects/${$project.id}/aiplayground/`)
+		})
+	);
 
 	$: selection = $page?.route?.id?.split('/')?.[3];
 </script>

@@ -10,7 +10,6 @@
 	import CommandPalette from '$lib/components/CommandPalette/CommandPalette.svelte';
 	import { derived } from 'svelte/store';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 	const { user, posthog, projects } = data;
@@ -23,10 +22,7 @@
 
 	onMount(() =>
 		tinykeys(window, {
-			'Meta+k': () => commandPalette.show(),
-			'Shift+c': () => $project && goto(`/projects/${$project.id}/commit/`),
-			'Shift+t': () => $project && goto(`/projects/${$project.id}/terminal/`),
-			'a i p': () => $project && goto(`/projects/${$project.id}/aiplayground/`)
+			'Meta+k': () => commandPalette.show()
 		})
 	);
 
