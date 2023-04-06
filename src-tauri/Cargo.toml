@@ -45,6 +45,7 @@ bytes = "1.1.0"
 futures = "0.3"
 futures-util = "0.3.8"
 timed = "0.2.1"
+http = "0.2.9"
 
 [features]
 # by default Tauri runs in production mode
