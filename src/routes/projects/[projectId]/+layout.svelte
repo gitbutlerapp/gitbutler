@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
 	import { derived } from 'svelte/store';
+	import { format } from 'date-fns';
 
 	export let data: LayoutData;
 	const { project } = data;
@@ -39,6 +40,21 @@
 				const target = event.target as HTMLElement;
 				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
 				$project && goto(`/projects/${$project.id}/terminal/`);
+			},
+			'Shift+p': (event: KeyboardEvent) => {
+				const target = event.target as HTMLElement;
+				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+				$project && goto(`/projects/${$project.id}/`);
+			},
+			'Meta+Shift+p': (event: KeyboardEvent) => {
+				const target = event.target as HTMLElement;
+				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+				$project && goto(`/projects/${$project.id}/settings/`);
+			},
+			'Shift+r': (event: KeyboardEvent) => {
+				const target = event.target as HTMLElement;
+				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+				$project && goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`);
 			},
 			'a i p': () => $project && goto(`/projects/${$project.id}/aiplayground/`)
 		})
