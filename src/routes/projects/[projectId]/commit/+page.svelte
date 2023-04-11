@@ -213,10 +213,12 @@
 
 				{#each $statuses as { path, staged }, i}
 					<li class="bg-card-default ">
+						<!-- svelte-ignore a11y-click-events-have-key-events -->
 						<div
+							on:click|preventDefault={() => ($selectedDiffPath = path)}
 							class:bg-gb-700={$selectedDiffPath === path}
 							class:hover:bg-divider={$selectedDiffPath !== path}
-							class="file-changed-item mx-1 mt-1 flex cursor-text select-text  items-center gap-2 rounded bg-card-default px-1 py-2"
+							class="file-changed-item mx-1 mt-1 flex items-center gap-2 rounded bg-card-default px-1 py-2"
 						>
 							<input
 								class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
@@ -236,13 +238,10 @@
 								value={path}
 							/>
 							<label class="flex h-5 w-full overflow-auto" for="path">
-								<button
-									disabled={isCommitting || isGeneratingCommitMessage}
-									on:click|preventDefault={() => ($selectedDiffPath = path)}
-									type="button"
-									class="h-full w-full cursor-text select-auto text-left font-mono disabled:opacity-50"
-									use:collapsable={{ value: path, separator: '/' }}
-								/>
+								<span
+									class:opacity-50={isCommitting || isGeneratingCommitMessage}
+									class="cursor-text select-text text-left font-mono">{path}</span
+								>
 							</label>
 						</div>
 					</li>
