@@ -269,9 +269,11 @@
 					<div
 						in:fly={{ y: 8, duration: 500 }}
 						out:fly={{ y: -8, duration: 500 }}
-						class="generating-commit absolute top-0 right-0 bottom-1 left-0 rounded border-[#782E94] border-2"
+						class="generating-commit absolute top-0 right-0 bottom-1 left-0 rounded border-2 border-[#782E94]"
 					>
-						<div class="generating-commit-message bg-[#782E94]  absolute bottom-0 left-0 py-1 px-2 rounded-tr">
+						<div
+							class="generating-commit-message absolute  bottom-0 left-0 rounded-tr bg-[#782E94] py-1 px-2"
+						>
 							<span>✨ Summarizing changes</span>
 							<span class="dot-container">
 								<div class="dot" />
