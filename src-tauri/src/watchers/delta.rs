@@ -7,6 +7,8 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
+const MAX_FILE_SIZE: u64 = 100_000;
+
 pub async fn on_file_change(
     sender: &tokio::sync::mpsc::Sender<events::Event>,
     fslock: Arc<tokio::sync::Mutex<fslock::LockFile>>,
@@ -75,6 +77,7 @@ pub async fn on_file_change(
 // this is what is called when the FS watcher detects a change
 // it should figure out delta data (crdt) and update the file at .git/gb/session/deltas/path/to/file
 // returns current project session and calculated deltas, if any.
+// TODO: Support large files
 pub(crate) fn register_file_change(
     project: &projects::Project,
     repo: &git2::Repository,
@@ -82,6 +85,16 @@ pub(crate) fn register_file_change(
     relative_file_path: &Path,
 ) -> Result<Option<(sessions::Session, Vec<Delta>)>> {
     let file_path = repo.workdir().unwrap().join(relative_file_path);
+    
+    if file_path.metadata()?.len() > MAX_FILE_SIZE {
+        log::info!(
+            "{}: \"{}\" is larger than 100K, ignoring",
+            project.id,
+            relative_file_path.display()
+        );
+        return Ok(None);
+    }
+
     let current_file_contents = match fs::read_to_string(&file_path) {
         Ok(contents) => contents,
         Err(e) => {
@@ -167,6 +180,7 @@ pub(crate) fn register_file_change(
 // returns None if file is not found in either of trees
 // returns None if file is not UTF-8
 // TODO: handle binary files
+// TODO: handle large files
 fn get_latest_file_contents(
     repo: &git2::Repository,
     project: &projects::Project,
@@ -203,6 +217,15 @@ fn get_latest_file_contents(
                 project.id,
                 relative_file_path.display()
             ));
+
+            if blob.size() > MAX_FILE_SIZE.try_into().unwrap() {
+                log::info!(
+                    "{}: \"{}\" is larger than 100K, ignoring",
+                    project.id,
+                    relative_file_path.display()
+                );
+                return Ok(None);
+            }
 
             let text_content = match String::from_utf8(blob.content().to_vec()) {
                 Ok(contents) => Some(contents),
