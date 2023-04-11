@@ -10,19 +10,30 @@
 
 	// pull head out of branches
 	$: head_branch = $branches
-		.filter((branch) => branch.name.replace('refs/heads/', '') === $head)
+		.filter((branch) => branch.branch.replace('refs/heads/', '') === $head)
 		.pop();
 
 	// get local branches
 	$: heads = $branches
 		.filter(
-			(branch) => branch.name !== $head && branch.branch.includes('refs/heads/') && branch.ahead > 0
+			(branch) =>
+				branch.branch.includes('refs/heads/') &&
+				branch.branch.replace('refs/heads/', '') !== $head &&
+				branch.ahead > 0
 		)
 		.sort((a, b) => (a.lastCommitTs > b.lastCommitTs ? -1 : 1));
 
+	// get list of tracking branches
+	$: tracking = $branches.filter((branch) => branch.upstream !== '');
+
 	// pull remotes out of branches
 	$: remotes = $branches
-		.filter((branch) => branch.branch.includes('refs/remotes/') && branch.ahead > 0)
+		.filter(
+			(branch) =>
+				branch.branch.includes('refs/remotes/') &&
+				branch.ahead > 0 &&
+				!tracking.some((obj) => obj.upstream === branch.branch)
+		)
 		.sort((a, b) => (a.lastCommitTs > b.lastCommitTs ? -1 : 1));
 </script>
 
@@ -106,7 +117,7 @@
 	</div>
 
 	<!-- Activity feed -->
-	<div class="bg-gray-50 pr-4 sm:pr-6 lg:flex-shrink-0 lg:pr-8 xl:pr-0">
+	<div class="pr-4 sm:pr-6 lg:flex-shrink-0 lg:pr-8 xl:pr-0">
 		<div class="pl-6 lg:w-96">
 			<div class="pt-6 pb-2">
 				<h2 class="text-sm font-semibold">Team Branches</h2>
@@ -118,7 +129,7 @@
 						<Branch {branch} remote={true} />
 					{/each}
 				</ul>
-				<div class="border-t border-gray-200 py-4 text-sm">
+				<div class="py-4 text-sm">
 					<a href="#" class="font-semibold text-blue-600 hover:text-indigo-900">
 						View all team branches
 						<span aria-hidden="true"> &rarr;</span>

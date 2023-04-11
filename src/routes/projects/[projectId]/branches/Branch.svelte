@@ -46,7 +46,13 @@
 	}
 </script>
 
-<li class="relative {head ? 'bg-green-900' : 'bg-zinc-700'} rounded-lg px-4 py-4">
+<li
+	class="relative {head
+		? 'bg-green-900'
+		: branch.behind > 200
+		? 'bg-zinc-600'
+		: 'bg-zinc-700'} rounded-lg px-4 py-4"
+>
 	<div class="flex items-center justify-between space-x-4">
 		<!-- Repo name and link -->
 		<div class="flex flex-col items-center">
