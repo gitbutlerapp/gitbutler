@@ -127,7 +127,9 @@
 </script>
 
 <Modal bind:this={modal}>
-	<div class="command-palette flex min-h-[40px] max-h-[400px] w-[640px] flex-col rounded text-zinc-400">
+	<div
+		class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded text-zinc-400"
+	>
 		<!-- Search input area -->
 		<header class="search-input-container flex items-center border-b border-zinc-400/20 py-2">
 			<div class="ml-4 mr-2 flex w-full items-center gap-1 text-lg text-zinc-300">

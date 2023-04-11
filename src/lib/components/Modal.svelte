@@ -52,7 +52,7 @@ It does minimal styling. A close event is fired when the modal is closed.
 	on:close={hide}
 >
 	{#if open}
-		<div class="flex" bind:this={content}>
+		<div class="flex h-[400px]" bind:this={content}>
 			<slot />
 		</div>
 	{/if}
