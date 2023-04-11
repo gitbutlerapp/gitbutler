@@ -8,8 +8,8 @@
 
 	$: saving = false;
 
-	let userName = $user?.name;
-	let userPicture = $user?.picture;
+	$: userName = $user?.name;
+	$: userPicture = $user?.picture;
 
 	const fileTypes = ['image/jpeg', 'image/png'];
 
