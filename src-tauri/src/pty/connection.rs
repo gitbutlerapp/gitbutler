@@ -3,27 +3,12 @@ use anyhow::{Context, Result};
 use bytes::BytesMut;
 use futures::{SinkExt, StreamExt};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
-use serde::Deserialize;
 use std::env;
 use std::io::{Read, Write};
 use tokio::net;
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 
 const TERM: &str = "xterm-256color";
-
-#[derive(Deserialize, Debug)]
-struct WindowSize {
-    /// The number of lines of text
-    pub rows: u16,
-    /// The number of columns of text
-    pub cols: u16,
-    /// The width of a cell in pixels.  Note that some systems never
-    /// fill this value and ignore it.
-    pub pixel_width: u16,
-    /// The height of a cell in pixels.  Note that some systems never
-    /// fill this value and ignore it.
-    pub pixel_height: u16,
-}
 
 pub async fn accept_connection(
     projects_store: projects::Storage,
@@ -79,17 +64,20 @@ pub async fn accept_connection(
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
     let pty_system = native_pty_system();
-    let pty_pair = pty_system.openpty(PtySize {
-        rows: 24,
-        cols: 80,
-        // Not all systems support pixel_width, pixel_height,
-        // but it is good practice to set it to something
-        // that matches the size of the selected font.  That
-        // is more complex than can be shown here in this
-        // brief example though!
-        pixel_width: 0,
-        pixel_height: 0,
-    })?;
+
+    let pty_pair = pty_system
+        .openpty(PtySize {
+            rows: 24,
+            cols: 80,
+            // Not all systems support pixel_width, pixel_height,
+            // but it is good practice to set it to something
+            // that matches the size of the selected font.  That
+            // is more complex than can be shown here in this
+            // brief example though!
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .with_context(|| format!("failed to open pty"))?;
 
     let mut cmd = if cfg!(target_os = "windows") {
         // CommandBuilder::new(r"powershell")
@@ -116,10 +104,10 @@ pub async fn accept_connection(
     // set to project path
     cmd.cwd(project.path);
 
-    let mut pty_child_process = pty_pair.slave.spawn_command(cmd).unwrap();
+    let mut pty_child_process = pty_pair.slave.spawn_command(cmd)?;
 
-    let mut pty_reader = pty_pair.master.try_clone_reader().unwrap();
-    let mut pty_writer = pty_pair.master.take_writer().unwrap();
+    let mut pty_reader = pty_pair.master.try_clone_reader()?;
+    let mut pty_writer = pty_pair.master.take_writer()?;
 
     tauri::async_runtime::spawn(async move {
         let mut buffer = BytesMut::with_capacity(1024);
@@ -142,8 +130,7 @@ pub async fn accept_connection(
                     ws_sender.send(message).await.unwrap();
                 }
                 Err(e) => {
-                    log::info!("Error reading from pty: {}", e);
-                    log::info!("PTY child process may be closed.");
+                    log::error!("Error reading from pty: {:#}", e);
                     break;
                 }
             }
@@ -164,14 +151,7 @@ pub async fn accept_connection(
                         }
                     }
                     1 => {
-                        let resize_msg: WindowSize =
-                            serde_json::from_slice(&msg_bytes[1..]).unwrap();
-                        let pty_size = PtySize {
-                            rows: resize_msg.rows,
-                            cols: resize_msg.cols,
-                            pixel_width: resize_msg.pixel_width,
-                            pixel_height: resize_msg.pixel_height,
-                        };
+                        let pty_size: PtySize = serde_json::from_slice(&msg_bytes[1..]).unwrap();
                         pty_pair.master.resize(pty_size).unwrap();
                     }
                     _ => log::error!("Unknown command {}", msg_bytes[0]),
@@ -181,9 +161,9 @@ pub async fn accept_connection(
                 log::info!("Closing the websocket connection...");
 
                 log::info!("Killing PTY child process...");
-                pty_child_process.kill().unwrap();
-
-                log::info!("Breakes the loop. This will terminate the ws socket thread and the ws will close");
+                pty_child_process
+                    .kill()
+                    .with_context(|| format!("failed to kill pty child process"))?;
                 break;
             }
             Ok(_) => log::error!("Unknown received data type"),
@@ -193,8 +173,6 @@ pub async fn accept_connection(
             }
         }
     }
-
-    log::info!("The Websocket was closed and the thread for WS listening will end soon.");
     Ok(())
 }
 
