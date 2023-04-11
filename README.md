@@ -29,6 +29,7 @@ to build the app in production mode, run:
 $ pnpm tauri build
 ```
 
+
 ## releasing
 
 Building is done via [GitHub Action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml).
@@ -51,3 +52,11 @@ with `macos-aarch64` label is online [here](https://github.com/gitbutlerapp/gitb
 
 If you are a lucky owner of an arm64 macos machine, feel free to [run it yourself](https://github.com/gitbutlerapp/gitbutler-client-tauri/settings/actions/runners/new).
 Make sure to label it with `macos-aarch64`.
+
+### installing new js libs
+
+If you want to install a new library, add it as a dev dependency:
+
+```bash
+$ pnpm install -D md5
+```
