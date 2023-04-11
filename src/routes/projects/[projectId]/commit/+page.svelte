@@ -214,9 +214,9 @@
 				{#each $statuses as { path, staged }, i}
 					<li class="bg-card-default ">
 						<div
-							class:bg-gb-700={$selectedDiffPath === path}
+							class:bg-[#3356C2]={$selectedDiffPath === path}
 							class:hover:bg-divider={$selectedDiffPath !== path}
-							class="file-changed-item mx-1 mt-1 flex cursor-text select-text  items-center gap-2 rounded bg-card-default px-1 py-2"
+							class="file-changed-item mx-1 mt-1 flex select-text  items-center gap-2 rounded bg-card-default px-1 py-1"
 						>
 							<input
 								class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
@@ -240,7 +240,7 @@
 									disabled={isCommitting || isGeneratingCommitMessage}
 									on:click|preventDefault={() => ($selectedDiffPath = path)}
 									type="button"
-									class="h-full w-full cursor-text select-auto text-left font-mono disabled:opacity-50"
+									class="h-full w-full select-auto text-left font-mono text-sm disabled:opacity-50"
 									use:collapsable={{ value: path, separator: '/' }}
 								/>
 							</label>

@@ -49,10 +49,12 @@
 		width: auto;
 	}
 	.bar {
+		@apply bg-blue-500;
 		display: inline-block;
 		width: 100%;
 		height: 100%;
-		background-color: #6959df;
+
+		/* background-color: #6959df;  Amazing purple color */
 		border-radius: 2px 2px 0 0;
 	}
 	.bar-0 {
