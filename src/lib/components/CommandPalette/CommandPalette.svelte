@@ -127,9 +127,11 @@
 </script>
 
 <Modal bind:this={modal}>
-	<div class="command-palette flex h-[400px] w-[640px] flex-col rounded text-zinc-400">
+	<div
+		class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded text-zinc-400"
+	>
 		<!-- Search input area -->
-		<header class="search-input flex items-center border-b border-zinc-400/20 py-2">
+		<header class="search-input-container flex items-center border-b border-zinc-400/20 py-2">
 			<div class="ml-4 mr-2 flex w-full items-center gap-1 text-lg text-zinc-300">
 				<!-- Project scope -->
 				{#if $scopeToProject && $project}
@@ -150,7 +152,7 @@
 					<!-- svelte-ignore a11y-autofocus -->
 					<input
 						spellcheck="false"
-						class="flex-1 border-0 bg-transparent p-2 outline-none focus:outline-none active:outline-none"
+						class="command-palette-input-field"
 						bind:value={$input}
 						type="text"
 						autofocus
@@ -180,16 +182,16 @@
 							<ul class="quick-command-list flex flex-col text-zinc-300">
 								{#each group.commands as command, commandIdx}
 									<li
-										class="quick-command-item flex w-full cursor-default"
+										class="quick-command-item flex w-full cursor-default rounded-lg"
 										class:selected={selection[0] === groupIdx && selection[1] === commandIdx}
 									>
 										<button
 											on:mouseover={() => (selection = [groupIdx, commandIdx])}
 											on:focus={() => (selection = [groupIdx, commandIdx])}
 											on:click={() => trigger(command.action)}
-											class="flex w-full items-center gap-2"
+											class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
 										>
-											<svelte:component this={command.icon} class="h-5 w-5 text-zinc-100" />
+											<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
 											<span class="quick-command flex-1 text-left">{command.title}</span>
 											{#if command.hotkey}
 												<span class="quick-command-key">{command.hotkey}</span>
@@ -209,5 +211,27 @@
 <style lang="postcss">
 	.selected {
 		@apply bg-zinc-50/10;
+	}
+	.selected .quick-command {
+		@apply text-zinc-100;
+	}
+	.selected svg .icon {
+		border: 1px solid orange !important;
+	}
+	.command-palette-input-field {
+		@apply flex-1 border-0 bg-transparent p-2 outline-none focus:outline-none active:outline-none;
+	}
+	.command-palette-input-field textarea,
+	input {
+		@apply focus:border-0 focus:outline-none focus:ring-0;
+	}
+	.command-palette-section-header {
+		@apply mx-2 mb-2 mt-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300;
+	}
+	/* .quick-command-item {
+		@apply gap-2 rounded-lg p-2 px-2 outline-none;
+	} */
+	.quick-command-key {
+		@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
 	}
 </style>

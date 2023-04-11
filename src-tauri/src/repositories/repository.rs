@@ -304,6 +304,7 @@ impl Repository {
         let mut opts = DiffOptions::new();
         opts.recurse_untracked_dirs(true)
             .include_untracked(true)
+            .show_untracked_content(true)
             .include_ignored(true);
 
         let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts))?;

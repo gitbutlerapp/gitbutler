@@ -1,6 +1,6 @@
 import QuickCommit from './QuickCommit.svelte';
 import type { Project } from '$lib/projects';
-import { GitCommitIcon, IconTerminal, RewindIcon } from '../icons';
+import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon } from '../icons';
 import { matchFiles } from '$lib/git';
 import type { SvelteComponent, SvelteComponentTyped } from 'svelte';
 import { format, startOfISOWeek, startOfMonth, subDays, subMonths, subWeeks } from 'date-fns';
@@ -53,7 +53,8 @@ const goToProjectGroup = ({ projects, input }: { projects: Project[]; input: str
 			hotkey: `${index + 1}`,
 			action: {
 				href: `/projects/${project.id}/`
-			}
+			},
+			icon: IconProject
 		}))
 		.filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
@@ -172,7 +173,8 @@ const fileGroup = ({
 					title: file,
 					action: {
 						href: '/'
-					}
+					},
+					icon: IconFile
 				}))
 		  }));
 

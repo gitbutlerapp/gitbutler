@@ -214,9 +214,9 @@
 				{#each $statuses as { path, staged }, i}
 					<li class="bg-card-default ">
 						<div
-							class:bg-gb-700={$selectedDiffPath === path}
+							class:bg-[#3356C2]={$selectedDiffPath === path}
 							class:hover:bg-divider={$selectedDiffPath !== path}
-							class="file-changed-item mx-1 mt-1 flex cursor-text select-text  items-center gap-2 rounded bg-card-default px-1 py-2"
+							class="file-changed-item mx-1 mt-1 flex select-text  items-center gap-2 rounded bg-card-default px-1 py-1"
 						>
 							<input
 								class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
@@ -240,7 +240,7 @@
 									disabled={isCommitting || isGeneratingCommitMessage}
 									on:click|preventDefault={() => ($selectedDiffPath = path)}
 									type="button"
-									class="h-full w-full cursor-text select-auto text-left font-mono disabled:opacity-50"
+									class="h-full w-full select-auto text-left font-mono text-sm disabled:opacity-50"
 									use:collapsable={{ value: path, separator: '/' }}
 								/>
 							</label>
@@ -269,14 +269,18 @@
 					<div
 						in:fly={{ y: 8, duration: 500 }}
 						out:fly={{ y: -8, duration: 500 }}
-						class="generating-commit absolute top-2 left-2 rounded border-[0.5px] border-[#52305F] bg-[#583366] px-3 py-1 shadow"
+						class="generating-commit absolute top-0 right-0 bottom-1 left-0 rounded border-2 border-[#782E94]"
 					>
-						<span>✨ Summarizing changes</span>
-						<span class="dot-container">
-							<div class="dot" />
-							<div class="dot" />
-							<div class="dot" />
-						</span>
+						<div
+							class="generating-commit-message absolute  bottom-0 left-0 rounded-tr bg-[#782E94] py-1 px-2"
+						>
+							<span>✨ Summarizing changes</span>
+							<span class="dot-container">
+								<div class="dot" />
+								<div class="dot" />
+								<div class="dot" />
+							</span>
+						</div>
 					</div>
 				{/if}
 				<textarea

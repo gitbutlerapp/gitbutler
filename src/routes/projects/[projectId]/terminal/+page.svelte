@@ -47,7 +47,9 @@
 				No changes
 			</div>
 		{:else}
-			<ul class="mx-2 rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-yellow-900">
+			<ul
+				class="mx-2 rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-sm text-yellow-900"
+			>
 				{#each $statuses as activity}
 					<li class="flex w-full gap-2">
 						<span
