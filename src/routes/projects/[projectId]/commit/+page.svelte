@@ -240,8 +240,9 @@
 							<label class="flex h-5 w-full overflow-auto" for="path">
 								<span
 									class:opacity-50={isCommitting || isGeneratingCommitMessage}
-									class="cursor-text select-text text-left font-mono">{path}</span
-								>
+									class="cursor-text select-text text-left font-mono"
+									use:collapsable={{ value: path, separator: '/' }}
+								/>
 							</label>
 						</div>
 					</li>
