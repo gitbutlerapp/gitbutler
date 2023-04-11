@@ -727,7 +727,12 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
         }
     }
 
-    tauri::async_runtime::spawn(pty::start_server(app_state.projects_storage.clone()));
+    let project_storage = app_state.projects_storage.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = pty::start_server(project_storage).await {
+            log::error!("failed to start pty server: {:#}", e);
+        }
+    });
 
     watch_events(app_handle, rx);
 
