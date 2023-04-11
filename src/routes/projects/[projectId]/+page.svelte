@@ -167,9 +167,13 @@
 						class="flex items-center gap-1 rounded border border-zinc-600 bg-zinc-700 py-2 px-4 text-zinc-300"
 					>
 						<IconGitBranch class="h-4 w-7 fill-zinc-400 stroke-none" />
-						<span title={$head} class="truncate font-mono text-zinc-300">
+						<a
+							href="{$project.id}/branches"
+							title={$head}
+							class="cursor-pointer truncate font-mono text-zinc-300"
+						>
 							{$head}
-						</span>
+						</a>
 					</div>
 				</Tooltip>
 				<Button

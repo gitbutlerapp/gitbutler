@@ -447,7 +447,10 @@ fn repo_for_project(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_branches(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Vec<repositories::Branch>, Error> {
     let repo = repo_for_project(handle, project_id)?;
     let files = repo
         .branches()

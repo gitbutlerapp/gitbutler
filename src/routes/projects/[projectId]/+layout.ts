@@ -1,6 +1,7 @@
 import { building } from '$app/environment';
 import type { Session } from '$lib/sessions';
 import type { Status } from '$lib/git/statuses';
+import type { Branch } from '$lib/git/branches';
 import { readable } from 'svelte/store';
 import type { LayoutLoad } from './$types';
 
@@ -16,10 +17,15 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 	const head = building
 		? readable<string>('')
 		: await import('$lib/git/head').then((m) => m.default({ projectId: params.projectId }));
+	const branches = building
+		? readable<Branch[]>([])
+		: await import('$lib/git/branches').then((m) => m.default({ projectId: params.projectId }));
+
 	return {
 		head,
 		statuses,
 		sessions,
+		branches,
 		project: projects.get(params.projectId),
 		projectId: params.projectId
 	};

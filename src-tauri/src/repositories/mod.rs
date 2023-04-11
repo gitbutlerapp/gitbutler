@@ -1,7 +1,7 @@
 mod repository;
 mod storage;
 
-pub use repository::{Repository, FileStatus};
+pub use repository::{Branch, FileStatus, Repository};
 pub use storage::Store;
 
 #[cfg(test)]
