@@ -49,15 +49,6 @@
             ],
             "targets": ["dmg", "updater"]
         },
-        "security": {
-            "csp": {
-                "default-src": "'self'",
-                "img-src": "'self' asset: https://asset.localhost",
-                "connect-src": "'self' https://eu.posthog.com https://app.gitbutler.com ws://127.0.0.1:7703",
-                "script-src": "'self' https://eu.posthog.com",
-                "style-src": "'self' 'unsafe-inline'"
-            }
-        },
         "systemTray": {
             "iconPath": "icons/tray.png",
             "iconAsTemplate": true
