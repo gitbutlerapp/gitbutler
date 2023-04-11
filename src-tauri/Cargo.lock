@@ -2856,6 +2856,8 @@ dependencies = [
  "libc",
  "log",
  "nix 0.25.1",
+ "serde",
+ "serde_derive",
  "serial",
  "shared_library",
  "shell-words",
