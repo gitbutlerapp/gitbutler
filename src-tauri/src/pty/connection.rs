@@ -109,34 +109,38 @@ pub async fn accept_connection(
     let mut pty_reader = pty_pair.master.try_clone_reader()?;
     let mut pty_writer = pty_pair.master.take_writer()?;
 
-    tauri::async_runtime::spawn(async move {
-        let mut buffer = BytesMut::with_capacity(1024);
-        buffer.resize(1024, 0u8);
-        loop {
-            buffer[0] = 0u8;
-            let mut tail = &mut buffer[1..];
+    // it's important to spawn a new thread for the pty reader
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let mut buffer = BytesMut::with_capacity(1024);
+            buffer.resize(1024, 0u8);
+            loop {
+                buffer[0] = 0u8;
+                let mut tail = &mut buffer[1..];
 
-            match pty_reader.read(&mut tail) {
-                Ok(0) => {
-                    // EOF
-                    log::info!("0 bytes read from pty. EOF.");
-                    break;
-                }
-                Ok(n) => {
-                    let mut data_to_send = Vec::with_capacity(n + 1);
-                    data_to_send.extend_from_slice(&buffer[..n + 1]);
-                    record_data(&data_to_send);
-                    let message = tokio_tungstenite::tungstenite::Message::Binary(data_to_send);
-                    ws_sender.send(message).await.unwrap();
-                }
-                Err(e) => {
-                    log::error!("Error reading from pty: {:#}", e);
-                    break;
+                match pty_reader.read(&mut tail) {
+                    Ok(0) => {
+                        // EOF
+                        log::info!("0 bytes read from pty. EOF.");
+                        break;
+                    }
+                    Ok(n) => {
+                        let mut data_to_send = Vec::with_capacity(n + 1);
+                        data_to_send.extend_from_slice(&buffer[..n + 1]);
+                        record_data(&data_to_send);
+                        let message = tokio_tungstenite::tungstenite::Message::Binary(data_to_send);
+                        ws_sender.send(message).await.unwrap();
+                    }
+                    Err(e) => {
+                        log::error!("Error reading from pty: {:#}", e);
+                        break;
+                    }
                 }
             }
-        }
 
-        log::info!("PTY child process killed.");
+            log::info!("PTY child process killed.");
+        });
     });
 
     while let Some(message) = ws_receiver.next().await {
