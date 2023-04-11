@@ -3,6 +3,10 @@
 
 	import { derived } from 'svelte/store';
 	import type { PageData } from './$types';
+	import { invoke } from '@tauri-apps/api';
+
+	const gitSwitchBranch = (params: { projectId: string; branch: string }) =>
+		invoke<Array<string>>('git_switch_branch', params);
 
 	export let data: PageData;
 	$: branches = derived(data.branches, (branches) => branches);
@@ -35,6 +39,11 @@
 				!tracking.some((obj) => obj.upstream === branch.branch)
 		)
 		.sort((a, b) => (a.lastCommitTs > b.lastCommitTs ? -1 : 1));
+
+	function switchBranch(branch: string) {
+		console.log('switching to branch', branch);
+		gitSwitchBranch({ projectId: data.projectId, branch });
+	}
 </script>
 
 <div class="mx-auto w-full max-w-7xl flex-grow lg:flex xl:px-8">
@@ -109,7 +118,7 @@
 						<Branch branch={head_branch} head={true} />
 					{/if}
 					{#each heads as branch}
-						<Branch {branch} />
+						<Branch {branch} clickSwitch={switchBranch} />
 					{/each}
 				</ul>
 			{/if}

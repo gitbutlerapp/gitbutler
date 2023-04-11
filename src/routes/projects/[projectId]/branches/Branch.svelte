@@ -4,10 +4,16 @@
 	export let branch: Branch;
 	export let remote = false;
 	export let head = false;
+	export let clickSwitch;
 
-	function normalizeName(name: string) {
-		return name.replace('refs/heads/', '').replace('refs/remotes/', '').replace('origin/', '');
+	function normalizeName(name: string, removeOrigin = true) {
+		let normName = name.replace('refs/heads/', '').replace('refs/remotes/', '');
+		if (removeOrigin) {
+			return normName.replace('origin/', '');
+		}
+		return normName;
 	}
+
 	function relativeDate(ts: number) {
 		const formatter = new Intl.RelativeTimeFormat('en-US', {
 			numeric: 'always',
@@ -48,7 +54,7 @@
 
 <li
 	class="relative {head
-		? 'bg-green-900'
+		? 'bg-green-900 border border-green-700'
 		: branch.behind > 200
 		? 'bg-zinc-600'
 		: 'bg-zinc-700'} rounded-lg px-4 py-4"
@@ -74,7 +80,7 @@
 		</div>
 		<div class="flex-1 min-w-0 space-y-1">
 			<div class="flex items-center space-x-3 text-black">
-				<h2 class="font-medium">
+				<h2 class="flex flex-row font-medium">
 					{#if remote}
 						<code class="text-xs text-gray-400 bg-gray-100 rounded-lg"
 							>{normalizeName(branch.branch)}</code
@@ -82,15 +88,15 @@
 					{:else}
 						<a href="#"> {normalizeName(branch.name)} </a>
 					{/if}
+					{#if branch.upstream}
+						<div class="text-zinc-400">&nbsp; -> {normalizeName(branch.upstream, false)}</div>
+					{/if}
 				</h2>
 			</div>
-			<a href="#" class="group relative flex items-center space-x-2.5">
-				<span class="truncate text-sm text-gray-600 group-hover:text-gray-900"
-					>{branch.description}
-					{branch.upstream}
-				</span>
-			</a>
-			<div class="flex space-x-2 text-xs text-gray-500">
+			<div class="flex flex-row truncate text-sm text-gray-600 group-hover:text-gray-900">
+				<div>{branch.description}</div>
+			</div>
+			<div class="flex space-x-2 text-xs text-gray-400">
 				{#if branch.firstCommitTs > 0}
 					{#if !remote}
 						<div>
@@ -116,5 +122,13 @@
 				</div>
 			</div>
 		</div>
+		{#if !head && !remote}
+			<div class="cursor-pointer" on:click={() => clickSwitch(normalizeName(branch.branch))}>
+				switch
+			</div>
+		{/if}
+		{#if remote}
+			<div>checkout</div>
+		{/if}
 	</div>
 </li>
