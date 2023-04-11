@@ -46,14 +46,18 @@ It does minimal styling. A close event is fired when the modal is closed.
 <svelte:window on:click={handleClick} />
 
 <dialog
-	class="flex  w-[640px] overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 shadow-lg backdrop-blur-lg"
+	class="my-0 overflow-hidden bg-transparent p-0"
 	in:scale={{ duration: 150 }}
 	bind:this={dialog}
 	on:close={hide}
 >
 	{#if open}
-		<div class="flex h-[400px]" bind:this={content}>
-			<slot />
+		<div class="modal-overlay overflow-hidden  h-[100vh] relative top-[25%]">
+			<div class="modal w-[640px] overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 shadow-lg backdrop-blur-lg">
+				<div class="flex" bind:this={content}>
+					<slot />
+				</div>
+			</div>
 		</div>
 	{/if}
 </dialog>
