@@ -196,7 +196,9 @@
 					Everything is committed
 				</div>
 			{:else}
-				<ul class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-yellow-900">
+				<ul
+					class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-sm text-yellow-900"
+				>
 					{#each $statuses as activity}
 						<li class="flex w-full gap-2">
 							<span
