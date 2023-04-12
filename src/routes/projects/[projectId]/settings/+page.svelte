@@ -44,6 +44,13 @@
 		}
 	};
 
+	let projectNameInput = $project?.title;
+	let projectDescriptionInput = $project?.api?.description;
+	$: canTriggerUpdate =
+		(projectNameInput !== $project?.title ||
+			projectDescriptionInput !== $project?.api?.description) &&
+		projectNameInput;
+
 	$: saving = false;
 	const onSubmit = async (e: SubmitEvent) => {
 		if (!$project) return;
@@ -72,6 +79,8 @@
 			toasts.error('Failed to update project');
 		}
 
+		projectNameInput = $project?.title;
+		projectDescriptionInput = $project?.api?.description;
 		saving = false;
 	};
 </script>
@@ -167,7 +176,8 @@
 							name="name"
 							type="text"
 							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
-							value={$project?.title}
+							placeholder="Project name can't be empty"
+							bind:value={projectNameInput}
 							required
 						/>
 					</div>
@@ -178,13 +188,15 @@
 							name="description"
 							rows="3"
 							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
-							value={$project?.api?.description}
+							bind:value={projectDescriptionInput}
 						/>
 					</div>
 				</fieldset>
 
 				<footer>
-					<Button loading={saving} role="primary" type="submit">Update profile</Button>
+					<Button disabled={!canTriggerUpdate} loading={saving} role="primary" type="submit"
+						>Update profile</Button
+					>
 				</footer>
 			</form>
 		</div>

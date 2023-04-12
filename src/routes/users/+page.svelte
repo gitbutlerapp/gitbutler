@@ -8,7 +8,15 @@
 
 	$: saving = false;
 
-	$: userName = $user?.name;
+	let userNameInput = $user?.name;
+	let pictureChanged = false;
+	user.subscribe((user) => {
+		if (user) {
+			userNameInput = user.name;
+		}
+	});
+	$: canTriggerUpdate = (userNameInput !== $user?.name || pictureChanged) && userNameInput;
+
 	$: userPicture = $user?.picture;
 
 	const fileTypes = ['image/jpeg', 'image/png'];
@@ -23,6 +31,7 @@
 
 		if (file && validFileType(file)) {
 			userPicture = URL.createObjectURL(file);
+			pictureChanged = true;
 		} else {
 			userPicture = $user?.picture;
 			toasts.error('Please use a valid image file');
@@ -35,12 +44,11 @@
 
 		const target = e.target as HTMLFormElement;
 		const formData = new FormData(target);
-		const name = formData.get('name') as string | undefined;
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
 			$user = await api.user.update($user.access_token, {
-				name,
+				name: userNameInput,
 				picture: picture
 			});
 			toasts.success('Profile updated');
@@ -49,6 +57,8 @@
 			toasts.error('Failed to update user');
 		}
 
+		userNameInput = $user?.name;
+		pictureChanged = false;
 		saving = false;
 	};
 </script>
@@ -101,9 +111,10 @@
 							<input
 								id="name"
 								name="name"
-								bind:value={userName}
+								bind:value={userNameInput}
 								type="text"
 								class="w-full rounded border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
+								placeholder="Name can't be empty"
 								required
 							/>
 						</div>
@@ -121,7 +132,9 @@
 						</div>
 
 						<footer class="flex justify-end pt-4">
-							<Button loading={saving} role="primary" type="submit">Update profile</Button>
+							<Button disabled={!canTriggerUpdate} loading={saving} role="primary" type="submit"
+								>Update profile</Button
+							>
 						</footer>
 					</fields>
 				</form>
