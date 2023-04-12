@@ -311,7 +311,7 @@
 
 						{#if isCurrent}
 							<ul
-								class="list-disk overflow-hidden rounded-bl rounded-br bg-zinc-800 p-2"
+								class="list-disk list-none overflow-hidden rounded-bl rounded-br bg-zinc-800 py-1 pl-0 pr-2"
 								style:list-style="disc"
 							>
 								{#each session.deltas
@@ -320,8 +320,8 @@
 									.sort(lexically) as filename}
 									<li
 										class:text-zinc-100={$frame?.filepath === filename}
-										class:font-bold={$frame?.filepath === filename}
-										class="mx-5 text-zinc-500"
+										class:bg-[#3356C2]={$frame?.filepath === filename}
+										class="mx-5 ml-1 w-full list-none rounded p-1 text-zinc-500"
 										use:collapsable={{ value: filename, separator: '/' }}
 									/>
 								{/each}
