@@ -1,4 +1,7 @@
-use crate::{fs, projects, sessions, users};
+use crate::{
+    app::reader::{self, Reader},
+    fs, projects, sessions, users,
+};
 use anyhow::{Context, Result};
 use filetime::FileTime;
 use sha2::{Digest, Sha256};
@@ -54,12 +57,9 @@ impl Store {
         walker.set_sorting(git2::Sort::TIME)?;
 
         for commit_id in walker {
-            let commit = git_repository.find_commit(commit_id?)?;
-            if sessions::id_from_commit(&git_repository, &commit)? == session_id {
-                return Ok(Some(sessions::Session::from_commit(
-                    &git_repository,
-                    &commit,
-                )?));
+            let reader = reader::get_commit_reader(&git_repository, commit_id?)?;
+            if reader.read_to_string("session/meta/id")? == session_id {
+                return Ok(Some(sessions::Session::try_from(reader)?));
             }
         }
 
@@ -206,14 +206,8 @@ impl Store {
         let mut sessions: Vec<sessions::Session> = vec![];
         for id in walker {
             let id = id?;
-            let commit = git_repository.find_commit(id).with_context(|| {
-                format!(
-                    "failed to find commit {} in repository {}",
-                    id.to_string(),
-                    git_repository.path().display()
-                )
-            })?;
-            let session = sessions::Session::from_commit(&git_repository, &commit)?;
+            let reader = reader::get_commit_reader(&git_repository, id)?;
+            let session = sessions::Session::try_from(reader)?;
             sessions.push(session);
         }
 

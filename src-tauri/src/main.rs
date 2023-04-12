@@ -1,3 +1,4 @@
+mod app;
 mod deltas;
 mod events;
 mod fs;
