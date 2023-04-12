@@ -64,7 +64,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 	commands: [
 		{
 			title: 'Quick commit',
-			hotkey: 'c',
+			hotkey: 'C',
 			action: {
 				title: 'Quick commit',
 				component: QuickCommit,
@@ -74,7 +74,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 		},
 		{
 			title: 'Commit',
-			hotkey: 'Shift+c',
+			hotkey: 'Shift C',
 			action: {
 				href: `/projects/${project.id}/commit/`
 			},
@@ -82,7 +82,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 		},
 		{
 			title: 'Terminal',
-			hotkey: 'Shift+t',
+			hotkey: 'Shift T',
 			action: {
 				href: `/projects/${project?.id}/terminal/`
 			},
@@ -90,7 +90,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 		},
 		{
 			title: 'Replay History',
-			hotkey: 'r',
+			hotkey: 'R',
 			action: {
 				title: 'Replay working history',
 				commands: [
