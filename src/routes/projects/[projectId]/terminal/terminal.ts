@@ -6,6 +6,7 @@ import { FitAddon } from 'xterm-addon-fit';
 import { Unicode11Addon } from 'xterm-addon-unicode11';
 import WebSocket, { type Message } from 'tauri-plugin-websocket-api';
 import { log } from '$lib';
+import { dev } from '$app/environment';
 
 const isWebgl2Supported = (() => {
 	let isSupported = window.WebGL2RenderingContext ? undefined : false;
@@ -43,7 +44,8 @@ const resizeMessage = (size: {
 
 const newSession = async (params: { project: Project }) => {
 	const { project } = params;
-	return WebSocket.connect(`ws://localhost:7703/${project.id}`).then((conn) => {
+	const port = dev ? 7702 : 7703;
+	return WebSocket.connect(`ws://localhost:${port}/${project.id}`).then((conn) => {
 		const sendMessage = (message: Message) => {
 			conn.send(message).catch((e: any) => {
 				log.error(`failed to send message to terminal: ${e}`);
