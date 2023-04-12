@@ -431,81 +431,12 @@ fn push_to_remote(
 fn build_wd_tree(repo: &git2::Repository, project: &projects::Project) -> Result<git2::Oid> {
     let wd_index = &mut git2::Index::new()
         .with_context(|| format!("failed to create index for working directory"))?;
-    match repo.find_reference(&project.refname()) {
-        Ok(reference) => {
-            // build the working directory tree from the current commit
-            // and the session files
-            let commit = reference.peel_to_commit()?;
-            let tree = commit.tree()?;
-            let wd_tree_entry = tree.get_name("wd").unwrap();
-            let wd_tree = repo.find_tree(wd_tree_entry.id())?;
-            wd_index.read_tree(&wd_tree)?;
-
-            let session_wd_files = fs::list_files(project.wd_path()).with_context(|| {
-                format!("failed to list files in {}", project.wd_path().display())
-            })?;
-            for file in session_wd_files {
-                let abs_path = project.wd_path().join(&file);
-                let metadata = abs_path
-                    .metadata()
-                    .with_context(|| "failed to get metadata for".to_string())?;
-                let mtime = FileTime::from_last_modification_time(&metadata);
-                let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
-
-                let file_content = match std::fs::read_to_string(&abs_path) {
-                    Ok(content) => content,
-                    Err(e) => {
-                        log::error!(
-                            "{}: failed to read file {}: {:#}",
-                            project.id,
-                            abs_path.display(),
-                            e
-                        );
-                        continue;
-                    }
-                };
-
-                wd_index
-                    .add(&git2::IndexEntry {
-                        ctime: git2::IndexTime::new(
-                            ctime.seconds().try_into()?,
-                            ctime.nanoseconds().try_into().unwrap(),
-                        ),
-                        mtime: git2::IndexTime::new(
-                            mtime.seconds().try_into()?,
-                            mtime.nanoseconds().try_into().unwrap(),
-                        ),
-                        dev: metadata.dev().try_into()?,
-                        ino: metadata.ino().try_into()?,
-                        mode: 33188,
-                        uid: metadata.uid().try_into().unwrap(),
-                        gid: metadata.gid().try_into().unwrap(),
-                        file_size: metadata.len().try_into().unwrap(),
-                        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
-                        flags_extended: 0, // no extended flags
-                        path: file.to_str().unwrap().to_string().into(),
-                        id: repo.blob(file_content.as_bytes())?,
-                    })
-                    .with_context(|| format!("failed to add index entry for {}", file.display()))?;
-            }
-
-            let wd_tree_oid = wd_index
-                .write_tree_to(&repo)
-                .with_context(|| format!("failed to write wd tree"))?;
-            Ok(wd_tree_oid)
-        }
-        Err(e) => {
-            if e.code() != git2::ErrorCode::NotFound {
-                return Err(e.into());
-            }
-            build_wd_index_from_repo(&repo, &project, wd_index)
-                .with_context(|| format!("failed to build wd index"))?;
-            let wd_tree_oid = wd_index
-                .write_tree_to(&repo)
-                .with_context(|| format!("failed to write wd tree"))?;
-            Ok(wd_tree_oid)
-        }
-    }
+    build_wd_index_from_repo(&repo, &project, wd_index)
+        .with_context(|| format!("failed to build wd index"))?;
+    let wd_tree_oid = wd_index
+        .write_tree_to(&repo)
+        .with_context(|| format!("failed to write wd tree"))?;
+    Ok(wd_tree_oid)
 }
 
 // build wd index from the working directory files new session wd files
