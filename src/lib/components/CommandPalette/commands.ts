@@ -1,4 +1,4 @@
-import QuickCommit from './QuickCommit.svelte';
+import type QuickCommit from './QuickCommit.svelte';
 import type { Project } from '$lib/projects';
 import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon } from '../icons';
 import { matchFiles } from '$lib/git';
@@ -63,18 +63,8 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 	title: 'Actions',
 	commands: [
 		{
-			title: 'Quick commit',
-			hotkey: 'C',
-			action: {
-				title: 'Quick commit',
-				component: QuickCommit,
-				props: { project }
-			},
-			icon: GitCommitIcon
-		},
-		{
 			title: 'Commit',
-			hotkey: 'Shift C',
+			hotkey: 'Shift+C',
 			action: {
 				href: `/projects/${project.id}/commit/`
 			},
@@ -82,7 +72,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 		},
 		{
 			title: 'Terminal',
-			hotkey: 'Shift T',
+			hotkey: 'Shift+T',
 			action: {
 				href: `/projects/${project?.id}/terminal/`
 			},
@@ -90,7 +80,6 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 		},
 		{
 			title: 'Replay History',
-			hotkey: 'R',
 			action: {
 				title: 'Replay working history',
 				commands: [
