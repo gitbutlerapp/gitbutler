@@ -1,8 +1,7 @@
-use std::path::Path;
-
-use crate::git::activity;
+use crate::{app::reader, git::activity};
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
+use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -24,88 +23,61 @@ pub struct Session {
     // if hash is not set, the session is not saved aka current
     pub hash: Option<String>,
     pub meta: Meta,
+    // TODO: make this a method instead
     pub activity: Vec<activity::Activity>,
 }
 
-impl Session {
-    pub fn from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<Self> {
-        let tree = commit.tree().with_context(|| {
-            format!("failed to get tree from commit {}", commit.id().to_string())
-        })?;
+impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
+    type Error = anyhow::Error;
 
-        let start_timestamp_ms = read_as_string(repo, &tree, Path::new("session/meta/start"))?
+    fn try_from(reader: Box<dyn reader::Reader + 'reader>) -> Result<Self, Self::Error> {
+        let id = reader
+            .read_to_string("session/meta/id")
+            .with_context(|| "failed to read session id")?;
+        let start_timestamp_ms = reader
+            .read_to_string("session/meta/start")
+            .with_context(|| "failed to read session start timestamp")?
             .parse::<u128>()
-            .with_context(|| {
-                format!(
-                    "failed to parse start timestamp from commit {}",
-                    commit.id().to_string()
-                )
-            })?;
+            .with_context(|| "failed to parse session start timestamp")?;
+        let last_timestamp_ms = reader
+            .read_to_string("session/meta/last")
+            .with_context(|| "failed to read session last timestamp")?
+            .parse::<u128>()
+            .with_context(|| "failed to parse session last timestamp")?;
+        let branch = reader.read_to_string("session/meta/branch");
+        let commit = reader.read_to_string("session/meta/commit");
 
-        let logs_path = Path::new("logs/HEAD");
-        let activity = match tree.get_path(logs_path).is_ok() {
-            true => read_as_string(repo, &tree, logs_path)
-                .with_context(|| {
-                    format!(
-                        "failed to read reflog from commit {}",
-                        commit.id().to_string()
-                    )
-                })?
-                .lines()
-                .filter_map(|line| activity::parse_reflog_line(line).ok())
-                .filter(|activity| activity.timestamp_ms >= start_timestamp_ms)
-                .collect::<Vec<activity::Activity>>(),
-            false => Vec::new(),
-        };
-
-        let branch_path = Path::new("session/meta/branch");
-        let session_branch = match tree.get_path(branch_path).is_ok() {
-            true => read_as_string(repo, &tree, branch_path)
-                .with_context(|| {
-                    format!(
-                        "failed to read branch name from commit {}",
-                        commit.id().to_string()
-                    )
-                })?
-                .into(),
-            false => None,
-        };
-
-        let commit_path = Path::new("session/meta/commit");
-        let session_commit = match tree.get_path(commit_path).is_ok() {
-            true => read_as_string(repo, &tree, commit_path)
-                .with_context(|| {
-                    format!(
-                        "failed to read branch name from commit {}",
-                        commit.id().to_string()
-                    )
-                })?
-                .into(),
-            false => None,
-        };
-
-        Ok(Session {
-            id: read_as_string(repo, &tree, Path::new("session/meta/id")).with_context(|| {
-                format!(
-                    "failed to read session id from commit {}",
-                    commit.id().to_string()
-                )
-            })?,
-            hash: Some(commit.id().to_string()),
+        Ok(Self {
+            id,
+            hash: None,
             meta: Meta {
                 start_timestamp_ms,
-                last_timestamp_ms: read_as_string(repo, &tree, Path::new("session/meta/last"))?
-                    .parse::<u128>()
-                    .with_context(|| {
-                        format!(
-                            "failed to parse last timestamp from commit {}",
-                            commit.id().to_string()
-                        )
-                    })?,
-                branch: session_branch,
-                commit: session_commit,
+                last_timestamp_ms,
+                branch: if branch.is_err() {
+                    None
+                } else {
+                    Some(branch.unwrap())
+                },
+                commit: if commit.is_err() {
+                    None
+                } else {
+                    Some(commit.unwrap())
+                },
             },
-            activity,
+            activity: vec![],
+        })
+    }
+}
+
+impl<'reader> TryFrom<reader::CommitReader<'reader>> for Session {
+    type Error = anyhow::Error;
+
+    fn try_from(reader: reader::CommitReader<'reader>) -> Result<Self, Self::Error> {
+        let commit_oid = reader.get_commit_oid().to_string();
+        let session = Session::try_from(Box::new(reader) as Box<dyn reader::Reader + 'reader>)?;
+        Ok(Session {
+            hash: Some(commit_oid),
+            ..session
         })
     }
 }

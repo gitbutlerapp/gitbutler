@@ -1,11 +1,10 @@
+use crate::{app::reader, projects, users};
+use anyhow::Result;
 use std::{
     collections::HashMap,
     path::Path,
     sync::{Arc, Mutex},
 };
-
-use crate::{projects, users};
-use anyhow::Result;
 use tempfile::tempdir;
 
 fn test_user() -> users::User {
@@ -219,23 +218,23 @@ fn test_flush_with_user() {
 }
 
 #[test]
-fn test_get_persistent() {
+fn test_get_persistent() -> Result<()> {
     let (repo, project) = test_project().unwrap();
     let store = super::Store::new(Arc::new(Mutex::new(clone_repo(&repo))), project.clone());
-    let created_session = store.create_current();
-    assert!(created_session.is_ok());
-    let mut created_session = created_session.unwrap();
+    let mut created_session = store.create_current()?;
 
-    created_session = store.flush(&created_session, None).unwrap();
+    created_session = store.flush(&created_session, None)?;
 
-    let commid_oid = git2::Oid::from_str(&created_session.hash.as_ref().unwrap()).unwrap();
-    let commit = repo.find_commit(commid_oid).unwrap();
+    let commit_oid = git2::Oid::from_str(&created_session.hash.as_ref().unwrap())?;
 
-    let reconstructed = super::sessions::Session::from_commit(&repo, &commit);
+    let reader = reader::get_commit_reader(&repo, commit_oid)?;
+    let reconstructed = super::sessions::Session::try_from(reader);
     assert!(reconstructed.is_ok());
     let reconstructed = reconstructed.unwrap();
 
     assert_eq!(reconstructed, created_session);
+
+    Ok(())
 }
 
 fn clone_repo(repo: &git2::Repository) -> git2::Repository {
