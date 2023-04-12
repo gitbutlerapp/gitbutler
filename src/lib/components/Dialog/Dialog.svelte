@@ -10,16 +10,16 @@
 </script>
 
 <Modal on:close bind:this={modal}>
-	<div class="flex w-[620px] flex-col text-[#D4D4D8]">
-		<div class="mx-4 my-4 flex">
-			<div class="flex-grow text-[18px]">
+	<div class="flex flex-col text-zinc-400">
+		<div class="p-4 flex">
+			<div class="flex-grow text-[18px] text-zinc-300">
 				<slot name="title">Title</slot>
 			</div>
 			<button on:click={() => modal.hide()}>
 				<IconClose class="h-6 w-6" />
 			</button>
 		</div>
-		<p class="mx-4 my-4 text-base">
+		<p class="p-4 text-base">
 			<slot />
 		</p>
 		<div class="m-4 ml-auto flex gap-4">
