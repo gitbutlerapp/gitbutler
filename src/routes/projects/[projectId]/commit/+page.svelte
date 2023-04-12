@@ -162,14 +162,14 @@
 			AI-generated commit summaries, and the assurance of never losing your work with synced
 			project.
 		</p>
-		<p class="py-2 flex flex-col">
+		<p class="flex flex-col py-2">
 			<span class="font-semibold text-zinc-300">AI-genearate commits</span>
 			<span>
 				This not only saves you time and effort but also ensures consistency in tone and style,
 				ultimately helping you to boost sales and improve customer satisfaction.
 			</span>
 		</p>
-		<p class="py-2 flex flex-col">
+		<p class="flex flex-col py-2">
 			<span class="font-semibold text-zinc-300">Secure and reliable backup</span>
 			<span>
 				GitButler backup guarantees that anything you’ve ever written in your projects are safe,

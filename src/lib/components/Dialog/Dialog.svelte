@@ -11,7 +11,7 @@
 
 <Modal on:close bind:this={modal}>
 	<div class="flex flex-col text-zinc-400">
-		<div class="p-4 flex">
+		<div class="flex p-4">
 			<div class="flex-grow text-[18px] text-zinc-300">
 				<slot name="title">Title</slot>
 			</div>
