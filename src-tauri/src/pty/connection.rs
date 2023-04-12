@@ -1,13 +1,17 @@
 use crate::projects;
+use crate::pty::recorder;
 use anyhow::{Context, Result};
 use bytes::BytesMut;
 use futures::{SinkExt, StreamExt};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::env;
 use std::io::{Read, Write};
+use std::sync::{Arc, Mutex};
 use tokio::net;
 use tokio_tungstenite;
 use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
+
+use super::recorder::Recorder;
 
 const TERM: &str = "xterm-256color";
 
@@ -84,18 +88,24 @@ pub async fn accept_connection(
     };
 
     // set to project path
-    cmd.cwd(project.path);
+    cmd.cwd(project.path.clone());
 
     let mut pty_child_process = pty_pair.slave.spawn_command(cmd)?;
 
     let mut pty_reader = pty_pair.master.try_clone_reader()?;
     let mut pty_writer = pty_pair.master.take_writer()?;
+    let recorder = Arc::new(Mutex::new(
+        Recorder::open(project.clone()).with_context(|| format!("failed to open recorder"))?,
+    ));
 
+    let shared_recorder = recorder.clone();
+    let shared_project_id = project.id.clone();
     // it's important to spawn a new thread for the pty reader
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let mut buffer = BytesMut::with_capacity(1024);
+
             buffer.resize(1024, 0u8);
             loop {
                 buffer[0] = 0u8;
@@ -108,11 +118,27 @@ pub async fn accept_connection(
                         break;
                     }
                     Ok(n) => {
-                        let mut data_to_send = Vec::with_capacity(n + 1);
-                        data_to_send.extend_from_slice(&buffer[..n + 1]);
-                        record_data(&data_to_send);
-                        let message = tokio_tungstenite::tungstenite::Message::Binary(data_to_send);
-                        ws_sender.send(message).await.unwrap();
+                        let data = &buffer[..n + 1];
+                        if let Err(e) = ws_sender
+                            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                                data.to_vec(),
+                            ))
+                            .await
+                        {
+                            log::error!(
+                                "{}: error sending data to websocket: {:#}",
+                                shared_project_id,
+                                e
+                            );
+                        }
+
+                        if let Err(e) = shared_recorder
+                            .lock()
+                            .unwrap()
+                            .record(recorder::Type::Output, &data.to_vec())
+                        {
+                            log::error!("{}: error recording data: {:#}", shared_project_id, e);
+                        }
                     }
                     Err(e) => {
                         log::error!("Error reading from pty: {:#}", e);
@@ -129,18 +155,28 @@ pub async fn accept_connection(
         match message {
             Ok(tokio_tungstenite::tungstenite::Message::Binary(msg)) => {
                 let msg_bytes = msg.as_slice();
-                match msg_bytes[0] {
-                    0 => {
+                match (msg_bytes[0], msg_bytes[1..].to_vec()) {
+                    (0, data) => {
                         if msg_bytes.len().gt(&0) {
-                            record_data(&msg);
-                            pty_writer.write_all(&msg_bytes[1..]).unwrap();
+                            pty_writer.write_all(&data)?;
+                            if let Err(e) = recorder
+                                .lock()
+                                .unwrap()
+                                .record(recorder::Type::Input, &data.to_vec())
+                            {
+                                log::error!(
+                                    "{}: error recording data: {:#}",
+                                    project.id,
+                                    e
+                                );
+                            }
                         }
                     }
-                    1 => {
-                        let pty_size: PtySize = serde_json::from_slice(&msg_bytes[1..]).unwrap();
-                        pty_pair.master.resize(pty_size).unwrap();
+                    (1, data) => {
+                        let pty_size: PtySize = serde_json::from_slice(&data)?;
+                        pty_pair.master.resize(pty_size)?;
                     }
-                    _ => log::error!("Unknown command {}", msg_bytes[0]),
+                    (code, _) => log::error!("Unknown command {}", code),
                 }
             }
             Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => {
@@ -160,24 +196,4 @@ pub async fn accept_connection(
         }
     }
     Ok(())
-}
-
-// this sort of works, but it's not how we want to do it
-// it just appends the data from every pty to the same file
-// what we want to do is set the directory to record to, but since
-// the reader is in a spawe thread, it's difficult to pass the directory to it
-// I also can't seem to send data to the pty on opening a new one, so I can't
-// easily initialize the cwd, which is where we want to write this data (under .git)
-// HELP
-fn record_data(_data: &Vec<u8>) {
-    /*
-    // A little too aggressive:
-    let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .create(true)
-        .open("data.txt")
-        .unwrap();
-    file.write_all(data).unwrap();
-    */
 }
