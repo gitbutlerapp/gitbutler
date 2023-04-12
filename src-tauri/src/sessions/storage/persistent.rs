@@ -1,6 +1,7 @@
 use crate::{fs, projects, sessions, users};
 use anyhow::{Context, Result};
 use filetime::FileTime;
+use git2::IndexAddOption;
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
@@ -43,6 +44,31 @@ impl Store {
             }
             None => self.get_by_id_from_disk(session_id),
         }
+    }
+
+    pub fn get_last_by_branch(&self, branch_name: &str) -> Result<Option<sessions::Session>> {
+        let git_repository = self.git_repository.lock().unwrap();
+        let reference = git_repository.find_reference(&self.project.refname())?;
+        let head = git_repository.find_commit(reference.target().unwrap())?;
+        let mut walker = git_repository.revwalk()?;
+        walker.push(head.id())?;
+        walker.set_sorting(git2::Sort::TIME)?;
+
+        for commit_id in walker {
+            println!("commit: {:?}", commit_id);
+            let commit = git_repository.find_commit(commit_id?)?;
+            // add "refs/heads" to branch name
+            let branch_name = format!("refs/heads/{}", branch_name);
+            if sessions::branch_from_commit(&git_repository, &commit)? == branch_name {
+                print!("found branch: {:?}", branch_name);
+                return Ok(Some(sessions::Session::from_commit(
+                    &git_repository,
+                    &commit,
+                )?));
+            }
+        }
+
+        Ok(None)
     }
 
     fn get_by_id_from_disk(&self, session_id: &str) -> Result<Option<sessions::Session>> {
@@ -303,6 +329,7 @@ impl Store {
         let updated_session = sessions::Session {
             id: session.id.clone(),
             meta: session.meta.clone(),
+            wd_tree: session.wd_tree.clone(),
             activity: session.activity.clone(),
             hash: Some(commit_oid.to_string()),
         };

@@ -38,6 +38,7 @@ impl Store {
         let updated_time = sessions::Session {
             id: session.id.clone(),
             hash: session.hash.clone(),
+            wd_tree: session.wd_tree.clone(),
             activity: session.activity.clone(),
             meta: sessions::Meta {
                 last_timestamp_ms: time::SystemTime::now()
@@ -93,6 +94,10 @@ impl Store {
             return self.current.get();
         }
         return self.persistent.get_by_id(session_id);
+    }
+
+    pub fn get_last_by_branch(&self, branch_name: &str) -> Result<Option<sessions::Session>> {
+        return self.persistent.get_last_by_branch(branch_name);
     }
 }
 

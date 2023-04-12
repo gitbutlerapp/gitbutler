@@ -347,15 +347,40 @@ impl Repository {
         self.flush_session(None)
             .with_context(|| "failed to flush session before switching branch")?;
 
+        println!("switching to branch: {}", branch_name);
+
+        let session = self
+            .sessions_storage
+            .get_last_by_branch(branch_name)
+            .with_context(|| format!("Failed to find last session"))?;
+        println!("session: {:?}", session);
+
         let repo = self.git_repository.lock().unwrap();
 
         let branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
         let branch = branch.into_reference();
         repo.set_head(branch.name().unwrap())
             .with_context(|| "failed to set head")?;
-        // checkout head
         repo.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))
             .with_context(|| "failed to checkout head")?;
+
+        if session.is_none() {
+            return Ok(true);
+        }
+
+        // if we have a session for this branch, checkout the tree
+        let tree_oid = git2::Oid::from_str(session.unwrap().wd_tree.unwrap().as_str()).unwrap();
+        println!("tree_oid: {}", tree_oid);
+        let wd_tree = repo.find_tree(tree_oid)?;
+        let object = wd_tree.as_object();
+        repo.checkout_tree(
+            object,
+            Some(
+                &mut git2::build::CheckoutBuilder::default()
+                    .force()
+                    .update_index(false),
+            ),
+        );
         Ok(true)
     }
 

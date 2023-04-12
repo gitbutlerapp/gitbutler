@@ -56,6 +56,7 @@ impl Store {
         let session = sessions::Session {
             id: Uuid::new_v4().to_string(),
             hash: None,
+            wd_tree: None,
             meta,
             activity,
         };
@@ -234,6 +235,7 @@ impl Store {
         Ok(Some(sessions::Session {
             id,
             hash: None,
+            wd_tree: None,
             activity,
             meta: sessions::Meta {
                 start_timestamp_ms: start_ts,

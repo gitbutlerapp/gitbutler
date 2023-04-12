@@ -23,6 +23,7 @@ pub struct Session {
     pub id: String,
     // if hash is not set, the session is not saved aka current
     pub hash: Option<String>,
+    pub wd_tree: Option<String>,
     pub meta: Meta,
     pub activity: Vec<activity::Activity>,
 }
@@ -32,6 +33,10 @@ impl Session {
         let tree = commit.tree().with_context(|| {
             format!("failed to get tree from commit {}", commit.id().to_string())
         })?;
+
+        let wd_path = Path::new("wd");
+        let wd_tree_entry = tree.get_path(wd_path)?;
+        let wd_tree = wd_tree_entry.to_object(repo)?.id().to_string();
 
         let start_timestamp_ms = read_as_string(repo, &tree, Path::new("session/meta/start"))?
             .parse::<u128>()
@@ -92,6 +97,7 @@ impl Session {
                 )
             })?,
             hash: Some(commit.id().to_string()),
+            wd_tree: Some(wd_tree),
             meta: Meta {
                 start_timestamp_ms,
                 last_timestamp_ms: read_as_string(repo, &tree, Path::new("session/meta/last"))?
@@ -118,6 +124,17 @@ pub fn id_from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<
     }
     let id = read_as_string(repo, &tree, session_id_path)?;
     return Ok(id);
+}
+
+pub fn branch_from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<String> {
+    let tree = commit.tree().unwrap();
+    let session_branch_path = Path::new("session/meta/branch");
+    if !tree.get_path(session_branch_path).is_ok() {
+        return Err(anyhow!("commit does not have a branch name"));
+    }
+    let branch = read_as_string(repo, &tree, session_branch_path)?;
+    println!("meta branch: {}", branch);
+    return Ok(branch);
 }
 
 fn read_as_string(repo: &git2::Repository, tree: &git2::Tree, path: &Path) -> Result<String> {
