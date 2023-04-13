@@ -1,4 +1,4 @@
-use super::reader::Reader;
+use super::reader::{self, Reader};
 use anyhow::Result;
 use tempfile::tempdir;
 
@@ -43,8 +43,11 @@ fn test_working_directory_reader_read_file() -> Result<()> {
     let file_path = "test.txt";
     std::fs::write(&repository.path().parent().unwrap().join(file_path), "test")?;
 
-    let reader = super::reader::get_working_directory_reader(&repository);
-    assert_eq!(reader.read_to_string(&file_path)?, "test");
+    let reader = reader::DirReader::open(&repository.path().parent().unwrap());
+    assert_eq!(
+        reader.read(&file_path)?,
+        reader::Content::UTF8("test".to_string())
+    );
 
     Ok(())
 }
@@ -63,8 +66,11 @@ fn test_commit_reader_read_file() -> Result<()> {
         "test2",
     )?;
 
-    let reader = super::reader::get_commit_reader(&repository, oid)?;
-    assert_eq!(reader.read_to_string(&file_path)?, "test");
+    let reader = reader::CommitReader::open(&repository, oid)?;
+    assert_eq!(
+        reader.read(&file_path)?,
+        reader::Content::UTF8("test".to_string())
+    );
 
     Ok(())
 }
@@ -88,7 +94,7 @@ fn test_working_directory_reader_list_files() -> Result<()> {
         "test",
     )?;
 
-    let reader = super::reader::get_working_directory_reader(&repository);
+    let reader = super::reader::DirReader::open(&repository.path().parent().unwrap());
     let files = reader.list_files(".")?;
     assert_eq!(files.len(), 2);
     assert!(files.contains(&"test.txt".to_string()));
@@ -120,11 +126,47 @@ fn test_commit_reader_list_files() -> Result<()> {
 
     std::fs::remove_dir_all(&repository.path().parent().unwrap().join("dir"))?;
 
-    let reader = super::reader::get_commit_reader(&repository, oid)?;
+    let reader = super::reader::CommitReader::open(&repository, oid)?;
     let files = reader.list_files(".")?;
     assert_eq!(files.len(), 2);
     assert!(files.contains(&"test.txt".to_string()));
     assert!(files.contains(&"dir/test.txt".to_string()));
+
+    Ok(())
+}
+
+#[test]
+fn test_working_directory_reader_exists() -> Result<()> {
+    let repository = test_repository()?;
+
+    std::fs::write(
+        &repository.path().parent().unwrap().join("test.txt"),
+        "test",
+    )?;
+
+    let reader = super::reader::DirReader::open(&repository.path().parent().unwrap());
+    assert!(reader.exists("test.txt"));
+    assert!(!reader.exists("test2.txt"));
+
+    Ok(())
+}
+
+#[test]
+fn test_commit_reader_exists() -> Result<()> {
+    let repository = test_repository()?;
+
+    std::fs::write(
+        &repository.path().parent().unwrap().join("test.txt"),
+        "test",
+    )?;
+
+    let oid = commit(&repository)?;
+
+    std::fs::remove_file(&repository.path().parent().unwrap().join("test.txt"))?;
+
+    let reader = super::reader::CommitReader::open(&repository, oid)?;
+    assert!(reader.exists("test.txt"));
+    assert!(!reader.exists("test2.txt"));
 
     Ok(())
 }

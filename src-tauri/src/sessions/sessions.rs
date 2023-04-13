@@ -2,6 +2,7 @@ use crate::{app::reader, git::activity};
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 use std::path::Path;
+use thiserror::Error;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -27,23 +28,40 @@ pub struct Session {
     pub activity: Vec<activity::Activity>,
 }
 
+#[derive(Error, Debug)]
+pub enum SessionError {
+    #[error("session does not exist")]
+    NoSession,
+    #[error("{0}")]
+    Err(anyhow::Error),
+}
+
 impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
-    type Error = anyhow::Error;
+    type Error = SessionError;
 
     fn try_from(reader: Box<dyn reader::Reader + 'reader>) -> Result<Self, Self::Error> {
+        if !reader.exists("session") {
+            return Err(SessionError::NoSession);
+        }
+
         let id = reader
             .read_to_string("session/meta/id")
-            .with_context(|| "failed to read session id")?;
+            .with_context(|| "failed to read session id")
+            .map_err(|err| SessionError::Err(err))?;
         let start_timestamp_ms = reader
             .read_to_string("session/meta/start")
-            .with_context(|| "failed to read session start timestamp")?
+            .with_context(|| "failed to read session start timestamp")
+            .map_err(|err| SessionError::Err(err))?
             .parse::<u128>()
-            .with_context(|| "failed to parse session start timestamp")?;
+            .with_context(|| "failed to parse session start timestamp")
+            .map_err(|err| SessionError::Err(err))?;
         let last_timestamp_ms = reader
             .read_to_string("session/meta/last")
-            .with_context(|| "failed to read session last timestamp")?
+            .with_context(|| "failed to read session last timestamp")
+            .map_err(|err| SessionError::Err(err))?
             .parse::<u128>()
-            .with_context(|| "failed to parse session last timestamp")?;
+            .with_context(|| "failed to parse session last timestamp")
+            .map_err(|err| SessionError::Err(err))?;
         let branch = reader.read_to_string("session/meta/branch");
         let commit = reader.read_to_string("session/meta/commit");
 
@@ -69,8 +87,17 @@ impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
     }
 }
 
+impl<'reader> TryFrom<reader::DirReader<'reader>> for Session {
+    type Error = SessionError;
+
+    fn try_from(reader: reader::DirReader<'reader>) -> Result<Self, Self::Error> {
+        let session = Session::try_from(Box::new(reader) as Box<dyn reader::Reader + 'reader>)?;
+        Ok(session)
+    }
+}
+
 impl<'reader> TryFrom<reader::CommitReader<'reader>> for Session {
-    type Error = anyhow::Error;
+    type Error = SessionError;
 
     fn try_from(reader: reader::CommitReader<'reader>) -> Result<Self, Self::Error> {
         let commit_oid = reader.get_commit_oid().to_string();

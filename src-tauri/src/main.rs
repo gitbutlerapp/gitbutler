@@ -718,6 +718,13 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .watch(tx.clone(), &repo)
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
+        // let p = project.clone();
+        // tauri::async_runtime::spawn(async move {
+        //     let p = p;
+        //     let w = app::watchers::Watcher::new(&p);
+        //     w.start().await.expect("failed to start watcher");
+        // });
+
         if let Err(err) = app_state
             .deltas_searcher
             .lock()

@@ -1,43 +1,81 @@
+use crate::fs;
 use anyhow::{Context, Result};
 
-use crate::fs;
+#[derive(Debug, PartialEq)]
+pub enum Content {
+    UTF8(String),
+    Binary(Vec<u8>),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("file not found")]
+    NotFound,
+    #[error("io error: {0}")]
+    Other(std::io::Error),
+}
 
 pub trait Reader {
-    fn read_to_string(&self, file_path: &str) -> Result<String>;
+    fn read(&self, file_path: &str) -> Result<Content, Error>;
     fn list_files(&self, dir_path: &str) -> Result<Vec<String>>;
-}
+    fn exists(&self, file_path: &str) -> bool;
+    fn size(&self, file_path: &str) -> Result<usize>;
 
-pub struct WdReader<'reader> {
-    git_repository: &'reader git2::Repository,
-}
-
-impl WdReader<'_> {
-    pub fn read_to_string(&self, path: &str) -> Result<String> {
-        let contents =
-            std::fs::read_to_string(self.git_repository.path().parent().unwrap().join(path))
-                .with_context(|| format!("{}: not found", path))?;
-        Ok(contents)
+    fn read_to_string(&self, file_path: &str) -> Result<String, Error> {
+        match self.read(file_path)? {
+            Content::UTF8(s) => Ok(s),
+            Content::Binary(_) => Err(Error::Other(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "file is not utf8",
+            ))),
+        }
     }
 }
 
-impl Reader for WdReader<'_> {
-    fn read_to_string(&self, path: &str) -> Result<String> {
-        self.read_to_string(path)
+pub struct DirReader<'reader> {
+    root: &'reader std::path::Path,
+}
+
+impl<'reader> DirReader<'reader> {
+    pub fn open(root: &'reader std::path::Path) -> Self {
+        Self { root }
+    }
+}
+
+impl Reader for DirReader<'_> {
+    fn size(&self, file_path: &str) -> Result<usize> {
+        let path = self.root.join(file_path);
+        if !path.exists() {
+            return Ok(0);
+        }
+        let metadata = std::fs::metadata(path)?;
+        Ok(metadata.len().try_into()?)
+    }
+
+    fn read(&self, path: &str) -> Result<Content, Error> {
+        let path = self.root.join(path);
+        if !path.exists() {
+            return Err(Error::NotFound);
+        }
+        let content = std::fs::read(path).map_err(Error::Other)?;
+        match String::from_utf8_lossy(&content).into_owned() {
+            s if s.as_bytes().eq(&content) => Ok(Content::UTF8(s)),
+            _ => Ok(Content::Binary(content)),
+        }
     }
 
     fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
-        let files: Vec<String> =
-            fs::list_files(self.git_repository.path().parent().unwrap().join(dir_path))?
-                .iter()
-                .map(|f| f.to_str().unwrap().to_string())
-                .filter(|f| !f.starts_with(".git"))
-                .collect();
+        let files: Vec<String> = fs::list_files(self.root.join(dir_path))?
+            .iter()
+            .map(|f| f.to_str().unwrap().to_string())
+            .filter(|f| !f.starts_with(".git"))
+            .collect();
         Ok(files)
     }
-}
 
-pub fn get_working_directory_reader(git_repository: &git2::Repository) -> WdReader {
-    WdReader { git_repository }
+    fn exists(&self, file_path: &str) -> bool {
+        std::path::Path::new(self.root.join(file_path).as_path()).exists()
+    }
 }
 
 pub struct CommitReader<'reader> {
@@ -46,24 +84,71 @@ pub struct CommitReader<'reader> {
     tree: git2::Tree<'reader>,
 }
 
-impl CommitReader<'_> {
+impl<'reader> CommitReader<'reader> {
+    pub fn from_commit(
+        repository: &'reader git2::Repository,
+        commit: git2::Commit<'reader>,
+    ) -> Result<CommitReader<'reader>> {
+        let tree = commit
+            .tree()
+            .with_context(|| format!("{}: tree not found", commit.id()))?;
+        Ok(CommitReader {
+            repository,
+            tree,
+            commit_oid: commit.id(),
+        })
+    }
+
+    pub fn open(
+        repository: &'reader git2::Repository,
+        commit_oid: git2::Oid,
+    ) -> Result<CommitReader<'reader>> {
+        let commit = repository
+            .find_commit(commit_oid)
+            .with_context(|| format!("{}: commit not found", commit_oid))?;
+        return CommitReader::from_commit(repository, commit);
+    }
+
     pub fn get_commit_oid(&self) -> git2::Oid {
         self.commit_oid
     }
 }
 
 impl Reader for CommitReader<'_> {
-    fn read_to_string(&self, path: &str) -> Result<String> {
-        let entry = self
+    fn size(&self, file_path: &str) -> Result<usize> {
+        let entry = match self
+            .tree
+            .get_path(std::path::Path::new(file_path))
+            .with_context(|| format!("{}: tree entry not found", file_path))
+        {
+            Ok(entry) => entry,
+            Err(_) => return Ok(0),
+        };
+        let blob = match self.repository.find_blob(entry.id()) {
+            Ok(blob) => blob,
+            Err(_) => return Ok(0),
+        };
+        Ok(blob.size())
+    }
+
+    fn read(&self, path: &str) -> Result<Content, Error> {
+        let entry = match self
             .tree
             .get_path(std::path::Path::new(path))
-            .with_context(|| format!("{}: tree entry not found", path))?;
-        let blob = self
-            .repository
-            .find_blob(entry.id())
-            .with_context(|| format!("{}: blob not found", entry.id()))?;
-        let contents = String::from_utf8_lossy(blob.content()).to_string();
-        Ok(contents)
+            .with_context(|| format!("{}: tree entry not found", path))
+        {
+            Ok(entry) => entry,
+            Err(_) => return Err(Error::NotFound),
+        };
+        let blob = match self.repository.find_blob(entry.id()) {
+            Ok(blob) => blob,
+            Err(_) => return Err(Error::NotFound),
+        };
+        let content = blob.content();
+        match String::from_utf8_lossy(&content).into_owned() {
+            s if s.as_bytes().eq(content) => Ok(Content::UTF8(s)),
+            _ => Ok(Content::Binary(content.to_vec())),
+        }
     }
 
     fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
@@ -97,21 +182,8 @@ impl Reader for CommitReader<'_> {
 
         Ok(files)
     }
-}
 
-pub fn get_commit_reader<'reader>(
-    repository: &'reader git2::Repository,
-    commit_oid: git2::Oid,
-) -> Result<CommitReader<'reader>> {
-    let commit = repository
-        .find_commit(commit_oid)
-        .with_context(|| format!("{}: commit not found", commit_oid))?;
-    let tree = commit
-        .tree()
-        .with_context(|| format!("{}: tree not found", commit_oid))?;
-    Ok(CommitReader {
-        repository,
-        tree,
-        commit_oid,
-    })
+    fn exists(&self, file_path: &str) -> bool {
+        self.tree.get_path(std::path::Path::new(file_path)).is_ok()
+    }
 }

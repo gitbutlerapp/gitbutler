@@ -227,10 +227,8 @@ fn test_get_persistent() -> Result<()> {
 
     let commit_oid = git2::Oid::from_str(&created_session.hash.as_ref().unwrap())?;
 
-    let reader = reader::get_commit_reader(&repo, commit_oid)?;
-    let reconstructed = super::sessions::Session::try_from(reader);
-    assert!(reconstructed.is_ok());
-    let reconstructed = reconstructed.unwrap();
+    let reader = reader::CommitReader::open(&repo, commit_oid)?;
+    let reconstructed = super::sessions::Session::try_from(reader)?;
 
     assert_eq!(reconstructed, created_session);
 

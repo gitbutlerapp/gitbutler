@@ -85,7 +85,7 @@ pub(crate) fn register_file_change(
     relative_file_path: &Path,
 ) -> Result<Option<(sessions::Session, Vec<Delta>)>> {
     let file_path = repo.workdir().unwrap().join(relative_file_path);
-    
+
     if file_path.metadata()?.len() > MAX_FILE_SIZE {
         log::info!(
             "{}: \"{}\" is larger than 100K, ignoring",
