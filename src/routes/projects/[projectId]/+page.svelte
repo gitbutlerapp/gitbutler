@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { format, getTime, isEqual, startOfDay, subDays } from 'date-fns';
+	import { getTime, subDays } from 'date-fns';
 	import { collapsable } from '$lib/paths';
 	import type { PageData } from './$types';
 	import { derived } from 'svelte/store';
 	import { IconGitBranch } from '$lib/components/icons';
-	import type { Session } from '$lib/sessions';
 	import { asyncDerived } from '@square/svelte-store';
-	import { list as listDeltas, type Delta } from '$lib/deltas';
+	import type { Delta } from '$lib/deltas';
 	import IconRotateClockwise from '$lib/components/icons/IconRotateClockwise.svelte';
-	import FileActivity from './FileActivity.svelte';
+	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Tooltip } from '$lib/components';
 
 	export let data: PageData;
@@ -30,6 +29,24 @@
 		[]
 	);
 
+	$: fileDeltas = asyncDerived(recentSessions, async (sessions) => {
+		const fileDeltas = await Promise.all(sessions.map((session) => data.getDeltas(session.id)));
+		const flat = derived(fileDeltas, (fileDeltas) => {
+			const merged: Record<string, Delta[]> = {};
+			fileDeltas.forEach((delta) =>
+				Object.entries(delta).forEach(([filepath, deltas]) => {
+					if (merged[filepath]) {
+						merged[filepath].push(...deltas);
+					} else {
+						merged[filepath] = deltas;
+					}
+				})
+			);
+			return merged;
+		});
+		return flat;
+	});
+
 	$: recentActivity = derived(
 		[activity, recentSessions],
 		([activity, recentSessions]) => {
@@ -38,55 +55,6 @@
 				.sort((a, b) => b.timestampMs - a.timestampMs);
 		},
 		[]
-	);
-
-	$: sessionByDates = derived(
-		recentSessions,
-		(sessions) =>
-			sessions.reduce((list: [Session[], Date][], session) => {
-				const date = startOfDay(new Date(session.meta.startTimestampMs));
-				if (list.length === 0) {
-					list.push([[session], date]);
-				} else {
-					const last = list[list.length - 1];
-					if (isEqual(last[1], date)) {
-						last[0].push(session);
-					} else {
-						list.push([[session], date]);
-					}
-				}
-				return list;
-			}, []),
-		[]
-	);
-
-	$: filesActivityByDate = asyncDerived(
-		[project, sessionByDates],
-		async ([project, sessionByDates]) =>
-			await Promise.all(
-				sessionByDates.map(async ([sessions, date]) => {
-					const deltas = await Promise.all(
-						sessions.map((session) =>
-							listDeltas({
-								projectId: project.id,
-								sessionId: session.id
-							})
-						)
-					);
-					const merged: Record<string, Delta[]> = {};
-					deltas.forEach((delta) =>
-						Object.entries(delta).forEach(([filepath, deltas]) => {
-							if (merged[filepath]) {
-								merged[filepath].push(...deltas);
-							} else {
-								merged[filepath] = deltas;
-							}
-						})
-					);
-					return [merged, date] as [Record<string, Delta[]>, Date];
-				})
-			),
-		{ initial: [] }
 	);
 </script>
 
@@ -100,59 +68,12 @@
 		<h2 class="px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
 
 		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-5 pb-8">
-			{#await filesActivityByDate.load()}
+			{#await fileDeltas.load()}
 				<li>
 					<IconRotateClockwise class="animate-spin" />
 				</li>
 			{:then}
-				{#each $filesActivityByDate as [activity, date]}
-					<li
-						class="card changed-day-card flex flex-col rounded border-[0.5px] border-gb-700 bg-card-default"
-					>
-						<header
-							class="header flex flex-row justify-between gap-2 rounded-tl rounded-tr border-b-gb-700 bg-card-active px-3 py-2"
-						>
-							<div class=" text-zinc-300 ">
-								{date.toLocaleDateString('en-us', {
-									weekday: 'long',
-									year: 'numeric',
-									month: 'short',
-									day: 'numeric'
-								})}
-							</div>
-							<Button
-								href="/projects/{$project.id}/player/{format(date, 'yyyy-MM-dd')}"
-								filled={false}
-								role="primary"
-							>
-								Replay Changes
-							</Button>
-						</header>
-						<ul class="all-files-changed flex flex-col rounded pl-3">
-							{#each Object.entries(activity) as [filepath, deltas]}
-								<li class="changed-file flex items-center justify-between gap-4  ">
-									<a
-										class="file-name flex w-[50%] overflow-auto py-2 font-mono hover:underline"
-										href="/projects/{$project.id}/player/{format(
-											date,
-											'yyyy-MM-dd'
-										)}?file={encodeURIComponent(filepath)}"
-									>
-										<span
-											class="w-full truncate"
-											use:collapsable={{ value: filepath, separator: '/' }}
-										/>
-									</a>
-									<FileActivity {deltas} />
-								</li>
-							{/each}
-						</ul>
-					</li>
-				{:else}
-					<li class="text-zinc-400">
-						Waiting for your first file changes. Go edit something and come back.
-					</li>
-				{/each}
+				<FileSummaries projectId={$project?.id} fileDeltas={$fileDeltas} />
 			{/await}
 		</ul>
 	</div>
