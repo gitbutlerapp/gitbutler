@@ -29,7 +29,6 @@ to build the app in production mode, run:
 $ pnpm tauri build
 ```
 
-
 ## Icon Preperation
 
 ```bash
