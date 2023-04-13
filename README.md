@@ -29,6 +29,12 @@ to build the app in production mode, run:
 $ pnpm tauri build
 ```
 
+## Icon Preperation
+
+```bash
+$ pnpm tauri icon path/to/icon.png
+```
+
 ## releasing
 
 Building is done via [GitHub Action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml).
