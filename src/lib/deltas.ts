@@ -30,7 +30,6 @@ export const subscribe = (
 	params: { projectId: string; sessionId: string },
 	callback: (filepath: string, deltas: Delta[]) => void
 ) => {
-	log.info(`Subscribing to deltas for ${params.projectId}, ${params.sessionId}`);
 	return appWindow.listen<DeltasEvent>(
 		`project://${params.projectId}/sessions/${params.sessionId}/deltas`,
 		(event) => {
