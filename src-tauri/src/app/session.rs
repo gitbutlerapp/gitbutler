@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-
 use super::{
-    gb_repository as repository, reader,
+    gb_repository as repository,
+    reader::{self, Reader},
     writer::{self, Writer},
 };
 use crate::{deltas, pty, sessions};
 use anyhow::{anyhow, Context, Result};
+use std::collections::HashMap;
 
 pub struct SessionWriter<'writer> {
     repository: &'writer repository::Repository,
@@ -17,7 +17,7 @@ impl<'writer> SessionWriter<'writer> {
         repository: &'writer repository::Repository,
         session: &'writer sessions::Session,
     ) -> Result<Self> {
-        let reader = reader::get_working_directory_reader(&repository.git_repository);
+        let reader = reader::DirReader::open(repository.root());
 
         let current_session_id = reader.read_to_string(
             repository
@@ -37,7 +37,7 @@ impl<'writer> SessionWriter<'writer> {
             ));
         }
 
-        let writer = writer::get_working_directory_writer(&repository.git_repository);
+        let writer = writer::DirWriter::open(repository.root());
 
         writer
             .write_string(
@@ -200,7 +200,7 @@ impl<'reader> SessionReader<'reader> {
         repository: &'reader repository::Repository,
         session: sessions::Session,
     ) -> Result<Self> {
-        let wd_reader = reader::get_working_directory_reader(&repository.git_repository);
+        let wd_reader = reader::DirReader::open(repository.root());
 
         let current_session_id = wd_reader.read_to_string(
             &repository
@@ -229,7 +229,7 @@ impl<'reader> SessionReader<'reader> {
         let oid = git2::Oid::from_str(&session_hash)
             .with_context(|| format!("failed to parse commit hash {}", session_hash))?;
 
-        let commit_reader = reader::get_commit_reader(&repository.git_repository, oid)?;
+        let commit_reader = reader::CommitReader::open(&repository.git_repository, oid)?;
         Ok(SessionReader {
             reader: Box::new(commit_reader),
             repository,

@@ -6,19 +6,19 @@ pub trait Writer {
     fn append_string(&self, path: &str, contents: &str) -> Result<()>;
 }
 
-pub struct WdWriter<'writer> {
-    git_repository: &'writer git2::Repository,
+pub struct DirWriter<'writer> {
+    root: &'writer std::path::Path,
 }
 
-pub fn get_working_directory_writer<'writer>(
-    git_repository: &'writer git2::Repository,
-) -> WdWriter {
-    WdWriter { git_repository }
+impl<'writer> DirWriter<'writer> {
+    pub fn open(root: &'writer std::path::Path) -> Self {
+        Self { root }
+    }
 }
 
-impl Writer for WdWriter<'_> {
+impl Writer for DirWriter<'_> {
     fn write_string(&self, path: &str, contents: &str) -> Result<()> {
-        let file_path = self.git_repository.path().parent().unwrap().join(path);
+        let file_path = self.root.join(path);
         let dir_path = file_path.parent().unwrap();
         std::fs::create_dir_all(dir_path)?;
         std::fs::write(path, contents)?;
@@ -26,7 +26,7 @@ impl Writer for WdWriter<'_> {
     }
 
     fn append_string(&self, path: &str, contents: &str) -> Result<()> {
-        let file_path = self.git_repository.path().parent().unwrap().join(path);
+        let file_path = self.root.join(path);
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
