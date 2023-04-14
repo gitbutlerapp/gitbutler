@@ -1,11 +1,12 @@
-use crate::{
-    app::{gb_repository, project_repository},
-    deltas, projects,
-};
 use anyhow::Result;
 use tempfile::tempdir;
 
-use super::file_change::Listener;
+use crate::{
+    app::{gb_repository, project_repository},
+    deltas, projects, storage,
+};
+
+use super::project_file_change::Listener;
 
 fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
     let mut index = repository.index()?;
@@ -54,14 +55,21 @@ fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
     Ok(project)
 }
 
+fn project_store(project: &projects::Project) -> Result<projects::Storage> {
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let store = projects::Storage::new(storage);
+    store.add_project(project)?;
+    Ok(store)
+}
+
 #[test]
 fn test_register_existing_file() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project)?;
-    let listener = Listener::new(&project, &project_repo, &gb_repo);
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, project.id.clone())?;
+    let listener = Listener::new(project.id.clone(), project_store(&project)?, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -92,8 +100,8 @@ fn test_register_new_file() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project)?;
-    let listener = Listener::new(&project, &project_repo, &gb_repo);
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, project.id.clone())?;
+    let listener = Listener::new(project.id.clone(), project_store(&project)?, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -122,8 +130,8 @@ fn test_register_new_file_twice() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project)?;
-    let listener = Listener::new(&project, &project_repo, &gb_repo);
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, project.id.clone())?;
+    let listener = Listener::new(project.id.clone(), project_store(&project)?, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;

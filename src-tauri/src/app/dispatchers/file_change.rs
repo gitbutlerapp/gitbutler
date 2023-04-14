@@ -1,25 +1,24 @@
 use std::{
     path::PathBuf,
-    sync::{self, Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
-use crate::projects;
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, Watcher};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     watcher: Arc<Mutex<Option<RecommendedWatcher>>>,
-    project_path: String,
+    project_path: PathBuf,
     project_id: String,
 }
 
 impl Dispatcher {
-    pub fn new(project: &projects::Project) -> Self {
+    pub fn new<P: AsRef<std::path::Path>>(project_id: String, path: P) -> Self {
         Self {
             watcher: Arc::new(Mutex::new(None)),
-            project_path: project.path.clone(),
-            project_id: project.id.clone(),
+            project_path: path.as_ref().to_path_buf(),
+            project_id,
         }
     }
 

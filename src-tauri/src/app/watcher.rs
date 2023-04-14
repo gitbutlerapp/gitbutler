@@ -1,22 +1,23 @@
-use super::{gb_repository, project_repository};
+use std::{sync, time};
+
+use anyhow::{Context, Result};
+use crossbeam_channel::{bounded, select, unbounded};
+
 use crate::{
     app::{dispatchers, listeners},
     events, projects,
 };
-use anyhow::{Context, Result};
-use core::time;
-use crossbeam_channel::{bounded, select, unbounded};
-use std::sync;
+
+use super::{gb_repository, project_repository};
 
 pub struct Watcher<'watcher> {
-    project: &'watcher projects::Project,
-    gb_repository: &'watcher gb_repository::Repository,
-    project_repository: &'watcher project_repository::Repository,
+    project_id: String,
 
     tick_dispatcher: dispatchers::tick::Dispatcher,
     file_change_dispatcher: dispatchers::file_change::Dispatcher,
 
     file_change_listener: listeners::file_change::Listener<'watcher>,
+    check_current_session_listener: listeners::check_current_session::Listener<'watcher>,
 
     stop: (
         crossbeam_channel::Sender<()>,
@@ -26,23 +27,39 @@ pub struct Watcher<'watcher> {
 
 impl<'watcher> Watcher<'watcher> {
     pub fn new(
-        project: &'watcher projects::Project,
+        project_id: String,
+        project_store: projects::Storage,
         gb_repository: &'watcher gb_repository::Repository,
-        project_repository: &'watcher project_repository::Repository,
-    ) -> Self {
-        Self {
-            gb_repository,
-            project_repository,
-            project,
-            tick_dispatcher: dispatchers::tick::Dispatcher::new(project),
-            file_change_dispatcher: dispatchers::file_change::Dispatcher::new(project),
+        events: sync::mpsc::Sender<events::Event>,
+    ) -> Result<Self> {
+        let project = project_store
+            .get_project(&project_id)
+            .context("failed to get project")?;
+        if project.is_none() {
+            return Err(anyhow::anyhow!("project not found"));
+        }
+        let project = project.unwrap();
+        Ok(Self {
+            project_id: project_id.clone(),
+
+            tick_dispatcher: dispatchers::tick::Dispatcher::new(project_id.clone()),
+            file_change_dispatcher: dispatchers::file_change::Dispatcher::new(
+                project_id.clone(),
+                project.path,
+            ),
+
             file_change_listener: listeners::file_change::Listener::new(
-                project,
-                project_repository,
+                project_id.clone(),
+                project_store,
+                gb_repository,
+                events,
+            ),
+            check_current_session_listener: listeners::check_current_session::Listener::new(
                 gb_repository,
             ),
+
             stop: bounded(1),
-        }
+        })
     }
 
     pub fn stop(&self) -> anyhow::Result<()> {
@@ -50,10 +67,10 @@ impl<'watcher> Watcher<'watcher> {
         Ok(())
     }
 
-    pub fn start(&self, events: sync::mpsc::Sender<events::Event>) -> Result<()> {
+    pub fn start(&self) -> Result<()> {
         let (t_tx, t_rx) = unbounded();
         let tick_dispatcher = self.tick_dispatcher.clone();
-        let project_id = self.project.id.clone();
+        let project_id = self.project_id.clone();
 
         tauri::async_runtime::spawn_blocking(move || {
             if let Err(e) = tick_dispatcher.start(time::Duration::from_secs(10), t_tx) {
@@ -63,7 +80,7 @@ impl<'watcher> Watcher<'watcher> {
 
         let (fw_tx, fw_rx) = unbounded();
         let file_change_dispatcher = self.file_change_dispatcher.clone();
-        let project_id = self.project.id.clone();
+        let project_id = self.project_id.clone();
         tauri::async_runtime::spawn_blocking(move || {
             if let Err(e) = file_change_dispatcher.start(fw_tx) {
                 log::error!("{}: failed to start file watcher: {:#}", project_id, e);
@@ -72,64 +89,36 @@ impl<'watcher> Watcher<'watcher> {
 
         loop {
             select! {
-                recv(t_rx) -> ts => {
-                    let ts = ts.context("failed to receive tick event")?;
-                    log::info!("{}: ticker ticked: {}", self.project.id, ts.elapsed().as_secs());
-                }
-                recv(fw_rx)-> path => {
-                    let path = path.context("failed to receive file change event")?;
-                    if !path.starts_with(".git") {
+                recv(t_rx) -> ts => match ts{
+                    Ok(ts) => {
+                        if let Err(e) = self.check_current_session_listener.register(ts) {
+                            log::error!("{}: failed to handle tick event: {:#}", self.project_id, e);
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("{}: failed to receive tick event: {:#}", self.project_id, e);
+                    }
+                },
+                recv(fw_rx)-> path => match path {
+                    Ok(path) => {
                         if let Err(e) = self.file_change_listener.register(&path) {
-                            log::error!("{}: failed to handle file change: {:#}", self.project.id, e);
+                            log::error!("{}: failed to handle file change: {:#}", self.project_id, e);
                         }
-                    } else {
-                        if let Err(e) = self.on_git_file_change(path.to_str().unwrap(), &events) {
-                            log::error!("{}: failed to handle git file change: {:#}", self.project.id, e);
-                        }
+                    },
+                    Err(e) => {
+                        log::error!("{}: failed to receive file change event: {:#}", self.project_id, e);
                     }
                 },
                 recv(self.stop.1) -> _ => {
                     if let Err(e) = self.tick_dispatcher.stop() {
-                        log::error!("{}: failed to stop ticker: {:#}", self.project.id, e);
+                        log::error!("{}: failed to stop ticker: {:#}", self.project_id, e);
                     }
                     if let Err(e) = self.file_change_dispatcher.stop() {
-                        log::error!("{}: failed to stop file watcher: {:#}", self.project.id, e);
+                        log::error!("{}: failed to stop file watcher: {:#}", self.project_id, e);
                     }
                     break;
                 }
             }
-        }
-
-        Ok(())
-    }
-
-    fn on_git_file_change(
-        &self,
-        path: &str,
-        events: &sync::mpsc::Sender<events::Event>,
-    ) -> Result<()> {
-        let event = if path.eq(".git/logs/HEAD") {
-            log::info!("{}: git activity", self.project.id);
-            Some(events::Event::git_activity(&self.project))
-        } else if path.eq(".git/HEAD") {
-            log::info!("{}: git head changed", self.project.id);
-            let head_ref = self.project_repository.head()?;
-            if let Some(head) = head_ref.name() {
-                Some(events::Event::git_head(&self.project, &head))
-            } else {
-                None
-            }
-        } else if path.eq(".git/index") {
-            log::info!("{}: git index changed", self.project.id);
-            Some(events::Event::git_index(&self.project))
-        } else {
-            None
-        };
-
-        if let Some(event) = event {
-            events
-                .send(event)
-                .with_context(|| "failed to send git event")?;
         }
 
         Ok(())

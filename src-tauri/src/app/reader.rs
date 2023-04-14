@@ -1,5 +1,6 @@
-use crate::fs;
 use anyhow::{Context, Result};
+
+use crate::fs;
 
 #[derive(Debug, PartialEq)]
 pub enum Content {
