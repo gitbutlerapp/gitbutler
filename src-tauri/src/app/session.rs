@@ -5,20 +5,20 @@ use anyhow::{anyhow, Context, Result};
 use crate::{deltas, pty, sessions};
 
 use super::{
-    gb_repository as repository,
+    gb_repository,
     reader::{self, Reader},
     writer::{self, Writer},
 };
 
 pub struct SessionWriter<'writer> {
-    repository: &'writer repository::Repository,
+    repository: &'writer gb_repository::Repository,
     writer: Box<dyn writer::Writer + 'writer>,
 }
 
 impl<'writer> SessionWriter<'writer> {
     pub fn open(
-        repository: &'writer repository::Repository,
-        session: &'writer sessions::Session,
+        repository: &'writer gb_repository::Repository,
+        session: sessions::Session,
     ) -> Result<Self> {
         let reader = reader::DirReader::open(repository.root());
 
@@ -194,13 +194,13 @@ impl<'writer> SessionWriter<'writer> {
 }
 
 pub struct SessionReader<'reader> {
-    repository: &'reader repository::Repository,
+    repository: &'reader gb_repository::Repository,
     reader: Box<dyn reader::Reader + 'reader>,
 }
 
 impl<'reader> SessionReader<'reader> {
     pub fn open(
-        repository: &'reader repository::Repository,
+        repository: &'reader gb_repository::Repository,
         session: sessions::Session,
     ) -> Result<Self> {
         let wd_reader = reader::DirReader::open(repository.root());

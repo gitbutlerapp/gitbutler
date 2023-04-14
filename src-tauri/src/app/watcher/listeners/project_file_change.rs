@@ -4,7 +4,6 @@ use crate::{
     app::{
         gb_repository, project_repository,
         reader::{self, Reader},
-        writer::Writer,
     },
     deltas, projects,
 };
@@ -150,27 +149,13 @@ impl<'listener> Listener<'listener> {
 
         log::info!("{}: {} changed", self.project_id, path.display());
 
-        let writer = self.gb_repository.get_wd_writer();
-
-        // save current deltas
+        let writer = self.gb_repository.get_current_session_writer()?;
         writer
-            .write_string(
-                self.gb_repository
-                    .deltas_path()
-                    .join(path)
-                    .to_str()
-                    .unwrap(),
-                &serde_json::to_string(&text_doc.get_deltas())?,
-            )
+            .write_deltas(path, text_doc.get_deltas())
             .with_context(|| "failed to write deltas")?;
-
-        // save file contents corresponding to the deltas
         writer
-            .write_string(
-                self.gb_repository.wd_path().join(path).to_str().unwrap(),
-                &current_file_content,
-            )
-            .with_context(|| "failed to write file content")?;
+            .write_file(path, &current_file_content)
+            .with_context(|| "failed to write file")?;
 
         Ok(())
     }

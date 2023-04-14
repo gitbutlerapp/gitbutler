@@ -15,7 +15,7 @@ impl Repository {
         Ok(Self { git_repository })
     }
 
-    pub fn head(&self) -> Result<git2::Reference> {
+    pub fn get_head(&self) -> Result<git2::Reference> {
         let head = self.git_repository.head()?;
         Ok(head)
     }

@@ -1,16 +1,24 @@
+use std::time;
+
 use anyhow::{anyhow, Context, Ok, Result};
+use uuid::Uuid;
 
-use crate::sessions;
+use crate::{projects, sessions};
 
-use super::{reader, writer};
+use super::{project_repository, reader, session};
 
 pub struct Repository {
     pub(crate) project_id: String,
+    project_store: projects::Storage,
     git_repository: git2::Repository,
 }
 
 impl Repository {
-    pub fn open<P: AsRef<std::path::Path>>(root: P, project_id: String) -> Result<Self> {
+    pub fn open<P: AsRef<std::path::Path>>(
+        root: P,
+        project_id: String,
+        project_store: projects::Storage,
+    ) -> Result<Self> {
         let path = root.as_ref().join(project_id.clone());
         let git_repository = if path.exists() {
             git2::Repository::open(path.clone())
@@ -43,15 +51,66 @@ impl Repository {
         Ok(Self {
             project_id,
             git_repository,
+            project_store,
         })
     }
 
-    pub fn sessions(&self) -> Result<Vec<sessions::Session>> {
-        Err(anyhow!("TODO"))
+    fn create_current_session(
+        &self,
+        project_repository: &project_repository::Repository,
+    ) -> Result<sessions::Session> {
+        log::info!("{}: creating new session", self.project_id);
+
+        let now_ms = time::SystemTime::now()
+            .duration_since(time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+
+        let meta = match project_repository.get_head() {
+            Result::Ok(head) => sessions::Meta {
+                start_timestamp_ms: now_ms,
+                last_timestamp_ms: now_ms,
+                branch: head.name().map(|name| name.to_string()),
+                commit: Some(head.peel_to_commit()?.id().to_string()),
+            },
+            Err(_) => sessions::Meta {
+                start_timestamp_ms: now_ms,
+                last_timestamp_ms: now_ms,
+                branch: None,
+                commit: None,
+            },
+        };
+
+        let session = sessions::Session {
+            id: Uuid::new_v4().to_string(),
+            hash: None,
+            meta,
+            activity: vec![],
+        };
+
+        Ok(session)
     }
 
-    pub fn get_wd_writer(&self) -> writer::DirWriter {
-        writer::DirWriter::open(self.root())
+    pub fn get_current_session_writer(&self) -> Result<session::SessionWriter> {
+        match self
+            .get_current_session()
+            .context("failed to get current session")?
+        {
+            Some(session) => Ok(session::SessionWriter::open(&self, session)?),
+            None => {
+                let project = self
+                    .project_store
+                    .get_project(&self.project_id)
+                    .context("failed to get project")?;
+                if project.is_none() {
+                    return Err(anyhow!("project {} does not exist", self.project_id));
+                }
+                let project = project.unwrap();
+                let project_repository = project_repository::Repository::open(&project)?;
+                let session = self.create_current_session(&project_repository)?;
+                Ok(session::SessionWriter::open(&self, session)?)
+            }
+        }
     }
 
     pub fn get_wd_reader(&self) -> reader::DirReader {
