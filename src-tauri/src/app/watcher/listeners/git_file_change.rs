@@ -43,7 +43,7 @@ impl Listener {
             Some(events::Event::git_activity(&project))
         } else if path.eq(".git/HEAD") {
             log::info!("{}: git head changed", project.id);
-            let head_ref = project_repository.head()?;
+            let head_ref = project_repository.get_head()?;
             if let Some(head) = head_ref.name() {
                 Some(events::Event::git_head(&project, &head))
             } else {

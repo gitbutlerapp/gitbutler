@@ -68,8 +68,10 @@ fn test_register_existing_file() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, project.id.clone())?;
-    let listener = Listener::new(project.id.clone(), project_store(&project)?, &gb_repo);
+    let project_store = project_store(&project)?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -100,8 +102,10 @@ fn test_register_new_file() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, project.id.clone())?;
-    let listener = Listener::new(project.id.clone(), project_store(&project)?, &gb_repo);
+    let project_store = project_store(&project)?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -130,8 +134,10 @@ fn test_register_new_file_twice() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let gb_repo = gb_repository::Repository::open(gb_repo_path, project.id.clone())?;
-    let listener = Listener::new(project.id.clone(), project_store(&project)?, &gb_repo);
+    let project_store = project_store(&project)?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
