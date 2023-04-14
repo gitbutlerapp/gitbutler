@@ -3,12 +3,9 @@ use std::{sync, time};
 use anyhow::{Context, Result};
 use crossbeam_channel::{bounded, select, unbounded};
 
-use crate::{
-    app::{dispatchers, listeners},
-    events, projects,
-};
+use crate::{app::gb_repository, events, projects, users};
 
-use super::{gb_repository, project_repository};
+use super::{dispatchers, listeners};
 
 pub struct Watcher<'watcher> {
     project_id: String,
@@ -29,6 +26,7 @@ impl<'watcher> Watcher<'watcher> {
     pub fn new(
         project_id: String,
         project_store: projects::Storage,
+        user_store: users::Storage,
         gb_repository: &'watcher gb_repository::Repository,
         events: sync::mpsc::Sender<events::Event>,
     ) -> Result<Self> {
@@ -52,10 +50,13 @@ impl<'watcher> Watcher<'watcher> {
                 project_id.clone(),
                 project_store,
                 gb_repository,
-                events,
+                events.clone(),
             ),
             check_current_session_listener: listeners::check_current_session::Listener::new(
+                project_id.clone(),
+                user_store,
                 gb_repository,
+                events,
             ),
 
             stop: bounded(1),

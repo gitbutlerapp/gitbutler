@@ -2,24 +2,24 @@ use std::{sync, time};
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::{app::gb_repository, events, projects, sessions, users};
+use crate::{app::gb_repository, events, sessions, users};
 
 pub struct Listener<'listener> {
     project_id: String,
-    user_store: &'listener users::Storage,
+    user_store: users::Storage,
     gb_repository: &'listener gb_repository::Repository,
     sender: sync::mpsc::Sender<events::Event>,
 }
 
 impl<'listener> Listener<'listener> {
     pub fn new(
-        project: &projects::Project,
-        user_store: &'listener users::Storage,
+        project_id: String,
+        user_store: users::Storage,
         gb_repository: &'listener gb_repository::Repository,
         sender: sync::mpsc::Sender<events::Event>,
     ) -> Self {
         Self {
-            project_id: project.id.clone(),
+            project_id,
             user_store,
             gb_repository,
             sender,
