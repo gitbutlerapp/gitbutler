@@ -1,12 +1,11 @@
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{self, Arc, Mutex},
 };
 
 use crate::projects;
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, Watcher};
-use tokio::sync;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -31,9 +30,9 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub async fn start(&self, rtx: sync::mpsc::Sender<PathBuf>) -> Result<()> {
-        let (mut watcher, mut rx) = async_watcher()?;
-
+    pub fn start(&self, rtx: crossbeam_channel::Sender<PathBuf>) -> Result<()> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
         watcher.watch(
             &std::path::Path::new(&self.project_path),
             notify::RecursiveMode::Recursive,
@@ -42,7 +41,7 @@ impl Dispatcher {
 
         log::info!("{}: file watcher started", self.project_id);
 
-        while let Some(res) = rx.recv().await {
+        for res in rx {
             match res {
                 Ok(event) => {
                     if !is_interesting_event(&event.kind) {
@@ -51,7 +50,7 @@ impl Dispatcher {
                     for file_path in event.paths {
                         let relative_file_path =
                             file_path.strip_prefix(&self.project_path).unwrap();
-                        if let Err(e) = rtx.send(relative_file_path.to_path_buf()).await {
+                        if let Err(e) = rtx.send(relative_file_path.to_path_buf()) {
                             log::error!(
                                 "{}: failed to send file change event: {:#}",
                                 self.project_id,
@@ -78,22 +77,4 @@ fn is_interesting_event(kind: &notify::EventKind) -> bool {
         notify::EventKind::Remove(notify::event::RemoveKind::File) => true,
         _ => false,
     }
-}
-
-fn async_watcher() -> notify::Result<(
-    RecommendedWatcher,
-    sync::mpsc::Receiver<notify::Result<notify::Event>>,
-)> {
-    let (tx, rx) = sync::mpsc::channel(1);
-
-    let watcher = RecommendedWatcher::new(
-        move |res| {
-            futures::executor::block_on(async {
-                tx.send(res).await.unwrap();
-            })
-        },
-        Config::default(),
-    )?;
-
-    Ok((watcher, rx))
 }

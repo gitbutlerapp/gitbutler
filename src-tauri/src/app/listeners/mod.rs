@@ -1,4 +1,4 @@
-mod file_change;
+pub mod file_change;
 
 #[cfg(test)]
 mod file_change_tests;

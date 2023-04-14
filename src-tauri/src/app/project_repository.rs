@@ -13,6 +13,11 @@ impl Repository {
         Ok(Self { git_repository })
     }
 
+    pub fn head(&self) -> Result<git2::Reference> {
+        let head = self.git_repository.head()?;
+        Ok(head)
+    }
+
     pub fn is_path_ignored<P: AsRef<std::path::Path>>(&self, path: P) -> Result<bool> {
         let path = path.as_ref();
         let ignored = self.git_repository.is_path_ignored(path)?;

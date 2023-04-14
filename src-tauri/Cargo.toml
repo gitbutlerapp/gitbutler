@@ -47,6 +47,7 @@ futures-util = "0.3.8"
 timed = "0.2.1"
 serde-jsonlines = "0.4.0"
 tokio-util = "0.7.7"
+crossbeam-channel = "0.5.8"
 
 [features]
 # by default Tauri runs in production mode

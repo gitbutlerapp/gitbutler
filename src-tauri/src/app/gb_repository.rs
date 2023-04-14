@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Ok, Result};
 
 pub struct Repository {
     pub(crate) project_id: String,
-    pub(crate) git_repository: git2::Repository,
+    git_repository: git2::Repository,
 }
 
 impl Repository {
@@ -55,6 +55,15 @@ impl Repository {
 
     pub fn get_wd_reader(&self) -> reader::DirReader {
         reader::DirReader::open(self.root())
+    }
+
+    pub fn get_commit_reader(&self, oid: git2::Oid) -> Result<reader::CommitReader> {
+        let commit = self
+            .git_repository
+            .find_commit(oid)
+            .context("failed to get commit")?;
+        let reader = reader::CommitReader::from_commit(&self.git_repository, commit)?;
+        Ok(reader)
     }
 
     pub fn get_head_reader(&self) -> Result<reader::CommitReader> {

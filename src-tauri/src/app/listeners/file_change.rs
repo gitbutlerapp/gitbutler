@@ -4,10 +4,9 @@ use crate::{
         reader::{self, Reader},
         writer::Writer,
     },
-    deltas::{self, TextDocument},
-    projects,
+    deltas, projects,
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 
 pub struct Listener<'listener> {
     project_id: String,

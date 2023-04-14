@@ -1,45 +1,46 @@
 use crate::projects;
-use anyhow::Result;
-use std::sync::{atomic::AtomicBool, Arc};
-use tokio::{sync, time};
+use anyhow::{Result, Context};
+use crossbeam_channel::{bounded, select, tick, Receiver, Sender};
+use std::time;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     project_id: String,
-    stop: Arc<AtomicBool>,
+    stop: (Sender<()>, Receiver<()>),
 }
 
 impl Dispatcher {
     pub fn new(project: &projects::Project) -> Self {
         Self {
             project_id: project.id.clone(),
-            stop: AtomicBool::new(false).into(),
+            stop: bounded(1),
         }
     }
 
     pub fn stop(&self) -> Result<()> {
-        self.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.stop.0.send(())?;
         Ok(())
     }
 
-    pub async fn start(
-        &self,
-        interval: time::Duration,
-        rtx: sync::mpsc::Sender<std::time::Instant>,
-    ) -> Result<()> {
-        let mut interval = time::interval(interval);
+    pub fn start(&self, interval: time::Duration, rtx: Sender<time::Instant>) -> Result<()> {
         log::info!("{}: ticker started", self.project_id);
+        let update = tick(interval);
+
         loop {
-            if self.stop.load(std::sync::atomic::Ordering::Relaxed) {
-                break;
-            }
+            select! {
+                recv(update) -> ts => {
+                    let ts = ts.context("failed to receive tick event")?;
+                    if let Err(e) = rtx.send(ts) {
+                        log::error!("{}: failed to send tick event: {:#}", self.project_id, e);
+                    }
 
-            let tick = interval.tick().await;
-
-            if let Err(e) = rtx.send(tick.into_std()).await {
-                log::error!("{}: failed to send tick event: {:#}", self.project_id, e);
+                }
+                recv(self.stop.1) -> _ => {
+                    break;
+                }
             }
         }
+
         log::info!("{}: ticker stopped", self.project_id);
 
         Ok(())

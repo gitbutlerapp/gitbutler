@@ -229,7 +229,7 @@ impl<'reader> SessionReader<'reader> {
         let oid = git2::Oid::from_str(&session_hash)
             .with_context(|| format!("failed to parse commit hash {}", session_hash))?;
 
-        let commit_reader = reader::CommitReader::open(&repository.git_repository, oid)?;
+        let commit_reader = repository.get_commit_reader(oid)?;
         Ok(SessionReader {
             reader: Box::new(commit_reader),
             repository,

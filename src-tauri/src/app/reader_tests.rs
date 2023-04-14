@@ -66,7 +66,7 @@ fn test_commit_reader_read_file() -> Result<()> {
         "test2",
     )?;
 
-    let reader = reader::CommitReader::open(&repository, oid)?;
+    let reader = reader::CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
     assert_eq!(
         reader.read(&file_path)?,
         reader::Content::UTF8("test".to_string())
@@ -126,7 +126,8 @@ fn test_commit_reader_list_files() -> Result<()> {
 
     std::fs::remove_dir_all(&repository.path().parent().unwrap().join("dir"))?;
 
-    let reader = super::reader::CommitReader::open(&repository, oid)?;
+    let reader =
+        super::reader::CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
     let files = reader.list_files(".")?;
     assert_eq!(files.len(), 2);
     assert!(files.contains(&"test.txt".to_string()));
@@ -164,7 +165,8 @@ fn test_commit_reader_exists() -> Result<()> {
 
     std::fs::remove_file(&repository.path().parent().unwrap().join("test.txt"))?;
 
-    let reader = super::reader::CommitReader::open(&repository, oid)?;
+    let reader =
+        super::reader::CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
     assert!(reader.exists("test.txt"));
     assert!(!reader.exists("test2.txt"));
 
