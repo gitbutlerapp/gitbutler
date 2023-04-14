@@ -53,26 +53,48 @@ impl<'listener> Listener<'listener> {
         }
     }
 
+    fn get_latest_file_contents_reader(
+        &self,
+        project_repository: &'listener project_repository::Repository,
+        path: &str,
+    ) -> Result<Option<Box<dyn reader::Reader + 'listener>>> {
+        if let Some(head_session) = self
+            .gb_repository
+            .get_sessions_iterator()
+            .context("failed to get sessions iterator")?
+            .next()
+        {
+            let head_session = head_session.context("failed to get head session")?;
+            let head_session_reader = self.gb_repository.get_session_reader(head_session)?;
+            if head_session_reader.exists(path) {
+                return Ok(Some(Box::new(head_session_reader)));
+            }
+        }
+
+        let project_head_reader = project_repository
+            .get_head_reader()
+            .with_context(|| "failed to get project head reader")?;
+
+        if project_head_reader.exists(path) {
+            return Ok(Some(Box::new(project_head_reader)));
+        }
+
+        return Ok(None);
+    }
+
     fn get_latest_file_contents(
         &self,
         project_repository: &project_repository::Repository,
         path: &std::path::Path,
     ) -> Result<Option<String>> {
         let path = path.to_str().unwrap();
-        let gb_head_reader = self
-            .gb_repository
-            .get_head_reader()
-            .with_context(|| "failed to get gb head reader")?;
-        let project_head_reader = project_repository
-            .get_head_reader()
-            .with_context(|| "failed to get project head reader")?;
-        let reader = if gb_head_reader.exists(path) {
-            gb_head_reader
-        } else if project_head_reader.exists(path) {
-            project_head_reader
-        } else {
+
+        let reader = self.get_latest_file_contents_reader(project_repository, path)?;
+        if reader.is_none() {
             return Ok(None);
-        };
+        }
+        let reader = reader.unwrap();
+
         if reader.size(path)? > 100_000 {
             log::warn!("{}: ignoring large file: {}", self.project_id, path);
             return Ok(None);
@@ -87,7 +109,13 @@ impl<'listener> Listener<'listener> {
     }
 
     fn get_current_deltas(&self, path: &std::path::Path) -> Result<Option<Vec<deltas::Delta>>> {
-        let reader = self.gb_repository.get_wd_reader();
+        let current_session = self.gb_repository.get_current_session()?;
+        if current_session.is_none() {
+            return Ok(None);
+        }
+        let current_session = current_session.unwrap();
+
+        let reader = self.gb_repository.get_session_reader(current_session)?;
         let deltas_path = self.gb_repository.deltas_path().join(path);
         match reader.read_to_string(deltas_path.to_str().unwrap()) {
             Ok(content) => Ok(Some(serde_json::from_str(&content)?)),
@@ -149,7 +177,8 @@ impl<'listener> Listener<'listener> {
 
         log::info!("{}: {} changed", self.project_id, path.display());
 
-        let writer = self.gb_repository.get_current_session_writer()?;
+        let current_session = self.gb_repository.get_or_create_current_session()?;
+        let writer = self.gb_repository.get_session_writer(&current_session)?;
         writer
             .write_deltas(path, text_doc.get_deltas())
             .with_context(|| "failed to write deltas")?;

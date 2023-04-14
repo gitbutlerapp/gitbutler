@@ -18,8 +18,12 @@ pub struct SessionWriter<'writer> {
 impl<'writer> SessionWriter<'writer> {
     pub fn open(
         repository: &'writer gb_repository::Repository,
-        session: sessions::Session,
+        session: &sessions::Session,
     ) -> Result<Self> {
+        if session.hash.is_some() {
+            return Err(anyhow!("can not open writer for a session with a hash"));
+        }
+
         let reader = reader::DirReader::open(repository.root());
 
         let current_session_id = reader.read_to_string(
@@ -198,6 +202,24 @@ pub struct SessionReader<'reader> {
     reader: Box<dyn reader::Reader + 'reader>,
 }
 
+impl Reader for SessionReader<'_> {
+    fn read(&self, file_path: &str) -> Result<reader::Content, reader::Error> {
+        self.reader.read(file_path)
+    }
+
+    fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
+        self.reader.list_files(dir_path)
+    }
+
+    fn exists(&self, file_path: &str) -> bool {
+        self.reader.exists(file_path)
+    }
+
+    fn size(&self, file_path: &str) -> Result<usize> {
+        self.reader.size(file_path)
+    }
+}
+
 impl<'reader> SessionReader<'reader> {
     pub fn open(
         repository: &'reader gb_repository::Repository,
@@ -232,7 +254,11 @@ impl<'reader> SessionReader<'reader> {
         let oid = git2::Oid::from_str(&session_hash)
             .with_context(|| format!("failed to parse commit hash {}", session_hash))?;
 
-        let commit_reader = repository.get_commit_reader(oid)?;
+        let commit = repository
+            .git_repository
+            .find_commit(oid)
+            .context("failed to get commit")?;
+        let commit_reader = reader::CommitReader::from_commit(&repository.git_repository, commit)?;
         Ok(SessionReader {
             reader: Box::new(commit_reader),
             repository,
@@ -263,6 +289,15 @@ impl<'reader> SessionReader<'reader> {
         Ok(files_with_content)
     }
 
+    pub fn file_deltas<P: AsRef<std::path::Path>>(&self, paths: P) -> Result<Vec<deltas::Delta>> {
+        let path = paths.as_ref();
+        let content = self
+            .reader
+            .read_to_string(&self.repository.deltas_path().join(path).to_str().unwrap())?;
+        let deltas: Vec<deltas::Delta> = serde_json::from_str(&content)?;
+        Ok(deltas)
+    }
+
     pub fn deltas(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, Vec<deltas::Delta>>> {
         let files = self
             .reader
@@ -286,5 +321,50 @@ impl<'reader> SessionReader<'reader> {
             })
             .collect();
         Ok(files_with_content)
+    }
+}
+
+pub struct SessionsIterator<'iterator> {
+    git_repository: &'iterator git2::Repository,
+    iter: git2::Revwalk<'iterator>,
+}
+
+impl<'iterator> SessionsIterator<'iterator> {
+    pub(crate) fn new(git_repository: &'iterator git2::Repository) -> Result<Self> {
+        let mut iter = git_repository.revwalk()?;
+        iter.push_head()?;
+        iter.set_sorting(git2::Sort::TOPOLOGICAL)?;
+        Ok(Self {
+            git_repository,
+            iter,
+        })
+    }
+}
+
+impl<'iterator> Iterator for SessionsIterator<'iterator> {
+    type Item = Result<sessions::Session>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(Result::Ok(oid)) => {
+                let commit = match self.git_repository.find_commit(oid) {
+                    Result::Ok(commit) => commit,
+                    Err(err) => return Some(Err(err.into())),
+                };
+                let commit_reader =
+                    match reader::CommitReader::from_commit(self.git_repository, commit) {
+                        Result::Ok(commit_reader) => commit_reader,
+                        Err(err) => return Some(Err(err)),
+                    };
+                let session = match sessions::Session::try_from(commit_reader) {
+                    Result::Ok(session) => session,
+                    Err(sessions::SessionError::NoSession) => return None,
+                    Err(err) => return Some(Err(err.into())),
+                };
+                Some(Ok(session))
+            }
+            Some(Err(err)) => Some(Err(err.into())),
+            None => None,
+        }
     }
 }

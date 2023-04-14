@@ -10,7 +10,7 @@ use super::{project_repository, reader, session};
 pub struct Repository {
     pub(crate) project_id: String,
     project_store: projects::Storage,
-    git_repository: git2::Repository,
+    pub(crate) git_repository: git2::Repository,
 }
 
 impl Repository {
@@ -91,46 +91,42 @@ impl Repository {
         Ok(session)
     }
 
-    pub fn get_current_session_writer(&self) -> Result<session::SessionWriter> {
+    pub fn get_session_writer(
+        &self,
+        session: &sessions::Session,
+    ) -> Result<session::SessionWriter> {
+        session::SessionWriter::open(&self, &session)
+    }
+
+    pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         match self
             .get_current_session()
             .context("failed to get current session")?
         {
-            Some(session) => Ok(session::SessionWriter::open(&self, session)?),
+            Some(session) => Ok(session),
             None => {
                 let project = self
                     .project_store
                     .get_project(&self.project_id)
                     .context("failed to get project")?;
                 if project.is_none() {
-                    return Err(anyhow!("project {} does not exist", self.project_id));
+                    return Err(anyhow!("project does not exist"));
                 }
                 let project = project.unwrap();
                 let project_repository = project_repository::Repository::open(&project)?;
                 let session = self.create_current_session(&project_repository)?;
-                Ok(session::SessionWriter::open(&self, session)?)
+                self.get_session_writer(&session)?;
+                Ok(session)
             }
         }
     }
 
-    pub fn get_wd_reader(&self) -> reader::DirReader {
-        reader::DirReader::open(self.root())
+    pub fn get_session_reader(&self, session: sessions::Session) -> Result<session::SessionReader> {
+        session::SessionReader::open(&self, session)
     }
 
-    pub fn get_commit_reader(&self, oid: git2::Oid) -> Result<reader::CommitReader> {
-        let commit = self
-            .git_repository
-            .find_commit(oid)
-            .context("failed to get commit")?;
-        let reader = reader::CommitReader::from_commit(&self.git_repository, commit)?;
-        Ok(reader)
-    }
-
-    pub fn get_head_reader(&self) -> Result<reader::CommitReader> {
-        let head = self.git_repository.head().context("failed to get HEAD")?;
-        let commit = head.peel_to_commit().context("failed to get HEAD commit")?;
-        let reader = reader::CommitReader::from_commit(&self.git_repository, commit)?;
-        Ok(reader)
+    pub fn get_sessions_iterator(&self) -> Result<session::SessionsIterator> {
+        Ok(session::SessionsIterator::new(&self.git_repository)?)
     }
 
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
