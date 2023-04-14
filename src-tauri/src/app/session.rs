@@ -1,11 +1,14 @@
+use std::collections::HashMap;
+
+use anyhow::{anyhow, Context, Result};
+
+use crate::{deltas, pty, sessions};
+
 use super::{
     gb_repository as repository,
     reader::{self, Reader},
     writer::{self, Writer},
 };
-use crate::{deltas, pty, sessions};
-use anyhow::{anyhow, Context, Result};
-use std::collections::HashMap;
 
 pub struct SessionWriter<'writer> {
     repository: &'writer repository::Repository,

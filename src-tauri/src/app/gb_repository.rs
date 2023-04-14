@@ -1,6 +1,8 @@
-use super::{reader, writer};
-use crate::{projects, sessions};
 use anyhow::{anyhow, Context, Ok, Result};
+
+use crate::sessions;
+
+use super::{reader, writer};
 
 pub struct Repository {
     pub(crate) project_id: String,
@@ -8,12 +10,11 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub fn open<P: AsRef<std::path::Path>>(root: P, project: &projects::Project) -> Result<Self> {
-        let root = root.as_ref();
-        let path = root.join(&project.id);
+    pub fn open<P: AsRef<std::path::Path>>(root: P, project_id: String) -> Result<Self> {
+        let path = root.as_ref().join(project_id.clone());
         let git_repository = if path.exists() {
-            git2::Repository::open(path)
-                .with_context(|| format!("{}: failed to open git repository", project.path))?
+            git2::Repository::open(path.clone())
+                .with_context(|| format!("{}: failed to open git repository", path.display()))?
         } else {
             // TODO: flush first session instead
 
@@ -23,7 +24,7 @@ impl Repository {
                     .initial_head("refs/heads/current")
                     .external_template(false),
             )
-            .with_context(|| format!("{}: failed to initialize git repository", project.path))?;
+            .with_context(|| format!("{}: failed to initialize git repository", path.display()))?;
 
             let mut index = git_repository.index()?;
             let oid = index.write_tree()?;
@@ -40,7 +41,7 @@ impl Repository {
             git_repository
         };
         Ok(Self {
-            project_id: project.id.clone(),
+            project_id,
             git_repository,
         })
     }

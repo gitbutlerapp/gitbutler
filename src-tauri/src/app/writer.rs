@@ -1,5 +1,6 @@
-use anyhow::{Context, Result};
 use std::io::Write;
+
+use anyhow::{Context, Result};
 
 pub trait Writer {
     fn write_string(&self, path: &str, contents: &str) -> Result<()>;

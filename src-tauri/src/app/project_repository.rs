@@ -1,6 +1,8 @@
-use super::reader;
-use crate::projects;
 use anyhow::{Context, Result};
+
+use crate::projects;
+
+use super::reader;
 
 pub struct Repository {
     git_repository: git2::Repository,

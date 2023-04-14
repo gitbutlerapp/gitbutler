@@ -1,6 +1,7 @@
-use super::reader::{self, Reader};
 use anyhow::Result;
 use tempfile::tempdir;
+
+use super::reader::{self, Reader};
 
 fn commit(repository: &git2::Repository) -> Result<git2::Oid> {
     let mut index = repository.index()?;

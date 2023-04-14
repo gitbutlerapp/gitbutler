@@ -718,22 +718,24 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
             .watch(tx.clone(), &repo)
             .with_context(|| format!("{}: failed to watch project", project.id))?;
 
-        // let local_data_dir = app_handle
-        //     .path_resolver()
-        //     .app_local_data_dir()
-        //     .expect("failed to get local data dir");
+        let local_data_dir = app_handle
+            .path_resolver()
+            .app_local_data_dir()
+            .expect("failed to get local data dir");
 
-        // let p = project.clone();
-        // tauri::async_runtime::spawn_blocking(|| {
-        //     let project = p;
-        //     let gb_repo = app::gb_repository::Repository::open(local_data_dir, &project)
-        //         .expect("failed to open gb repository");
-        //     let p_repo = app::project_repository::Repository::open(&project)
-        //         .expect("failed to open project repository");
-        //     let w = app::watcher::Watcher::new(&project, &gb_repo, &p_repo);
-        //     let (tx, rx) = std::sync::mpsc::channel::<events::Event>();
-        //     w.start(tx).expect("failed to start watcher");
-        // });
+        let p = project.clone();
+        let ps = app_state.projects_storage.clone();
+        tauri::async_runtime::spawn_blocking(|| {
+            let project = p;
+            let project_storage = ps;
+
+            let gb_repo = app::gb_repository::Repository::open(local_data_dir, project.id.clone())
+                .expect("failed to open gb repository");
+            let (tx, _rx) = std::sync::mpsc::channel::<events::Event>();
+            let w = app::watcher::Watcher::new(project.id, project_storage, &gb_repo, tx)
+                .expect("failed to create watcher");
+            w.start().expect("failed to start watcher");
+        });
 
         if let Err(err) = app_state
             .deltas_searcher
