@@ -24,12 +24,15 @@ impl Repository {
         project_store: projects::Storage,
     ) -> Result<Self> {
         let path = root.as_ref().join(project_id.clone());
-        let git_repository = if path.exists() {
-            git2::Repository::open(path.clone())
-                .with_context(|| format!("{}: failed to open git repository", path.display()))?
+        if path.exists() {
+            Ok(Self {
+                project_id,
+                git_repository: git2::Repository::open(path.clone()).with_context(|| {
+                    format!("{}: failed to open git repository", path.display())
+                })?,
+                project_store,
+            })
         } else {
-            // TODO: flush first session instead
-
             let git_repository = git2::Repository::init_opts(
                 &path,
                 &git2::RepositoryInitOptions::new()
@@ -38,25 +41,30 @@ impl Repository {
             )
             .with_context(|| format!("{}: failed to initialize git repository", path.display()))?;
 
-            let mut index = git_repository.index()?;
-            let oid = index.write_tree()?;
-            let signature = git2::Signature::now("gitbutler", "gitbutler@localhost").unwrap();
-            git_repository.commit(
-                Some("HEAD"),
-                &signature,
-                &signature,
-                "Initial commit",
-                &git_repository.find_tree(oid)?,
-                &[],
-            )?;
+            {
+                // TODO: remove this once flushing is fully working
+                let mut index = git_repository.index()?;
+                let oid = index.write_tree()?;
+                let signature = git2::Signature::now("gitbutler", "gitbutler@localhost").unwrap();
+                git_repository.commit(
+                    Some("HEAD"),
+                    &signature,
+                    &signature,
+                    "Initial commit",
+                    &git_repository.find_tree(oid)?,
+                    &[],
+                )?;
+            }
 
-            git_repository
-        };
-        Ok(Self {
-            project_id,
-            git_repository,
-            project_store,
-        })
+            let gb_repository = Self {
+                project_id,
+                git_repository,
+                project_store,
+            };
+
+            gb_repository.flush()?;
+            Ok(gb_repository)
+        }
     }
 
     fn create_current_session(
