@@ -725,15 +725,18 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
 
         let p = project.clone();
         let ps = app_state.projects_storage.clone();
+        let us = app_state.users_storage.clone();
         tauri::async_runtime::spawn_blocking(|| {
             let project = p;
             let project_storage = ps;
+            let user_storage = us;
 
             let gb_repo = app::gb_repository::Repository::open(local_data_dir, project.id.clone())
                 .expect("failed to open gb repository");
             let (tx, _rx) = std::sync::mpsc::channel::<events::Event>();
-            let w = app::watcher::Watcher::new(project.id, project_storage, &gb_repo, tx)
-                .expect("failed to create watcher");
+            let w =
+                app::watcher::Watcher::new(project.id, project_storage, user_storage, &gb_repo, tx)
+                    .expect("failed to create watcher");
             w.start().expect("failed to start watcher");
         });
 
