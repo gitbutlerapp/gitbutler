@@ -5,7 +5,11 @@ use uuid::Uuid;
 
 use crate::{projects, sessions};
 
-use super::{project_repository, reader, session};
+use super::{
+    project_repository,
+    reader::{self, Reader},
+    session,
+};
 
 pub struct Repository {
     pub(crate) project_id: String,
@@ -119,6 +123,39 @@ impl Repository {
                 Ok(session)
             }
         }
+    }
+
+    pub fn flush(&self) -> Result<Option<sessions::Session>> {
+        let current_session = self
+            .get_current_session()
+            .context("failed to get current session")?;
+        if current_session.is_none() {
+            return Ok(None);
+        }
+        let current_session = current_session.unwrap();
+
+        let project = self
+            .project_store
+            .get_project(&self.project_id)
+            .context("failed to get project")?;
+        if project.is_none() {
+            return Err(anyhow!("project does not exist"));
+        }
+        let project = project.unwrap();
+
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        let project_wd_reader = project_repository.get_wd_reader();
+
+        let current_session_writer = self
+            .get_session_writer(&current_session)
+            .context("failed to get session writer")?;
+
+        // read from wd
+        // write to session
+        // create commit
+
+        Err(anyhow!("not implemented"))
     }
 
     pub fn get_session_reader(&self, session: sessions::Session) -> Result<session::SessionReader> {

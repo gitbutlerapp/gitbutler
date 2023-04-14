@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::{deltas, pty, sessions};
+use crate::{deltas, projects, pty, sessions};
 
 use super::{
-    gb_repository,
+    gb_repository, project_repository,
     reader::{self, Reader},
     writer::{self, Writer},
 };
