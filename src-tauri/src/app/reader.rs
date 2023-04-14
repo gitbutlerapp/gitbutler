@@ -99,16 +99,6 @@ impl<'reader> CommitReader<'reader> {
         })
     }
 
-    pub fn open(
-        repository: &'reader git2::Repository,
-        commit_oid: git2::Oid,
-    ) -> Result<CommitReader<'reader>> {
-        let commit = repository
-            .find_commit(commit_oid)
-            .with_context(|| format!("{}: commit not found", commit_oid))?;
-        return CommitReader::from_commit(repository, commit);
-    }
-
     pub fn get_commit_oid(&self) -> git2::Oid {
         self.commit_oid
     }

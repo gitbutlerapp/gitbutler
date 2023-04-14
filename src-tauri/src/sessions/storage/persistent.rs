@@ -57,7 +57,9 @@ impl Store {
         walker.set_sorting(git2::Sort::TIME)?;
 
         for commit_id in walker {
-            let reader = reader::CommitReader::open(&git_repository, commit_id?)?;
+            let commit_id = commit_id?;
+            let commit = git_repository.find_commit(commit_id)?;
+            let reader = reader::CommitReader::from_commit(&git_repository, commit)?;
             if reader.read_to_string("session/meta/id")? == session_id {
                 return Ok(Some(sessions::Session::try_from(reader)?));
             }
@@ -206,7 +208,8 @@ impl Store {
         let mut sessions: Vec<sessions::Session> = vec![];
         for id in walker {
             let id = id?;
-            let reader = reader::CommitReader::open(&git_repository, id)?;
+            let commit = git_repository.find_commit(id)?;
+            let reader = reader::CommitReader::from_commit(&git_repository, commit)?;
             let session = sessions::Session::try_from(reader)?;
             sessions.push(session);
         }
