@@ -1,6 +1,6 @@
 import type QuickCommit from './QuickCommit.svelte';
 import type { Project } from '$lib/projects';
-import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon } from '../icons';
+import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon, FileIcon } from '../icons';
 import { matchFiles } from '$lib/git';
 import type { SvelteComponent, SvelteComponentTyped } from 'svelte';
 import { format, startOfISOWeek, startOfMonth, subDays, subMonths, subWeeks } from 'date-fns';
@@ -167,6 +167,26 @@ const fileGroup = ({
 				}))
 		  }));
 
+const supportGroup = ({ input }: { input: string }): Group => ({
+	title: 'Help & Support',
+	commands: [
+		{
+			title: 'Documentation',
+			action: {
+				href: `https://docs.gitbutler.com`
+			},
+			icon: FileIcon
+		},
+		{
+			title: 'Discord',
+			action: {
+				href: `https://discord.gg/MmFkmaJ42D`
+			},
+			icon: GitCommitIcon
+		}
+	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
+});
+
 export default (params: { projects: Project[]; project?: Project; input: string }) => {
 	const { projects, input, project } = params;
 	const groups = [];
@@ -174,6 +194,7 @@ export default (params: { projects: Project[]; project?: Project; input: string 
 	!project && groups.push(goToProjectGroup({ projects, input }));
 	project && groups.push(actionsGroup({ project, input }));
 	project && groups.push(fileGroup({ project, input }));
+	groups.push(supportGroup({ input }));
 
 	return groups;
 };

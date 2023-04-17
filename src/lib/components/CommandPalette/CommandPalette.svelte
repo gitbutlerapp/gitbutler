@@ -6,6 +6,7 @@
 	import listAvailableCommands, { Action, type Group, type ActionComponent } from './commands';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { open } from '@tauri-apps/api/shell';
 
 	export let projects: Readable<Project[]>;
 	export let project = readable<Project | undefined>(undefined);
@@ -58,7 +59,9 @@
 	const trigger = (action: Action) => {
 		if (!modal?.isOpen()) return;
 		if (Action.isLink(action)) {
-			goto(action.href);
+			action.href.startsWith('http') || action.href.startsWith('mailto')
+				? open(action.href)
+				: goto(action.href);
 			modal?.hide();
 		} else if (Action.isGroup(action)) {
 			selectedGroup.set(action);
