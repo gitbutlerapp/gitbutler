@@ -115,6 +115,16 @@ pub async fn accept_connection(
                     Ok(0) => {
                         // EOF
                         log::info!("0 bytes read from pty. EOF.");
+                        if let Err(e) = ws_sender
+                            .send(tokio_tungstenite::tungstenite::Message::Close(None))
+                            .await
+                        {
+                            log::error!(
+                                "{}: error sending data to websocket: {:#}",
+                                shared_project_id,
+                                e
+                            );
+                        }
                         break;
                     }
                     Ok(n) => {

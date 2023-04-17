@@ -17,7 +17,7 @@
 	const handleTerminalResize = debounce(() => term?.resize(), 5);
 	const runCommand = (command: string) => term?.run(command);
 
-	const terminal = (target: HTMLElement, params: { project: Project }) => {
+	$: terminal = (target: HTMLElement, params: { project: Project }) => {
 		let setupPromise = setupTerminal(params);
 		setupPromise.then((terminal) => (term = terminal));
 		setupPromise.then((terminal) => terminal.bind(target));
