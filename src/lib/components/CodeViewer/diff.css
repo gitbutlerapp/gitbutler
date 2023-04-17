@@ -13,8 +13,8 @@
 }
 
 .diff-line-addition .inner-diff {
-	--override-addition-inner-diff-background-color: hsl(144deg 55% 49% / 30%);
-
+	--override-addition-inner-diff-background-color: hsl(144deg 55% 49% / 60%);
+	color: white;
 	background-color: var(--override-addition-inner-diff-background-color);
 }
 

@@ -194,8 +194,8 @@
 		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
-			<ul class="flex w-full flex-col rounded border border-gb-700  bg-card-default pb-1">
-				<header class="flex w-full items-center bg-card-active p-2">
+			<ul class="flex w-full flex-col rounded border border-gb-700 bg-card-default pb-1">
+				<header class="flex w-full items-center bg-card-active p-2 rounded-tl rounded-tr">
 					<input
 						type="checkbox"
 						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
