@@ -32,23 +32,16 @@
 	};
 </script>
 
-<div class="terminal-page flex flex h-full w-full flex-row">
-	<div class="main-content h-full w-2/3">
-		<div class="flex h-full w-full flex-row">
-			<div class="h-full w-full" use:terminal={{ project: $project }} />
-			<ResizeObserver on:resize={handleTerminalResize} />
-		</div>
-	</div>
-
-	<div class="right-panel h-full w-1/3  p-2">
-		<h2 class="p-2 pb-4 text-lg font-bold text-zinc-300">Git Status</h2>
+<div class="terminal-page flex h-full w-full flex-row">
+	<div class="side-panel h-full w-1/3  p-4">
+		<h2 class="pb-4 text-lg font-bold text-zinc-300">Git Status</h2>
 		{#if $statuses.length == 0}
 			<div class="rounded border border-green-400 bg-green-600 p-2 font-mono text-green-900">
 				No changes
 			</div>
 		{:else}
 			<ul
-				class="mx-2 rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-sm text-yellow-900"
+				class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-sm text-yellow-900"
 			>
 				{#each $statuses as activity}
 					<li class="flex w-full gap-2">
@@ -62,11 +55,18 @@
 				{/each}
 			</ul>
 		{/if}
-		<div class="mt-4 p-2 font-bold">Commands</div>
-		<ul class="px-2  ">
+		<div class="mt-4 font-bold">Commands</div>
+		<ul class="py-2">
 			<Button role="primary" width="full-width" on:click={() => runCommand('git push')}>
 				Push Commit
 			</Button>
 		</ul>
+	</div>
+
+	<div class="main-content h-full w-2/3">
+		<div class="flex h-full w-full flex-row">
+			<div class="h-full w-full" use:terminal={{ project: $project }} />
+			<ResizeObserver on:resize={handleTerminalResize} />
+		</div>
 	</div>
 </div>

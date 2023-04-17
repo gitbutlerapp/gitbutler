@@ -18,7 +18,7 @@
 			style="
 			height: {Math.round((bucket.length / largestBucketSize) * 100)}%;
 			background: #3b82f6;
-			background: linear-gradient(0deg, #3b82f6 0%, #eab308 {100 -
+			background: linear-gradient(0deg, #3b82f6 0%, #9565FF {100 -
 				Math.round((bucket.length / largestBucketSize) * 100) +
 				100}%);
 			"

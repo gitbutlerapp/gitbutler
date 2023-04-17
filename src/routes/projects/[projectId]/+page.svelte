@@ -59,26 +59,7 @@
 </script>
 
 <div id="project-overview" class="flex h-full w-full">
-	<div class="flex w-2/3 flex-col gap-4">
-		<h1 class="flex px-8 pt-4 text-xl text-zinc-300">
-			<span>{$project?.title}</span>
-			<span class="ml-2 text-zinc-600">Project</span>
-		</h1>
-
-		<h2 class="px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
-
-		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-5 pb-8">
-			{#await fileDeltas.load()}
-				<li>
-					<IconRotateClockwise class="animate-spin" />
-				</li>
-			{:then}
-				<FileSummaries projectId={$project?.id} fileDeltas={$fileDeltas} />
-			{/await}
-		</ul>
-	</div>
-
-	<div class="work-in-progress-sidebar flex w-1/3 flex-col border-l border-l-zinc-700">
+	<div class="work-in-progress-sidebar side-panel flex w-1/3 flex-col border-r border-zinc-700">
 		<div class="recent-changes flex flex-col gap-4 border-b border-b-zinc-700 p-4">
 			<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
 
@@ -161,5 +142,24 @@
 				{/each}
 			</ul>
 		</div>
+	</div>
+
+	<div class="flex w-2/3 flex-col gap-4">
+		<h1 class="flex px-8 pt-4 text-xl text-zinc-300">
+			<span>{$project?.title}</span>
+			<span class="ml-2 text-zinc-600">Project</span>
+		</h1>
+
+		<h2 class="px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
+
+		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-5 pb-8">
+			{#await fileDeltas.load()}
+				<li>
+					<IconRotateClockwise class="animate-spin" />
+				</li>
+			{:then}
+				<FileSummaries projectId={$project?.id} fileDeltas={$fileDeltas} />
+			{/await}
+		</ul>
 	</div>
 </div>

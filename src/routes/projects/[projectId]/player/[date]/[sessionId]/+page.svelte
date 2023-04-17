@@ -505,7 +505,10 @@
 						</label>
 					</button>
 					{#if !fullContext}
-						<input type="number" bind:value={context} class="w-14 rounded py-1 pl-2 pr-1" />
+						<div class="hunk-controller-container flex items-center gap-2">
+							<p>Context:</p>
+							<input type="number" bind:value={context} class="w-14 rounded py-1 pl-2 pr-1" />
+						</div>
 					{/if}
 				</div>
 			</div>
