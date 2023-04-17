@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{app::gb_repository, projects, sessions, storage};
+use crate::{app::gb_repository, projects, sessions, storage, users};
 
 use super::session::SessionWriter;
 
@@ -35,21 +35,21 @@ fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
     Ok(project)
 }
 
-fn project_store(project: &projects::Project) -> Result<projects::Storage> {
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
-    let store = projects::Storage::new(storage);
-    store.add_project(project)?;
-    Ok(store)
-}
-
 #[test]
 fn test_should_not_write_session_with_hash() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let project_store = project_store(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -73,9 +73,16 @@ fn test_should_write_full_session() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let project_store = project_store(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -120,9 +127,16 @@ fn test_should_write_partial_session() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let project_store = project_store(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
 
     let session = sessions::Session {
         id: "session_id".to_string(),

@@ -2,13 +2,12 @@ use std::{sync, time};
 
 use anyhow::{Context, Result};
 
-use crate::{app::gb_repository, events, users};
+use crate::{app::gb_repository, events, projects};
 
 use super::flush_session;
 
 pub struct Listener<'listener> {
     gb_repository: &'listener gb_repository::Repository,
-
     flush_session_listener: flush_session::Listener<'listener>,
 }
 
@@ -18,7 +17,7 @@ const ONE_HOUR: u128 = time::Duration::new(60 * 60, 0).as_millis();
 impl<'listener> Listener<'listener> {
     pub fn new(
         project_id: String,
-        user_store: users::Storage,
+        project_store: projects::Storage,
         gb_repository: &'listener gb_repository::Repository,
         sender: sync::mpsc::Sender<events::Event>,
     ) -> Self {
@@ -26,7 +25,7 @@ impl<'listener> Listener<'listener> {
             gb_repository,
             flush_session_listener: flush_session::Listener::new(
                 project_id,
-                user_store,
+                project_store,
                 gb_repository,
                 sender,
             ),

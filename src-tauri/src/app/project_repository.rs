@@ -4,15 +4,23 @@ use crate::projects;
 
 use super::reader;
 
-pub struct Repository {
-    git_repository: git2::Repository,
+pub struct Repository<'repository> {
+    pub(crate) git_repository: git2::Repository,
+    project: &'repository projects::Project,
 }
 
-impl Repository {
-    pub fn open(project: &projects::Project) -> Result<Self> {
+impl<'repository> Repository<'repository> {
+    pub fn open(project: &'repository projects::Project) -> Result<Self> {
         let git_repository = git2::Repository::open(&project.path)
             .with_context(|| format!("{}: failed to open git repository", project.path))?;
-        Ok(Self { git_repository })
+        Ok(Self {
+            git_repository,
+            project,
+        })
+    }
+
+    pub fn get_project(&self) -> &'repository projects::Project {
+        self.project
     }
 
     pub fn get_head(&self) -> Result<git2::Reference> {
@@ -27,7 +35,7 @@ impl Repository {
     }
 
     pub fn get_wd_reader(&self) -> reader::DirReader {
-        reader::DirReader::open(self.root())
+        reader::DirReader::open(self.root().to_path_buf())
     }
 
     pub fn get_head_reader(&self) -> Result<reader::CommitReader> {

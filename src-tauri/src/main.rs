@@ -735,12 +735,12 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
                 local_data_dir,
                 project.id.clone(),
                 project_storage.clone(),
+                user_storage.clone(),
             )
             .expect("failed to open gb repository");
             let (tx, _rx) = std::sync::mpsc::channel::<events::Event>();
-            let w =
-                app::watcher::Watcher::new(project.id, project_storage, user_storage, &gb_repo, tx)
-                    .expect("failed to create watcher");
+            let w = app::watcher::Watcher::new(project.id, project_storage, &gb_repo, tx)
+                .expect("failed to create watcher");
             w.start().expect("failed to start watcher");
         });
 
