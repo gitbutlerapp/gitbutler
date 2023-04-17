@@ -5,6 +5,7 @@
 	import { collapsable } from '$lib/paths';
 	import FileActivity from './FileActivity.svelte';
 	import { Button } from '$lib/components';
+	import { bucketByTimestamp } from './histogram';
 
 	export let projectId: string;
 	export let fileDeltas: Readable<Record<string, Delta[]>>;
@@ -29,14 +30,27 @@
 		return Object.entries(merged)
 			.reduce((acc, [date, fileDeltas]) => {
 				const d = startOfDay(new Date(date));
-				acc.push([d, fileDeltas]);
+				acc.push([d, fileDeltas, getLargestBucket(fileDeltas)]);
 				return acc;
-			}, [] as [Date, Record<string, Delta[]>][])
+			}, [] as [Date, Record<string, Delta[]>, number][])
 			.sort((a, b) => b[0].getTime() - a[0].getTime());
 	});
+
+	const getLargestBucket = (fileDeltas: Record<string, Delta[]>): number => {
+		return Math.max(
+			...Object.entries(fileDeltas).map(([filepath, deltas]) => {
+				return Math.max(
+					...bucketByTimestamp(
+						deltas.map((delta) => delta.timestampMs),
+						18
+					).map((bucket) => bucket.length)
+				);
+			})
+		);
+	};
 </script>
 
-{#each $fileDeltasByDate as [date, fileDeltas]}
+{#each $fileDeltasByDate as [date, fileDeltas, largestBucketSize]}
 	<li
 		class="card changed-day-card flex flex-col rounded border-[0.5px] border-gb-700 bg-card-default"
 	>
@@ -71,7 +85,7 @@
 					>
 						<span class="w-full truncate" use:collapsable={{ value: filepath, separator: '/' }} />
 					</a>
-					<FileActivity {deltas} />
+					<FileActivity {deltas} {largestBucketSize} />
 				</li>
 			{/each}
 		</ul>
