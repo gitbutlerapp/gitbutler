@@ -1,6 +1,5 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -42,25 +41,6 @@ pub enum CreateError {
 }
 
 impl Project {
-    pub fn refname(&self) -> String {
-        format!("refs/gitbutler-{}/current", self.id)
-    }
-
-    pub fn session_path(&self) -> PathBuf {
-        PathBuf::from(&self.path)
-            .join(".git")
-            .join(format!("gb-{}", self.id))
-            .join("session")
-    }
-
-    pub fn deltas_path(&self) -> PathBuf {
-        self.session_path().join("deltas")
-    }
-
-    pub fn wd_path(&self) -> PathBuf {
-        self.session_path().join("wd")
-    }
-
     pub fn from_path(fpath: String) -> Result<Self, CreateError> {
         // make sure path exists
         let path = std::path::Path::new(&fpath);

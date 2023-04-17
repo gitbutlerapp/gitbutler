@@ -1,9 +1,9 @@
 use std::{sync, time};
 
-use anyhow::{Context, Result};
-use crossbeam_channel::{bounded, select, unbounded};
+use anyhow::Result;
+use crossbeam_channel::{select, unbounded};
 
-use crate::{app::gb_repository, events, projects, users};
+use crate::{app::gb_repository, events, projects, search};
 
 use super::{dispatchers, listeners};
 
@@ -16,55 +16,43 @@ pub struct Watcher<'watcher> {
     file_change_listener: listeners::file_change::Listener<'watcher>,
     check_current_session_listener: listeners::check_current_session::Listener<'watcher>,
 
-    stop: (
-        crossbeam_channel::Sender<()>,
-        crossbeam_channel::Receiver<()>,
-    ),
+    stop: crossbeam_channel::Receiver<()>,
 }
 
 impl<'watcher> Watcher<'watcher> {
     pub fn new(
-        project_id: String,
+        project: &projects::Project,
         project_store: projects::Storage,
         gb_repository: &'watcher gb_repository::Repository,
+        deltas_searcher: search::Deltas,
         events: sync::mpsc::Sender<events::Event>,
+        stop: crossbeam_channel::Receiver<()>,
     ) -> Result<Self> {
-        let project = project_store
-            .get_project(&project_id)
-            .context("failed to get project")?;
-        if project.is_none() {
-            return Err(anyhow::anyhow!("project not found"));
-        }
-        let project = project.unwrap();
         Ok(Self {
-            project_id: project_id.clone(),
+            project_id: project.id.clone(),
 
-            tick_dispatcher: dispatchers::tick::Dispatcher::new(project_id.clone()),
+            tick_dispatcher: dispatchers::tick::Dispatcher::new(project.id.clone()),
             file_change_dispatcher: dispatchers::file_change::Dispatcher::new(
-                project_id.clone(),
-                project.path,
+                project.id.clone(),
+                project.path.clone(),
             ),
 
             file_change_listener: listeners::file_change::Listener::new(
-                project_id.clone(),
+                project.id.clone(),
                 project_store.clone(),
                 gb_repository,
                 events.clone(),
             ),
             check_current_session_listener: listeners::check_current_session::Listener::new(
-                project_id,
+                project.id.clone(),
                 project_store,
                 gb_repository,
+                deltas_searcher,
                 events,
             ),
 
-            stop: bounded(1),
+            stop,
         })
-    }
-
-    pub fn stop(&self) -> anyhow::Result<()> {
-        self.stop.0.send(())?;
-        Ok(())
     }
 
     pub fn start(&self) -> Result<()> {
@@ -109,7 +97,7 @@ impl<'watcher> Watcher<'watcher> {
                         log::error!("{}: failed to receive file change event: {:#}", self.project_id, e);
                     }
                 },
-                recv(self.stop.1) -> _ => {
+                recv(self.stop) -> _ => {
                     if let Err(e) = self.tick_dispatcher.stop() {
                         log::error!("{}: failed to stop ticker: {:#}", self.project_id, e);
                     }

@@ -23,6 +23,7 @@ impl<'listener> Listener<'listener> {
                 project_id.clone(),
                 project_store.clone(),
                 gb_repository,
+                events.clone(),
             ),
             git_file_change_listener: git_file_change::Listener::new(
                 project_id,

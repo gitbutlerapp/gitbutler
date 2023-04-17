@@ -2,12 +2,12 @@ use std::{sync, time};
 
 use anyhow::{Context, Result};
 
-use crate::{app::gb_repository, events, projects};
+use crate::{app::gb_repository, events, projects, search};
 
 use super::flush_session;
 
 pub struct Listener<'listener> {
-    gb_repository: &'listener gb_repository::Repository,
+    gb_repository: sync::Arc<sync::Mutex<&'listener gb_repository::Repository>>,
     flush_session_listener: flush_session::Listener<'listener>,
 }
 
@@ -19,14 +19,16 @@ impl<'listener> Listener<'listener> {
         project_id: String,
         project_store: projects::Storage,
         gb_repository: &'listener gb_repository::Repository,
+        deltas_searcher: search::Deltas,
         sender: sync::mpsc::Sender<events::Event>,
     ) -> Self {
         Self {
-            gb_repository,
+            gb_repository: sync::Arc::new(sync::Mutex::new(gb_repository)),
             flush_session_listener: flush_session::Listener::new(
                 project_id,
                 project_store,
                 gb_repository,
+                deltas_searcher,
                 sender,
             ),
         }
@@ -35,6 +37,8 @@ impl<'listener> Listener<'listener> {
     pub fn register(&self, ts: time::SystemTime) -> Result<()> {
         let current_session = self
             .gb_repository
+            .lock()
+            .unwrap()
             .get_current_session()
             .context("failed to get current session")?;
         if current_session.is_none() {

@@ -1,7 +1,3 @@
-use crate::{deltas, projects, repositories, sessions, storage};
-use anyhow::{Context, Result};
-use serde::Serialize;
-use similar::{ChangeTag, TextDiff};
 use std::ops::Range;
 use std::{
     fs,
@@ -9,7 +5,13 @@ use std::{
     sync::{Arc, Mutex},
     vec,
 };
+
+use anyhow::{Context, Result};
+use serde::Serialize;
+use similar::{ChangeTag, TextDiff};
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
+
+use crate::{app, deltas, sessions, storage};
 
 const CURRENT_VERSION: u64 = 4; // should not decrease
 
@@ -60,7 +62,8 @@ pub struct Deltas {
 }
 
 impl Deltas {
-    pub fn at(path: PathBuf) -> Result<Self> {
+    pub fn at<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
         let dir = path
             .join("indexes")
             .join(format!("v{}", CURRENT_VERSION))
@@ -92,19 +95,21 @@ impl Deltas {
         search(&self.index, &self.reader, query)
     }
 
-    pub fn reindex_project(&mut self, repository: &repositories::Repository) -> Result<()> {
-        let sessions = repository
-            .sessions(None)
-            .with_context(|| "Could not list sessions for project")?;
+    pub fn reindex_project(&mut self, repository: &app::gb_repository::Repository) -> Result<()> {
+        let mut sessions = repository
+            .get_sessions_iterator()
+            .with_context(|| "Could not list sessions for project")?
+            .skip(1);
 
-        for session in sessions {
+        while let Some(session) = sessions.next() {
+            let session = session.with_context(|| "Could not read session")?;
             if session.hash.is_none() {
                 continue;
             }
 
             let version = self
                 .meta_storage
-                .get(&repository.project.id, &session.id)?
+                .get(repository.get_project_id(), &session.id)?
                 .unwrap_or(0);
 
             if version == CURRENT_VERSION {
@@ -113,9 +118,9 @@ impl Deltas {
 
             if let Err(e) = self.index_session(repository, &session) {
                 log::error!(
-                    "Could not index session {} in {}: {:#}",
+                    "{}: could not index session {}: {:#}",
+                    repository.get_project_id(),
                     session.id,
-                    repository.project.path,
                     e
                 );
             }
@@ -124,15 +129,10 @@ impl Deltas {
     }
 
     pub fn index_session(
-        &mut self,
-        repository: &repositories::Repository,
+        &self,
+        repository: &app::gb_repository::Repository,
         session: &sessions::Session,
     ) -> Result<()> {
-        log::info!(
-            "Indexing session {} in {}",
-            session.id,
-            repository.project.path
-        );
         index_session(
             &self.index,
             &mut self.writer.lock().unwrap(),
@@ -140,7 +140,14 @@ impl Deltas {
             &repository,
         )?;
         self.meta_storage
-            .set(&repository.project.id, &session.id, CURRENT_VERSION)?;
+            .set(&repository.get_project_id(), &session.id, CURRENT_VERSION)?;
+
+        log::info!(
+            "{}: indexed session {}",
+            repository.get_project_id(),
+            session.id,
+        );
+
         Ok(())
     }
 }
@@ -182,19 +189,19 @@ fn index_session(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
     session: &sessions::Session,
-    repository: &repositories::Repository,
+    repository: &app::gb_repository::Repository,
 ) -> Result<()> {
-    let deltas = repository
-        .deltas(&session.id, None)
+    let reader = repository
+        .get_session_reader(session.clone())
+        .with_context(|| "could not get session reader")?;
+    let deltas = reader
+        .deltas(None)
         .with_context(|| "could not list deltas for session")?;
     if deltas.is_empty() {
         return Ok(());
     }
-    let files = repository
-        .files(
-            &session.id,
-            Some(deltas.keys().map(|k| k.as_str()).collect()),
-        )
+    let files = reader
+        .files(Some(deltas.keys().map(|k| k.as_str()).collect()))
         .with_context(|| "could not list files for session")?;
     // index every file
     for (file_path, deltas) in deltas.into_iter() {
@@ -212,7 +219,7 @@ fn index_session(
                 index,
                 writer,
                 session,
-                &repository.project,
+                &repository.get_project_id(),
                 &mut file_text,
                 &file_path,
                 i,
@@ -228,7 +235,7 @@ fn index_delta(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
     session: &sessions::Session,
-    project: &projects::Project,
+    project_id: &str,
     file_text: &mut Vec<char>,
     file_path: &str,
     i: usize,
@@ -245,10 +252,7 @@ fn index_delta(
         session.id.clone(),
     );
     doc.add_text(index.schema().get_field("file_path").unwrap(), file_path);
-    doc.add_text(
-        index.schema().get_field("project_id").unwrap(),
-        project.id.clone(),
-    );
+    doc.add_text(index.schema().get_field("project_id").unwrap(), project_id);
     doc.add_u64(
         index.schema().get_field("timestamp_ms").unwrap(),
         delta.timestamp_ms.try_into()?,

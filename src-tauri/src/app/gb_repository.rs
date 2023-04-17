@@ -29,7 +29,7 @@ impl Repository {
         project_store: projects::Storage,
         users_store: users::Storage,
     ) -> Result<Self> {
-        let path = root.as_ref().join(project_id.clone());
+        let path = root.as_ref().join("projects").join(project_id.clone());
         if path.exists() {
             Ok(Self {
                 project_id,
@@ -85,6 +85,10 @@ impl Repository {
 
             Ok(gb_repository)
         }
+    }
+
+    pub fn get_project_id(&self) -> &str {
+        &self.project_id
     }
 
     fn create_current_session(
@@ -244,6 +248,30 @@ impl Repository {
         Ok(session::SessionsIterator::new(&self.git_repository)?)
     }
 
+    pub fn get_session(&self, session_id: &str) -> Result<sessions::Session> {
+        if let Some(session) = self.get_current_session()? {
+            if session.id == session_id {
+                return Ok(session);
+            }
+        }
+
+        let mut session_ids_iterator = session::SessionsIdsIterator::new(&self.git_repository)?;
+        while let Some(ids) = session_ids_iterator.next() {
+            match ids {
+                Result::Ok((oid, sid)) => {
+                    if sid == session_id {
+                        let commit = self.git_repository.find_commit(oid)?;
+                        let reader =
+                            reader::CommitReader::from_commit(&self.git_repository, commit)?;
+                        return Ok(sessions::Session::try_from(reader)?);
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Err(anyhow!("session not found"))
+    }
+
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
         let reader = reader::DirReader::open(self.root());
         match sessions::Session::try_from(reader) {
@@ -271,10 +299,6 @@ impl Repository {
 
     pub(crate) fn wd_path(&self) -> std::path::PathBuf {
         self.root().join("wd")
-    }
-
-    pub(crate) fn logs_path(&self) -> std::path::PathBuf {
-        self.root().join("logs")
     }
 }
 
@@ -317,7 +341,6 @@ fn build_wd_tree(
             &gb_repository.session_wd_path(),
             &file_path,
             &gb_repository,
-            &project_repository,
         )
         .with_context(|| {
             format!(
@@ -354,7 +377,6 @@ fn build_wd_tree(
             project_repository.root(),
             &file_path,
             &gb_repository,
-            &project_repository,
         )
         .with_context(|| {
             format!(
@@ -380,7 +402,6 @@ fn add_wd_path(
     dir: &std::path::Path,
     rel_file_path: &std::path::Path,
     gb_repository: &Repository,
-    project_repository: &project_repository::Repository,
 ) -> Result<()> {
     let file_path = dir.join(rel_file_path);
 
@@ -732,11 +753,10 @@ fn push_to_remote(
 
     // Push to the remote
     remote
-        .push(&[project.refname()], Some(&mut push_options))
+        .push(&["refs/heads/current"], Some(&mut push_options))
         .with_context(|| {
             format!(
-                "failed to push {} to {}",
-                project.refname(),
+                "failed to push refs/heads/current to {}",
                 remote_url.as_str()
             )
         })?;

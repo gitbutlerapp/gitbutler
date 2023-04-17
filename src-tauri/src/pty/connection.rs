@@ -1,29 +1,28 @@
-use crate::projects;
-use crate::pty::recorder;
-use anyhow::{Context, Result};
 use bytes::BytesMut;
+use std::{
+    env,
+    io::{Read, Write},
+};
+
+use anyhow::{Context, Result};
 use futures::{SinkExt, StreamExt};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
-use std::env;
-use std::io::{Read, Write};
-use std::sync::{Arc, Mutex};
 use tokio::net;
-use tokio_tungstenite;
-use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
+use tokio_tungstenite::{
+    self,
+    tungstenite::handshake::server::{Request, Response},
+};
 
-use super::recorder::Recorder;
+use crate::{app, pty::recorder};
 
 const TERM: &str = "xterm-256color";
 
-pub async fn accept_connection(
-    projects_store: projects::Storage,
-    stream: net::TcpStream,
-) -> Result<()> {
+pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<()> {
     let mut project = None;
     let copy_uri_callback = |req: &Request, response: Response| {
         let path = req.uri().path().to_string();
         if let Some(project_id) = path.split("/").last() {
-            project = match projects_store.get_project(project_id) {
+            project = match app.get_project(project_id) {
                 Ok(p) => p,
                 Err(e) => {
                     log::error!("failed to get project: {}", e);
@@ -94,12 +93,9 @@ pub async fn accept_connection(
 
     let mut pty_reader = pty_pair.master.try_clone_reader()?;
     let mut pty_writer = pty_pair.master.take_writer()?;
-    let recorder = Arc::new(Mutex::new(
-        Recorder::open(project.clone()).with_context(|| format!("failed to open recorder"))?,
-    ));
 
-    let shared_recorder = recorder.clone();
     let shared_project_id = project.id.clone();
+    let shared_app = app.clone();
     // it's important to spawn a new thread for the pty reader
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
@@ -142,11 +138,11 @@ pub async fn accept_connection(
                             );
                         }
 
-                        if let Err(e) = shared_recorder
-                            .lock()
-                            .unwrap()
-                            .record(recorder::Type::Output, &data.to_vec())
-                        {
+                        if let Err(e) = shared_app.record_pty(
+                            &shared_project_id,
+                            recorder::Type::Output,
+                            &data.to_vec(),
+                        ) {
                             log::error!("{}: error recording data: {:#}", shared_project_id, e);
                         }
                     }
@@ -169,16 +165,10 @@ pub async fn accept_connection(
                     (0, data) => {
                         if msg_bytes.len().gt(&0) {
                             pty_writer.write_all(&data)?;
-                            if let Err(e) = recorder
-                                .lock()
-                                .unwrap()
-                                .record(recorder::Type::Input, &data.to_vec())
+                            if let Err(e) =
+                                app.record_pty(&project.id, recorder::Type::Input, &data.to_vec())
                             {
-                                log::error!(
-                                    "{}: error recording data: {:#}",
-                                    project.id,
-                                    e
-                                );
+                                log::error!("{}: error recording data: {:#}", &project.id, e);
                             }
                         }
                     }

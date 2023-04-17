@@ -1,3 +1,4 @@
+mod app;
 pub mod gb_repository;
 pub mod project_repository;
 pub mod reader;
@@ -12,3 +13,6 @@ mod reader_tests;
 
 #[cfg(test)]
 mod session_tests;
+
+pub use app::App;
+pub use project_repository::FileStatus;

@@ -5,12 +5,10 @@ mod fs;
 mod git;
 mod projects;
 mod pty;
-mod repositories;
 mod search;
 mod sessions;
 mod storage;
 mod users;
-mod watchers;
 
 #[macro_use]
 extern crate log;
@@ -19,8 +17,7 @@ use anyhow::{Context, Result};
 use deltas::Delta;
 use git::activity;
 use serde::{ser::SerializeMap, Serialize};
-use std::{collections::HashMap, ops::Range, path::Path, sync::Mutex};
-use storage::Storage;
+use std::{collections::HashMap, ops::Range};
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
@@ -60,39 +57,6 @@ impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
         log::error!("{:#}", e);
         Error::Unknown
-    }
-}
-
-struct App {
-    pub projects_storage: projects::Storage,
-    pub users_storage: users::Storage,
-    pub deltas_searcher: Mutex<search::Deltas>,
-    pub watchers: Mutex<watchers::Watcher>,
-    pub repositories_storage: Mutex<repositories::Store>,
-}
-
-impl App {
-    pub fn new(resolver: tauri::PathResolver) -> Result<Self> {
-        let local_data_dir = resolver.app_local_data_dir().unwrap();
-        log::info!("Local data dir: {:?}", local_data_dir,);
-        let storage = Storage::from_path_resolver(&resolver);
-        let projects_storage = projects::Storage::new(storage.clone());
-        let users_storage = users::Storage::new(storage.clone());
-        let deltas_searcher = search::Deltas::at(local_data_dir)?;
-        let watchers = watchers::Watcher::new(
-            projects_storage.clone(),
-            users_storage.clone(),
-            deltas_searcher.clone(),
-        );
-        let repositories_storage =
-            repositories::Store::new(projects_storage.clone(), users_storage.clone());
-        Ok(Self {
-            projects_storage,
-            users_storage,
-            deltas_searcher: deltas_searcher.into(),
-            watchers: watchers.into(),
-            repositories_storage: repositories_storage.into(),
-        })
     }
 }
 
@@ -157,7 +121,7 @@ async fn search(
     timestamp_ms_gte: Option<u64>,
     timestamp_ms_lt: Option<u64>,
 ) -> Result<search::SearchResults, Error> {
-    let app_state = handle.state::<App>();
+    let app = handle.state::<app::App>();
 
     let query = search::SearchQuery {
         project_id: project_id.to_string(),
@@ -170,15 +134,9 @@ async fn search(
         },
     };
 
-    let deltas_lock = app_state
-        .deltas_searcher
-        .lock()
-        .map_err(|poison_err| anyhow::anyhow!("Lock poisoned: {:?}", poison_err))?;
-    let deltas = deltas_lock
-        .search(&query)
-        .with_context(|| format!("Failed to search for {:?}", query))?;
+    let results = app.search(&query).context("failed to search")?;
 
-    Ok(deltas)
+    Ok(results)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -188,24 +146,19 @@ async fn list_sessions(
     project_id: &str,
     earliest_timestamp_ms: Option<u128>,
 ) -> Result<Vec<sessions::Session>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let sessions = repo
-        .sessions(earliest_timestamp_ms)
-        .with_context(|| format!("Failed to list sessions for project {}", project_id))?;
-
+    let app = handle.state::<app::App>();
+    let sessions = app
+        .list_sessions(project_id, earliest_timestamp_ms)
+        .context("failed to list sessions")?;
     Ok(sessions)
 }
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
-    let app_state = handle.state::<App>();
+    let app = handle.state::<app::App>();
 
-    match app_state
-        .users_storage
-        .get()
-        .with_context(|| "Failed to get user".to_string())?
-    {
+    match app.get_user().context("failed to get user")? {
         Some(user) => {
             let local_picture = match proxy_image(handle, &user.picture).await {
                 Ok(picture) => picture,
@@ -229,12 +182,9 @@ async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
-    let app_state = handle.state::<App>();
+    let app = handle.state::<app::App>();
 
-    app_state
-        .users_storage
-        .set(&user)
-        .with_context(|| "Failed to set user".to_string())?;
+    app.set_user(&user).context("failed to set user")?;
 
     sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())));
 
@@ -244,12 +194,9 @@ async fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Err
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
-    let app_state = handle.state::<App>();
+    let app = handle.state::<app::App>();
 
-    app_state
-        .users_storage
-        .delete()
-        .with_context(|| "Failed to delete user".to_string())?;
+    app.delete_user().context("failed to delete user")?;
 
     sentry::configure_scope(|scope| scope.set_user(None));
 
@@ -262,12 +209,11 @@ async fn update_project(
     handle: tauri::AppHandle,
     project: projects::UpdateRequest,
 ) -> Result<projects::Project, Error> {
-    let app_state = handle.state::<App>();
+    let app = handle.state::<app::App>();
 
-    let project = app_state
-        .projects_storage
+    let project = app
         .update_project(&project)
-        .with_context(|| format!("Failed to update project {}", project.id))?;
+        .context("failed to update project")?;
 
     Ok(project)
 }
@@ -275,44 +221,11 @@ async fn update_project(
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
-    let app_state = handle.state::<App>();
+    let app = handle.state::<app::App>();
 
-    for project in app_state
-        .projects_storage
-        .list_projects()
-        .with_context(|| "Failed to list projects".to_string())?
-    {
-        if project.path == path {
-            if !project.deleted {
-                return Err(Error::ProjectAlreadyExists);
-            } else {
-                app_state
-                    .projects_storage
-                    .update_project(&projects::UpdateRequest {
-                        id: project.id.clone(),
-                        deleted: Some(false),
-                        ..Default::default()
-                    })?;
-                return Ok(project);
-            }
-        }
-    }
+    let (tx, rx) = std::sync::mpsc::channel::<events::Event>();
+    let project = app.add_project(path, tx).context("failed to add project")?;
 
-    let project = projects::Project::from_path(path.to_string())?;
-    app_state.projects_storage.add_project(&project)?;
-
-    app_state
-        .repositories_storage
-        .lock()
-        .unwrap()
-        .get(&project.id)
-        .with_context(|| format!("{}: failed to open repository", project.path))?;
-
-    let repo = repo_for_project(handle.clone(), &project.id)?;
-
-    let (tx, rx) = tokio::sync::mpsc::channel::<events::Event>(1);
-
-    app_state.watchers.lock().unwrap().watch(tx, &repo)?;
     watch_events(handle, rx);
 
     Ok(project)
@@ -321,9 +234,9 @@ async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::P
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
-    let app_state = handle.state::<App>();
+    let app = handle.state::<app::App>();
 
-    let projects = app_state.projects_storage.list_projects()?;
+    let projects = app.list_projects().context("failed to list projects")?;
 
     Ok(projects)
 }
@@ -331,24 +244,11 @@ async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
-    let app_state = handle.state::<App>();
+    let app = handle.state::<app::App>();
 
-    match app_state.projects_storage.get_project(id)? {
-        Some(project) => {
-            app_state.watchers.lock().unwrap().unwatch(project)?;
+    app.delete_project(id).context("failed to delete project")?;
 
-            app_state
-                .projects_storage
-                .update_project(&projects::UpdateRequest {
-                    id: id.to_string(),
-                    deleted: Some(true),
-                    ..Default::default()
-                })?;
-
-            Ok(())
-        }
-        None => Ok(()),
-    }
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -359,8 +259,10 @@ async fn list_session_files(
     session_id: &str,
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let files = repo.files(session_id, paths)?;
+    let app = handle.state::<app::App>();
+    let files = app
+        .list_session_files(project_id, session_id, paths)
+        .context("failed to list session files")?;
     Ok(files)
 }
 
@@ -372,8 +274,10 @@ async fn list_deltas(
     session_id: &str,
     paths: Option<Vec<&str>>,
 ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let deltas = repo.deltas(session_id, paths)?;
+    let app = handle.state::<app::App>();
+    let deltas = app
+        .list_session_deltas(project_id, session_id, paths)
+        .context("failed to list deltas")?;
     Ok(deltas)
 }
 
@@ -384,10 +288,10 @@ async fn git_activity(
     project_id: &str,
     start_time_ms: Option<u128>,
 ) -> Result<Vec<activity::Activity>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let activity = repo
-        .activity(start_time_ms)
-        .with_context(|| "Failed to get git activity")?;
+    let app = handle.state::<app::App>();
+    let activity = app
+        .git_activity(project_id, start_time_ms)
+        .context("failed to get git activity")?;
     Ok(activity)
 }
 
@@ -396,10 +300,12 @@ async fn git_activity(
 async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<HashMap<String, (repositories::FileStatus, bool)>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let files = repo.status().with_context(|| "Failed to get git status")?;
-    Ok(files)
+) -> Result<HashMap<String, (app::FileStatus, bool)>, Error> {
+    let app = handle.state::<app::App>();
+    let status = app
+        .git_status(project_id)
+        .context("failed to get git status")?;
+    Ok(status)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -408,10 +314,10 @@ async fn git_wd_diff(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<HashMap<String, String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let diff = repo
-        .wd_diff(100) // max 100 lines per file
-        .with_context(|| "Failed to get git diff")?;
+    let app = handle.state::<app::App>();
+    let diff = app
+        .git_wd_diff(project_id, 100)
+        .context("failed to get git wd diff")?;
     Ok(diff)
 }
 
@@ -422,47 +328,28 @@ async fn git_match_paths(
     project_id: &str,
     match_pattern: &str,
 ) -> Result<Vec<String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let files = repo
-        .match_file_paths(match_pattern)
-        .with_context(|| "Failed to get file paths")?;
-
-    Ok(files)
-}
-
-fn repo_for_project(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<repositories::Repository, Error> {
-    let app_state = handle.state::<App>();
-
-    let repo = app_state
-        .repositories_storage
-        .lock()
-        .unwrap()
-        .get(&project_id)
-        .with_context(|| format!("{}: failed to open repository", project_id))?;
-
-    Ok(repo)
+    let app = handle.state::<app::App>();
+    let paths = app
+        .git_match_paths(project_id, match_pattern)
+        .context("failed to get git match paths")?;
+    Ok(paths)
 }
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let files = repo
-        .branches()
-        .with_context(|| "Failed to get file paths")?;
-    Ok(files)
+    let app = handle.state::<app::App>();
+    let branches = app
+        .git_branches(project_id)
+        .context("failed to get git branches")?;
+    Ok(branches)
 }
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let head = repo
-        .head()
-        .with_context(|| "Failed to get the git branch ref name")?;
+    let app = handle.state::<app::App>();
+    let head = app.git_head(project_id).context("failed to get git head")?;
     Ok(head)
 }
 
@@ -472,12 +359,11 @@ async fn git_switch_branch(
     handle: tauri::AppHandle,
     project_id: &str,
     branch: &str,
-) -> Result<bool, Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    let result = repo
-        .switch_branch(branch)
-        .with_context(|| "Failed to get file paths")?;
-    Ok(result)
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    app.git_switch_branch(project_id, branch)
+        .context("failed to switch git branch")?;
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -487,9 +373,9 @@ async fn git_stage(
     project_id: &str,
     paths: Vec<&str>,
 ) -> Result<(), Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    repo.stage_files(paths.iter().map(|p| Path::new(p)).collect())
-        .with_context(|| "failed to stage file")?;
+    let app = handle.state::<app::App>();
+    app.git_stage_files(project_id, paths)
+        .context("failed to stage file")?;
     Ok(())
 }
 
@@ -500,9 +386,9 @@ async fn git_unstage(
     project_id: &str,
     paths: Vec<&str>,
 ) -> Result<(), Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    repo.unstage_files(paths.iter().map(|p| Path::new(p)).collect())
-        .with_context(|| "failed to unstage file")?;
+    let app = handle.state::<app::App>();
+    app.git_unstage_files(project_id, paths)
+        .context("failed to unstage file")?;
     Ok(())
 }
 
@@ -514,10 +400,9 @@ async fn git_commit(
     message: &str,
     push: bool,
 ) -> Result<(), Error> {
-    let repo = repo_for_project(handle, project_id)?;
-    repo.commit(message, push)
-        .with_context(|| "Failed to commit")?;
-
+    let app = handle.state::<app::App>();
+    app.git_commit(project_id, message, push)
+        .context("failed to commit")?;
     Ok(())
 }
 
@@ -579,22 +464,23 @@ fn main() {
             }
             _ => {}
         })
-        .setup(move |app| {
-            let window = create_window(&app.handle()).expect("Failed to create window");
+        .setup(move |tauri_app| {
+            let window = create_window(&tauri_app.handle()).expect("Failed to create window");
             #[cfg(debug_assertions)]
             window.open_devtools();
 
-            let app_state: App =
-                App::new(app.path_resolver()).expect("Failed to initialize app state");
+            let app: app::App =
+                app::App::new(tauri_app.path_resolver().app_local_data_dir().unwrap())
+                    .expect("failed to initialize app");
 
             // TODO: REMOVE THIS
             // debug_test_consistency(&app_state, "fec3d50c-503f-4021-89fb-e7ec2433ceae")
             //     .expect("FAIL");
 
-            app.manage(app_state);
+            tauri_app.manage(app);
 
-            let app_handle = app.handle();
-            tauri::async_runtime::spawn(async move {
+            let app_handle = tauri_app.handle();
+            tauri::async_runtime::spawn_blocking(move || {
                 if let Err(e) = init(app_handle) {
                     log::error!("failed to app: {:#}", e);
                 }
@@ -683,93 +569,26 @@ fn main() {
 }
 
 fn init(app_handle: tauri::AppHandle) -> Result<()> {
-    let app_state = app_handle.state::<App>();
-
-    let user = app_state
-        .users_storage
-        .get()
-        .with_context(|| "Failed to get user")?;
-
-    // setup senty
-    if let Some(user) = user {
+    let app = app_handle.state::<app::App>();
+    if let Some(user) = app.get_user().context("failed to get user")? {
         sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
     }
 
-    // start watching projects
-    let (tx, rx) = tokio::sync::mpsc::channel::<events::Event>(32);
+    let (events_tx, events_rx) = std::sync::mpsc::channel::<events::Event>();
 
-    let projects = app_state
-        .projects_storage
-        .list_projects()
-        .with_context(|| "Failed to list projects")?;
+    app.start_pty_server()
+        .context("failed to start pty server")?;
 
-    for project in projects {
-        let repo = app_state
-            .repositories_storage
-            .lock()
-            .unwrap()
-            .get(&project.id)
-            .with_context(|| format!("{}: failed to open repository", project.path))?;
+    app.init(events_tx).context("failed to init app")?;
 
-        app_state
-            .watchers
-            .lock()
-            .unwrap()
-            .watch(tx.clone(), &repo)
-            .with_context(|| format!("{}: failed to watch project", project.id))?;
-
-        let local_data_dir = app_handle
-            .path_resolver()
-            .app_local_data_dir()
-            .expect("failed to get local data dir");
-
-        let p = project.clone();
-        let ps = app_state.projects_storage.clone();
-        let us = app_state.users_storage.clone();
-        tauri::async_runtime::spawn_blocking(|| {
-            let project = p;
-            let project_storage = ps;
-            let user_storage = us;
-
-            let gb_repo = app::gb_repository::Repository::open(
-                local_data_dir,
-                project.id.clone(),
-                project_storage.clone(),
-                user_storage.clone(),
-            )
-            .expect("failed to open gb repository");
-            let (tx, _rx) = std::sync::mpsc::channel::<events::Event>();
-            let w = app::watcher::Watcher::new(project.id, project_storage, &gb_repo, tx)
-                .expect("failed to create watcher");
-            w.start().expect("failed to start watcher");
-        });
-
-        if let Err(err) = app_state
-            .deltas_searcher
-            .lock()
-            .unwrap()
-            .reindex_project(&repo)
-        {
-            log::error!("{}: failed to reindex project: {:#}", project.id, err);
-        }
-    }
-
-    let project_storage = app_state.projects_storage.clone();
-    tauri::async_runtime::spawn(async move {
-        let port = IS_DEV.then(|| 7702).unwrap_or(7703);
-        if let Err(e) = pty::start_server(port, project_storage).await {
-            log::error!("failed to start pty server: {:#}", e);
-        }
-    });
-
-    watch_events(app_handle, rx);
+    watch_events(app_handle, events_rx);
 
     Ok(())
 }
 
-fn watch_events(handle: tauri::AppHandle, mut rx: tokio::sync::mpsc::Receiver<events::Event>) {
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
+fn watch_events(handle: tauri::AppHandle, rx: std::sync::mpsc::Receiver<events::Event>) {
+    tauri::async_runtime::spawn_blocking(move || {
+        while let Ok(event) = rx.recv() {
             if let Some(window) = handle.get_window("main") {
                 log::info!("Emitting event: {}", event.name);
                 match window.emit(&event.name, event.payload) {
@@ -829,58 +648,58 @@ fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
     }
 }
 
-fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
-    let repo = app_state
-        .repositories_storage
-        .lock()
-        .unwrap()
-        .get(&project_id)?;
+// fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
+//     let repo = app_state
+//         .repositories_storage
+//         .lock()
+//         .unwrap()
+//         .get(&project_id)?;
 
-    let sessions = repo.sessions(None)?;
-    let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
-        .iter()
-        .map(|session| {
-            let deltas = repo
-                .deltas(&session.id, None)
-                .expect("Failed to list deltas");
-            deltas
-        })
-        .collect();
+//     let sessions = repo.sessions(None)?;
+//     let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
+//         .iter()
+//         .map(|session| {
+//             let deltas = repo
+//                 .deltas(&session.id, None)
+//                 .expect("Failed to list deltas");
+//             deltas
+//         })
+//         .collect();
 
-    let deltas: HashMap<String, Vec<Delta>> =
-        session_deltas
-            .iter()
-            .fold(HashMap::new(), |mut acc, deltas| {
-                for (path, deltas) in deltas {
-                    acc.entry(path.to_string())
-                        .or_insert_with(Vec::new)
-                        .extend(deltas.clone());
-                }
-                acc
-            });
+//     let deltas: HashMap<String, Vec<Delta>> =
+//         session_deltas
+//             .iter()
+//             .fold(HashMap::new(), |mut acc, deltas| {
+//                 for (path, deltas) in deltas {
+//                     acc.entry(path.to_string())
+//                         .or_insert_with(Vec::new)
+//                         .extend(deltas.clone());
+//                 }
+//                 acc
+//             });
 
-    if sessions.is_empty() {
-        return Ok(());
-    }
+//     if sessions.is_empty() {
+//         return Ok(());
+//     }
 
-    let first_session = &sessions[sessions.len() - 1];
-    let files = repo.files(&first_session.id, None)?;
+//     let first_session = &sessions[sessions.len() - 1];
+//     let files = repo.files(&first_session.id, None)?;
 
-    files.iter().for_each(|(path, content)| {
-        println!("Testing consistency for {}", path);
-        let mut file_deltas = deltas.get(path).unwrap_or(&Vec::new()).clone();
-        file_deltas.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
-        let mut text: Vec<char> = content.chars().collect();
-        for delta in file_deltas {
-            println!("Applying delta: {:?}", delta.timestamp_ms);
-            for operation in delta.operations {
-                println!("Applying operation: {:?}", operation);
-                operation
-                    .apply(&mut text)
-                    .expect("Failed to apply operation");
-            }
-        }
-    });
+//     files.iter().for_each(|(path, content)| {
+//         println!("Testing consistency for {}", path);
+//         let mut file_deltas = deltas.get(path).unwrap_or(&Vec::new()).clone();
+//         file_deltas.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
+//         let mut text: Vec<char> = content.chars().collect();
+//         for delta in file_deltas {
+//             println!("Applying delta: {:?}", delta.timestamp_ms);
+//             for operation in delta.operations {
+//                 println!("Applying operation: {:?}", operation);
+//                 operation
+//                     .apply(&mut text)
+//                     .expect("Failed to apply operation");
+//             }
+//         }
+//     });
 
-    Ok(())
-}
+//     Ok(())
+// }
