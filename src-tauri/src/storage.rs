@@ -3,7 +3,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use tauri::PathResolver;
 
 #[derive(Debug, Default, Clone)]
 pub struct Storage {
@@ -11,15 +10,9 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn from_path(path: PathBuf) -> Self {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Self {
         Storage {
-            local_data_dir: path,
-        }
-    }
-
-    pub fn from_path_resolver(resolver: &PathResolver) -> Self {
-        Self {
-            local_data_dir: resolver.app_local_data_dir().unwrap(),
+            local_data_dir: path.as_ref().to_path_buf(),
         }
     }
 

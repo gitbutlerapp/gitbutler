@@ -1,10 +1,7 @@
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{
-    app::{gb_repository, reader::Reader},
-    projects, storage, users,
-};
+use crate::{app::gb_repository, projects, storage, users};
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();

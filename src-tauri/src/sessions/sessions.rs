@@ -1,7 +1,6 @@
 use crate::{app::reader, git::activity};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use serde::Serialize;
-use std::path::Path;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -107,26 +106,4 @@ impl<'reader> TryFrom<reader::CommitReader<'reader>> for Session {
             ..session
         })
     }
-}
-
-pub fn id_from_commit(repo: &git2::Repository, commit: &git2::Commit) -> Result<String> {
-    let tree = commit.tree().unwrap();
-    let session_id_path = Path::new("session/meta/id");
-    if !tree.get_path(session_id_path).is_ok() {
-        return Err(anyhow!("commit does not have a session id"));
-    }
-    let id = read_as_string(repo, &tree, session_id_path)?;
-    return Ok(id);
-}
-
-fn read_as_string(repo: &git2::Repository, tree: &git2::Tree, path: &Path) -> Result<String> {
-    let tree_entry = tree.get_path(path)?;
-    let blob = tree_entry.to_object(repo)?.into_blob().unwrap();
-    let contents = String::from_utf8(blob.content().to_vec()).with_context(|| {
-        format!(
-            "failed to read file {} as string",
-            path.to_str().unwrap_or("unknown")
-        )
-    })?;
-    Ok(contents)
 }

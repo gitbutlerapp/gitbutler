@@ -8,15 +8,6 @@ pub enum Content {
     Binary(Vec<u8>),
 }
 
-impl Content {
-    pub fn as_bytes(&self) -> &[u8] {
-        match self {
-            Content::UTF8(s) => s.as_bytes(),
-            Content::Binary(b) => b,
-        }
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("file not found")]

@@ -1,3 +1,5 @@
+use std::sync;
+
 use anyhow::{Context, Result};
 
 use crate::{
@@ -5,13 +7,14 @@ use crate::{
         gb_repository, project_repository,
         reader::{self, Reader},
     },
-    deltas, projects,
+    deltas, events, projects,
 };
 
 pub struct Listener<'listener> {
     project_id: String,
     project_store: projects::Storage,
     gb_repository: &'listener gb_repository::Repository,
+    events: sync::mpsc::Sender<events::Event>,
 }
 
 impl<'listener> Listener<'listener> {
@@ -19,11 +22,13 @@ impl<'listener> Listener<'listener> {
         project_id: String,
         project_store: projects::Storage,
         gb_repository: &'listener gb_repository::Repository,
+        events: sync::mpsc::Sender<events::Event>,
     ) -> Self {
         Self {
             project_id,
             project_store,
             gb_repository,
+            events,
         }
     }
 
@@ -182,12 +187,23 @@ impl<'listener> Listener<'listener> {
         let current_session = self.gb_repository.get_or_create_current_session()?;
         let writer = self.gb_repository.get_session_writer(&current_session)?;
 
+        let deltas = text_doc.get_deltas();
+
         writer
-            .write_deltas(path, text_doc.get_deltas())
+            .write_deltas(path, &deltas)
             .with_context(|| "failed to write deltas")?;
         writer
             .write_session_wd_file(path, &current_file_content)
             .with_context(|| "failed to write file")?;
+
+        if let Err(e) = self.events.send(events::Event::detlas(
+            &project,
+            &current_session,
+            &deltas,
+            &path,
+        )) {
+            log::error!("{}: failed to send event: {:#}", project.id, e);
+        }
 
         Ok(())
     }

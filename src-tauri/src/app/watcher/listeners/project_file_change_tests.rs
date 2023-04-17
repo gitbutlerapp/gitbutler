@@ -71,7 +71,8 @@ fn test_register_existing_file() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
+    let (tx, _) = std::sync::mpsc::channel();
+    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -112,7 +113,8 @@ fn test_register_new_file() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
+    let (tx, _) = std::sync::mpsc::channel();
+    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -151,7 +153,8 @@ fn test_register_new_file_twice() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
+    let (tx, _) = std::sync::mpsc::channel();
+    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;

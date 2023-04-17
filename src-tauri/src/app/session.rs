@@ -170,7 +170,7 @@ impl<'writer> SessionWriter<'writer> {
     pub fn write_deltas<P: AsRef<std::path::Path>>(
         &self,
         path: P,
-        deltas: Vec<deltas::Delta>,
+        deltas: &Vec<deltas::Delta>,
     ) -> Result<()> {
         let path = path.as_ref();
         log::info!(
@@ -296,9 +296,8 @@ impl<'reader> SessionReader<'reader> {
     }
 
     pub fn deltas(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        let files = self
-            .reader
-            .list_files(&self.repository.deltas_path().to_str().unwrap())?;
+        let dir = std::path::Path::new("session/deltas");
+        let files = self.reader.list_files(dir.to_str().unwrap())?;
         let files_with_content = files
             .iter()
             .filter(|file| {
@@ -311,7 +310,7 @@ impl<'reader> SessionReader<'reader> {
             .map(|file| {
                 let content = self
                     .reader
-                    .read_to_string(&self.repository.deltas_path().join(file).to_str().unwrap())
+                    .read_to_string(dir.join(file).to_str().unwrap())
                     .unwrap();
                 let deltas: Vec<deltas::Delta> = serde_json::from_str(&content).unwrap();
                 (file.to_string(), deltas)
@@ -362,6 +361,52 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
                     Err(err) => return Some(Err(err.into())),
                 };
                 Some(Ok(session))
+            }
+            Some(Err(err)) => Some(Err(err.into())),
+            None => None,
+        }
+    }
+}
+
+pub struct SessionsIdsIterator<'iterator> {
+    git_repository: &'iterator git2::Repository,
+    iter: git2::Revwalk<'iterator>,
+}
+
+impl<'iterator> SessionsIdsIterator<'iterator> {
+    pub(crate) fn new(git_repository: &'iterator git2::Repository) -> Result<Self> {
+        let mut iter = git_repository
+            .revwalk()
+            .context("failed to create revwalk")?;
+        iter.push_head().context("failed to push HEAD to revwalk")?;
+        iter.set_sorting(git2::Sort::TOPOLOGICAL)
+            .context("failed to set sorting")?;
+        Ok(Self {
+            git_repository,
+            iter,
+        })
+    }
+}
+
+impl<'iterator> Iterator for SessionsIdsIterator<'iterator> {
+    type Item = Result<(git2::Oid, String)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(Result::Ok(oid)) => {
+                let commit = match self.git_repository.find_commit(oid) {
+                    Result::Ok(commit) => commit,
+                    Err(err) => return Some(Err(err.into())),
+                };
+                let commit_reader =
+                    match reader::CommitReader::from_commit(self.git_repository, commit) {
+                        Result::Ok(commit_reader) => commit_reader,
+                        Err(err) => return Some(Err(err)),
+                    };
+                match commit_reader.read_to_string("session/meta/id") {
+                    Ok(sid) => Some(Ok((oid, sid))),
+                    Err(e) => Some(Err(e.into())),
+                }
             }
             Some(Err(err)) => Some(Err(err.into())),
             None => None,
