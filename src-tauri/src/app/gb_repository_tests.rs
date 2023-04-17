@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{app::gb_repository, projects, storage, users};
+use crate::{app::gb_repository, deltas, projects, storage, users};
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -127,6 +127,85 @@ fn test_must_flush_current_session() -> Result<()> {
     let iter = gb_repo.get_sessions_iterator()?;
     assert_eq!(iter.count(), 2);
     assert!(session.is_some());
+
+    Ok(())
+}
+
+#[test]
+fn test_list_deltas_from_current_session() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    let current_session = gb_repo.get_or_create_current_session()?;
+    let writer = gb_repo.get_session_writer(&current_session)?;
+    writer.write_deltas(
+        "test.txt",
+        &vec![deltas::Delta {
+            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+            timestamp_ms: 0,
+        }],
+    )?;
+
+    let reader = gb_repo.get_session_reader(current_session)?;
+    let deltas = reader.deltas(None)?;
+
+    assert_eq!(deltas.len(), 1);
+    assert_eq!(deltas.get("test.txt").unwrap()[0].operations.len(), 1);
+    assert_eq!(
+        deltas.get("test.txt").unwrap()[0].operations[0],
+        deltas::Operation::Insert((0, "Hello World".to_string()))
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_list_deltas_from_flushed_session() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    let current_session = gb_repo.get_or_create_current_session()?;
+    let writer = gb_repo.get_session_writer(&current_session)?;
+    writer.write_deltas(
+        "test.txt",
+        &vec![deltas::Delta {
+            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+            timestamp_ms: 0,
+        }],
+    )?;
+    let session = gb_repo.flush()?;
+
+    let reader = gb_repo.get_session_reader(session.unwrap())?;
+    let deltas = reader.deltas(None)?;
+
+    assert_eq!(deltas.len(), 1);
+    assert_eq!(deltas.get("test.txt").unwrap()[0].operations.len(), 1);
+    assert_eq!(
+        deltas.get("test.txt").unwrap()[0].operations[0],
+        deltas::Operation::Insert((0, "Hello World".to_string()))
+    );
 
     Ok(())
 }
