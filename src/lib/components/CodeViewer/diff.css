@@ -1,4 +1,6 @@
-.lineContext, .lineSplit, .lineDiff {
+.lineContext,
+.lineSplit,
+.lineDiff {
 	@apply pl-2 pr-2;
 }
 

@@ -34,7 +34,8 @@
 			if (index < 4) {
 				lineClass = 'lineDiff bg-zinc-800 text-zinc-500';
 			} else if (line.slice(0, 2) == '@@') {
-				lineClass = 'lineSplit bg-zinc-900 bg-opacity-60 pt-1 pb-1 border-t border-b border-zinc-700 mt-1 mb-1';
+				lineClass =
+					'lineSplit bg-zinc-900 bg-opacity-60 pt-1 pb-1 border-t border-b border-zinc-700 mt-1 mb-1';
 			} else if (firstChar == '+') {
 				if (!line.includes('+++')) {
 					lineClass = 'lineSplit bg-green-500 bg-opacity-20';
