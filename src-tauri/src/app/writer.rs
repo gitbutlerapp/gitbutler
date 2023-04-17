@@ -3,22 +3,25 @@ use std::io::Write;
 use anyhow::{Context, Result};
 
 pub trait Writer {
-    fn write_string(&self, path: &str, contents: &str) -> Result<()>;
+    fn write(&self, path: &str, contents: &[u8]) -> Result<()>;
+    fn write_string(&self, path: &str, contents: &str) -> Result<()> {
+        self.write(path, contents.as_bytes())
+    }
     fn append_string(&self, path: &str, contents: &str) -> Result<()>;
 }
 
-pub struct DirWriter<'writer> {
-    root: &'writer std::path::Path,
+pub struct DirWriter {
+    root: std::path::PathBuf,
 }
 
-impl<'writer> DirWriter<'writer> {
-    pub fn open(root: &'writer std::path::Path) -> Self {
+impl<'writer> DirWriter {
+    pub fn open(root: std::path::PathBuf) -> Self {
         Self { root }
     }
 }
 
-impl Writer for DirWriter<'_> {
-    fn write_string(&self, path: &str, contents: &str) -> Result<()> {
+impl Writer for DirWriter {
+    fn write(&self, path: &str, contents: &[u8]) -> Result<()> {
         let file_path = self.root.join(path);
         let dir_path = file_path.parent().unwrap();
         std::fs::create_dir_all(dir_path)?;

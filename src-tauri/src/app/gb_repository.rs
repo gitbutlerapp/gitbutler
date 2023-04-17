@@ -1,19 +1,24 @@
-use std::time;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufReader, Read},
+    os::unix::prelude::MetadataExt,
+    time,
+};
 
 use anyhow::{anyhow, Context, Ok, Result};
+use filetime::FileTime;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::{projects, sessions};
+use crate::{fs, projects, sessions, users};
 
-use super::{
-    project_repository,
-    reader::{self, Reader},
-    session,
-};
+use super::{project_repository, reader, session};
 
 pub struct Repository {
     pub(crate) project_id: String,
     project_store: projects::Storage,
+    users_store: users::Storage,
     pub(crate) git_repository: git2::Repository,
 }
 
@@ -22,6 +27,7 @@ impl Repository {
         root: P,
         project_id: String,
         project_store: projects::Storage,
+        users_store: users::Storage,
     ) -> Result<Self> {
         let path = root.as_ref().join(project_id.clone());
         if path.exists() {
@@ -31,38 +37,52 @@ impl Repository {
                     format!("{}: failed to open git repository", path.display())
                 })?,
                 project_store,
+                users_store,
             })
         } else {
+            let project = project_store
+                .get_project(&project_id)
+                .context("failed to get project")?;
+            if project.is_none() {
+                return Err(anyhow!("project not found"));
+            }
+            let project = project.unwrap();
+
             let git_repository = git2::Repository::init_opts(
                 &path,
                 &git2::RepositoryInitOptions::new()
+                    .bare(true)
                     .initial_head("refs/heads/current")
                     .external_template(false),
             )
             .with_context(|| format!("{}: failed to initialize git repository", path.display()))?;
 
-            {
-                // TODO: remove this once flushing is fully working
-                let mut index = git_repository.index()?;
-                let oid = index.write_tree()?;
-                let signature = git2::Signature::now("gitbutler", "gitbutler@localhost").unwrap();
-                git_repository.commit(
-                    Some("HEAD"),
-                    &signature,
-                    &signature,
-                    "Initial commit",
-                    &git_repository.find_tree(oid)?,
-                    &[],
-                )?;
+            let project_objects_path = std::path::Path::new(&project.path).join(".git/objects");
+            if !project_objects_path.exists() {
+                return Err(anyhow!(
+                    "{}: project objects path does not exist",
+                    project_objects_path.display()
+                ));
             }
+
+            git_repository
+                .odb()?
+                .add_disk_alternate(project_objects_path.to_str().unwrap())
+                .context("failed to add disk alternate")?;
 
             let gb_repository = Self {
                 project_id,
                 git_repository,
                 project_store,
+                users_store,
             };
 
-            gb_repository.flush()?;
+            let session = gb_repository
+                .create_current_session(&project_repository::Repository::open(&project)?)?;
+            gb_repository
+                .flush_session(&project_repository::Repository::open(&project)?, &session)
+                .context("failed to run initial flush")?;
+
             Ok(gb_repository)
         }
     }
@@ -100,6 +120,8 @@ impl Repository {
             activity: vec![],
         };
 
+        self.get_session_writer(&session)?;
+
         Ok(session)
     }
 
@@ -127,7 +149,6 @@ impl Repository {
                 let project = project.unwrap();
                 let project_repository = project_repository::Repository::open(&project)?;
                 let session = self.create_current_session(&project_repository)?;
-                self.get_session_writer(&session)?;
                 Ok(session)
             }
         }
@@ -140,30 +161,79 @@ impl Repository {
         if current_session.is_none() {
             return Ok(None);
         }
-        let current_session = current_session.unwrap();
 
         let project = self
             .project_store
             .get_project(&self.project_id)
             .context("failed to get project")?;
         if project.is_none() {
-            return Err(anyhow!("project does not exist"));
+            return Err(anyhow!("project not found"));
         }
         let project = project.unwrap();
 
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        let project_wd_reader = project_repository.get_wd_reader();
+        let current_session = current_session.unwrap();
+        let current_session = self.flush_session(
+            &project_repository::Repository::open(&project)?,
+            &current_session,
+        )?;
+        Ok(Some(current_session))
+    }
 
-        let current_session_writer = self
-            .get_session_writer(&current_session)
-            .context("failed to get session writer")?;
+    pub fn flush_session(
+        &self,
+        project_repository: &project_repository::Repository,
+        session: &sessions::Session,
+    ) -> Result<sessions::Session> {
+        if session.hash.is_some() {
+            return Ok(session.clone());
+        }
 
-        // read from wd
-        // write to session
-        // create commit
+        let wd_tree_oid = build_wd_tree(&self, &project_repository)
+            .context("failed to build workign directory tree")?;
+        let session_tree_oid = build_session_tree(&self).context("failed to build session tree")?;
+        let log_tree_oid =
+            build_log_tree(&self, &project_repository).context("failed to build logs tree")?;
 
-        Err(anyhow!("not implemented"))
+        let mut tree_builder = self
+            .git_repository
+            .treebuilder(None)
+            .context("failed to create tree builder")?;
+        tree_builder
+            .insert("session", session_tree_oid, 0o040000)
+            .context("failed to insert session tree")?;
+        tree_builder
+            .insert("wd", wd_tree_oid, 0o040000)
+            .context("failed to insert wd tree")?;
+        tree_builder
+            .insert("logs", log_tree_oid, 0o040000)
+            .context("failed to insert logs tree")?;
+
+        let tree = tree_builder.write().context("failed to write tree")?;
+
+        let user = self.users_store.get().context("failed to get user")?;
+
+        let commit_oid =
+            write_gb_commit(tree, &self, &user).context("failed to write gb commit")?;
+
+        log::info!(
+            "{}: flushed session {} into commit {}",
+            self.project_id,
+            session.id,
+            commit_oid,
+        );
+
+        std::fs::remove_dir_all(self.root()).context("failed to remove session directory")?;
+
+        if let Err(e) = push_to_remote(&self, &user, project_repository.get_project()) {
+            log::error!("{}: failed to push to remote: {:#}", self.project_id, e);
+        }
+
+        let session = sessions::Session {
+            hash: Some(commit_oid.to_string()),
+            ..session.clone()
+        };
+
+        Ok(session)
     }
 
     pub fn get_session_reader(&self, session: sessions::Session) -> Result<session::SessionReader> {
@@ -183,23 +253,493 @@ impl Repository {
         }
     }
 
-    pub(crate) fn root(&self) -> &std::path::Path {
-        self.git_repository.path().parent().unwrap()
+    pub(crate) fn root(&self) -> std::path::PathBuf {
+        self.git_repository.path().join("gitbutler")
     }
 
     pub(crate) fn session_path(&self) -> std::path::PathBuf {
-        self.git_repository.path().parent().unwrap().join("session")
+        self.root().join("session")
     }
 
     pub(crate) fn deltas_path(&self) -> std::path::PathBuf {
         self.session_path().join("deltas")
     }
 
-    pub(crate) fn wd_path(&self) -> std::path::PathBuf {
+    pub(crate) fn session_wd_path(&self) -> std::path::PathBuf {
         self.session_path().join("wd")
     }
 
-    pub(crate) fn logs_path(&self) -> std::path::PathBuf {
-        self.git_repository.path().parent().unwrap().join("logs")
+    pub(crate) fn wd_path(&self) -> std::path::PathBuf {
+        self.root().join("wd")
     }
+
+    pub(crate) fn logs_path(&self) -> std::path::PathBuf {
+        self.root().join("logs")
+    }
+}
+
+// build wd index from the working directory files new session wd files
+// this is important because we want to make sure session files are in sync with session deltas
+fn build_wd_tree(
+    gb_repository: &Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<git2::Oid> {
+    let mut index = git2::Index::new()?;
+
+    // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
+    let repo_index = &mut project_repository
+        .git_repository
+        .index()
+        .with_context(|| format!("failed to open repo index"))?;
+
+    let mut added: HashMap<String, bool> = HashMap::new();
+
+    // first, add session/wd files. session/wd are written at the same time as deltas, so it's important to add them first
+    // to make sure they are in sync with the deltas
+    for file_path in fs::list_files(gb_repository.session_wd_path()).with_context(|| {
+        format!(
+            "failed to session working directory files list files in {}",
+            gb_repository.session_wd_path().display()
+        )
+    })? {
+        let file_path = std::path::Path::new(&file_path);
+        if project_repository
+            .git_repository
+            .is_path_ignored(&file_path)
+            .unwrap_or(true)
+        {
+            continue;
+        }
+
+        add_wd_path(
+            &mut index,
+            repo_index,
+            &gb_repository.session_wd_path(),
+            &file_path,
+            &gb_repository,
+            &project_repository,
+        )
+        .with_context(|| {
+            format!(
+                "failed to add session working directory path {}",
+                file_path.display()
+            )
+        })?;
+        added.insert(file_path.to_string_lossy().to_string(), true);
+    }
+
+    // finally, add files from the working directory if they aren't already in the index
+    for file_path in fs::list_files(&project_repository.root()).with_context(|| {
+        format!(
+            "failed to working directory list files in {}",
+            project_repository.root().display()
+        )
+    })? {
+        if added.contains_key(&file_path.to_string_lossy().to_string()) {
+            continue;
+        }
+
+        let file_path = std::path::Path::new(&file_path);
+        if project_repository
+            .git_repository
+            .is_path_ignored(&file_path)
+            .unwrap_or(true)
+        {
+            continue;
+        }
+
+        add_wd_path(
+            &mut index,
+            repo_index,
+            project_repository.root(),
+            &file_path,
+            &gb_repository,
+            &project_repository,
+        )
+        .with_context(|| {
+            format!(
+                "failed to add working directory path {}",
+                file_path.display()
+            )
+        })?;
+    }
+
+    let tree_oid = index
+        .write_tree_to(&gb_repository.git_repository)
+        .context("failed to write tree to repo")?;
+    Ok(tree_oid)
+}
+
+// take a file path we see and add it to our in-memory index
+// we call this from build_initial_wd_tree, which is smart about using the existing index to avoid rehashing files that haven't changed
+// and also looks for large files and puts in a placeholder hash in the LFS format
+// TODO: actually upload the file to LFS
+fn add_wd_path(
+    index: &mut git2::Index,
+    repo_index: &mut git2::Index,
+    dir: &std::path::Path,
+    rel_file_path: &std::path::Path,
+    gb_repository: &Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<()> {
+    let file_path = dir.join(rel_file_path);
+
+    let metadata = file_path
+        .metadata()
+        .with_context(|| "failed to get metadata for".to_string())?;
+    let mtime = FileTime::from_last_modification_time(&metadata);
+    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+
+    if let Some(entry) = repo_index.get_path(rel_file_path, 0) {
+        // if we find the entry and the metadata of the file has not changed, we can just use the existing entry
+        if entry.mtime.seconds() == i32::try_from(mtime.seconds())?
+            && entry.mtime.nanoseconds() == u32::try_from(mtime.nanoseconds()).unwrap()
+            && entry.file_size == u32::try_from(metadata.len())?
+            && entry.mode == metadata.mode()
+        {
+            log::debug!("using existing entry for {}", file_path.display());
+            index.add(&entry).unwrap();
+            return Ok(());
+        }
+    }
+
+    // something is different, or not found, so we need to create a new entry
+
+    log::debug!("adding wd path: {}", file_path.display());
+
+    // look for files that are bigger than 4GB, which are not supported by git
+    // insert a pointer as the blob content instead
+    // TODO: size limit should be configurable
+    let blob = if metadata.len() > 100_000_000 {
+        log::debug!(
+            "{}: file too big: {}",
+            gb_repository.project_id,
+            file_path.display()
+        );
+
+        // get a sha256 hash of the file first
+        let sha = sha256_digest(&file_path)?;
+
+        // put togther a git lfs pointer file: https://github.com/git-lfs/git-lfs/blob/main/docs/spec.md
+        let mut lfs_pointer = String::from("version https://git-lfs.github.com/spec/v1\n");
+        lfs_pointer.push_str("oid sha256:");
+        lfs_pointer.push_str(&sha);
+        lfs_pointer.push_str("\n");
+        lfs_pointer.push_str("size ");
+        lfs_pointer.push_str(&metadata.len().to_string());
+        lfs_pointer.push_str("\n");
+
+        // write the file to the .git/lfs/objects directory
+        // create the directory recursively if it doesn't exist
+        let lfs_objects_dir = gb_repository.git_repository.path().join("lfs/objects");
+        std::fs::create_dir_all(lfs_objects_dir.clone())?;
+        let lfs_path = lfs_objects_dir.join(sha);
+        std::fs::copy(file_path, lfs_path)?;
+
+        gb_repository
+            .git_repository
+            .blob(lfs_pointer.as_bytes())
+            .unwrap()
+    } else {
+        // read the file into a blob, get the object id
+        gb_repository.git_repository.blob_path(&file_path)?
+    };
+
+    // create a new IndexEntry from the file metadata
+    index
+        .add(&git2::IndexEntry {
+            ctime: git2::IndexTime::new(
+                ctime.seconds().try_into()?,
+                ctime.nanoseconds().try_into().unwrap(),
+            ),
+            mtime: git2::IndexTime::new(
+                mtime.seconds().try_into()?,
+                mtime.nanoseconds().try_into().unwrap(),
+            ),
+            dev: metadata.dev().try_into()?,
+            ino: metadata.ino().try_into()?,
+            mode: 33188,
+            uid: metadata.uid().try_into().unwrap(),
+            gid: metadata.gid().try_into().unwrap(),
+            file_size: metadata.len().try_into().unwrap(),
+            flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
+            flags_extended: 0, // no extended flags
+            path: rel_file_path.to_str().unwrap().to_string().into(),
+            id: blob,
+        })
+        .with_context(|| format!("failed to add index entry for {}", rel_file_path.display()))?;
+
+    Ok(())
+}
+
+/// calculates sha256 digest of a large file as lowercase hex string via streaming buffer
+/// used to calculate the hash of large files that are not supported by git
+fn sha256_digest(path: &std::path::Path) -> Result<String> {
+    let input = File::open(path)?;
+    let mut reader = BufReader::new(input);
+
+    let digest = {
+        let mut hasher = Sha256::new();
+        let mut buffer = [0; 1024];
+        loop {
+            let count = reader.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            hasher.update(&buffer[..count]);
+        }
+        hasher.finalize()
+    };
+    Ok(format!("{:X}", digest))
+}
+
+fn build_log_tree(
+    gb_repository: &Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<git2::Oid> {
+    let mut index = git2::Index::new()?;
+
+    let logs_dir = project_repository.git_repository.path().join("logs");
+    for file_path in fs::list_files(logs_dir).context("failed to list log files")? {
+        add_log_path(
+            &std::path::Path::new(&file_path),
+            &mut index,
+            gb_repository,
+            &project_repository,
+        )
+        .with_context(|| format!("failed to add log file to index: {}", file_path.display()))?;
+    }
+
+    let tree_oid = index
+        .write_tree_to(&gb_repository.git_repository)
+        .context("failed to write index to tree")?;
+
+    Ok(tree_oid)
+}
+
+fn add_log_path(
+    rel_file_path: &std::path::Path,
+    index: &mut git2::Index,
+    gb_repository: &Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<()> {
+    let file_path = project_repository
+        .git_repository
+        .path()
+        .join("logs")
+        .join(rel_file_path);
+    log::debug!("adding log path: {}", file_path.display());
+
+    let metadata = file_path.metadata()?;
+    let mtime = FileTime::from_last_modification_time(&metadata);
+    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+
+    index.add(&git2::IndexEntry {
+        ctime: git2::IndexTime::new(
+            ctime.seconds().try_into()?,
+            ctime.nanoseconds().try_into().unwrap(),
+        ),
+        mtime: git2::IndexTime::new(
+            mtime.seconds().try_into()?,
+            mtime.nanoseconds().try_into().unwrap(),
+        ),
+        dev: metadata.dev().try_into()?,
+        ino: metadata.ino().try_into()?,
+        mode: metadata.mode(),
+        uid: metadata.uid().try_into().unwrap(),
+        gid: metadata.gid().try_into().unwrap(),
+        file_size: metadata.len().try_into()?,
+        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
+        flags_extended: 0, // no extended flags
+        path: rel_file_path.to_str().unwrap().to_string().into(),
+        id: gb_repository.git_repository.blob_path(&file_path)?,
+    })?;
+
+    Ok(())
+}
+
+fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
+    let mut index = git2::Index::new()?;
+
+    // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
+    for file_path in
+        fs::list_files(&gb_repository.session_path()).context("failed to list session files")?
+    {
+        let file_path = std::path::Path::new(&file_path);
+        add_session_path(&gb_repository, &mut index, &file_path)
+            .with_context(|| format!("failed to add session file: {}", file_path.display()))?;
+    }
+
+    let tree_oid = index
+        .write_tree_to(&gb_repository.git_repository)
+        .context("failed to write index to tree")?;
+
+    Ok(tree_oid)
+}
+
+// this is a helper function for build_gb_tree that takes paths under .git/gb/session and adds them to the in-memory index
+fn add_session_path(
+    gb_repository: &Repository,
+    index: &mut git2::Index,
+    rel_file_path: &std::path::Path,
+) -> Result<()> {
+    let file_path = gb_repository.session_path().join(rel_file_path);
+    log::debug!("adding session path: {}", file_path.display());
+
+    let blob = gb_repository.git_repository.blob_path(&file_path)?;
+    let metadata = file_path.metadata()?;
+    let mtime = FileTime::from_last_modification_time(&metadata);
+    let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+
+    // create a new IndexEntry from the file metadata
+    index
+        .add(&git2::IndexEntry {
+            ctime: git2::IndexTime::new(
+                ctime.seconds().try_into()?,
+                ctime.nanoseconds().try_into().unwrap(),
+            ),
+            mtime: git2::IndexTime::new(
+                mtime.seconds().try_into()?,
+                mtime.nanoseconds().try_into().unwrap(),
+            ),
+            dev: metadata.dev().try_into()?,
+            ino: metadata.ino().try_into()?,
+            mode: metadata.mode(),
+            uid: metadata.uid().try_into().unwrap(),
+            gid: metadata.gid().try_into().unwrap(),
+            file_size: metadata.len().try_into()?,
+            flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
+            flags_extended: 0, // no extended flags
+            path: rel_file_path.to_str().unwrap().into(),
+            id: blob,
+        })
+        .with_context(|| {
+            format!(
+                "Failed to add session file to index: {}",
+                file_path.display()
+            )
+        })?;
+
+    Ok(())
+}
+
+// write a new commit object to the repo
+// this is called once we have a tree of deltas, metadata and current wd snapshot
+// and either creates or updates the refs/heads/current ref
+fn write_gb_commit(
+    tree_id: git2::Oid,
+    gb_repository: &Repository,
+    user: &Option<users::User>,
+) -> Result<git2::Oid> {
+    let comitter = git2::Signature::now("gitbutler", "gitbutler@localhost")?;
+    let author = match user {
+        None => comitter.clone(),
+        Some(user) => git2::Signature::now(user.name.as_str(), user.email.as_str())?,
+    };
+
+    match gb_repository
+        .git_repository
+        .revparse_single("refs/heads/current")
+    {
+        Result::Ok(obj) => {
+            let last_commit = gb_repository.git_repository.find_commit(obj.id())?;
+            let new_commit = gb_repository.git_repository.commit(
+                Some("refs/heads/current"),
+                &author,                                                   // author
+                &comitter,                                                 // committer
+                "gitbutler check",                                         // commit message
+                &gb_repository.git_repository.find_tree(tree_id).unwrap(), // tree
+                &[&last_commit],                                           // parents
+            )?;
+            Ok(new_commit)
+        }
+        Err(e) => {
+            if e.code() == git2::ErrorCode::NotFound {
+                let new_commit = gb_repository.git_repository.commit(
+                    Some("refs/heads/current"),
+                    &author,                                                   // author
+                    &comitter,                                                 // committer
+                    "gitbutler check",                                         // commit message
+                    &gb_repository.git_repository.find_tree(tree_id).unwrap(), // tree
+                    &[],                                                       // parents
+                )?;
+                Ok(new_commit)
+            } else {
+                return Err(e.into());
+            }
+        }
+    }
+}
+
+// try to push the new gb history head to the remote
+// TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
+fn push_to_remote(
+    gb_repository: &Repository,
+    user: &Option<users::User>,
+    project: &projects::Project,
+) -> Result<()> {
+    // only push if logged in
+    let access_token = match user {
+        Some(user) => user.access_token.clone(),
+        None => return Ok(()),
+    };
+
+    // only push if project is connected
+    let remote_url = match project.api {
+        Some(ref api) => api.git_url.clone(),
+        None => return Ok(()),
+    };
+
+    log::info!("pushing {} to {}", project.path, remote_url);
+
+    // Create an anonymous remote
+    let mut remote = gb_repository
+        .git_repository
+        .remote_anonymous(remote_url.as_str())
+        .with_context(|| {
+            format!(
+                "failed to create anonymous remote for {}",
+                remote_url.as_str()
+            )
+        })?;
+
+    // Set the remote's callbacks
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.push_update_reference(move |refname, message| {
+        log::info!(
+            "{}: pushing reference '{}': {:?}",
+            project.path,
+            refname,
+            message
+        );
+        Result::Ok(())
+    });
+    callbacks.push_transfer_progress(move |one, two, three| {
+        log::info!(
+            "{}: transferred {}/{}/{} objects",
+            project.path,
+            one,
+            two,
+            three
+        );
+    });
+
+    let mut push_options = git2::PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+    let auth_header = format!("Authorization: {}", access_token);
+    let headers = &[auth_header.as_str()];
+    push_options.custom_headers(headers);
+
+    // Push to the remote
+    remote
+        .push(&[project.refname()], Some(&mut push_options))
+        .with_context(|| {
+            format!(
+                "failed to push {} to {}",
+                project.refname(),
+                remote_url.as_str()
+            )
+        })?;
+
+    Ok(())
 }

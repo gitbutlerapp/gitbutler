@@ -8,6 +8,15 @@ pub enum Content {
     Binary(Vec<u8>),
 }
 
+impl Content {
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Content::UTF8(s) => s.as_bytes(),
+            Content::Binary(b) => b,
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("file not found")]
@@ -33,17 +42,17 @@ pub trait Reader {
     }
 }
 
-pub struct DirReader<'reader> {
-    root: &'reader std::path::Path,
+pub struct DirReader {
+    root: std::path::PathBuf,
 }
 
-impl<'reader> DirReader<'reader> {
-    pub fn open(root: &'reader std::path::Path) -> Self {
+impl DirReader {
+    pub fn open(root: std::path::PathBuf) -> Self {
         Self { root }
     }
 }
 
-impl Reader for DirReader<'_> {
+impl Reader for DirReader {
     fn size(&self, file_path: &str) -> Result<usize> {
         let path = self.root.join(file_path);
         if !path.exists() {

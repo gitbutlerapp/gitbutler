@@ -38,13 +38,13 @@ fn test_repository() -> Result<git2::Repository> {
 }
 
 #[test]
-fn test_working_directory_reader_read_file() -> Result<()> {
-    let repository = test_repository()?;
+fn test_directory_reader_read_file() -> Result<()> {
+    let dir = tempdir()?;
 
     let file_path = "test.txt";
-    std::fs::write(&repository.path().parent().unwrap().join(file_path), "test")?;
+    std::fs::write(dir.path().join(file_path), "test")?;
 
-    let reader = reader::DirReader::open(&repository.path().parent().unwrap());
+    let reader = reader::DirReader::open(dir.path().to_path_buf());
     assert_eq!(
         reader.read(&file_path)?,
         reader::Content::UTF8("test".to_string())
@@ -77,25 +77,14 @@ fn test_commit_reader_read_file() -> Result<()> {
 }
 
 #[test]
-fn test_working_directory_reader_list_files() -> Result<()> {
-    let repository = test_repository()?;
+fn test_reader_list_files() -> Result<()> {
+    let dir = tempdir()?;
 
-    std::fs::write(
-        &repository.path().parent().unwrap().join("test.txt"),
-        "test",
-    )?;
-    std::fs::create_dir(&repository.path().parent().unwrap().join("dir"))?;
-    std::fs::write(
-        &repository
-            .path()
-            .parent()
-            .unwrap()
-            .join("dir")
-            .join("test.txt"),
-        "test",
-    )?;
+    std::fs::write(dir.path().join("test.txt"), "test")?;
+    std::fs::create_dir(dir.path().join("dir"))?;
+    std::fs::write(dir.path().join("dir").join("test.txt"), "test")?;
 
-    let reader = super::reader::DirReader::open(&repository.path().parent().unwrap());
+    let reader = super::reader::DirReader::open(dir.path().to_path_buf());
     let files = reader.list_files(".")?;
     assert_eq!(files.len(), 2);
     assert!(files.contains(&"test.txt".to_string()));
@@ -138,15 +127,12 @@ fn test_commit_reader_list_files() -> Result<()> {
 }
 
 #[test]
-fn test_working_directory_reader_exists() -> Result<()> {
-    let repository = test_repository()?;
+fn test_directory_reader_exists() -> Result<()> {
+    let dir = tempdir()?;
 
-    std::fs::write(
-        &repository.path().parent().unwrap().join("test.txt"),
-        "test",
-    )?;
+    std::fs::write(dir.path().join("test.txt"), "test")?;
 
-    let reader = super::reader::DirReader::open(&repository.path().parent().unwrap());
+    let reader = super::reader::DirReader::open(dir.path().to_path_buf());
     assert!(reader.exists("test.txt"));
     assert!(!reader.exists("test2.txt"));
 

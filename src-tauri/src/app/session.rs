@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::{deltas, projects, pty, sessions};
+use crate::{deltas, pty, sessions};
 
 use super::{
-    gb_repository, project_repository,
+    gb_repository,
     reader::{self, Reader},
     writer::{self, Writer},
 };
@@ -44,7 +44,7 @@ impl<'writer> SessionWriter<'writer> {
             ));
         }
 
-        let writer = writer::DirWriter::open(repository.root());
+        let writer = writer::DirWriter::open(repository.root().to_path_buf());
 
         writer
             .write_string(
@@ -142,32 +142,25 @@ impl<'writer> SessionWriter<'writer> {
         Ok(())
     }
 
-    pub fn write_logs<P: AsRef<std::path::Path>>(&self, path: P, contents: &str) -> Result<()> {
+    pub fn write_session_wd_file<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+        contents: &str,
+    ) -> Result<()> {
         let path = path.as_ref();
         log::info!(
-            "{}: writing logs to {}",
+            "{}: writing delta wd file to {}",
             self.repository.project_id,
             path.display()
         );
 
         self.writer.write_string(
-            &self.repository.logs_path().join(path).to_str().unwrap(),
-            contents,
-        )?;
-
-        Ok(())
-    }
-
-    pub fn write_file<P: AsRef<std::path::Path>>(&self, path: P, contents: &str) -> Result<()> {
-        let path = path.as_ref();
-        log::info!(
-            "{}: writing file to {}",
-            self.repository.project_id,
-            path.display()
-        );
-
-        self.writer.write_string(
-            &self.repository.wd_path().join(path).to_str().unwrap(),
+            &self
+                .repository
+                .session_wd_path()
+                .join(path)
+                .to_str()
+                .unwrap(),
             contents,
         )?;
 
@@ -289,13 +282,17 @@ impl<'reader> SessionReader<'reader> {
         Ok(files_with_content)
     }
 
-    pub fn file_deltas<P: AsRef<std::path::Path>>(&self, paths: P) -> Result<Vec<deltas::Delta>> {
+    pub fn file_deltas<P: AsRef<std::path::Path>>(
+        &self,
+        paths: P,
+    ) -> Result<Option<Vec<deltas::Delta>>> {
         let path = paths.as_ref();
-        let content = self
-            .reader
-            .read_to_string(&self.repository.deltas_path().join(path).to_str().unwrap())?;
-        let deltas: Vec<deltas::Delta> = serde_json::from_str(&content)?;
-        Ok(deltas)
+        let deltas_path = self.repository.deltas_path().join(path);
+        match self.reader.read_to_string(deltas_path.to_str().unwrap()) {
+            Ok(content) => Ok(Some(serde_json::from_str(&content)?)),
+            Err(reader::Error::NotFound) => Ok(None),
+            Err(err) => Err(err.into()),
+        }
     }
 
     pub fn deltas(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, Vec<deltas::Delta>>> {
@@ -331,9 +328,12 @@ pub struct SessionsIterator<'iterator> {
 
 impl<'iterator> SessionsIterator<'iterator> {
     pub(crate) fn new(git_repository: &'iterator git2::Repository) -> Result<Self> {
-        let mut iter = git_repository.revwalk()?;
-        iter.push_head()?;
-        iter.set_sorting(git2::Sort::TOPOLOGICAL)?;
+        let mut iter = git_repository
+            .revwalk()
+            .context("failed to create revwalk")?;
+        iter.push_head().context("failed to push HEAD to revwalk")?;
+        iter.set_sorting(git2::Sort::TOPOLOGICAL)
+            .context("failed to set sorting")?;
         Ok(Self {
             git_repository,
             iter,

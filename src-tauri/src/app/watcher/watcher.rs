@@ -26,7 +26,6 @@ impl<'watcher> Watcher<'watcher> {
     pub fn new(
         project_id: String,
         project_store: projects::Storage,
-        user_store: users::Storage,
         gb_repository: &'watcher gb_repository::Repository,
         events: sync::mpsc::Sender<events::Event>,
     ) -> Result<Self> {
@@ -48,13 +47,13 @@ impl<'watcher> Watcher<'watcher> {
 
             file_change_listener: listeners::file_change::Listener::new(
                 project_id.clone(),
-                project_store,
+                project_store.clone(),
                 gb_repository,
                 events.clone(),
             ),
             check_current_session_listener: listeners::check_current_session::Listener::new(
-                project_id.clone(),
-                user_store,
+                project_id,
+                project_store,
                 gb_repository,
                 events,
             ),

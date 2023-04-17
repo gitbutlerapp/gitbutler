@@ -89,7 +89,9 @@ impl<'listener> Listener<'listener> {
     ) -> Result<Option<String>> {
         let path = path.to_str().unwrap();
 
-        let reader = self.get_latest_file_contents_reader(project_repository, path)?;
+        let reader = self
+            .get_latest_file_contents_reader(project_repository, path)
+            .context("failed to get latest file contents reader")?;
         if reader.is_none() {
             return Ok(None);
         }
@@ -114,14 +116,14 @@ impl<'listener> Listener<'listener> {
             return Ok(None);
         }
         let current_session = current_session.unwrap();
-
-        let reader = self.gb_repository.get_session_reader(current_session)?;
-        let deltas_path = self.gb_repository.deltas_path().join(path);
-        match reader.read_to_string(deltas_path.to_str().unwrap()) {
-            Ok(content) => Ok(Some(serde_json::from_str(&content)?)),
-            Err(reader::Error::NotFound) => Ok(None),
-            Err(err) => Err(err.into()),
-        }
+        let reader = self
+            .gb_repository
+            .get_session_reader(current_session)
+            .context("failed to get session reader")?;
+        let deltas = reader
+            .file_deltas(path)
+            .context("failed to get file deltas")?;
+        Ok(deltas)
     }
 
     pub fn register<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
@@ -179,11 +181,12 @@ impl<'listener> Listener<'listener> {
 
         let current_session = self.gb_repository.get_or_create_current_session()?;
         let writer = self.gb_repository.get_session_writer(&current_session)?;
+
         writer
             .write_deltas(path, text_doc.get_deltas())
             .with_context(|| "failed to write deltas")?;
         writer
-            .write_file(path, &current_file_content)
+            .write_session_wd_file(path, &current_file_content)
             .with_context(|| "failed to write file")?;
 
         Ok(())

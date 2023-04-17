@@ -87,10 +87,10 @@ impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
     }
 }
 
-impl<'reader> TryFrom<reader::DirReader<'reader>> for Session {
+impl<'reader> TryFrom<reader::DirReader> for Session {
     type Error = SessionError;
 
-    fn try_from(reader: reader::DirReader<'reader>) -> Result<Self, Self::Error> {
+    fn try_from(reader: reader::DirReader) -> Result<Self, Self::Error> {
         let session = Session::try_from(Box::new(reader) as Box<dyn reader::Reader + 'reader>)?;
         Ok(session)
     }

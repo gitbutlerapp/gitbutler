@@ -1,53 +1,50 @@
-use std::{sync, time};
+use std::sync;
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::{app::gb_repository, events, sessions, users};
+use crate::{
+    app::{gb_repository, project_repository},
+    events, projects, sessions,
+};
 
 pub struct Listener<'listener> {
     project_id: String,
-    user_store: users::Storage,
     gb_repository: &'listener gb_repository::Repository,
+    project_store: projects::Storage,
     sender: sync::mpsc::Sender<events::Event>,
 }
 
 impl<'listener> Listener<'listener> {
     pub fn new(
         project_id: String,
-        user_store: users::Storage,
+        project_store: projects::Storage,
         gb_repository: &'listener gb_repository::Repository,
         sender: sync::mpsc::Sender<events::Event>,
     ) -> Self {
         Self {
             project_id,
-            user_store,
             gb_repository,
+            project_store,
             sender,
         }
     }
 
     pub fn register(&self, session: &sessions::Session) -> Result<()> {
-        let session = sessions::Session {
-            id: session.id.clone(),
-            hash: session.hash.clone(),
-            activity: session.activity.clone(),
-            meta: sessions::Meta {
-                last_timestamp_ms: time::SystemTime::now()
-                    .duration_since(time::SystemTime::UNIX_EPOCH)?
-                    .as_millis(),
-                ..session.meta.clone()
-            },
-        };
+        let project = self
+            .project_store
+            .get_project(&self.project_id)
+            .context("failed to get project")?
+            .ok_or_else(|| anyhow!("project not found"))?;
 
-        let user = self.user_store.get().context("failed to get user")?;
-
-        self.flush(user, &session)
+        let session = self
+            .gb_repository
+            .flush_session(&project_repository::Repository::open(&project)?, session)
             .context("failed to flush session")?;
 
-        Ok(())
-    }
+        if let Err(e) = self.sender.send(events::Event::session(&project, &session)) {
+            log::error!("failed to send session event: {}", e);
+        }
 
-    fn flush(&self, user: Option<users::User>, session: &sessions::Session) -> Result<()> {
-        Err(anyhow!("not implemented"))
+        Ok(())
     }
 }

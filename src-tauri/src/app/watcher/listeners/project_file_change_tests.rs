@@ -3,7 +3,7 @@ use tempfile::tempdir;
 
 use crate::{
     app::{gb_repository, project_repository},
-    deltas, projects, storage,
+    deltas, projects, storage, users,
 };
 
 use super::project_file_change::Listener;
@@ -55,22 +55,22 @@ fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
     Ok(project)
 }
 
-fn project_store(project: &projects::Project) -> Result<projects::Storage> {
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
-    let store = projects::Storage::new(storage);
-    store.add_project(project)?;
-    Ok(store)
-}
-
 #[test]
 fn test_register_existing_file() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let project_store = project_store(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
     let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
@@ -89,7 +89,7 @@ fn test_register_existing_file() -> Result<()> {
         deltas::Operation::Insert((4, "2".to_string())),
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.wd_path().join(file_path))?,
+        std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
         "test2"
     );
 
@@ -102,9 +102,16 @@ fn test_register_new_file() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let project_store = project_store(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
     let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
@@ -121,7 +128,7 @@ fn test_register_new_file() -> Result<()> {
         deltas::Operation::Insert((0, "test".to_string())),
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.wd_path().join(file_path))?,
+        std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
         "test"
     );
 
@@ -134,14 +141,20 @@ fn test_register_new_file_twice() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let project_store = project_store(&project)?;
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id.clone(), project_store.clone())?;
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
     let listener = Listener::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
-
     listener.register(file_path)?;
 
     std::fs::write(project_repo.root().join(file_path), "test2")?;
@@ -161,7 +174,7 @@ fn test_register_new_file_twice() -> Result<()> {
         deltas::Operation::Insert((4, "2".to_string())),
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.wd_path().join(file_path))?,
+        std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
         "test2"
     );
 
