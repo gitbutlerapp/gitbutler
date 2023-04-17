@@ -193,9 +193,9 @@
 					</div>
 				</fieldset>
 
-				<footer>
+				<footer class="flex justify-end">
 					<Button disabled={!canTriggerUpdate} loading={saving} role="primary" type="submit"
-						>Update profile</Button
+						>Update project</Button
 					>
 				</footer>
 			</form>
