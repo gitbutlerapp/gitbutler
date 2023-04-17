@@ -81,7 +81,10 @@ const newSession = async (params: { project: Project }) => {
 		});
 
 		conn.addListener((message) => {
-			message.type === 'Close' && term.dispose();
+			if (message.type === 'Close') {
+				term.dispose();
+				location.reload();
+			}
 		});
 
 		return {
