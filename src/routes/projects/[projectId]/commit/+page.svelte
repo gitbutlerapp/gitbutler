@@ -195,7 +195,7 @@
 
 		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
 			<ul class="flex w-full flex-col rounded border border-gb-700 bg-card-default pb-1">
-				<header class="flex w-full items-center bg-card-active p-2 rounded-tl rounded-tr">
+				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
 					<input
 						type="checkbox"
 						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
@@ -345,7 +345,7 @@
 
 	<div
 		id="preview"
-		class="m-4 flex flex-auto cursor-text select-text overflow-auto rounded border border-gb-700 bg-card-default p-4"
+		class="m-4 flex flex-auto cursor-text select-text overflow-auto rounded border border-gb-700 bg-card-default"
 	>
 		{#if $selectedDiffPath !== undefined}
 			{#if $selectedDiff !== undefined}

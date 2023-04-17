@@ -33,7 +33,6 @@
 </script>
 
 <div class="terminal-page flex h-full w-full flex-row">
-
 	<div class="side-panel h-full w-1/3  p-4">
 		<h2 class="pb-4 text-lg font-bold text-zinc-300">Git Status</h2>
 		{#if $statuses.length == 0}
@@ -70,5 +69,4 @@
 			<ResizeObserver on:resize={handleTerminalResize} />
 		</div>
 	</div>
-
 </div>

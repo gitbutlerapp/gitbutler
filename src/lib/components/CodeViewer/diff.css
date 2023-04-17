@@ -1,3 +1,7 @@
+.lineContext, .lineSplit, .lineDiff {
+	@apply pl-2 pr-2;
+}
+
 .diff-line-marker-addition,
 .diff-line-addition {
 	--override-addition-background-color: hsl(144deg 55% 49% / 20%);
@@ -7,7 +11,7 @@
 
 .diff-line-marker-deletion,
 .diff-line-deletion {
-	--override-deletion-background-color: rgb(255 0 0 / 20%);
+	--override-deletion-background-color: rgba(220, 38, 38, 0.2);
 
 	background-color: var(--override-deletion-background-color);
 }
@@ -19,7 +23,7 @@
 }
 
 .diff-line-deletion .inner-diff {
-	--override-deletion-inner-diff-background-color: rgb(255 0 0 / 30%);
+	--override-deletion-inner-diff-background-color: rgba(220, 38, 38, 0.3);
 
 	background-color: var(--override-deletion-inner-diff-background-color);
 }
