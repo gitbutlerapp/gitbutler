@@ -213,7 +213,7 @@ pub struct SessionReader<'reader> {
     // reader for the current session. commit or wd
     reader: Box<dyn reader::Reader + 'reader>,
     // reader for the previous session's commit
-    previous_reader: Option<CommitReader<'reader>>,
+    previous_reader: CommitReader<'reader>,
 }
 
 impl Reader for SessionReader<'_> {
@@ -253,10 +253,10 @@ impl<'reader> SessionReader<'reader> {
             let head_commit = repository.git_repository.head()?.peel_to_commit()?;
             return Ok(SessionReader {
                 reader: Box::new(wd_reader),
-                previous_reader: Some(CommitReader::from_commit(
+                previous_reader: CommitReader::from_commit(
                     &repository.git_repository,
                     head_commit,
-                )?),
+                )?,
             });
         }
 
@@ -276,56 +276,45 @@ impl<'reader> SessionReader<'reader> {
             .git_repository
             .find_commit(oid)
             .context("failed to get commit")?;
-        let parents_count = commit.parent_count();
         let commit_reader =
             reader::CommitReader::from_commit(&repository.git_repository, commit.clone())?;
 
-        let previous_reader = if parents_count > 0 {
-            Some(reader::CommitReader::from_commit(
-                &repository.git_repository,
-                commit.parent(0)?,
-            )?)
-        } else {
-            None
-        };
-
         Ok(SessionReader {
             reader: Box::new(commit_reader),
-            previous_reader,
+            previous_reader: reader::CommitReader::from_commit(
+                &repository.git_repository,
+                commit.parent(0)?,
+            )?,
         })
     }
 
     pub fn files(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, String>> {
-        match &self.previous_reader {
-            None => Ok(HashMap::new()),
-            Some(previous_reader) => {
-                let files = previous_reader.list_files("wd")?;
-                let mut files_with_content = HashMap::new();
-                for file_path in files {
-                    if let Some(paths) = paths.as_ref() {
-                        if !paths.iter().any(|path| file_path.starts_with(path)) {
-                            continue;
-                        }
-                    }
-                    match previous_reader
-                        .read(
-                            std::path::Path::new("wd")
-                                .join(file_path.clone())
-                                .to_str()
-                                .unwrap(),
-                        )
-                        .with_context(|| format!("failed to read {}", file_path))?
-                    {
-                        reader::Content::UTF8(content) => {
-                            files_with_content.insert(file_path.clone(), content);
-                        }
-                        reader::Content::Binary(_) => {}
-                    }
+        let files = self.previous_reader.list_files("wd")?;
+        let mut files_with_content = HashMap::new();
+        for file_path in files {
+            if let Some(paths) = paths.as_ref() {
+                if !paths.iter().any(|path| file_path.starts_with(path)) {
+                    continue;
                 }
-
-                Ok(files_with_content)
+            }
+            match self
+                .previous_reader
+                .read(
+                    std::path::Path::new("wd")
+                        .join(file_path.clone())
+                        .to_str()
+                        .unwrap(),
+                )
+                .with_context(|| format!("failed to read {}", file_path))?
+            {
+                reader::Content::UTF8(content) => {
+                    files_with_content.insert(file_path.clone(), content);
+                }
+                reader::Content::Binary(_) => {}
             }
         }
+
+        Ok(files_with_content)
     }
 
     pub fn file_deltas<P: AsRef<std::path::Path>>(

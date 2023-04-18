@@ -58,33 +58,64 @@ impl<'listener> Listener<'listener> {
         }
     }
 
-    fn get_latest_file_contents_reader(
+    fn get_latest_file_from_repository_head(
         &self,
         project_repository: &'listener project_repository::Repository,
         path: &str,
-    ) -> Result<Option<Box<dyn reader::Reader + 'listener>>> {
-        if let Some(head_session) = self
+    ) -> Result<Option<String>> {
+        let head_reader = project_repository
+            .get_head_reader()
+            .context("failed to get head reader")?;
+
+        if !head_reader.exists(path) {
+            return Ok(None);
+        }
+
+        if head_reader.size(path)? > 100_000 {
+            log::warn!("{}: ignoring large file: {}", self.project_id, path);
+            return Ok(None);
+        }
+
+        match head_reader.read(path)? {
+            reader::Content::UTF8(content) => Ok(Some(content)),
+            reader::Content::Binary(_) => {
+                log::warn!("{}: ignoring non-utf8 file: {}", self.project_id, path);
+                return Ok(None);
+            }
+        }
+    }
+
+    fn get_latest_file_from_previous_session(&self, path: &str) -> Result<Option<String>> {
+        match self
             .gb_repository
             .get_sessions_iterator()
             .context("failed to get sessions iterator")?
             .next()
         {
-            let head_session = head_session.context("failed to get head session")?;
-            let head_session_reader = self.gb_repository.get_session_reader(&head_session)?;
-            if head_session_reader.exists(path) {
-                return Ok(Some(Box::new(head_session_reader)));
+            Some(Ok(head_session)) => {
+                let session_path = std::path::Path::new("wd").join(path);
+                let head_session_reader = self.gb_repository.get_session_reader(&head_session)?;
+
+                if !head_session_reader.exists(session_path.to_str().unwrap()) {
+                    return Ok(None);
+                }
+
+                if head_session_reader.size(session_path.to_str().unwrap())? > 100_000 {
+                    log::warn!("{}: ignoring large file: {}", self.project_id, path);
+                    return Ok(None);
+                }
+
+                match head_session_reader.read(session_path.to_str().unwrap())? {
+                    reader::Content::UTF8(content) => Ok(Some(content)),
+                    reader::Content::Binary(_) => {
+                        log::warn!("{}: ignoring non-utf8 file: {}", self.project_id, path);
+                        return Ok(None);
+                    }
+                }
             }
+            Some(Err(err)) => Err(err).context("failed to get head session"),
+            None => Ok(None),
         }
-
-        let project_head_reader = project_repository
-            .get_head_reader()
-            .with_context(|| "failed to get project head reader")?;
-
-        if project_head_reader.exists(path) {
-            return Ok(Some(Box::new(project_head_reader)));
-        }
-
-        return Ok(None);
     }
 
     fn get_latest_file_contents(
@@ -94,24 +125,12 @@ impl<'listener> Listener<'listener> {
     ) -> Result<Option<String>> {
         let path = path.to_str().unwrap();
 
-        let reader = self
-            .get_latest_file_contents_reader(project_repository, path)
-            .context("failed to get latest file contents reader")?;
-        if reader.is_none() {
-            return Ok(None);
-        }
-        let reader = reader.unwrap();
-
-        if reader.size(path)? > 100_000 {
-            log::warn!("{}: ignoring large file: {}", self.project_id, path);
-            return Ok(None);
-        }
-        match reader.read(path)? {
-            reader::Content::UTF8(content) => Ok(Some(content)),
-            reader::Content::Binary(_) => {
-                log::warn!("{}: ignoring non-utf8 file: {}", self.project_id, path);
-                return Ok(None);
-            }
+        match self
+            .get_latest_file_from_previous_session(path)
+            .context("failed to get latest file from previous session")?
+        {
+            Some(content) => Ok(Some(content)),
+            None => self.get_latest_file_from_repository_head(project_repository, path),
         }
     }
 
