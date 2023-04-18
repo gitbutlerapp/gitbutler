@@ -182,9 +182,15 @@ impl<'listener> Listener<'listener> {
             return Ok(());
         }
 
-        log::info!("{}: {} changed", self.project_id, path.display());
-
         let current_session = self.gb_repository.get_or_create_current_session()?;
+
+        if let Err(e) = self
+            .events
+            .send(events::Event::session(&project, &current_session))
+        {
+            log::error!("{}: failed to send session event: {:#}", project.id, e);
+        }
+
         let writer = self.gb_repository.get_session_writer(&current_session)?;
 
         let deltas = text_doc.get_deltas();
@@ -202,7 +208,7 @@ impl<'listener> Listener<'listener> {
             &deltas,
             &path,
         )) {
-            log::error!("{}: failed to send event: {:#}", project.id, e);
+            log::error!("{}: failed to send deltas event: {:#}", project.id, e);
         }
 
         Ok(())
