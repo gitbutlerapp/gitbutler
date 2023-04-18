@@ -10,7 +10,6 @@ mod writer;
 mod gb_repository_tests;
 #[cfg(test)]
 mod reader_tests;
-
 #[cfg(test)]
 mod session_tests;
 

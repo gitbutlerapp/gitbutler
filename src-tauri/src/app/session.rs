@@ -304,9 +304,9 @@ impl<'reader> SessionReader<'reader> {
 
     pub fn file_deltas<P: AsRef<std::path::Path>>(
         &self,
-        paths: P,
+        path: P,
     ) -> Result<Option<Vec<deltas::Delta>>> {
-        let path = paths.as_ref();
+        let path = path.as_ref();
         let file_deltas_path = std::path::Path::new("session/deltas").join(path);
         match self
             .reader
