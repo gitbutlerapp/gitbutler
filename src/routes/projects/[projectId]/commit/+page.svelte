@@ -211,42 +211,44 @@
 					</h1>
 				</header>
 
-				{#each $statuses as { path, staged }, i}
-					<li class="bg-card-default ">
-						<div
-							class:bg-[#3356C2]={$selectedDiffPath === path}
-							class:hover:bg-divider={$selectedDiffPath !== path}
-							class="file-changed-item mx-1 mt-1 flex select-text  items-center gap-2 rounded bg-card-default px-1 py-1"
-						>
-							<input
-								class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
-								disabled={isCommitting || isGeneratingCommitMessage}
-								on:click|preventDefault={() => {
-									staged
-										? git.unstage({ projectId, paths: [path] }).catch(() => {
-												error('Failed to unstage file');
-										  })
-										: git.stage({ projectId, paths: [path] }).catch(() => {
-												error('Failed to stage file');
-										  });
-								}}
-								name="path"
-								type="checkbox"
-								checked={staged}
-								value={path}
-							/>
-							<label class="flex h-5 w-full overflow-auto" for="path">
-								<button
+				<div class="max-h-[260px] overflow-y-auto">
+					{#each $statuses as { path, staged }, i}
+						<li class="bg-card-default ">
+							<div
+								class:bg-[#3356C2]={$selectedDiffPath === path}
+								class:hover:bg-divider={$selectedDiffPath !== path}
+								class="file-changed-item mx-1 mt-1 flex select-text  items-center gap-2 rounded bg-card-default px-1 py-1"
+							>
+								<input
+									class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 									disabled={isCommitting || isGeneratingCommitMessage}
-									on:click|preventDefault={() => ($selectedDiffPath = path)}
-									type="button"
-									class="h-full w-full select-auto text-left font-mono text-sm disabled:opacity-50"
-									use:collapsable={{ value: path, separator: '/' }}
+									on:click|preventDefault={() => {
+										staged
+											? git.unstage({ projectId, paths: [path] }).catch(() => {
+													error('Failed to unstage file');
+											  })
+											: git.stage({ projectId, paths: [path] }).catch(() => {
+													error('Failed to stage file');
+											  });
+									}}
+									name="path"
+									type="checkbox"
+									checked={staged}
+									value={path}
 								/>
-							</label>
-						</div>
-					</li>
-				{/each}
+								<label class="flex h-5 w-full overflow-auto" for="path">
+									<button
+										disabled={isCommitting || isGeneratingCommitMessage}
+										on:click|preventDefault={() => ($selectedDiffPath = path)}
+										type="button"
+										class="h-full w-full select-auto text-left font-mono text-sm disabled:opacity-50"
+										use:collapsable={{ value: path, separator: '/' }}
+									/>
+								</label>
+							</div>
+						</li>
+					{/each}
+				</div>
 			</ul>
 
 			<input
