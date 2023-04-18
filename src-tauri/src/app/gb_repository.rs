@@ -135,10 +135,10 @@ impl Repository {
         Ok(session)
     }
 
-    pub fn get_session_writer(
-        &self,
+    pub fn get_session_writer<'repository>(
+        &'repository self,
         session: &sessions::Session,
-    ) -> Result<session::SessionWriter> {
+    ) -> Result<session::SessionWriter<'repository>> {
         session::SessionWriter::open(&self, &session)
     }
 
@@ -246,11 +246,16 @@ impl Repository {
         Ok(session)
     }
 
-    pub fn get_session_reader(&self, session: sessions::Session) -> Result<session::SessionReader> {
-        session::SessionReader::open(&self, session)
+    pub fn get_session_reader<'repository>(
+        &'repository self,
+        session: &sessions::Session,
+    ) -> Result<session::SessionReader<'repository>> {
+        session::SessionReader::open(&self, &session)
     }
 
-    pub fn get_sessions_iterator(&self) -> Result<session::SessionsIterator> {
+    pub fn get_sessions_iterator<'repository>(
+        &'repository self,
+    ) -> Result<session::SessionsIterator<'repository>> {
         Ok(session::SessionsIterator::new(&self.git_repository)?)
     }
 

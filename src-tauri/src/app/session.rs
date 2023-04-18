@@ -218,7 +218,7 @@ impl Reader for SessionReader<'_> {
 impl<'reader> SessionReader<'reader> {
     pub fn open(
         repository: &'reader gb_repository::Repository,
-        session: sessions::Session,
+        session: &sessions::Session,
     ) -> Result<Self> {
         let wd_reader = reader::DirReader::open(repository.root());
 
@@ -241,7 +241,7 @@ impl<'reader> SessionReader<'reader> {
             });
         }
 
-        let session_hash = if let Some(hash) = session.hash {
+        let session_hash = if let Some(hash) = &session.hash {
             hash
         } else {
             return Err(anyhow!(

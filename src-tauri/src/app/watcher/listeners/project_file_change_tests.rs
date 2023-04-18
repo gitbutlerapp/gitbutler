@@ -83,7 +83,7 @@ fn test_register_existing_commited_file() -> Result<()> {
     listener.register(file_path)?;
 
     let session = gb_repo.get_current_session()?.unwrap();
-    let session_reader = gb_repo.get_session_reader(session)?;
+    let session_reader = gb_repo.get_session_reader(&session)?;
     let deltas = session_reader.file_deltas("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
     assert_eq!(deltas[0].operations.len(), 1);
@@ -187,7 +187,7 @@ fn test_register_new_file() -> Result<()> {
     listener.register(file_path)?;
 
     let sesssion = gb_repo.get_current_session()?.unwrap();
-    let reader = gb_repo.get_session_reader(sesssion)?;
+    let reader = gb_repo.get_session_reader(&sesssion)?;
     let deltas = reader.file_deltas("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
     assert_eq!(deltas[0].operations.len(), 1);
@@ -227,7 +227,7 @@ fn test_register_new_file_twice() -> Result<()> {
     listener.register(file_path)?;
 
     let session = gb_repo.get_current_session()?.unwrap();
-    let reader = gb_repo.get_session_reader(session)?;
+    let reader = gb_repo.get_session_reader(&session)?;
     let deltas = reader.file_deltas("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
     assert_eq!(deltas[0].operations.len(), 1);
