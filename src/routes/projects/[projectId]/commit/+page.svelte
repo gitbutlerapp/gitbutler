@@ -190,11 +190,11 @@
 	</svelte:fragment>
 </Dialog>
 <div id="commit-page" class="flex h-full w-full">
-	<div class="commit-panel-container border-r border-zinc-700 p-4">
-		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
+	<div class="commit-panel-container border-r border-zinc-700 p-4 pt-2 flex flex-col">
+		<h1 class="pb-2 text-xl font-bold">Commit</h1>
 
-		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
-			<ul class="flex w-full flex-col rounded border border-gb-700 bg-card-default pb-1">
+		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4 h-full">
+			<ul class="flex w-full flex-col rounded border border-gb-700 bg-card-default pb-1 h-full">
 				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
 					<input
 						type="checkbox"
