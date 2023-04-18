@@ -211,7 +211,7 @@
 					</h1>
 				</header>
 
-				<div class="max-h-[260px] overflow-y-auto">
+				<div class="changed-file-list-container overflow-y-auto">
 					{#each $statuses as { path, staged }, i}
 						<li class="bg-card-default ">
 							<div
@@ -366,6 +366,12 @@
 </div>
 
 <style>
+	.changed-file-list-container {
+		max-height: calc(100vh - 200px);
+	}
+
+
+
 	/**
 	* ==============================================
 	* Dot Typing
