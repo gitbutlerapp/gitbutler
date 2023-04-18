@@ -288,13 +288,20 @@ impl<'reader> SessionReader<'reader> {
                             continue;
                         }
                     }
-                    let file_content = previous_reader.read_to_string(
-                        std::path::Path::new("wd")
-                            .join(file_path.clone())
-                            .to_str()
-                            .unwrap(),
-                    )?;
-                    files_with_content.insert(file_path, file_content);
+                    match previous_reader
+                        .read(
+                            std::path::Path::new("wd")
+                                .join(file_path.clone())
+                                .to_str()
+                                .unwrap(),
+                        )
+                        .with_context(|| format!("failed to read {}", file_path))?
+                    {
+                        reader::Content::UTF8(content) => {
+                            files_with_content.insert(file_path.clone(), content);
+                        }
+                        reader::Content::Binary(_) => {}
+                    }
                 }
 
                 Ok(files_with_content)
