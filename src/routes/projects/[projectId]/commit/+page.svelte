@@ -190,11 +190,14 @@
 	</svelte:fragment>
 </Dialog>
 <div id="commit-page" class="flex h-full w-full">
-	<div class="commit-panel-container border-r border-zinc-700 p-4">
-		<h1 class="px-2 py-1 text-xl font-bold">Commit</h1>
+	<div class="commit-panel-container flex flex-col border-r border-zinc-700 p-4 pt-2">
+		<h1 class="pb-2 text-xl font-bold">Commit</h1>
 
-		<form on:submit|preventDefault={onCommit} class="flex w-1/3 min-w-[500px] flex-col gap-4">
-			<ul class="flex w-full flex-col rounded border border-gb-700 bg-card-default pb-1">
+		<form
+			on:submit|preventDefault={onCommit}
+			class="flex h-full w-1/3 min-w-[500px] flex-col gap-4"
+		>
+			<ul class="flex h-full w-full flex-col rounded border border-gb-700 bg-card-default pb-1">
 				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
 					<input
 						type="checkbox"
@@ -211,7 +214,7 @@
 					</h1>
 				</header>
 
-				<div class="max-h-[260px] overflow-y-auto">
+				<div class="changed-file-list-container overflow-y-auto">
 					{#each $statuses as { path, staged }, i}
 						<li class="bg-card-default ">
 							<div
@@ -366,6 +369,10 @@
 </div>
 
 <style>
+	.changed-file-list-container {
+		max-height: calc(100vh - 200px);
+	}
+
 	/**
 	* ==============================================
 	* Dot Typing
