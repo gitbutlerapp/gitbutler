@@ -319,7 +319,14 @@ impl<'reader> SessionReader<'reader> {
             .reader
             .read_to_string(file_deltas_path.to_str().unwrap())
         {
-            Ok(content) => Ok(Some(serde_json::from_str(&content)?)),
+            Ok(content) => {
+                if content.is_empty() {
+                    // this is a leftover from some bug, shouldn't happen anymore
+                    Ok(None)
+                } else {
+                    Ok(Some(serde_json::from_str(&content)?))
+                }
+            }
             Err(reader::Error::NotFound) => Ok(None),
             Err(err) => Err(err.into()),
         }
