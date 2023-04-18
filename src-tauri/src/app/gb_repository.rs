@@ -29,25 +29,39 @@ impl Repository {
         project_store: projects::Storage,
         users_store: users::Storage,
     ) -> Result<Self> {
+        let project = project_store
+            .get_project(&project_id)
+            .context("failed to get project")?;
+        if project.is_none() {
+            return Err(anyhow!("project not found"));
+        }
+        let project = project.unwrap();
+
+        let project_objects_path = std::path::Path::new(&project.path).join(".git/objects");
+        if !project_objects_path.exists() {
+            return Err(anyhow!(
+                "{}: project objects path does not exist",
+                project_objects_path.display()
+            ));
+        }
+
         let path = root.as_ref().join("projects").join(project_id.clone());
         if path.exists() {
+            let git_repository = git2::Repository::open(path.clone())
+                .with_context(|| format!("{}: failed to open git repository", path.display()))?;
+
+            git_repository
+                .odb()?
+                .add_disk_alternate(project_objects_path.to_str().unwrap())
+                .context("failed to add disk alternate")?;
+
             Ok(Self {
                 project_id,
-                git_repository: git2::Repository::open(path.clone()).with_context(|| {
-                    format!("{}: failed to open git repository", path.display())
-                })?,
+                git_repository,
                 project_store,
                 users_store,
             })
         } else {
-            let project = project_store
-                .get_project(&project_id)
-                .context("failed to get project")?;
-            if project.is_none() {
-                return Err(anyhow!("project not found"));
-            }
-            let project = project.unwrap();
-
             let git_repository = git2::Repository::init_opts(
                 &path,
                 &git2::RepositoryInitOptions::new()
@@ -56,14 +70,6 @@ impl Repository {
                     .external_template(false),
             )
             .with_context(|| format!("{}: failed to initialize git repository", path.display()))?;
-
-            let project_objects_path = std::path::Path::new(&project.path).join(".git/objects");
-            if !project_objects_path.exists() {
-                return Err(anyhow!(
-                    "{}: project objects path does not exist",
-                    project_objects_path.display()
-                ));
-            }
 
             git_repository
                 .odb()?
@@ -415,15 +421,17 @@ fn add_wd_path(
             && entry.file_size == u32::try_from(metadata.len())?
             && entry.mode == metadata.mode()
         {
-            log::debug!("using existing entry for {}", file_path.display());
             index.add(&entry).unwrap();
+            log::debug!(
+                "{}: added existing entry for {}",
+                gb_repository.project_id,
+                file_path.display()
+            );
             return Ok(());
         }
     }
 
     // something is different, or not found, so we need to create a new entry
-
-    log::debug!("adding wd path: {}", file_path.display());
 
     // look for files that are bigger than 4GB, which are not supported by git
     // insert a pointer as the blob content instead
@@ -487,6 +495,12 @@ fn add_wd_path(
         })
         .with_context(|| format!("failed to add index entry for {}", rel_file_path.display()))?;
 
+    log::debug!(
+        "{}: created index entry for {}",
+        gb_repository.project_id,
+        rel_file_path.display()
+    );
+
     Ok(())
 }
 
@@ -546,8 +560,6 @@ fn add_log_path(
         .path()
         .join("logs")
         .join(rel_file_path);
-    log::debug!("adding log path: {}", file_path.display());
-
     let metadata = file_path.metadata()?;
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
@@ -572,6 +584,8 @@ fn add_log_path(
         path: rel_file_path.to_str().unwrap().to_string().into(),
         id: gb_repository.git_repository.blob_path(&file_path)?,
     })?;
+
+    log::debug!("added log path: {}", file_path.display());
 
     Ok(())
 }
@@ -602,7 +616,6 @@ fn add_session_path(
     rel_file_path: &std::path::Path,
 ) -> Result<()> {
     let file_path = gb_repository.session_path().join(rel_file_path);
-    log::debug!("adding session path: {}", file_path.display());
 
     let blob = gb_repository.git_repository.blob_path(&file_path)?;
     let metadata = file_path.metadata()?;
@@ -637,6 +650,8 @@ fn add_session_path(
                 file_path.display()
             )
         })?;
+
+    log::debug!("added session path: {}", file_path.display());
 
     Ok(())
 }
