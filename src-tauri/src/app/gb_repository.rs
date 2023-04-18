@@ -83,6 +83,14 @@ impl Repository {
                 users_store,
             };
 
+            if gb_repository
+                .migrate(&project)
+                .context("failed to migrate")?
+            {
+                log::info!("{}: migrated", gb_repository.project_id);
+                return Ok(gb_repository);
+            }
+
             let session = gb_repository
                 .create_current_session(&project_repository::Repository::open(&project)?)?;
             gb_repository
@@ -306,6 +314,105 @@ impl Repository {
 
     pub(crate) fn session_wd_path(&self) -> std::path::PathBuf {
         self.session_path().join("wd")
+    }
+
+    // migrate old data to the new format.
+    // TODO: remove once we think everyone has migrated
+    fn migrate(&self, project: &projects::Project) -> Result<bool> {
+        if !self
+            .migrate_history(project)
+            .context("failed to migrate history")?
+        {
+            Ok(false)
+        } else {
+            let current_session_dir = std::path::Path::new(project.path.as_str())
+                .join(".git")
+                .join(format!("gb-{}", project.id));
+            if current_session_dir.exists() {
+                std::fs::rename(current_session_dir, self.root())
+                    .context("failed to rename current session directory")?;
+            }
+            Ok(true)
+        }
+    }
+
+    fn migrate_history(&self, project: &projects::Project) -> Result<bool> {
+        let refname = format!("refs/gitbutler-{}/current", project.id);
+        let repo = git2::Repository::open(&project.path).context("failed to open repository")?;
+        let reference = repo.find_reference(&refname);
+        match reference {
+            Err(e) => {
+                if e.code() == git2::ErrorCode::NotFound {
+                    log::warn!(
+                        "{}: reference {} not found, no migration",
+                        project.id,
+                        refname
+                    );
+                    return Ok(false);
+                }
+                Err(e.into())
+            }
+            Result::Ok(reference) => {
+                let mut walker = repo.revwalk()?;
+                walker.push(reference.target().unwrap())?;
+                walker.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)?;
+
+                let mut migrated = false;
+                for id in walker {
+                    let id = id?;
+                    let commit = repo.find_commit(id)?;
+
+                    let copy_tree = |tree: git2::Tree| -> Result<git2::Oid> {
+                        let mut tree_builder = self.git_repository.treebuilder(None)?;
+                        for tree_entry in tree.iter() {
+                            let path = tree_entry.name().unwrap();
+                            let oid = tree_entry.id();
+                            let mode = tree_entry.filemode();
+                            tree_builder
+                                .insert(path, oid, mode)
+                                .context("failed to insert tree entry")?;
+                        }
+                        let tree_oid = tree_builder.write()?;
+                        Ok(tree_oid)
+                    };
+
+                    let tree = self.git_repository.find_tree(copy_tree(commit.tree()?)?)?;
+
+                    match self.git_repository.head() {
+                        Result::Ok(head) => {
+                            let parent = head.peel_to_commit()?;
+                            self.git_repository
+                                .commit(
+                                    Some("HEAD"),
+                                    &commit.author(),
+                                    &commit.committer(),
+                                    &commit.message().unwrap(),
+                                    &tree,
+                                    &[&parent],
+                                )
+                                .context("failed to commit")?;
+                        }
+                        Err(_) => {
+                            self.git_repository
+                                .commit(
+                                    Some("HEAD"),
+                                    &commit.author(),
+                                    &commit.committer(),
+                                    &commit.message().unwrap(),
+                                    &tree,
+                                    &vec![],
+                                )
+                                .context("failed to commit")?;
+                        }
+                    };
+
+                    log::warn!("{}: migrated commit {}", project.id, id);
+                    migrated = true
+                }
+
+                Ok(migrated)
+            }
+        }
     }
 }
 
