@@ -33,6 +33,23 @@ fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
     Ok(project)
 }
 
+fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
+    let mut index = repository.index()?;
+    index.add_all(&["."], git2::IndexAddOption::DEFAULT, None)?;
+    index.write()?;
+    let oid = index.write_tree()?;
+    let signature = git2::Signature::now("test", "test@email.com").unwrap();
+    let commit_oid = repository.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        "some commit",
+        &repository.find_tree(oid)?,
+        &[&repository.find_commit(repository.refname_to_id("HEAD")?)?],
+    )?;
+    Ok(commit_oid)
+}
+
 #[test]
 fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
     let repository = test_repository()?;
@@ -101,6 +118,62 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
 
     let iter = gb_repo.get_sessions_iterator()?;
     assert_eq!(iter.count(), 0);
+
+    Ok(())
+}
+
+#[test]
+fn test_init_on_non_empty_repository() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+
+    std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
+    commit_all(&repository)?;
+
+    gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn test_flush_on_existing_repository() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+
+    std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
+    commit_all(&repository)?;
+
+    gb_repository::Repository::open(
+        gb_repo_path.clone(),
+        project.id.clone(),
+        project_store.clone(),
+        user_store.clone(),
+    )?;
+
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    gb_repo.get_or_create_current_session()?;
+    gb_repo.flush()?;
 
     Ok(())
 }

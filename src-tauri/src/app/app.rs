@@ -47,33 +47,48 @@ impl App {
         Ok(())
     }
 
-    pub fn init(&self, events: std::sync::mpsc::Sender<events::Event>) -> Result<()> {
-        for project in self.projects_storage.list_projects()? {
-            let gb_repository = gb_repository::Repository::open(
-                self.local_data_dir.clone(),
-                project.id.clone(),
-                self.projects_storage.clone(),
-                self.users_storage.clone(),
-            )
+    pub fn init_project(
+        &self,
+        project: &projects::Project,
+        events: std::sync::mpsc::Sender<events::Event>,
+    ) -> Result<()> {
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project.id.clone(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open git repository")?;
+
+        self.repositories
+            .lock()
+            .unwrap()
+            .insert(project.id.clone(), gb_repository);
+
+        self.start_watcher(&project, events.clone())
             .with_context(|| {
-                format!(
-                    "failed to open repository for project {}",
-                    project.id.clone()
-                )
+                format!("failed to start watcher for project {}", project.id.clone())
             })?;
 
-            self.repositories
-                .lock()
-                .unwrap()
-                .insert(project.id.clone(), gb_repository);
+        Ok(())
+    }
 
-            self.start_watcher(&project, events.clone())
-                .with_context(|| {
-                    format!("failed to start watcher for project {}", project.id.clone())
-                })?;
+    pub fn init(&self, events: std::sync::mpsc::Sender<events::Event>) -> Result<()> {
+        for project in self
+            .projects_storage
+            .list_projects()
+            .with_context(|| "failed to list projects")?
+        {
+            if let Err(e) = self.init_project(&project, events.clone()) {
+                log::error!("failed to init project {}: {:#}", project.id, e);
+            }
 
-            self.reindex_project(&project)
-                .with_context(|| format!("failed to reindex project {}", project.id.clone()))?;
+            if let Err(e) = self
+                .reindex_project(&project)
+                .with_context(|| format!("failed to reindex project {}", project.id.clone()))
+            {
+                log::error!("failed to reindex project {}: {:#}", project.id, e)
+            }
         }
         Ok(())
     }
@@ -187,8 +202,8 @@ impl App {
             .add_project(&project)
             .context("failed to add project")?;
 
-        self.start_watcher(&project, events.clone())
-            .context("failed to start watcher")?;
+        self.init_project(&project, events.clone())
+            .context("failed to init project")?;
 
         Ok(project)
     }
