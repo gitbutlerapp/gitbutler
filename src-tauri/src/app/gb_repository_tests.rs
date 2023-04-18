@@ -57,7 +57,7 @@ fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
 }
 
 #[test]
-fn test_must_flush_on_init() -> Result<()> {
+fn test_must_not_return_init_session() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -72,9 +72,10 @@ fn test_must_flush_on_init() -> Result<()> {
         user_store,
     )?;
 
-    let iter = gb_repo.get_sessions_iterator()?;
-    assert_eq!(iter.count(), 1);
     assert!(gb_repo.get_current_session()?.is_none());
+
+    let iter = gb_repo.get_sessions_iterator()?;
+    assert_eq!(iter.count(), 0);
 
     Ok(())
 }
@@ -96,10 +97,10 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
     )?;
 
     let session = gb_repo.flush()?;
+    assert!(session.is_none());
 
     let iter = gb_repo.get_sessions_iterator()?;
-    assert_eq!(iter.count(), 1);
-    assert!(session.is_none());
+    assert_eq!(iter.count(), 0);
 
     Ok(())
 }
@@ -123,10 +124,9 @@ fn test_must_flush_current_session() -> Result<()> {
     gb_repo.get_or_create_current_session()?;
 
     let session = gb_repo.flush()?;
-
-    let iter = gb_repo.get_sessions_iterator()?;
-    assert_eq!(iter.count(), 2);
     assert!(session.is_some());
+    let iter = gb_repo.get_sessions_iterator()?;
+    assert_eq!(iter.count(), 1);
 
     Ok(())
 }
@@ -206,6 +206,75 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
         deltas.get("test.txt").unwrap()[0].operations[0],
         deltas::Operation::Insert((0, "Hello World".to_string()))
     );
+
+    Ok(())
+}
+
+#[test]
+fn test_list_files_from_current_session() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+
+    // files are there before the session is created
+    std::fs::write(
+        repository.path().parent().unwrap().join("test.txt"),
+        "Hello World",
+    )?;
+
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    let session = gb_repo.get_or_create_current_session()?;
+
+    let reader = gb_repo.get_session_reader(session)?;
+    let files = reader.files(None)?;
+
+    assert_eq!(files.len(), 1);
+    assert_eq!(files.get("test.txt").unwrap(), "Hello World");
+
+    Ok(())
+}
+
+#[test]
+fn test_list_files_from_flushed_session() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+
+    // files are there before the session is created
+    std::fs::write(
+        repository.path().parent().unwrap().join("test.txt"),
+        "Hello World",
+    )?;
+
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    gb_repo.get_or_create_current_session()?;
+    let session = gb_repo.flush()?.unwrap();
+
+    let reader = gb_repo.get_session_reader(session)?;
+    let files = reader.files(None)?;
+
+    assert_eq!(files.len(), 1);
+    assert_eq!(files.get("test.txt").unwrap(), "Hello World");
 
     Ok(())
 }

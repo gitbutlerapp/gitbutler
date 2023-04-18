@@ -6,7 +6,7 @@ use crate::{deltas, pty, sessions};
 
 use super::{
     gb_repository,
-    reader::{self, Reader},
+    reader::{self, CommitReader, Reader},
     writer::{self, Writer},
 };
 
@@ -191,8 +191,10 @@ impl<'writer> SessionWriter<'writer> {
 }
 
 pub struct SessionReader<'reader> {
-    repository: &'reader gb_repository::Repository,
+    // reader for the current session. commit or wd
     reader: Box<dyn reader::Reader + 'reader>,
+    // reader for the previous session's commit
+    previous_reader: Option<CommitReader<'reader>>,
 }
 
 impl Reader for SessionReader<'_> {
@@ -229,9 +231,13 @@ impl<'reader> SessionReader<'reader> {
                 .unwrap(),
         );
         if current_session_id.is_ok() && current_session_id.as_ref().unwrap() == &session.id {
+            let head_commit = repository.git_repository.head()?.peel_to_commit()?;
             return Ok(SessionReader {
                 reader: Box::new(wd_reader),
-                repository,
+                previous_reader: Some(CommitReader::from_commit(
+                    &repository.git_repository,
+                    head_commit,
+                )?),
             });
         }
 
@@ -251,35 +257,49 @@ impl<'reader> SessionReader<'reader> {
             .git_repository
             .find_commit(oid)
             .context("failed to get commit")?;
-        let commit_reader = reader::CommitReader::from_commit(&repository.git_repository, commit)?;
+        let parents_count = commit.parent_count();
+        let commit_reader =
+            reader::CommitReader::from_commit(&repository.git_repository, commit.clone())?;
+
+        let previous_reader = if parents_count > 0 {
+            Some(reader::CommitReader::from_commit(
+                &repository.git_repository,
+                commit.parent(0)?,
+            )?)
+        } else {
+            None
+        };
+
         Ok(SessionReader {
             reader: Box::new(commit_reader),
-            repository,
+            previous_reader,
         })
     }
 
     pub fn files(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, String>> {
-        let files = self
-            .reader
-            .list_files(&self.repository.wd_path().to_str().unwrap())?;
-        let files_with_content = files
-            .iter()
-            .filter(|file| {
-                if let Some(paths) = paths.as_ref() {
-                    paths.iter().any(|path| file.starts_with(path))
-                } else {
-                    true
+        match &self.previous_reader {
+            None => Ok(HashMap::new()),
+            Some(previous_reader) => {
+                let files = previous_reader.list_files("wd")?;
+                let mut files_with_content = HashMap::new();
+                for file_path in files {
+                    if let Some(paths) = paths.as_ref() {
+                        if !paths.iter().any(|path| file_path.starts_with(path)) {
+                            continue;
+                        }
+                    }
+                    let file_content = previous_reader.read_to_string(
+                        std::path::Path::new("wd")
+                            .join(file_path.clone())
+                            .to_str()
+                            .unwrap(),
+                    )?;
+                    files_with_content.insert(file_path, file_content);
                 }
-            })
-            .map(|file| {
-                let content = self
-                    .reader
-                    .read_to_string(&self.repository.wd_path().join(file).to_str().unwrap())
-                    .unwrap();
-                (file.to_string(), content)
-            })
-            .collect();
-        Ok(files_with_content)
+
+                Ok(files_with_content)
+            }
+        }
     }
 
     pub fn file_deltas<P: AsRef<std::path::Path>>(
@@ -287,8 +307,11 @@ impl<'reader> SessionReader<'reader> {
         paths: P,
     ) -> Result<Option<Vec<deltas::Delta>>> {
         let path = paths.as_ref();
-        let deltas_path = self.repository.deltas_path().join(path);
-        match self.reader.read_to_string(deltas_path.to_str().unwrap()) {
+        let file_deltas_path = std::path::Path::new("session/deltas").join(path);
+        match self
+            .reader
+            .read_to_string(file_deltas_path.to_str().unwrap())
+        {
             Ok(content) => Ok(Some(serde_json::from_str(&content)?)),
             Err(reader::Error::NotFound) => Ok(None),
             Err(err) => Err(err.into()),
@@ -296,27 +319,20 @@ impl<'reader> SessionReader<'reader> {
     }
 
     pub fn deltas(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        let dir = std::path::Path::new("session/deltas");
-        let files = self.reader.list_files(dir.to_str().unwrap())?;
-        let files_with_content = files
-            .iter()
-            .filter(|file| {
-                if let Some(paths) = paths.as_ref() {
-                    paths.iter().any(|path| file.starts_with(path))
-                } else {
-                    true
+        let deltas_dir = std::path::Path::new("session/deltas");
+        let files = self.reader.list_files(deltas_dir.to_str().unwrap())?;
+        let mut result = HashMap::new();
+        for file_path in files {
+            if let Some(paths) = paths.as_ref() {
+                if !paths.iter().any(|path| file_path.starts_with(path)) {
+                    continue;
                 }
-            })
-            .map(|file| {
-                let content = self
-                    .reader
-                    .read_to_string(dir.join(file).to_str().unwrap())
-                    .unwrap();
-                let deltas: Vec<deltas::Delta> = serde_json::from_str(&content).unwrap();
-                (file.to_string(), deltas)
-            })
-            .collect();
-        Ok(files_with_content)
+            }
+            if let Some(deltas) = self.file_deltas(file_path.clone())? {
+                result.insert(file_path, deltas);
+            }
+        }
+        Ok(result)
     }
 }
 
@@ -350,6 +366,13 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
                     Result::Ok(commit) => commit,
                     Err(err) => return Some(Err(err.into())),
                 };
+
+                if commit.parent_count() == 0 {
+                    // skip initial commit, as it's impossible to get a list of files from it
+                    // it's only used to bootstrap the history
+                    return None;
+                }
+
                 let commit_reader =
                     match reader::CommitReader::from_commit(self.git_repository, commit) {
                         Result::Ok(commit_reader) => commit_reader,
