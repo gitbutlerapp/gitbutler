@@ -291,7 +291,7 @@ impl App {
             .context("failed to get session")?;
 
         let reader = gb_repository
-            .get_session_reader(session)
+            .get_session_reader(&session)
             .context("failed to get session reader")?;
 
         reader.files(paths)
@@ -313,7 +313,7 @@ impl App {
             .context("failed to get session")?;
 
         let reader = gb_repository
-            .get_session_reader(session)
+            .get_session_reader(&session)
             .context("failed to get session reader")?;
 
         reader.deltas(paths)

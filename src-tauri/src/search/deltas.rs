@@ -191,7 +191,7 @@ fn index_session(
     repository: &app::gb_repository::Repository,
 ) -> Result<()> {
     let reader = repository
-        .get_session_reader(session.clone())
+        .get_session_reader(&session)
         .with_context(|| "could not get session reader")?;
     let deltas = reader
         .deltas(None)

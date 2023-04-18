@@ -230,7 +230,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
         }],
     )?;
 
-    let reader = gb_repo.get_session_reader(current_session)?;
+    let reader = gb_repo.get_session_reader(&current_session)?;
     let deltas = reader.deltas(None)?;
 
     assert_eq!(deltas.len(), 1);
@@ -270,7 +270,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     )?;
     let session = gb_repo.flush()?;
 
-    let reader = gb_repo.get_session_reader(session.unwrap())?;
+    let reader = gb_repo.get_session_reader(&session.unwrap())?;
     let deltas = reader.deltas(None)?;
 
     assert_eq!(deltas.len(), 1);
@@ -308,7 +308,7 @@ fn test_list_files_from_current_session() -> Result<()> {
 
     let session = gb_repo.get_or_create_current_session()?;
 
-    let reader = gb_repo.get_session_reader(session)?;
+    let reader = gb_repo.get_session_reader(&session)?;
     let files = reader.files(None)?;
 
     assert_eq!(files.len(), 1);
@@ -343,7 +343,7 @@ fn test_list_files_from_flushed_session() -> Result<()> {
     gb_repo.get_or_create_current_session()?;
     let session = gb_repo.flush()?.unwrap();
 
-    let reader = gb_repo.get_session_reader(session)?;
+    let reader = gb_repo.get_session_reader(&session)?;
     let files = reader.files(None)?;
 
     assert_eq!(files.len(), 1);

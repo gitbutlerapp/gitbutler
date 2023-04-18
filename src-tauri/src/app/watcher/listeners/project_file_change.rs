@@ -70,7 +70,7 @@ impl<'listener> Listener<'listener> {
             .next()
         {
             let head_session = head_session.context("failed to get head session")?;
-            let head_session_reader = self.gb_repository.get_session_reader(head_session)?;
+            let head_session_reader = self.gb_repository.get_session_reader(&head_session)?;
             if head_session_reader.exists(path) {
                 return Ok(Some(Box::new(head_session_reader)));
             }
@@ -123,7 +123,7 @@ impl<'listener> Listener<'listener> {
         let current_session = current_session.unwrap();
         let reader = self
             .gb_repository
-            .get_session_reader(current_session)
+            .get_session_reader(&current_session)
             .context("failed to get session reader")?;
         let deltas = reader
             .file_deltas(path)
