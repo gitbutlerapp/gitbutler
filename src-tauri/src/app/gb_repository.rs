@@ -193,7 +193,7 @@ impl Repository {
         }
 
         let wd_tree_oid = build_wd_tree(&self, &project_repository)
-            .context("failed to build workign directory tree")?;
+            .context("failed to build working directory tree")?;
         let session_tree_oid = build_session_tree(&self).context("failed to build session tree")?;
         let log_tree_oid =
             build_log_tree(&self, &project_repository).context("failed to build logs tree")?;
@@ -296,10 +296,6 @@ impl Repository {
     pub(crate) fn session_wd_path(&self) -> std::path::PathBuf {
         self.session_path().join("wd")
     }
-
-    pub(crate) fn wd_path(&self) -> std::path::PathBuf {
-        self.root().join("wd")
-    }
 }
 
 // build wd index from the working directory files new session wd files
@@ -363,6 +359,7 @@ fn build_wd_tree(
         }
 
         let file_path = std::path::Path::new(&file_path);
+
         if project_repository
             .git_repository
             .is_path_ignored(&file_path)

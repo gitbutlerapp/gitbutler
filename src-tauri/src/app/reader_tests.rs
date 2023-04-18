@@ -77,6 +77,22 @@ fn test_commit_reader_read_file() -> Result<()> {
 }
 
 #[test]
+fn test_reader_list_files_should_return_relative() -> Result<()> {
+    let dir = tempdir()?;
+
+    std::fs::write(dir.path().join("test1.txt"), "test")?;
+    std::fs::create_dir(dir.path().join("dir"))?;
+    std::fs::write(dir.path().join("dir").join("test.txt"), "test")?;
+
+    let reader = super::reader::DirReader::open(dir.path().to_path_buf());
+    let files = reader.list_files("dir")?;
+    assert_eq!(files.len(), 1);
+    assert!(files.contains(&"test.txt".to_string()));
+
+    Ok(())
+}
+
+#[test]
 fn test_reader_list_files() -> Result<()> {
     let dir = tempdir()?;
 
@@ -85,10 +101,42 @@ fn test_reader_list_files() -> Result<()> {
     std::fs::write(dir.path().join("dir").join("test.txt"), "test")?;
 
     let reader = super::reader::DirReader::open(dir.path().to_path_buf());
-    let files = reader.list_files(".")?;
+    let files = reader.list_files("")?;
     assert_eq!(files.len(), 2);
     assert!(files.contains(&"test.txt".to_string()));
     assert!(files.contains(&"dir/test.txt".to_string()));
+
+    Ok(())
+}
+
+#[test]
+fn test_commit_reader_list_files_should_return_relative() -> Result<()> {
+    let repository = test_repository()?;
+
+    std::fs::write(
+        &repository.path().parent().unwrap().join("test1.txt"),
+        "test",
+    )?;
+    std::fs::create_dir(&repository.path().parent().unwrap().join("dir"))?;
+    std::fs::write(
+        &repository
+            .path()
+            .parent()
+            .unwrap()
+            .join("dir")
+            .join("test.txt"),
+        "test",
+    )?;
+
+    let oid = commit(&repository)?;
+
+    std::fs::remove_dir_all(&repository.path().parent().unwrap().join("dir"))?;
+
+    let reader =
+        super::reader::CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+    let files = reader.list_files("dir")?;
+    assert_eq!(files.len(), 1);
+    assert!(files.contains(&"test.txt".to_string()));
 
     Ok(())
 }
@@ -118,7 +166,7 @@ fn test_commit_reader_list_files() -> Result<()> {
 
     let reader =
         super::reader::CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
-    let files = reader.list_files(".")?;
+    let files = reader.list_files("")?;
     assert_eq!(files.len(), 2);
     assert!(files.contains(&"test.txt".to_string()));
     assert!(files.contains(&"dir/test.txt".to_string()));

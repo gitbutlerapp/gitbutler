@@ -238,9 +238,7 @@ impl App {
             .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
 
         let mut sessions = vec![];
-        let mut iter = gb_repository.get_sessions_iterator()?.skip(1); // skip the first session,
-                                                                       // as it's the initial
-                                                                       // session
+        let mut iter = gb_repository.get_sessions_iterator()?;
         while let Some(session) = iter.next() {
             if let Err(e) = session {
                 return Err(e);

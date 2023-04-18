@@ -98,8 +98,7 @@ impl Deltas {
     pub fn reindex_project(&mut self, repository: &app::gb_repository::Repository) -> Result<()> {
         let mut sessions = repository
             .get_sessions_iterator()
-            .with_context(|| "Could not list sessions for project")?
-            .skip(1);
+            .with_context(|| "Could not list sessions for project")?;
 
         while let Some(session) = sessions.next() {
             let session = session.with_context(|| "Could not read session")?;

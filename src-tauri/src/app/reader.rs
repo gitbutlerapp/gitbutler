@@ -144,32 +144,34 @@ impl Reader for CommitReader<'_> {
 
     fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
         let mut files: Vec<String> = Vec::new();
-        let repo_root = self.repository.path().parent().unwrap();
+        let dir_path = std::path::Path::new(dir_path);
         self.tree
             .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-                if entry.name().is_none() {
-                    return git2::TreeWalkResult::Ok;
-                }
-
-                let abs_dir_path = repo_root.join(dir_path);
-                let abs_entry_path = repo_root.join(root).join(entry.name().unwrap());
-                if !abs_entry_path.starts_with(&abs_dir_path) {
-                    return git2::TreeWalkResult::Ok;
-                }
-                if abs_dir_path.eq(&abs_entry_path) {
-                    return git2::TreeWalkResult::Ok;
-                }
                 if entry.kind() == Some(git2::ObjectType::Tree) {
                     return git2::TreeWalkResult::Ok;
                 }
 
-                let relpath = abs_entry_path.strip_prefix(abs_dir_path).unwrap();
+                if entry.name().is_none() {
+                    return git2::TreeWalkResult::Ok;
+                }
+                let entry_path = std::path::Path::new(root).join(entry.name().unwrap());
 
-                files.push(relpath.to_str().unwrap().to_string());
+                if !entry_path.starts_with(dir_path) {
+                    return git2::TreeWalkResult::Ok;
+                }
+
+                files.push(
+                    entry_path
+                        .strip_prefix(dir_path)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                );
 
                 git2::TreeWalkResult::Ok
             })
-            .with_context(|| format!("{}: tree walk failed", dir_path))?;
+            .with_context(|| format!("{}: tree walk failed", dir_path.display()))?;
 
         Ok(files)
     }
