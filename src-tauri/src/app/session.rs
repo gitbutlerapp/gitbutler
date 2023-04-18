@@ -46,6 +46,11 @@ impl<'writer> SessionWriter<'writer> {
 
         let writer = writer::DirWriter::open(repository.root().to_path_buf());
 
+        repository.lock()?;
+        defer! {
+            repository.unlock().expect("failed to unlock");
+        }
+
         writer
             .write_string(
                 repository
@@ -127,17 +132,20 @@ impl<'writer> SessionWriter<'writer> {
     }
 
     pub fn append_pty(&self, record: &pty::Record) -> Result<()> {
-        log::info!(
-            "{}: writing pty record to pty.jsonl",
-            self.repository.project_id
-        );
-
-        serde_json::to_string(record)?;
+        self.repository.lock()?;
+        defer! {
+            self.repository.unlock().expect("failed to unlock");
+        }
 
         serde_jsonlines::append_json_lines(
             &self.repository.session_path().join("pty.jsonl"),
             [record],
         )?;
+
+        log::info!(
+            "{}: appended pty record to session",
+            self.repository.project_id
+        );
 
         Ok(())
     }
@@ -147,13 +155,12 @@ impl<'writer> SessionWriter<'writer> {
         path: P,
         contents: &str,
     ) -> Result<()> {
-        let path = path.as_ref();
-        log::info!(
-            "{}: writing delta wd file to {}",
-            self.repository.project_id,
-            path.display()
-        );
+        self.repository.lock()?;
+        defer! {
+            self.repository.unlock().expect("failed to unlock");
+        }
 
+        let path = path.as_ref();
         self.writer.write_string(
             &self
                 .repository
@@ -164,6 +171,12 @@ impl<'writer> SessionWriter<'writer> {
             contents,
         )?;
 
+        log::info!(
+            "{}: wrote session wd file {}",
+            self.repository.project_id,
+            path.display()
+        );
+
         Ok(())
     }
 
@@ -172,12 +185,12 @@ impl<'writer> SessionWriter<'writer> {
         path: P,
         deltas: &Vec<deltas::Delta>,
     ) -> Result<()> {
+        self.repository.lock()?;
+        defer! {
+            self.repository.unlock().expect("failed to unlock");
+        }
+
         let path = path.as_ref();
-        log::info!(
-            "{}: writing deltas to {}",
-            self.repository.project_id,
-            path.display()
-        );
 
         let raw_deltas = serde_json::to_string(&deltas)?;
 
@@ -185,6 +198,12 @@ impl<'writer> SessionWriter<'writer> {
             &self.repository.deltas_path().join(path).to_str().unwrap(),
             &raw_deltas,
         )?;
+
+        log::info!(
+            "{}: wrote deltas for {}",
+            self.repository.project_id,
+            path.display()
+        );
 
         Ok(())
     }

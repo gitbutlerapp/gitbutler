@@ -1,3 +1,6 @@
+#[macro_use(defer)]
+extern crate scopeguard;
+
 mod app;
 mod deltas;
 mod events;

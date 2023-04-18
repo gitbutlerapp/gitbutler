@@ -1302,6 +1302,7 @@ dependencies = [
  "notify",
  "portable-pty",
  "reqwest",
+ "scopeguard",
  "sentry",
  "sentry-tauri",
  "serde",

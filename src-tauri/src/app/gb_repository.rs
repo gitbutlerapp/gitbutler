@@ -3,7 +3,7 @@ use std::{
     fs::File,
     io::{BufReader, Read},
     os::unix::prelude::MetadataExt,
-    time,
+    sync, time,
 };
 
 use anyhow::{anyhow, Context, Ok, Result};
@@ -20,6 +20,7 @@ pub struct Repository {
     project_store: projects::Storage,
     users_store: users::Storage,
     pub(crate) git_repository: git2::Repository,
+    fslock: sync::Arc<sync::Mutex<fslock::LockFile>>,
 }
 
 impl Repository {
@@ -46,6 +47,8 @@ impl Repository {
         }
 
         let path = root.as_ref().join("projects").join(project_id.clone());
+        let lock_file_path = path.join("lock");
+
         if path.exists() {
             let git_repository = git2::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
@@ -60,6 +63,7 @@ impl Repository {
                 git_repository,
                 project_store,
                 users_store,
+                fslock: sync::Arc::new(sync::Mutex::new(fslock::LockFile::open(&lock_file_path)?)),
             })
         } else {
             let git_repository = git2::Repository::init_opts(
@@ -81,6 +85,7 @@ impl Repository {
                 git_repository,
                 project_store,
                 users_store,
+                fslock: sync::Arc::new(sync::Mutex::new(fslock::LockFile::open(&lock_file_path)?)),
             };
 
             if gb_repository
@@ -150,6 +155,24 @@ impl Repository {
         session::SessionWriter::open(&self, &session)
     }
 
+    pub(crate) fn lock(&self) -> Result<()> {
+        self.fslock
+            .lock()
+            .unwrap()
+            .lock()
+            .context("failed to lock")?;
+        Ok(())
+    }
+
+    pub(crate) fn unlock(&self) -> Result<()> {
+        self.fslock
+            .lock()
+            .unwrap()
+            .unlock()
+            .context("failed to unlock")?;
+        Ok(())
+    }
+
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         match self
             .get_current_session()
@@ -204,6 +227,11 @@ impl Repository {
     ) -> Result<sessions::Session> {
         if session.hash.is_some() {
             return Ok(session.clone());
+        }
+
+        self.lock()?;
+        defer! {
+            self.unlock().expect("failed to unlock");
         }
 
         let wd_tree_oid = build_wd_tree(&self, &project_repository)
