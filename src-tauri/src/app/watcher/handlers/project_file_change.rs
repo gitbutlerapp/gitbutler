@@ -43,6 +43,10 @@ impl<'listener> Handler<'listener> {
         let reader = project_repository.get_wd_reader();
 
         let path = path.to_str().unwrap();
+        if !reader.exists(path) {
+            return Ok(Some(String::new()));
+        }
+
         if reader.size(path)? > 100_000 {
             log::warn!("{}: ignoring large file: {}", self.project_id, path);
             return Ok(None);
