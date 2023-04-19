@@ -88,27 +88,32 @@ impl<'listener> Handler<'listener> {
         }
     }
 
-    fn get_latest_file_from_previous_session(&self, path: &str) -> Result<Option<String>> {
-        match self
-            .gb_repository
-            .get_sessions_iterator()
-            .context("failed to get sessions iterator")?
-            .next()
-        {
-            Some(Ok(head_session)) => {
-                let session_path = std::path::Path::new("wd").join(path);
-                let head_session_reader = self.gb_repository.get_session_reader(&head_session)?;
+    fn get_latest_file_contents(
+        &self,
+        project_repository: &project_repository::Repository,
+        path: &std::path::Path,
+    ) -> Result<Option<String>> {
+        let path = path.to_str().unwrap();
+        match self.gb_repository.git_repository.head() {
+            Ok(head) => {
+                let head_commit = head.peel_to_commit()?;
+                let commit_reader = reader::CommitReader::from_commit(
+                    &self.gb_repository.git_repository,
+                    head_commit,
+                )
+                .context("failed to get commit reader")?;
 
-                if !head_session_reader.exists(session_path.to_str().unwrap()) {
+                let session_path = std::path::Path::new("wd").join(path);
+                if !commit_reader.exists(session_path.to_str().unwrap()) {
                     return Ok(None);
                 }
 
-                if head_session_reader.size(session_path.to_str().unwrap())? > 100_000 {
+                if commit_reader.size(session_path.to_str().unwrap())? > 100_000 {
                     log::warn!("{}: ignoring large file: {}", self.project_id, path);
                     return Ok(None);
                 }
 
-                match head_session_reader.read(session_path.to_str().unwrap())? {
+                match commit_reader.read(session_path.to_str().unwrap())? {
                     reader::Content::UTF8(content) => Ok(Some(content)),
                     reader::Content::Binary(_) => {
                         log::warn!("{}: ignoring non-utf8 file: {}", self.project_id, path);
@@ -116,24 +121,12 @@ impl<'listener> Handler<'listener> {
                     }
                 }
             }
-            Some(Err(err)) => Err(err).context("failed to get head session"),
-            None => Ok(None),
-        }
-    }
-
-    fn get_latest_file_contents(
-        &self,
-        project_repository: &project_repository::Repository,
-        path: &std::path::Path,
-    ) -> Result<Option<String>> {
-        let path = path.to_str().unwrap();
-
-        match self
-            .get_latest_file_from_previous_session(path)
-            .context("failed to get latest file from previous session")?
-        {
-            Some(content) => Ok(Some(content)),
-            None => self.get_latest_file_from_repository_head(project_repository, path),
+            Err(err) => {
+                if err.code() == git2::ErrorCode::UnbornBranch {
+                    return self.get_latest_file_from_repository_head(project_repository, path);
+                }
+                Err(err).context("failed to get head")?
+            }
         }
     }
 
