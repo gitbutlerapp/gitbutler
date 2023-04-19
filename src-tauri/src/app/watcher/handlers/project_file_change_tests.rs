@@ -6,7 +6,7 @@ use crate::{
     deltas, projects, sessions, storage, users,
 };
 
-use super::project_file_change::Listener;
+use super::project_file_change::Handler;
 
 fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
     let mut index = repository.index()?;
@@ -76,11 +76,10 @@ fn test_register_existing_commited_file() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let (tx, _) = std::sync::mpsc::channel();
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
     std::fs::write(project_repo.root().join(file_path), "test2")?;
-    listener.register(file_path)?;
+    listener.handle(file_path)?;
 
     let session = gb_repo.get_current_session()?.unwrap();
     let session_reader = gb_repo.get_session_reader(&session)?;
@@ -115,13 +114,12 @@ fn test_register_must_init_current_session() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let (tx, _) = std::sync::mpsc::channel();
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
 
-    listener.register(file_path)?;
+    listener.handle(file_path)?;
 
     assert!(gb_repo.get_current_session()?.is_some());
 
@@ -144,17 +142,16 @@ fn test_register_must_not_override_current_session() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let (tx, _) = std::sync::mpsc::channel();
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
-    listener.register(file_path)?;
+    listener.handle(file_path)?;
 
     let session1 = gb_repo.get_current_session()?.unwrap();
 
     std::fs::write(project_repo.root().join(file_path), "test2")?;
-    listener.register(file_path)?;
+    listener.handle(file_path)?;
 
     let session2 = gb_repo.get_current_session()?.unwrap();
     assert_eq!(session1, session2);
@@ -178,13 +175,12 @@ fn test_register_new_file() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let (tx, _) = std::sync::mpsc::channel();
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
 
-    listener.register(file_path)?;
+    listener.handle(file_path)?;
 
     let sesssion = gb_repo.get_current_session()?.unwrap();
     let reader = gb_repo.get_session_reader(&sesssion)?;
@@ -219,12 +215,11 @@ fn test_register_new_file_twice() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let (tx, _) = std::sync::mpsc::channel();
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
-    listener.register(file_path)?;
+    listener.handle(file_path)?;
 
     let session = gb_repo.get_current_session()?.unwrap();
     let reader = gb_repo.get_session_reader(&session)?;
@@ -241,7 +236,7 @@ fn test_register_new_file_twice() -> Result<()> {
     );
 
     std::fs::write(project_repo.root().join(file_path), "test2")?;
-    listener.register(file_path)?;
+    listener.handle(file_path)?;
 
     let deltas = reader.file_deltas("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 2);
@@ -278,8 +273,7 @@ fn test_flow() -> Result<()> {
         project_store.clone(),
         user_store,
     )?;
-    let (tx, _) = std::sync::mpsc::channel();
-    let listener = Listener::new(project.id.clone(), project_store, &gb_repo, tx);
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
     let size = 10;
     let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -291,7 +285,7 @@ fn test_flow() -> Result<()> {
             i.to_string(),
         )?;
 
-        listener.register(&relative_file_path)?;
+        listener.handle(&relative_file_path)?;
         gb_repo.flush()?;
     }
 
