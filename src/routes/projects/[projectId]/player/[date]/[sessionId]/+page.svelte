@@ -286,6 +286,7 @@
 		>
 			{#each $richSessions as session}
 				{@const isCurrent = session.id === $currentSessionId}
+				{@const filesChagned = new Set(session.deltas.map(([path]) => path)).size}
 				<li
 					id={isCurrent ? 'current-session' : ''}
 					class:bg-card-active={isCurrent}
@@ -305,8 +306,8 @@
 						</div>
 
 						<span class="flex flex-row justify-between px-3 pb-3">
-							{Object.keys(session.files).length}
-							{Object.keys(session.files).length > 1 ? 'files' : 'file'}
+							{filesChagned}
+							{filesChagned !== 1 ? 'files' : 'file'}
 						</span>
 
 						{#if isCurrent}
