@@ -116,11 +116,11 @@
 </script>
 
 <div class="GitBTLR-container  h-full p-4">
-	<div class="flex h-full flex-col rounded border border-zinc-700 shadow bg-card-default">
-		<div class="flex  justify-between gap-2 border-b border-zinc-700 p-2 bg-card-active">
+	<div class="flex h-full flex-col rounded border border-zinc-700 bg-card-default shadow">
+		<div class="flex  justify-between gap-2 border-b border-zinc-700 bg-card-active p-2">
 			<div class="flex gap-2 text-[18px]">Chat GitButler</div>
 
-			<div class="flex gap-2 items-center">
+			<div class="flex items-center gap-2">
 				<span class="text-sm">chatId: <span class="font-mono text-sm">{chatId}</span></span>
 				<Button
 					role="basic"
@@ -177,7 +177,7 @@
 			</ul>
 		</div>
 
-		<div class="flex flex-col gap-2 p-4 border-t border-zinc-700">
+		<div class="flex flex-col gap-2 border-t border-zinc-700 p-4">
 			<div class="flex gap-2 pt-2">
 				<input bind:value={chatInput} placeholder="Send a message..." class="w-full" />
 				<Button
