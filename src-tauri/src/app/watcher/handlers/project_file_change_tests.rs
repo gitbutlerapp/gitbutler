@@ -259,6 +259,58 @@ fn test_register_new_file_twice() -> Result<()> {
 }
 
 #[test]
+fn test_register_file_delted() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let project_repo = project_repository::Repository::open(&project)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(project_repo.root().join(file_path), "test")?;
+    listener.handle(file_path)?;
+
+    let session = gb_repo.get_current_session()?.unwrap();
+    let reader = gb_repo.get_session_reader(&session)?;
+    let deltas = reader.file_deltas("test.txt")?.unwrap();
+    assert_eq!(deltas.len(), 1);
+    assert_eq!(deltas[0].operations.len(), 1);
+    assert_eq!(
+        deltas[0].operations[0],
+        deltas::Operation::Insert((0, "test".to_string())),
+    );
+    assert_eq!(
+        std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
+        "test"
+    );
+
+    std::fs::remove_file(project_repo.root().join(file_path))?;
+    listener.handle(file_path)?;
+
+    let deltas = reader.file_deltas("test.txt")?.unwrap();
+    assert_eq!(deltas.len(), 2);
+    assert_eq!(deltas[0].operations.len(), 1);
+    assert_eq!(
+        deltas[0].operations[0],
+        deltas::Operation::Insert((0, "test".to_string())),
+    );
+    assert_eq!(deltas[1].operations.len(), 1);
+    assert_eq!(deltas[1].operations[0], deltas::Operation::Delete((0, 4)),);
+
+    Ok(())
+}
+
+#[test]
 fn test_flow() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
