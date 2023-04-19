@@ -58,7 +58,7 @@
 				.map((s) => enrichSession(projectId, s, paths))
 		).then((sessions) =>
 			sessions
-				.filter((s) => s.deltas.length > 0 && Object.keys(s.files).length > 0)
+				.filter((s) => s.deltas.length > 0)
 				.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
 		);
 	});
