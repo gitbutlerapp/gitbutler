@@ -13,7 +13,11 @@ use uuid::Uuid;
 
 use crate::{fs, projects, sessions, users};
 
-use super::{project_repository, reader, session};
+use super::{
+    project_repository,
+    reader::{self, Reader},
+    session,
+};
 
 pub struct Repository {
     pub(crate) project_id: String,
@@ -444,9 +448,94 @@ impl Repository {
     }
 }
 
+fn build_wd_tree(
+    gb_repository: &Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<git2::Oid> {
+    match gb_repository
+        .git_repository
+        .find_reference("refs/heads/current")
+    {
+        Result::Ok(reference) => {
+            let index = &mut git2::Index::new()?;
+            // build the working directory tree from the current commit
+            // and the session files
+            let tree = reference.peel_to_tree()?;
+            let wd_tree_entry = tree.get_name("wd").unwrap();
+            let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
+            index.read_tree(&wd_tree)?;
+
+            let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
+            let session_wd_files = session_wd_reader
+                .list_files(".")
+                .context("failed to read session wd files")?;
+            for file_path in session_wd_files {
+                let abs_path = gb_repository.session_wd_path().join(&file_path);
+                let metadata = abs_path.metadata().with_context(|| {
+                    format!("failed to get metadata for {}", abs_path.display())
+                })?;
+                let mtime = FileTime::from_last_modification_time(&metadata);
+                let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
+
+                let file_content = match session_wd_reader
+                    .read_to_string(&file_path)
+                    .context("failed to read file")
+                {
+                    Result::Ok(content) => content,
+                    Err(e) => {
+                        log::error!(
+                            "{}: failed to read file {}: {:#}",
+                            gb_repository.project_id,
+                            abs_path.display(),
+                            e
+                        );
+                        println!("failed to read file {}: {:#}", abs_path.display(), e);
+                        continue;
+                    }
+                };
+
+                index
+                    .add(&git2::IndexEntry {
+                        ctime: git2::IndexTime::new(
+                            ctime.seconds().try_into()?,
+                            ctime.nanoseconds().try_into().unwrap(),
+                        ),
+                        mtime: git2::IndexTime::new(
+                            mtime.seconds().try_into()?,
+                            mtime.nanoseconds().try_into().unwrap(),
+                        ),
+                        dev: metadata.dev().try_into()?,
+                        ino: metadata.ino().try_into()?,
+                        mode: 33188,
+                        uid: metadata.uid().try_into().unwrap(),
+                        gid: metadata.gid().try_into().unwrap(),
+                        file_size: metadata.len().try_into().unwrap(),
+                        flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
+                        flags_extended: 0, // no extended flags
+                        path: file_path.clone().into(),
+                        id: gb_repository.git_repository.blob(file_content.as_bytes())?,
+                    })
+                    .with_context(|| format!("failed to add index entry for {}", file_path))?;
+            }
+
+            let wd_tree_oid = index
+                .write_tree_to(&gb_repository.git_repository)
+                .with_context(|| format!("failed to write wd tree"))?;
+            Ok(wd_tree_oid)
+        }
+        Err(e) => {
+            if e.code() != git2::ErrorCode::NotFound {
+                return Err(e.into());
+            }
+            build_wd_tree_from_repo(gb_repository, project_repository)
+                .context("failed to build wd index")
+        }
+    }
+}
+
 // build wd index from the working directory files new session wd files
 // this is important because we want to make sure session files are in sync with session deltas
-fn build_wd_tree(
+fn build_wd_tree_from_repo(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<git2::Oid> {
