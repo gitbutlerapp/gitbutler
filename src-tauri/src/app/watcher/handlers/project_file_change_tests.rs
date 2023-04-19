@@ -311,7 +311,7 @@ fn test_register_file_delted() -> Result<()> {
 }
 
 #[test]
-fn test_flow() -> Result<()> {
+fn test_flow_with_commits() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -337,8 +337,9 @@ fn test_flow() -> Result<()> {
             i.to_string(),
         )?;
 
+        commit_all(&repository)?;
         listener.handle(&relative_file_path)?;
-        gb_repo.flush()?;
+        assert!(gb_repo.flush()?.is_some());
     }
 
     // get all the created sessions
@@ -399,6 +400,157 @@ fn test_flow() -> Result<()> {
 
         assert_eq!(text.iter().collect::<String>(), size.to_string());
     }
+    Ok(())
+}
 
+#[test]
+fn test_flow_no_commits() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+
+    let size = 10;
+    let relative_file_path = std::path::Path::new("one/two/test.txt");
+    for i in 1..=size {
+        std::fs::create_dir_all(std::path::Path::new(&project.path).join("one/two"))?;
+        // create a session with a single file change and flush it
+        std::fs::write(
+            std::path::Path::new(&project.path).join(relative_file_path),
+            i.to_string(),
+        )?;
+
+        listener.handle(&relative_file_path)?;
+        assert!(gb_repo.flush()?.is_some());
+    }
+
+    // get all the created sessions
+    let mut sessions: Vec<sessions::Session> = gb_repo
+        .get_sessions_iterator()?
+        .map(|s| s.unwrap())
+        .collect();
+    assert_eq!(sessions.len(), size);
+    // verify sessions order is correct
+    let mut last_start = sessions[0].meta.start_timestamp_ms;
+    let mut last_end = sessions[0].meta.start_timestamp_ms;
+    sessions[1..].iter().for_each(|session| {
+        assert!(session.meta.start_timestamp_ms < last_start);
+        assert!(session.meta.last_timestamp_ms < last_end);
+        last_start = session.meta.start_timestamp_ms;
+        last_end = session.meta.last_timestamp_ms;
+    });
+
+    sessions.reverse();
+    // try to reconstruct file state from operations for every session slice
+    for i in 0..=sessions.len() - 1 {
+        let sessions_slice = &mut sessions[i..];
+
+        // collect all operations from sessions in the reverse order
+        let mut operations: Vec<deltas::Operation> = vec![];
+        sessions_slice.iter().for_each(|session| {
+            let reader = gb_repo.get_session_reader(&session).unwrap();
+            let deltas_by_filepath = reader.deltas(None).unwrap();
+            for deltas in deltas_by_filepath.values() {
+                deltas.iter().for_each(|delta| {
+                    delta.operations.iter().for_each(|operation| {
+                        operations.push(operation.clone());
+                    });
+                });
+            }
+        });
+
+        let reader = gb_repo
+            .get_session_reader(&sessions_slice.first().unwrap())
+            .unwrap();
+        let files = reader.files(None).unwrap();
+
+        if i == 0 {
+            assert_eq!(files.len(), 0);
+        } else {
+            assert_eq!(files.len(), 1);
+        }
+
+        let base_file = files.get(&relative_file_path.to_str().unwrap().to_string());
+        let mut text: Vec<char> = match base_file {
+            Some(file) => file.chars().collect(),
+            None => vec![],
+        };
+
+        for operation in operations {
+            operation.apply(&mut text).unwrap();
+        }
+
+        assert_eq!(text.iter().collect::<String>(), size.to_string());
+    }
+    Ok(())
+}
+
+#[test]
+fn test_flow_signle_session() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+
+    let size = 10;
+    let relative_file_path = std::path::Path::new("one/two/test.txt");
+    for i in 1..=size {
+        std::fs::create_dir_all(std::path::Path::new(&project.path).join("one/two"))?;
+        // create a session with a single file change and flush it
+        std::fs::write(
+            std::path::Path::new(&project.path).join(relative_file_path),
+            i.to_string(),
+        )?;
+
+        listener.handle(&relative_file_path)?;
+    }
+
+    // collect all operations from sessions in the reverse order
+    let mut operations: Vec<deltas::Operation> = vec![];
+    let session = gb_repo.get_current_session()?.unwrap();
+    let reader = gb_repo.get_session_reader(&session).unwrap();
+    let deltas_by_filepath = reader.deltas(None).unwrap();
+    for deltas in deltas_by_filepath.values() {
+        deltas.iter().for_each(|delta| {
+            delta.operations.iter().for_each(|operation| {
+                operations.push(operation.clone());
+            });
+        });
+    }
+
+    let reader = gb_repo.get_session_reader(&session).unwrap();
+    let files = reader.files(None).unwrap();
+
+    let base_file = files.get(&relative_file_path.to_str().unwrap().to_string());
+    let mut text: Vec<char> = match base_file {
+        Some(file) => file.chars().collect(),
+        None => vec![],
+    };
+
+    for operation in operations {
+        operation.apply(&mut text).unwrap();
+    }
+
+    assert_eq!(text.iter().collect::<String>(), size.to_string());
     Ok(())
 }
