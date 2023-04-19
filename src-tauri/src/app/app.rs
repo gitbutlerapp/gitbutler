@@ -83,17 +83,12 @@ impl App {
                 log::error!("failed to init project {}: {:#}", project.id, e);
             }
 
-            if let Err(e) = self
-                .reindex_project(&project)
-                .with_context(|| format!("failed to reindex project {}", project.id.clone()))
-            {
-                log::error!("failed to reindex project {}: {:#}", project.id, e)
-            }
+            self.reindex_project(&project)
         }
         Ok(())
     }
 
-    fn reindex_project(&self, project: &projects::Project) -> Result<()> {
+    fn reindex_project(&self, project: &projects::Project) {
         let project = project.clone();
         let users_storage = self.users_storage.clone();
         let projects_storage = self.projects_storage.clone();
@@ -111,12 +106,10 @@ impl App {
             )
             .expect("failed to open git repository");
 
-            deltas_searcher
-                .reindex_project(&gb_repository)
-                .expect("failed to reindex project");
+            if let Err(e) = deltas_searcher.reindex_project(&gb_repository) {
+                log::error!("{}: failed to reindex project: {:#}", project.id, e);
+            }
         });
-
-        Ok(())
     }
 
     fn start_watcher(
