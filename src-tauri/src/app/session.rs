@@ -293,7 +293,7 @@ impl<'reader> SessionReader<'reader> {
         let mut files_with_content = HashMap::new();
         for file_path in files {
             if let Some(paths) = paths.as_ref() {
-                if !paths.iter().any(|path| file_path.starts_with(path)) {
+                if !paths.iter().any(|path| file_path.eq(path)) {
                     continue;
                 }
             }
@@ -346,7 +346,7 @@ impl<'reader> SessionReader<'reader> {
         let mut result = HashMap::new();
         for file_path in files {
             if let Some(paths) = paths.as_ref() {
-                if !paths.iter().any(|path| file_path.starts_with(path)) {
+                if !paths.iter().any(|path| file_path.eq(path)) {
                     continue;
                 }
             }
