@@ -1,4 +1,4 @@
-use std::sync;
+use std::vec;
 
 use anyhow::{Context, Result};
 
@@ -7,28 +7,27 @@ use crate::{
         gb_repository, project_repository,
         reader::{self, Reader},
     },
-    deltas, events, projects,
+    deltas, projects,
 };
 
-pub struct Listener<'listener> {
+use super::events;
+
+pub struct Handler<'listener> {
     project_id: String,
     project_store: projects::Storage,
     gb_repository: &'listener gb_repository::Repository,
-    events: sync::mpsc::Sender<events::Event>,
 }
 
-impl<'listener> Listener<'listener> {
+impl<'listener> Handler<'listener> {
     pub fn new(
         project_id: String,
         project_store: projects::Storage,
         gb_repository: &'listener gb_repository::Repository,
-        events: sync::mpsc::Sender<events::Event>,
     ) -> Self {
         Self {
             project_id,
             project_store,
             gb_repository,
-            events,
         }
     }
 
@@ -150,7 +149,7 @@ impl<'listener> Listener<'listener> {
         Ok(deltas)
     }
 
-    pub fn register<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+    pub fn handle<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
             .get_project(&self.project_id)
@@ -170,7 +169,7 @@ impl<'listener> Listener<'listener> {
             .with_context(|| "failed to get current file content")?
         {
             Some(content) => content,
-            None => return Ok(()),
+            None => return Ok(vec![]),
         };
 
         let latest_file_content = self
@@ -198,17 +197,10 @@ impl<'listener> Listener<'listener> {
                 self.project_id,
                 path.display()
             );
-            return Ok(());
+            return Ok(vec![]);
         }
 
         let current_session = self.gb_repository.get_or_create_current_session()?;
-
-        if let Err(e) = self
-            .events
-            .send(events::Event::session(&project, &current_session))
-        {
-            log::error!("{}: failed to send session event: {:#}", project.id, e);
-        }
 
         let writer = self.gb_repository.get_session_writer(&current_session)?;
 
@@ -221,15 +213,9 @@ impl<'listener> Listener<'listener> {
             .write_session_wd_file(path, &current_file_content)
             .with_context(|| "failed to write file")?;
 
-        if let Err(e) = self.events.send(events::Event::detlas(
-            &project,
-            &current_session,
-            &deltas,
-            &path,
-        )) {
-            log::error!("{}: failed to send deltas event: {:#}", project.id, e);
-        }
-
-        Ok(())
+        Ok(vec![
+            events::Event::Session((project.clone(), current_session.clone())),
+            events::Event::Deltas((project, current_session, path.to_path_buf(), deltas)),
+        ])
     }
 }
