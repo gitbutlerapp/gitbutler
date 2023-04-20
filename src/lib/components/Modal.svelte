@@ -12,7 +12,6 @@
 
 	export const show = () => {
 		open = true;
-		console.log('lfkjdsflkdsj');
 		dialog.showModal();
 	};
 	export const hide = () => {
