@@ -9,6 +9,7 @@ use super::events;
 pub struct Handler<'handler> {
     gb_repository: sync::Arc<sync::Mutex<&'handler gb_repository::Repository>>,
 }
+
 impl<'handler> Handler<'handler> {
     pub fn new(gb_repository: &'handler gb_repository::Repository) -> Self {
         Self {
