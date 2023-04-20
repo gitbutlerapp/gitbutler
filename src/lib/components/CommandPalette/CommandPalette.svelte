@@ -190,7 +190,7 @@
 										class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
 									>
 										<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
-										<span class="quick-command flex-1 text-left">{command.title}</span>
+										<span class="quick-command flex-1 text-left font-medium">{command.title}</span>
 										{#if command.hotkey}
 											{#each command.hotkey.split('+') as key}
 												<span class="quick-command-key">{key}</span>
@@ -216,9 +216,16 @@
 	}
 	.command-palette-input-field {
 		@apply flex-1 border-0 bg-transparent p-2 outline-none focus:outline-none active:outline-none;
+		outline: none;
+	}
+	.command-palette-input-field:focus {
+		outline: 0;
+		outline-offset: 0;
+		box-shadow: rgb(255, 255, 255) 0px 0px 0px 0px, rgba(37, 99, 235, 0) 0px 0px 0px 2px,
+			rgba(0, 0, 0, 0) 0px 0px 0px 0px;
 	}
 	.command-palette-section-header {
-		@apply mx-2 mb-2 mt-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300;
+		@apply mx-2 mb-2 mt-2 cursor-default select-none pt-2 text-sm font-semibold text-zinc-400;
 	}
 	.quick-command-key {
 		@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
