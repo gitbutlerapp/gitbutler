@@ -3,7 +3,7 @@
 	import type { Project } from '$lib/projects';
 	import { derived, readable, writable, type Readable } from 'svelte/store';
 	import { Modal } from '$lib/components';
-	import listAvailableCommands, { Action, type Group, type ActionComponent } from './commands';
+	import listAvailableCommands, { Action, type Group } from './commands';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
@@ -15,7 +15,6 @@
 	const scopeToProject = writable(!!$project);
 	project.subscribe((project) => scopeToProject.set(!!project));
 	const selectedGroup = writable<Group | undefined>(undefined);
-	const selectedComponent = writable<ActionComponent<any> | undefined>(undefined);
 
 	const commandGroups = derived(
 		[projects, project, input, scopeToProject, selectedGroup],
@@ -65,8 +64,6 @@
 			modal?.hide();
 		} else if (Action.isGroup(action)) {
 			selectedGroup.set(action);
-		} else if (Action.isComponent(action)) {
-			selectedComponent.set(action);
 		}
 		scopeToProject.set(!!$project);
 	};
@@ -83,8 +80,6 @@
 				if (!modal?.isOpen()) return;
 				if ($selectedGroup) {
 					selectedGroup.set(undefined);
-				} else if ($selectedComponent) {
-					selectedComponent.set(undefined);
 				} else if ($input.length === 0) {
 					scopeToProject.set(false);
 				}
@@ -147,10 +142,6 @@
 					<span class="font-semibold">
 						{$selectedGroup.title}
 					</span>
-				{:else if $selectedComponent}
-					<span class="font-semibold">
-						{$selectedComponent.title}
-					</span>
 				{:else}
 					<!-- svelte-ignore a11y-autofocus -->
 					<input
@@ -167,49 +158,45 @@
 			</div>
 		</header>
 
-		{#if $selectedComponent}
-			<svelte:component this={$selectedComponent.component} {...$selectedComponent.props} />
-		{:else}
-			<!-- Command list -->
-			<ul class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
-				{#each $commandGroups as group, groupIdx}
-					{#await group then group}
-						<li class="w-full cursor-default select-none px-2">
-							<header class="command-palette-section-header result-section-header">
-								<span>{group.title}</span>
-								{#if group.description}
-									<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
-								{/if}
-							</header>
+		<!-- Command list -->
+		<ul class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
+			{#each $commandGroups as group, groupIdx}
+				{#await group then group}
+					<li class="w-full cursor-default select-none px-2">
+						<header class="command-palette-section-header result-section-header">
+							<span>{group.title}</span>
+							{#if group.description}
+								<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
+							{/if}
+						</header>
 
-							<ul class="quick-command-list flex flex-col text-zinc-300">
-								{#each group.commands as command, commandIdx}
-									<li
-										class="quick-command-item flex w-full cursor-default rounded-lg"
-										class:selected={selection[0] === groupIdx && selection[1] === commandIdx}
+						<ul class="quick-command-list flex flex-col text-zinc-300">
+							{#each group.commands as command, commandIdx}
+								<li
+									class="quick-command-item flex w-full cursor-default rounded-lg"
+									class:selected={selection[0] === groupIdx && selection[1] === commandIdx}
+								>
+									<button
+										on:mouseover={() => (selection = [groupIdx, commandIdx])}
+										on:focus={() => (selection = [groupIdx, commandIdx])}
+										on:click={() => trigger(command.action)}
+										class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
 									>
-										<button
-											on:mouseover={() => (selection = [groupIdx, commandIdx])}
-											on:focus={() => (selection = [groupIdx, commandIdx])}
-											on:click={() => trigger(command.action)}
-											class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
-										>
-											<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
-											<span class="quick-command flex-1 text-left">{command.title}</span>
-											{#if command.hotkey}
-												{#each command.hotkey.split('+') as key}
-													<span class="quick-command-key">{key}</span>
-												{/each}
-											{/if}
-										</button>
-									</li>
-								{/each}
-							</ul>
-						</li>
-					{/await}
-				{/each}
-			</ul>
-		{/if}
+										<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
+										<span class="quick-command flex-1 text-left">{command.title}</span>
+										{#if command.hotkey}
+											{#each command.hotkey.split('+') as key}
+												<span class="quick-command-key">{key}</span>
+											{/each}
+										{/if}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</li>
+				{/await}
+			{/each}
+		</ul>
 	</div>
 </Modal>
 

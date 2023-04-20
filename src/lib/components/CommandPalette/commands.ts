@@ -1,8 +1,7 @@
-import type QuickCommit from './QuickCommit.svelte';
 import type { Project } from '$lib/projects';
 import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon, FileIcon } from '../icons';
 import { matchFiles } from '$lib/git';
-import type { SvelteComponent, SvelteComponentTyped } from 'svelte';
+import type { SvelteComponent } from 'svelte';
 import { format, startOfISOWeek, startOfMonth, subDays, subMonths, subWeeks } from 'date-fns';
 
 type ActionLink = {
@@ -13,22 +12,10 @@ interface Newable<ReturnType> {
 	new (...args: any[]): ReturnType;
 }
 
-type ComponentProps<T extends SvelteComponentTyped> = T extends SvelteComponentTyped<infer R>
-	? R
-	: unknown;
-
-export type ActionComponent<Component extends SvelteComponentTyped> = {
-	title: string;
-	component: Newable<Component>;
-	props: ComponentProps<QuickCommit>;
-};
-
-export type Action = ActionLink | ActionComponent<QuickCommit> | Group;
+export type Action = ActionLink | Group;
 
 export namespace Action {
 	export const isLink = (action: Action): action is ActionLink => 'href' in action;
-	export const isComponent = (action: Action): action is ActionComponent<any> =>
-		'component' in action;
 	export const isGroup = (action: Action): action is Group => 'commands' in action;
 }
 
@@ -48,9 +35,8 @@ export type Group = {
 const goToProjectGroup = ({ projects, input }: { projects: Project[]; input: string }): Group => ({
 	title: 'Go to project',
 	commands: projects
-		.map((project, index) => ({
+		.map((project) => ({
 			title: project.title,
-			hotkey: `${index + 1}`,
 			action: {
 				href: `/projects/${project.id}/`
 			},
