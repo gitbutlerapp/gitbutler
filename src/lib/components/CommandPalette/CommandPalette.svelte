@@ -220,22 +220,12 @@
 	.selected .quick-command {
 		@apply text-zinc-100;
 	}
-	.selected svg .icon {
-		border: 1px solid orange !important;
-	}
 	.command-palette-input-field {
 		@apply flex-1 border-0 bg-transparent p-2 outline-none focus:outline-none active:outline-none;
-	}
-	.command-palette-input-field textarea,
-	input {
-		@apply focus:border-0 focus:outline-none focus:ring-0;
 	}
 	.command-palette-section-header {
 		@apply mx-2 mb-2 mt-2 cursor-default select-none py-2 text-sm font-semibold text-zinc-300;
 	}
-	/* .quick-command-item {
-		@apply gap-2 rounded-lg p-2 px-2 outline-none;
-	} */
 	.quick-command-key {
 		@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
 	}
