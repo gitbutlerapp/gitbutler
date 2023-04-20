@@ -269,15 +269,15 @@
 				required
 			/>
 
-			<div class="commit-description-container relative h-28">
+			<div class="commit-description-container relative h-36">
 				{#if isGeneratingCommitMessage}
 					<div
 						in:fly={{ y: 8, duration: 500 }}
 						out:fly={{ y: -8, duration: 500 }}
-						class="generating-commit absolute top-0 right-0 bottom-1 left-0 rounded border-2 border-[#782E94]"
+						class="generating-commit absolute top-0 right-0 bottom-0 left-0 rounded border-2 border-[#502E5C] "
 					>
 						<div
-							class="generating-commit-message absolute  bottom-0 left-0 rounded-tr bg-[#782E94] py-1 px-2"
+							class="generating-commit-message absolute  bottom-0 left-0 rounded-tr bg-[#782E94] py-1 px-2 bg-gradient-to-b from-[#623871] to-[#502E5C]"
 						>
 							<span>✨ Summarizing changes</span>
 							<span class="dot-container">
@@ -332,7 +332,7 @@
 						"
 						on:click|preventDefault={onGenerateCommitMessage}
 					>
-						✨ Generate commit message
+						✨ Autowrite
 					</button>
 				{/if}
 
