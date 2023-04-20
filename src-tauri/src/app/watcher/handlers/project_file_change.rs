@@ -160,6 +160,22 @@ impl<'listener> Handler<'listener> {
         let project_repository = project_repository::Repository::open(&project)
             .with_context(|| "failed to open project repository for project")?;
 
+        // If current session's branch is not the same as the project's head, flush it first.
+        if let Some(session) = self
+            .gb_repository
+            .get_current_session()
+            .context("failed to get current session")?
+        {
+            let project_head = project_repository
+                .get_head()
+                .context("failed to get head")?;
+            if session.meta.branch != project_head.name().map(|s| s.to_string()) {
+                self.gb_repository
+                    .flush_session(&project_repository, &session)
+                    .context("failed to flush session")?;
+            }
+        }
+
         let path = path.as_ref();
         let current_file_content = match self
             .get_current_file_content(&project_repository, &path)
