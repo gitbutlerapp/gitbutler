@@ -70,7 +70,14 @@
 
 	let modal: Modal | null;
 
+	const reset = () => {
+		input.set('');
+		scopeToProject.set(!!$project);
+		selectedGroup.set(undefined);
+	};
+
 	export const show = () => {
+		reset();
 		modal?.show();
 	};
 
