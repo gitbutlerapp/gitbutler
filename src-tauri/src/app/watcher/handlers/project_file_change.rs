@@ -31,6 +31,7 @@ impl<'listener> Handler<'listener> {
         }
     }
 
+    // Returns Some(file_content) or None if the file is ignored.
     fn get_current_file_content(
         &self,
         project_repository: &project_repository::Repository,
@@ -88,6 +89,8 @@ impl<'listener> Handler<'listener> {
         }
     }
 
+    // returns latest seen file content by gitbutler.
+    // None means the file was not seen at all.
     fn get_latest_file_contents(
         &self,
         project_repository: &project_repository::Repository,
@@ -123,13 +126,15 @@ impl<'listener> Handler<'listener> {
             }
             Err(err) => {
                 if err.code() == git2::ErrorCode::UnbornBranch {
-                    return self.get_latest_file_from_repository_head(project_repository, path);
+                    self.get_latest_file_from_repository_head(project_repository, path)
+                } else {
+                    Err(err).context("failed to get head")?
                 }
-                Err(err).context("failed to get head")?
             }
         }
     }
 
+    // returns deltas for the file that are already part of the current session (if any)
     fn get_current_deltas(&self, path: &std::path::Path) -> Result<Option<Vec<deltas::Delta>>> {
         let current_session = self.gb_repository.get_current_session()?;
         if current_session.is_none() {
@@ -150,12 +155,8 @@ impl<'listener> Handler<'listener> {
         let project = self
             .project_store
             .get_project(&self.project_id)
-            .with_context(|| "failed to get project")?;
-
-        if project.is_none() {
-            return Err(anyhow::anyhow!("project not found"));
-        }
-        let project = project.unwrap();
+            .context("failed to get project")?
+            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 
         let project_repository = project_repository::Repository::open(&project)
             .with_context(|| "failed to open project repository for project")?;
@@ -177,9 +178,10 @@ impl<'listener> Handler<'listener> {
         }
 
         let path = path.as_ref();
+
         let current_file_content = match self
             .get_current_file_content(&project_repository, &path)
-            .with_context(|| "failed to get current file content")?
+            .context("failed to get current file content")?
         {
             Some(content) => content,
             None => return Ok(vec![]),
