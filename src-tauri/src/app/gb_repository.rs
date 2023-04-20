@@ -238,6 +238,10 @@ impl Repository {
             self.unlock().expect("failed to unlock");
         }
 
+        if !self.root().exists() {
+            return Err(anyhow!("nothing to flush"));
+        }
+
         let wd_tree_oid = build_wd_tree(&self, &project_repository)
             .context("failed to build working directory tree")?;
         let session_tree_oid = build_session_tree(&self).context("failed to build session tree")?;
