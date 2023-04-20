@@ -390,11 +390,11 @@
 			"
 		>
 			<span
-				class="flex-auto overflow-auto font-mono text-zinc-300 text-sm"
+				class="flex-auto overflow-auto font-mono text-sm text-zinc-300"
 				use:collapsable={{ value: $frame.filepath, separator: '/' }}
 			/>
 			<span class="whitespace-nowrap text-zinc-500">
-				–  
+				–
 				{new Date($frame.deltas[$frame.deltas.length - 1].timestampMs).toLocaleString('en-US')}
 			</span>
 		</div>
