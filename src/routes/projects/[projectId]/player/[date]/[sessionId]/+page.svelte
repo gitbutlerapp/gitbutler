@@ -382,13 +382,19 @@
 
 		<div
 			id="info"
-			class="w-content absolute bottom-[86px] ml-4 flex max-w-full gap-2 rounded-full bg-zinc-500 py-2 px-4"
+			class="w-content absolute bottom-[86px] ml-2 flex max-w-full gap-2 rounded-full bg-zinc-900/80 py-2 px-4 shadow"
+			style="
+				border: 0.5px solid rgba(63, 63, 70, 0.5);
+				-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
+				background-color: rgba(1, 1, 1, 0.6);
+			"
 		>
 			<span
-				class="flex-auto overflow-auto font-mono font-bold text-white"
+				class="flex-auto overflow-auto font-mono text-zinc-300 text-sm"
 				use:collapsable={{ value: $frame.filepath, separator: '/' }}
 			/>
-			<span class="whitespace-nowrap">
+			<span class="whitespace-nowrap text-zinc-500">
+				–  
 				{new Date($frame.deltas[$frame.deltas.length - 1].timestampMs).toLocaleString('en-US')}
 			</span>
 		</div>

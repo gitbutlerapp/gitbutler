@@ -269,7 +269,7 @@
 				required
 			/>
 
-			<div class="commit-description-container relative">
+			<div class="commit-description-container relative h-28">
 				{#if isGeneratingCommitMessage}
 					<div
 						in:fly={{ y: 8, duration: 500 }}
@@ -292,7 +292,7 @@
 					name="description"
 					disabled={isGeneratingCommitMessage || isCommitting}
 					class="
-						w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
+						w-full h-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
 						hover:border-zinc-500/80
 						focus:border-[1px] focus:focus:border-blue-600 
 						focus:ring-2 focus:ring-blue-600/30

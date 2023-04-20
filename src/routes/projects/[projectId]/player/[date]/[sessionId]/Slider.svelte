@@ -45,10 +45,10 @@
 				<div
 					class:ml-[3px]={i > 0}
 					class:mr-[3px]={i < sliderValues.length - 1}
-					class="h-[6px] w-full bg-zinc-100"
+					class="h-[6px] w-full  rounded-[2px]"
 					class:h-[8px]={isCurrent}
 					style:background="linear-gradient(90deg, #2563EB {filledPrecentage}%,
-					var(--color-zinc-100) {filledPrecentage}%)"
+					var(--color-zinc-700) {filledPrecentage}%)"
 				/>
 			</li>
 		{/each}
@@ -59,7 +59,7 @@
 			class="absolute flex h-[48px] w-[16px] cursor-pointer items-center justify-around transition hover:scale-150"
 			style:left="calc({valueToOffset(value)}% - 8px)"
 		>
-			<div class="h-[18px] w-[2px] rounded-sm bg-white" />
+			<div class="h-[18px] w-[3px] rounded-sm bg-white shadow-md" />
 		</div>
 	</ul>
 </div>
