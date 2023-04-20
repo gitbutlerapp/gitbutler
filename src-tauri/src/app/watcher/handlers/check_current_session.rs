@@ -37,8 +37,6 @@ impl<'handler> Handler<'handler> {
 }
 
 pub(super) fn should_flush(now: time::SystemTime, session: &sessions::Session) -> bool {
-    println!("is_session_active {}", is_session_active(now, session));
-    println!("is_session_too_old {}", is_session_too_old(now, session));
     !is_session_active(now, session) || is_session_too_old(now, session)
 }
 
