@@ -3,6 +3,7 @@ import { appWindow } from '@tauri-apps/api/window';
 import { writable, type Readable } from 'svelte/store';
 import { log } from '$lib';
 import type { Activity } from './git/activity';
+import { clone } from './utils';
 
 export namespace Session {
 	export const within = (session: Session | undefined, timestampMs: number) => {
@@ -33,13 +34,13 @@ export const listFiles = async (params: {
 }) => {
 	const sessionFilesCache = filesCache[params.projectId] || {};
 	if (params.sessionId in sessionFilesCache) {
-		return sessionFilesCache[params.sessionId].then((files) => {
-			return Object.fromEntries(
-				Object.entries(files).filter(([path]) =>
+		return sessionFilesCache[params.sessionId].then((files) =>
+			Object.fromEntries(
+				Object.entries(clone(files)).filter(([path]) =>
 					params.paths ? params.paths.includes(path) : true
 				)
-			);
-		});
+			)
+		);
 	}
 
 	const promise = invoke<Record<string, string>>('list_session_files', {
@@ -48,11 +49,13 @@ export const listFiles = async (params: {
 	});
 	sessionFilesCache[params.sessionId] = promise;
 	filesCache[params.projectId] = sessionFilesCache;
-	return promise.then((files) => {
-		return Object.fromEntries(
-			Object.entries(files).filter(([path]) => (params.paths ? params.paths.includes(path) : true))
-		);
-	});
+	return promise.then((files) =>
+		Object.fromEntries(
+			Object.entries(clone(files)).filter(([path]) =>
+				params.paths ? params.paths.includes(path) : true
+			)
+		)
+	);
 };
 
 const sessionsCache: Record<string, Promise<Session[]>> = {};
@@ -60,7 +63,7 @@ const sessionsCache: Record<string, Promise<Session[]>> = {};
 const list = async (params: { projectId: string; earliestTimestampMs?: number }) => {
 	if (params.projectId in sessionsCache) {
 		return sessionsCache[params.projectId].then((sessions) =>
-			sessions.filter((s) =>
+			clone(sessions).filter((s) =>
 				params.earliestTimestampMs ? s.meta.startTimestampMs >= params.earliestTimestampMs : true
 			)
 		);
@@ -69,7 +72,7 @@ const list = async (params: { projectId: string; earliestTimestampMs?: number })
 		projectId: params.projectId
 	});
 	return sessionsCache[params.projectId].then((sessions) =>
-		sessions.filter((s) =>
+		clone(sessions).filter((s) =>
 			params.earliestTimestampMs ? s.meta.startTimestampMs >= params.earliestTimestampMs : true
 		)
 	);
