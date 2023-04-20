@@ -502,6 +502,12 @@ fn main() {
                 LogTarget::Webview,
             ];
             tauri_plugin_log::Builder::default()
+                .filter(|metadata| {
+                    // only show logs from git_butler
+                    metadata.target().starts_with("git_butler")
+                        // or if the log level is info or higher
+                        || metadata.level() < log::LevelFilter::Info
+                })
                 .level(match IS_DEV {
                     true => log::LevelFilter::Debug,
                     false => log::LevelFilter::Info,
