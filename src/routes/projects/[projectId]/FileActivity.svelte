@@ -26,7 +26,7 @@
 	{/each}
 </div>
 
-<style>
+<style lang="postcss">
 	.file-activity {
 		@apply flex h-full items-baseline gap-1 px-4 pt-2;
 		align-items: flex-end;
