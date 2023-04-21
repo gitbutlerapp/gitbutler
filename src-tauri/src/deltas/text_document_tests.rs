@@ -188,3 +188,12 @@ fn test_multiline_remove() {
         Operation::Delete((0, 5))
     );
 }
+
+#[test]
+fn test_unicode() {
+    let latest = Some("▆");
+    let current = "_";
+    let mut document = TextDocument::new(latest, vec![]).unwrap();
+    document.update(current).unwrap();
+    assert_eq!(document.to_string(), "_");
+}
