@@ -4,7 +4,7 @@
 
 	export let target: string | undefined = undefined;
 	export let rel: string | undefined = undefined;
-	export let role: 'basic' | 'primary' | 'destructive' = 'basic';
+	export let role: 'basic' | 'primary' | 'destructive' | 'purple' = 'basic';
 	export let filled = true;
 	export let outlined = false;
 	export let disabled = false;
@@ -146,6 +146,22 @@
 	}
 	.destructive.filled:hover {
 		@apply bg-[#C91C1C];
+	}
+
+	.purple {
+		@apply text-[#5852A0];
+	}
+	.purple.outlined {
+		@apply border-[#524C93];
+	}
+	.purple.outlined:hover {
+		@apply bg-[#524C93]/20;
+	}
+	.purple.filled {
+		@apply bg-[#5852A0];
+	}
+	.purple.filled:hover {
+		@apply bg-[#423E7A];
 	}
 
 	.disabled {
