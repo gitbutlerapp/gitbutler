@@ -125,6 +125,42 @@
 	</div>
 </Story>
 
+<Story name="Purple Button">
+	<div class="flex gap-2">
+		{#each widths as width}
+			{#each heights as height}
+				<div class="flex flex-col gap-2">
+					{#each [true, false] as filled}
+						{#each [true, false] as outlined}
+							{#each content as [icon, label]}
+								<div class="flex gap-2">
+									{#each [false, true] as loading}
+										{#each [false, true] as disabled}
+											<Button
+												role="purple"
+												{filled}
+												{disabled}
+												{outlined}
+												{height}
+												{width}
+												{icon}
+												{loading}
+												on:click={() => alert('Clicked!')}
+											>
+												{label}
+											</Button>
+										{/each}
+									{/each}
+								</div>
+							{/each}
+						{/each}
+					{/each}
+				</div>
+			{/each}
+		{/each}
+	</div>
+</Story>
+
 <Story name="Basic Link">
 	<div class="flex gap-2">
 		{#each widths as width}
@@ -214,6 +250,43 @@
 												href="https://gitbutler.com"
 												target="_blank"
 												role="destructive"
+												{filled}
+												{disabled}
+												{outlined}
+												{height}
+												{width}
+												{icon}
+												{loading}
+											>
+												{label}
+											</Button>
+										{/each}
+									{/each}
+								</div>
+							{/each}
+						{/each}
+					{/each}
+				</div>
+			{/each}
+		{/each}
+	</div>
+</Story>
+
+<Story name="Puple Link">
+	<div class="flex gap-2">
+		{#each widths as width}
+			{#each heights as height}
+				<div class="flex flex-col gap-2">
+					{#each [true, false] as filled}
+						{#each [true, false] as outlined}
+							{#each content as [icon, label]}
+								<div class="flex gap-2">
+									{#each [false, true] as loading}
+										{#each [false, true] as disabled}
+											<Button
+												href="https://gitbutler.com"
+												target="_blank"
+												role="purple"
 												{filled}
 												{disabled}
 												{outlined}
