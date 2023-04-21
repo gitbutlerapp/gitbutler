@@ -303,7 +303,7 @@ async fn git_activity(
 async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<HashMap<String, (app::FileStatus, bool)>, Error> {
+) -> Result<HashMap<String, app::FileStatus>, Error> {
     let app = handle.state::<app::App>();
     let status = app
         .git_status(project_id)

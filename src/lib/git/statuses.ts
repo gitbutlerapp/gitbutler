@@ -2,26 +2,25 @@ import { invoke } from '@tauri-apps/api';
 import { appWindow } from '@tauri-apps/api/window';
 import { writable, type Readable } from 'svelte/store';
 
-export type Status = {
-	path: string;
-	status: FileStatus;
-	staged: boolean;
-};
-
 type FileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'typeChange' | 'other';
 
-const list = (params: { projectId: string }) =>
-	invoke<Record<string, [FileStatus, boolean]>>('git_status', params);
+export type Status =
+	| { staged: FileStatus }
+	| { unstaged: FileStatus }
+	| { staged: FileStatus; unstaged: FileStatus };
 
-const convertToStatuses = (statusesGit: Record<string, [FileStatus, boolean]>): Status[] =>
-	Object.entries(statusesGit).map((status) => ({
-		path: status[0],
-		status: status[1][0],
-		staged: status[1][1]
-	}));
+export namespace Status {
+	export const isStaged = (status: Status): status is { staged: FileStatus } =>
+		'staged' in status && status.staged !== null;
+	export const isUnstaged = (status: Status): status is { unstaged: FileStatus } =>
+		'unstaged' in status && status.unstaged !== null;
+}
+
+const list = (params: { projectId: string }) =>
+	invoke<Record<string, Status>>('git_status', params);
 
 export default async (params: { projectId: string }) => {
-	const statuses = await list(params).then(convertToStatuses);
+	const statuses = await list(params);
 	const store = writable(statuses);
 
 	[
@@ -30,9 +29,9 @@ export default async (params: { projectId: string }) => {
 		`project://${params.projectId}/sessions`
 	].forEach((eventName) => {
 		appWindow.listen(eventName, async () => {
-			store.set(await list(params).then(convertToStatuses));
+			store.set(await list(params));
 		});
 	});
 
-	return store as Readable<Status[]>;
+	return store as Readable<Record<string, Status>>;
 };

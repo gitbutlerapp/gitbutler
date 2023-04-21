@@ -13,13 +13,13 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		? readable<Session[]>([])
 		: await import('$lib/sessions').then((m) => m.default({ projectId: params.projectId }));
 	const statuses = building
-		? readable<Status[]>([])
+		? readable<Record<string, Status>>({})
 		: await import('$lib/git/statuses').then((m) => m.default({ projectId: params.projectId }));
 	const head = building
 		? readable<string>('')
 		: await import('$lib/git/head').then((m) => m.default({ projectId: params.projectId }));
 	const deltas = building
-		? (sessionId: string) => Promise.resolve(readable<Record<string, Delta[]>>({}))
+		? () => Promise.resolve(readable<Record<string, Delta[]>>({}))
 		: (sessionId: string) =>
 				import('$lib/deltas').then((m) => m.default({ projectId: params.projectId, sessionId }));
 

@@ -79,7 +79,7 @@ impl<'repository> Repository<'repository> {
         Ok(activity)
     }
 
-    fn unstaged_statuses(&self) -> Result<HashMap<String, FileStatus>> {
+    fn unstaged_statuses(&self) -> Result<HashMap<String, FileStatusType>> {
         let mut options = git2::StatusOptions::new();
         options.include_untracked(true);
         options.recurse_untracked_dirs(true);
@@ -96,14 +96,14 @@ impl<'repository> Repository<'repository> {
             .iter()
             .map(|entry| {
                 let path = entry.path().unwrap();
-                (path.to_string(), FileStatus::from(entry.status()))
+                (path.to_string(), FileStatusType::from(entry.status()))
             })
             .collect();
 
         return Ok(files);
     }
 
-    fn staged_statuses(&self) -> Result<HashMap<String, FileStatus>> {
+    fn staged_statuses(&self) -> Result<HashMap<String, FileStatusType>> {
         let mut options = git2::StatusOptions::new();
         options.include_untracked(true);
         options.include_ignored(false);
@@ -120,22 +120,38 @@ impl<'repository> Repository<'repository> {
             .iter()
             .map(|entry| {
                 let path = entry.path().unwrap();
-                (path.to_string(), FileStatus::from(entry.status()))
+                (path.to_string(), FileStatusType::from(entry.status()))
             })
             .collect();
 
         return Ok(files);
     }
 
-    pub fn git_status(&self) -> Result<HashMap<String, (FileStatus, bool)>> {
+    pub fn git_status(&self) -> Result<HashMap<String, FileStatus>> {
         let staged_statuses = self.staged_statuses()?;
         let unstaged_statuses = self.unstaged_statuses()?;
         let mut statuses = HashMap::new();
         unstaged_statuses.iter().for_each(|(path, status)| {
-            statuses.insert(path.clone(), (*status, false));
+            statuses.insert(
+                path.clone(),
+                FileStatus {
+                    unstaged: Some(*status),
+                    staged: None,
+                },
+            );
         });
         staged_statuses.iter().for_each(|(path, status)| {
-            statuses.insert(path.clone(), (*status, true));
+            if let Some(unstaged) = statuses.get_mut(path) {
+                unstaged.staged = Some(*status);
+            } else {
+                statuses.insert(
+                    path.clone(),
+                    FileStatus {
+                        unstaged: None,
+                        staged: Some(*status),
+                    },
+                );
+            }
         });
         Ok(statuses)
     }
@@ -405,7 +421,14 @@ impl<'repository> Repository<'repository> {
 
 #[derive(Serialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum FileStatus {
+pub struct FileStatus {
+    pub staged: Option<FileStatusType>,
+    pub unstaged: Option<FileStatusType>,
+}
+
+#[derive(Serialize, Copy, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum FileStatusType {
     Added,
     Modified,
     Deleted,
@@ -414,20 +437,20 @@ pub enum FileStatus {
     Other,
 }
 
-impl From<git2::Status> for FileStatus {
+impl From<git2::Status> for FileStatusType {
     fn from(status: git2::Status) -> Self {
         if status.is_index_new() || status.is_wt_new() {
-            FileStatus::Added
+            FileStatusType::Added
         } else if status.is_index_modified() || status.is_wt_modified() {
-            FileStatus::Modified
+            FileStatusType::Modified
         } else if status.is_index_deleted() || status.is_wt_deleted() {
-            FileStatus::Deleted
+            FileStatusType::Deleted
         } else if status.is_index_renamed() || status.is_wt_renamed() {
-            FileStatus::Renamed
+            FileStatusType::Renamed
         } else if status.is_index_typechange() || status.is_wt_typechange() {
-            FileStatus::TypeChange
+            FileStatusType::TypeChange
         } else {
-            FileStatus::Other
+            FileStatusType::Other
         }
     }
 }

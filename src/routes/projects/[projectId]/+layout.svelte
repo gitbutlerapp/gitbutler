@@ -33,7 +33,7 @@
 			'Shift+c': (event: KeyboardEvent) => {
 				const target = event.target as HTMLElement;
 				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-				if ($statuses.length === 0) return;
+				if (Object.keys($statuses).length === 0) return;
 				$project && goto(`/projects/${$project.id}/commit/`);
 			},
 			'Shift+t': (event: KeyboardEvent) => {

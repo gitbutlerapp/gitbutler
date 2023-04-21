@@ -330,7 +330,7 @@ impl App {
     pub fn git_status(
         &self,
         project_id: &str,
-    ) -> Result<HashMap<String, (project_repository::FileStatus, bool)>> {
+    ) -> Result<HashMap<String, project_repository::FileStatus>> {
         let project = self
             .projects_storage
             .get_project(project_id)
