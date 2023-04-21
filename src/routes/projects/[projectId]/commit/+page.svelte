@@ -4,22 +4,30 @@
 	import { collapsable } from '$lib/paths';
 	import { derived, writable } from 'svelte/store';
 	import * as git from '$lib/git';
+	import { Status } from '$lib/git/statuses';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Dialog } from '$lib/components';
-	import { log, toasts } from '$lib';
+	import { log } from '$lib';
 
 	export let data: PageData;
 	const { statuses, diffs, user, api, projectId, project } = data;
+
+	$: stagedFiles = Object.entries($statuses)
+		.filter((status) => Status.isStaged(status[1]))
+		.map(([path]) => path);
+	$: unstagedFiles = Object.entries($statuses)
+		.filter((status) => Status.isUnstaged(status[1]))
+		.map(([path]) => path);
 
 	let connectToCloudDialog: Dialog;
 	let summary = '';
 	let description = '';
 
-	const selectedDiffPath = writable<string | undefined>($statuses.at(0)?.path);
+	const selectedDiffPath = writable<string | undefined>(Object.keys($statuses).at(0));
 	statuses.subscribe((statuses) => {
-		$selectedDiffPath = statuses.at(0)?.path;
+		$selectedDiffPath = Object.keys(statuses).at(0);
 	});
 	const selectedDiff = derived([diffs, selectedDiffPath], ([diffs, selectedDiffPath]) =>
 		selectedDiffPath ? diffs[selectedDiffPath] : undefined
@@ -71,9 +79,7 @@
 		if ($user === undefined) return;
 
 		const partialDiff = Object.fromEntries(
-			Object.entries($diffs).filter(([key]) =>
-				$statuses.some((status) => status.path === key && status.staged)
-			)
+			Object.entries($diffs).filter(([key]) => $statuses[key] && Status.isStaged($statuses[key]))
 		);
 		const diff = Object.values(partialDiff).join('\n').slice(0, 5000);
 
@@ -109,7 +115,7 @@
 			git
 				.stage({
 					projectId,
-					paths: $statuses.filter(({ staged }) => !staged).map(({ path }) => path)
+					paths: unstagedFiles
 				})
 				.catch(() => {
 					error('Failed to stage files');
@@ -118,7 +124,7 @@
 			git
 				.unstage({
 					projectId,
-					paths: $statuses.filter(({ staged }) => staged).map(({ path }) => path)
+					paths: stagedFiles
 				})
 				.catch(() => {
 					error('Failed to unstage files');
@@ -140,16 +146,16 @@
 			} else {
 				await project.update({ api: { ...$project.api, sync: true } });
 			}
-		} catch (error) {
-			log.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
+		} catch (e) {
+			log.error(`Failed to update project sync status: ${e}`);
+			error('Failed to update project sync status');
 		}
 	};
 
-	$: isCommitEnabled = summary.length > 0 && $statuses.filter(({ staged }) => staged).length > 0;
+	$: isCommitEnabled = summary.length > 0 && stagedFiles.length > 0;
 	$: isLoggedIn = $user !== undefined;
 	$: isCloudEnabled = $project?.api?.sync;
-	$: isSomeFilesSelected = $statuses.some(({ staged }) => staged) && $statuses.length > 0;
+	$: isSomeFilesSelected = stagedFiles.length > 0 && Object.keys($statuses).length > 0;
 	$: isGenerateCommitEnabled = isLoggedIn && isSomeFilesSelected;
 </script>
 
@@ -202,19 +208,20 @@
 						type="checkbox"
 						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 						on:click={onGroupCheckboxClick}
-						checked={$statuses.every(({ staged }) => staged) && $statuses.length > 0}
-						indeterminate={$statuses.some(({ staged }) => staged) &&
-							$statuses.some(({ staged }) => !staged) &&
-							$statuses.length > 0}
+						checked={Object.keys($statuses).length > 0 &&
+							stagedFiles.length === Object.keys($statuses).length}
+						indeterminate={stagedFiles.length > 0 &&
+							unstagedFiles.length > 0 &&
+							Object.keys($statuses).length > 0}
 						disabled={isCommitting || isGeneratingCommitMessage}
 					/>
 					<h1 class="m-auto flex">
-						<span class="w-full text-center">{$statuses.length} changed files</span>
+						<span class="w-full text-center">{Object.keys($statuses).length} changed files</span>
 					</h1>
 				</header>
 
 				<div class="changed-file-list-container overflow-y-auto">
-					{#each $statuses as { path, staged }}
+					{#each Object.entries($statuses) as [path, status]}
 						<li class="bg-card-default">
 							<div
 								class:bg-[#3356C2]={$selectedDiffPath === path}
@@ -225,7 +232,7 @@
 									class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 									disabled={isCommitting || isGeneratingCommitMessage}
 									on:click|preventDefault={() => {
-										staged
+										Status.isStaged(status)
 											? git.unstage({ projectId, paths: [path] }).catch(() => {
 													error('Failed to unstage file');
 											  })
@@ -235,7 +242,7 @@
 									}}
 									name="path"
 									type="checkbox"
-									checked={staged}
+									checked={Status.isStaged(status)}
 									value={path}
 								/>
 								<label class="flex h-5 w-full overflow-auto" for="path">

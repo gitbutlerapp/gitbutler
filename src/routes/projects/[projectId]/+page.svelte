@@ -9,6 +9,7 @@
 	import IconRotateClockwise from '$lib/components/icons/IconRotateClockwise.svelte';
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Tooltip } from '$lib/components';
+	import { Status } from '$lib/git/statuses';
 
 	export let data: PageData;
 	$: activity = derived(data.activity, (activity) => activity);
@@ -75,14 +76,14 @@
 					</div>
 				</Tooltip>
 				<Button
-					disabled={$statuses.length === 0}
+					disabled={Object.keys($statuses).length === 0}
 					role="primary"
 					href="/projects/{$project?.id}/commit"
 				>
 					Commit changes
 				</Button>
 			</div>
-			{#if $statuses.length === 0}
+			{#if Object.keys($statuses).length === 0}
 				<div
 					class="flex rounded border border-green-700 bg-green-900 p-2 align-middle text-green-400"
 				>
@@ -101,14 +102,21 @@
 				<ul
 					class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-sm text-yellow-900"
 				>
-					{#each $statuses as activity}
+					{#each Object.entries($statuses) as [path, status]}
 						<li class="flex w-full gap-2">
-							<span
-								class:text-left={activity.staged}
-								class:text-right={!activity.staged}
-								class="w-[3ch] font-semibold">{activity.status.slice(0, 1).toUpperCase()}</span
-							>
-							<span class="truncate" use:collapsable={{ value: activity.path, separator: '/' }} />
+							<div class="flex w-[3ch] justify-between font-semibold">
+								<span>
+									{#if Status.isStaged(status)}
+										{status.staged.slice(0, 1).toUpperCase()}
+									{/if}
+								</span>
+								<span>
+									{#if Status.isUnstaged(status)}
+										{status.unstaged.slice(0, 1).toUpperCase()}
+									{/if}
+								</span>
+							</div>
+							<span class="truncate" use:collapsable={{ value: path, separator: '/' }} />
 						</li>
 					{/each}
 				</ul>
