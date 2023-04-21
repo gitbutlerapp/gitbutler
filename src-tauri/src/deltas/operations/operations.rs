@@ -6,16 +6,16 @@ use similar::{ChangeTag, TextDiff};
 #[serde(rename_all = "camelCase")]
 pub enum Operation {
     // corresponds to YText.insert(index, chunk)
-    Insert((u32, String)),
+    Insert((usize, String)),
     // corresponds to YText.remove_range(index, len)
-    Delete((u32, u32)),
+    Delete((usize, usize)),
 }
 
 impl Operation {
     pub fn apply(&self, text: &mut Vec<char>) -> Result<()> {
         match self {
             Operation::Insert((index, chunk)) => {
-                if *index as usize > text.len() {
+                if *index > text.len() {
                     Err(anyhow::anyhow!(
                         "Index out of bounds, {} > {}",
                         index,
@@ -30,7 +30,7 @@ impl Operation {
                 }
             }
             Operation::Delete((index, len)) => {
-                if *index as usize > text.len() {
+                if *index > text.len() {
                     Err(anyhow::anyhow!(
                         "Index out of bounds, {} > {}",
                         index,
@@ -61,7 +61,7 @@ fn merge_touching(ops: &Vec<Operation>) -> Vec<Operation> {
     for op in ops {
         match (merged.last_mut(), op) {
             (Some(Operation::Insert((index, chunk))), Operation::Insert((index2, chunk2))) => {
-                if *index + chunk.len() as u32 == *index2 {
+                if *index + chunk.len() == *index2 {
                     chunk.push_str(chunk2);
                 } else {
                     merged.push(op.clone());
@@ -86,25 +86,27 @@ pub fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operati
         return vec![];
     }
 
-    let changeset = TextDiff::configure().diff_chars(initial_text, final_text);
-    let mut offset: u32 = 0;
+    let changeset = TextDiff::configure().diff_graphemes(initial_text, final_text);
     let mut deltas = vec![];
 
+    let mut offset = 0;
     for change in changeset.iter_all_changes() {
+        println!("{:?}", change);
         match change.tag() {
             ChangeTag::Delete => {
                 deltas.push(Operation::Delete((
                     offset,
-                    change.as_str().unwrap_or("").len() as u32,
+                    change.as_str().unwrap_or("").chars().count(),
                 )));
             }
             ChangeTag::Insert => {
-                let text = change.as_str().unwrap_or("");
+                let text = change.as_str().unwrap();
                 deltas.push(Operation::Insert((offset, text.to_string())));
-                offset += text.len() as u32;
+                offset = change.new_index().unwrap() + text.chars().count()
             }
             ChangeTag::Equal => {
-                offset += change.as_str().unwrap_or("").len() as u32;
+                let text = change.as_str().unwrap();
+                offset = change.new_index().unwrap() + text.chars().count()
             }
         }
     }

@@ -36,7 +36,7 @@ md5 = "0.7.0"
 urlencoding = "2.1.2"
 thiserror = "1.0.38"
 tantivy = "0.19.2"
-similar = "2.2.1"
+similar = { version = "2.2.1", features = ["unicode"] }
 fslock = "0.2.1"
 tokio = { version = "1.26.0", features = ["full", "sync"] }
 tokio-tungstenite = "0.18.0"
