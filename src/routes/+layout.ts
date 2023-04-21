@@ -5,12 +5,13 @@ import type { Project } from '$lib/projects';
 import Api from '$lib/api';
 import Posthog from '$lib/posthog';
 import * as log from '$lib/log';
+import { wrapLoadWithSentry } from '@sentry/sveltekit';
 
 export const ssr = false;
 export const prerender = true;
 export const csr = true;
 
-export const load: LayoutLoad = async ({ fetch }) => {
+export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
 	const projects = building
 		? {
 				...readable<Project[]>([]),
@@ -40,4 +41,4 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		api: Api({ fetch }),
 		posthog: Posthog()
 	};
-};
+});

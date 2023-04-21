@@ -1,8 +1,9 @@
 import { building } from '$app/environment';
 import { readable } from 'svelte/store';
 import type { PageLoad } from '../$types';
+import { wrapLoadWithSentry } from '@sentry/sveltekit';
 
-export const load: PageLoad = async ({ parent, params }) => {
+export const load: PageLoad = wrapLoadWithSentry(async ({ parent, params }) => {
 	const { project } = await parent();
 	const diffs = building
 		? readable<Record<string, string>>({})
@@ -11,4 +12,4 @@ export const load: PageLoad = async ({ parent, params }) => {
 		diffs,
 		project
 	};
-};
+});

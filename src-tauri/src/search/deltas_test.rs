@@ -221,7 +221,6 @@ fn test_simple() -> Result<()> {
         offset: None,
         range: Range { start: 0, end: 10 },
     });
-    println!("{:?}", search_result1);
     assert!(search_result1.is_ok());
     let search_result1 = search_result1.unwrap();
     assert_eq!(search_result1.total, 1);
