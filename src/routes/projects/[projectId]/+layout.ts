@@ -7,6 +7,7 @@ import type { Delta } from '$lib/deltas';
 import type { Readable } from 'svelte/store';
 
 export const prerender = false;
+
 export const load: LayoutLoad = async ({ parent, params }) => {
 	const { projects } = await parent();
 	const sessions = building

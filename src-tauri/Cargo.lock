@@ -66,6 +66,9 @@ name = "anyhow"
 version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
+dependencies = [
+ "backtrace",
+]
 
 [[package]]
 name = "arc-swap"
@@ -528,16 +531,16 @@ dependencies = [
 
 [[package]]
 name = "crash-handler"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b333adce79bc5ee4f421211a160514ed5a3f4dc9cd4202021d70ebdd7657e50"
+checksum = "37571ca6b1166c54bdde2b482eea4c935207d5d82889382b327ad6fcf88ce656"
 dependencies = [
  "cfg-if",
  "crash-context",
  "libc",
  "mach2",
  "parking_lot",
- "windows-sys 0.36.1",
+ "windows-sys 0.42.0",
 ]
 
 [[package]]
@@ -986,6 +989,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "findshlibs"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40b9e59cd0f7e0806cca4be089683ecb6434e602038df21fe6bf6711b2f07f64"
+dependencies = [
+ "cc",
+ "lazy_static",
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1333,8 +1348,10 @@ dependencies = [
  "portable-pty",
  "reqwest",
  "scopeguard",
- "sentry",
- "sentry-tauri",
+ "sentry 0.31.0",
+ "sentry-anyhow",
+ "sentry-debug-images 0.31.0",
+ "sentry-rust-minidump",
  "serde",
  "serde-jsonlines",
  "serde_json",
@@ -2226,9 +2243,9 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "minidump-common"
-version = "0.12.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a134e10507b4352836be67e13cfa06e7881df5b4e091999e75c05eb449dc6985"
+checksum = "97dbaf56dfe28d07e1fecffce410976774dcac1f0d7f6d797b437468e989e687"
 dependencies = [
  "bitflags 1.3.2",
  "debugid",
@@ -2242,9 +2259,9 @@ dependencies = [
 
 [[package]]
 name = "minidump-writer"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e663ad99c0ad5f62dec920482cae3dc84d4138395efbac39a3c1ab817fe9d59"
+checksum = "8c8c8fcc3823f1f4eec257a24990ab4c6a20ef9bcbc515400d0eb4a99620b943"
 dependencies = [
  "byteorder",
  "cfg-if",
@@ -2255,18 +2272,18 @@ dependencies = [
  "memmap2",
  "memoffset 0.6.5",
  "minidump-common",
- "nix 0.24.3",
+ "nix",
  "scroll",
  "tempfile",
  "thiserror",
- "windows-sys 0.36.1",
+ "windows-sys 0.42.0",
 ]
 
 [[package]]
 name = "minidumper"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bc0932e7cf3760d8ea4784bbe7ec45cc1970c08d1f6e7d108d8da1890d26586"
+checksum = "a8e7577424f7abeacef16980ed8e200c84e74aaabb799c3ee30159ea877534fb"
 dependencies = [
  "cfg-if",
  "crash-context",
@@ -2278,7 +2295,19 @@ dependencies = [
  "scroll",
  "thiserror",
  "uds",
- "windows-sys 0.36.1",
+ "windows-sys 0.42.0",
+]
+
+[[package]]
+name = "minidumper-child"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5f6a7c1a63d65dd21fa335135e5a614a7adb03560b2feb9fcb70eef34439bc8"
+dependencies = [
+ "crash-handler",
+ "minidumper",
+ "thiserror",
+ "uuid 1.3.1",
 ]
 
 [[package]]
@@ -2372,17 +2401,6 @@ name = "new_debug_unreachable"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
-
-[[package]]
-name = "nix"
-version = "0.24.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa52e972a9a719cecb6864fb88568781eb706bac2cd1d4f04a648542dbf78069"
-dependencies = [
- "bitflags 1.3.2",
- "cfg-if",
- "libc",
-]
 
 [[package]]
 name = "nix"
@@ -2636,6 +2654,17 @@ dependencies = [
  "openssl-src",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "os_info"
+version = "3.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "006e42d5b888366f1880eda20371fedde764ed2213dc8496f49622fa0c99cd5e"
+dependencies = [
+ "log",
+ "serde",
+ "winapi",
 ]
 
 [[package]]
@@ -2897,7 +2926,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
- "nix 0.25.1",
+ "nix",
  "serde",
  "serde_derive",
  "serial",
@@ -3436,99 +3465,205 @@ dependencies = [
 
 [[package]]
 name = "sentry"
-version = "0.27.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73642819e7fa63eb264abc818a2f65ac8764afbe4870b5ee25bcecc491be0d4c"
+checksum = "b5ce6d3512e2617c209ec1e86b0ca2fea06454cd34653c91092bf0f3ec41f8e3"
 dependencies = [
  "httpdate",
+ "native-tls",
  "reqwest",
- "sentry-backtrace",
- "sentry-contexts",
- "sentry-core",
- "sentry-panic",
+ "sentry-backtrace 0.30.0",
+ "sentry-contexts 0.30.0",
+ "sentry-core 0.30.0",
+ "sentry-debug-images 0.30.0",
+ "sentry-panic 0.30.0",
  "tokio",
+ "ureq",
+]
+
+[[package]]
+name = "sentry"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c3d7f8bf7373e75222452fcdd9347d857452a92d0eec738f941bc4656c5b5df"
+dependencies = [
+ "httpdate",
+ "native-tls",
+ "reqwest",
+ "sentry-anyhow",
+ "sentry-backtrace 0.31.0",
+ "sentry-contexts 0.31.0",
+ "sentry-core 0.31.0",
+ "sentry-debug-images 0.31.0",
+ "sentry-panic 0.31.0",
+ "tokio",
+ "ureq",
+]
+
+[[package]]
+name = "sentry-anyhow"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ef7f47c57a1146d553b4976f20e8bba370195a88858bdf6945a63c529549236"
+dependencies = [
+ "anyhow",
+ "sentry-backtrace 0.31.0",
+ "sentry-core 0.31.0",
 ]
 
 [[package]]
 name = "sentry-backtrace"
-version = "0.27.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49bafa55eefc6dbc04c7dac91e8c8ab9e89e9414f3193c105cabd991bbc75134"
+checksum = "0e7fe408d4d1f8de188a9309916e02e129cbe51ca19e55badea5a64899399b1a"
 dependencies = [
  "backtrace",
  "once_cell",
  "regex",
- "sentry-core",
+ "sentry-core 0.30.0",
+]
+
+[[package]]
+name = "sentry-backtrace"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03b7cdefbdca51f1146f0f24a3cb4ecb6428951f030ff5c720cfb5c60bd174c0"
+dependencies = [
+ "backtrace",
+ "once_cell",
+ "regex",
+ "sentry-core 0.31.0",
 ]
 
 [[package]]
 name = "sentry-contexts"
-version = "0.27.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c63317c4051889e73f0b00ce4024cae3e6a225f2e18a27d2c1522eb9ce2743da"
+checksum = "5695096a059a89973ec541062d331ff4c9aeef9c2951416c894f0fff76340e7d"
 dependencies = [
  "hostname",
  "libc",
+ "os_info",
  "rustc_version",
- "sentry-core",
+ "sentry-core 0.30.0",
+ "uname",
+]
+
+[[package]]
+name = "sentry-contexts"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6af4cb29066e0e8df0cc3111211eb93543ccb09e1ccbe71de6d88b4bb459a2b1"
+dependencies = [
+ "hostname",
+ "libc",
+ "os_info",
+ "rustc_version",
+ "sentry-core 0.31.0",
  "uname",
 ]
 
 [[package]]
 name = "sentry-core"
-version = "0.27.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a4591a2d128af73b1b819ab95f143bc6a2fbe48cd23a4c45e1ee32177e66ae6"
+checksum = "5b22828bfd118a7b660cf7a155002a494755c0424cebb7061e4743ecde9c7dbc"
 dependencies = [
  "once_cell",
  "rand 0.8.5",
- "sentry-types",
+ "sentry-types 0.30.0",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "sentry-panic"
-version = "0.27.0"
+name = "sentry-core"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "696c74c5882d5a0d5b4a31d0ff3989b04da49be7983b7f52a52c667da5b480bf"
+checksum = "5e781b55761e47a60d1ff326ae8059de22b0e6b0cee68eab1c5912e4fb199a76"
 dependencies = [
- "sentry-backtrace",
- "sentry-core",
+ "once_cell",
+ "rand 0.8.5",
+ "sentry-types 0.31.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sentry-debug-images"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a9164d44a2929b1b7670afd7e87552514b70d3ae672ca52884639373d912a3d"
+dependencies = [
+ "findshlibs",
+ "once_cell",
+ "sentry-core 0.30.0",
+]
+
+[[package]]
+name = "sentry-debug-images"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e758030b31ee2cd97424a980dfa34a12dcd8477424861cf81ae3aa1f9f616a8c"
+dependencies = [
+ "findshlibs",
+ "once_cell",
+ "sentry-core 0.31.0",
+]
+
+[[package]]
+name = "sentry-panic"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f4ced2a7a8c14899d58eec402d946f69d5ed26a3fc363a7e8b1e5cb88473a01"
+dependencies = [
+ "sentry-backtrace 0.30.0",
+ "sentry-core 0.30.0",
+]
+
+[[package]]
+name = "sentry-panic"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e0b877981990d9e84ae6916df61993d188fdf76afb59521f0aeaf9b8e6d26d0"
+dependencies = [
+ "sentry-backtrace 0.31.0",
+ "sentry-core 0.31.0",
 ]
 
 [[package]]
 name = "sentry-rust-minidump"
-version = "0.1.3"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d986b33fedaa7638225e07ac1cc0217894ee2958798a09e2d61b2fe5f486bc89"
+checksum = "a489204e5cb676310d7ef1506eefb76d006a82f27b648f5477ea74733467d5a1"
 dependencies = [
- "crash-handler",
- "dirs-next",
- "minidumper",
- "sentry",
- "thiserror",
- "uuid 1.3.1",
-]
-
-[[package]]
-name = "sentry-tauri"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13a2132c1f33f471f3842001c1aee74df0b94c10628833da798275285bcf0f9"
-dependencies = [
- "sentry",
- "sentry-rust-minidump",
- "serde",
- "tauri",
+ "minidumper-child",
+ "sentry 0.30.0",
  "thiserror",
 ]
 
 [[package]]
 name = "sentry-types"
-version = "0.27.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "823923ae5f54a729159d720aa12181673044ee5c79cbda3be09e56f885e5468f"
+checksum = "360ee3270f7a4a1eee6c667f7d38360b995431598a73b740dfe420da548d9cc9"
+dependencies = [
+ "debugid",
+ "getrandom 0.2.9",
+ "hex",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "url",
+ "uuid 1.3.1",
+]
+
+[[package]]
+name = "sentry-types"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d642a04657cc77d8de52ae7c6d93a15cb02284eb219344a89c1e2b26bbaf578c"
 dependencies = [
  "debugid",
  "getrandom 0.2.9",
@@ -4746,6 +4881,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
+name = "ureq"
+version = "2.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "338b31dd1314f68f3aabf3ed57ab922df95ffcd902476ca7ba3c4ce7b908c46d"
+dependencies = [
+ "base64 0.13.1",
+ "log",
+ "native-tls",
+ "once_cell",
+ "url",
+]
+
+[[package]]
 name = "url"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5125,19 +5273,6 @@ checksum = "9ee5e275231f07c6e240d14f34e1b635bf1faa1c76c57cfd59a5cdb9848e4278"
 
 [[package]]
 name = "windows-sys"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea04155a16a59f9eab786fe12a4a450e75cdb175f9e0d80da1e17db09f55b8d2"
-dependencies = [
- "windows_aarch64_msvc 0.36.1",
- "windows_i686_gnu 0.36.1",
- "windows_i686_msvc 0.36.1",
- "windows_x86_64_gnu 0.36.1",
- "windows_x86_64_msvc 0.36.1",
-]
-
-[[package]]
-name = "windows-sys"
 version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a3e1820f08b8513f676f7ab6c1f99ff312fb97b553d30ff4dd86f9f15728aa7"
@@ -5219,12 +5354,6 @@ checksum = "91ae572e1b79dba883e0d315474df7305d12f569b400fcf90581b06062f7e1bc"
 
 [[package]]
 name = "windows_aarch64_msvc"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bb8c3fd39ade2d67e9874ac4f3db21f0d710bee00fe7cab16949ec184eeaa47"
-
-[[package]]
-name = "windows_aarch64_msvc"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2623277cb2d1c216ba3b578c0f3cf9cdebeddb6e66b1b218bb33596ea7769c3a"
@@ -5246,12 +5375,6 @@ name = "windows_aarch64_msvc"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2ef27e0d7bdfcfc7b868b317c1d32c641a6fe4629c171b8928c7b08d98d7cf3"
-
-[[package]]
-name = "windows_i686_gnu"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "180e6ccf01daf4c426b846dfc66db1fc518f074baa793aa7d9b9aaeffad6a3b6"
 
 [[package]]
 name = "windows_i686_gnu"
@@ -5279,12 +5402,6 @@ checksum = "622a1962a7db830d6fd0a69683c80a18fda201879f0f447f065a3b7467daa241"
 
 [[package]]
 name = "windows_i686_msvc"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2e7917148b2812d1eeafaeb22a97e4813dfa60a3f8f78ebe204bcc88f12f024"
-
-[[package]]
-name = "windows_i686_msvc"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce907ac74fe331b524c1298683efbf598bb031bc84d5e274db2083696d07c57c"
@@ -5306,12 +5423,6 @@ name = "windows_i686_msvc"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4542c6e364ce21bf45d69fdd2a8e455fa38d316158cfd43b3ac1c5b1b19f8e00"
-
-[[package]]
-name = "windows_x86_64_gnu"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dcd171b8776c41b97521e5da127a2d86ad280114807d0b2ab1e462bc764d9e1"
 
 [[package]]
 name = "windows_x86_64_gnu"
@@ -5348,12 +5459,6 @@ name = "windows_x86_64_gnullvm"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7896dbc1f41e08872e9d5e8f8baa8fdd2677f29468c4e156210174edc7f7b953"
-
-[[package]]
-name = "windows_x86_64_msvc"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 
 [[package]]
 name = "windows_x86_64_msvc"

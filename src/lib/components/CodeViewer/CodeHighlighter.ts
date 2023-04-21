@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { HighlightStyle, LanguageSupport } from '@codemirror/language';
+import { HighlightStyle, type LanguageSupport } from '@codemirror/language';
 import { tags, highlightTree } from '@lezer/highlight';
 import { NodeType, Tree } from '@lezer/common';
 import { javascript } from '@codemirror/lang-javascript';

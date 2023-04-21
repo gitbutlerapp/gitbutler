@@ -1,8 +1,28 @@
 import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { sentrySvelteKit } from '@sentry/sveltekit';
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [
+		sentrySvelteKit({
+			sourceMapsUploadOptions: {
+				org: 'gitbutler',
+				project: 'desktop',
+				// this is nikita galaiko's personal sentry api token.
+				authToken: '04c6bc1df15346f39ed2fbeb99c0a8e25bcbedc4aba9461bb3a471733b8c80db',
+				include: ['build'],
+				cleanArtifacts: true,
+				setCommits: {
+					auto: true,
+					ignoreMissing: true,
+					ignoreEmpty: true
+				},
+				telemetry: false,
+				uploadSourceMaps: true
+			}
+		}),
+		sveltekit()
+	],
 
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
 	// prevent vite from obscuring rust errors
