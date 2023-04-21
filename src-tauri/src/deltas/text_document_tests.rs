@@ -191,9 +191,9 @@ fn test_multiline_remove() {
 
 #[test]
 fn test_unicode() {
-    let latest = Some("▆");
-    let current = "_";
+    let latest = Some("🌚");
+    let current = "🌝";
     let mut document = TextDocument::new(latest, vec![]).unwrap();
     document.update(current).unwrap();
-    assert_eq!(document.to_string(), "_");
+    assert_eq!(document.to_string(), "🌝");
 }
