@@ -7,7 +7,6 @@
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
-	import { IconRotateClockwise } from '$lib/components/icons';
 	import { Dialog } from '$lib/components';
 	import { log, toasts } from '$lib';
 
@@ -177,7 +176,7 @@
 			</span>
 		</p>
 	</svelte:fragment>
-	<svelte:fragment slot="controls" let:hide let:show>
+	<svelte:fragment slot="controls" let:hide>
 		<Button filled on:click={hide}>Cancel</Button>
 		<Button
 			filled
@@ -215,8 +214,8 @@
 				</header>
 
 				<div class="changed-file-list-container overflow-y-auto">
-					{#each $statuses as { path, staged }, i}
-						<li class="bg-card-default ">
+					{#each $statuses as { path, staged }}
+						<li class="bg-card-default">
 							<div
 								class:bg-[#3356C2]={$selectedDiffPath === path}
 								class:hover:bg-divider={$selectedDiffPath !== path}
@@ -304,37 +303,14 @@
 			</div>
 
 			<div class="flex justify-between">
-				{#if isGeneratingCommitMessage}
-					<div
-						class="flex items-center gap-1 rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
-						style="
-							border-top: 1px solid rgba(255, 255, 255, 0.2);
-							border-bottom: 1px solid rgba(0, 0, 0, 0.3);
-							border-left: 1px solid rgba(255, 255, 255, 0);
-							border-right: 1px solid rgba(255, 255, 255, 0);
-							text-shadow: 0px 2px #00000021;
-						"
-					>
-						<IconRotateClockwise class="h-5 w-5 animate-spin" />
-						Generating commit message
-					</div>
-				{:else}
-					<button
-						type="button"
-						disabled={!isGenerateCommitEnabled}
-						class="rounded bg-gradient-to-b from-[#623871] to-[#502E5C] py-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
-						style="
-							border-top: 1px solid rgba(255, 255, 255, 0.2);
-							border-bottom: 1px solid rgba(0, 0, 0, 0.3);
-							border-left: 1px solid rgba(255, 255, 255, 0);
-							border-right: 1px solid rgba(255, 255, 255, 0);
-							text-shadow: 0px 2px #00000021;
-						"
-						on:click|preventDefault={onGenerateCommitMessage}
-					>
-						✨ Autowrite
-					</button>
-				{/if}
+				<Button
+					role="purple"
+					disabled={!isGenerateCommitEnabled}
+					on:click={onGenerateCommitMessage}
+					loading={isGeneratingCommitMessage}
+				>
+					✨ Autowrite
+				</Button>
 
 				<Button
 					loading={isCommitting}
@@ -368,7 +344,7 @@
 	</div>
 </div>
 
-<style>
+<style lang="postcss">
 	.changed-file-list-container {
 		max-height: calc(100vh - 200px);
 	}
