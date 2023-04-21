@@ -206,7 +206,10 @@ impl<'listener> Handler<'listener> {
             (None, None) => deltas::TextDocument::new(None, vec![])?,
         };
 
-        if !text_doc.update(&current_file_content)? {
+        if !text_doc
+            .update(&current_file_content)
+            .context("failed to calculate new deltas")?
+        {
             log::debug!(
                 "{}: {} no new deltas, ignoring",
                 self.project_id,

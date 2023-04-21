@@ -66,12 +66,12 @@ impl<'handler> Handler<'handler> {
         match event {
             events::Event::FileChange(path) => self
                 .file_change_handler
-                .handle(path)
-                .context("failed to handle file change event"),
+                .handle(path.clone())
+                .with_context(|| format!("failed to handle file change event: {:?}", path)),
             events::Event::ProjectFileChange(path) => self
                 .project_file_handler
-                .handle(path)
-                .context("failed to handle project file change event"),
+                .handle(path.clone())
+                .with_context(|| format!("failed to handle project file change event: {:?}", path)),
             events::Event::Session((project, session)) => {
                 self.events
                     .send(app_events::Event::session(&project, &session))
