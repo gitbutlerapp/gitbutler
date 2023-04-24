@@ -30,32 +30,12 @@
 
 	onMount(() =>
 		tinykeys(window, {
-			'Shift+c': (event: KeyboardEvent) => {
-				const target = event.target as HTMLElement;
-				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-				if (Object.keys($statuses).length === 0) return;
-				$project && goto(`/projects/${$project.id}/commit/`);
-			},
-			'Shift+t': (event: KeyboardEvent) => {
-				const target = event.target as HTMLElement;
-				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-				$project && goto(`/projects/${$project.id}/terminal/`);
-			},
-			'Shift+p': (event: KeyboardEvent) => {
-				const target = event.target as HTMLElement;
-				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-				$project && goto(`/projects/${$project.id}/`);
-			},
-			'Meta+Shift+p': (event: KeyboardEvent) => {
-				const target = event.target as HTMLElement;
-				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-				$project && goto(`/projects/${$project.id}/settings/`);
-			},
-			'Shift+r': (event: KeyboardEvent) => {
-				const target = event.target as HTMLElement;
-				if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-				$project && goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`);
-			},
+			'Meta+Shift+C': () => $project && goto(`/projects/${$project.id}/commit/`),
+			'Meta+T': () => $project && goto(`/projects/${$project.id}/terminal/`),
+			'Meta+P': () => $project && goto(`/projects/${$project.id}/`),
+			'Meta+Shift+p': () => $project && goto(`/projects/${$project.id}/settings/`),
+			'Meta+R': () =>
+				$project && goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`),
 			'a i p': () => $project && goto(`/projects/${$project.id}/aiplayground/`)
 		})
 	);
