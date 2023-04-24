@@ -40,6 +40,14 @@
 		});
 	});
 
+	const scrollToSelection = () => {
+		const selected = document.querySelector('.selected');
+		console.log(selected);
+		if (selected) {
+			selected.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		}
+	};
+
 	const selectNextCommand = () => {
 		if (!modal?.isOpen()) return;
 		Promise.resolve($commandGroups[selection[0]]).then((group) => {
@@ -48,6 +56,7 @@
 			} else if (selection[0] < $commandGroups.length - 1) {
 				selection = [selection[0] + 1, 0];
 			}
+			scrollToSelection();
 		});
 	};
 
@@ -60,6 +69,7 @@
 				selection = [selection[0] - 1, previousGroup.commands.length - 1];
 			});
 		}
+		scrollToSelection();
 	};
 
 	const trigger = (action: Action) => {
@@ -84,6 +94,7 @@
 		input.set('');
 		scopeToProject.set(!!$project);
 		selectedGroup.set(undefined);
+		selection = [0, 0];
 	};
 
 	export const show = () => {
