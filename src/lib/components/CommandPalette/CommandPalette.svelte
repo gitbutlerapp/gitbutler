@@ -61,7 +61,7 @@
 			action.href.startsWith('http') || action.href.startsWith('mailto')
 				? open(action.href)
 				: goto(action.href);
-			modal?.hide();
+			modal?.close();
 		} else if (Action.isGroup(action)) {
 			selectedGroup.set(action);
 		}
@@ -115,11 +115,9 @@
 						if (command.hotkey) {
 							unregisterCommandHotkeys.push(
 								tinykeys(window, {
-									[command.hotkey]: (event: KeyboardEvent) => {
-										const target = event.target as HTMLElement;
-										if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-										// only trigger if the modal is visible
-										modal?.isOpen() && trigger(command.action);
+									[command.hotkey]: () => {
+										if (!modal?.isOpen()) return;
+										trigger(command.action);
 									}
 								})
 							);

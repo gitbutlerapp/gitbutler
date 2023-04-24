@@ -12,7 +12,7 @@
 	};
 	export const isOpen = () => open;
 
-	const close = () => {
+	export const close = () => {
 		open = false;
 		dialog.close();
 	};
