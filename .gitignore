@@ -28,6 +28,7 @@ dist-ssr
 /package
 !.env.example
 vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
 
 # gitbutler
 .git/gb-*
