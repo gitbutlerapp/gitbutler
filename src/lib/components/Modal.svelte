@@ -35,10 +35,7 @@
 	on:close={close}
 >
 	{#if open}
-		<div
-			bind:this={content}
-			class="flex overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 shadow-lg backdrop-blur-lg"
-		>
+		<div bind:this={content} class="flex">
 			<slot {close} isOpen={open} />
 		</div>
 	{/if}
