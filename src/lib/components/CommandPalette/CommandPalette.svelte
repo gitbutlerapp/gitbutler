@@ -167,7 +167,10 @@
 		<ul class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
 			{#each $commandGroups as group, groupIdx}
 				{#await group then group}
-					<li class="w-full cursor-default select-none px-2">
+					<li
+						class="w-full cursor-default select-none px-2"
+						class:hidden={group.commands.length === 0}
+					>
 						<header class="command-palette-section-header result-section-header">
 							<span>{group.title}</span>
 							{#if group.description}
