@@ -173,85 +173,87 @@
 </script>
 
 <Modal bind:this={modal}>
-	<div
-		class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded text-zinc-400"
-	>
-		<!-- Search input area -->
-		<header class="search-input-container flex items-center border-b border-zinc-400/20 py-2">
-			<div class="ml-4 mr-2 flex w-full items-center gap-1 text-lg text-zinc-300">
-				<!-- Project scope -->
-				{#if $scopeToProject && $project}
-					<span class="py-2 font-semibold">
-						{$project.title}
-					</span>
-					<span>/</span>
-				{/if}
-				{#if $selectedGroup}
-					<span class="font-semibold">
-						{$selectedGroup.title}
-					</span>
-				{:else}
-					<!-- svelte-ignore a11y-autofocus -->
-					<input
-						spellcheck="false"
-						class="command-palette-input-field"
-						bind:value={$input}
-						type="text"
-						autofocus
-						placeholder={!$project
-							? 'Search your projects'
-							: 'Search for commands, files and code changes'}
-					/>
-				{/if}
-			</div>
-		</header>
+	<div class="h-[400px]">
+		<div
+			class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 text-zinc-400 shadow-lg backdrop-blur-lg"
+		>
+			<!-- Search input area -->
+			<header class="search-input-container flex items-center border-b border-zinc-400/20 py-2">
+				<div class="ml-4 mr-2 flex w-full items-center gap-1 text-lg text-zinc-300">
+					<!-- Project scope -->
+					{#if $scopeToProject && $project}
+						<span class="py-2 font-semibold">
+							{$project.title}
+						</span>
+						<span>/</span>
+					{/if}
+					{#if $selectedGroup}
+						<span class="font-semibold">
+							{$selectedGroup.title}
+						</span>
+					{:else}
+						<!-- svelte-ignore a11y-autofocus -->
+						<input
+							spellcheck="false"
+							class="command-palette-input-field"
+							bind:value={$input}
+							type="text"
+							autofocus
+							placeholder={!$project
+								? 'Search your projects'
+								: 'Search for commands, files and code changes'}
+						/>
+					{/if}
+				</div>
+			</header>
 
-		<!-- Command list -->
-		<ul class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
-			{#each $commandGroups as group, groupIdx}
-				{#await group then group}
-					<li class="w-full cursor-default select-none px-2">
-						<header class="command-palette-section-header result-section-header">
-							<span>{group.title}</span>
-							{#if group.description}
-								<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
-							{/if}
-						</header>
+			<!-- Command list -->
+			<ul class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
+				{#each $commandGroups as group, groupIdx}
+					{#await group then group}
+						<li class="w-full cursor-default select-none px-2">
+							<header class="command-palette-section-header result-section-header">
+								<span>{group.title}</span>
+								{#if group.description}
+									<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
+								{/if}
+							</header>
 
-						<ul class="quick-command-list flex flex-col text-zinc-300">
-							{#each group.commands as command, commandIdx}
-								<li
-									class="quick-command-item flex w-full cursor-default rounded-lg"
-									class:selected={$selection[0] === groupIdx && $selection[1] === commandIdx}
-								>
-									<button
-										on:mouseover={() => ($selection = [groupIdx, commandIdx])}
-										on:focus={() => ($selection = [groupIdx, commandIdx])}
-										on:click={() => trigger(command.action)}
-										class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
+							<ul class="quick-command-list flex flex-col text-zinc-300">
+								{#each group.commands as command, commandIdx}
+									<li
+										class="quick-command-item flex w-full cursor-default rounded-lg"
+										class:selected={$selection[0] === groupIdx && $selection[1] === commandIdx}
 									>
-										<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
-										<span
-											class="quick-command flex flex-1 items-center gap-1 text-left font-medium"
+										<button
+											on:mouseover={() => ($selection = [groupIdx, commandIdx])}
+											on:focus={() => ($selection = [groupIdx, commandIdx])}
+											on:click={() => trigger(command.action)}
+											class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
 										>
-											{command.title}
-											{#if Action.isExternalLink(command.action)}
-												<IconExternalLink class="h-4 w-4 text-zinc-600" />
+											<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
+											<span
+												class="quick-command flex flex-1 items-center gap-1 text-left font-medium"
+											>
+												{command.title}
+												{#if Action.isExternalLink(command.action)}
+													<IconExternalLink class="h-4 w-4 text-zinc-600" />
+												{/if}
+											</span>
+											{#if command.hotkey}
+												{#each command.hotkey.replace('Meta', '⌘').split('+') as key}
+													<span class="quick-command-key">{key}</span>
+												{/each}
 											{/if}
-										</span>
-										{#if command.hotkey}
-											{#each command.hotkey.replace('Meta', '⌘').split('+') as key}
-												<span class="quick-command-key">{key}</span>
-											{/each}
-										{/if}
-									</button>
-								</li>
-							{/each}
-						</ul>
-					</li>
-				{/await}
-			{/each}
-		</ul>
+										</button>
+									</li>
+								{/each}
+							</ul>
+						</li>
+					{/await}
+				{/each}
+			</ul>
+		</div>
 	</div>
 </Modal>
 
