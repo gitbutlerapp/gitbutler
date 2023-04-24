@@ -188,15 +188,15 @@
 	</svelte:fragment>
 </Dialog>
 <div id="commit-page" class="flex h-full w-full">
-	<div class="commit-panel-container flex flex-col border-r border-zinc-700 px-4 h-full">
-		
-
+	<div class="commit-panel-container flex h-full flex-col border-r border-zinc-700 px-4">
 		<form
 			on:submit|preventDefault={onCommit}
 			class="flex h-full w-1/3 min-w-[500px] flex-col gap-4"
 		>
-		<h1 class="pt-2 text-xl font-bold">Commit</h1>
-			<ul class="flex h-full w-full flex-col rounded border border-gb-700 bg-card-default overflow-auto">
+			<h1 class="pt-2 text-xl font-bold">Commit</h1>
+			<ul
+				class="flex h-full w-full flex-col overflow-auto rounded border border-gb-700 bg-card-default"
+			>
 				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
 					<input
 						type="checkbox"
@@ -214,7 +214,7 @@
 					</h1>
 				</header>
 
-				<div class="changed-file-list-container overflow-y-auto h-100">
+				<div class="changed-file-list-container h-100 overflow-y-auto">
 					{#each Object.entries($statuses) as [path, status]}
 						<li class="bg-card-default last:mb-1">
 							<div
@@ -293,7 +293,7 @@
 						name="description"
 						disabled={isGeneratingCommitMessage || isCommitting}
 						class="
-							h-full w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 resize-none 
+							h-full w-full resize-none rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
 							hover:border-zinc-500/80
 							focus:border-[1px] focus:focus:border-blue-600 
 							focus:ring-2 focus:ring-blue-600/30
