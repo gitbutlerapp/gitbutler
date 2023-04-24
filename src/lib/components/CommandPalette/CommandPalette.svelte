@@ -190,7 +190,7 @@
 										<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
 										<span class="quick-command flex-1 text-left font-medium">{command.title}</span>
 										{#if command.hotkey}
-											{#each command.hotkey.split('+') as key}
+											{#each command.hotkey.replace('Meta', '⌘').split('+') as key}
 												<span class="quick-command-key">{key}</span>
 											{/each}
 										{/if}
