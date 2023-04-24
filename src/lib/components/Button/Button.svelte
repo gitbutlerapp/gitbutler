@@ -66,7 +66,7 @@
 		{disabled}
 		{type}
 		class:disabled
-		on:click
+		on:click|preventDefault
 	>
 		{#if loading}
 			{#if icon}
@@ -92,6 +92,11 @@
 	button {
 		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition transition duration-150 ease-in-out ease-out hover:underline hover:ease-in;
 		text-underline-offset: 3px;
+	}
+
+	a:focus,
+	button:focus {
+		@apply outline-none;
 	}
 
 	.basic {

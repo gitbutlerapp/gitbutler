@@ -1,12 +1,8 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-
 	import { scale } from 'svelte/transition';
 
 	let dialog: HTMLDialogElement;
 	let content: HTMLDivElement | null = null;
-
-	const dispatch = createEventDispatcher<{ close: void }>();
 
 	let open = false;
 
@@ -14,17 +10,18 @@
 		open = true;
 		dialog.showModal();
 	};
-	export const hide = () => {
-		open = false;
-		dialog.close();
-		dispatch('close');
-	};
 	export const isOpen = () => open;
 
+	const close = () => {
+		open = false;
+		dialog.close();
+	};
+
 	const handleClick = (event: MouseEvent) => {
-		if (content && !content.contains(event.target as Node | null) && !event.defaultPrevented) {
-			hide();
-		}
+		if (event.defaultPrevented) return;
+		const isClickInside = !content || content.contains(event.target as Node | null);
+		if (isClickInside) return;
+		close();
 	};
 </script>
 
@@ -44,21 +41,13 @@ It does minimal styling. A close event is fired when the modal is closed.
 <!-- test -->
 <svelte:window on:click={handleClick} />
 
-<dialog
-	class="my-0 overflow-hidden bg-transparent p-0"
-	in:scale={{ duration: 150 }}
-	bind:this={dialog}
-	on:close={hide}
->
+<dialog class="bg-transparent" in:scale={{ duration: 150 }} bind:this={dialog} on:close={close}>
 	{#if open}
-		<div class="modal-overlay relative  top-[25%] h-[100vh] overflow-hidden">
-			<div
-				class="modal w-[640px] overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 shadow-lg backdrop-blur-lg"
-			>
-				<div class="flex" bind:this={content}>
-					<slot />
-				</div>
-			</div>
+		<div
+			bind:this={content}
+			class="flex overflow-hidden rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 shadow-lg backdrop-blur-lg"
+		>
+			<slot {close} isOpen={open} />
 		</div>
 	{/if}
 </dialog>
