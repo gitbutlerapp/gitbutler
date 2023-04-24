@@ -66,7 +66,7 @@
 		{disabled}
 		{type}
 		class:disabled
-		on:click|preventDefault
+		on:click
 	>
 		{#if loading}
 			{#if icon}
