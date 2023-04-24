@@ -9,6 +9,7 @@
 	import { open } from '@tauri-apps/api/shell';
 
 	export let projects: Readable<Project[]>;
+	export let addProject: (params: { path: string }) => Promise<Project>;
 	export let project = readable<Project | undefined>(undefined);
 
 	const input = writable('');
@@ -21,7 +22,12 @@
 		([projects, project, input, scopeToProject, selectedGroup]) =>
 			selectedGroup !== undefined
 				? [selectedGroup]
-				: listAvailableCommands({ projects, project: scopeToProject ? project : undefined, input })
+				: listAvailableCommands({
+						addProject,
+						projects,
+						project: scopeToProject ? project : undefined,
+						input
+				  })
 	);
 
 	let selection = [0, 0] as [number, number];
@@ -64,6 +70,9 @@
 			modal?.close();
 		} else if (Action.isGroup(action)) {
 			selectedGroup.set(action);
+		} else if (Action.isRun(action)) {
+			action();
+			modal?.close();
 		}
 		scopeToProject.set(!!$project);
 	};
@@ -156,8 +165,8 @@
 						type="text"
 						autofocus
 						placeholder={!$project
-							? 'Search for repositories'
-							: 'Search for commands, files and code changes...'}
+							? 'Search your projects'
+							: 'Search for commands, files and code changes'}
 					/>
 				{/if}
 			</div>

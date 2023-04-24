@@ -1,4 +1,6 @@
 import type { Project } from '$lib/projects';
+import { open } from '@tauri-apps/api/dialog';
+import { toasts } from '$lib';
 import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon, FileIcon } from '../icons';
 import { matchFiles } from '$lib/git';
 import type { SvelteComponent } from 'svelte';
@@ -8,15 +10,18 @@ type ActionLink = {
 	href: string;
 };
 
+type ActionRun = () => void;
+
 interface Newable<ReturnType> {
 	new (...args: any[]): ReturnType;
 }
 
-export type Action = ActionLink | Group;
+export type Action = ActionLink | Group | ActionRun;
 
 export namespace Action {
 	export const isLink = (action: Action): action is ActionLink => 'href' in action;
 	export const isGroup = (action: Action): action is Group => 'commands' in action;
+	export const isRun = (action: Action): action is ActionRun => typeof action === 'function';
 }
 
 export type Command = {
@@ -32,18 +37,50 @@ export type Group = {
 	commands: Command[];
 };
 
-const goToProjectGroup = ({ projects, input }: { projects: Project[]; input: string }): Group => ({
-	title: 'Go to project',
-	commands: projects
-		.filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
-		.map((project, i) => ({
-			title: project.title,
-			hotkey: `Meta+${i + 1}`,
-			action: {
-				href: `/projects/${project.id}/`
-			},
-			icon: IconProject
-		}))
+const projectsGroup = ({
+	addProject,
+	projects,
+	input
+}: {
+	addProject: (params: { path: string }) => Promise<Project>;
+	projects: Project[];
+	input: string;
+}): Group => ({
+	title: 'Projects',
+	commands: [
+		{
+			title: 'New project...',
+			hotkey: 'Meta+Shift+N',
+			icon: IconProject,
+			action: async () => {
+				const selectedPath = await open({
+					directory: true,
+					recursive: true
+				});
+				if (selectedPath === null) return;
+				if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
+				const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+
+				try {
+					addProject({ path: projectPath });
+				} catch (e: any) {
+					toasts.error(e.message);
+				}
+			}
+		},
+		...projects
+			.filter(
+				({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase())
+			)
+			.map((project, i) => ({
+				title: project.title,
+				hotkey: `Meta+${i + 1}`,
+				action: {
+					href: `/projects/${project.id}/`
+				},
+				icon: IconProject
+			}))
+	]
 });
 
 const actionsGroup = ({ project, input }: { project: Project; input: string }): Group => ({
@@ -173,11 +210,16 @@ const supportGroup = ({ input }: { input: string }): Group => ({
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
-export default (params: { projects: Project[]; project?: Project; input: string }) => {
-	const { projects, input, project } = params;
+export default (params: {
+	addProject: (params: { path: string }) => Promise<Project>;
+	projects: Project[];
+	project?: Project;
+	input: string;
+}) => {
+	const { addProject, projects, input, project } = params;
 	const groups = [];
 
-	!project && groups.push(goToProjectGroup({ projects, input }));
+	!project && groups.push(projectsGroup({ addProject, projects, input }));
 	project && groups.push(actionsGroup({ project, input }));
 	project && groups.push(fileGroup({ project, input }));
 	groups.push(supportGroup({ input }));
