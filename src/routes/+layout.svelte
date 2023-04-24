@@ -12,7 +12,7 @@
 	import { onMount } from 'svelte';
 
 	export let data: LayoutData;
-	const { user, posthog, projects } = data;
+	const { user, posthog, projects, sentry } = data;
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects.find((project) => project.id === page.params.projectId)
@@ -27,6 +27,7 @@
 	);
 
 	user.subscribe(posthog.identify);
+	user.subscribe(sentry.identify);
 </script>
 
 <div class="flex h-full max-h-full min-h-full flex-col">

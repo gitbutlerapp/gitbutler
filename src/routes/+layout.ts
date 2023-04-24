@@ -4,6 +4,7 @@ import { building } from '$app/environment';
 import type { Project } from '$lib/projects';
 import Api from '$lib/api';
 import Posthog from '$lib/posthog';
+import Sentry from '$lib/sentry';
 import * as log from '$lib/log';
 import { wrapLoadWithSentry } from '@sentry/sveltekit';
 
@@ -39,6 +40,7 @@ export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
 		projects,
 		user,
 		api: Api({ fetch }),
-		posthog: Posthog()
+		posthog: Posthog(),
+		sentry: Sentry()
 	};
 });
