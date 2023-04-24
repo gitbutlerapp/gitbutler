@@ -25,3 +25,5 @@ export { default as IconLoading } from './IconLoading.svelte';
 export { default as IconProject } from './IconProject.svelte';
 export { default as IconTerminal } from './IconTerminal.svelte';
 export { default as IconClose } from './IconClose.svelte';
+export { default as IconSettings } from './IconSettings.svelte';
+export { default as IconAdjustmentsHorizontal } from './IconAdjustmentsHorizontal.svelte';

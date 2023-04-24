@@ -12,6 +12,7 @@
 	import CommandPalette from '$lib/components/CommandPalette/CommandPalette.svelte';
 	import { derived } from 'svelte/store';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 	const { user, posthog, projects, sentry } = data;
@@ -25,6 +26,7 @@
 	onMount(() =>
 		tinykeys(window, {
 			'Meta+k': () => commandPalette.show(),
+			'Meta+,': () => goto('/users/'),
 			'Meta+Shift+N': async () => {
 				const selectedPath = await open({
 					directory: true,
