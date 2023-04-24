@@ -27,3 +27,6 @@ export { default as IconTerminal } from './IconTerminal.svelte';
 export { default as IconClose } from './IconClose.svelte';
 export { default as IconSettings } from './IconSettings.svelte';
 export { default as IconAdjustmentsHorizontal } from './IconAdjustmentsHorizontal.svelte';
+export { default as IconDiscord } from './IconDiscord.svelte';
+export { default as IconExternalLink } from './IconExternalLink.svelte';
+export { default as IconFeedback } from './IconFeedback.svelte';

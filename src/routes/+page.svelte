@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { open } from '@tauri-apps/api/dialog';
 	import type { LayoutData } from './$types';
+	import { open } from '@tauri-apps/api/dialog';
 	import { toasts } from '$lib';
 	import { Button, Tooltip } from '$lib/components';
 
