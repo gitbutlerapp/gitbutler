@@ -7,6 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
+	import { IconExternalLink } from '../icons';
 
 	export let projects: Readable<Project[]>;
 	export let addProject: (params: { path: string }) => Promise<Project>;
@@ -200,7 +201,14 @@
 										class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
 									>
 										<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
-										<span class="quick-command flex-1 text-left font-medium">{command.title}</span>
+										<span
+											class="quick-command flex flex-1 items-center gap-1 text-left font-medium"
+										>
+											{command.title}
+											{#if Action.isExternalLink(command.action)}
+												<IconExternalLink class="h-4 w-4 text-zinc-600" />
+											{/if}
+										</span>
 										{#if command.hotkey}
 											{#each command.hotkey.replace('Meta', '⌘').split('+') as key}
 												<span class="quick-command-key">{key}</span>

@@ -4,12 +4,14 @@ import { toasts } from '$lib';
 import {
     GitCommitIcon,
     IconFile,
+    IconFeedback,
     IconProject,
     IconTerminal,
     RewindIcon,
     FileIcon,
     IconSettings,
-    IconAdjustmentsHorizontal
+    IconAdjustmentsHorizontal,
+    IconDiscord
 } from '../icons';
 import { matchFiles } from '$lib/git';
 import type { SvelteComponent } from 'svelte';
@@ -29,6 +31,8 @@ export type Action = ActionLink | Group | ActionRun;
 
 export namespace Action {
     export const isLink = (action: Action): action is ActionLink => 'href' in action;
+    export const isExternalLink = (action: Action): action is ActionLink =>
+        isLink(action) && (action.href.startsWith('http') || action.href.startsWith('mailto'));
     export const isGroup = (action: Action): action is Group => 'commands' in action;
     export const isRun = (action: Action): action is ActionRun => typeof action === 'function';
 }
@@ -240,7 +244,14 @@ const supportGroup = ({ input }: { input: string }): Group => ({
             action: {
                 href: `https://discord.gg/MmFkmaJ42D`
             },
-            icon: GitCommitIcon
+            icon: IconDiscord
+        },
+        {
+            title: 'Send feedback',
+            action: {
+                href: 'mailto:hello@gitbutler.com'
+            },
+            icon: IconFeedback
         }
     ].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
