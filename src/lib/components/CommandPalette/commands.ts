@@ -2,13 +2,12 @@ import type { Project } from '$lib/projects';
 import { open } from '@tauri-apps/api/dialog';
 import { toasts } from '$lib';
 import {
-	GitCommitIcon,
+	IconGitCommit,
 	IconFile,
 	IconFeedback,
 	IconProject,
 	IconTerminal,
-	RewindIcon,
-	FileIcon,
+	IconRewind,
 	IconSettings,
 	IconAdjustmentsHorizontal,
 	IconDiscord
@@ -131,7 +130,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 			action: {
 				href: `/projects/${project.id}/commit/`
 			},
-			icon: GitCommitIcon
+			icon: IconGitCommit
 		},
 		{
 			title: 'Terminal',
@@ -149,14 +148,14 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 				commands: [
 					{
 						title: 'Eralier today',
-						icon: RewindIcon,
+						icon: IconRewind,
 						action: {
 							href: `/projects/${project.id}/player/${format(new Date(), 'yyyy-MM-dd')}/`
 						}
 					},
 					{
 						title: 'Yesterday',
-						icon: RewindIcon,
+						icon: IconRewind,
 						action: {
 							href: `/projects/${project.id}/player/${format(
 								subDays(new Date(), 1),
@@ -166,7 +165,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 					},
 					{
 						title: 'The day before yesterday',
-						icon: RewindIcon,
+						icon: IconRewind,
 						action: {
 							href: `/projects/${project.id}/player/${format(
 								subDays(new Date(), 2),
@@ -176,7 +175,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 					},
 					{
 						title: 'The beginning of last week',
-						icon: RewindIcon,
+						icon: IconRewind,
 						action: {
 							href: `/projects/${project.id}/player/${format(
 								startOfISOWeek(subWeeks(new Date(), 1)),
@@ -186,7 +185,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 					},
 					{
 						title: 'The beginning of last month',
-						icon: RewindIcon,
+						icon: IconRewind,
 						action: {
 							href: `/projects/${project.id}/player/${format(
 								startOfMonth(subMonths(new Date(), 1)),
@@ -199,7 +198,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 					hotkey: `Meta+${i + 1}`
 				}))
 			},
-			icon: RewindIcon
+			icon: IconRewind
 		}
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
@@ -237,7 +236,7 @@ const supportGroup = ({ input }: { input: string }): Group => ({
 			action: {
 				href: `https://docs.gitbutler.com`
 			},
-			icon: FileIcon
+			icon: IconFile
 		},
 		{
 			title: 'Discord',

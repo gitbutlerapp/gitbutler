@@ -4,7 +4,7 @@
 	import { IconChevronLeft, IconChevronRight } from '$lib/components/icons';
 	import { listFiles } from '$lib/sessions';
 	import { asyncDerived } from '@square/svelte-store';
-	import { IconRotateClockwise } from '$lib/components/icons';
+	import { IconLoading } from '$lib/components/icons';
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { list as listDeltas } from '$lib/deltas';
 	import { CodeViewer } from '$lib/components';
@@ -70,7 +70,7 @@
 		</figcaption>
 
 		<div class="mx-auto">
-			<IconRotateClockwise class="h-20 w-20 animate-spin" />
+			<IconLoading class="h-20 w-20 animate-spin" />
 		</div>
 	{:else if $searchState?.isError}
 		<figcaption>
