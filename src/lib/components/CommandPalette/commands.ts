@@ -70,7 +70,7 @@ const actionsGroup = ({ project, input }: { project: Project; input: string }): 
 				title: 'Replay working history',
 				commands: [
 					{
-						title: 'Eralier today',
+						title: 'Earlier today',
 						icon: RewindIcon,
 						hotkey: '1',
 						action: {
