@@ -16,7 +16,7 @@ export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
 	const projects = building
 		? {
 				...readable<Project[]>([]),
-				add: () => {
+				add: (params: { path: string }): Promise<Project> => {
 					throw new Error('not implemented');
 				},
 				get: () => {
