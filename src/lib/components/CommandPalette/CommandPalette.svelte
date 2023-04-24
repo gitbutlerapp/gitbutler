@@ -31,45 +31,67 @@
 				  })
 	);
 
-	let selection = [0, 0] as [number, number];
+	const selection = writable<[number, number]>([0, 0]);
+
 	commandGroups.subscribe((groups) => {
-		const newGroupIndex = Math.min(selection[0], groups.length - 1);
+		const newGroupIndex = Math.min($selection[0], groups.length - 1);
 		Promise.resolve(groups[newGroupIndex]).then((group) => {
-			const newCommandIndex = Math.min(selection[1], group.commands.length - 1);
-			selection = [newGroupIndex, newCommandIndex];
+			const newCommandIndex = Math.min($selection[1], group.commands.length - 1);
+			$selection = [newGroupIndex, newCommandIndex];
 		});
 	});
 
-	const scrollToSelection = () => {
+	selection.subscribe(() => {
 		const selected = document.querySelector('.selected');
-		console.log(selected);
 		if (selected) {
-			selected.scrollIntoView({ block: 'center', behavior: 'smooth' });
+			selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		}
+	});
+
+	const selectNextCommand = async () => {
+		if (!modal?.isOpen()) return;
+		const group = await Promise.resolve($commandGroups[$selection[0]]);
+		const nextCommandIndex = group.commands.findIndex((_command, index) => index > $selection[1]);
+		if (nextCommandIndex > -1) {
+			$selection = [$selection[0], nextCommandIndex];
+		} else {
+			await selectNextGroup();
 		}
 	};
 
-	const selectNextCommand = () => {
+	const selectNextGroup = async () => {
 		if (!modal?.isOpen()) return;
-		Promise.resolve($commandGroups[selection[0]]).then((group) => {
-			if (selection[1] < group.commands.length - 1) {
-				selection = [selection[0], selection[1] + 1];
-			} else if (selection[0] < $commandGroups.length - 1) {
-				selection = [selection[0] + 1, 0];
-			}
-			scrollToSelection();
-		});
+		const groups = await Promise.all($commandGroups.map((group) => Promise.resolve(group)));
+		const nextGroupIndex = groups.findIndex(
+			(group, index) => index > $selection[0] && group.commands.length > 0
+		);
+		if (nextGroupIndex > -1) {
+			$selection = [nextGroupIndex, 0];
+		}
 	};
 
-	const selectPreviousCommand = () => {
+	const selectPreviousCommand = async () => {
 		if (!modal?.isOpen()) return;
-		if (selection[1] > 0) {
-			selection = [selection[0], selection[1] - 1];
-		} else if (selection[0] > 0) {
-			Promise.resolve($commandGroups[selection[0] - 1]).then((previousGroup) => {
-				selection = [selection[0] - 1, previousGroup.commands.length - 1];
-			});
+		const group = await Promise.resolve($commandGroups[$selection[0]]);
+		const previousCommandIndex = group.commands
+			.map((_command, index) => index < $selection[1])
+			.lastIndexOf(true);
+		if (previousCommandIndex > -1) {
+			$selection = [$selection[0], previousCommandIndex];
+		} else {
+			await selectPreviousGroup();
 		}
-		scrollToSelection();
+	};
+
+	const selectPreviousGroup = async () => {
+		if (!modal?.isOpen()) return;
+		const groups = await Promise.all($commandGroups.map((group) => Promise.resolve(group)));
+		const previousGroupIndex = groups
+			.map((group, index) => index < $selection[0] && group.commands.length > 0)
+			.lastIndexOf(true);
+		if (previousGroupIndex > -1) {
+			$selection = [previousGroupIndex, groups[previousGroupIndex].commands.length - 1];
+		}
 	};
 
 	const trigger = (action: Action) => {
@@ -94,7 +116,7 @@
 		input.set('');
 		scopeToProject.set(!!$project);
 		selectedGroup.set(undefined);
-		selection = [0, 0];
+		$selection = [0, 0];
 	};
 
 	export const show = () => {
@@ -118,8 +140,8 @@
 			'Control+p': selectPreviousCommand,
 			Enter: () => {
 				if (!modal?.isOpen()) return;
-				Promise.resolve($commandGroups[selection[0]]).then((group) =>
-					trigger(group.commands[selection[1]].action)
+				Promise.resolve($commandGroups[$selection[0]]).then((group) =>
+					trigger(group.commands[$selection[1]].action)
 				);
 			}
 		})
@@ -188,10 +210,7 @@
 		<ul class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
 			{#each $commandGroups as group, groupIdx}
 				{#await group then group}
-					<li
-						class="w-full cursor-default select-none px-2"
-						class:hidden={group.commands.length === 0}
-					>
+					<li class="w-full cursor-default select-none px-2">
 						<header class="command-palette-section-header result-section-header">
 							<span>{group.title}</span>
 							{#if group.description}
@@ -203,11 +222,11 @@
 							{#each group.commands as command, commandIdx}
 								<li
 									class="quick-command-item flex w-full cursor-default rounded-lg"
-									class:selected={selection[0] === groupIdx && selection[1] === commandIdx}
+									class:selected={$selection[0] === groupIdx && $selection[1] === commandIdx}
 								>
 									<button
-										on:mouseover={() => (selection = [groupIdx, commandIdx])}
-										on:focus={() => (selection = [groupIdx, commandIdx])}
+										on:mouseover={() => ($selection = [groupIdx, commandIdx])}
+										on:focus={() => ($selection = [groupIdx, commandIdx])}
 										on:click={() => trigger(command.action)}
 										class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
 									>
