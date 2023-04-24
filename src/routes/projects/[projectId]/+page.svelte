@@ -2,10 +2,9 @@
 	import { getTime, subDays } from 'date-fns';
 	import type { PageData } from './$types';
 	import { derived } from 'svelte/store';
-	import { IconGitBranch } from '$lib/components/icons';
+	import { IconGitBranch, IconLoading } from '$lib/components/icons';
 	import { asyncDerived } from '@square/svelte-store';
 	import type { Delta } from '$lib/deltas';
-	import IconRotateClockwise from '$lib/components/icons/IconRotateClockwise.svelte';
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';
 
@@ -124,7 +123,7 @@
 		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-5 pb-8">
 			{#await fileDeltas.load()}
 				<li>
-					<IconRotateClockwise class="animate-spin" />
+					<IconLoading class="animate-spin" />
 				</li>
 			{:then}
 				<FileSummaries projectId={$project?.id} fileDeltas={$fileDeltas} />
