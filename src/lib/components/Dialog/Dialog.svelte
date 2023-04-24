@@ -4,29 +4,46 @@
 	import { IconClose } from '$lib/components/icons';
 
 	export const show = () => modal.show();
-	const hide = () => modal.hide();
 
 	let modal: Modal;
 </script>
 
-<Modal on:close bind:this={modal}>
-	<div class="flex flex-col text-zinc-400">
-		<div class="flex p-4">
-			<div class="flex-grow text-[18px] text-zinc-300">
+<Modal bind:this={modal} let:close>
+	<div class="wrapper flex w-full flex-col text-zinc-300">
+		<header class="flex w-full justify-between gap-4 p-4">
+			<h2 class="text-[18px] ">
 				<slot name="title">Title</slot>
+			</h2>
+
+			<Button filled={false} on:click={close} icon={IconClose} />
+		</header>
+
+		{#if $$slots.default}
+			<div class="p-4 text-base ">
+				<slot />
 			</div>
-			<button on:click={() => modal.hide()}>
-				<IconClose class="h-6 w-6" />
-			</button>
-		</div>
-		<p class="p-4 text-base">
-			<slot />
-		</p>
-		<div class="m-4 ml-auto flex gap-4">
-			<slot name="controls" {hide} {show}>
-				<Button filled on:click={hide}>Cancel</Button>
-				<Button filled role="primary" on:click={hide}>Confirm</Button>
+		{/if}
+
+		<footer class="flex w-full justify-end gap-4 p-4">
+			<slot name="controls" {close}>
+				<Button filled={false} outlined={true} on:click={close}>Secondary action</Button>
+				<Button role="primary" on:click={close}>Primary action</Button>
 			</slot>
-		</div>
+		</footer>
 	</div>
 </Modal>
+
+<style>
+	.wrapper {
+		background: linear-gradient(0deg, rgba(43, 43, 48, 0.8), rgba(43, 43, 48, 0.8)),
+			linear-gradient(0deg, rgba(63, 63, 63, 0.5), rgba(63, 63, 63, 0.5));
+	}
+
+	header {
+		box-shadow: inset 0px -1px 0px rgba(0, 0, 0, 0.1);
+	}
+
+	footer {
+		box-shadow: inset 0px 1px 0px rgba(0, 0, 0, 0.1);
+	}
+</style>
