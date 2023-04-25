@@ -17,7 +17,7 @@ export const subscribe = (
 ) => appWindow.listen(`project://${params.projectId}/git/activity`, () => callback(params));
 
 export const Activities = async (params: { projectId: string }) => {
-	const store = writable(await list(params));
+	const store = writable<Activity[]>(await list(params));
 	subscribe(params, async () => {
 		const activity = get(store);
 		const startTimeMs = activity.at(-1)?.timestampMs;

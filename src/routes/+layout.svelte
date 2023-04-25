@@ -76,11 +76,5 @@
 		<slot />
 	</div>
 	<Toaster />
-	<CommandPalette
-		bind:this={commandPalette}
-		{projects}
-		{project}
-		{user}
-		addProject={projects.add}
-	/>
+	<CommandPalette bind:this={commandPalette} {projects} {project} addProject={projects.add} />
 </div>
