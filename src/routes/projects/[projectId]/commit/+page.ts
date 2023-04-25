@@ -7,7 +7,7 @@ export const load: PageLoad = wrapLoadWithSentry(async ({ parent, params }) => {
 	const { project } = await parent();
 	const diffs = building
 		? readable<Record<string, string>>({})
-		: await import('$lib/git/diffs').then((m) => m.default({ projectId: params.projectId }));
+		: await import('$lib/api').then((m) => m.git.diffs.Diffs({ projectId: params.projectId }));
 	return {
 		diffs,
 		project

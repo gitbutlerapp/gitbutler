@@ -1,4 +1,4 @@
-import type { Project } from '$lib/projects';
+import type { Project } from '$lib/api';
 import { Terminal } from 'xterm';
 import { CanvasAddon } from 'xterm-addon-canvas';
 import { WebglAddon } from 'xterm-addon-webgl';

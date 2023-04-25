@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api';
-import { derived, writable } from 'svelte/store';
-import type { Project as ApiProject } from '$lib/api';
+import type { Project as ApiProject } from '$lib/api/cloud';
+import { derived, readable, writable } from 'svelte/store';
 
 export type Project = {
 	id: string;
@@ -9,9 +9,9 @@ export type Project = {
 	api: ApiProject & { sync: boolean };
 };
 
-const list = () => invoke<Project[]>('list_projects');
+export const list = () => invoke<Project[]>('list_projects');
 
-const update = (params: {
+export const update = (params: {
 	project: {
 		id: string;
 		title?: string;
@@ -19,14 +19,12 @@ const update = (params: {
 	};
 }) => invoke<Project>('update_project', params);
 
-const add = (params: { path: string }) => invoke<Project>('add_project', params);
+export const add = (params: { path: string }) => invoke<Project>('add_project', params);
 
-const del = (params: { id: string }) => invoke('delete_project', params);
+export const del = (params: { id: string }) => invoke('delete_project', params);
 
-export default async () => {
-	const init = await list();
-	const store = writable<Project[]>(init);
-
+export const Projects = async () => {
+	const store = writable(await list());
 	return {
 		subscribe: store.subscribe,
 		get: (id: string) => {

@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api';
-import { appWindow } from '@tauri-apps/api/window';
-import { writable, type Readable } from 'svelte/store';
+import { writable } from 'svelte/store';
+import { sessions, git } from '$lib/api';
 
 type FileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'typeChange' | 'other';
 
@@ -16,22 +16,13 @@ export namespace Status {
 		'unstaged' in status && status.unstaged !== null;
 }
 
-const list = (params: { projectId: string }) =>
+export const list = (params: { projectId: string }) =>
 	invoke<Record<string, Status>>('git_status', params);
 
-export default async (params: { projectId: string }) => {
-	const statuses = await list(params);
-	const store = writable(statuses);
-
-	[
-		`project://${params.projectId}/git/index`,
-		`project://${params.projectId}/git/activity`,
-		`project://${params.projectId}/sessions`
-	].forEach((eventName) => {
-		appWindow.listen(eventName, async () => {
-			store.set(await list(params));
-		});
-	});
-
-	return store as Readable<Record<string, Status>>;
+export const Statuses = async (params: { projectId: string }) => {
+	const store = writable(await list(params));
+	sessions.subscribe(params, () => list(params).then(store.set));
+	git.activities.subscribe(params, () => list(params).then(store.set));
+	git.indexes.subscribe(params, () => list(params).then(store.set));
+	return { subscribe: store.subscribe };
 };

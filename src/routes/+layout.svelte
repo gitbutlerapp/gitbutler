@@ -2,14 +2,11 @@
 	import '../app.postcss';
 
 	import { open } from '@tauri-apps/api/dialog';
-	import { toasts } from '$lib';
+	import { toasts, Toaster } from '$lib';
 	import tinykeys from 'tinykeys';
-	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
-	import { BackForwardButtons, Button } from '$lib/components';
-	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import { BackForwardButtons, Button, CommandPalette, Breadcrumbs } from '$lib/components';
 	import { page } from '$app/stores';
-	import CommandPalette from '$lib/components/CommandPalette/CommandPalette.svelte';
 	import { derived } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -79,5 +76,11 @@
 		<slot />
 	</div>
 	<Toaster />
-	<CommandPalette bind:this={commandPalette} {projects} {project} addProject={projects.add} />
+	<CommandPalette
+		bind:this={commandPalette}
+		{projects}
+		{project}
+		{user}
+		addProject={projects.add}
+	/>
 </div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Delta } from '$lib/deltas';
+	import type { Delta } from '$lib/api';
 	import { bucketByTimestamp } from './histogram';
 
 	export let deltas: Delta[];

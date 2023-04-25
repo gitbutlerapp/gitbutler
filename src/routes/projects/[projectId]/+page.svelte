@@ -4,7 +4,7 @@
 	import { derived } from 'svelte/store';
 	import { IconGitBranch, IconLoading } from '$lib/components/icons';
 	import { asyncDerived } from '@square/svelte-store';
-	import type { Delta } from '$lib/deltas';
+	import type { Delta } from '$lib/api';
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';
 

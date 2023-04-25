@@ -284,7 +284,7 @@
 	>
 </div>
 
-<style>
+<style lang="postcss">
 	.automated-message {
 		@apply max-w-[500px] rounded-[18px] rounded-tl-md bg-zinc-200 text-[14px] font-medium text-zinc-800;
 	}

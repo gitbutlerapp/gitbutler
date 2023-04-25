@@ -18,7 +18,7 @@ export default defineConfig({
 					ignoreEmpty: true
 				},
 				telemetry: false,
-				uploadSourceMaps: true
+				uploadSourceMaps: process.env.SENTRY_RELEASE !== undefined
 			}
 		}),
 		sveltekit()
