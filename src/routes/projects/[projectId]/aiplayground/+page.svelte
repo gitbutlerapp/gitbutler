@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from '$lib/components/Button/Button.svelte';
+	import { onMount } from 'svelte';
 
 	const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
 		let timeout: ReturnType<typeof setTimeout>;
@@ -9,8 +10,8 @@
 		};
 	};
 
-	// const chainUrl = 'http://127.0.0.1:8000';
-	const chainUrl = 'https://zpuszumgur.us-east-1.awsapprunner.com';
+	const chainUrl = 'http://127.0.0.1:8000';
+	// const chainUrl = 'https://zpuszumgur.us-east-1.awsapprunner.com';
 
 	async function createSummary(text: string) {
 		const response = await fetch(`${chainUrl}/summaries`, {
@@ -98,9 +99,21 @@
 		}, 1000)();
 	}
 
+	const setupChat = () => {
+		createChat().then((data) => {
+			chatId = data.id;
+		});
+		chatHistory = [];
+		chatInput = '';
+	};
+
 	let chatId = '';
 	let chatHistory: string[][] = [];
 	let chatInput = '';
+	let completedSeq = 0;
+	let requestedSeq = 0;
+
+	onMount(setupChat);
 
 	let ms = 2000;
 	let clear: any;
@@ -109,10 +122,13 @@
 		clear = setInterval(() => {
 			getChatHistory(chatId).then((data) => {
 				chatHistory = data.history;
+				completedSeq = data.sequence;
 				console.log(chatHistory);
 			});
 		}, ms);
 	}
+
+	$: waitingForResponse = requestedSeq != completedSeq;
 </script>
 
 <div class="GitBTLR-container  h-full p-4">
@@ -121,18 +137,7 @@
 			<div class="flex gap-2 text-[18px]">Chat GitButler</div>
 
 			<div class="flex items-center gap-2">
-				<span class="text-sm">chatId: <span class="font-mono text-sm">{chatId}</span></span>
-				<Button
-					role="basic"
-					height="small"
-					on:click={() => {
-						createChat().then((data) => {
-							chatId = data.id;
-						});
-						chatHistory = [];
-						chatInput = '';
-					}}>New chat</Button
-				>
+				<Button role="basic" height="small" on:click={setupChat}>Reset chat</Button>
 			</div>
 		</div>
 
@@ -163,55 +168,58 @@
 					</div>
 					<div class="message-block flex flex-col gap-2">
 						<div class="automated-message">
-							<div class="automated-text">Hello and welcome.</div>
-						</div>
-						<div class="automated-message">
-							<div class="automated-text">How may I serve you?</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Generating response...  -->
-				<div class="flex items-start gap-2 align-top">
-					<div class="chat-user-avatar bg-zinc-900">
-						<div class="loading-orbit" />
-						<svg
-							width="20"
-							height="20"
-							viewBox="0 0 20 20"
-							class="h-4 w-4"
-							style="z-index: 300;"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path
-								d="M14.5614 12.4668C14.3108 12.3265 14.0786 12.1555 13.8712 11.9587C13.4477 11.5571 13.1091 11.0403 12.8663 10.4225L12.1828 8.68652L11.4994 10.4225C11.2561 11.0403 10.918 11.5571 10.4945 11.9587C10.2861 12.1564 10.0539 12.3274 9.80476 12.4673L8.66333 13.108L9.80476 13.7482C10.0539 13.888 10.2861 14.059 10.494 14.2567C10.918 14.6583 11.2561 15.1757 11.4989 15.7929L12.1823 17.5289L12.8658 15.7929C13.1091 15.1751 13.4472 14.6583 13.8707 14.2567C14.0791 14.059 14.3113 13.8875 14.5609 13.7482L15.7029 13.1075L14.5614 12.4668Z"
-								fill="#F4F4F5"
-							/>
-							<path
-								d="M11.9573 4.05509C11.7746 3.95585 11.6049 3.83459 11.4532 3.69517C11.1469 3.41352 10.9033 3.05324 10.7293 2.62445L10.4759 2L10.2226 2.62445C10.0486 3.05322 9.80498 3.41349 9.49868 3.69517C9.34626 3.83529 9.1769 3.95655 8.99493 4.05544L8.57153 4.28572L8.99493 4.516C9.1769 4.6149 9.34626 4.73615 9.49868 4.87627C9.80497 5.15757 10.0486 5.51784 10.2226 5.94699L10.4759 6.57143L10.7293 5.94699C10.9033 5.51823 11.1469 5.15795 11.4532 4.87627C11.6056 4.73615 11.775 4.61489 11.9573 4.516L12.3811 4.28537L11.9573 4.05509Z"
-								fill="#F4F4F5"
-							/>
-							<path
-								d="M8.56381 8.66611C8.31754 8.52816 8.08878 8.35963 7.88429 8.16583C7.47143 7.77434 7.14309 7.27356 6.90848 6.67755L6.56702 5.80957L6.22556 6.67755C5.99096 7.27353 5.66262 7.7743 5.24974 8.16583C5.04429 8.3606 4.816 8.52915 4.57071 8.6666L4 8.98668L4.57071 9.30677C4.81601 9.44423 5.04429 9.61277 5.24974 9.80754C5.66261 10.1985 5.99094 10.6993 6.22556 11.2958L6.56702 12.1638L6.90848 11.2958C7.14308 10.6999 7.47142 10.1991 7.88429 9.80754C8.08975 9.61277 8.31804 9.44422 8.56381 9.30677L9.13502 8.9862L8.56381 8.66611Z"
-								fill="#F4F4F5"
-							/>
-						</svg>
-					</div>
-					<div class="message-block flex flex-col gap-2">
-						<div class="automated-message">
 							<div class="automated-text">
-								<span class="dot-container">
-									<div class="dot" />
-									<div class="dot" />
-									<div class="dot" />
-								</span>
+								Hello! I can questions specific to the code or history of your codebase. You can ask
+								me things like "How/Where is use authentication implemented?" and "What's the story
+								behind the bookmarking feature?"
 							</div>
 						</div>
 					</div>
 				</div>
 
-				<!-- END Generating response! -->
+				{#if waitingForResponse}
+					<!-- Generating response...  -->
+					<div class="flex items-start gap-2 align-top">
+						<div class="chat-user-avatar bg-zinc-900">
+							<div class="loading-orbit" />
+							<svg
+								width="20"
+								height="20"
+								viewBox="0 0 20 20"
+								class="h-4 w-4"
+								style="z-index: 300;"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									d="M14.5614 12.4668C14.3108 12.3265 14.0786 12.1555 13.8712 11.9587C13.4477 11.5571 13.1091 11.0403 12.8663 10.4225L12.1828 8.68652L11.4994 10.4225C11.2561 11.0403 10.918 11.5571 10.4945 11.9587C10.2861 12.1564 10.0539 12.3274 9.80476 12.4673L8.66333 13.108L9.80476 13.7482C10.0539 13.888 10.2861 14.059 10.494 14.2567C10.918 14.6583 11.2561 15.1757 11.4989 15.7929L12.1823 17.5289L12.8658 15.7929C13.1091 15.1751 13.4472 14.6583 13.8707 14.2567C14.0791 14.059 14.3113 13.8875 14.5609 13.7482L15.7029 13.1075L14.5614 12.4668Z"
+									fill="#F4F4F5"
+								/>
+								<path
+									d="M11.9573 4.05509C11.7746 3.95585 11.6049 3.83459 11.4532 3.69517C11.1469 3.41352 10.9033 3.05324 10.7293 2.62445L10.4759 2L10.2226 2.62445C10.0486 3.05322 9.80498 3.41349 9.49868 3.69517C9.34626 3.83529 9.1769 3.95655 8.99493 4.05544L8.57153 4.28572L8.99493 4.516C9.1769 4.6149 9.34626 4.73615 9.49868 4.87627C9.80497 5.15757 10.0486 5.51784 10.2226 5.94699L10.4759 6.57143L10.7293 5.94699C10.9033 5.51823 11.1469 5.15795 11.4532 4.87627C11.6056 4.73615 11.775 4.61489 11.9573 4.516L12.3811 4.28537L11.9573 4.05509Z"
+									fill="#F4F4F5"
+								/>
+								<path
+									d="M8.56381 8.66611C8.31754 8.52816 8.08878 8.35963 7.88429 8.16583C7.47143 7.77434 7.14309 7.27356 6.90848 6.67755L6.56702 5.80957L6.22556 6.67755C5.99096 7.27353 5.66262 7.7743 5.24974 8.16583C5.04429 8.3606 4.816 8.52915 4.57071 8.6666L4 8.98668L4.57071 9.30677C4.81601 9.44423 5.04429 9.61277 5.24974 9.80754C5.66261 10.1985 5.99094 10.6993 6.22556 11.2958L6.56702 12.1638L6.90848 11.2958C7.14308 10.6999 7.47142 10.1991 7.88429 9.80754C8.08975 9.61277 8.31804 9.44422 8.56381 9.30677L9.13502 8.9862L8.56381 8.66611Z"
+									fill="#F4F4F5"
+								/>
+							</svg>
+						</div>
+						<div class="message-block flex flex-col gap-2">
+							<div class="automated-message">
+								<div class="automated-text">
+									<span class="dot-container">
+										<div class="dot" />
+										<div class="dot" />
+										<div class="dot" />
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- END Generating response! -->
+				{/if}
 
 				{#each chatHistory as pair}
 					<div class="flex justify-end">
@@ -269,6 +277,7 @@
 					role="primary"
 					on:click={() => {
 						newChatMessage(chatId, chatInput).then((data) => {
+							requestedSeq = +data;
 							chatInput = '';
 						});
 					}}
@@ -278,53 +287,12 @@
 			</div>
 			<div class="flex">
 				<p class="text-sm text-zinc-500">
-					Chat GitButler may produce inaccurate information about people, places, or facts.
+					Chat GitButler may produce inaccurate statements about your code. Please use your
+					judgement before you commit changes.
 				</p>
 			</div>
 		</div>
 	</div>
-</div>
-
-<div class="flex flex-col gap-2">
-	<p>Put things to summarize here:</p>
-	<input bind:value={input} />
-	<Button
-		role="basic"
-		disabled={input.length == 0}
-		on:click={() => {
-			if (!summaryId) {
-				createSummary(input).then((data) => {
-					summaryId = data.id;
-					sequence = 1;
-				});
-			} else {
-				addToSummary(summaryId, input).then((data) => {
-					sequence = data;
-				});
-			}
-			input = '';
-		}}>Add to summary</Button
-	>
-</div>
-<div class="flex flex-col gap-2">
-	<p>Summary ID:</p>
-	<p>{summaryId}</p>
-	<p>Requested Sequence:</p>
-	<p>{sequence}</p>
-	<p>Processed Sequence:</p>
-	<p>{processedSeq}</p>
-	<p>Summary:</p>
-	<p>{summary}</p>
-	<Button
-		role="basic"
-		on:click={() => {
-			summaryId = '';
-			input = '';
-			sequence = 0;
-			processedSeq = 0;
-			summary = '';
-		}}>Reset</Button
-	>
 </div>
 
 <style>
