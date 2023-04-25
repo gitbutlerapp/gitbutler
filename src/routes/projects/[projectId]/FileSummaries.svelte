@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { format, startOfDay } from 'date-fns';
-	import type { Delta } from '$lib/deltas';
+	import type { Delta } from '$lib/api';
 	import { derived, type Readable } from 'svelte/store';
 	import { collapsable } from '$lib/paths';
 	import FileActivity from './FileActivity.svelte';

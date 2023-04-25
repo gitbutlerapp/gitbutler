@@ -1,20 +1,21 @@
 <script lang="ts" context="module">
-	import { listFiles, type Session } from '$lib/sessions';
-	import { list as listDeltas, type Delta } from '$lib/deltas';
+	import { deltas, files, type Session, type Delta } from '$lib/api';
 	const enrichSession = async (projectId: string, session: Session, paths?: string[]) => {
-		const files = await listFiles({ projectId, sessionId: session.id, paths });
-		const deltas = await listDeltas({ projectId, sessionId: session.id, paths }).then((deltas) =>
-			Object.entries(deltas)
-				.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
-				.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
-		);
-		const deltasFiles = new Set(deltas.map(([path]) => path));
+		const sessionFiles = await files.list({ projectId, sessionId: session.id, paths });
+		const sessionDeltas = await deltas
+			.list({ projectId, sessionId: session.id, paths })
+			.then((deltas) =>
+				Object.entries(deltas)
+					.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
+					.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
+			);
+		const deltasFiles = new Set(sessionDeltas.map(([path]) => path));
 		return {
 			...session,
 			files: Object.fromEntries(
-				Object.entries(files).filter(([filepath]) => deltasFiles.has(filepath))
+				Object.entries(sessionFiles).filter(([filepath]) => deltasFiles.has(filepath))
 			),
-			deltas
+			deltas: sessionDeltas
 		};
 	};
 </script>

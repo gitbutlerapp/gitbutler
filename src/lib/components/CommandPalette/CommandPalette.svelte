@@ -1,6 +1,6 @@
 <script lang="ts">
 	import tinykeys from 'tinykeys';
-	import type { Project } from '$lib/projects';
+	import type { Project } from '$lib/api';
 	import { derived, readable, writable, type Readable } from 'svelte/store';
 	import { Modal } from '$lib/components';
 	import listAvailableCommands, { Action, type Group } from './commands';
@@ -8,10 +8,12 @@
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconExternalLink } from '../icons';
+	import type { User } from '$lib/api';
 
 	export let projects: Readable<Project[]>;
 	export let addProject: (params: { path: string }) => Promise<Project>;
 	export let project = readable<Project | undefined>(undefined);
+	export let user = readable<User | undefined>(undefined);
 
 	const input = writable('');
 	const scopeToProject = writable(!!$project);

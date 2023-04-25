@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type Delta, Operation } from '$lib/deltas';
+	import { type Delta, Operation } from '$lib/api';
 	import { lineDiff } from './diff';
 	import { create } from './CodeHighlighter';
 	import { buildDiffRows, documentMap, RowType, type Row } from './renderer';

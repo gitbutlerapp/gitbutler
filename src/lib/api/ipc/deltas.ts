@@ -1,8 +1,7 @@
-import { log } from '$lib';
 import { invoke } from '@tauri-apps/api';
 import { appWindow } from '@tauri-apps/api/window';
-import { writable, type Readable } from 'svelte/store';
-import { clone } from './utils';
+import { clone } from '$lib/utils';
+import { writable } from 'svelte/store';
 
 export type OperationDelete = { delete: [number, number] };
 export type OperationInsert = { insert: [number, string] };
@@ -18,11 +17,6 @@ export namespace Operation {
 }
 
 export type Delta = { timestampMs: number; operations: Operation[] };
-
-export type DeltasEvent = {
-	deltas: Delta[];
-	filePath: string;
-};
 
 const cache: Record<string, Record<string, Promise<Record<string, Delta[]>>>> = {};
 
@@ -53,22 +47,27 @@ export const list = async (params: { projectId: string; sessionId: string; paths
 	);
 };
 
-export default async (params: { projectId: string; sessionId: string }) => {
-	const init = await list(params);
-
-	const store = writable<Record<string, Delta[]>>(init);
-	appWindow.listen<DeltasEvent>(
+export const subscribe = (
+	params: { projectId: string; sessionId: string },
+	callback: (params: {
+		projectId: string;
+		sessionId: string;
+		filePath: string;
+		deltas: Delta[];
+	}) => Promise<void> | void
+) =>
+	appWindow.listen<{ deltas: Delta[]; filePath: string }>(
 		`project://${params.projectId}/sessions/${params.sessionId}/deltas`,
-		(event) => {
-			log.info(
-				`Received deltas for ${params.projectId}, ${params.sessionId}, ${event.payload.filePath}`
-			);
-			store.update((deltas) => ({
-				...deltas,
-				[event.payload.filePath]: event.payload.deltas
-			}));
-		}
+		(event) => callback({ ...params, ...event.payload })
 	);
 
-	return store as Readable<Record<string, Delta[]>>;
+export const Deltas = async (params: { projectId: string; sessionId: string }) => {
+	const store = writable(await list(params));
+	subscribe(params, ({ filePath, deltas }) => {
+		store.update((deltasCache) => {
+			deltasCache[filePath] = deltas;
+			return deltasCache;
+		});
+	});
+	return { subscribe: store.subscribe };
 };

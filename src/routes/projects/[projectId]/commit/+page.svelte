@@ -3,8 +3,7 @@
 	import { Button } from '$lib/components';
 	import { collapsable } from '$lib/paths';
 	import { derived, writable } from 'svelte/store';
-	import * as git from '$lib/git';
-	import { Status } from '$lib/git/statuses';
+	import { git, Status } from '$lib/api';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';

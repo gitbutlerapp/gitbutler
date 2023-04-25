@@ -1,4 +1,5 @@
 import toast, { type ToastOptions, type ToastPosition } from 'svelte-french-toast';
+export { Toaster } from 'svelte-french-toast';
 
 const defaultOptions = {
 	position: 'bottom-center' as ToastPosition,

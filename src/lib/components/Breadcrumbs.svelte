@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Project } from '$lib/projects';
+	import type { Project } from '$lib/api';
 	import type { Readable } from 'svelte/store';
 	import { IconHome } from './icons';
 	import { Tooltip } from '$lib/components';

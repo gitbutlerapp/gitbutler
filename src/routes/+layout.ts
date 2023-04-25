@@ -1,11 +1,11 @@
 import { readable } from 'svelte/store';
 import type { LayoutLoad } from './$types';
 import { building } from '$app/environment';
-import type { Project } from '$lib/projects';
-import Api from '$lib/api';
+import type { Project } from '$lib/api';
+import { Api } from '$lib/api/cloud';
 import Posthog from '$lib/posthog';
 import Sentry from '$lib/sentry';
-import * as log from '$lib/log';
+import { setup as setupLogger } from '$lib/log';
 import { wrapLoadWithSentry } from '@sentry/sveltekit';
 
 export const ssr = false;
@@ -23,7 +23,7 @@ export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
 					throw new Error('not implemented');
 				}
 		  }
-		: await (await import('$lib/projects')).default();
+		: await (await import('$lib/api')).projects.Projects();
 	const user = building
 		? {
 				...readable<undefined>(undefined),
@@ -34,8 +34,8 @@ export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
 					throw new Error('not implemented');
 				}
 		  }
-		: await (await import('$lib/users')).default();
-	await log.setup();
+		: await (await import('$lib/api')).users.CurrentUser();
+	setupLogger();
 	return {
 		projects,
 		user,

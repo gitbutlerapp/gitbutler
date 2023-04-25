@@ -1,4 +1,4 @@
-import type { Project } from '$lib/projects';
+import { type Project, git } from '$lib/api';
 import { open } from '@tauri-apps/api/dialog';
 import { toasts } from '$lib';
 import {
@@ -12,7 +12,6 @@ import {
 	IconAdjustmentsHorizontal,
 	IconDiscord
 } from '../icons';
-import { matchFiles } from '$lib/git';
 import type { SvelteComponent } from 'svelte';
 import { format, startOfISOWeek, startOfMonth, subDays, subMonths, subWeeks } from 'date-fns';
 
@@ -216,7 +215,7 @@ const fileGroup = ({
 				description: 'type part of a file name',
 				commands: []
 		  }
-		: matchFiles({ projectId: project.id, matchPattern: input }).then((files) => ({
+		: git.matchFiles({ projectId: project.id, matchPattern: input }).then((files) => ({
 				title: 'Files',
 				description: files.length === 0 ? `no files containing '${input}'` : '',
 				commands: files.map((file) => ({

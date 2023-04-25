@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { list as listDeltas } from '$lib/deltas';
+	import { deltas } from '$lib/api';
 	import { asyncDerived } from '@square/svelte-store';
 	import { format } from 'date-fns';
 	import { derived } from 'svelte/store';
@@ -14,7 +14,7 @@
 	const dates = asyncDerived([sessions, fileFilter], async ([sessions, fileFilter]) => {
 		const sessionDeltas = await Promise.all(
 			sessions.map((session) =>
-				listDeltas({
+				deltas.list({
 					projectId,
 					sessionId: session.id,
 					paths: fileFilter ? [fileFilter] : undefined

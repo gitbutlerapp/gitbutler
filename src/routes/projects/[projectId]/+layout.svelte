@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import type { Project } from '$lib/projects';
+	import type { Project } from '$lib/api';
 	import { Button, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
