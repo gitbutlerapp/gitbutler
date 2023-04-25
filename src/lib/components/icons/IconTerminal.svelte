@@ -5,15 +5,28 @@
 
 <svg
 	class={className}
-	xmlns="http://www.w3.org/2000/svg"
+	width="16"
+	height="14"
+	viewBox="0 0 16 14"
 	fill="none"
-	viewBox="0 0 24 24"
-	stroke-width="1.5"
+	xmlns="http://www.w3.org/2000/svg"
 	stroke="currentColor"
 >
-	<path
-		stroke-linecap="round"
+	<mask id="path-1-inside-1_6_282" fill="white">
+		<rect width="16" height="14" rx="1" />
+	</mask>
+	<rect
+		width="16"
+		height="14"
+		rx="1"
+		stroke-width="3"
 		stroke-linejoin="round"
-		d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"
+		mask="url(#path-1-inside-1_6_282)"
 	/>
+	<path
+		d="M3.5 4L6.82284 6.84815C6.91596 6.92797 6.91596 7.07203 6.82284 7.15185L3.5 10"
+		stroke-width="1.5"
+		stroke-linecap="round"
+	/>
+	<rect x="8" y="9" width="5" height="1.5" rx="0.75" fill="currentColor" />
 </svg>

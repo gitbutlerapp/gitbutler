@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import type { Project } from '$lib/api';
-	import { Link, Tooltip } from '$lib/components';
+	import { Button, Link, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
@@ -84,22 +84,22 @@
 			<ul class="flex gap-2">
 				<li>
 					<Tooltip label="Terminal">
-						<a
-							class="block rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
-							href="/projects/{$project?.id}/terminal"
-						>
-							<IconTerminal class="h-6 w-6" />
-						</a>
+						<Button
+							on:click={() => goto(`/projects/${$project.id}/terminal`)}
+							filled={false}
+							height="small"
+							icon={IconTerminal}
+						/>
 					</Tooltip>
 				</li>
 				<li>
 					<Tooltip label="Project settings">
-						<a
-							class="block rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
-							href="/projects/{$project?.id}/settings"
-						>
-							<IconSettings class="h-6 w-6" />
-						</a>
+						<Button
+							on:click={() => goto(`/projects/${$project.id}/settings`)}
+							filled={false}
+							height="small"
+							icon={IconSettings}
+						/>
 					</Tooltip>
 				</li>
 			</ul>
