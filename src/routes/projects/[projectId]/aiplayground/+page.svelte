@@ -171,11 +171,10 @@
 					</div>
 				</div>
 
-
 				<!-- Generating response...  -->
 				<div class="flex items-start gap-2 align-top">
 					<div class="chat-user-avatar bg-zinc-900">
-						<div class="loading-orbit"></div>
+						<div class="loading-orbit" />
 						<svg
 							width="20"
 							height="20"
@@ -330,9 +329,8 @@
 
 <style>
 	.chat-user-avatar {
-		@apply w-[40px] h-[40px] p-2 rounded-full flex items-center justify-center relative;
+		@apply relative flex h-[40px] w-[40px] items-center justify-center rounded-full p-2;
 	}
-
 
 	.automated-message {
 		@apply max-w-[500px] rounded-[18px] rounded-tl-md bg-zinc-200 text-[14px] font-medium text-zinc-800;
@@ -343,7 +341,6 @@
 	.user-message {
 		@apply w-[fit-content] max-w-[80%] cursor-text select-text rounded-[18px] rounded-tr-md bg-blue-700 py-3 px-4 text-[14px] font-medium text-white;
 	}
-
 
 	/**
 	* ==============================================
@@ -389,7 +386,6 @@
 		}
 	}
 
-
 	.breathing-orb {
 		/* Styling */
 		position: absolute;
@@ -402,7 +398,7 @@
 		background: rgba(154, 115, 221, 1);
 		filter: blur(6px);
 		border-radius: 32px;
-    
+
 		/* 
 		* Make the initial position to be the center of the circle you want this
 		* object follow.
@@ -410,7 +406,6 @@
 		position: absolute;
 		left: 10px;
 		top: 10px;
-  
 	}
 
 	/*
@@ -430,10 +425,7 @@
 		}
 	}
 
-
-
 	.loading-orbit {
-
 		/* Styling */
 		position: absolute;
 		width: 14px;
@@ -444,7 +436,7 @@
 		background: rgba(154, 115, 221, 1);
 		filter: blur(6px);
 		border-radius: 32px;
-    
+
 		/* 
 		* Make the initial position to be the center of the circle you want this
 		* object follow.
@@ -461,9 +453,9 @@
 		*/
 		-webkit-animation: loadingOrbit 3s linear infinite; /* Chrome, Safari 5 */
 		-moz-animation: loadingOrbit 3s linear infinite; /* Firefox 5-15 */
-			-o-animation: loadingOrbit 3s linear infinite; /* Opera 12+ */
-				animation: loadingOrbit 3s linear infinite; /* Chrome, Firefox 16+, 
-														IE 10+, Safari 5 */   
+		-o-animation: loadingOrbit 3s linear infinite; /* Opera 12+ */
+		animation: loadingOrbit 3s linear infinite; /* Chrome, Firefox 16+, 
+														IE 10+, Safari 5 */
 	}
 
 	/*
@@ -474,57 +466,56 @@
 	@-webkit-keyframes loadingOrbit {
 		0% {
 			opacity: 1;
-			 -webkit-transform: rotate(0deg) translateX(15px) rotate(0deg); 
+			-webkit-transform: rotate(0deg) translateX(15px) rotate(0deg);
 		}
 		50% {
 			opacity: 0.5;
 		}
-		100%   {
+		100% {
 			opacity: 1;
-			-webkit-transform: rotate(360deg) translateX(15px) rotate(-360deg); 
+			-webkit-transform: rotate(360deg) translateX(15px) rotate(-360deg);
 		}
 	}
 
 	@-moz-keyframes loadingOrbit {
 		0% {
 			opacity: 1;
-			 -moz-transform: rotate(0deg) translateX(15px) rotate(0deg); 
+			-moz-transform: rotate(0deg) translateX(15px) rotate(0deg);
 		}
 		50% {
 			opacity: 0.5;
 		}
-		100%   {
+		100% {
 			opacity: 1;
-			-moz-transform: rotate(360deg) translateX(15px) rotate(-360deg); 
+			-moz-transform: rotate(360deg) translateX(15px) rotate(-360deg);
 		}
 	}
 
 	@-o-keyframes loadingOrbit {
 		0% {
 			opacity: 1;
-			 -o-transform: rotate(0deg) translateX(15px) rotate(0deg); 
+			-o-transform: rotate(0deg) translateX(15px) rotate(0deg);
 		}
 		50% {
 			opacity: 0.5;
 		}
-		100%   {
+		100% {
 			opacity: 1;
-			-o-transform: rotate(360deg) translateX(15px) rotate(-360deg); 
+			-o-transform: rotate(360deg) translateX(15px) rotate(-360deg);
 		}
 	}
 
 	@keyframes loadingOrbit {
 		0% {
 			opacity: 1;
-			 transform: rotate(0deg) translateX(15px) rotate(0deg); 
+			transform: rotate(0deg) translateX(15px) rotate(0deg);
 		}
 		50% {
 			opacity: 0.5;
 		}
-		100%   {
+		100% {
 			opacity: 1;
-			transform: rotate(360deg) translateX(15px) rotate(-360deg); 
+			transform: rotate(360deg) translateX(15px) rotate(-360deg);
 		}
 	}
-
 </style>
