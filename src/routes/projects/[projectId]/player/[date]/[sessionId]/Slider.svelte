@@ -1,7 +1,6 @@
 <script lang="ts">
-	import type { Delta } from '$lib/deltas';
+	import type { Delta } from '$lib/api';
 	import slider from '$lib/slider';
-	import { onMount } from 'svelte';
 
 	type RichSession = { id: string; deltas: [string, Delta][] };
 	export let sessions: RichSession[];

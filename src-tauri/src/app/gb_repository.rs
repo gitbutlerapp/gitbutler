@@ -493,7 +493,6 @@ fn build_wd_tree(
                             abs_path.display(),
                             e
                         );
-                        println!("failed to read file {}: {:#}", abs_path.display(), e);
                         continue;
                     }
                 };

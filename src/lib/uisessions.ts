@@ -1,5 +1,4 @@
-import type { Session } from '$lib/sessions';
-import type { Delta } from '$lib/deltas';
+import type { Session, Delta } from '$lib/api';
 
 export type UISession = {
 	session: Session;

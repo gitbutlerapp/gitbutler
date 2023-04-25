@@ -2,7 +2,6 @@ use std::{collections::HashMap, env};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
-use tauri::regex::Regex;
 use walkdir::WalkDir;
 
 use crate::{git::activity, projects};
@@ -211,25 +210,23 @@ impl<'repository> Repository<'repository> {
             .workdir()
             .with_context(|| "failed to get working directory")?;
 
-        let pattern = Regex::new(pattern).with_context(|| "regex parse error");
-        match pattern {
-            Ok(pattern) => {
-                let mut files = vec![];
-                for entry in WalkDir::new(workdir)
+        let pattern = pattern.to_lowercase();
+        let mut files = vec![];
+        for entry in WalkDir::new(workdir)
                     .into_iter()
-                    .filter_entry(|e| {
+                    .filter_entry(|entry| {
                         // need to remove workdir so we're not matching it
-                        let match_string = e
+                        let relative_path = entry
                             .path()
-                            .strip_prefix::<&std::path::Path>(workdir.as_ref())
+                            .strip_prefix(workdir)
                             .unwrap()
                             .to_str()
                             .unwrap();
                         // this is to make it faster, so we dont have to traverse every directory if it is ignored by git
-                        e.path().to_str() == workdir.to_str()  // but we need to traverse the first one
-                            || ((e.file_type().is_dir() // traverse all directories if they are not ignored by git
-                                || pattern.is_match(match_string)) // but only pass on files that match the regex
-                                && !self.git_repository.is_path_ignored(&e.path()).unwrap_or(true))
+                        entry.path().to_str() == workdir.to_str()  // but we need to traverse the first one
+                            || ((entry.file_type().is_dir() // traverse all directories if they are not ignored by git
+                                || relative_path.to_lowercase().contains(&pattern)) // but only pass on files that match the regex
+                                && !self.git_repository.is_path_ignored(&entry.path()).unwrap_or(true))
                     })
                     .filter_map(Result::ok)
                 {
@@ -248,13 +245,8 @@ impl<'repository> Repository<'repository> {
                         files.push(path);
                     }
                 }
-                files.sort();
-                return Ok(files);
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        }
+        files.sort();
+        return Ok(files);
     }
 
     pub fn git_branches(&self) -> Result<Vec<String>> {

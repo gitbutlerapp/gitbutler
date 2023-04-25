@@ -14,7 +14,7 @@
             "all": false,
             "shell": {
                 "all": false,
-                "open": true
+                "open": "^(https://)|(mailto:)?."
             },
             "dialog": {
                 "all": false,

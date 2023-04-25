@@ -1,18 +1,18 @@
 <script lang="ts">
 	import '../app.postcss';
 
+	import { open } from '@tauri-apps/api/dialog';
+	import { toasts, Toaster } from '$lib';
 	import tinykeys from 'tinykeys';
-	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
-	import { BackForwardButtons, Button } from '$lib/components';
-	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import { BackForwardButtons, Button, CommandPalette, Breadcrumbs } from '$lib/components';
 	import { page } from '$app/stores';
-	import CommandPalette from '$lib/components/CommandPalette/CommandPalette.svelte';
 	import { derived } from 'svelte/store';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
-	const { user, posthog, projects } = data;
+	const { user, posthog, projects, sentry } = data;
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects.find((project) => project.id === page.params.projectId)
@@ -22,11 +22,28 @@
 
 	onMount(() =>
 		tinykeys(window, {
-			'Meta+k': () => commandPalette.show()
+			'Meta+k': () => commandPalette.show(),
+			'Meta+,': () => goto('/users/'),
+			'Meta+Shift+N': async () => {
+				const selectedPath = await open({
+					directory: true,
+					recursive: true
+				});
+				if (selectedPath === null) return;
+				if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
+				const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+
+				try {
+					await projects.add({ path: projectPath });
+				} catch (e: any) {
+					toasts.error(e.message);
+				}
+			}
 		})
 	);
 
 	user.subscribe(posthog.identify);
+	user.subscribe(sentry.identify);
 </script>
 
 <div class="flex h-full max-h-full min-h-full flex-col">
@@ -59,5 +76,5 @@
 		<slot />
 	</div>
 	<Toaster />
-	<CommandPalette bind:this={commandPalette} {projects} {project} />
+	<CommandPalette bind:this={commandPalette} {projects} {project} addProject={projects.add} />
 </div>

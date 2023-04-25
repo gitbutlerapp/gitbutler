@@ -1,7 +1,12 @@
-import { invoke } from '@tauri-apps/api';
+export * as statuses from './statuses';
+export { Status } from './statuses';
+export * as activities from './activities';
+export type { Activity } from './activities';
+export * as heads from './heads';
+export * as diffs from './diffs';
+export * as indexes from './indexes';
 
-export { default as statuses } from './statuses';
-export { default as activity } from './activity';
+import { invoke } from '@tauri-apps/api';
 
 export const commit = (params: { projectId: string; message: string; push: boolean }) =>
 	invoke<boolean>('git_commit', params);

@@ -94,6 +94,11 @@
 		text-underline-offset: 3px;
 	}
 
+	a:focus,
+	button:focus {
+		@apply outline-none;
+	}
+
 	.basic {
 		@apply text-zinc-300;
 	}

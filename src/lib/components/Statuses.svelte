@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { collapsable } from '$lib/paths';
-	import { Status } from '$lib/git/statuses';
+	import { Status } from '$lib/api';
 
 	export let statuses: Record<string, Status>;
 </script>

@@ -91,7 +91,6 @@ pub fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operati
 
     let mut offset = 0;
     for change in changeset.iter_all_changes() {
-        println!("{:?}", change);
         match change.tag() {
             ChangeTag::Delete => {
                 deltas.push(Operation::Delete((

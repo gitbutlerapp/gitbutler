@@ -10,7 +10,7 @@ export type SearchResult = {
 	highlighted: string[];
 };
 
-export const search = (params: {
+export const list = (params: {
 	projectId: string;
 	query: string;
 	limit?: number;

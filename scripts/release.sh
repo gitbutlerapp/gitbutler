@@ -178,7 +178,7 @@ trap "rm -rf '$TMP_DIR'" exit
 jq '.package.version="'"$VERSION"'"' "$PWD/../src-tauri/tauri.conf.release.json" >"$TMP_DIR/tauri.conf.json"
 
 # build the app with release config
-tauri build --config "$TMP_DIR/tauri.conf.json"
+SENTRY_RELEASE="$VERSION" tauri build --config "$TMP_DIR/tauri.conf.json"
 
 BUNDLE_DIR="$PWD/../src-tauri/target/release/bundle"
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"

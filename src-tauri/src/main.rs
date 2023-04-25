@@ -58,20 +58,13 @@ impl From<projects::CreateError> for Error {
 
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
+        sentry_anyhow::capture_anyhow(&e);
         log::error!("{:#}", e);
         Error::Unknown
     }
 }
 
 const IS_DEV: bool = cfg!(debug_assertions);
-
-fn app_title() -> String {
-    if IS_DEV {
-        "GitButler (dev)".to_string()
-    } else {
-        "GitButler".to_string()
-    }
-}
 
 fn build_asset_url(path: &str) -> String {
     format!("asset://localhost/{}", urlencoding::encode(path))
@@ -410,15 +403,27 @@ async fn git_commit(
 }
 
 fn main() {
+    let tauri_context = generate_context!();
+
+    let _guard = sentry::init(("https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032", sentry::ClientOptions {
+        release: Some(tauri_context.package_info().version.to_string().into()),
+        attach_stacktrace: true,
+        default_integrations: true,
+        ..Default::default()
+    }));
+
+    let app_title = tauri_context.package_info().name.clone();
+
     let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
-    let hide = tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title()));
+    let hide = tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title));
     let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
     let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
-    let tauri_app_builder = tauri::Builder::default()
+    tauri::Builder::default()
         .system_tray(tray)
         .on_system_tray_event(|app_handle, event| match event {
             tauri::SystemTrayEvent::MenuItemClick { id, .. } => {
+                let app_title = app_handle.package_info().name.clone();
                 let item_handle = app_handle.tray_handle().get_item(&id);
                 match id.as_str() {
                     "quit" => {
@@ -429,20 +434,20 @@ fn main() {
                             if window.is_visible().unwrap() {
                                 window.hide().unwrap();
                                 item_handle
-                                    .set_title(format!("Show {}", app_title()))
+                                    .set_title(format!("Show {}", app_title))
                                     .unwrap();
                             } else {
                                 window.show().unwrap();
                                 window.set_focus().unwrap();
                                 item_handle
-                                    .set_title(format!("Hide {}", app_title()))
+                                    .set_title(format!("Hide {}", app_title))
                                     .unwrap();
                             }
                         }
                         None => {
                             create_window(&app_handle).expect("Failed to create window");
                             item_handle
-                                .set_title(format!("Hide {}", app_title()))
+                                .set_title(format!("Hide {}", app_title))
                                 .unwrap();
                         }
                     },
@@ -455,12 +460,13 @@ fn main() {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 let window = event.window();
+                let app_handle = window.app_handle();
+                let app_title = app_handle.package_info().name.clone();
 
-                window
-                    .app_handle()
+                app_handle
                     .tray_handle()
                     .get_item("toggle")
-                    .set_title(format!("Show {}", app_title()))
+                    .set_title(format!("Show {}", app_title))
                     .expect("Failed to set tray item title");
 
                 window.hide().expect("Failed to hide window");
@@ -544,37 +550,16 @@ fn main() {
             git_stage,
             git_unstage,
             git_wd_diff,
-        ]);
-
-    let tauri_context = generate_context!();
-    let app_version = tauri_context.package_info().version.to_string();
-
-    sentry_tauri::init(
-        app_version.clone(),
-        |_| {
-            sentry::init((
-                "https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032",
-                sentry::ClientOptions {
-                    release: Some(std::borrow::Cow::from(app_version)),
-                    ..Default::default()
-                },
-            ))
-        },
-        |sentry_plugin| {
-            let tauri_app = tauri_app_builder
-                .plugin(sentry_plugin)
-                .build(tauri_context)
-                .expect("Failed to build tauri app");
-
-            tauri_app.run(|app_handle, event| match event {
-                tauri::RunEvent::ExitRequested { api, .. } => {
-                    hide_window(&app_handle).expect("Failed to hide window");
-                    api.prevent_exit();
-                }
-                _ => {}
-            });
-        },
-    );
+        ])
+        .build(tauri_context)
+        .expect("Failed to build tauri app")
+        .run(|app_handle, event| match event {
+            tauri::RunEvent::ExitRequested { api, .. } => {
+                hide_window(&app_handle).expect("Failed to hide window");
+                api.prevent_exit();
+            }
+            _ => {}
+        });
 }
 
 fn init(app_handle: tauri::AppHandle) -> Result<()> {
@@ -616,9 +601,10 @@ fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
 #[cfg(not(target_os = "macos"))]
 fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
     log::info!("Creating window");
+    let app_title = handle.package_info().name.clone();
     tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
         .resizable(true)
-        .title(app_title())
+        .title(app_title)
         .theme(Some(tauri::Theme::Dark))
         .min_inner_size(600.0, 300.0)
         .inner_size(800.0, 600.0)
@@ -630,7 +616,7 @@ fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
     log::info!("Creating window");
     tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
         .resizable(true)
-        .title(app_title())
+        .title(handle.package_info().name.clone())
         .theme(Some(tauri::Theme::Dark))
         .min_inner_size(1024.0, 600.0)
         .inner_size(1024.0, 600.0)
@@ -643,7 +629,7 @@ fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
     handle
         .tray_handle()
         .get_item("toggle")
-        .set_title(format!("Show {}", app_title()))?;
+        .set_title(format!("Show {}", handle.package_info().name))?;
 
     match get_window(handle) {
         Some(window) => {

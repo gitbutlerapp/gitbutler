@@ -1,12 +1,10 @@
 <script lang="ts">
-	import type Users from '$lib/users';
-	import type Api from '$lib/api';
-	import type { LoginToken } from '$lib/api';
+	import type { LoginToken, CloudApi, users } from '$lib/api';
 	import { derived, writable } from 'svelte/store';
 	import { open } from '@tauri-apps/api/shell';
 
-	export let user: Awaited<ReturnType<typeof Users>>;
-	export let api: Awaited<ReturnType<typeof Api>>;
+	export let user: Awaited<ReturnType<typeof users.CurrentUser>>;
+	export let api: Awaited<ReturnType<typeof CloudApi>>;
 
 	const pollForUser = async (token: string) => {
 		const apiUser = await api.login.user.get(token).catch(() => null);

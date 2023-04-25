@@ -1,22 +1,38 @@
-import type { Project } from '$lib/projects';
-import { GitCommitIcon, IconFile, IconProject, IconTerminal, RewindIcon, FileIcon } from '../icons';
-import { matchFiles } from '$lib/git';
+import { type Project, git } from '$lib/api';
+import { open } from '@tauri-apps/api/dialog';
+import { toasts } from '$lib';
+import {
+	IconGitCommit,
+	IconFile,
+	IconFeedback,
+	IconProject,
+	IconTerminal,
+	IconSettings,
+	IconAdjustmentsHorizontal,
+	IconDiscord,
+	IconSearch,
+	IconRewind
+} from '../icons';
 import type { SvelteComponent } from 'svelte';
-import { format, startOfISOWeek, startOfMonth, subDays, subMonths, subWeeks } from 'date-fns';
 
 type ActionLink = {
 	href: string;
 };
 
+type ActionRun = () => void;
+
 interface Newable<ReturnType> {
 	new (...args: any[]): ReturnType;
 }
 
-export type Action = ActionLink | Group;
+export type Action = ActionLink | Group | ActionRun;
 
 export namespace Action {
 	export const isLink = (action: Action): action is ActionLink => 'href' in action;
+	export const isExternalLink = (action: Action): action is ActionLink =>
+		isLink(action) && (action.href.startsWith('http') || action.href.startsWith('mailto'));
 	export const isGroup = (action: Action): action is Group => 'commands' in action;
+	export const isRun = (action: Action): action is ActionRun => typeof action === 'function';
 }
 
 export type Command = {
@@ -32,98 +48,105 @@ export type Group = {
 	commands: Command[];
 };
 
-const goToProjectGroup = ({ projects, input }: { projects: Project[]; input: string }): Group => ({
-	title: 'Go to project',
-	commands: projects
-		.map((project) => ({
-			title: project.title,
-			action: {
-				href: `/projects/${project.id}/`
-			},
-			icon: IconProject
-		}))
-		.filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
-});
-
-const actionsGroup = ({ project, input }: { project: Project; input: string }): Group => ({
-	title: 'Actions',
+const projectsGroup = ({
+	addProject,
+	projects,
+	input
+}: {
+	addProject: (params: { path: string }) => Promise<Project>;
+	projects: Project[];
+	input: string;
+}): Group => ({
+	title: 'Projects',
 	commands: [
 		{
-			title: 'Commit',
-			hotkey: 'Shift+C',
-			action: {
-				href: `/projects/${project.id}/commit/`
-			},
-			icon: GitCommitIcon
+			title: 'New project...',
+			hotkey: 'Meta+Shift+N',
+			icon: IconProject,
+			action: async () => {
+				const selectedPath = await open({
+					directory: true,
+					recursive: true
+				});
+				if (selectedPath === null) return;
+				if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
+				const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+
+				try {
+					addProject({ path: projectPath });
+				} catch (e: any) {
+					toasts.error(e.message);
+				}
+			}
 		},
+		...projects
+			.filter(
+				({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase())
+			)
+			.map((project, i) => ({
+				title: project.title,
+				hotkey: `Meta+${i + 1}`,
+				action: {
+					href: `/projects/${project.id}/`
+				},
+				icon: IconProject
+			})),
 		{
-			title: 'Terminal',
-			hotkey: 'Shift+T',
+			title: 'Search all repositories',
 			action: {
-				href: `/projects/${project?.id}/terminal/`
+				href: '/'
 			},
-			icon: IconTerminal
-		},
-		{
-			title: 'Replay History',
-			action: {
-				title: 'Replay working history',
-				commands: [
+			icon: IconSearch
+		}
+	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
+});
+
+const navigateGroup = ({ project, input }: { project?: Project; input: string }): Group => ({
+	title: 'Navigate',
+	commands: [
+		...(project
+			? [
 					{
-						title: 'Eralier today',
-						icon: RewindIcon,
-						hotkey: '1',
+						title: 'Commit',
+						hotkey: 'Meta+Shift+C',
 						action: {
-							href: `/projects/${project.id}/player/${format(new Date(), 'yyyy-MM-dd')}/`
-						}
+							href: `/projects/${project.id}/commit/`
+						},
+						icon: IconGitCommit
 					},
 					{
-						title: 'Yesterday',
-						icon: RewindIcon,
-						hotkey: '2',
+						title: 'Replay',
+						hotkey: 'Meta+R',
 						action: {
-							href: `/projects/${project.id}/player/${format(
-								subDays(new Date(), 1),
-								'yyyy-MM-dd'
-							)}/`
-						}
+							href: `/projects/${project.id}/player/`
+						},
+						icon: IconRewind
 					},
 					{
-						title: 'The day before yesterday',
-						icon: RewindIcon,
-						hotkey: '3',
+						title: 'Terminal',
+						hotkey: 'Meta+T',
 						action: {
-							href: `/projects/${project.id}/player/${format(
-								subDays(new Date(), 2),
-								'yyyy-MM-dd'
-							)}/`
-						}
+							href: `/projects/${project?.id}/terminal/`
+						},
+						icon: IconTerminal
 					},
 					{
-						title: 'The beginning of last week',
-						icon: RewindIcon,
-						hotkey: '4',
+						title: 'Project settings',
+						hotkey: 'Meta+Shift+,',
 						action: {
-							href: `/projects/${project.id}/player/${format(
-								startOfISOWeek(subWeeks(new Date(), 1)),
-								'yyyy-MM-dd'
-							)}/`
-						}
-					},
-					{
-						title: 'The beginning of last month',
-						icon: RewindIcon,
-						hotkey: '5',
-						action: {
-							href: `/projects/${project.id}/player/${format(
-								startOfMonth(subMonths(new Date(), 1)),
-								'yyyy-MM-dd'
-							)}/`
-						}
+							href: `/projects/${project?.id}/settings/`
+						},
+						icon: IconSettings
 					}
-				]
+			  ]
+			: []),
+		{
+			title: 'Settings',
+			hotkey: 'Meta+,',
+			action: {
+				href: '/users/'
 			},
-			icon: RewindIcon
+			icon: IconAdjustmentsHorizontal
 		}
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
@@ -141,7 +164,7 @@ const fileGroup = ({
 				description: 'type part of a file name',
 				commands: []
 		  }
-		: matchFiles({ projectId: project.id, matchPattern: input }).then((files) => ({
+		: git.matchFiles({ projectId: project.id, matchPattern: input }).then((files) => ({
 				title: 'Files',
 				description: files.length === 0 ? `no files containing '${input}'` : '',
 				commands: files.map((file) => ({
@@ -161,24 +184,36 @@ const supportGroup = ({ input }: { input: string }): Group => ({
 			action: {
 				href: `https://docs.gitbutler.com`
 			},
-			icon: FileIcon
+			icon: IconFile
 		},
 		{
 			title: 'Discord',
 			action: {
 				href: `https://discord.gg/MmFkmaJ42D`
 			},
-			icon: GitCommitIcon
+			icon: IconDiscord
+		},
+		{
+			title: 'Send feedback',
+			action: {
+				href: 'mailto:hello@gitbutler.com'
+			},
+			icon: IconFeedback
 		}
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
-export default (params: { projects: Project[]; project?: Project; input: string }) => {
-	const { projects, input, project } = params;
+export default (params: {
+	addProject: (params: { path: string }) => Promise<Project>;
+	projects: Project[];
+	project?: Project;
+	input: string;
+}) => {
+	const { addProject, projects, input, project } = params;
 	const groups = [];
 
-	!project && groups.push(goToProjectGroup({ projects, input }));
-	project && groups.push(actionsGroup({ project, input }));
+	groups.push(navigateGroup({ project, input }));
+	!project && groups.push(projectsGroup({ addProject, projects, input }));
 	project && groups.push(fileGroup({ project, input }));
 	groups.push(supportGroup({ input }));
 

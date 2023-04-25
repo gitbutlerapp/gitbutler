@@ -37,6 +37,7 @@
 		"@lezer/javascript": "^1.4.1",
 		"@lezer/lr": "^1.3.3",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
+		"@sentry/sveltekit": "^7.49.0",
 		"@square/svelte-store": "^1.0.14",
 		"@storybook/addon-essentials": "next",
 		"@storybook/addon-interactions": "next",
