@@ -31,29 +31,30 @@
 	{type}
 	class:disabled
 	on:click
+	class:px-4={!!$$slots.default}
+	class:px-2={!$$slots.default}
 >
 	{#if loading}
 		{#if icon}
-			<IconLoading class="h-[16px] w-[16px] animate-spin" />
+			<IconLoading class="h-4 w-4 animate-spin" />
 			<slot />
 		{:else}
 			<div class="items-around absolute flex w-full justify-center">
-				<IconLoading class="h-[16px] w-[16px] animate-spin" />
+				<IconLoading class="h-4 w-4 animate-spin" />
 			</div>
 			<div class="opacity-0">
 				<slot />
 			</div>
 		{/if}
 	{:else}
-		<svelte:component this={icon} class="h-[16px] w-[16px]" />
+		<svelte:component this={icon} class="h-4 w-4" />
 		<slot />
 	{/if}
 </button>
 
 <style lang="postcss">
 	button {
-		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition transition duration-150 ease-in-out ease-out hover:underline hover:ease-in;
-		text-underline-offset: 3px;
+		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium transition transition duration-150 ease-in-out ease-out hover:ease-in;
 	}
 
 	button:focus {
@@ -62,6 +63,9 @@
 
 	.basic {
 		@apply text-zinc-300;
+	}
+	.basic:hover {
+		@apply bg-[#D4D4D8]/20;
 	}
 	.basic.outlined {
 		@apply border-zinc-500;
@@ -85,11 +89,14 @@
 	.primary {
 		@apply text-blue-500;
 	}
+	.primary:hover {
+		@apply bg-[#3B82F6]/20;
+	}
 	.primary.outlined {
 		@apply border-[#3662E3];
 	}
 	.primary.outlined:hover {
-		@apply bg-[#1C48C94D]/30;
+		@apply bg-[#1C48C94D]/20;
 	}
 	.primary.filled {
 		@apply bg-blue-600;
@@ -100,6 +107,9 @@
 
 	.destructive {
 		@apply text-red-600;
+	}
+	.destructive:hover {
+		@apply bg-[#DC2626]/20;
 	}
 	.destructive.outlined {
 		@apply border-[#E33636];
@@ -149,7 +159,7 @@
 
 	.filled,
 	.outlined {
-		@apply px-[16px] py-[7px] text-zinc-50 hover:no-underline;
+		@apply text-zinc-50;
 	}
 
 	.outlined {
