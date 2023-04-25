@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import type { Project } from '$lib/api';
-	import { Button, Tooltip } from '$lib/components';
+	import { Link, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
@@ -114,28 +114,20 @@
 		<div class="flex h-8 flex-shrink-0 select-none items-center border-t border-zinc-700">
 			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2">
 				{#if $project?.api?.sync}
-					<Button filled={false} href="/projects/{$project?.id}/settings">
+					<Link href="/projects/{$project?.id}/settings">
 						<div class="flex flex-row items-center space-x-2 ">
 							<div class="h-2 w-2 rounded-full bg-green-700" />
 							<div>Backed up</div>
 						</div>
-					</Button>
-					<Button target="_blank" rel="noreferrer" filled={false} href={projectUrl($project)}>
-						<div class="leading-5">Open in GitButler Cloud</div>
-						<div class="icon ml-1 h-5 w-5">
-							<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"
-								><path
-									fill="#52525B"
-									d="M14 13v1a1 1 0 01-1 1H6c-.575 0-1-.484-1-1V7a1 1 0 011-1h1c1.037 0 1.04 1.5 0 1.5-.178.005-.353 0-.5 0v6h6V13c0-1 1.5-1 1.5 0zm-3.75-7.25A.75.75 0 0111 5h4v4a.75.75 0 01-1.5 0V7.56l-3.22 3.22a.75.75 0 11-1.06-1.06l3.22-3.22H11a.75.75 0 01-.75-.75z"
-								/></svg
-							>
-						</div>
-					</Button>
+					</Link>
+					<Link target="_blank" rel="noreferrer" href={projectUrl($project)}>
+						Open in GitButler Cloud
+					</Link>
 				{:else}
-					<Button filled={false} href="/projects/{$project?.id}/settings">
+					<Link href="/projects/{$project?.id}/settings">
 						<div class="h-2 w-2 rounded-full bg-red-700" />
 						Offline
-					</Button>
+					</Link>
 				{/if}
 			</div>
 		</div>

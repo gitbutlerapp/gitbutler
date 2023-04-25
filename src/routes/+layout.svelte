@@ -5,7 +5,7 @@
 	import { toasts, Toaster } from '$lib';
 	import tinykeys from 'tinykeys';
 	import type { LayoutData } from './$types';
-	import { BackForwardButtons, Button, CommandPalette, Breadcrumbs } from '$lib/components';
+	import { BackForwardButtons, Link, CommandPalette, Breadcrumbs } from '$lib/components';
 	import { page } from '$app/stores';
 	import { derived } from 'svelte/store';
 	import { onMount } from 'svelte';
@@ -59,7 +59,7 @@
 		</div>
 		<div class="flex-grow" />
 		<div class="mr-6">
-			<Button filled={false} href="/users/">
+			<Link href="/users/">
 				{#if $user}
 					{#if $user.picture}
 						<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
@@ -68,7 +68,7 @@
 				{:else}
 					<span>Connect to GitButler Cloud</span>
 				{/if}
-			</Button>
+			</Link>
 		</div>
 	</header>
 

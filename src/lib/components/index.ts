@@ -8,4 +8,5 @@ export { default as ButtonGroup } from './ButtonGroup';
 export { default as Dialog } from './Dialog';
 export { default as Tooltip } from './Tooltip';
 export { default as Button } from './Button';
+export { default as Link } from './Link';
 export { default as Statuses } from './Statuses.svelte';

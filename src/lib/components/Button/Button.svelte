@@ -2,8 +2,6 @@
 	import { onMount, type ComponentType } from 'svelte';
 	import { IconLoading } from '../icons';
 
-	export let target: string | undefined = undefined;
-	export let rel: string | undefined = undefined;
 	export let role: 'basic' | 'primary' | 'destructive' | 'purple' = 'basic';
 	export let filled = true;
 	export let outlined = false;
@@ -11,7 +9,6 @@
 	export let height: 'basic' | 'small' = 'basic';
 	export let width: 'basic' | 'full-width' = 'basic';
 	export let type: 'button' | 'submit' = 'button';
-	export let href: string | undefined = undefined;
 	export let icon: ComponentType | undefined = undefined;
 	export let loading = false;
 
@@ -22,79 +19,43 @@
 	});
 </script>
 
-{#if href}
-	<a
-		{href}
-		{target}
-		{rel}
-		class={role}
-		bind:this={element}
-		class:small={height === 'small'}
-		class:full-width={width === 'full-width'}
-		class:filled
-		class:pointer-events-none={loading}
-		class:outlined
-		{type}
-		class:disabled
-	>
-		{#if loading}
-			{#if icon}
-				<IconLoading class="h-[16px] w-[16px] animate-spin" />
-				<slot />
-			{:else}
-				<div class="items-around absolute flex w-full justify-center">
-					<IconLoading class="h-[16px] w-[16px] animate-spin" />
-				</div>
-				<div class="opacity-0">
-					<slot />
-				</div>
-			{/if}
-		{:else}
-			<svelte:component this={icon} class="h-[16px] w-[16px]" />
+<button
+	class={role}
+	class:small={height === 'small'}
+	class:full-width={width === 'full-width'}
+	class:pointer-events-none={loading}
+	bind:this={element}
+	class:filled
+	class:outlined
+	{disabled}
+	{type}
+	class:disabled
+	on:click
+>
+	{#if loading}
+		{#if icon}
+			<IconLoading class="h-[16px] w-[16px] animate-spin" />
 			<slot />
-		{/if}
-	</a>
-{:else}
-	<button
-		class={role}
-		class:small={height === 'small'}
-		class:full-width={width === 'full-width'}
-		class:pointer-events-none={loading}
-		bind:this={element}
-		class:filled
-		class:outlined
-		{disabled}
-		{type}
-		class:disabled
-		on:click
-	>
-		{#if loading}
-			{#if icon}
-				<IconLoading class="h-[16px] w-[16px] animate-spin" />
-				<slot />
-			{:else}
-				<div class="items-around absolute flex w-full justify-center">
-					<IconLoading class="h-[16px] w-[16px] animate-spin" />
-				</div>
-				<div class="opacity-0">
-					<slot />
-				</div>
-			{/if}
 		{:else}
-			<svelte:component this={icon} class="h-[16px] w-[16px]" />
-			<slot />
+			<div class="items-around absolute flex w-full justify-center">
+				<IconLoading class="h-[16px] w-[16px] animate-spin" />
+			</div>
+			<div class="opacity-0">
+				<slot />
+			</div>
 		{/if}
-	</button>
-{/if}
+	{:else}
+		<svelte:component this={icon} class="h-[16px] w-[16px]" />
+		<slot />
+	{/if}
+</button>
 
 <style lang="postcss">
-	a,
 	button {
 		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition transition duration-150 ease-in-out ease-out hover:underline hover:ease-in;
 		text-underline-offset: 3px;
 	}
 
-	a:focus,
 	button:focus {
 		@apply outline-none;
 	}

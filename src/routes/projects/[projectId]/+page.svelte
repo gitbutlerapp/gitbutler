@@ -7,6 +7,7 @@
 	import type { Delta } from '$lib/api';
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 	$: activity = derived(data.activity, (activity) => activity);
@@ -75,7 +76,7 @@
 				<Button
 					disabled={Object.keys($statuses).length === 0}
 					role="primary"
-					href="/projects/{$project?.id}/commit"
+					on:click={() => goto(`/projects/${$project?.id}/commit`)}
 				>
 					Commit changes
 				</Button>

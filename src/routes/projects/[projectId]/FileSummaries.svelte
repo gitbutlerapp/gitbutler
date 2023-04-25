@@ -4,7 +4,7 @@
 	import { derived, type Readable } from 'svelte/store';
 	import { collapsable } from '$lib/paths';
 	import FileActivity from './FileActivity.svelte';
-	import { Button } from '$lib/components';
+	import { Link } from '$lib/components';
 	import { bucketByTimestamp } from './histogram';
 
 	export let projectId: string;
@@ -65,13 +65,9 @@
 					day: 'numeric'
 				})}
 			</div>
-			<Button
-				href="/projects/{projectId}/player/{format(date, 'yyyy-MM-dd')}"
-				filled={false}
-				role="primary"
-			>
+			<Link href="/projects/{projectId}/player/{format(date, 'yyyy-MM-dd')}" role="primary">
 				Replay Changes
-			</Button>
+			</Link>
 		</header>
 		<ul class="all-files-changed flex flex-col rounded pl-3">
 			{#each Object.entries(fileDeltas) as [filepath, deltas]}
