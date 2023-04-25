@@ -16,3 +16,4 @@ export { default as IconAdjustmentsHorizontal } from './IconAdjustmentsHorizonta
 export { default as IconDiscord } from './IconDiscord.svelte';
 export { default as IconExternalLink } from './IconExternalLink.svelte';
 export { default as IconFeedback } from './IconFeedback.svelte';
+export { default as IconSearch } from './IconSearch.svelte';

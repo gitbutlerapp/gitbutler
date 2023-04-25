@@ -7,13 +7,13 @@ import {
 	IconFeedback,
 	IconProject,
 	IconTerminal,
-	IconRewind,
 	IconSettings,
 	IconAdjustmentsHorizontal,
-	IconDiscord
+	IconDiscord,
+	IconSearch,
+	IconRewind
 } from '../icons';
 import type { SvelteComponent } from 'svelte';
-import { format, startOfISOWeek, startOfMonth, subDays, subMonths, subWeeks } from 'date-fns';
 
 type ActionLink = {
 	href: string;
@@ -59,18 +59,6 @@ const projectsGroup = ({
 }): Group => ({
 	title: 'Projects',
 	commands: [
-		...projects
-			.filter(
-				({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase())
-			)
-			.map((project, i) => ({
-				title: project.title,
-				hotkey: `Meta+${i + 1}`,
-				action: {
-					href: `/projects/${project.id}/`
-				},
-				icon: IconProject
-			})),
 		{
 			title: 'New project...',
 			hotkey: 'Meta+Shift+N',
@@ -90,8 +78,27 @@ const projectsGroup = ({
 					toasts.error(e.message);
 				}
 			}
+		},
+		...projects
+			.filter(
+				({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase())
+			)
+			.map((project, i) => ({
+				title: project.title,
+				hotkey: `Meta+${i + 1}`,
+				action: {
+					href: `/projects/${project.id}/`
+				},
+				icon: IconProject
+			})),
+		{
+			title: 'Search all repositories',
+			action: {
+				href: '/'
+			},
+			icon: IconSearch
 		}
-	]
+	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
 const navigateGroup = ({ project, input }: { project?: Project; input: string }): Group => ({
@@ -99,6 +106,30 @@ const navigateGroup = ({ project, input }: { project?: Project; input: string })
 	commands: [
 		...(project
 			? [
+					{
+						title: 'Commit',
+						hotkey: 'Meta+Shift+C',
+						action: {
+							href: `/projects/${project.id}/commit/`
+						},
+						icon: IconGitCommit
+					},
+					{
+						title: 'Replay',
+						hotkey: 'Meta+R',
+						action: {
+							href: `/projects/${project.id}/player/`
+						},
+						icon: IconRewind
+					},
+					{
+						title: 'Terminal',
+						hotkey: 'Meta+T',
+						action: {
+							href: `/projects/${project?.id}/terminal/`
+						},
+						icon: IconTerminal
+					},
 					{
 						title: 'Project settings',
 						hotkey: 'Meta+Shift+,',
@@ -110,94 +141,12 @@ const navigateGroup = ({ project, input }: { project?: Project; input: string })
 			  ]
 			: []),
 		{
-			title: 'Your accout settings',
+			title: 'Settings',
 			hotkey: 'Meta+,',
 			action: {
 				href: '/users/'
 			},
 			icon: IconAdjustmentsHorizontal
-		}
-	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
-});
-
-const actionsGroup = ({ project, input }: { project: Project; input: string }): Group => ({
-	title: 'Actions',
-	commands: [
-		{
-			title: 'Commit',
-			hotkey: 'Meta+Shift+C',
-			action: {
-				href: `/projects/${project.id}/commit/`
-			},
-			icon: IconGitCommit
-		},
-		{
-			title: 'Terminal',
-			hotkey: 'Meta+T',
-			action: {
-				href: `/projects/${project?.id}/terminal/`
-			},
-			icon: IconTerminal
-		},
-		{
-			title: 'Replay History',
-			hotkey: 'Meta+R',
-			action: {
-				title: 'Replay working history',
-				commands: [
-					{
-						title: 'Eralier today',
-						icon: IconRewind,
-						action: {
-							href: `/projects/${project.id}/player/${format(new Date(), 'yyyy-MM-dd')}/`
-						}
-					},
-					{
-						title: 'Yesterday',
-						icon: IconRewind,
-						action: {
-							href: `/projects/${project.id}/player/${format(
-								subDays(new Date(), 1),
-								'yyyy-MM-dd'
-							)}/`
-						}
-					},
-					{
-						title: 'The day before yesterday',
-						icon: IconRewind,
-						action: {
-							href: `/projects/${project.id}/player/${format(
-								subDays(new Date(), 2),
-								'yyyy-MM-dd'
-							)}/`
-						}
-					},
-					{
-						title: 'The beginning of last week',
-						icon: IconRewind,
-						action: {
-							href: `/projects/${project.id}/player/${format(
-								startOfISOWeek(subWeeks(new Date(), 1)),
-								'yyyy-MM-dd'
-							)}/`
-						}
-					},
-					{
-						title: 'The beginning of last month',
-						icon: IconRewind,
-						action: {
-							href: `/projects/${project.id}/player/${format(
-								startOfMonth(subMonths(new Date(), 1)),
-								'yyyy-MM-dd'
-							)}/`
-						}
-					}
-				].map((command, i) => ({
-					...command,
-					hotkey: `Meta+${i + 1}`
-				}))
-			},
-			icon: IconRewind
 		}
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
@@ -265,7 +214,6 @@ export default (params: {
 
 	groups.push(navigateGroup({ project, input }));
 	!project && groups.push(projectsGroup({ addProject, projects, input }));
-	project && groups.push(actionsGroup({ project, input }));
 	project && groups.push(fileGroup({ project, input }));
 	groups.push(supportGroup({ input }));
 

@@ -4,7 +4,7 @@
 	import { Button, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { IconSettings, IconTerminal } from '$lib/components/icons';
+	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
 	import { onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
 	import { format } from 'date-fns';
@@ -54,12 +54,7 @@
 					>
 					<div class="relative">
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-							<svg class="mr-2 h-5 w-5" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"
-								><path
-									d="M8 12a4 4 0 110-8 4 4 0 010 8zm9.707 4.293l-4.82-4.82A5.968 5.968 0 0014 8 6 6 0 002 8a6 6 0 006 6 5.968 5.968 0 003.473-1.113l4.82 4.82a.997.997 0 001.414 0 .999.999 0 000-1.414z"
-									fill="#5C5F62"
-								/></svg
-							>
+							<IconSearch class="h-5 w-5 text-zinc-500" />
 						</div>
 						<form
 							on:submit|preventDefault={onSearchSubmit}
@@ -75,7 +70,6 @@
 								autocomplete="off"
 								aria-label="Search input"
 								class="block w-full min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-800  p-[3px] px-2 pl-10 text-zinc-200 placeholder:text-zinc-500 sm:text-sm sm:leading-6"
-								style=""
 							/>
 						</form>
 					</div>

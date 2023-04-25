@@ -8,12 +8,10 @@
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconExternalLink } from '../icons';
-	import type { User } from '$lib/api';
 
 	export let projects: Readable<Project[]>;
 	export let addProject: (params: { path: string }) => Promise<Project>;
 	export let project = readable<Project | undefined>(undefined);
-	export let user = readable<User | undefined>(undefined);
 
 	const input = writable('');
 	const scopeToProject = writable(!!$project);
