@@ -937,7 +937,6 @@ fn write_gb_commit(
 }
 
 // try to push the new gb history head to the remote
-// TODO: if we see it is not a FF, pull down the remote, determine order, rewrite the commit line, and push again
 fn push_to_remote(
     gb_repository: &Repository,
     user: &Option<users::User>,
@@ -995,9 +994,11 @@ fn push_to_remote(
     let headers = &[auth_header.as_str()];
     push_options.custom_headers(headers);
 
+    let remote_refspec = format!("refs/heads/current:refs/heads/{}", project.id.as_str());
+
     // Push to the remote
     remote
-        .push(&["refs/heads/current"], Some(&mut push_options))
+        .push(&[remote_refspec], Some(&mut push_options))
         .with_context(|| {
             format!(
                 "failed to push refs/heads/current to {}",
