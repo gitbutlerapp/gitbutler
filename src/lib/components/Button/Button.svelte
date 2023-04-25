@@ -54,7 +54,7 @@
 
 <style lang="postcss">
 	button {
-		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium transition transition duration-150 ease-in-out ease-out hover:ease-in;
+		@apply relative flex h-[36px] w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium transition transition duration-150 ease-in-out ease-out hover:ease-in;
 	}
 
 	button:focus {
@@ -78,12 +78,6 @@
 	}
 	.basic.filled:hover {
 		@apply bg-zinc-600;
-	}
-
-	.basic,
-	.primary,
-	.destructive {
-		line-height: 20px;
 	}
 
 	.primary {
