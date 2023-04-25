@@ -2,32 +2,24 @@
 	import type { Project } from '$lib/api';
 	import type { Readable } from 'svelte/store';
 	import { IconHome } from './icons';
-	import { Tooltip } from '$lib/components';
+	import { Tooltip, Button } from '$lib/components';
+	import { goto } from '$app/navigation';
 
 	export let project: Readable<Project | undefined>;
 </script>
 
-<div class="flex flex-row items-center text-zinc-400">
-	<a
-		Title="GitButler home"
-		class="button-home group cursor-default rounded-md p-2 hover:bg-zinc-700 hover:text-zinc-200"
-		href="/"
-	>
-		<IconHome class="hover:fill-zinc-300 hover:text-zinc-200" />
-	</a>
+<div class="flex flex-row items-center gap-1 text-zinc-400">
+	<Button icon={IconHome} filled={false} height="small" on:click={() => goto('/')} />
 
 	{#if $project}
-		<div class="ml-1">
-			<Tooltip label="{$project.title} home">
-				<a
-					class="project-home-button group flex rounded-md py-2 px-2 hover:bg-zinc-700"
-					href={`/projects/${$project.id}`}
-				>
-					<span class="flex h-4 items-center group-hover:text-zinc-200">
-						{$project.title}
-					</span>
-				</a>
-			</Tooltip>
-		</div>
+		<Tooltip label="{$project.title} home">
+			<Button
+				filled={false}
+				height="small"
+				on:click={() => $project && goto(`/projects/${$project.id}`)}
+			>
+				{$project.title}
+			</Button>
+		</Tooltip>
 	{/if}
 </div>
