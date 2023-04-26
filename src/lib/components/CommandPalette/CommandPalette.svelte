@@ -44,7 +44,7 @@
 	selection.subscribe(() => {
 		const selected = document.querySelector('.selected');
 		if (selected) {
-			selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+			selected.scrollIntoView({ block: 'center', behavior: 'smooth' });
 		}
 	});
 
@@ -229,7 +229,6 @@
 										class:selected={$selection[0] === groupIdx && $selection[1] === commandIdx}
 									>
 										<button
-											on:mouseover={() => ($selection = [groupIdx, commandIdx])}
 											on:focus={() => ($selection = [groupIdx, commandIdx])}
 											on:click={() => trigger(command.action)}
 											class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
@@ -261,9 +260,15 @@
 </Modal>
 
 <style lang="postcss">
-	.selected {
+	.quick-command-item:hover {
+		@apply bg-zinc-50/5;
+	}
+
+	.selected,
+	.selected:hover {
 		@apply bg-zinc-50/10;
 	}
+
 	.selected .quick-command {
 		@apply text-zinc-100;
 	}
