@@ -160,13 +160,11 @@
 		@apply border;
 	}
 
-	.filled.small,
-	.outlined.small {
-		@apply py-[1px];
+	.small {
+		@apply h-[24px] py-[1px];
 	}
 
-	.filled.full-width,
-	.outlined.full-width {
+	.full-width {
 		@apply w-full;
 	}
 </style>
