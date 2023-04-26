@@ -23,6 +23,9 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		? () => Promise.resolve(readable<Record<string, Delta[]>>({}))
 		: (sessionId: string) =>
 				import('$lib/api').then((m) => m.deltas.Deltas({ projectId: params.projectId, sessionId }));
+	const diffs = building
+		? readable<Record<string, string>>({})
+		: await import('$lib/api').then((m) => m.git.diffs.Diffs({ projectId: params.projectId }));
 
 	const cache: Record<string, Promise<Readable<Record<string, Delta[]>>>> = {};
 	const cachedDeltas = (sessionId: string) => {
@@ -37,6 +40,7 @@ export const load: LayoutLoad = async ({ parent, params }) => {
 		head,
 		statuses,
 		sessions,
+		diffs,
 		project: projects.get(params.projectId),
 		projectId: params.projectId,
 		getDeltas: cachedDeltas

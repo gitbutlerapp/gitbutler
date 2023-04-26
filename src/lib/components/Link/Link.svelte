@@ -17,7 +17,7 @@
 	const isExternal = href?.startsWith('http');
 </script>
 
-<a {href} {target} {rel} class={role} bind:this={element} class:disabled>
+<a {href} {target} {rel} class={role} bind:this={element} class:disabled on:click>
 	<slot />
 	{#if isExternal}
 		<IconExternalLink class="h-4 w-4 text-zinc-600" />
