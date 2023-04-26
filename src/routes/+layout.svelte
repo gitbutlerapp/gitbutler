@@ -3,7 +3,8 @@
 
 	import { open } from '@tauri-apps/api/dialog';
 	import { toasts, Toaster } from '$lib';
-	import tinykeys from 'tinykeys';
+	import tinykeys, { type KeyBindingMap } from 'tinykeys';
+	import { format } from 'date-fns';
 	import type { LayoutData } from './$types';
 	import { BackForwardButtons, Link, CommandPalette, Breadcrumbs } from '$lib/components';
 	import { page } from '$app/stores';
@@ -20,8 +21,9 @@
 
 	export let commandPalette: CommandPalette;
 
-	onMount(() =>
-		tinykeys(window, {
+	onMount(() => {
+		const keybindings: KeyBindingMap = {
+			// global
 			'Meta+k': () => commandPalette.show(),
 			'Meta+,': () => goto('/users/'),
 			'Meta+Shift+N': async () => {
@@ -38,9 +40,40 @@
 				} catch (e: any) {
 					toasts.error(e.message);
 				}
-			}
-		})
-	);
+			},
+
+			// project specific
+			'Meta+Shift+C': () => $project && goto(`/projects/${$project.id}/commit/`),
+			'Meta+T': () => $project && goto(`/projects/${$project.id}/terminal/`),
+			'Meta+P': () => $project && goto(`/projects/${$project.id}/`),
+			'Meta+Shift+,': () => $project && goto(`/projects/${$project.id}/settings/`),
+			'Meta+R': () =>
+				$project && goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`),
+			'a i p': () => $project && goto(`/projects/${$project.id}/aiplayground/`)
+		};
+
+		return tinykeys(
+			window,
+			Object.fromEntries(
+				Object.entries(keybindings).map(([combo, handler]) => {
+					const comboContainsControlKeys =
+						combo.includes('Meta') || combo.includes('Alt') || combo.includes('Ctrl');
+					return [
+						combo,
+						(e: KeyboardEvent) => {
+							const target = e.target as HTMLElement;
+							const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+							if (isInput && !comboContainsControlKeys) return;
+
+							commandPalette?.close();
+
+							handler(e);
+						}
+					];
+				})
+			)
+		);
+	});
 
 	user.subscribe(posthog.identify);
 	user.subscribe(sentry.identify);

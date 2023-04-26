@@ -124,6 +124,8 @@
 		modal?.show();
 	};
 
+	export const close = () => modal?.close();
+
 	onMount(() =>
 		tinykeys(window, {
 			Backspace: () => {

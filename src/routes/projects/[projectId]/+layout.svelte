@@ -5,9 +5,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
-	import { onMount } from 'svelte';
-	import tinykeys from 'tinykeys';
-	import { format } from 'date-fns';
 
 	export let data: LayoutData;
 	const { project } = data;
@@ -25,17 +22,6 @@
 
 		return `${host}/projects/${projectId}`;
 	}
-
-	onMount(() =>
-		tinykeys(window, {
-			'Meta+Shift+C': () => goto(`/projects/${$project.id}/commit/`),
-			'Meta+T': () => goto(`/projects/${$project.id}/terminal/`),
-			'Meta+P': () => goto(`/projects/${$project.id}/`),
-			'Meta+Shift+,': () => goto(`/projects/${$project.id}/settings/`),
-			'Meta+R': () => goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`),
-			'a i p': () => goto(`/projects/${$project.id}/aiplayground/`)
-		})
-	);
 
 	$: selection = $page?.route?.id?.split('/')?.[3];
 </script>
