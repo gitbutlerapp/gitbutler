@@ -28,13 +28,12 @@
 
 	onMount(() =>
 		tinykeys(window, {
-			'Meta+Shift+C': () => $project && goto(`/projects/${$project.id}/commit/`),
-			'Meta+T': () => $project && goto(`/projects/${$project.id}/terminal/`),
-			'Meta+P': () => $project && goto(`/projects/${$project.id}/`),
-			'Meta+Shift+,': () => $project && goto(`/projects/${$project.id}/settings/`),
-			'Meta+R': () =>
-				$project && goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`),
-			'a i p': () => $project && goto(`/projects/${$project.id}/aiplayground/`)
+			'Meta+Shift+C': () => goto(`/projects/${$project.id}/commit/`),
+			'Meta+T': () => goto(`/projects/${$project.id}/terminal/`),
+			'Meta+P': () => goto(`/projects/${$project.id}/`),
+			'Meta+Shift+,': () => goto(`/projects/${$project.id}/settings/`),
+			'Meta+R': () => goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`),
+			'a i p': () => goto(`/projects/${$project.id}/aiplayground/`)
 		})
 	);
 

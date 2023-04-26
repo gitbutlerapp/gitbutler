@@ -146,30 +146,6 @@
 			}
 		})
 	);
-
-	let unregisterCommandHotkeys: (() => void)[] = [];
-	$: {
-		unregisterCommandHotkeys.forEach((unregister) => unregister());
-		unregisterCommandHotkeys = [];
-		commandGroups.subscribe((groups) =>
-			groups.forEach((group) =>
-				Promise.resolve(group).then((group) =>
-					group.commands.forEach((command) => {
-						if (command.hotkey) {
-							unregisterCommandHotkeys.push(
-								tinykeys(window, {
-									[command.hotkey]: () => {
-										if (!modal?.isOpen()) return;
-										trigger(command.action);
-									}
-								})
-							);
-						}
-					})
-				)
-			)
-		);
-	}
 </script>
 
 <Modal bind:this={modal}>

@@ -5,7 +5,6 @@ import {
 	IconGitCommit,
 	IconFile,
 	IconFeedback,
-	IconProject,
 	IconTerminal,
 	IconSettings,
 	IconAdjustmentsHorizontal,
@@ -62,7 +61,7 @@ const projectsGroup = ({
 		{
 			title: 'New project...',
 			hotkey: 'Meta+Shift+N',
-			icon: IconProject,
+			icon: IconFile,
 			action: async () => {
 				const selectedPath = await open({
 					directory: true,
@@ -83,13 +82,12 @@ const projectsGroup = ({
 			.filter(
 				({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase())
 			)
-			.map((project, i) => ({
+			.map((project) => ({
 				title: project.title,
-				hotkey: `Meta+${i + 1}`,
 				action: {
 					href: `/projects/${project.id}/`
 				},
-				icon: IconProject
+				icon: IconFile
 			})),
 		{
 			title: 'Search all repositories',
@@ -101,19 +99,11 @@ const projectsGroup = ({
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
-const navigateGroup = ({ project, input }: { project?: Project; input: string }): Group => ({
-	title: 'Navigate',
+const commandsGroup = ({ project, input }: { project?: Project; input: string }): Group => ({
+	title: 'Commands',
 	commands: [
 		...(project
 			? [
-					{
-						title: 'Commit',
-						hotkey: 'Meta+Shift+C',
-						action: {
-							href: `/projects/${project.id}/commit/`
-						},
-						icon: IconGitCommit
-					},
 					{
 						title: 'Replay',
 						hotkey: 'Meta+R',
@@ -123,10 +113,36 @@ const navigateGroup = ({ project, input }: { project?: Project; input: string })
 						icon: IconRewind
 					},
 					{
+						title: 'Project settings',
+						hotkey: 'Meta+Shift+,',
+						action: {
+							href: `/projects/${project.id}/settings/`
+						},
+						icon: IconSettings
+					}
+			  ]
+			: [])
+	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
+});
+
+const navigateGroup = ({ project, input }: { project?: Project; input: string }): Group => ({
+	title: 'Navigate',
+	commands: [
+		...(project
+			? [
+					{
+						title: 'Commits',
+						hotkey: 'Meta+Shift+C',
+						action: {
+							href: `/projects/${project.id}/commit/`
+						},
+						icon: IconGitCommit
+					},
+					{
 						title: 'Terminal',
 						hotkey: 'Meta+T',
 						action: {
-							href: `/projects/${project?.id}/terminal/`
+							href: `/projects/${project.id}/terminal/`
 						},
 						icon: IconTerminal
 					},
@@ -134,7 +150,7 @@ const navigateGroup = ({ project, input }: { project?: Project; input: string })
 						title: 'Project settings',
 						hotkey: 'Meta+Shift+,',
 						action: {
-							href: `/projects/${project?.id}/settings/`
+							href: `/projects/${project.id}/settings/`
 						},
 						icon: IconSettings
 					}
@@ -212,6 +228,7 @@ export default (params: {
 	const { addProject, projects, input, project } = params;
 	const groups = [];
 
+	groups.push(commandsGroup({ project, input }));
 	groups.push(navigateGroup({ project, input }));
 	!project && groups.push(projectsGroup({ addProject, projects, input }));
 	project && groups.push(fileGroup({ project, input }));
