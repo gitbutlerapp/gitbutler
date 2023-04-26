@@ -168,6 +168,7 @@
 			);
 			const nextSession = $richSessions[currentSessionIndex + 1];
 			currentSessionId.set(nextSession.id);
+			currentDeltaIndex.set(0);
 		}
 	};
 
@@ -178,6 +179,7 @@
 			);
 			const prevSession = $richSessions[currentSessionIndex - 1];
 			currentSessionId.set(prevSession.id);
+			currentDeltaIndex.set(0);
 		}
 	};
 
