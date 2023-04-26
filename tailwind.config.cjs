@@ -18,6 +18,10 @@ const config = {
 			'4xl': '32px'
 		},
 		colors: {
+			modal: {
+				background: '#242429',
+				stroke: '#3f3f3f'
+			},
 			gb: {
 				700: '#52525B'
 			},
