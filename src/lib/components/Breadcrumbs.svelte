@@ -10,7 +10,6 @@
 
 <div class="flex flex-row items-center gap-1 text-zinc-400">
 	<Button icon={IconHome} filled={false} height="small" on:click={() => goto('/')} />
-
 	{#if $project}
 		<Tooltip label="{$project.title} home">
 			<Button
