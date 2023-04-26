@@ -114,7 +114,7 @@
 	</div>
 
 	<div class="flex w-2/3 flex-col gap-4">
-		<h1 class="flex px-8 pt-4 text-xl text-zinc-300">
+		<h1 class="flex px-8 pt-4 text-2xl text-zinc-300">
 			<span>{$project?.title}</span>
 			<span class="ml-2 text-zinc-600">Project</span>
 		</h1>

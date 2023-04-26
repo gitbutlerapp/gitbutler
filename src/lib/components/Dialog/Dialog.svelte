@@ -11,7 +11,7 @@
 <Modal bind:this={modal} let:close>
 	<div class="wrapper flex w-full flex-col text-zinc-300">
 		<header class="flex w-full justify-between gap-4 p-4">
-			<h2 class="text-[18px] ">
+			<h2 class="text-xl ">
 				<slot name="title">Title</slot>
 			</h2>
 

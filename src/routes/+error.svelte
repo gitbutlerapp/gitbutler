@@ -16,7 +16,7 @@
 </script>
 
 <div class="flex h-full flex-1">
-	<h1 class="m-auto text-xl">
+	<h1 class="m-auto text-2xl">
 		{message} :(
 	</h1>
 </div>

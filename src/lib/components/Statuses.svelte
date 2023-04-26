@@ -21,7 +21,7 @@
 		</div>
 	{:else}
 		<ul
-			class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-sm text-yellow-900"
+			class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-[12px] text-yellow-900"
 		>
 			{#each Object.entries(statuses) as [path, status]}
 				<li class="flex w-full gap-2">

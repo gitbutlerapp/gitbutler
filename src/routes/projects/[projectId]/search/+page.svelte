@@ -65,7 +65,7 @@
 <figure id="search-results" class="flex h-full flex-col gap-10 px-14">
 	{#if $searchState?.isLoading || $searchState?.isReloading}
 		<figcaption>
-			<p class="mb-2 text-xl text-[#D4D4D8]">Searching for "{$query}"...</p>
+			<p class="mb-2 text-2xl text-[#D4D4D8]">Searching for "{$query}"...</p>
 		</figcaption>
 
 		<div class="mx-auto">
@@ -73,15 +73,15 @@
 		</div>
 	{:else if $searchState?.isError}
 		<figcaption>
-			<p class="mb-2 text-xl text-[#D4D4D8]">Error searching for "{$query}"</p>
+			<p class="mb-2 text-2xl text-[#D4D4D8]">Error searching for "{$query}"</p>
 		</figcaption>
 	{:else if $searchState?.isLoaded}
 		<figcaption class="mt-14">
 			{#if $results.total > 0}
-				<p class="mb-2 text-xl text-[#D4D4D8]">Results for "{$query}"</p>
+				<p class="mb-2 text-2xl text-[#D4D4D8]">Results for "{$query}"</p>
 				<p class="text-lg text-[#717179]">{$results.total} change instances</p>
 			{:else}
-				<p class="mb-2 text-xl text-[#D4D4D8]">No results for "{$query}"</p>
+				<p class="mb-2 text-2xl text-[#D4D4D8]">No results for "{$query}"</p>
 			{/if}
 		</figcaption>
 

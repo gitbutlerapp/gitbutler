@@ -69,7 +69,7 @@
 			<div class="flex flex-col gap-6 text-zinc-100">
 				<header class="flex items-center justify-between">
 					<div class="flex flex-col">
-						<h2 class="text-xl font-medium">GitButler Cloud Account</h2>
+						<h2 class="text-2xl font-medium">GitButler Cloud Account</h2>
 						<div class="">Your online account details on gitbutler.com</div>
 					</div>
 					<Login {user} {api} />
@@ -141,7 +141,7 @@
 			</div>
 		{:else}
 			<div class="flex flex-col items-center justify-items-center space-y-6 text-white">
-				<div class="text-3xl font-bold text-white">Connect to GitButler Cloud</div>
+				<div class="text-4xl font-bold text-white">Connect to GitButler Cloud</div>
 				<div>Sign up or log in to GitButler Cloud for more tools and features:</div>
 				<ul class="space-y-2 pb-4 text-zinc-400">
 					<li class="flex flex-row space-x-3">
@@ -214,7 +214,7 @@
 					href="mailto:hello@gitbutler.com?subject=Feedback or question!"
 				>
 					<h2 class="text-lg text-zinc-300">Get Support</h2>
-					<div>If you have an issue or any questions, please email us.</div>
+					<div class="text-zinc-500">If you have an issue or any questions, please email us.</div>
 				</a>
 			</div>
 			<div class="mt-4">
@@ -225,7 +225,7 @@
 					rel="noreferrer"
 				>
 					<h2 class="text-lg text-zinc-300">Join our Discord</h2>
-					<div class="text-sm text-zinc-500">Share feedback, request, or ask questions</div>
+					<div class="text-zinc-500">Share feedback, request, or ask questions</div>
 				</a>
 			</div>
 		</div>

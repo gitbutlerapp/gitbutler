@@ -1,6 +1,6 @@
 <div class="isolate py-8 text-zinc-200">
 	<div class="mx-auto max-w-2xl sm:text-center">
-		<h2 class="text-xl font-bold tracking-tight">Contact Us</h2>
+		<h2 class="text-2xl font-bold tracking-tight">Contact Us</h2>
 		<p class="mt-2 text-lg leading-8 text-zinc-300">
 			Thanks for using GitButler! We would love to help with any questions, problems or requests.
 			Select your weapon of choice.

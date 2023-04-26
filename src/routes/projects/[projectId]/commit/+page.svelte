@@ -192,7 +192,7 @@
 			on:submit|preventDefault={onCommit}
 			class="flex h-full w-1/3 min-w-[500px] flex-col gap-4"
 		>
-			<h1 class="pt-2 text-xl font-bold">Commit</h1>
+			<h1 class="pt-2 text-2xl font-bold">Commit</h1>
 			<ul
 				class="flex h-full w-full flex-col overflow-auto rounded border border-gb-700 bg-card-default"
 			>
@@ -243,7 +243,7 @@
 										disabled={isCommitting || isGeneratingCommitMessage}
 										on:click|preventDefault={() => ($selectedDiffPath = path)}
 										type="button"
-										class="h-full w-full select-auto text-left font-mono text-sm disabled:opacity-50"
+										class="h-full w-full select-auto text-left font-mono text-base disabled:opacity-50"
 									>
 										{collapse(path)}
 									</button>

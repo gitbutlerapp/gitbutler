@@ -89,7 +89,7 @@
 	<div class="mx-auto max-w-2xl p-4">
 		<div class="flex flex-col space-y-6">
 			<div class="space-y-0">
-				<div class="text-xl font-medium">Project Settings</div>
+				<div class="text-2xl font-medium">Project Settings</div>
 				<div class="">
 					How shall I manage your project settings for <strong>{$project?.title}</strong>?
 				</div>

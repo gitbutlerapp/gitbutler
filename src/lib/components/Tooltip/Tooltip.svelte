@@ -57,7 +57,7 @@
             rounded-[5px]
             bg-[#171717]
             p-2
-            text-[12px]
+            text-sm
             text-zinc-300
 			shadow-lg
     "
