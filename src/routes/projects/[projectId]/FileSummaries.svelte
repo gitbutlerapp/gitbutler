@@ -2,10 +2,10 @@
 	import { format, startOfDay } from 'date-fns';
 	import type { Delta } from '$lib/api';
 	import { derived, type Readable } from 'svelte/store';
-	import { collapsable } from '$lib/paths';
 	import FileActivity from './FileActivity.svelte';
 	import { Link } from '$lib/components';
 	import { bucketByTimestamp } from './histogram';
+	import { collapse } from '$lib/paths';
 
 	export let projectId: string;
 	export let fileDeltas: Readable<Record<string, Delta[]>>;
@@ -38,7 +38,7 @@
 
 	const getLargestBucket = (fileDeltas: Record<string, Delta[]>): number => {
 		return Math.max(
-			...Object.entries(fileDeltas).map(([filepath, deltas]) => {
+			...Object.entries(fileDeltas).map(([_filepath, deltas]) => {
 				return Math.max(
 					...bucketByTimestamp(
 						deltas.map((delta) => delta.timestampMs),
@@ -79,7 +79,9 @@
 							'yyyy-MM-dd'
 						)}?file={encodeURIComponent(filepath)}"
 					>
-						<span class="w-full truncate" use:collapsable={{ value: filepath, separator: '/' }} />
+						<span class="w-full truncate">
+							{collapse(filepath)}
+						</span>
 					</a>
 					<FileActivity {deltas} {largestBucketSize} />
 				</li>

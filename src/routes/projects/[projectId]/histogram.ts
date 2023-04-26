@@ -21,7 +21,6 @@ export const bucketByTimestamp = (timestamps: Timestamp[], bucketCount: number):
 		if (!bucketIndex) {
 			bucketIndex = bucketCount - 1;
 		}
-		// console.log(bucketIndex)
 		buckets[bucketIndex].push(timestamp);
 	}
 	return buckets;

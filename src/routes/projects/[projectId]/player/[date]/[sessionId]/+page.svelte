@@ -30,7 +30,7 @@
 		IconPlayerPauseFilled,
 		IconPlayerPlayFilled
 	} from '$lib/components/icons';
-	import { collapsable } from '$lib/paths';
+	import { collapse } from '$lib/paths';
 	import { page } from '$app/stores';
 	import { CodeViewer } from '$lib/components';
 	import { asyncDerived } from '@square/svelte-store';
@@ -326,8 +326,9 @@
 										class:text-zinc-100={$frame?.filepath === filename}
 										class:bg-[#3356C2]={$frame?.filepath === filename}
 										class="mx-5 ml-1 w-full list-none rounded p-1 text-zinc-500"
-										use:collapsable={{ value: filename, separator: '/' }}
-									/>
+									>
+										{collapse(filename)}
+									</li>
 								{/each}
 							</ul>
 						{/if}
@@ -392,10 +393,9 @@
 				background-color: rgba(1, 1, 1, 0.6);
 			"
 		>
-			<span
-				class="flex-auto overflow-auto font-mono text-sm text-zinc-300"
-				use:collapsable={{ value: $frame.filepath, separator: '/' }}
-			/>
+			<span class="flex-auto overflow-auto font-mono text-sm text-zinc-300">
+				{collapse($frame.filepath)}
+			</span>
 			<span class="whitespace-nowrap text-zinc-500">
 				–
 				{new Date($frame.deltas[$frame.deltas.length - 1].timestampMs).toLocaleString('en-US')}

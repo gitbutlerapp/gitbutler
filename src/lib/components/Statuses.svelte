@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { collapsable } from '$lib/paths';
+	import { collapse } from '$lib/paths';
 	import { Status } from '$lib/api';
 
 	export let statuses: Record<string, Status>;
@@ -37,7 +37,9 @@
 							{/if}
 						</span>
 					</div>
-					<span class="truncate" use:collapsable={{ value: path, separator: '/' }} />
+					<span class="truncate">
+						{collapse(path)}
+					</span>
 				</li>
 			{/each}
 		</ul>
