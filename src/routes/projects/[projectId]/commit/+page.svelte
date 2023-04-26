@@ -67,10 +67,6 @@
 	};
 
 	const onGenerateCommitMessage = async () => {
-		if (!isLoggedIn) {
-			// TODO: Modal prompting the user to log in
-			return;
-		}
 		if (!isCloudEnabled) {
 			connectToCloudDialog.show();
 			return;

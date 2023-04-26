@@ -8,7 +8,7 @@
 	import QuickCommitModal from '$lib/components/QuickCommitModal.svelte';
 
 	export let data: LayoutData;
-	const { project, head, statuses } = data;
+	const { user, api, project, head, statuses, diffs } = data;
 
 	let query: string;
 
@@ -120,8 +120,13 @@
 	</footer>
 </div>
 
-<QuickCommitModal
-	projectId={$project.id}
-	head={$head}
-	filesChanged={Object.keys($statuses).length}
-/>
+{#if $user}
+	<QuickCommitModal
+		user={$user}
+		api={api}
+		project={$project}
+		head={$head}
+		diffs={$diffs}
+		statuses={$statuses}
+	/>
+{/if}
