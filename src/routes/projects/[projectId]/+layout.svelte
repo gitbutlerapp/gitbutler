@@ -6,10 +6,9 @@
 	import { goto } from '$app/navigation';
 	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
 	import QuickCommitModal from '$lib/components/QuickCommitModal.svelte';
-	import { onMount } from 'svelte';
 
 	export let data: LayoutData;
-	const { project } = data;
+	const { project, head, statuses } = data;
 
 	let query: string;
 
@@ -121,4 +120,8 @@
 	</footer>
 </div>
 
-<QuickCommitModal />
+<QuickCommitModal
+	projectId={$project.id}
+	head={$head}
+	filesChanged={Object.keys($statuses).length}
+/>
