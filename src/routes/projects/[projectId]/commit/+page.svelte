@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { Button } from '$lib/components';
-	import { collapsable } from '$lib/paths';
+	import { collapse } from '$lib/paths';
 	import { derived, writable } from 'svelte/store';
 	import { git, Status } from '$lib/api';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
@@ -244,8 +244,9 @@
 										on:click|preventDefault={() => ($selectedDiffPath = path)}
 										type="button"
 										class="h-full w-full select-auto text-left font-mono text-sm disabled:opacity-50"
-										use:collapsable={{ value: path, separator: '/' }}
-									/>
+									>
+										{collapse(path)}
+									</button>
 								</label>
 							</div>
 						</li>
