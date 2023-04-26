@@ -5,6 +5,8 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
+	import QuickCommitModal from '$lib/components/QuickCommitModal.svelte';
+	import { onMount } from 'svelte';
 
 	export let data: LayoutData;
 	const { project } = data;
@@ -118,3 +120,5 @@
 		</div>
 	</footer>
 </div>
+
+<QuickCommitModal />
