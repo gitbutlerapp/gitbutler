@@ -269,7 +269,7 @@
 			<div
 				class="loader border-gray-200 mb-4 h-12 w-12 rounded-full border-4 border-t-4 ease-linear"
 			/>
-			<h2 class="text-center text-xl font-medium text-gray-500">Loading...</h2>
+			<h2 class="text-center text-2xl font-medium text-gray-500">Loading...</h2>
 		</div>
 	{:then}
 		<header
@@ -393,7 +393,7 @@
 				background-color: rgba(1, 1, 1, 0.6);
 			"
 		>
-			<span class="flex-auto overflow-auto font-mono text-sm text-zinc-300">
+			<span class="flex-auto overflow-auto font-mono text-[12px] text-zinc-300">
 				{collapse($frame.filepath)}
 			</span>
 			<span class="whitespace-nowrap text-zinc-500">

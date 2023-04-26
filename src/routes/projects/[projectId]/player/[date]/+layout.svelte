@@ -37,7 +37,7 @@
 {#await dates.load() then}
 	{#if $sessions.length === 0}
 		<div class="text-center">
-			<h2 class="text-xl">I haven't seen any changes yet</h2>
+			<h2 class="text-2xl">I haven't seen any changes yet</h2>
 			<p class="text-gray-500">Go code something!</p>
 		</div>
 	{:else}
@@ -70,7 +70,7 @@
 							{#if isToday}
 								<div class="py-2 text-lg leading-5">Today</div>
 							{:else}
-								<div class="text-xl leading-5">{new Date(date).getDate()}</div>
+								<div class="text-2xl leading-5">{new Date(date).getDate()}</div>
 								<div class="leading-4">{format(new Date(date), 'MMM')}</div>
 							{/if}
 						</a>

@@ -31,7 +31,7 @@
 			<div class="h-fill grid h-full grid-cols-2 items-center gap-4">
 				<!-- right box, welcome text -->
 				<div class="flex flex-col content-center space-y-4 p-4">
-					<div class="m-0 p-0 text-xl text-zinc-300">
+					<div class="m-0 p-0 text-2xl text-zinc-300">
 						<div class="font-bold">Welcome to GitButler.</div>
 						<div class="mb-1 text-lg text-zinc-300">More than just version control.</div>
 					</div>
@@ -148,7 +148,7 @@
 			<div class="select-none p-8">
 				<div class="flex flex-col">
 					<div class="flex flex-row justify-between">
-						<div class="pointer-events-none mb-1 select-none text-2xl text-zinc-300">
+						<div class="pointer-events-none mb-1 select-none text-3xl text-zinc-300">
 							My Projects
 							<div class="pointer-events-none mb-1 select-none text-lg text-zinc-500">
 								All the projects that I am currently assisting you with.
@@ -182,7 +182,7 @@
 										</div>
 
 										<div
-											class="flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 font-mono text-sm text-zinc-300"
+											class="flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 font-mono text-[12px] text-zinc-300"
 										>
 											{#if project.api}
 												<div class="flex flex-row items-center space-x-2 ">

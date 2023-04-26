@@ -9,12 +9,13 @@ const config = {
 		},
 		fontSize: {
 			xs: '10px',
-			sm: '12px',
+			sm: '11px',
 			base: '13px',
 			lg: '15px',
-			xl: '22px',
-			'2xl': '26px',
-			'3xl': '30px'
+			xl: '18px',
+			'2xl': '22px',
+			'3xl': '27px',
+			'4xl': '32px'
 		},
 		colors: {
 			gb: {
