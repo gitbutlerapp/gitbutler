@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api';
 import { writable } from 'svelte/store';
-import { sessions, git } from '$lib/api';
+import * as indexes from './indexes';
+import * as activities from './activities';
+import * as sessions from '../sessions';
 
 type FileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'typeChange' | 'other';
 
@@ -22,7 +24,7 @@ export const list = (params: { projectId: string }) =>
 export const Statuses = async (params: { projectId: string }) => {
 	const store = writable(await list(params));
 	sessions.subscribe(params, () => list(params).then(store.set));
-	git.activities.subscribe(params, () => list(params).then(store.set));
-	git.indexes.subscribe(params, () => list(params).then(store.set));
+	activities.subscribe(params, () => list(params).then(store.set));
+	indexes.subscribe(params, () => list(params).then(store.set));
 	return { subscribe: store.subscribe };
 };
