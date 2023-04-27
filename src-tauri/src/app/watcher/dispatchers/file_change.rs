@@ -59,9 +59,16 @@ impl Dispatcher {
                         continue;
                     }
                     for file_path in event.paths {
-                        let relative_file_path =
-                            file_path.strip_prefix(&self.project_path).unwrap();
-                        if let Err(e) = rtx.send(relative_file_path.to_path_buf()) {
+                        if let Err(e) = file_path
+                            .strip_prefix(&self.project_path)
+                            .with_context(|| {
+                                format!(
+                                    "failed to striprefix from file path: {}",
+                                    file_path.display()
+                                )
+                            })
+                            .map(|relative_file_path| rtx.send(relative_file_path.to_path_buf()))
+                        {
                             log::error!(
                                 "{}: failed to send file change event: {:#}",
                                 self.project_id,
