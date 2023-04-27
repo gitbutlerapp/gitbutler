@@ -1,6 +1,6 @@
-import { invoke } from '@tauri-apps/api';
+import { invoke } from '$lib/ipc';
 import type { Project as ApiProject } from '$lib/api/cloud';
-import { derived, readable, writable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 
 export type Project = {
 	id: string;

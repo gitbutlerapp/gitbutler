@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api';
-import { appWindow } from '@tauri-apps/api/window';
+import { invoke, listen } from '$lib/ipc';
 import { clone } from '$lib/utils';
 import { writable } from 'svelte/store';
 
@@ -45,7 +44,7 @@ export const subscribe = (
 	params: { projectId: string },
 	callback: (params: { projectId: string; session: Session }) => Promise<void> | void
 ) =>
-	appWindow.listen<Session>(`project://${params.projectId}/sessions`, async (event) =>
+	listen<Session>(`project://${params.projectId}/sessions`, async (event) =>
 		callback({ ...params, session: event.payload })
 	);
 

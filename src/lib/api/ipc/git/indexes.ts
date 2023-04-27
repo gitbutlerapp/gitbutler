@@ -1,6 +1,6 @@
-import { appWindow } from '@tauri-apps/api/window';
+import { listen } from '$lib/ipc';
 
 export const subscribe = (
 	params: { projectId: string },
 	callback: (params: { projectId: string }) => Promise<void>
-) => appWindow.listen(`project://${params.projectId}/git/index`, () => callback({ ...params }));
+) => listen(`project://${params.projectId}/git/index`, () => callback({ ...params }));

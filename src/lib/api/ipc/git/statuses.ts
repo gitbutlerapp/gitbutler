@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api';
+import { invoke } from '$lib/ipc';
 import { writable } from 'svelte/store';
 import * as indexes from './indexes';
 import * as activities from './activities';

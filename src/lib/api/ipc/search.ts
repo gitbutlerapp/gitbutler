@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api';
+import { invoke } from '$lib/ipc';
 
 export type SearchResult = {
 	projectId: string;

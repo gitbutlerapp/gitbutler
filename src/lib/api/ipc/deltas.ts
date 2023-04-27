@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api';
-import { appWindow } from '@tauri-apps/api/window';
+import { invoke, listen } from '$lib/ipc';
 import { clone } from '$lib/utils';
 import { writable } from 'svelte/store';
 
@@ -56,7 +55,7 @@ export const subscribe = (
 		deltas: Delta[];
 	}) => Promise<void> | void
 ) =>
-	appWindow.listen<{ deltas: Delta[]; filePath: string }>(
+	listen<{ deltas: Delta[]; filePath: string }>(
 		`project://${params.projectId}/sessions/${params.sessionId}/deltas`,
 		(event) => callback({ ...params, ...event.payload })
 	);

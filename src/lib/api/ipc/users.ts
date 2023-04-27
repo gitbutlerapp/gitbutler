@@ -1,5 +1,5 @@
 import type { User } from '$lib/api';
-import { invoke } from '@tauri-apps/api';
+import { invoke } from '$lib/ipc';
 import { writable } from 'svelte/store';
 
 export const get = () => invoke<User | undefined>('get_user');
