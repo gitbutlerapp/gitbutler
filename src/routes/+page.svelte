@@ -26,6 +26,7 @@
 </script>
 
 <div class="h-full w-full p-8">
+	<!-- text -->
 	<div class="flex h-full flex-col">
 		{#if $projects.length == 0}
 			<div class="h-fill grid h-full grid-cols-2 items-center gap-4">

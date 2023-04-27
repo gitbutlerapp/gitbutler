@@ -183,6 +183,7 @@
 	</svelte:fragment>
 </Dialog>
 <div id="commit-page" class="flex h-full w-full">
+	<!-- test -->
 	<div class="commit-panel-container flex h-full flex-col border-r border-zinc-700  w-[424px]">
 		<form
 			on:submit|preventDefault={onCommit}
