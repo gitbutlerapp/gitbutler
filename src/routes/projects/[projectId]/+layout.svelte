@@ -34,7 +34,7 @@
 		unsubscribe(
 			events.on('openQuickCommitModal', () => quickCommitModal.show()),
 
-			hotkeys.on('C', () => events.openQuickCommitModal()),
+			hotkeys.on('C', () => events.emit('openQuickCommitModal')),
 			hotkeys.on('Meta+Shift+C', () => goto(`/projects/${$project.id}/commit/`)),
 			hotkeys.on('Meta+T', () => goto(`/projects/${$project.id}/terminal/`)),
 			hotkeys.on('Meta+P', () => goto(`/projects/${$project.id}/`)),
