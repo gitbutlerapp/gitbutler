@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use notify::{Config, RecommendedWatcher, Watcher};
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,12 @@ impl Dispatcher {
 
     pub fn stop(&self) -> Result<()> {
         if let Some(mut watcher) = self.watcher.lock().unwrap().take() {
-            watcher.unwatch(&std::path::Path::new(&self.project_path))?;
+            watcher
+                .unwatch(&std::path::Path::new(&self.project_path))
+                .context(format!(
+                    "failed to unwatch project path: {}",
+                    self.project_path.display()
+                ))?;
         }
         Ok(())
     }
@@ -32,10 +37,17 @@ impl Dispatcher {
     pub fn start(&self, rtx: crossbeam_channel::Sender<PathBuf>) -> Result<()> {
         let (tx, rx) = std::sync::mpsc::channel();
         let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
-        watcher.watch(
-            &std::path::Path::new(&self.project_path),
-            notify::RecursiveMode::Recursive,
-        )?;
+        watcher
+            .watch(
+                &std::path::Path::new(&self.project_path),
+                notify::RecursiveMode::Recursive,
+            )
+            .with_context(|| {
+                format!(
+                    "failed to watch project path: {}",
+                    self.project_path.display()
+                )
+            })?;
         self.watcher.lock().unwrap().replace(watcher);
 
         log::info!("{}: file watcher started", self.project_id);
