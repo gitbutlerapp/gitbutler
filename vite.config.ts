@@ -6,6 +6,7 @@ export default defineConfig({
 	plugins: [
 		sentrySvelteKit({
 			sourceMapsUploadOptions: {
+				dryRun: process.env.SENTRY_RELEASE === undefined,
 				org: 'gitbutler',
 				project: 'desktop',
 				// this is nikita galaiko's personal sentry api token.
