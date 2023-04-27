@@ -665,10 +665,15 @@ fn set_toggle_menu_hide(handle: &tauri::AppHandle) -> tauri::Result<()> {
 fn show_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
     set_toggle_menu_hide(handle)?;
 
-    tauri::AppHandle::show(handle)?;
+
+    #[cfg(target_os = "macos")]
+    handle.show()?;
 
     if let Some(window) = get_window(handle) {
         window.set_focus()?;
+
+        #[cfg(not(target_os = "macos"))]
+        window.hide()?;
     }
 
     Ok(())
@@ -683,7 +688,16 @@ fn set_toggle_menu_show(handle: &tauri::AppHandle) -> tauri::Result<()> {
 
 fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
     set_toggle_menu_show(handle)?;
-    tauri::AppHandle::hide(handle)
+
+    #[cfg(target_os = "macos")]
+    handle.hide()?;
+
+    #[cfg(not(target_os = "macos"))]
+    if let Some(window) = get_window(handle) {
+        window.hide()?;
+    }
+
+    Ok(())
 }
 
 // fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
