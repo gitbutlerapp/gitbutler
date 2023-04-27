@@ -189,7 +189,7 @@
 <Modal bind:this={modal}>
 	<div class="h-[400px]">
 		<div
-			class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 text-zinc-400 shadow-lg backdrop-blur-lg"
+			class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 text-zinc-400 shadow-lg backdrop-blur-lg"
 		>
 			<!-- Search input area -->
 			<header class="search-input-container flex items-center border-b border-zinc-400/20 py-2">
@@ -224,11 +224,11 @@
 			</header>
 
 			<!-- Command list -->
-			<ul class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
+			<ul class="command-pallete-content-container flex-auto overflow-y-auto">
 				{#each $commandGroups as group, groupIdx}
 					{#await group then group}
 						<li
-							class="w-full cursor-default select-none px-2"
+							class="my-2 w-full cursor-default select-none px-2 "
 							class:hidden={group.commands.length === 0}
 						>
 							<header class="command-palette-section-header result-section-header">
@@ -274,7 +274,9 @@
 			{#await $visibleEntriesCount then resultsCount}
 				{#if resultsCount === 0}
 					<div class="flex flex-1 flex-col items-center justify-center">
-						<span class="text-zinc-300">Sorry bro</span>
+						<span class="w-full px-4 py-2.5 font-semibold leading-8 text-zinc-300"
+							>Nothing turned up. Try again?</span
+						>
 					</div>
 				{/if}
 			{/await}
@@ -283,8 +285,11 @@
 </Modal>
 
 <style lang="postcss">
+	.command-pallete-content-container {
+		/* @apply pt-2; */
+	}
 	.quick-command-item:hover {
-		@apply bg-zinc-50/5;
+		@apply rounded-sm bg-zinc-50/5;
 	}
 
 	.selected,
@@ -306,7 +311,7 @@
 			rgba(0, 0, 0, 0) 0px 0px 0px 0px;
 	}
 	.command-palette-section-header {
-		@apply mx-2 mb-2 mt-2 cursor-default select-none pt-2 text-sm font-semibold text-zinc-400;
+		@apply mx-2 mb-2 cursor-default select-none pt-2 text-sm font-semibold text-zinc-400;
 	}
 	.quick-command-key {
 		@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
