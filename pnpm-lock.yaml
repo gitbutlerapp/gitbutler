@@ -49,6 +49,7 @@ specifiers:
   eslint-config-prettier: ^8.5.0
   eslint-plugin-svelte3: ^4.0.0
   inter-ui: ^3.19.3
+  nanoevents: ^7.0.1
   nanoid: ^4.0.1
   postcss: ^8.4.14
   postcss-load-config: ^4.0.1
@@ -127,6 +128,7 @@ devDependencies:
   eslint-config-prettier: 8.6.0_eslint@8.34.0
   eslint-plugin-svelte3: 4.0.0_dbthnr4b2bdkhyiebwn7su3hnq
   inter-ui: 3.19.3
+  nanoevents: 7.0.1
   nanoid: 4.0.1
   postcss: 8.4.21
   postcss-load-config: 4.0.1_postcss@8.4.21
@@ -143,8 +145,8 @@ devDependencies:
   svelte-french-toast: 1.0.3_svelte@3.55.1
   svelte-resize-observer: 2.0.0
   tailwindcss: 3.2.4_postcss@8.4.21
-  tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/36100c269e33ac91246b0a4bfadd18c1caee5296
-  tauri-plugin-websocket-api: github.com/tauri-apps/tauri-plugin-websocket/9b1883b40e6f53cfc77e029000408da8239fba7a
+  tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/782a97aeb30cf0f54355d04e6026842fa420bd83
+  tauri-plugin-websocket-api: github.com/tauri-apps/tauri-plugin-websocket/100b5e9eb3f28c88d59d4fed52586fdaa0149ea1
   tinykeys: 1.4.0
   tslib: 2.5.0
   typescript: 4.9.5
@@ -6847,6 +6849,11 @@ packages:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
     dev: true
 
+  /nanoevents/7.0.1:
+    resolution: {integrity: sha512-o6lpKiCxLeijK4hgsqfR6CNToPyRU3keKyyI6uwuHRvpRTbZ0wXw51WRgyldVugZqoJfkGFrjrIenYH3bfEO3Q==}
+    engines: {node: ^14.0.0 || ^16.0.0 || >=18.0.0}
+    dev: true
+
   /nanoid/3.3.4:
     resolution: {integrity: sha512-MqBkQh/OHTS2egovRtLk45wEyNXwF+cokD+1YPf9u5VfJiRdAiRwB2froX5Co9Rh20xs4siNPm8naNotSD6RBw==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -8985,16 +8992,16 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-log/36100c269e33ac91246b0a4bfadd18c1caee5296:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/36100c269e33ac91246b0a4bfadd18c1caee5296}
+  github.com/tauri-apps/tauri-plugin-log/782a97aeb30cf0f54355d04e6026842fa420bd83:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/782a97aeb30cf0f54355d04e6026842fa420bd83}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
       '@tauri-apps/api': 1.2.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/9b1883b40e6f53cfc77e029000408da8239fba7a:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/9b1883b40e6f53cfc77e029000408da8239fba7a}
+  github.com/tauri-apps/tauri-plugin-websocket/100b5e9eb3f28c88d59d4fed52586fdaa0149ea1:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/100b5e9eb3f28c88d59d4fed52586fdaa0149ea1}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:

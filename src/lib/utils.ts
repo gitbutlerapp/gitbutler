@@ -7,3 +7,8 @@ export const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number
 };
 
 export const clone = <T>(obj: T): T => structuredClone(obj);
+
+export const unsubscribe =
+	(...unsubscribers: (() => void)[]) =>
+	() =>
+		unsubscribers.forEach((unsubscriber) => unsubscriber());

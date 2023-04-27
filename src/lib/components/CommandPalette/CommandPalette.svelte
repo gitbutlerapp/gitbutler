@@ -8,10 +8,12 @@
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconExternalLink } from '../icons';
+	import type Events from '$lib/events';
 
 	export let projects: Readable<Project[]>;
 	export let addProject: (params: { path: string }) => Promise<Project>;
 	export let project = readable<Project | undefined>(undefined);
+	export let events: ReturnType<typeof Events>;
 
 	const input = writable('');
 	const scopeToProject = writable(!!$project);
@@ -27,7 +29,8 @@
 						addProject,
 						projects,
 						project: scopeToProject ? project : undefined,
-						input
+						input,
+						events
 				  })
 	);
 
@@ -128,20 +131,45 @@
 
 	onMount(() =>
 		tinykeys(window, {
-			Backspace: () => {
+			Backspace: (events) => {
 				if (!modal?.isOpen()) return;
+
+				events.preventDefault();
+				events.stopPropagation();
 				if ($selectedGroup) {
 					selectedGroup.set(undefined);
 				} else if ($input.length === 0) {
 					scopeToProject.set(false);
 				}
 			},
-			ArrowDown: selectNextCommand,
-			ArrowUp: selectPreviousCommand,
-			'Control+n': selectNextCommand,
-			'Control+p': selectPreviousCommand,
-			Enter: () => {
+			ArrowDown: (event) => {
 				if (!modal?.isOpen()) return;
+				event.preventDefault();
+				event.stopPropagation();
+				selectNextCommand();
+			},
+			ArrowUp: (event) => {
+				if (!modal?.isOpen()) return;
+				event.preventDefault();
+				event.stopPropagation();
+				selectPreviousCommand();
+			},
+			'Control+n': (event) => {
+				if (!modal?.isOpen()) return;
+				event.preventDefault();
+				event.stopPropagation();
+				selectNextCommand;
+			},
+			'Control+p': (event) => {
+				if (!modal?.isOpen()) return;
+				event.preventDefault();
+				event.stopPropagation();
+				selectPreviousCommand();
+			},
+			Enter: (event) => {
+				if (!modal?.isOpen()) return;
+				event.preventDefault();
+				event.stopPropagation();
 				Promise.resolve($commandGroups[$selection[0]]).then((group) =>
 					trigger(group.commands[$selection[1]].action)
 				);

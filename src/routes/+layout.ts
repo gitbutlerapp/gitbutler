@@ -7,6 +7,8 @@ import Posthog from '$lib/posthog';
 import Sentry from '$lib/sentry';
 import { setup as setupLogger } from '$lib/log';
 import { wrapLoadWithSentry } from '@sentry/sveltekit';
+import Events from '$lib/events';
+import Hotkeys from '$lib/hotkeys';
 
 export const ssr = false;
 export const prerender = true;
@@ -36,11 +38,14 @@ export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
 		  }
 		: await (await import('$lib/api')).users.CurrentUser();
 	setupLogger();
+	const events = Events();
 	return {
 		projects,
 		user,
 		api: Api({ fetch }),
 		posthog: Posthog(),
-		sentry: Sentry()
+		sentry: Sentry(),
+		events,
+		hotkeys: Hotkeys(events)
 	};
 });
