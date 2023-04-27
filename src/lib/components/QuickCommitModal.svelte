@@ -144,6 +144,9 @@
 		<div class="flex flex-col px-4">
 			<!-- svelte-ignore a11y-autofocus -->
 			<input
+				autocomplete="off"
+				autocorrect="off"
+				spellcheck="true"
 				autofocus
 				name="commit-message"
 				class="overflow-auto border-0 border-none bg-transparent p-1 text-xl text-zinc-100"
@@ -155,6 +158,9 @@
 			/>
 
 			<textarea
+				autocomplete="off"
+				autocorrect="off"
+				spellcheck="true"
 				bind:value={description}
 				name="commit-description"
 				class="resize-none border-none bg-transparent p-1 text-lg text-zinc-400"

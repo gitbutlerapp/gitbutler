@@ -200,7 +200,9 @@
 					{:else}
 						<!-- svelte-ignore a11y-autofocus -->
 						<input
-							spellcheck="false"
+							spellcheck="true"
+							autocomplete="off"
+							autocorrect="off"
 							class="command-palette-input-field"
 							bind:value={$input}
 							type="text"

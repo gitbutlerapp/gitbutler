@@ -252,6 +252,9 @@
 
 			<div class="bottom-controller-container flex flex-col gap-2 pb-4">
 				<input
+					autocomplete="off"
+					autocorrect="off"
+					spellcheck="true"
 					name="summary"
 					class="
 						w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
@@ -286,6 +289,9 @@
 						</div>
 					{/if}
 					<textarea
+						autocomplete="off"
+						autocorrect="off"
+						spellcheck="true"
 						name="description"
 						disabled={isGeneratingCommitMessage || isCommitting}
 						class="
