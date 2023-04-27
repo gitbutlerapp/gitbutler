@@ -46,6 +46,6 @@ export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
 		posthog: Posthog(),
 		sentry: Sentry(),
 		events,
-		hotkeys: Hotkeys(events)
+		hotkeys: await Hotkeys(events)
 	};
 });
