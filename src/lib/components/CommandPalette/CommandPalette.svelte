@@ -131,11 +131,9 @@
 
 	onMount(() =>
 		tinykeys(window, {
-			Backspace: (events) => {
+			Backspace: () => {
 				if (!modal?.isOpen()) return;
 
-				events.preventDefault();
-				events.stopPropagation();
 				if ($selectedGroup) {
 					selectedGroup.set(undefined);
 				} else if ($input.length === 0) {
@@ -158,7 +156,7 @@
 				if (!modal?.isOpen()) return;
 				event.preventDefault();
 				event.stopPropagation();
-				selectNextCommand;
+				selectNextCommand();
 			},
 			'Control+p': (event) => {
 				if (!modal?.isOpen()) return;
