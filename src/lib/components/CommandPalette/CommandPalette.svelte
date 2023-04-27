@@ -189,7 +189,7 @@
 <Modal bind:this={modal}>
 	<div class="h-[400px]">
 		<div
-			class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 text-zinc-400 shadow-lg backdrop-blur-lg"
+			class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 text-zinc-400 shadow-lg backdrop-blur-lg"
 		>
 			<!-- Search input area -->
 			<header class="search-input-container flex items-center border-b border-zinc-400/20 py-2">
@@ -224,57 +224,59 @@
 			</header>
 
 			<!-- Command list -->
-			<ul class="command-pallete-content-container flex-auto overflow-y-auto pb-2">
+			<ul class="command-pallete-content-container flex-auto overflow-y-auto">
 				{#each $commandGroups as group, groupIdx}
-					{#await group then group}
-						<li
-							class="w-full cursor-default select-none px-2"
-							class:hidden={group.commands.length === 0}
-						>
-							<header class="command-palette-section-header result-section-header">
-								<span>{group.title}</span>
-								{#if group.description}
-									<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
-								{/if}
-							</header>
 
-							<ul class="quick-command-list flex flex-col text-zinc-300">
-								{#each group.commands as command, commandIdx}
-									<li
-										class="quick-command-item flex w-full cursor-default rounded-lg"
-										class:selected={$selection[0] === groupIdx && $selection[1] === commandIdx}
-									>
-										<button
-											on:focus={() => ($selection = [groupIdx, commandIdx])}
-											on:click={() => trigger(command.action)}
-											class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
+						{#await group then group}
+							<li
+								class="w-full cursor-default select-none px-2 my-2 "
+								class:hidden={group.commands.length === 0}
+							>
+								<header class="command-palette-section-header result-section-header">
+									<span>{group.title}</span>
+									{#if group.description}
+										<span class="ml-2 font-light italic text-zinc-300/70">({group.description})</span>
+									{/if}
+								</header>
+
+								<ul class="quick-command-list flex flex-col text-zinc-300">
+									{#each group.commands as command, commandIdx}
+										<li
+											class="quick-command-item flex w-full cursor-default rounded-lg"
+											class:selected={$selection[0] === groupIdx && $selection[1] === commandIdx}
 										>
-											<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
-											<span
-												class="quick-command flex flex-1 items-center gap-1 text-left font-medium"
+											<button
+												on:focus={() => ($selection = [groupIdx, commandIdx])}
+												on:click={() => trigger(command.action)}
+												class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
 											>
-												{command.title}
-												{#if Action.isExternalLink(command.action)}
-													<IconExternalLink class="h-4 w-4 text-zinc-600" />
+												<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
+												<span
+													class="quick-command flex flex-1 items-center gap-1 text-left font-medium"
+												>
+													{command.title}
+													{#if Action.isExternalLink(command.action)}
+														<IconExternalLink class="h-4 w-4 text-zinc-600" />
+													{/if}
+												</span>
+												{#if command.hotkey}
+													{#each command.hotkey.replace('Meta', '⌘').split('+') as key}
+														<span class="quick-command-key">{key}</span>
+													{/each}
 												{/if}
-											</span>
-											{#if command.hotkey}
-												{#each command.hotkey.replace('Meta', '⌘').split('+') as key}
-													<span class="quick-command-key">{key}</span>
-												{/each}
-											{/if}
-										</button>
-									</li>
-								{/each}
-							</ul>
-						</li>
-					{/await}
+											</button>
+										</li>
+									{/each}
+								</ul>
+							</li>
+						{/await}
+
 				{/each}
 			</ul>
 			{#await $visibleEntriesCount then resultsCount}
 				{#if resultsCount === 0}
 					<div class="flex flex-1 flex-col items-center justify-center">
-						<span class="text-zinc-300">Sorry bro</span>
+						<span class="px-4 py-2.5 w-full text-zinc-300 font-semibold leading-8">Nothing turned up. Try again?</span>
 					</div>
 				{/if}
 			{/await}
@@ -283,8 +285,11 @@
 </Modal>
 
 <style lang="postcss">
+	.command-pallete-content-container {
+		/* @apply pt-2; */
+	}
 	.quick-command-item:hover {
-		@apply bg-zinc-50/5;
+		@apply bg-zinc-50/5 rounded-sm;
 	}
 
 	.selected,
@@ -306,7 +311,7 @@
 			rgba(0, 0, 0, 0) 0px 0px 0px 0px;
 	}
 	.command-palette-section-header {
-		@apply mx-2 mb-2 mt-2 cursor-default select-none pt-2 text-sm font-semibold text-zinc-400;
+		@apply mx-2 mb-2 cursor-default select-none pt-2 text-sm font-semibold text-zinc-400;
 	}
 	.quick-command-key {
 		@apply rounded-sm border border-[#3A393F] bg-[#343338] px-[3px] font-mono text-[11px] shadow;
