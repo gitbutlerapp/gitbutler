@@ -93,9 +93,10 @@ impl<'repository> Repository<'repository> {
 
         let files = statuses
             .iter()
-            .map(|entry| {
-                let path = entry.path().unwrap();
-                (path.to_string(), FileStatusType::from(entry.status()))
+            .filter_map(|entry| {
+                entry
+                    .path()
+                    .map(|path| (path.to_string(), FileStatusType::from(entry.status())))
             })
             .collect();
 
@@ -117,9 +118,10 @@ impl<'repository> Repository<'repository> {
 
         let files = statuses
             .iter()
-            .map(|entry| {
-                let path = entry.path().unwrap();
-                (path.to_string(), FileStatusType::from(entry.status()))
+            .filter_map(|entry| {
+                entry
+                    .path()
+                    .map(|path| (path.to_string(), FileStatusType::from(entry.status())))
             })
             .collect();
 
