@@ -18,7 +18,7 @@ export default async (events: ReturnType<typeof Events>) =>
 							event.preventDefault();
 							event.stopPropagation();
 
-							events.closeCommandPalette();
+							events.emit('closeCommandPalette');
 							callback(event);
 						}
 					});

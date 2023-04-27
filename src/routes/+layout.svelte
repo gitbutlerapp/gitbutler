@@ -41,9 +41,9 @@
 			events.on('closeCommandPalette', () => commandPalette?.close()),
 			events.on('goto', (path: string) => goto(path)),
 
-			hotkeys.on('Meta+k', () => events.openCommandPalette()),
-			hotkeys.on('Meta+,', () => events.goto('/users/')),
-			hotkeys.on('Meta+Shift+N', () => events.openNewProjectModal())
+			hotkeys.on('Meta+k', () => events.emit('openCommandPalette')),
+			hotkeys.on('Meta+,', () => events.emit('goto', '/users/')),
+			hotkeys.on('Meta+Shift+N', () => events.emit('openNewProjectModal'))
 		)
 	);
 

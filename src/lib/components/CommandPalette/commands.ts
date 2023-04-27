@@ -116,7 +116,7 @@ const commandsGroup = ({
 					{
 						title: 'Quick commits...',
 						hotkey: 'C',
-						action: () => events.openQuickCommitModal(),
+						action: () => events.emit('openQuickCommitModal'),
 						icon: IconGitCommit
 					},
 					{
