@@ -467,16 +467,9 @@ fn main() {
                     "toggle" => match get_window(&app_handle) {
                         Some(window) => {
                             if window.is_visible().unwrap() {
-                                window.hide().unwrap();
-                                item_handle
-                                    .set_title(format!("Show {}", app_title))
-                                    .unwrap();
+                                hide_window(&app_handle).expect("Failed to hide window");
                             } else {
-                                window.show().unwrap();
-                                window.set_focus().unwrap();
-                                item_handle
-                                    .set_title(format!("Hide {}", app_title))
-                                    .unwrap();
+                                show_window(&app_handle).expect("Failed to show window");
                             }
                         }
                         None => {
@@ -493,18 +486,8 @@ fn main() {
         })
         .on_window_event(|event| match event.event() {
             tauri::WindowEvent::CloseRequested { api, .. } => {
+                hide_window(&event.window().app_handle()).expect("Failed to hide window");
                 api.prevent_close();
-                let window = event.window();
-                let app_handle = window.app_handle();
-                let app_title = app_handle.package_info().name.clone();
-
-                app_handle
-                    .tray_handle()
-                    .get_item("toggle")
-                    .set_title(format!("Show {}", app_title))
-                    .expect("Failed to set tray item title");
-
-                window.hide().expect("Failed to hide window");
             }
             _ => {}
         })
@@ -589,6 +572,18 @@ fn main() {
         .build(tauri_context)
         .expect("Failed to build tauri app")
         .run(|app_handle, event| match event {
+            tauri::RunEvent::WindowEvent { event, .. } => match event {
+                tauri::WindowEvent::Focused(is_focused) => {
+                    if is_focused {
+                        set_toggle_menu_hide(&app_handle)
+                            .expect("Failed to set toggle menu hide");
+                    } else {
+                        set_toggle_menu_show(&app_handle)
+                            .expect("Failed to set toggle menu show");
+                    }
+                },
+                _ => {}
+            }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 hide_window(&app_handle).expect("Failed to hide window");
                 api.prevent_exit();
@@ -660,22 +655,35 @@ fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
         .build()
 }
 
-fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
+fn set_toggle_menu_hide(handle: &tauri::AppHandle) -> tauri::Result<()> {
     handle
         .tray_handle()
         .get_item("toggle")
-        .set_title(format!("Show {}", handle.package_info().name))?;
+        .set_title(format!("Hide {}", handle.package_info().name))
+}
 
-    match get_window(handle) {
-        Some(window) => {
-            if window.is_visible()? {
-                window.hide()
-            } else {
-                Ok(())
-            }
-        }
-        None => Ok(()),
+fn show_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
+    set_toggle_menu_hide(handle)?;
+
+    tauri::AppHandle::show(handle)?;
+
+    if let Some(window) = get_window(handle) {
+        window.set_focus()?;
     }
+
+    Ok(())
+}
+
+fn set_toggle_menu_show(handle: &tauri::AppHandle) -> tauri::Result<()> {
+    handle
+        .tray_handle()
+        .get_item("toggle")
+        .set_title(format!("Show {}", handle.package_info().name))
+}
+
+fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
+    set_toggle_menu_show(handle)?;
+    tauri::AppHandle::hide(handle)
 }
 
 // fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
