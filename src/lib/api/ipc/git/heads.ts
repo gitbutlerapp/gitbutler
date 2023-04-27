@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api';
-import { appWindow } from '@tauri-apps/api/window';
+import { invoke, listen } from '$lib/ipc';
 import { derived, writable } from 'svelte/store';
 
 export const get = (params: { projectId: string }) => invoke<string>('git_head', params);
@@ -8,7 +7,7 @@ export const subscribe = (
 	params: { projectId: string },
 	callback: (params: { projectId: string; head: string }) => Promise<void> | void
 ) =>
-	appWindow.listen<{ head: string }>(`project://${params.projectId}/git/head`, (event) =>
+	listen<{ head: string }>(`project://${params.projectId}/git/head`, (event) =>
 		callback({ ...params, ...event.payload })
 	);
 

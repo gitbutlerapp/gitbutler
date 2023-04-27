@@ -6,7 +6,7 @@ export * as heads from './heads';
 export * as diffs from './diffs';
 export * as indexes from './indexes';
 
-import { invoke } from '@tauri-apps/api';
+import { invoke } from '$lib/ipc';
 
 export const commit = (params: { projectId: string; message: string; push: boolean }) =>
 	invoke<boolean>('git_commit', params);

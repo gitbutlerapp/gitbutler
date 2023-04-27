@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api';
-import { appWindow } from '@tauri-apps/api/window';
+import { invoke, listen } from '$lib/ipc';
 import { get, writable } from 'svelte/store';
 
 export type Activity = {
@@ -14,7 +13,7 @@ export const list = (params: { projectId: string; startTimeMs?: number }) =>
 export const subscribe = (
 	params: { projectId: string },
 	callback: (params: { projectId: string }) => Promise<void> | void
-) => appWindow.listen(`project://${params.projectId}/git/activity`, () => callback(params));
+) => listen(`project://${params.projectId}/git/activity`, () => callback(params));
 
 export const Activities = async (params: { projectId: string }) => {
 	const store = writable<Activity[]>(await list(params));

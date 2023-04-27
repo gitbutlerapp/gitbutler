@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api';
+import { invoke } from '$lib/ipc';
 import { clone } from '$lib/utils';
 
 const cache: Record<string, Record<string, Promise<Record<string, string>>>> = {};
