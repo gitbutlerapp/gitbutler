@@ -9,12 +9,13 @@ export default (events: ReturnType<typeof Events>) => ({
 			combo.includes('Meta') || combo.includes('Alt') || combo.includes('Ctrl');
 		return tinykeys(window, {
 			[combo]: (event) => {
-				event.preventDefault();
-				event.stopPropagation();
-
 				const target = event.target as HTMLElement;
 				const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
 				if (isInput && !comboContainsControlKeys) return;
+
+				event.preventDefault();
+				event.stopPropagation();
+
 				events.closeCommandPalette();
 				callback(event);
 			}
