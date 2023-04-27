@@ -34,6 +34,16 @@
 				  })
 	);
 
+	const visibleEntriesCount = derived([commandGroups], async ([commandGroups]) => {
+		const sizes = await Promise.all(
+			commandGroups.map(async (group) => {
+				const g = await group;
+				return g.commands.length;
+			})
+		);
+		return sizes.reduce((acc, size) => acc + size, 0);
+	});
+
 	const selection = writable<[number, number]>([0, 0]);
 
 	commandGroups.subscribe((groups) => {
@@ -261,6 +271,13 @@
 					{/await}
 				{/each}
 			</ul>
+			{#await $visibleEntriesCount then resultsCount}
+				{#if resultsCount === 0}
+					<div class="flex flex-1 flex-col items-center justify-center">
+						<span class="text-zinc-300">Sorry bro</span>
+					</div>
+				{/if}
+			{/await}
 		</div>
 	</div>
 </Modal>
