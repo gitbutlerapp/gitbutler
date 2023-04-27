@@ -183,10 +183,10 @@
 	</svelte:fragment>
 </Dialog>
 <div id="commit-page" class="flex h-full w-full">
-	<div class="commit-panel-container flex h-full flex-col border-r border-zinc-700 px-4">
+	<div class="commit-panel-container flex h-full flex-col border-r border-zinc-700  w-[424px]">
 		<form
 			on:submit|preventDefault={onCommit}
-			class="flex h-full w-1/3 min-w-[500px] flex-col gap-4"
+			class="flex h-full  flex-col gap-4 px-4"
 		>
 			<h1 class="pt-2 text-2xl font-bold">Commit</h1>
 			<ul
@@ -331,7 +331,7 @@
 
 	<div
 		id="preview"
-		class="m-4 flex flex-auto cursor-text select-text overflow-auto rounded border border-gb-700 bg-card-default"
+		class="m-4 flex flex-auto cursor-text select-text overflow-auto rounded border border-gb-700 bg-card-default w-2/3"
 	>
 		{#if $selectedDiffPath !== undefined}
 			{#if $selectedDiff !== undefined}
