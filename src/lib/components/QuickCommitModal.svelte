@@ -3,7 +3,6 @@
 	import { Status, type Project, git } from '$lib/api';
 	import type { CloudApi, User } from '$lib/api';
 	import { Button, Modal, Link } from '$lib/components';
-	import { onMount } from 'svelte';
 	import { IconGitBranch } from './icons';
 
 	export const show = () => modal.show();
@@ -109,7 +108,7 @@
 			<Button
 				role="purple"
 				height="small"
-				disabled={isCommitting}
+				disabled={isCommitting || !project.api?.sync}
 				loading={isAutowriting}
 				on:click={onAutowrite}
 			>

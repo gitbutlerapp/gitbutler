@@ -63,6 +63,7 @@
 		"eslint-config-prettier": "^8.5.0",
 		"eslint-plugin-svelte3": "^4.0.0",
 		"inter-ui": "^3.19.3",
+		"nanoevents": "^7.0.1",
 		"nanoid": "^4.0.1",
 		"postcss": "^8.4.14",
 		"postcss-load-config": "^4.0.1",

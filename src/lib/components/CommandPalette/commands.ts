@@ -1,5 +1,6 @@
 import { type Project, git } from '$lib/api';
 import { open } from '@tauri-apps/api/dialog';
+import type Events from '$lib/events';
 import { toasts } from '$lib';
 import {
 	IconGitCommit,
@@ -99,11 +100,25 @@ const projectsGroup = ({
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
-const commandsGroup = ({ project, input }: { project?: Project; input: string }): Group => ({
+const commandsGroup = ({
+	project,
+	input,
+	events
+}: {
+	project?: Project;
+	input: string;
+	events: ReturnType<typeof Events>;
+}): Group => ({
 	title: 'Commands',
 	commands: [
 		...(project
 			? [
+					{
+						title: 'Quick commits...',
+						hotkey: 'C',
+						action: () => events.openQuickCommitModal(),
+						icon: IconGitCommit
+					},
 					{
 						title: 'Replay',
 						hotkey: 'Meta+R',
@@ -224,11 +239,12 @@ export default (params: {
 	projects: Project[];
 	project?: Project;
 	input: string;
+	events: ReturnType<typeof Events>;
 }) => {
-	const { addProject, projects, input, project } = params;
+	const { addProject, projects, input, project, events } = params;
 	const groups = [];
 
-	groups.push(commandsGroup({ project, input }));
+	groups.push(commandsGroup({ project, input, events }));
 	groups.push(navigateGroup({ project, input }));
 	!project && groups.push(projectsGroup({ addProject, projects, input }));
 	project && groups.push(fileGroup({ project, input }));

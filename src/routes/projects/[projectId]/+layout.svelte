@@ -6,9 +6,12 @@
 	import { goto } from '$app/navigation';
 	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
 	import QuickCommitModal from '$lib/components/QuickCommitModal.svelte';
+	import { onMount } from 'svelte';
+	import { unsubscribe } from '$lib/utils';
+	import { format } from 'date-fns';
 
 	export let data: LayoutData;
-	const { user, api, project, head, statuses, diffs } = data;
+	const { hotkeys, events, user, api, project, head, statuses, diffs } = data;
 
 	let query: string;
 
@@ -25,6 +28,23 @@
 	}
 
 	$: selection = $page?.route?.id?.split('/')?.[3];
+
+	let quickCommitModal: QuickCommitModal;
+	onMount(() =>
+		unsubscribe(
+			events.on('openQuickCommitModal', () => quickCommitModal.show()),
+
+			hotkeys.on('C', () => events.openQuickCommitModal()),
+			hotkeys.on('Meta+Shift+C', () => goto(`/projects/${$project.id}/commit/`)),
+			hotkeys.on('Meta+T', () => goto(`/projects/${$project.id}/terminal/`)),
+			hotkeys.on('Meta+P', () => goto(`/projects/${$project.id}/`)),
+			hotkeys.on('Meta+Shift+,', () => goto(`/projects/${$project.id}/settings/`)),
+			hotkeys.on('Meta+R', () =>
+				goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`)
+			),
+			hotkeys.on('a i p', () => goto(`/projects/${$project.id}/aiplayground/`))
+		)
+	);
 </script>
 
 <div class="flex h-full w-full flex-col">
@@ -122,8 +142,9 @@
 
 {#if $user}
 	<QuickCommitModal
+		bind:this={quickCommitModal}
 		user={$user}
-		api={api}
+		{api}
 		project={$project}
 		head={$head}
 		diffs={$diffs}
