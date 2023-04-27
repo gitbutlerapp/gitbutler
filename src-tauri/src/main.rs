@@ -130,7 +130,12 @@ async fn search(
         },
     };
 
-    let results = app.search(&query).context("failed to search")?;
+    let results = app.search(&query).with_context(|| {
+        format!(
+            "failed to search for query {} in project {}",
+            query.q, query.project_id
+        )
+    })?;
 
     Ok(results)
 }
@@ -145,7 +150,12 @@ async fn list_sessions(
     let app = handle.state::<app::App>();
     let sessions = app
         .list_sessions(project_id, earliest_timestamp_ms)
-        .context("failed to list sessions")?;
+        .with_context(|| {
+            format!(
+                "failed to list sessions for project {}",
+                project_id.to_string()
+            )
+        })?;
     Ok(sessions)
 }
 
@@ -209,7 +219,7 @@ async fn update_project(
 
     let project = app
         .update_project(&project)
-        .context("failed to update project")?;
+        .with_context(|| format!("failed to update project {}", project.id))?;
 
     Ok(project)
 }
@@ -220,7 +230,12 @@ async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::P
     let app = handle.state::<app::App>();
 
     let (tx, rx) = std::sync::mpsc::channel::<events::Event>();
-    let project = app.add_project(path, tx).context("failed to add project")?;
+    let project = app.add_project(path, tx).with_context(|| {
+        format!(
+            "failed to add project from path {}",
+            &path
+        )
+    })?;
 
     watch_events(handle, rx);
 
@@ -242,7 +257,7 @@ async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project
 async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
-    app.delete_project(id).context("failed to delete project")?;
+    app.delete_project(id).with_context(|| format!("failed to delete project {}", id))?;
 
     Ok(())
 }
@@ -258,7 +273,12 @@ async fn list_session_files(
     let app = handle.state::<app::App>();
     let files = app
         .list_session_files(project_id, session_id, paths)
-        .context("failed to list session files")?;
+        .with_context(|| {
+            format!(
+                "failed to list files for session {} in project {}",
+                session_id, project_id
+            )
+        })?;
     Ok(files)
 }
 
@@ -273,7 +293,12 @@ async fn list_deltas(
     let app = handle.state::<app::App>();
     let deltas = app
         .list_session_deltas(project_id, session_id, paths)
-        .context("failed to list deltas")?;
+        .with_context(|| {
+            format!(
+                "failed to list deltas for session {} in project {}",
+                session_id, project_id
+            )
+        })?;
     Ok(deltas)
 }
 
@@ -287,7 +312,7 @@ async fn git_activity(
     let app = handle.state::<app::App>();
     let activity = app
         .git_activity(project_id, start_time_ms)
-        .context("failed to get git activity")?;
+        .with_context(|| format!("failed to get git activity for project {}", project_id))?;
     Ok(activity)
 }
 
@@ -300,7 +325,7 @@ async fn git_status(
     let app = handle.state::<app::App>();
     let status = app
         .git_status(project_id)
-        .context("failed to get git status")?;
+        .with_context(|| format!("failed to get git status for project {}", project_id))?;
     Ok(status)
 }
 
@@ -313,7 +338,7 @@ async fn git_wd_diff(
     let app = handle.state::<app::App>();
     let diff = app
         .git_wd_diff(project_id, 100)
-        .context("failed to get git wd diff")?;
+        .with_context(|| format!("failed to get git wd diff for project {}", project_id))?;
     Ok(diff)
 }
 
@@ -327,7 +352,12 @@ async fn git_match_paths(
     let app = handle.state::<app::App>();
     let paths = app
         .git_match_paths(project_id, match_pattern)
-        .context("failed to get git match paths")?;
+        .with_context(|| {
+            format!(
+                "failed to get git match paths for project {} and pattern {}",
+                project_id, match_pattern
+            )
+        })?;
     Ok(paths)
 }
 
@@ -337,7 +367,7 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
     let app = handle.state::<app::App>();
     let branches = app
         .git_branches(project_id)
-        .context("failed to get git branches")?;
+        .with_context(|| format!("failed to get git branches for project {}", project_id))?;
     Ok(branches)
 }
 
@@ -345,7 +375,12 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 #[tauri::command(async)]
 async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
-    let head = app.git_head(project_id).context("failed to get git head")?;
+    let head = app.git_head(project_id).with_context(|| {
+        format!(
+            "failed to get git head for project {}",
+            project_id
+        )
+    })?;
     Ok(head)
 }
 
@@ -358,7 +393,7 @@ async fn git_switch_branch(
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.git_switch_branch(project_id, branch)
-        .context("failed to switch git branch")?;
+        .with_context(|| format!("failed to switch git branch for project {}", project_id))?;
     Ok(())
 }
 
@@ -371,7 +406,7 @@ async fn git_stage(
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.git_stage_files(project_id, paths)
-        .context("failed to stage file")?;
+        .with_context(|| format!("failed to stage file for project {}", project_id))?;
     Ok(())
 }
 
@@ -384,7 +419,7 @@ async fn git_unstage(
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.git_unstage_files(project_id, paths)
-        .context("failed to unstage file")?;
+        .with_context(|| format!("failed to unstage file for project {}", project_id))?;
     Ok(())
 }
 
@@ -398,7 +433,7 @@ async fn git_commit(
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.git_commit(project_id, message, push)
-        .context("failed to commit")?;
+        .with_context(|| format!("failed to commit for project {}", project_id))?;
     Ok(())
 }
 
