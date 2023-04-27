@@ -184,6 +184,9 @@
 					<div class="flex flex-col gap-2">
 						<label for="description" class="ml-1">Project Description</label>
 						<textarea
+							autocomplete="off"
+							autocorrect="off"
+							spellcheck="false"
 							id="description"
 							name="description"
 							rows="3"

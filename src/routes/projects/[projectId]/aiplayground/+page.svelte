@@ -271,7 +271,15 @@
 			"
 		>
 			<div class="flex gap-2 pt-2">
-				<input bind:value={chatInput} placeholder="Send a message..." class="w-full" />
+				<input
+					type="text"
+					autocomplete="off"
+					autocorrect="off"
+					spellcheck="true"
+					bind:value={chatInput}
+					placeholder="Send a message..."
+					class="w-full"
+				/>
 				<Button
 					disabled={chatInput.length == 0 || !chatId}
 					role="primary"

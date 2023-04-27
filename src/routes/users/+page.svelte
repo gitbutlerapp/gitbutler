@@ -109,6 +109,9 @@
 						<div class="flex flex-col gap-1">
 							<label for="name" class="text-zinc-400">Name</label>
 							<input
+								autocomplete="off"
+								autocorrect="off"
+								spellcheck="false"
 								id="name"
 								name="name"
 								bind:value={userNameInput}
@@ -122,6 +125,9 @@
 						<div class="flex flex-col gap-1">
 							<label for="email" class="text-zinc-400">Email</label>
 							<input
+								autocomplete="off"
+								autocorrect="off"
+								spellcheck="false"
 								disabled
 								id="email"
 								name="email"

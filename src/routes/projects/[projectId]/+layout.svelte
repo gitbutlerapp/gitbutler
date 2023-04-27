@@ -68,12 +68,14 @@
 						>
 							<input type="submit" class="hidden" />
 							<input
+								autocomplete="off"
+								autocorrect="off"
+								spellcheck="true"
 								type="text"
 								name="search"
 								id="search"
 								placeholder="Search history"
 								bind:value={query}
-								autocomplete="off"
 								aria-label="Search input"
 								class="block w-full min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-800  p-[3px] px-2 pl-10 text-zinc-200 placeholder:text-zinc-500 sm:leading-6"
 							/>
