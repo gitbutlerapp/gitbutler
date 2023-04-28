@@ -159,7 +159,7 @@
 </script>
 
 <div class="flex h-full w-full select-text whitespace-pre font-mono">
-	<div id="numbers" class="flex flex-shrink-0 select-none flex-col">
+	<div id="content" class="flex max-w-full flex-auto flex-col">
 		{#each rows as row}
 			{@const baseNumber =
 				row.type === RowType.Equal || row.type === RowType.Deletion
@@ -169,35 +169,24 @@
 				row.type === RowType.Equal || row.type === RowType.Addition
 					? String(row.currentLineNumber)
 					: ''}
-			<div class="grid-cols-min grid grid-cols-3 gap-2">
-				<span class="min-w-[{originalLineNumberDigits}ch] text-right text-[#8C8178]">
+			<div
+				class="grid max-w-full grid-cols-3"
+				style:grid-template-columns="min-content min-content 1fr"
+			>
+				<span class="mr-2 w-[{originalLineNumberDigits}ch] text-right text-[#8C8178]">
 					{baseNumber}
 				</span>
-				<span class="min-w-[{currentLineNumberDigits}ch] text-right text-[#8C8178]">
+
+				<span class="mr-3 w-[{currentLineNumberDigits}ch] text-right text-[#8C8178]">
 					{curNumber}
 				</span>
-				<span
-					class="min-w-[1ch] text-center before:content-[attr(data-marker)]"
-					class:diff-line-addition={row.type === RowType.Addition}
-					class:diff-line-deletion={row.type === RowType.Deletion}
-					class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
-					data-marker={row.type === RowType.Addition
-						? '+'
-						: row.type === RowType.Deletion
-						? '-'
-						: ' '}
-				/>
-			</div>
-		{/each}
-	</div>
 
-	<div id="content" class="flex flex-auto flex-col">
-		{#each rows as row}
-			<span class="diff-line-{row.type}">
-				{#each row.render.html as content}
-					{@html content}
-				{/each}
-			</span>
+				<span class="diff-line-{row.type} overflow-hidden whitespace-pre-wrap">
+					{#each row.render.html as content}
+						{@html content}
+					{/each}
+				</span>
+			</div>
 		{/each}
 	</div>
 </div>
