@@ -262,7 +262,7 @@
 
 <article
 	id="activities"
-	class="my-2 flex w-80 flex-shrink-0 flex-grow-0 flex-col rounded border-[0.5px] border-gb-700 bg-card-default xl:w-96"
+	class="card my-2 flex w-80 flex-shrink-0 flex-grow-0 flex-col xl:w-96"
 >
 	{#await richSessions.load()}
 		<div class="flex h-full flex-col items-center justify-center">
@@ -343,7 +343,7 @@
 
 <div
 	id="player"
-	class="relative my-2 flex flex-auto flex-col overflow-auto rounded border-[0.5px] border-gb-700 bg-card-default"
+	class="card relative my-2 flex flex-auto flex-col overflow-auto"
 >
 	{#if $frame}
 		<header class="flex items-center gap-3 bg-card-active px-3 py-2">
@@ -355,7 +355,7 @@
 			<div class="flex items-center gap-1">
 				<button
 					on:click={goToPrevSession}
-					class="cursor-pointer rounded border border-zinc-500 bg-zinc-600 p-0.5"
+					class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
 					class:hover:bg-zinc-500={$hasPrevSession}
 					class:cursor-not-allowed={!$hasPrevSession}
 					class:text-zinc-500={!$hasPrevSession}
@@ -364,7 +364,7 @@
 				</button>
 				<button
 					on:click={goToNextSession}
-					class="cursor-pointer rounded border border-zinc-500 bg-zinc-600 p-0.5"
+					class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
 					class:hover:bg-zinc-500={$hasNextSession}
 					class:cursor-not-allowed={!$hasNextSession}
 					class:text-zinc-500={!$hasNextSession}

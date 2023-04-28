@@ -374,7 +374,7 @@
 						<div class="flex items-center gap-1">
 							<button
 								on:click={selectPreviousFile}
-								class="cursor-pointer rounded border border-zinc-500 bg-zinc-600 p-0.5"
+								class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
 								class:hover:bg-zinc-500={$hasPreviousFile}
 								class:cursor-not-allowed={!$hasPreviousFile}
 								class:text-zinc-500={!$hasPreviousFile}
@@ -383,7 +383,7 @@
 							</button>
 							<button
 								on:click={selectNextFile}
-								class="cursor-pointer rounded border border-zinc-500 bg-zinc-600 p-0.5"
+								class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
 								class:hover:bg-zinc-500={$hasNextFile}
 								class:cursor-not-allowed={!$hasNextFile}
 								class:text-zinc-500={!$hasNextFile}
