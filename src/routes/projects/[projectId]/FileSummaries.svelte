@@ -73,7 +73,7 @@
 			{#each Object.entries(fileDeltas) as [filepath, deltas]}
 				<li class="changed-file flex items-center justify-between gap-4  ">
 					<a
-						class="file-name flex w-[50%] overflow-auto py-2 font-mono hover:underline"
+						class="file-name flex w-full max-w-[360px] overflow-auto py-2 font-mono hover:underline max-w-"
 						href="/projects/{projectId}/player/{format(
 							date,
 							'yyyy-MM-dd'

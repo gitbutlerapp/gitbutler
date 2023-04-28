@@ -11,7 +11,7 @@
 	);
 </script>
 
-<div class="file-activity w-[50%] font-mono text-zinc-400">
+<div class="file-activity w-full font-mono text-zinc-400">
 	{#each buckets as bucket}
 		<span
 			class={`inline-block w-full rounded-t-sm`}

@@ -32,7 +32,7 @@
 </script>
 
 <div class="terminal-page flex h-full w-full flex-auto flex-row">
-	<div class="side-panel h-full w-[424px] p-4">
+	<div class="side-panel p-4">
 		<h2 class="pb-4 text-lg font-bold text-zinc-300">Git Status</h2>
 		<Statuses statuses={$statuses} />
 		<div class="mt-4 font-bold">Commands</div>
@@ -43,7 +43,7 @@
 		</ul>
 	</div>
 
-	<div class="main-content h-full w-2/3 flex-auto">
+	<div class="main-content-container h-full">
 		<div class="flex h-full w-full flex-row">
 			<div class="h-full w-full" use:terminal={{ project: $project }} />
 			<ResizeObserver on:resize={handleTerminalResize} />
