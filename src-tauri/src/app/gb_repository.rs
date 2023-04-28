@@ -233,13 +233,16 @@ impl Repository {
             return Ok(session.clone());
         }
 
+        if !self.root().exists() {
+            return Err(anyhow!("nothing to flush"));
+        }
+
+        // take session writer to update last timestamp
+        self.get_session_writer(session)?;
+
         self.lock()?;
         defer! {
             self.unlock().expect("failed to unlock");
-        }
-
-        if !self.root().exists() {
-            return Err(anyhow!("nothing to flush"));
         }
 
         let wd_tree_oid = build_wd_tree(&self, &project_repository)
