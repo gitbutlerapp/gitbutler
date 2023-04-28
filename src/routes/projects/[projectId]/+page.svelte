@@ -57,9 +57,9 @@
 	);
 </script>
 
-<div id="project-overview" class="flex h-full w-full">
-	<div class="work-in-progress-sidebar side-panel flex w-1/3 flex-col border-r border-zinc-700">
-		<div class="recent-changes flex flex-col gap-4 border-b border-b-zinc-700 p-4">
+<div id="project-overview" class="flex flex-auto h-full w-full">
+	<div class="work-in-progress-sidebar side-panel flex flex-col border-r border-zinc-700 w-[424px]">
+		<div class="recent-changes flex flex-col gap-4 border-b border-b-zinc-700 p-4 ">
 			<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
 
 			<div class="flex items-center justify-between gap-2">
@@ -113,7 +113,7 @@
 		</div>
 	</div>
 
-	<div class="flex w-2/3 flex-col gap-4">
+	<div class="flex w-2/3 flex-auto flex-col gap-4">
 		<h1 class="flex px-8 pt-4 text-2xl text-zinc-300">
 			<span>{$project?.title}</span>
 			<span class="ml-2 text-zinc-600">Project</span>

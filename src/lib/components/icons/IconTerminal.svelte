@@ -3,30 +3,11 @@
 	export { className as class };
 </script>
 
-<svg
-	class={className}
-	width="16"
-	height="14"
-	viewBox="0 0 16 14"
-	fill="none"
-	xmlns="http://www.w3.org/2000/svg"
-	stroke="currentColor"
->
-	<mask id="path-1-inside-1_6_282" fill="white">
-		<rect width="16" height="14" rx="1" />
-	</mask>
-	<rect
-		width="16"
-		height="14"
-		rx="1"
-		stroke-width="3"
-		stroke-linejoin="round"
-		mask="url(#path-1-inside-1_6_282)"
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+	<path 
+		fill-rule="evenodd" 
+		clip-rule="evenodd" 
+		d="M3.5 15.5V4.5H16.5V15.5H3.5ZM2 4C2 3.44772 2.44772 3 3 3H17C17.5523 3 18 3.44772 18 4V16C18 16.5523 17.5523 17 17 17H3C2.44772 17 2 16.5523 2 16V4ZM4.93057 6.5119C5.20014 6.19741 5.67361 6.16099 5.98811 6.43056L9.31095 9.2787C9.75328 9.65785 9.75328 10.3422 9.31095 10.7213L5.98811 13.5694C5.67361 13.839 5.20014 13.8026 4.93057 13.4881C4.661 13.1736 4.69743 12.7001 5.01192 12.4306L7.84757 10L5.01192 7.56944C4.69743 7.29987 4.661 6.8264 4.93057 6.5119ZM10 12.75C10 12.3358 10.3358 12 10.75 12H14.25C14.6642 12 15 12.3358 15 12.75C15 13.1642 14.6642 13.5 14.25 13.5H10.75C10.3358 13.5 10 13.1642 10 12.75Z" 
+		fill="currentColor"
 	/>
-	<path
-		d="M3.5 4L6.82284 6.84815C6.91596 6.92797 6.91596 7.07203 6.82284 7.15185L3.5 10"
-		stroke-width="1.5"
-		stroke-linecap="round"
-	/>
-	<rect x="8" y="9" width="5" height="1.5" rx="0.75" fill="currentColor" />
 </svg>

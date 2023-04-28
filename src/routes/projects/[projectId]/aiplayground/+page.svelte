@@ -10,8 +10,8 @@
 		};
 	};
 
-	const chainUrl = 'http://127.0.0.1:8000';
-	// const chainUrl = 'https://zpuszumgur.us-east-1.awsapprunner.com';
+	// const chainUrl = 'http://127.0.0.1:8000';
+	const chainUrl = 'https://zpuszumgur.us-east-1.awsapprunner.com';
 
 	async function createSummary(text: string) {
 		const response = await fetch(`${chainUrl}/summaries`, {
@@ -169,9 +169,7 @@
 					<div class="message-block flex flex-col gap-2">
 						<div class="automated-message">
 							<div class="automated-text">
-								Hello! I can questions specific to the code or history of your codebase. You can ask
-								me things like "How/Where is use authentication implemented?" and "What's the story
-								behind the bookmarking feature?"
+								Hello! I can questions specific to the code or history of your codebase. You can ask me things like "How/Where is use authentication implemented?" and "What's the story behind the bookmarking feature?"
 							</div>
 						</div>
 					</div>
