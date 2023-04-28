@@ -51,9 +51,7 @@
 </script>
 
 {#each $fileDeltasByDate as [date, fileDeltas, largestBucketSize]}
-	<li
-		class="card changed-day-card flex flex-col"
-	>
+	<li class="card changed-day-card flex flex-col">
 		<header
 			class="header flex flex-row justify-between gap-2 rounded-tl rounded-tr border-b-gb-700 bg-card-active px-3 py-2"
 		>

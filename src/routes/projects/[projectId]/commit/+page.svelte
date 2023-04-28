@@ -226,9 +226,7 @@
 	<div class="commit-panel-container side-panel flex flex-col">
 		<form on:submit|preventDefault={onCommit} class="flex h-full  flex-col gap-4 px-4">
 			<h1 class="pt-2 text-2xl font-bold">Commit</h1>
-			<ul
-				class="card flex h-full w-full flex-col overflow-auto"
-			>
+			<ul class="card flex h-full w-full flex-col overflow-auto">
 				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
 					<input
 						type="checkbox"
@@ -370,7 +368,7 @@
 		<div id="preview" class="card relative m-2 flex h-full flex-col overflow-auto ">
 			{#if $selectedDiffPath}
 				{#if $selectedDiff}
-					<header class="flex items-center gap-3 bg-card-active pl-2 pr-3 py-2">
+					<header class="flex items-center gap-3 bg-card-active py-2 pl-2 pr-3">
 						<div class="flex items-center gap-1">
 							<button
 								on:click={selectPreviousFile}

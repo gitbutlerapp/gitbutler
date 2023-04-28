@@ -89,9 +89,7 @@
 
 			<ul class="mx-1 flex flex-auto flex-col overflow-auto">
 				{#each $recentActivity as activity}
-					<li
-						class="card mb-2 ml-3 mr-1 flex flex-col gap-2 p-3 text-zinc-400"
-					>
+					<li class="card mb-2 ml-3 mr-1 flex flex-col gap-2 p-3 text-zinc-400">
 						<div class="flex flex-row justify-between text-zinc-500">
 							<span>
 								{new Date(activity.timestampMs).toLocaleDateString('en-us', {
