@@ -169,7 +169,9 @@
 					<div class="message-block flex flex-col gap-2">
 						<div class="automated-message">
 							<div class="automated-text">
-								Hello! I can questions specific to the code or history of your codebase. You can ask me things like "How/Where is use authentication implemented?" and "What's the story behind the bookmarking feature?"
+								Hello! I can questions specific to the code or history of your codebase. You can ask
+								me things like "How/Where is use authentication implemented?" and "What's the story
+								behind the bookmarking feature?"
 							</div>
 						</div>
 					</div>

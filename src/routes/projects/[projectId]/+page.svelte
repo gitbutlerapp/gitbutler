@@ -57,8 +57,8 @@
 	);
 </script>
 
-<div id="project-overview" class="flex flex-auto h-full w-full">
-	<div class="work-in-progress-sidebar side-panel flex flex-col border-r border-zinc-700 w-[424px]">
+<div id="project-overview" class="flex h-full w-full flex-auto">
+	<div class="work-in-progress-sidebar side-panel flex w-[424px] flex-col border-r border-zinc-700">
 		<div class="recent-changes flex flex-col gap-4 border-b border-b-zinc-700 p-4 ">
 			<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
 

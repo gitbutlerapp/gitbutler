@@ -9,7 +9,7 @@
 </script>
 
 <div class="flex flex-row items-center gap-1 text-zinc-400">
-	<Button icon={IconHome} filled={false}  on:click={() => goto('/')} />
+	<Button icon={IconHome} filled={false} on:click={() => goto('/')} />
 	{#if $project}
 		<Tooltip label="{$project.title} home">
 			<Button filled={false} on:click={() => $project && goto(`/projects/${$project.id}`)}>
