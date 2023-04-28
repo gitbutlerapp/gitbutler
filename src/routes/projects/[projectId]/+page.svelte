@@ -90,7 +90,7 @@
 			<ul class="mx-1 flex flex-auto flex-col overflow-auto">
 				{#each $recentActivity as activity}
 					<li
-						class="mb-2 ml-3 mr-1 flex flex-col gap-2 rounded border border-zinc-700 bg-[#2F2F33] p-3 text-zinc-400"
+						class="card mb-2 ml-3 mr-1 flex flex-col gap-2 p-3 text-zinc-400"
 					>
 						<div class="flex flex-row justify-between text-zinc-500">
 							<span>

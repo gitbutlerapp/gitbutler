@@ -227,7 +227,7 @@
 		<form on:submit|preventDefault={onCommit} class="flex h-full  flex-col gap-4 px-4">
 			<h1 class="pt-2 text-2xl font-bold">Commit</h1>
 			<ul
-				class="flex h-full w-full flex-col overflow-auto rounded border border-gb-700 bg-card-default"
+				class="card flex h-full w-full flex-col overflow-auto"
 			>
 				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
 					<input
@@ -367,15 +367,10 @@
 	</div>
 
 	<div class="main-content-container">
-		<div
-			id="preview"
-			class="card relative m-2 flex flex-col overflow-auto h-full "
-		>
+		<div id="preview" class="card relative m-2 flex h-full flex-col overflow-auto ">
 			{#if $selectedDiffPath}
 				{#if $selectedDiff}
-					<header class="flex items-center gap-3 bg-card-active px-3 py-2">
-						<span>{$selectedDiffPath}</span>
-
+					<header class="flex items-center gap-3 bg-card-active pl-2 pr-3 py-2">
 						<div class="flex items-center gap-1">
 							<button
 								on:click={selectPreviousFile}
@@ -396,6 +391,8 @@
 								<IconChevronDown class="h-4 w-4" />
 							</button>
 						</div>
+
+						<span>{$selectedDiffPath}</span>
 					</header>
 
 					<div id="code" class="flex-auto overflow-auto px-2">
@@ -412,12 +409,12 @@
 						id="controls"
 						class="absolute bottom-0 flex w-full flex-col gap-4 overflow-hidden rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 						style="
-					border-width: 0.5px; 
-					-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
-					backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
-					background-color: rgba(24, 24, 27, 0.60);
-					border: 0.5px solid rgba(63, 63, 70, 0.50);
-				"
+							border-width: 0.5px; 
+							-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
+							backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
+							background-color: rgba(24, 24, 27, 0.60);
+							border: 0.5px solid rgba(63, 63, 70, 0.50);
+						"
 					>
 						<div class="align-center flex flex-row-reverse gap-2">
 							<button class="checkbox-button">

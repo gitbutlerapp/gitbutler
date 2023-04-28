@@ -52,7 +52,7 @@
 
 {#each $fileDeltasByDate as [date, fileDeltas, largestBucketSize]}
 	<li
-		class="card changed-day-card flex flex-col rounded border-[0.5px] border-gb-700 bg-card-default"
+		class="card changed-day-card flex flex-col"
 	>
 		<header
 			class="header flex flex-row justify-between gap-2 rounded-tl rounded-tr border-b-gb-700 bg-card-active px-3 py-2"
@@ -73,7 +73,7 @@
 			{#each Object.entries(fileDeltas) as [filepath, deltas]}
 				<li class="changed-file flex items-center justify-between gap-4  ">
 					<a
-						class="file-name flex w-full max-w-[360px] overflow-auto py-2 font-mono hover:underline max-w-"
+						class="file-name max-w- flex w-full max-w-[360px] overflow-auto py-2 font-mono hover:underline"
 						href="/projects/{projectId}/player/{format(
 							date,
 							'yyyy-MM-dd'
