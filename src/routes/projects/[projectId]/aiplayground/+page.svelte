@@ -10,8 +10,8 @@
 		};
 	};
 
-	const chainUrl = 'http://127.0.0.1:8000';
-	// const chainUrl = 'https://zpuszumgur.us-east-1.awsapprunner.com';
+	// const chainUrl = 'http://127.0.0.1:8000';
+	const chainUrl = 'https://zpuszumgur.us-east-1.awsapprunner.com';
 
 	async function createSummary(text: string) {
 		const response = await fetch(`${chainUrl}/summaries`, {
