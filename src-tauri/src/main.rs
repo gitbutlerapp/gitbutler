@@ -334,10 +334,11 @@ async fn git_status(
 async fn git_wd_diff(
     handle: tauri::AppHandle,
     project_id: &str,
+    context_lines: usize,
 ) -> Result<HashMap<String, String>, Error> {
     let app = handle.state::<app::App>();
     let diff = app
-        .git_wd_diff(project_id, 100)
+        .git_wd_diff(project_id, context_lines)
         .with_context(|| format!("failed to get git wd diff for project {}", project_id))?;
     Ok(diff)
 }

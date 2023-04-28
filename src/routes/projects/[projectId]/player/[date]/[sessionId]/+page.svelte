@@ -32,7 +32,7 @@
 	} from '$lib/components/icons';
 	import { collapse } from '$lib/paths';
 	import { page } from '$app/stores';
-	import { CodeViewer } from '$lib/components';
+	import { DeltasViewer } from '$lib/components';
 	import { asyncDerived } from '@square/svelte-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -375,7 +375,7 @@
 		</header>
 		<div id="code" class="flex-auto overflow-auto px-2">
 			<div class="pb-[200px]">
-				<CodeViewer
+				<DeltasViewer
 					doc={$frame.doc}
 					deltas={$frame.deltas}
 					filepath={$frame.filepath}

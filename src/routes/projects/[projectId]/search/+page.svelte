@@ -5,7 +5,7 @@
 	import { asyncDerived } from '@square/svelte-store';
 	import { IconLoading } from '$lib/components/icons';
 	import { format, formatDistanceToNow } from 'date-fns';
-	import { CodeViewer } from '$lib/components';
+	import { DeltasViewer } from '$lib/components';
 	import { page } from '$app/stores';
 	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
@@ -101,7 +101,7 @@
 						<div
 							class="flex-auto overflow-auto rounded-lg border border-zinc-700 bg-[#2F2F33] p-2 text-[#EBDBB2] shadow-lg"
 						>
-							<CodeViewer {doc} {deltas} {filepath} paddingLines={2} {highlight} />
+							<DeltasViewer {doc} {deltas} {filepath} paddingLines={2} {highlight} />
 						</div>
 					</a>
 				</li>
