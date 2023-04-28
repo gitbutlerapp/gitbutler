@@ -3,6 +3,8 @@ export { default as IconRewind } from './IconRewind.svelte';
 export { default as IconPlayerPauseFilled } from './IconPlayerPauseFilled.svelte';
 export { default as IconPlayerPlayFilled } from './IconPlayerPlayFilled.svelte';
 export { default as IconChevronLeft } from './IconChevronLeft.svelte';
+export { default as IconChevronUp } from './IconChevronUp.svelte';
+export { default as IconChevronDown } from './IconChevronDown.svelte';
 export { default as IconChevronRight } from './IconChevronRight.svelte';
 export { default as IconFile } from './IconFile.svelte';
 export { default as IconGitBranch } from './IconGitBranch.svelte';
