@@ -32,7 +32,7 @@
 </script>
 
 <div class="terminal-page flex h-full w-full flex-auto flex-row">
-	<div class="side-panel h-full w-[424px]  flex-auto p-4">
+	<div class="side-panel h-full w-[424px] p-4">
 		<h2 class="pb-4 text-lg font-bold text-zinc-300">Git Status</h2>
 		<Statuses statuses={$statuses} />
 		<div class="mt-4 font-bold">Commands</div>
