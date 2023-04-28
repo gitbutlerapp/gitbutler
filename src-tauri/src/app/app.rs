@@ -344,7 +344,7 @@ impl App {
     pub fn git_wd_diff(
         &self,
         project_id: &str,
-        max_lines: usize,
+        context_lines: usize,
     ) -> Result<HashMap<String, String>> {
         let project = self
             .projects_storage
@@ -353,7 +353,7 @@ impl App {
             .ok_or_else(|| anyhow::anyhow!("project wd not found"))?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        project_repository.git_wd_diff(max_lines)
+        project_repository.git_wd_diff(context_lines)
     }
 
     pub fn git_match_paths(&self, project_id: &str, pattern: &str) -> Result<Vec<String>> {

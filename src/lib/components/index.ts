@@ -1,7 +1,6 @@
 export { default as BackForwardButtons } from './BackForwardButtons.svelte';
 export { default as Login } from './Login.svelte';
 export { default as Breadcrumbs } from './Breadcrumbs.svelte';
-export { default as CodeViewer } from './CodeViewer';
 export { default as CommandPalette } from './CommandPalette/CommandPalette.svelte';
 export { default as Modal } from './Modal.svelte';
 export { default as ButtonGroup } from './ButtonGroup';
@@ -10,3 +9,5 @@ export { default as Tooltip } from './Tooltip';
 export { default as Button } from './Button';
 export { default as Link } from './Link';
 export { default as Statuses } from './Statuses.svelte';
+export { default as Differ } from './Differ';
+export { default as DeltasViewer } from './DeltasViewer.svelte';

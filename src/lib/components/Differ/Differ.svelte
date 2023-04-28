@@ -1,45 +1,21 @@
 <script lang="ts">
-	import { type Delta, Operation } from '$lib/api';
-	import { lineDiff } from './diff';
 	import { create } from './CodeHighlighter';
 	import { buildDiffRows, documentMap, RowType, type Row } from './renderer';
 
 	import './diff.css';
 	import './colors/gruvbox.css';
+	import type { DiffArray } from './diff';
 
-	export let doc: string;
-	export let deltas: Delta[];
 	export let filepath: string;
 	export let highlight: string[] = [];
 	export let paddingLines = 10000;
-
-	const applyDeltas = (text: string, deltas: Delta[]) => {
-		const operations = deltas.flatMap((delta) => delta.operations);
-
-		operations.forEach((operation) => {
-			if (Operation.isInsert(operation)) {
-				text =
-					text.slice(0, operation.insert[0]) +
-					operation.insert[1] +
-					text.slice(operation.insert[0]);
-			} else if (Operation.isDelete(operation)) {
-				text =
-					text.slice(0, operation.delete[0]) +
-					text.slice(operation.delete[0] + operation.delete[1]);
-			}
-		});
-		return text;
-	};
+	export let diff: DiffArray;
 
 	const sanitize = (text: string) => {
 		var element = document.createElement('div');
 		element.innerText = text;
 		return element.innerHTML;
 	};
-
-	$: left = deltas.length > 0 ? applyDeltas(doc, deltas.slice(0, deltas.length - 1)) : doc;
-	$: right = deltas.length > 0 ? applyDeltas(left, deltas.slice(deltas.length - 1)) : left;
-	$: diff = lineDiff(left.split('\n'), right.split('\n'));
 
 	$: diffRows = buildDiffRows(diff, { paddingLines });
 	$: originalHighlighter = create(diffRows.originalLines.join('\n'), filepath);
@@ -179,7 +155,7 @@
 			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
 	};
-	$: deltas.length && scrollToChangedLine();
+	$: diff && scrollToChangedLine();
 </script>
 
 <div class="flex h-full w-full select-text whitespace-pre font-mono">

@@ -24,9 +24,16 @@
 	let summary = '';
 	let description = '';
 
-	const selectedDiffPath = writable<string | undefined>(Object.keys($statuses).at(0));
+	const selectedDiffPath = writable<string | undefined>(
+		Object.keys($statuses)
+			.sort((a, b) => a.localeCompare(b))
+			.at(0)
+	);
 	statuses.subscribe((statuses) => {
-		$selectedDiffPath = Object.keys(statuses).at(0);
+		if ($selectedDiffPath && Object.keys(statuses).includes($selectedDiffPath)) return;
+		$selectedDiffPath = Object.keys(statuses)
+			.sort((a, b) => a.localeCompare(b))
+			.at(0);
 	});
 	const selectedDiff = derived([diffs, selectedDiffPath], ([diffs, selectedDiffPath]) =>
 		selectedDiffPath ? diffs[selectedDiffPath] : undefined
@@ -335,7 +342,7 @@
 	>
 		{#if $selectedDiffPath !== undefined}
 			{#if $selectedDiff !== undefined}
-				<DiffViewer diff={$selectedDiff} path={$selectedDiffPath} />
+				<DiffViewer diff={$selectedDiff ?? ''} path={$selectedDiffPath} />
 			{:else}
 				<div class="flex h-full w-full flex-col items-center justify-center">
 					<p class="text-lg">Unable to load diff</p>

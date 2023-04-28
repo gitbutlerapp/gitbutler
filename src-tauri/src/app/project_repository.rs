@@ -157,7 +157,7 @@ impl<'repository> Repository<'repository> {
         Ok(statuses)
     }
 
-    pub fn git_wd_diff(&self, max_lines: usize) -> Result<HashMap<String, String>> {
+    pub fn git_wd_diff(&self, context_lines: usize) -> Result<HashMap<String, String>> {
         let head = self.git_repository.head()?;
         let tree = head.peel_to_tree()?;
 
@@ -166,6 +166,11 @@ impl<'repository> Repository<'repository> {
         opts.recurse_untracked_dirs(true)
             .include_untracked(true)
             .show_untracked_content(true)
+            .context_lines(if context_lines == 0 {
+                3
+            } else {
+                context_lines.try_into()?
+            })
             .include_ignored(true);
 
         let diff = self
@@ -192,14 +197,12 @@ impl<'repository> Repository<'repository> {
                 current_line_count = 0;
                 last_path = new_path.clone();
             }
-            if current_line_count <= max_lines {
-                match line.origin() {
-                    '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
-                    _ => {}
-                }
-                results.push_str(&format!("{}", std::str::from_utf8(line.content()).unwrap()));
-                current_line_count += 1;
+            match line.origin() {
+                '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
+                _ => {}
             }
+            results.push_str(&format!("{}", std::str::from_utf8(line.content()).unwrap()));
+            current_line_count += 1;
             true
         })?;
         result.insert(last_path.clone(), results.clone());
