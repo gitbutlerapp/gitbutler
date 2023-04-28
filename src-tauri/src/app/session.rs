@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time};
 
 use anyhow::{anyhow, Context, Result};
 
@@ -59,7 +59,12 @@ impl<'writer> SessionWriter<'writer> {
                     .join("last")
                     .to_str()
                     .unwrap(),
-                &session.meta.last_timestamp_ms.to_string(),
+                time::SystemTime::now()
+                    .duration_since(time::SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis()
+                    .to_string()
+                    .as_str(),
             )
             .with_context(|| "failed to write last timestamp")?;
 

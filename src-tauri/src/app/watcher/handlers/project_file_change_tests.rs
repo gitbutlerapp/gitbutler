@@ -154,7 +154,7 @@ fn test_register_must_not_override_current_session() -> Result<()> {
     listener.handle(file_path)?;
 
     let session2 = gb_repo.get_current_session()?.unwrap();
-    assert_eq!(session1, session2);
+    assert_eq!(session1.id, session2.id);
 
     Ok(())
 }

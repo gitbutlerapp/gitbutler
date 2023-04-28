@@ -114,9 +114,9 @@ fn test_should_write_full_session() -> Result<()> {
         std::fs::read_to_string(gb_repo.session_path().join("meta/start"))?,
         "0"
     );
-    assert_eq!(
+    assert_ne!(
         std::fs::read_to_string(gb_repo.session_path().join("meta/last"))?,
-        "1"
+        "1" 
     );
 
     Ok(())
@@ -162,7 +162,7 @@ fn test_should_write_partial_session() -> Result<()> {
         std::fs::read_to_string(gb_repo.session_path().join("meta/start"))?,
         "0"
     );
-    assert_eq!(
+    assert_ne!(
         std::fs::read_to_string(gb_repo.session_path().join("meta/last"))?,
         "1"
     );
