@@ -132,7 +132,7 @@
 </script>
 
 <div class="GitBTLR-container  h-full p-4">
-	<div class="relative flex h-full flex-col rounded border border-zinc-700 bg-card-default shadow">
+	<div class="card relative flex h-full flex-col">
 		<div class="flex  justify-between gap-2 border-b border-zinc-700 bg-card-active p-2">
 			<div class="flex gap-2 text-xl">Chat GitButler</div>
 
