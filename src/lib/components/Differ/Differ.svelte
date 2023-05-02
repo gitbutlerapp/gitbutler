@@ -173,13 +173,13 @@
 				class="grid max-w-full grid-cols-3"
 				style:grid-template-columns="min-content min-content 1fr"
 			>
-				<span class="border-r border-zinc-800  text-zinc-500/70 bg-zinc-900 select-none">
+				<span class="select-none border-r  border-zinc-800 bg-zinc-900 text-zinc-500/70">
 					<div class="mx-1.5 w-[{originalLineNumberDigits}ch] text-right">
 						{baseNumber}
 					</div>
 				</span>
 
-				<span class="mr-1 border-r border-zinc-800 text-zinc-500/70 bg-zinc-900 select-none">
+				<span class="mr-1 select-none border-r border-zinc-800 bg-zinc-900 text-zinc-500/70">
 					<div class="mx-1.5 w-[{currentLineNumberDigits}ch] text-right">
 						{curNumber}
 					</div>
