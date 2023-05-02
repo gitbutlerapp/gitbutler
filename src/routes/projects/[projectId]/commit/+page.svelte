@@ -393,7 +393,7 @@
 						<span>{$selectedDiffPath}</span>
 					</header>
 
-					<div id="code" class="flex-auto overflow-auto bg-[#1E2021] px-2">
+					<div id="code" class="flex-auto overflow-auto bg-[#1E2021]">
 						<div class="pb-[65px]">
 							<DiffViewer
 								diff={$selectedDiff ?? ''}

@@ -54,7 +54,7 @@
 <div class="flex h-full max-h-full min-h-full flex-col">
 	<header
 		data-tauri-drag-region
-		class="flex select-none flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
+		class="flex flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
 	>
 		<div class="ml-24">
 			<BackForwardButtons />
