@@ -16,7 +16,6 @@ pub struct App {
 
     deltas_searcher: search::Deltas,
 
-    repositories: sync::Arc<sync::Mutex<HashMap<String, gb_repository::Repository>>>,
     stop_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<()>>>>,
 }
 
@@ -31,7 +30,6 @@ impl App {
             projects_storage: projects::Storage::new(storage.clone()),
             users_storage: users::Storage::new(storage.clone()),
             deltas_searcher,
-            repositories: sync::Arc::new(sync::Mutex::new(HashMap::new())),
             stop_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
         })
     }
@@ -52,19 +50,6 @@ impl App {
         project: &projects::Project,
         events: std::sync::mpsc::Sender<events::Event>,
     ) -> Result<()> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project.id.clone(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open git repository")?;
-
-        self.repositories
-            .lock()
-            .unwrap()
-            .insert(project.id.clone(), gb_repository);
-
         self.start_watcher(&project, events.clone())
             .with_context(|| {
                 format!("failed to start watcher for project {}", project.id.clone())
@@ -223,8 +208,6 @@ impl App {
                         ..Default::default()
                     })?;
 
-                self.repositories.lock().unwrap().remove(id);
-
                 if let Err(e) = self.stop_watcher(&project.id) {
                     log::error!("failed to stop watcher for project {}: {}", project.id, e);
                 }
@@ -240,10 +223,13 @@ impl App {
         project_id: &str,
         earliest_timestamp_ms: Option<u128>,
     ) -> Result<Vec<sessions::Session>> {
-        let repositories = self.repositories.lock().unwrap();
-        let gb_repository = repositories
-            .get(project_id)
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")?;
 
         let mut sessions = vec![];
         let mut iter = gb_repository.get_sessions_iterator()?;
@@ -274,10 +260,13 @@ impl App {
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        let repositories = self.repositories.lock().unwrap();
-        let gb_repository = repositories
-            .get(project_id)
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")?;
 
         let session = gb_repository
             .get_session(session_id)
@@ -296,10 +285,13 @@ impl App {
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        let repositories = self.repositories.lock().unwrap();
-        let gb_repository = repositories
-            .get(project_id)
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")?;
 
         let session = gb_repository
             .get_session(session_id)
@@ -398,10 +390,14 @@ impl App {
             .ok_or_else(|| anyhow::anyhow!("project wd not found"))?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        let repositories = self.repositories.lock().unwrap();
-        let gb_repository = repositories
-            .get(project_id)
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")?;
+
         gb_repository.flush().context("failed to flush session")?;
         project_repository.git_switch_branch(branch)
     }
@@ -452,10 +448,13 @@ impl App {
     }
 
     pub fn record_pty(&self, project_id: &str, typ: pty::Type, bytes: &Vec<u8>) -> Result<()> {
-        let repositories = self.repositories.lock().unwrap();
-        let gb_repository = repositories
-            .get(project_id)
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")?;
 
         let session = gb_repository
             .get_or_create_current_session()
