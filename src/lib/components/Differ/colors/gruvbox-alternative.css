@@ -4,16 +4,15 @@
  * found in the LICENSE file.
  */
 
-
 :root {
-	--diff-color-green:					#8ec07c;
-	--diff-color-moss:					#8AA499;
-	--diff-color-pink: 					#d3869b;
-	--diff-color-red: 					#fb4934;
-	--diff-color-yellow: 				#fabd2f;
-	--diff-color-orange: 				#fe8019;
-	--diff-color-variable-special : 	blue;
-	--diff-color-attribute-value: 		#b8bb26;
+	--diff-color-green: #8ec07c;
+	--diff-color-moss: #8aa499;
+	--diff-color-pink: #d3869b;
+	--diff-color-red: #fb4934;
+	--diff-color-yellow: #fabd2f;
+	--diff-color-orange: #fe8019;
+	--diff-color-variable-special: blue;
+	--diff-color-attribute-value: #b8bb26;
 }
 
 .token-variable {
