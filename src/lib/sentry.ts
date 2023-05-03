@@ -4,7 +4,7 @@ import * as log from '$lib/log';
 
 export default () => {
 	return {
-		identify: (user: User | undefined) => {
+		identify: (user: User | null) => {
 			if (user) {
 				log.info(`sentry identify`);
 				setUser({

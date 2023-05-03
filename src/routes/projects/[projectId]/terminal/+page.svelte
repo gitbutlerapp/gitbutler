@@ -34,7 +34,9 @@
 <div class="terminal-page flex h-full w-full flex-auto flex-row">
 	<div class="side-panel p-4">
 		<h2 class="pb-4 text-lg font-bold text-zinc-300">Git Status</h2>
-		<Statuses statuses={$statuses} />
+		{#await statuses.load() then}
+			<Statuses statuses={$statuses} />
+		{/await}
 		<div class="mt-4 font-bold">Commands</div>
 		<ul class="py-2">
 			<Button role="primary" width="full-width" on:click={() => runCommand('git push')}>

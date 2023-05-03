@@ -1,5 +1,5 @@
 import { invoke, listen } from '$lib/ipc';
-import { derived, writable } from 'svelte/store';
+import { asyncWritable } from '@square/svelte-store';
 
 export const get = (params: { projectId: string }) => invoke<string>('git_head', params);
 
@@ -11,8 +11,10 @@ export const subscribe = (
 		callback({ ...params, ...event.payload })
 	);
 
-export const Head = async (params: { projectId: string }) => {
-	const store = writable(await get(params));
-	subscribe(params, ({ head }) => store.set(head));
-	return derived(store, (head) => head.replace('refs/heads/', ''));
+export const Head = (params: { projectId: string }) => {
+	const store = asyncWritable([], () =>
+		get(params).then((head) => head.replace('refs/heads/', ''))
+	);
+	subscribe(params, ({ head }) => store.set(head.replace('refs/heads/', '')));
+	return store;
 };

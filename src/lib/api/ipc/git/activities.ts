@@ -1,5 +1,5 @@
 import { invoke, listen } from '$lib/ipc';
-import { get, writable } from 'svelte/store';
+import { asyncWritable, get } from '@square/svelte-store';
 
 export type Activity = {
 	type: string;
@@ -15,13 +15,13 @@ export const subscribe = (
 	callback: (params: { projectId: string }) => Promise<void> | void
 ) => listen(`project://${params.projectId}/git/activity`, () => callback(params));
 
-export const Activities = async (params: { projectId: string }) => {
-	const store = writable<Activity[]>(await list(params));
+export const Activities = (params: { projectId: string }) => {
+	const store = asyncWritable([], () => list(params));
 	subscribe(params, async () => {
 		const activity = get(store);
 		const startTimeMs = activity.at(-1)?.timestampMs;
 		const newActivities = await list({ projectId: params.projectId, startTimeMs });
 		store.update((activities) => [...activities, ...newActivities]);
 	});
-	return { subscribe: store.subscribe };
+	return store;
 };
