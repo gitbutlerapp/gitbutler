@@ -197,6 +197,18 @@
 	$: isCloudEnabled = $project?.api?.sync;
 	$: isSomeFilesSelected = $stagedFiles.length > 0 && $allFiles.length > 0;
 	$: isGenerateCommitEnabled = isLoggedIn && isSomeFilesSelected;
+
+	// a situation where a file is created, then added to git index, and then deleted
+	// is not handled by our UI very good. to simplify things, we just stage the file
+	// which effectively removes it from the UI and keeps consistency between our ui
+	// an git
+	statuses.subscribe((statuses) =>
+		Object.entries(statuses).forEach(([file, status]) => {
+			const isStagedAdded = Status.isStaged(status) && status.staged === 'added';
+			const isUnstagedDeleted = Status.isUnstaged(status) && status.unstaged === 'deleted';
+			if (isStagedAdded && isUnstagedDeleted) git.stage({ projectId, paths: [file] });
+		})
+	);
 </script>
 
 <Dialog bind:this={connectToCloudDialog}>
@@ -250,7 +262,7 @@
 				</header>
 
 				<div class="changed-file-list-container h-100 overflow-y-auto">
-					{#each Object.entries($statuses).sort((a, b) => a[0].localeCompare(b[0])) as [path, status]}
+					{#each Object.entries($statuses).sort( (a, b) => a[0].localeCompare(b[0]) ) as [path, status]}
 						<li class="bg-card-default last:mb-1">
 							<div
 								class:bg-[#3356C2]={$selectedDiffPath === path}
