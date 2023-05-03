@@ -1,7 +1,7 @@
 <script lang="ts">
 	import tinykeys from 'tinykeys';
 	import type { Project } from '$lib/api';
-	import { derived, readable, writable, type Readable } from 'svelte/store';
+	import { derived, readable, writable, type Readable } from '@square/svelte-store';
 	import { Modal } from '$lib/components';
 	import listAvailableCommands, { Action, type Group } from './commands';
 	import { goto } from '$app/navigation';

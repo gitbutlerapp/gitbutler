@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { deltas } from '$lib/api';
-	import { asyncDerived } from '@square/svelte-store';
+	import { asyncDerived, derived } from '@square/svelte-store';
 	import { format } from 'date-fns';
-	import { derived } from 'svelte/store';
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;

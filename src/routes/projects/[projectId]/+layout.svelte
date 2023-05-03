@@ -142,14 +142,16 @@
 	</footer>
 </div>
 
-{#if $user}
-	<QuickCommitModal
-		bind:this={quickCommitModal}
-		user={$user}
-		{api}
-		project={$project}
-		head={$head}
-		diffs={$diffs}
-		statuses={$statuses}
-	/>
-{/if}
+{#await Promise.all([diffs.load(), user.load(), project.load(), statuses.load()]) then}
+	{#if $user}
+		<QuickCommitModal
+			bind:this={quickCommitModal}
+			user={$user}
+			{api}
+			project={$project}
+			head={$head}
+			diffs={$diffs}
+			statuses={$statuses}
+		/>
+	{/if}
+{/await}

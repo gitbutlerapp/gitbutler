@@ -10,7 +10,7 @@ export const ssr = false;
 export const prerender = true;
 export const csr = true;
 
-export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
+export const load: LayoutLoad = wrapLoadWithSentry(({ fetch }) => {
 	const events = Events();
 	log.setup();
 	return {
@@ -20,6 +20,6 @@ export const load: LayoutLoad = wrapLoadWithSentry(async ({ fetch }) => {
 		posthog: Posthog(),
 		sentry: Sentry(),
 		events,
-		hotkeys: await Hotkeys(events)
+		hotkeys: Hotkeys(events)
 	};
 });

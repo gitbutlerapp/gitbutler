@@ -23,7 +23,6 @@
 <script lang="ts">
 	import Slider from './Slider.svelte';
 	import type { PageData } from './$types';
-	import { derived, writable } from 'svelte/store';
 	import {
 		IconChevronLeft,
 		IconChevronRight,
@@ -33,7 +32,7 @@
 	import { collapse } from '$lib/paths';
 	import { page } from '$app/stores';
 	import { DeltasViewer, DiffContext } from '$lib/components';
-	import { asyncDerived } from '@square/svelte-store';
+	import { asyncDerived, derived, writable } from '@square/svelte-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
@@ -48,20 +47,20 @@
 
 	const { sessions, projectId } = data;
 
-	const richSessions = asyncDerived([sessions, page], async ([sessions, page]) => {
-		const fileFilter = page.url.searchParams.get('file');
+	const dateSessions = derived([sessions, page], ([sessions, page]) =>
+		sessions.filter(
+			(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date
+		)
+	);
+
+	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
+
+	const richSessions = asyncDerived([dateSessions, fileFilter], async ([sessions, fileFilter]) => {
 		const paths = fileFilter ? [fileFilter] : undefined;
-		return Promise.all(
-			sessions
-				.filter(
-					(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date
-				)
-				.map((s) => enrichSession(projectId, s, paths))
-		).then((sessions) =>
-			sessions
-				.filter((s) => s.deltas.length > 0)
-				.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
-		);
+		const richSessions = await Promise.all(sessions.map((s) => enrichSession(projectId, s, paths)));
+		return richSessions
+			.filter((s) => s.deltas.length > 0)
+			.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
 	});
 
 	const currentDeltaIndex = writable(parseInt($page.url.searchParams.get('delta') || '0'));
@@ -400,7 +399,7 @@
 			id="controls"
 			class="absolute bottom-0 flex w-full flex-col gap-4 overflow-hidden rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 			style="
-                border-width: 0.5px; 
+                border-width: 0.5px;
                 -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
                 backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
                 background-color: rgba(24, 24, 27, 0.60);

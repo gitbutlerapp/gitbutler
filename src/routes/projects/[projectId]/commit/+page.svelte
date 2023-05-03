@@ -2,7 +2,7 @@
 	import type { PageData } from './$types';
 	import { Button, DiffContext } from '$lib/components';
 	import { collapse } from '$lib/paths';
-	import { derived, writable } from 'svelte/store';
+	import { derived, writable } from '@square/svelte-store';
 	import { git, Status } from '$lib/api';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
@@ -13,23 +13,23 @@
 	import IconChevronDown from '$lib/components/icons/IconChevronDown.svelte';
 
 	export let data: PageData;
-	const { statuses, diffs, user, api, projectId, project } = data;
+	let { statuses, diffs, user, api, projectId, project } = data;
 
 	let fullContext = false;
 	let context = 3;
 
 	const stagedFiles = derived(statuses, (statuses) =>
-		Object.entries(statuses)
+		Object.entries(statuses ?? {})
 			.filter((status) => Status.isStaged(status[1]))
 			.map(([path]) => path)
 	);
 	const unstagedFiles = derived(statuses, (statuses) =>
-		Object.entries(statuses)
+		Object.entries(statuses ?? {})
 			.filter((status) => Status.isUnstaged(status[1]))
 			.map(([path]) => path)
 	);
 	const allFiles = derived(statuses, (statuses) =>
-		Object.keys(statuses).sort((a, b) => a.localeCompare(b))
+		Object.keys(statuses ?? {}).sort((a, b) => a.localeCompare(b))
 	);
 
 	let connectToCloudDialog: Dialog;
@@ -37,18 +37,18 @@
 	let description = '';
 
 	const selectedDiffPath = writable<string | undefined>(
-		Object.keys($statuses)
+		Object.keys($statuses ?? {})
 			.sort((a, b) => a.localeCompare(b))
 			.at(0)
 	);
 	statuses.subscribe((statuses) => {
-		if ($selectedDiffPath && Object.keys(statuses).includes($selectedDiffPath)) return;
-		$selectedDiffPath = Object.keys(statuses)
+		if ($selectedDiffPath && Object.keys(statuses ?? {}).includes($selectedDiffPath)) return;
+		$selectedDiffPath = Object.keys(statuses ?? {})
 			.sort((a, b) => a.localeCompare(b))
 			.at(0);
 	});
 	const selectedDiff = derived([diffs, selectedDiffPath], ([diffs, selectedDiffPath]) =>
-		selectedDiffPath ? diffs[selectedDiffPath] : undefined
+		diffs && selectedDiffPath ? diffs[selectedDiffPath] : undefined
 	);
 
 	const nextFilePath = derived([allFiles, selectedDiffPath], ([files, selectedDiffPath]) => {
@@ -116,10 +116,12 @@
 			connectToCloudDialog.show();
 			return;
 		}
-		if ($user === undefined) return;
+		if ($user === null) return;
 
 		const partialDiff = Object.fromEntries(
-			Object.entries($diffs).filter(([key]) => $statuses[key] && Status.isStaged($statuses[key]))
+			Object.entries($diffs ?? {}).filter(
+				([key]) => $statuses[key] && Status.isStaged($statuses[key])
+			)
 		);
 		const diff = Object.values(partialDiff).join('\n').slice(0, 5000);
 
@@ -174,7 +176,7 @@
 
 	const enableProjectSync = async () => {
 		if ($project === undefined) return;
-		if ($user === undefined) return;
+		if ($user === null) return;
 
 		try {
 			if (!$project.api) {
@@ -193,7 +195,7 @@
 	};
 
 	$: isCommitEnabled = summary.length > 0 && $stagedFiles.length > 0;
-	$: isLoggedIn = $user !== undefined;
+	$: isLoggedIn = $user !== null;
 	$: isCloudEnabled = $project?.api?.sync;
 	$: isSomeFilesSelected = $stagedFiles.length > 0 && $allFiles.length > 0;
 	$: isGenerateCommitEnabled = isLoggedIn && isSomeFilesSelected;
@@ -203,7 +205,7 @@
 	// which effectively removes it from the UI and keeps consistency between our ui
 	// an git
 	statuses.subscribe((statuses) =>
-		Object.entries(statuses).forEach(([file, status]) => {
+		Object.entries(statuses ?? {}).forEach(([file, status]) => {
 			const isStagedAdded = Status.isStaged(status) && status.staged === 'added';
 			const isUnstagedDeleted = Status.isUnstaged(status) && status.unstaged === 'deleted';
 			if (isStagedAdded && isUnstagedDeleted) git.stage({ projectId, paths: [file] });
@@ -246,59 +248,63 @@
 			<h1 class="pt-2 text-2xl font-bold">Commit</h1>
 			<ul class="card flex h-full w-full flex-col overflow-auto">
 				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
-					<input
-						type="checkbox"
-						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
-						on:click={onGroupCheckboxClick}
-						checked={$allFiles.length > 0 && $stagedFiles.length === Object.keys($statuses).length}
-						indeterminate={$stagedFiles.length > 0 &&
-							$unstagedFiles.length > 0 &&
-							$allFiles.length > 0}
-						disabled={isCommitting || isGeneratingCommitMessage}
-					/>
-					<h1 class="m-auto flex">
-						<span class="w-full text-center">{Object.keys($statuses).length} changed files</span>
-					</h1>
+					{#await Promise.all([stagedFiles.load(), unstagedFiles.load(), allFiles.load()]) then}
+						<input
+							type="checkbox"
+							class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
+							on:click={onGroupCheckboxClick}
+							checked={$allFiles.length > 0 && $stagedFiles.length === $allFiles.length}
+							indeterminate={$stagedFiles.length > 0 &&
+								$unstagedFiles.length > 0 &&
+								$allFiles.length > 0}
+							disabled={isCommitting || isGeneratingCommitMessage}
+						/>
+						<h1 class="m-auto flex">
+							<span class="w-full text-center">{$allFiles.length} changed files</span>
+						</h1>
+					{/await}
 				</header>
 
 				<div class="changed-file-list-container h-100 overflow-y-auto">
-					{#each Object.entries($statuses).sort( (a, b) => a[0].localeCompare(b[0]) ) as [path, status]}
-						<li class="bg-card-default last:mb-1">
-							<div
-								class:bg-[#3356C2]={$selectedDiffPath === path}
-								class:hover:bg-divider={$selectedDiffPath !== path}
-								class="file-changed-item mx-1 mt-1 flex select-text  items-center gap-2 rounded bg-card-default px-1 py-1"
-							>
-								<input
-									class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
-									disabled={isCommitting || isGeneratingCommitMessage}
-									on:click|preventDefault={() => {
-										Status.isStaged(status)
-											? git.unstage({ projectId, paths: [path] }).catch(() => {
-													error('Failed to unstage file');
-											  })
-											: git.stage({ projectId, paths: [path] }).catch(() => {
-													error('Failed to stage file');
-											  });
-									}}
-									name="path"
-									type="checkbox"
-									checked={Status.isStaged(status)}
-									value={path}
-								/>
-								<label class="flex h-5 w-full overflow-auto" for="path">
-									<button
+					{#await Promise.all([statuses.load(), selectedDiffPath.load()]) then}
+						{#each Object.entries($statuses).sort( (a, b) => a[0].localeCompare(b[0]) ) as [path, status]}
+							<li class="bg-card-default last:mb-1">
+								<div
+									class:bg-[#3356C2]={$selectedDiffPath === path}
+									class:hover:bg-divider={$selectedDiffPath !== path}
+									class="file-changed-item mx-1 mt-1 flex select-text  items-center gap-2 rounded bg-card-default px-1 py-1"
+								>
+									<input
+										class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 										disabled={isCommitting || isGeneratingCommitMessage}
-										on:click|preventDefault={() => ($selectedDiffPath = path)}
-										type="button"
-										class="h-full w-full select-auto text-left font-mono text-base disabled:opacity-50"
-									>
-										{collapse(path)}
-									</button>
-								</label>
-							</div>
-						</li>
-					{/each}
+										on:click|preventDefault={() => {
+											Status.isStaged(status)
+												? git.unstage({ projectId, paths: [path] }).catch(() => {
+														error('Failed to unstage file');
+												  })
+												: git.stage({ projectId, paths: [path] }).catch(() => {
+														error('Failed to stage file');
+												  });
+										}}
+										name="path"
+										type="checkbox"
+										checked={Status.isStaged(status)}
+										value={path}
+									/>
+									<label class="flex h-5 w-full overflow-auto" for="path">
+										<button
+											disabled={isCommitting || isGeneratingCommitMessage}
+											on:click|preventDefault={() => ($selectedDiffPath = path)}
+											type="button"
+											class="h-full w-full select-auto text-left font-mono text-base disabled:opacity-50"
+										>
+											{collapse(path)}
+										</button>
+									</label>
+								</div>
+							</li>
+						{/each}
+					{/await}
 				</div>
 			</ul>
 
@@ -383,8 +389,20 @@
 
 	<div class="main-content-container">
 		<div id="preview" class="card relative m-2 flex h-full flex-col overflow-auto ">
-			{#if $selectedDiffPath}
-				{#if $selectedDiff}
+			{#await Promise.all([selectedDiffPath.load(), selectedDiff.load()])}
+				<div class="flex h-full w-full flex-col items-center justify-center">
+					<p class="text-lg">Loading...</p>
+				</div>
+			{:then}
+				{#if !$selectedDiffPath}
+					<div class="flex h-full w-full flex-col items-center justify-center">
+						<p class="text-lg">Select a file to preview changes</p>
+					</div>
+				{:else if !$selectedDiff}
+					<div class="flex h-full w-full flex-col items-center justify-center">
+						<p class="text-lg">Unable to load diff</p>
+					</div>
+				{:else}
 					<header class="flex items-center gap-3 bg-card-active py-2 pl-2 pr-3">
 						<div class="flex items-center gap-1">
 							<button
@@ -433,16 +451,8 @@
 					>
 						<DiffContext bind:lines={context} bind:fullContext />
 					</div>
-				{:else}
-					<div class="flex h-full w-full flex-col items-center justify-center">
-						<p class="text-lg">Unable to load diff</p>
-					</div>
 				{/if}
-			{:else}
-				<div class="flex h-full w-full flex-col items-center justify-center">
-					<p class="text-lg">Select a file to preview changes</p>
-				</div>
-			{/if}
+			{/await}
 		</div>
 	</div>
 </div>

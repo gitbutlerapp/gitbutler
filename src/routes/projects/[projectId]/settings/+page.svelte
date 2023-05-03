@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { derived } from 'svelte/store';
+	import { derived } from '@square/svelte-store';
 	import { Button, Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts } from '$lib';
@@ -22,7 +22,7 @@
 
 	const onSyncChange = async (event: Event) => {
 		if ($project === undefined) return;
-		if ($user === undefined) return;
+		if ($user === null) return;
 
 		const target = event.target as HTMLInputElement;
 		const sync = target.checked;

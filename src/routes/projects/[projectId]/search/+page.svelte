@@ -7,7 +7,7 @@
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { DeltasViewer } from '$lib/components';
 	import { page } from '$app/stores';
-	import { derived } from 'svelte/store';
+	import { derived } from '@square/svelte-store';
 	import { goto } from '$app/navigation';
 
 	export let data: PageData;

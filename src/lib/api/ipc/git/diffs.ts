@@ -1,5 +1,5 @@
 import { invoke } from '$lib/ipc';
-import { writable } from 'svelte/store';
+import { asyncWritable } from '@square/svelte-store';
 import { sessions, git } from '$lib/api';
 
 const list = (params: { projectId: string; contextLines?: number }) =>
@@ -8,9 +8,9 @@ const list = (params: { projectId: string; contextLines?: number }) =>
 		contextLines: params.contextLines ?? 10000
 	});
 
-export const Diffs = async (params: { projectId: string }) => {
-	const store = writable(await list(params));
+export const Diffs = (params: { projectId: string }) => {
+	const store = asyncWritable([], () => list(params));
 	git.activities.subscribe(params, ({ projectId }) => list({ projectId }).then(store.set));
 	sessions.subscribe(params, () => list(params).then(store.set));
-	return { subscribe: store.subscribe };
+	return store;
 };
