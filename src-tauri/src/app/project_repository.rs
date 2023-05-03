@@ -132,28 +132,33 @@ impl<'repository> Repository<'repository> {
         let staged_statuses = self.staged_statuses()?;
         let unstaged_statuses = self.unstaged_statuses()?;
         let mut statuses = HashMap::new();
-        unstaged_statuses.iter().for_each(|(path, status)| {
-            statuses.insert(
-                path.clone(),
-                FileStatus {
-                    unstaged: Some(*status),
-                    staged: None,
-                },
-            );
-        });
-        staged_statuses.iter().for_each(|(path, status)| {
-            if let Some(unstaged) = statuses.get_mut(path) {
-                unstaged.staged = Some(*status);
-            } else {
+        unstaged_statuses
+            .iter()
+            .for_each(|(path, unstaged_status_type)| {
                 statuses.insert(
                     path.clone(),
                     FileStatus {
-                        unstaged: None,
-                        staged: Some(*status),
+                        unstaged: Some(*unstaged_status_type),
+                        staged: None,
                     },
                 );
-            }
-        });
+            });
+        staged_statuses
+            .iter()
+            .for_each(|(path, stages_status_type)| {
+                if let Some(status) = statuses.get_mut(path) {
+                    status.staged = Some(*stages_status_type);
+                } else {
+                    statuses.insert(
+                        path.clone(),
+                        FileStatus {
+                            unstaged: None,
+                            staged: Some(*stages_status_type),
+                        },
+                    );
+                }
+            });
+
         Ok(statuses)
     }
 
@@ -170,8 +175,7 @@ impl<'repository> Repository<'repository> {
                 3
             } else {
                 context_lines.try_into()?
-            })
-            .include_ignored(true);
+            });
 
         let diff = self
             .git_repository
