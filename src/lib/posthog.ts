@@ -10,7 +10,7 @@ export default () => {
 	});
 	log.info('posthog initialized');
 	return {
-		identify: (user: User | undefined) => {
+		identify: (user: User | null) => {
 			if (user) {
 				log.info('posthog identify', {
 					id: user.id,

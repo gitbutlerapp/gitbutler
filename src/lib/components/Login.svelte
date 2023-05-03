@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { LoginToken, CloudApi, users } from '$lib/api';
-	import { derived, writable } from 'svelte/store';
+	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 
 	export let user: Awaited<ReturnType<typeof users.CurrentUser>>;

@@ -2,7 +2,7 @@
 	import type { PageData } from './$types';
 	import { Button } from '$lib/components';
 	import { collapse } from '$lib/paths';
-	import { derived, writable } from 'svelte/store';
+	import { derived, writable } from '@square/svelte-store';
 	import { git, Status } from '$lib/api';
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
@@ -116,7 +116,7 @@
 			connectToCloudDialog.show();
 			return;
 		}
-		if ($user === undefined) return;
+		if ($user === null) return;
 
 		const partialDiff = Object.fromEntries(
 			Object.entries($diffs).filter(([key]) => $statuses[key] && Status.isStaged($statuses[key]))
@@ -174,7 +174,7 @@
 
 	const enableProjectSync = async () => {
 		if ($project === undefined) return;
-		if ($user === undefined) return;
+		if ($user === null) return;
 
 		try {
 			if (!$project.api) {
@@ -193,7 +193,7 @@
 	};
 
 	$: isCommitEnabled = summary.length > 0 && $stagedFiles.length > 0;
-	$: isLoggedIn = $user !== undefined;
+	$: isLoggedIn = $user !== null;
 	$: isCloudEnabled = $project?.api?.sync;
 	$: isSomeFilesSelected = $stagedFiles.length > 0 && $allFiles.length > 0;
 	$: isGenerateCommitEnabled = isLoggedIn && isSomeFilesSelected;

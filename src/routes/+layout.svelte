@@ -6,7 +6,7 @@
 	import type { LayoutData } from './$types';
 	import { BackForwardButtons, Link, CommandPalette, Breadcrumbs } from '$lib/components';
 	import { page } from '$app/stores';
-	import { derived } from 'svelte/store';
+	import { derived } from '@square/svelte-store';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { unsubscribe } from '$lib/utils';
@@ -15,10 +15,10 @@
 	const { user, posthog, projects, sentry, events, hotkeys } = data;
 
 	const project = derived([page, projects], ([page, projects]) =>
-		projects.find((project) => project.id === page.params.projectId)
+		projects?.find((project) => project.id === page.params.projectId)
 	);
 
-	export let commandPalette: CommandPalette;
+	let commandPalette: CommandPalette;
 
 	onMount(() =>
 		unsubscribe(
@@ -60,19 +60,21 @@
 			<BackForwardButtons />
 		</div>
 		<div class="ml-6">
-			<Breadcrumbs {project} />
+			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
 		<div class="mr-6">
 			<Link href="/users/">
-				{#if $user}
-					{#if $user.picture}
-						<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
+				{#await user.load() then}
+					{#if $user}
+						{#if $user.picture}
+							<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
+						{/if}
+						<span class="hover:no-underline">{$user.name}</span>
+					{:else}
+						<span>Connect to GitButler Cloud</span>
 					{/if}
-					<span class="hover:no-underline">{$user.name}</span>
-				{:else}
-					<span>Connect to GitButler Cloud</span>
-				{/if}
+				{/await}
 			</Link>
 		</div>
 	</header>
@@ -81,11 +83,13 @@
 		<slot />
 	</div>
 	<Toaster />
-	<CommandPalette
-		bind:this={commandPalette}
-		{projects}
-		{project}
-		addProject={projects.add}
-		{events}
-	/>
+	{#await projects.load() then}
+		<CommandPalette
+			bind:this={commandPalette}
+			{projects}
+			{project}
+			addProject={projects.add}
+			{events}
+		/>
+	{/await}
 </div>

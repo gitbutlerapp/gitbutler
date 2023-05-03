@@ -1,6 +1,6 @@
 import { invoke } from '$lib/ipc';
 import type { Project as ApiProject } from '$lib/api/cloud';
-import { derived, writable } from 'svelte/store';
+import { asyncWritable, derived } from '@square/svelte-store';
 
 export type Project = {
 	id: string;
@@ -23,18 +23,19 @@ export const add = (params: { path: string }) => invoke<Project>('add_project', 
 
 export const del = (params: { id: string }) => invoke('delete_project', params);
 
-export const Projects = async () => {
-	const store = writable(await list());
+export const Projects = () => {
+	const store = asyncWritable([], list);
 	return {
-		subscribe: store.subscribe,
-		get: (id: string) => {
+		...store,
+		get: async (id: string) => {
+			await store.load();
 			const project = derived(store, (projects) => {
 				const project = projects.find((p) => p.id === id);
 				if (!project) throw new Error(`Project ${id} not found`);
 				return project;
 			});
 			return {
-				subscribe: project.subscribe,
+				...project,
 				update: (params: { title?: string; api?: Project['api'] }) =>
 					update({
 						project: {

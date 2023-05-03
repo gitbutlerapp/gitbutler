@@ -2,7 +2,7 @@
 	import { offset, flip, shift } from 'svelte-floating-ui/dom';
 	import { arrow } from 'svelte-floating-ui';
 	import { createFloatingActions } from 'svelte-floating-ui';
-	import { writable } from 'svelte/store';
+	import { writable } from '@square/svelte-store';
 
 	let arrowRef = writable({} as HTMLElement);
 

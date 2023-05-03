@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { format, startOfDay } from 'date-fns';
 	import type { Delta } from '$lib/api';
-	import { derived, type Readable } from 'svelte/store';
+	import { derived, type Readable } from '@square/svelte-store';
 	import FileActivity from './FileActivity.svelte';
 	import { Link } from '$lib/components';
 	import { bucketByTimestamp } from './histogram';
@@ -36,9 +36,10 @@
 			.sort((a, b) => b[0].getTime() - a[0].getTime());
 	});
 
-	const getLargestBucket = (fileDeltas: Record<string, Delta[]>): number => {
-		return Math.max(
-			...Object.entries(fileDeltas).map(([_filepath, deltas]) => {
+	const getLargestBucket = (fileDeltas: Record<string, Delta[]>): number =>
+		Math.max(
+			...Object.entries(fileDeltas).map((entry) => {
+				const deltas = entry[1];
 				return Math.max(
 					...bucketByTimestamp(
 						deltas.map((delta) => delta.timestampMs),
@@ -47,7 +48,6 @@
 				);
 			})
 		);
-	};
 </script>
 
 {#each $fileDeltasByDate as [date, fileDeltas, largestBucketSize]}
