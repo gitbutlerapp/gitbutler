@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Delta } from '$lib/api';
-	import slider from '$lib/slider';
+	import slider from './slider';
 
 	type RichSession = { id: string; deltas: [string, Delta][] };
 	export let sessions: RichSession[];
