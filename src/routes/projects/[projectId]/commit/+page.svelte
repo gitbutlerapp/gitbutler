@@ -18,12 +18,19 @@
 	let fullContext = false;
 	let context = 3;
 
-	$: stagedFiles = Object.entries($statuses)
-		.filter((status) => Status.isStaged(status[1]))
-		.map(([path]) => path);
-	$: unstagedFiles = Object.entries($statuses)
-		.filter((status) => Status.isUnstaged(status[1]))
-		.map(([path]) => path);
+	const stagedFiles = derived(statuses, (statuses) =>
+		Object.entries(statuses)
+			.filter((status) => Status.isStaged(status[1]))
+			.map(([path]) => path)
+	);
+	const unstagedFiles = derived(statuses, (statuses) =>
+		Object.entries(statuses)
+			.filter((status) => Status.isUnstaged(status[1]))
+			.map(([path]) => path)
+	);
+	const allFiles = derived(statuses, (statuses) =>
+		Object.keys(statuses).sort((a, b) => a.localeCompare(b))
+	);
 
 	let connectToCloudDialog: Dialog;
 	let summary = '';
@@ -44,20 +51,18 @@
 		selectedDiffPath ? diffs[selectedDiffPath] : undefined
 	);
 
-	const nextFilePath = derived([statuses, selectedDiffPath], ([statuses, selectedDiffPath]) => {
+	const nextFilePath = derived([allFiles, selectedDiffPath], ([files, selectedDiffPath]) => {
 		if (selectedDiffPath === undefined) return;
-		const paths = Object.keys(statuses).sort((a, b) => a.localeCompare(b));
-		const index = paths.indexOf(selectedDiffPath);
-		if (index === paths.length - 1) return;
-		return paths[index + 1];
+		const index = files.indexOf(selectedDiffPath);
+		if (index === files.length - 1) return;
+		return files[index + 1];
 	});
 
-	const previousFilePath = derived([statuses, selectedDiffPath], ([statuses, selectedDiffPath]) => {
+	const previousFilePath = derived([allFiles, selectedDiffPath], ([files, selectedDiffPath]) => {
 		if (selectedDiffPath === undefined) return;
-		const paths = Object.keys(statuses).sort((a, b) => a.localeCompare(b));
-		const index = paths.indexOf(selectedDiffPath);
+		const index = files.indexOf(selectedDiffPath);
 		if (index === 0) return;
-		return paths[index - 1];
+		return files[index - 1];
 	});
 
 	const selectNextFile = () => {
@@ -150,7 +155,7 @@
 			git
 				.stage({
 					projectId,
-					paths: unstagedFiles
+					paths: $unstagedFiles
 				})
 				.catch(() => {
 					error('Failed to stage files');
@@ -159,7 +164,7 @@
 			git
 				.unstage({
 					projectId,
-					paths: stagedFiles
+					paths: $stagedFiles
 				})
 				.catch(() => {
 					error('Failed to unstage files');
@@ -187,10 +192,10 @@
 		}
 	};
 
-	$: isCommitEnabled = summary.length > 0 && stagedFiles.length > 0;
+	$: isCommitEnabled = summary.length > 0 && $stagedFiles.length > 0;
 	$: isLoggedIn = $user !== undefined;
 	$: isCloudEnabled = $project?.api?.sync;
-	$: isSomeFilesSelected = stagedFiles.length > 0 && Object.keys($statuses).length > 0;
+	$: isSomeFilesSelected = $stagedFiles.length > 0 && $allFiles.length > 0;
 	$: isGenerateCommitEnabled = isLoggedIn && isSomeFilesSelected;
 </script>
 
@@ -222,6 +227,7 @@
 		<Button role="primary" on:click={() => enableProjectSync().finally(close)}>Connect</Button>
 	</svelte:fragment>
 </Dialog>
+
 <div id="commit-page" class="flex h-full w-full">
 	<div class="commit-panel-container side-panel flex flex-col">
 		<form on:submit|preventDefault={onCommit} class="flex h-full  flex-col gap-4 px-4">
@@ -232,11 +238,10 @@
 						type="checkbox"
 						class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
 						on:click={onGroupCheckboxClick}
-						checked={Object.keys($statuses).length > 0 &&
-							stagedFiles.length === Object.keys($statuses).length}
-						indeterminate={stagedFiles.length > 0 &&
-							unstagedFiles.length > 0 &&
-							Object.keys($statuses).length > 0}
+						checked={$allFiles.length > 0 && $stagedFiles.length === Object.keys($statuses).length}
+						indeterminate={$stagedFiles.length > 0 &&
+							$unstagedFiles.length > 0 &&
+							$allFiles.length > 0}
 						disabled={isCommitting || isGeneratingCommitMessage}
 					/>
 					<h1 class="m-auto flex">
@@ -245,7 +250,7 @@
 				</header>
 
 				<div class="changed-file-list-container h-100 overflow-y-auto">
-					{#each Object.entries($statuses) as [path, status]}
+					{#each Object.entries($statuses).sort((a, b) => a[0].localeCompare(b[0])) as [path, status]}
 						<li class="bg-card-default last:mb-1">
 							<div
 								class:bg-[#3356C2]={$selectedDiffPath === path}
