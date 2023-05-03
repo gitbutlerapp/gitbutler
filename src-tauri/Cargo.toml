@@ -50,6 +50,7 @@ scopeguard = "1.1.0"
 sentry-anyhow = "0.31.0"
 sentry-rust-minidump = "0.5.1"
 sentry-debug-images = "0.31.0"
+lazy_static = "1.4.0"
 
 [features]
 # by default Tauri runs in production mode
