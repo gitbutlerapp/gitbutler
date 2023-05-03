@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time};
+use std::{collections::HashMap, sync::RwLock, time};
 
 use anyhow::{anyhow, Context, Result};
 
@@ -410,6 +410,7 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
                     Err(sessions::SessionError::NoSession) => return None,
                     Err(err) => return Some(Err(err.into())),
                 };
+                set_hash_mapping(&session.id, &oid);
                 Some(Ok(session))
             }
             Some(Err(err)) => Some(Err(err.into())),
@@ -454,7 +455,10 @@ impl<'iterator> Iterator for SessionsIdsIterator<'iterator> {
                         Err(err) => return Some(Err(err)),
                     };
                 match commit_reader.read_to_string("session/meta/id") {
-                    Ok(sid) => Some(Ok((oid, sid))),
+                    Ok(sid) => {
+                        set_hash_mapping(&sid, &oid);
+                        Some(Ok((oid, sid)))
+                    }
                     Err(e) => Some(Err(e.into())),
                 }
             }
@@ -462,4 +466,19 @@ impl<'iterator> Iterator for SessionsIdsIterator<'iterator> {
             None => None,
         }
     }
+}
+
+lazy_static! {
+    static ref MAPPING: RwLock<HashMap<String, git2::Oid>> = RwLock::new(HashMap::new());
+}
+
+fn set_hash_mapping(session_id: &str, hash: &git2::Oid) {
+    MAPPING
+        .write()
+        .unwrap()
+        .insert(session_id.to_string(), hash.clone());
+}
+
+pub fn get_hash_mapping(hash: &str) -> Option<git2::Oid> {
+    MAPPING.read().unwrap().get(hash).cloned()
 }

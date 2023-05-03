@@ -307,6 +307,12 @@ impl Repository {
     }
 
     pub fn get_session(&self, session_id: &str) -> Result<sessions::Session> {
+        if let Some(oid) = session::get_hash_mapping(session_id) {
+            let commit = self.git_repository.find_commit(oid)?;
+            let reader = reader::CommitReader::from_commit(&self.git_repository, commit)?;
+            return Ok(sessions::Session::try_from(reader)?);
+        }
+
         if let Some(session) = self.get_current_session()? {
             if session.id == session_id {
                 return Ok(session);

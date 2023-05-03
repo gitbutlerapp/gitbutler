@@ -1,5 +1,7 @@
 #[macro_use(defer)]
 extern crate scopeguard;
+#[macro_use]
+extern crate lazy_static;
 
 mod app;
 mod deltas;
