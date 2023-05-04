@@ -13,5 +13,5 @@ mod reader_tests;
 #[cfg(test)]
 mod session_tests;
 
-pub use app::App;
+pub use app::{AddProjectError, App};
 pub use project_repository::FileStatus;

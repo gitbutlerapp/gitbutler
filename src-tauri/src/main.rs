@@ -34,12 +34,11 @@ use timed::timed;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("{0}")]
-    ProjectError(projects::CreateError),
-    #[error("Project already exists")]
-    ProjectAlreadyExists,
+    Message(String),
     #[error("Something went wrong")]
     Unknown,
 }
+
 
 impl Serialize for Error {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -52,17 +51,21 @@ impl Serialize for Error {
     }
 }
 
-impl From<projects::CreateError> for Error {
-    fn from(e: projects::CreateError) -> Self {
-        Error::ProjectError(e)
-    }
-}
-
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
         sentry_anyhow::capture_anyhow(&e);
         log::error!("{:#}", e);
         Error::Unknown
+    }
+}
+
+impl From<app::AddProjectError> for Error {
+    fn from(e: app::AddProjectError) -> Self {
+        match e {
+            app::AddProjectError::ProjectAlreadyExists => Error::Message("Project already exists".to_string()),
+            app::AddProjectError::OpenError(e) => Error::Message(e.to_string()),
+            app::AddProjectError::Other(e) => e.into(),
+        }
     }
 }
 
@@ -232,15 +235,8 @@ async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::P
     let app = handle.state::<app::App>();
 
     let (tx, rx) = std::sync::mpsc::channel::<events::Event>();
-    let project = app.add_project(path, tx).with_context(|| {
-        format!(
-            "failed to add project from path {}",
-            &path
-        )
-    })?;
-
+    let project = app.add_project(path, tx)?;
     watch_events(handle, rx);
-
     Ok(project)
 }
 

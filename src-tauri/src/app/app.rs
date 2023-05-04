@@ -19,6 +19,16 @@ pub struct App {
     stop_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<()>>>>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum AddProjectError {
+    #[error("Project already exists")]
+    ProjectAlreadyExists,
+    #[error("{0}")]
+    OpenError(projects::CreateError),
+    #[error("{0}")]
+    Other(anyhow::Error)
+}
+
 impl App {
     pub fn new<P: AsRef<std::path::Path>>(local_data_dir: P) -> Result<Self> {
         let local_data_dir = local_data_dir.as_ref();
@@ -162,26 +172,34 @@ impl App {
         self.users_storage.delete()
     }
 
-    pub fn add_project(
+       pub fn add_project(
         &self,
         path: &str,
         events: std::sync::mpsc::Sender<events::Event>,
-    ) -> Result<projects::Project> {
-        let all_projects = self.projects_storage.list_projects()?;
+    ) -> Result<projects::Project, AddProjectError> {
+        let all_projects = self.projects_storage.list_projects().map_err(|e| 
+            AddProjectError::Other(e)
+        )?;
 
-        if let Some(project) = all_projects.iter().find(|project| project.path == path) {
-            return Ok(project.clone());
+        if let Some(_) = all_projects.iter().find(|project| project.path == path) {
+            return Err(AddProjectError::ProjectAlreadyExists);
         }
 
         let project =
-            projects::Project::from_path(path.to_string()).context("failed to create project")?;
+            projects::Project::from_path(path.to_string()).map_err(|e| 
+                AddProjectError::OpenError(e)
+            )?;
 
         self.projects_storage
             .add_project(&project)
-            .context("failed to add project")?;
+            .context("failed to add project").map_err(|e| 
+                AddProjectError::Other(e)
+            )?;
 
         self.init_project(&project, events.clone())
-            .context("failed to init project")?;
+            .context("failed to init project").map_err(|e| 
+                AddProjectError::Other(e)
+            )?;
 
         Ok(project)
     }
