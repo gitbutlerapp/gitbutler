@@ -1,21 +1,16 @@
 [package]
-name = "git-butler-tauri"
+name = "gitbutler-client"
 version = "0.0.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+repository = "https://github.com/gitbutlerapp/gitbutler-client"
 edition = "2021"
 rust-version = "1.57"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [build-dependencies]
-tauri-build = { version = "1.2", features = [] }
+tauri-build = { version = "1.3", features = [] }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.2", features = ["dialog-open", "path-all", "protocol-asset", "shell-open", "system-tray", "window-start-dragging"] }
+tauri = { version = "1.3", features = ["dialog-open", "path-all", "protocol-asset", "shell-open", "system-tray", "window-start-dragging"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev" }
 tauri-plugin-websocket = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev" }
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev", features = ["colored"]  }
