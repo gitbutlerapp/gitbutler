@@ -19,5 +19,6 @@ export { default as IconDiscord } from './IconDiscord.svelte';
 export { default as IconExternalLink } from './IconExternalLink.svelte';
 export { default as IconFeedback } from './IconFeedback.svelte';
 export { default as IconSearch } from './IconSearch.svelte';
+export { default as IconSparkle } from './IconSparkle.svelte';
 export { default as IconArrowLeft } from './IconArrowLeft.svelte';
 export { default as IconArrowRight } from './IconArrowRight.svelte';

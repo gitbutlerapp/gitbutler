@@ -3,7 +3,8 @@
 	import { Status, type Project, git } from '$lib/api';
 	import type { CloudApi, User } from '$lib/api';
 	import { Button, Modal, Link } from '$lib/components';
-	import { IconGitBranch } from './icons';
+	import Tooltip from './Tooltip/Tooltip.svelte';
+	import { IconGitBranch, IconSparkle } from './icons';
 
 	export const show = () => modal.show();
 
@@ -125,37 +126,44 @@
 		on:submit|preventDefault={onCommit}
 	>
 		<header class="flex w-full items-center justify-between p-4">
-			<h2 class="flex items-center gap-4">
-				<IconGitBranch class="h-5 w-5" />
-				<span class="line-height-5 text-white">{head}</span>
+			<h2 class="flex items-center gap-2">
+				<IconGitBranch class="h-5 w-5 text-zinc-400" />
+				<span class="line-height-5 text-zinc-300">{head}</span>
 			</h2>
-
-			<Button
-				role="purple"
-				height="small"
-				disabled={isCommitting || !project.api?.sync}
-				loading={isAutowriting}
-				on:click={onAutowrite}
-			>
-				Autowrite
-			</Button>
 		</header>
 
 		<div class="flex flex-col px-4">
 			<!-- svelte-ignore a11y-autofocus -->
-			<input
-				autocomplete="off"
-				autocorrect="off"
-				spellcheck="true"
-				autofocus
-				name="commit-message"
-				class="overflow-auto border-0 border-none bg-transparent p-1 text-xl text-zinc-100"
-				type="text"
-				placeholder="Commit message (required)"
-				disabled={isAutowriting || isCommitting}
-				bind:value={summary}
-				required
-			/>
+			<div class="flex w-full justify-between gap-2 items-center">
+				<input
+					autocomplete="off"
+					autocorrect="off"
+					spellcheck="true"
+					autofocus
+					name="commit-message"
+					contenteditable="true"
+					class="quick-commit-input break-word outline-none-important overflow-auto border-0 border-none bg-transparent p-1 text-xl text-zinc-100 w-full"
+					type="text"
+					placeholder="Commit message (required)"
+					disabled={isAutowriting || isCommitting}
+					bind:value={summary}
+					required
+				/>
+
+
+					<Button
+						role="purple"
+						filled={false} 
+						outlined={true}
+						disabled={isCommitting || !project.api?.sync}
+						loading={isAutowriting}
+						on:click={onAutowrite}
+					>
+						<IconSparkle class="h-5 w-5" 
+						/>
+					</Button>
+
+			</div>
 
 			<textarea
 				autocomplete="off"
@@ -163,7 +171,7 @@
 				spellcheck="true"
 				bind:value={description}
 				name="commit-description"
-				class="resize-none border-none bg-transparent p-1 text-lg text-zinc-400"
+				class="quick-commit-input outline-none-important resize-none border-none bg-transparent p-1 text-lg text-zinc-400"
 				placeholder="Commit description (optional)"
 				disabled={isAutowriting || isCommitting}
 				rows="6"
@@ -206,7 +214,17 @@
 	</form>
 </Modal>
 
-<style>
+<style lang="postcss">
+	.quick-commit-input {
+		@apply outline-none focus:outline-none active:outline-none;
+		outline: none;
+	}
+	.quick-commit-input:focus {
+		outline: 0;
+		outline-offset: 0;
+		box-shadow: rgb(255, 255, 255) 0px 0px 0px 0px, rgba(37, 99, 235, 0) 0px 0px 0px 2px,
+			rgba(0, 0, 0, 0) 0px 0px 0px 0px;
+	}
 	footer {
 		box-shadow: inset 0px 1px 0px rgba(0, 0, 0, 0.1);
 	}

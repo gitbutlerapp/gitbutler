@@ -32,6 +32,27 @@ input:focus {
 	cursor: default;
 }
 
+.outline-none-important {
+	@apply outline-none focus:outline-none active:outline-none;
+	outline: none;
+}
+.outline-none-important:focus {
+	outline: none;
+	-webkit-appearance: none;
+	outline: 0;
+	outline-offset: 0;
+	box-shadow: rgb(255, 255, 255) 0px 0px 0px 0px, rgba(37, 99, 235, 0) 0px 0px 0px 2px,
+		rgba(0, 0, 0, 0) 0px 0px 0px 0px;
+}
+.outline-none-important::before {
+	outline: none;
+	-webkit-appearance: none;
+	outline: 0;
+	outline-offset: 0;
+	box-shadow: rgb(255, 255, 255) 0px 0px 0px 0px, rgba(37, 99, 235, 0) 0px 0px 0px 2px,
+		rgba(0, 0, 0, 0) 0px 0px 0px 0px;
+}
+
 /* SCROLL BAR STYLING */
 
 /* width */
