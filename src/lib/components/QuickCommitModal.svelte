@@ -134,7 +134,7 @@
 
 		<div class="flex flex-col px-4">
 			<!-- svelte-ignore a11y-autofocus -->
-			<div class="flex w-full justify-between gap-2 items-center">
+			<div class="flex w-full items-center justify-between gap-2">
 				<input
 					autocomplete="off"
 					autocorrect="off"
@@ -142,7 +142,7 @@
 					autofocus
 					name="commit-message"
 					contenteditable="true"
-					class="quick-commit-input break-word outline-none-important overflow-auto border-0 border-none bg-transparent p-1 text-xl text-zinc-100 w-full"
+					class="quick-commit-input break-word outline-none-important w-full overflow-auto border-0 border-none bg-transparent p-1 text-xl text-zinc-100"
 					type="text"
 					placeholder="Commit message (required)"
 					disabled={isAutowriting || isCommitting}
@@ -150,19 +150,16 @@
 					required
 				/>
 
-
-					<Button
-						role="purple"
-						filled={false} 
-						outlined={true}
-						disabled={isCommitting || !project.api?.sync}
-						loading={isAutowriting}
-						on:click={onAutowrite}
-					>
-						<IconSparkle class="h-5 w-5" 
-						/>
-					</Button>
-
+				<Button
+					role="purple"
+					filled={false}
+					outlined={true}
+					disabled={isCommitting || !project.api?.sync}
+					loading={isAutowriting}
+					on:click={onAutowrite}
+				>
+					<IconSparkle class="h-5 w-5" />
+				</Button>
 			</div>
 
 			<textarea
