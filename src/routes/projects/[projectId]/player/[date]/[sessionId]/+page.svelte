@@ -36,6 +36,7 @@
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 
@@ -45,23 +46,27 @@
 	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
 	const lexically = (a: string, b: string) => a.localeCompare(b);
 
-	const { sessions, projectId } = data;
-
-	const dateSessions = derived([sessions, page], ([sessions, page]) =>
-		sessions.filter(
+	const dateSessions = derived([data.sessions, page], ([sessions, page]) =>
+		sessions?.filter(
 			(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date
 		)
 	);
 
 	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
+	const projectId = derived(page, (page) => page.params.projectId);
 
-	const richSessions = asyncDerived([dateSessions, fileFilter], async ([sessions, fileFilter]) => {
-		const paths = fileFilter ? [fileFilter] : undefined;
-		const richSessions = await Promise.all(sessions.map((s) => enrichSession(projectId, s, paths)));
-		return richSessions
-			.filter((s) => s.deltas.length > 0)
-			.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
-	});
+	const richSessions = asyncDerived(
+		[dateSessions, fileFilter, projectId],
+		async ([sessions, fileFilter, projectId]) => {
+			const paths = fileFilter ? [fileFilter] : undefined;
+			const richSessions = await Promise.all(
+				sessions.map((s) => enrichSession(projectId, s, paths))
+			);
+			return richSessions
+				.filter((s) => s.deltas.length > 0)
+				.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
+		}
+	);
 
 	const currentDeltaIndex = writable(parseInt($page.url.searchParams.get('delta') || '0'));
 	const currentSessionId = writable($page.params.sessionId);
@@ -94,20 +99,28 @@
 		currentDate.set(page.params.date);
 	});
 
-	const currentSession = derived([currentSessionId, richSessions], ([currentSessionId, sessions]) =>
-		sessions?.find((session) => session.id === currentSessionId)
-	);
-
-	const hasNextSession = derived(
+	const currentSessionIndex = derived(
 		[currentSessionId, richSessions],
 		([currentSessionId, sessions]) =>
-			sessions?.findIndex((session) => session.id === currentSessionId) < sessions?.length - 1
+			sessions?.findIndex((session) => session.id === currentSessionId)
 	);
 
-	const hasPrevSession = derived(
-		[currentSessionId, richSessions],
-		([currentSessionId, sessions]) =>
-			sessions?.findIndex((session) => session.id === currentSessionId) > 0
+	const currentSession = derived(
+		[currentSessionIndex, richSessions],
+		([currentSessionIndex, sessions]) =>
+			currentSessionIndex > -1 ? sessions[currentSessionIndex] : null
+	);
+
+	const nextSession = derived(
+		[currentSessionIndex, richSessions],
+		([currentSessionIndex, sessions]) =>
+			currentSessionIndex < sessions?.length - 1 ? sessions[currentSessionIndex + 1] : null
+	);
+
+	const prevSession = derived(
+		[currentSessionIndex, richSessions],
+		([currentSessionIndex, sessions]) =>
+			currentSessionIndex > 0 ? sessions[currentSessionIndex - 1] : null
 	);
 
 	const frame = derived([currentSession, currentDeltaIndex], ([session, currentDeltaIndex]) => {
@@ -159,28 +172,6 @@
 			}
 		}
 	}
-
-	const goToNextSession = () => {
-		if ($hasNextSession) {
-			const currentSessionIndex = $richSessions.findIndex(
-				(session) => session.id === $currentSessionId
-			);
-			const nextSession = $richSessions[currentSessionIndex + 1];
-			currentSessionId.set(nextSession.id);
-			currentDeltaIndex.set(0);
-		}
-	};
-
-	const goToPrevSession = () => {
-		if ($hasPrevSession) {
-			const currentSessionIndex = $richSessions.findIndex(
-				(session) => session.id === $currentSessionId
-			);
-			const prevSession = $richSessions[currentSessionIndex - 1];
-			currentSessionId.set(prevSession.id);
-			currentDeltaIndex.set(0);
-		}
-	};
 
 	inputValue.subscribe((value) => {
 		let i = 0;
@@ -242,12 +233,20 @@
 		start({ direction, speed });
 	};
 
+	const getSessionURI = (sessionId: string) =>
+		`/projects/${$page.params.projectId}/player/${$page.params.date}/${sessionId}?{removeFromSearchParams(
+							$page.url.searchParams,
+							'delta'
+						).toString()}`;
+
 	onMount(() =>
 		tinykeys(window, {
 			ArrowRight: gotoNextDelta,
-			'Shift+ArrowRight': goToNextSession,
+			'Shift+ArrowRight': () =>
+				nextSession.load().then((session) => session && goto(getSessionURI(session.id))),
 			ArrowLeft: gotoPrevDelta,
-			'Shift+ArrowLeft': goToPrevSession,
+			'Shift+ArrowLeft': () =>
+				prevSession.load().then((session) => session && goto(getSessionURI(session.id))),
 			Space: () => {
 				if (isPlaying) {
 					stop();
@@ -292,10 +291,7 @@
 					class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
 				>
 					<a
-						href="/projects/{projectId}/player/{$currentDate}/{session.id}?{removeFromSearchParams(
-							$page.url.searchParams,
-							'delta'
-						).toString()}"
+						href={getSessionURI(session.id)}
 						class:pointer-events-none={isCurrent}
 						class="w-full"
 					>
@@ -356,24 +352,24 @@
 					{format($frame.session.meta.lastTimestampMs, 'HH:mm')}
 				</span>
 				<div class="flex items-center gap-1">
-					<button
-						on:click={goToPrevSession}
+					<a
+						href={$prevSession && getSessionURI($prevSession.id)}
 						class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
-						class:hover:bg-zinc-500={$hasPrevSession}
-						class:cursor-not-allowed={!$hasPrevSession}
-						class:text-zinc-500={!$hasPrevSession}
+						class:hover:bg-zinc-500={!!$prevSession}
+						class:pointer-events-none={!$prevSession}
+						class:text-zinc-500={!$prevSession}
 					>
 						<IconChevronLeft class="h-4 w-4" />
-					</button>
-					<button
-						on:click={goToNextSession}
+					</a>
+					<a
+						href={$nextSession && getSessionURI($nextSession.id)}
 						class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
-						class:hover:bg-zinc-500={$hasNextSession}
-						class:cursor-not-allowed={!$hasNextSession}
-						class:text-zinc-500={!$hasNextSession}
+						class:hover:bg-zinc-500={!!$nextSession}
+						class:pointer-events-none={!$nextSession}
+						class:text-zinc-500={!$nextSession}
 					>
 						<IconChevronRight class="h-4 w-4" />
-					</button>
+					</a>
 				</div>
 			</header>
 			<div id="code" class="flex-auto overflow-auto bg-[#1E2021]">
