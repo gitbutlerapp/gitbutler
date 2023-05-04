@@ -11,3 +11,4 @@ export { default as Link } from './Link';
 export { default as Statuses } from './Statuses.svelte';
 export { default as Differ } from './Differ';
 export { default as DeltasViewer } from './DeltasViewer.svelte';
+export { default as DiffContext } from './DiffContext.svelte';

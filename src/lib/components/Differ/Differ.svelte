@@ -156,38 +156,36 @@
 	$: diff && scrollToChangedLine();
 </script>
 
-<div class="flex h-full w-full select-text whitespace-pre font-mono">
-	<div
-		id="content"
-		class="grid max-w-full flex-auto border-b border-zinc-800"
-		style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
-	>
-		{#each rows as row}
-			{@const baseNumber =
-				row.type === RowType.Equal || row.type === RowType.Deletion
-					? String(row.originalLineNumber)
-					: ''}
-			{@const curNumber =
-				row.type === RowType.Equal || row.type === RowType.Addition
-					? String(row.currentLineNumber)
-					: ''}
-			<span class="select-none border-r  border-zinc-800 bg-zinc-900 text-zinc-500/70">
-				<div class="mx-1.5 text-right">
-					{baseNumber}
-				</div>
-			</span>
+<div
+	id="content"
+	class="grid h-full w-full flex-auto select-text whitespace-pre border-b border-zinc-800 font-mono"
+	style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
+>
+	{#each rows as row}
+		{@const baseNumber =
+			row.type === RowType.Equal || row.type === RowType.Deletion
+				? String(row.originalLineNumber)
+				: ''}
+		{@const curNumber =
+			row.type === RowType.Equal || row.type === RowType.Addition
+				? String(row.currentLineNumber)
+				: ''}
+		<span class="select-none border-r  border-zinc-800 bg-zinc-900 text-zinc-500/70">
+			<div class="mx-1.5 text-right">
+				{baseNumber}
+			</div>
+		</span>
 
-			<span class="mr-1 select-none border-r border-zinc-800 bg-zinc-900 text-zinc-500/70">
-				<div class="mx-1.5 text-right">
-					{curNumber}
-				</div>
-			</span>
+		<span class="mr-1 select-none border-r border-zinc-800 bg-zinc-900 text-zinc-500/70">
+			<div class="mx-1.5 text-right">
+				{curNumber}
+			</div>
+		</span>
 
-			<span class="diff-line-{row.type} overflow-hidden whitespace-pre-wrap">
-				{#each row.render.html as content}
-					{@html content}
-				{/each}
-			</span>
-		{/each}
-	</div>
+		<span class="diff-line-{row.type} overflow-hidden whitespace-pre-wrap">
+			{#each row.render.html as content}
+				{@html content}
+			{/each}
+		</span>
+	{/each}
 </div>
