@@ -3,5 +3,5 @@ import type { LayoutLoad } from './$types';
 
 export const load: LayoutLoad = () => ({
 	currentFilepath: writable(''),
-    currentSessionId: writable(''),
+	currentSessionId: writable('')
 });
