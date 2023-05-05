@@ -36,8 +36,8 @@ specifiers:
   '@storybook/theming': ^7.0.7
   '@sveltejs/adapter-static': ^2.0.0
   '@sveltejs/kit': ^1.15.0
-  '@tauri-apps/api': ^1.3.0
-  '@tauri-apps/cli': ^1.3.0
+  '@tauri-apps/api': ^1.2.0
+  '@tauri-apps/cli': ^1.2.2
   '@types/diff': ^5.0.2
   '@types/diff-match-patch': ^1.0.32
   '@typescript-eslint/eslint-plugin': ^5.45.0
@@ -115,8 +115,8 @@ devDependencies:
   '@storybook/theming': 7.0.7_biqbaboplfbrettd7655fr4n2y
   '@sveltejs/adapter-static': 2.0.1_@sveltejs+kit@1.15.0
   '@sveltejs/kit': 1.15.0_svelte@3.55.1+vite@4.0.4
-  '@tauri-apps/api': 1.3.0
-  '@tauri-apps/cli': 1.3.0
+  '@tauri-apps/api': 1.2.0
+  '@tauri-apps/cli': 1.2.3
   '@types/diff': 5.0.2
   '@types/diff-match-patch': 1.0.32
   '@typescript-eslint/eslint-plugin': 5.53.0_ny4s7qc6yg74faf3d6xty2ofzy
@@ -138,15 +138,15 @@ devDependencies:
   prettier-plugin-tailwindcss: 0.2.4_yjdjpc7im5hvpskij45owfsns4
   react: 18.2.0
   react-dom: 18.2.0_react@18.2.0
-  storybook: 7.0.8
+  storybook: 7.0.7
   svelte: 3.55.1
   svelte-check: 3.0.3_gqx7lw3sljhsd4bstor5m2aa2u
   svelte-floating-ui: 1.5.2
   svelte-french-toast: 1.0.3_svelte@3.55.1
   svelte-resize-observer: 2.0.0
   tailwindcss: 3.2.4_postcss@8.4.21
-  tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/76b5069f7b1e88de2c5f52706159fd9525a3ba50
-  tauri-plugin-websocket-api: github.com/tauri-apps/tauri-plugin-websocket/8facde5df5401c0cc8155082027863b494b06291
+  tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/782a97aeb30cf0f54355d04e6026842fa420bd83
+  tauri-plugin-websocket-api: github.com/tauri-apps/tauri-plugin-websocket/100b5e9eb3f28c88d59d4fed52586fdaa0149ea1
   tinykeys: 1.4.0
   tslib: 2.5.0
   typescript: 4.9.5
@@ -2893,13 +2893,13 @@ packages:
       - supports-color
     dev: true
 
-  /@storybook/builder-manager/7.0.8:
-    resolution: {integrity: sha512-PxFiXbxAy4o6kV5EjtEq1cg6UwJsMhV7ZvYn3HuKNkS+8qk2iZdAe0tGcA9LbvRR6k5rEeU/PxbRjcBWBjUyEA==}
+  /@storybook/builder-manager/7.0.7:
+    resolution: {integrity: sha512-VI/0iEjAlzQDt1yKu8GXugNIz7t46IHIKgMNmltQ05KPypMgInUoMmbfP5AYOVddjLdSqjMLO7EK58pBLOInpw==}
     dependencies:
       '@fal-works/esbuild-plugin-global-externals': 2.1.2
-      '@storybook/core-common': 7.0.8
-      '@storybook/manager': 7.0.8
-      '@storybook/node-logger': 7.0.8
+      '@storybook/core-common': 7.0.7
+      '@storybook/manager': 7.0.7
+      '@storybook/node-logger': 7.0.7
       '@types/ejs': 3.1.2
       '@types/find-cache-dir': 3.2.1
       '@yarnpkg/esbuild-plugin-pnp': 3.0.0-rc.15_esbuild@0.17.14
@@ -2979,17 +2979,6 @@ packages:
       telejson: 7.0.4
     dev: true
 
-  /@storybook/channel-postmessage/7.0.8:
-    resolution: {integrity: sha512-op/SB2Tg66bxS4DHOhrSVja7Xdp8aiWIJ47vygSq31nqpwv5auCTptOrcdzTikOjH+4dKfTGxTx6Z5g065tuiQ==}
-    dependencies:
-      '@storybook/channels': 7.0.8
-      '@storybook/client-logger': 7.0.8
-      '@storybook/core-events': 7.0.8
-      '@storybook/global': 5.0.0
-      qs: 6.11.1
-      telejson: 7.0.4
-    dev: true
-
   /@storybook/channel-websocket/7.0.7:
     resolution: {integrity: sha512-KDbLiQts4/dCow3qk5WJSPA6SlaX3iP9RhF0Fjj03hoG2TRskrvo+AkUiJr8gF6dpkPndfuCYUCRsO2Ml8B+AA==}
     dependencies:
@@ -3007,24 +2996,20 @@ packages:
     resolution: {integrity: sha512-Om4ovBLNw8pVrBu83MpOKgAuGO9Dpr1Coh2qp8t64WRPkejX1mxOY9IgH723//zH3igx8LCkf9rvBvcrsyaScQ==}
     dev: true
 
-  /@storybook/channels/7.0.8:
-    resolution: {integrity: sha512-z8W4r8te/EiEDfk8qaxmjwMcKMe+x12leWEwtyz6e9XI0Q4qTk17dDtq/XZ5Ab2Ks4VSvWRu1e/QURiVpjbo2Q==}
-    dev: true
-
-  /@storybook/cli/7.0.8:
-    resolution: {integrity: sha512-KvuleEXWrDz1OZC9c/ejAWSEns7YAXYCsS76BA3hx/xGnpcUQG7AZ00G8sy7viHFQjjA3G1YsMOm2p4YI0A1oA==}
+  /@storybook/cli/7.0.7:
+    resolution: {integrity: sha512-koTkWr7wlaHF14T5moRP/tYM44+Jf4GEzQ/rqx/Jfn7EbNlVUOibdLJj4JnseMGRc7ZP6tKYku2n+B8g7hJX4w==}
     hasBin: true
     dependencies:
       '@babel/core': 7.21.3
       '@babel/preset-env': 7.21.4_@babel+core@7.21.3
       '@ndelangen/get-tarball': 3.0.7
-      '@storybook/codemod': 7.0.8
-      '@storybook/core-common': 7.0.8
-      '@storybook/core-server': 7.0.8
-      '@storybook/csf-tools': 7.0.8
-      '@storybook/node-logger': 7.0.8
-      '@storybook/telemetry': 7.0.8
-      '@storybook/types': 7.0.8
+      '@storybook/codemod': 7.0.7
+      '@storybook/core-common': 7.0.7
+      '@storybook/core-server': 7.0.7
+      '@storybook/csf-tools': 7.0.7
+      '@storybook/node-logger': 7.0.7
+      '@storybook/telemetry': 7.0.7
+      '@storybook/types': 7.0.7
       '@types/semver': 7.3.13
       boxen: 5.1.2
       chalk: 4.1.2
@@ -3072,22 +3057,16 @@ packages:
       '@storybook/global': 5.0.0
     dev: true
 
-  /@storybook/client-logger/7.0.8:
-    resolution: {integrity: sha512-UuyX57Jzn8L0QOhDPBA/v9UqIGCtFKqtaS23mNNNDoc1X3u+boULNgqWGD84F2U7JWg2xNopIJvjQxhH30/Jhw==}
-    dependencies:
-      '@storybook/global': 5.0.0
-    dev: true
-
-  /@storybook/codemod/7.0.8:
-    resolution: {integrity: sha512-0zEUlnHtyU6BdiqsOqKrC4QBPl/BOR8LNEoKQbprmemAqRx0SUirawyHfgxzlrlKiGvHgmsrOglCb/9tZmbY/g==}
+  /@storybook/codemod/7.0.7:
+    resolution: {integrity: sha512-VlkDlkvfbzLe+NOmzs5zGrGb4jnaeAFZqpvIkXxevr6aGcOwgeelNv8gTmgBAcy+xbGW4Pp0XA2BlMweIvKEKA==}
     dependencies:
       '@babel/core': 7.21.3
       '@babel/preset-env': 7.21.4_@babel+core@7.21.3
       '@babel/types': 7.21.4
       '@storybook/csf': 0.1.0
-      '@storybook/csf-tools': 7.0.8
-      '@storybook/node-logger': 7.0.8
-      '@storybook/types': 7.0.8
+      '@storybook/csf-tools': 7.0.7
+      '@storybook/node-logger': 7.0.7
+      '@storybook/types': 7.0.7
       cross-spawn: 7.0.3
       globby: 11.1.0
       jscodeshift: 0.14.0_@babel+preset-env@7.21.4
@@ -3149,32 +3128,6 @@ packages:
       - supports-color
     dev: true
 
-  /@storybook/core-common/7.0.8:
-    resolution: {integrity: sha512-W0/jtHndO4GO98g9bWnkMB9rZrH+aZCefEGZcUrTpgOa+Ws/b6l8YDEoR1V1hGPROT5cn82+9zU4s5y1d462Sg==}
-    dependencies:
-      '@storybook/node-logger': 7.0.8
-      '@storybook/types': 7.0.8
-      '@types/node': 16.18.21
-      '@types/pretty-hrtime': 1.0.1
-      chalk: 4.1.2
-      esbuild: 0.17.14
-      esbuild-register: 3.4.2_esbuild@0.17.14
-      file-system-cache: 2.0.2
-      find-up: 5.0.0
-      fs-extra: 11.1.1
-      glob: 8.1.0
-      glob-promise: 6.0.2_glob@8.1.0
-      handlebars: 4.7.7
-      lazy-universal-dotenv: 4.0.0
-      picomatch: 2.3.1
-      pkg-dir: 5.0.0
-      pretty-hrtime: 1.0.3
-      resolve-from: 5.0.0
-      ts-dedent: 2.2.0
-    transitivePeerDependencies:
-      - supports-color
-    dev: true
-
   /@storybook/core-events/7.0.6:
     resolution: {integrity: sha512-kGrtjlYtjd4iTVk+Phb4CymZaVkB+MGscKAgcO8gfgJ/Q/gq8HQLVZSIzeoCDcDSHOGlBzbg2WVtdHIHhCKlOQ==}
     dev: true
@@ -3183,27 +3136,23 @@ packages:
     resolution: {integrity: sha512-XNsR2RgaL2vBwuqsu+KA1DzGmB1UFfrAhpxhmyWTKDCniwtTLlaXgfKbqwcrOrPu/o1YswgIup/9UHepRHaf4A==}
     dev: true
 
-  /@storybook/core-events/7.0.8:
-    resolution: {integrity: sha512-CQJs3PKQ8HJmMe7kzYy2bWz3hw5d8myAtO5LAgvPHKsVqAZ0R+rN4lXlcPNWf/x3tb8JizDJpPgTCBdOBb+tkg==}
-    dev: true
-
-  /@storybook/core-server/7.0.8:
-    resolution: {integrity: sha512-ONF2PYV9XKYTpUoS88ECKemSIescJuj849X71hPZMOs439g0gXJlYVnwIs0zgAj6ZcuXgjDIB81FicX8uv4+Yw==}
+  /@storybook/core-server/7.0.7:
+    resolution: {integrity: sha512-PB4zoClH7aKG4XeJhxx43iK9n/C9gctXubNN5DSN6thPm4UITOas+/q4N7AHbCPyRbcMyoW7M31KtpzZu4Fjew==}
     dependencies:
       '@aw-web-design/x-default-browser': 1.4.88
       '@discoveryjs/json-ext': 0.5.7
-      '@storybook/builder-manager': 7.0.8
-      '@storybook/core-common': 7.0.8
-      '@storybook/core-events': 7.0.8
+      '@storybook/builder-manager': 7.0.7
+      '@storybook/core-common': 7.0.7
+      '@storybook/core-events': 7.0.7
       '@storybook/csf': 0.1.0
-      '@storybook/csf-tools': 7.0.8
+      '@storybook/csf-tools': 7.0.7
       '@storybook/docs-mdx': 0.1.0
       '@storybook/global': 5.0.0
-      '@storybook/manager': 7.0.8
-      '@storybook/node-logger': 7.0.8
-      '@storybook/preview-api': 7.0.8
-      '@storybook/telemetry': 7.0.8
-      '@storybook/types': 7.0.8
+      '@storybook/manager': 7.0.7
+      '@storybook/node-logger': 7.0.7
+      '@storybook/preview-api': 7.0.7
+      '@storybook/telemetry': 7.0.7
+      '@storybook/types': 7.0.7
       '@types/detect-port': 1.3.2
       '@types/node': 16.18.21
       '@types/node-fetch': 2.6.2
@@ -3257,22 +3206,6 @@ packages:
       '@babel/types': 7.21.4
       '@storybook/csf': 0.1.0
       '@storybook/types': 7.0.7
-      fs-extra: 11.1.1
-      recast: 0.23.1
-      ts-dedent: 2.2.0
-    transitivePeerDependencies:
-      - supports-color
-    dev: true
-
-  /@storybook/csf-tools/7.0.8:
-    resolution: {integrity: sha512-bMuljBJrZ1UL80NAHNfGgcDg7bMLnsppmuX6WVayOKMM3BcuRQVNiWC0ZLC6yrmPRinalqWdE/GDhwA/IevThg==}
-    dependencies:
-      '@babel/generator': 7.21.3
-      '@babel/parser': 7.21.3
-      '@babel/traverse': 7.21.3
-      '@babel/types': 7.21.4
-      '@storybook/csf': 0.1.0
-      '@storybook/types': 7.0.8
       fs-extra: 11.1.1
       recast: 0.23.1
       ts-dedent: 2.2.0
@@ -3353,8 +3286,8 @@ packages:
       ts-dedent: 2.2.0
     dev: true
 
-  /@storybook/manager/7.0.8:
-    resolution: {integrity: sha512-qdmuRb6q5yUtrIVmkkftS9QR7HoYy5+UQ15VCgS2Q1o0Fz1A2TD9fd9MuxRfqGFO2wDOnmI8ps7Uw5XkKNjD9w==}
+  /@storybook/manager/7.0.7:
+    resolution: {integrity: sha512-FhquwUpUOHsjZROf6E6kzUnJ6EmMeJ9b+HYg6yYPyIMYVMjAhnkRKbIj0phGx2lhgKFlmxik+3pgchK5SLdcZA==}
     dev: true
 
   /@storybook/mdx2-csf/1.0.0:
@@ -3363,15 +3296,6 @@ packages:
 
   /@storybook/node-logger/7.0.7:
     resolution: {integrity: sha512-5Y4LLgKeCStq1ktCKZ5eNPzQQSQ+CYZAlkEdzQ3Pp//0KXaZvVxEvGtaYhAymP2HatLpI8Oneo4lHrJioRfgww==}
-    dependencies:
-      '@types/npmlog': 4.1.4
-      chalk: 4.1.2
-      npmlog: 5.0.1
-      pretty-hrtime: 1.0.3
-    dev: true
-
-  /@storybook/node-logger/7.0.8:
-    resolution: {integrity: sha512-POO1iXohTJbkQidp76GZR+HoVeFIuRBHlwWNtHZOgR1PnwocGvf43NJ/GMZLvxiwf/d2wyObXy4n1/R1jPw5Ew==}
     dependencies:
       '@types/npmlog': 4.1.4
       chalk: 4.1.2
@@ -3413,26 +3337,6 @@ packages:
       '@storybook/csf': 0.1.0
       '@storybook/global': 5.0.0
       '@storybook/types': 7.0.7
-      '@types/qs': 6.9.7
-      dequal: 2.0.3
-      lodash: 4.17.21
-      memoizerific: 1.11.3
-      qs: 6.11.1
-      synchronous-promise: 2.0.17
-      ts-dedent: 2.2.0
-      util-deprecate: 1.0.2
-    dev: true
-
-  /@storybook/preview-api/7.0.8:
-    resolution: {integrity: sha512-+/nhvNo7ML6bPnFYJRH/+mwU/sVJbIGhxFy4r+4Omxaw4aKhs8T0eVijGE2KOahRKG3qUCYV1CaTqmnlbcXgbw==}
-    dependencies:
-      '@storybook/channel-postmessage': 7.0.8
-      '@storybook/channels': 7.0.8
-      '@storybook/client-logger': 7.0.8
-      '@storybook/core-events': 7.0.8
-      '@storybook/csf': 0.1.0
-      '@storybook/global': 5.0.0
-      '@storybook/types': 7.0.8
       '@types/qs': 6.9.7
       dequal: 2.0.3
       lodash: 4.17.21
@@ -3536,11 +3440,11 @@ packages:
       - vite-plugin-glimmerx
     dev: true
 
-  /@storybook/telemetry/7.0.8:
-    resolution: {integrity: sha512-V621AZ/f6WyPX9orqpiZa8oUbdUdHdzl1N51h0+p+lZoWJmDLvrrsmXH80ClBV7oA4c6NP/8nbZrq3jnpI7VAQ==}
+  /@storybook/telemetry/7.0.7:
+    resolution: {integrity: sha512-Ka6pwWr3sWs3A/6WQ0wsoSYzXx3Mhr7eByNZZKuuCu9jnw3I8AbIOqQX2iOVzaQBLZsvXEeqvYY8iZ+GuRbbGQ==}
     dependencies:
-      '@storybook/client-logger': 7.0.8
-      '@storybook/core-common': 7.0.8
+      '@storybook/client-logger': 7.0.7
+      '@storybook/core-common': 7.0.7
       chalk: 4.1.2
       detect-package-manager: 2.0.1
       fetch-retry: 5.0.4
@@ -3590,15 +3494,6 @@ packages:
     resolution: {integrity: sha512-v9piuwp8FvTiHXIOOi5lEyTEJKhnbcbhVxgJ3VFhhXYFd0DTz6Bst0XIIgkgs21ITb3xhkfPbCRUueMcbXO1MA==}
     dependencies:
       '@storybook/channels': 7.0.7
-      '@types/babel__core': 7.20.0
-      '@types/express': 4.17.17
-      file-system-cache: 2.0.2
-    dev: true
-
-  /@storybook/types/7.0.8:
-    resolution: {integrity: sha512-x83vL/TzBlv21nHuP35c+z4AUjHSY9G7NpZLTZ/5REcuXbeIfhjGOAyeUHB4lXhPXxsOlq3wHiQippB7bSJeeQ==}
-    dependencies:
-      '@storybook/channels': 7.0.8
       '@types/babel__core': 7.20.0
       '@types/express': 4.17.17
       file-system-cache: 2.0.2
@@ -3659,13 +3554,13 @@ packages:
       - supports-color
     dev: true
 
-  /@tauri-apps/api/1.3.0:
-    resolution: {integrity: sha512-AH+3FonkKZNtfRtGrObY38PrzEj4d+1emCbwNGu0V2ENbXjlLHMZQlUh+Bhu/CRmjaIwZMGJ3yFvWaZZgTHoog==}
+  /@tauri-apps/api/1.2.0:
+    resolution: {integrity: sha512-lsI54KI6HGf7VImuf/T9pnoejfgkNoXveP14pVV7XarrQ46rOejIVJLFqHI9sRReJMGdh2YuCoI3cc/yCWCsrw==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
     dev: true
 
-  /@tauri-apps/cli-darwin-arm64/1.3.0:
-    resolution: {integrity: sha512-uuhx3/LaqFyHkoGOnOltBLKWGOzC6WzdXu+/Qv3NmNnyQWkY7O34z5V0oP6ibfuiOBZufKjOuBR+8YAIR8Qh9Q==}
+  /@tauri-apps/cli-darwin-arm64/1.2.3:
+    resolution: {integrity: sha512-phJN3fN8FtZZwqXg08bcxfq1+X1JSDglLvRxOxB7VWPq+O5SuB8uLyssjJsu+PIhyZZnIhTGdjhzLSFhSXfLsw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
@@ -3673,8 +3568,8 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli-darwin-x64/1.3.0:
-    resolution: {integrity: sha512-fj0VXHMDvb/H1CjaS/JoYd7xcourxndJn1IyM4afYbpXibT/fpmM6uZflDI6rRa220NfnBtQvy+asgwC9wuyLA==}
+  /@tauri-apps/cli-darwin-x64/1.2.3:
+    resolution: {integrity: sha512-jFZ/y6z8z6v4yliIbXKBXA7BJgtZVMsITmEXSuD6s5+eCOpDhQxbRkr6CA+FFfr+/r96rWSDSgDenDQuSvPAKw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
@@ -3682,8 +3577,8 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli-linux-arm-gnueabihf/1.3.0:
-    resolution: {integrity: sha512-f80DmFPnH5ZskG61KIlAyMVk9YkrTq0XM2uiQjOo5gToIdJidSwhPQVeBLv+7UxhqaRBx082Dg2fOkWlO3LiOQ==}
+  /@tauri-apps/cli-linux-arm-gnueabihf/1.2.3:
+    resolution: {integrity: sha512-C7h5vqAwXzY0kRGSU00Fj8PudiDWFCiQqqUNI1N+fhCILrzWZB9TPBwdx33ZfXKt/U4+emdIoo/N34v3TiAOmQ==}
     engines: {node: '>= 10'}
     cpu: [arm]
     os: [linux]
@@ -3691,8 +3586,8 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli-linux-arm64-gnu/1.3.0:
-    resolution: {integrity: sha512-s6/OByuGoppoUSnOXv/b6Oe6cVFk2w/KHs19aJJpo9ov/dUAA1w9wXlXu2l6sOFGsu/plaVomF2cw3iAQmaUCQ==}
+  /@tauri-apps/cli-linux-arm64-gnu/1.2.3:
+    resolution: {integrity: sha512-buf1c8sdkuUzVDkGPQpyUdAIIdn5r0UgXU6+H5fGPq/Xzt5K69JzXaeo6fHsZEZghbV0hOK+taKV4J0m30UUMQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
@@ -3700,8 +3595,8 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli-linux-arm64-musl/1.3.0:
-    resolution: {integrity: sha512-yZfZAW4BG92cynL/D4wdrwBAl2oekRwiZnU5CM8k5yncalVEL0tyzuxQjjqbqrtDcw0rdkoBWrhFd+EB89vQaQ==}
+  /@tauri-apps/cli-linux-arm64-musl/1.2.3:
+    resolution: {integrity: sha512-x88wPS9W5xAyk392vc4uNHcKBBvCp0wf4H9JFMF9OBwB7vfd59LbQCFcPSu8f0BI7bPrOsyHqspWHuFL8ojQEA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
@@ -3709,8 +3604,8 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli-linux-x64-gnu/1.3.0:
-    resolution: {integrity: sha512-K3KRWSGKh7DTBr/ZKgWzeNX1Vdgx1ZBlUJXsm72R0Hb+93fDEp3TWgiwVkxqecB4aNWJhJsDcvRHuxw1G8xPlA==}
+  /@tauri-apps/cli-linux-x64-gnu/1.2.3:
+    resolution: {integrity: sha512-ZMz1jxEVe0B4/7NJnlPHmwmSIuwiD6ViXKs8F+OWWz2Y4jn5TGxWKFg7DLx5OwQTRvEIZxxT7lXHi5CuTNAxKg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
@@ -3718,8 +3613,8 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli-linux-x64-musl/1.3.0:
-    resolution: {integrity: sha512-99bVHqL1EtF7oESrlmEb5BWJsMNQ2ha70gesZhaVO2qI9Vg089XvrFZWC+aGiUsXNFrOw270+D9DKn03xO5+Zg==}
+  /@tauri-apps/cli-linux-x64-musl/1.2.3:
+    resolution: {integrity: sha512-B/az59EjJhdbZDzawEVox0LQu2ZHCZlk8rJf85AMIktIUoAZPFbwyiUv7/zjzA/sY6Nb58OSJgaPL2/IBy7E0A==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
@@ -3727,8 +3622,8 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli-win32-ia32-msvc/1.3.0:
-    resolution: {integrity: sha512-ckBUTqXXdnCiYyf2xvxiuqiKZurg7ET++f6yzfvYa+gofd5dagQJkGLlkIg2pJ2c8mhEG1Cfk1vxWPqqGfN2GQ==}
+  /@tauri-apps/cli-win32-ia32-msvc/1.2.3:
+    resolution: {integrity: sha512-ypdO1OdC5ugNJAKO2m3sb1nsd+0TSvMS9Tr5qN/ZSMvtSduaNwrcZ3D7G/iOIanrqu/Nl8t3LYlgPZGBKlw7Ng==}
     engines: {node: '>= 10'}
     cpu: [ia32]
     os: [win32]
@@ -3736,8 +3631,8 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli-win32-x64-msvc/1.3.0:
-    resolution: {integrity: sha512-vQ4wqRE0aziyRxgHIOLudGuxx4wETvFnmMvDBaNJRRrZQPlkOKnRxrvj1rNnI1845BdzSbDF4p7JDcFzToAfXA==}
+  /@tauri-apps/cli-win32-x64-msvc/1.2.3:
+    resolution: {integrity: sha512-CsbHQ+XhnV/2csOBBDVfH16cdK00gNyNYUW68isedmqcn8j+s0e9cQ1xXIqi+Hue3awp8g3ImYN5KPepf3UExw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
@@ -3745,20 +3640,20 @@ packages:
     dev: true
     optional: true
 
-  /@tauri-apps/cli/1.3.0:
-    resolution: {integrity: sha512-H65YQQkE6SBTQ+KlqTmzx7oCL/2p36v2jPFVNHBhZ5EN7g0VLYmImh9TFcB/QsO2aT+sVlRZSmTpL3R0Iiu8pA==}
+  /@tauri-apps/cli/1.2.3:
+    resolution: {integrity: sha512-erxtXuPhMEGJPBtnhPILD4AjuT81GZsraqpFvXAmEJZ2p8P6t7MVBifCL8LznRknznM3jn90D3M8RNBP3wcXTw==}
     engines: {node: '>= 10'}
     hasBin: true
     optionalDependencies:
-      '@tauri-apps/cli-darwin-arm64': 1.3.0
-      '@tauri-apps/cli-darwin-x64': 1.3.0
-      '@tauri-apps/cli-linux-arm-gnueabihf': 1.3.0
-      '@tauri-apps/cli-linux-arm64-gnu': 1.3.0
-      '@tauri-apps/cli-linux-arm64-musl': 1.3.0
-      '@tauri-apps/cli-linux-x64-gnu': 1.3.0
-      '@tauri-apps/cli-linux-x64-musl': 1.3.0
-      '@tauri-apps/cli-win32-ia32-msvc': 1.3.0
-      '@tauri-apps/cli-win32-x64-msvc': 1.3.0
+      '@tauri-apps/cli-darwin-arm64': 1.2.3
+      '@tauri-apps/cli-darwin-x64': 1.2.3
+      '@tauri-apps/cli-linux-arm-gnueabihf': 1.2.3
+      '@tauri-apps/cli-linux-arm64-gnu': 1.2.3
+      '@tauri-apps/cli-linux-arm64-musl': 1.2.3
+      '@tauri-apps/cli-linux-x64-gnu': 1.2.3
+      '@tauri-apps/cli-linux-x64-musl': 1.2.3
+      '@tauri-apps/cli-win32-ia32-msvc': 1.2.3
+      '@tauri-apps/cli-win32-x64-msvc': 1.2.3
     dev: true
 
   /@testing-library/dom/8.20.0:
@@ -8179,11 +8074,11 @@ packages:
     resolution: {integrity: sha512-siT1RiqlfQnGqgT/YzXVUNsom9S0H1OX+dpdGN1xkyYATo4I6sep5NmsRD/40s3IIOvlCq6akxkqG82urIZW1w==}
     dev: true
 
-  /storybook/7.0.8:
-    resolution: {integrity: sha512-2SY6r7nwb5uh2HXXcTttwaZcKhGhy0kHE8mfaWD4Ros5vnt6Se12sanCCWTTxNeV1spAtg4aa9lelRI0VyGvsg==}
+  /storybook/7.0.7:
+    resolution: {integrity: sha512-MaFAhpPm/KsaoIQfGzapnRyXNh1VbS8l38BNZR5ZD97ejGkLukJ7TO4fFS87Hyy6whAXo6tTdtqeCByMQ9gRFA==}
     hasBin: true
     dependencies:
-      '@storybook/cli': 7.0.8
+      '@storybook/cli': 7.0.7
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -9097,18 +8992,18 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-log/76b5069f7b1e88de2c5f52706159fd9525a3ba50:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/76b5069f7b1e88de2c5f52706159fd9525a3ba50}
+  github.com/tauri-apps/tauri-plugin-log/782a97aeb30cf0f54355d04e6026842fa420bd83:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/782a97aeb30cf0f54355d04e6026842fa420bd83}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
-      '@tauri-apps/api': 1.3.0
+      '@tauri-apps/api': 1.2.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/8facde5df5401c0cc8155082027863b494b06291:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/8facde5df5401c0cc8155082027863b494b06291}
+  github.com/tauri-apps/tauri-plugin-websocket/100b5e9eb3f28c88d59d4fed52586fdaa0149ea1:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/100b5e9eb3f28c88d59d4fed52586fdaa0149ea1}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:
-      '@tauri-apps/api': 1.3.0
+      '@tauri-apps/api': 1.2.0
     dev: true
