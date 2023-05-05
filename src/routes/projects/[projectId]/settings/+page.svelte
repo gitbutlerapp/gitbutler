@@ -88,10 +88,14 @@
 	let deleteConfirmationDialog: Dialog;
 	let isDeleting = false;
 
-	const onDeleteClicked = () => {
-		isDeleting = true;
-		project
-			.delete()
+	const onDeleteClicked = () =>
+		Promise.resolve()
+			.then(() => (isDeleting = true))
+			.then(() => {
+				if ($user && $project.api)
+					api.projects.delete($user?.access_token, $project.api.repository_id);
+			})
+			.then(() => project.delete())
 			.then(() => deleteConfirmationDialog.close())
 			.catch((e) => {
 				log.error(e);
@@ -100,7 +104,6 @@
 			.then(() => goto('/'))
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
-	};
 </script>
 
 <div class="mx-auto h-full overflow-auto p-4">
