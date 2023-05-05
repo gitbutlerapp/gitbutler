@@ -33,6 +33,7 @@
 	import tinykeys from 'tinykeys';
 
 	export let data: PageData;
+	const { currentFilepath } = data;
 
 	let fullContext = true;
 	let context = 8;
@@ -113,6 +114,7 @@
 			deltas: deltas.filter((delta) => delta[0] === filepath).map((delta) => delta[1])
 		};
 	});
+	frame.subscribe((frame) => frame?.filepath && currentFilepath.set(frame.filepath));
 
 	// scroller
 	const maxInput = derived(richSessions, (sessions) =>

@@ -1,7 +1,6 @@
 <script lang="ts" context="module">
-	import { deltas, files, type Session, type Delta } from '$lib/api';
+	import { deltas, type Session, type Delta } from '$lib/api';
 	const enrichSession = async (projectId: string, session: Session, paths?: string[]) => {
-		const sessionFiles = await files.list({ projectId, sessionId: session.id, paths });
 		const sessionDeltas = await deltas
 			.list({ projectId, sessionId: session.id, paths })
 			.then((deltas) =>
@@ -9,12 +8,8 @@
 					.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
 					.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
 			);
-		const deltasFiles = new Set(sessionDeltas.map(([path]) => path));
 		return {
 			...session,
-			files: Object.fromEntries(
-				Object.entries(sessionFiles).filter(([filepath]) => deltasFiles.has(filepath))
-			),
 			deltas: sessionDeltas
 		};
 	};
@@ -32,6 +27,7 @@
 	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
+	const { currentFilepath } = data;
 
 	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
 	const lexically = (a: string, b: string) => a.localeCompare(b);
@@ -112,18 +108,6 @@
 		([currentSessionIndex, sessions]) =>
 			currentSessionIndex > 0 ? sessions[currentSessionIndex - 1] : null
 	);
-
-	const frame = derived([currentSession, currentDeltaIndex], ([session, currentDeltaIndex]) => {
-		if (!session) return null;
-		const deltas = session.deltas.slice(0, currentDeltaIndex + 1);
-		const filepath = deltas[deltas.length - 1][0];
-		return {
-			session,
-			filepath,
-			doc: session.files[filepath] || '',
-			deltas: deltas.filter((delta) => delta[0] === filepath).map((delta) => delta[1])
-		};
-	});
 
 	const sessionRange = (session: Session) => {
 		const day = new Date(session.meta.startTimestampMs).toLocaleString('en-US', {
@@ -217,8 +201,8 @@
 									.filter(unique)
 									.sort(lexically) as filename}
 									<li
-										class:text-zinc-100={$frame?.filepath === filename}
-										class:bg-[#3356C2]={$frame?.filepath === filename}
+										class:text-zinc-100={$currentFilepath === filename}
+										class:bg-[#3356C2]={$currentFilepath === filename}
 										class="mx-5 ml-1 w-full list-none rounded p-1 text-zinc-500"
 									>
 										{collapse(filename)}
