@@ -20,7 +20,7 @@
 	import { IconChevronLeft, IconChevronRight } from '$lib/components/icons';
 	import { collapse } from '$lib/paths';
 	import { page } from '$app/stores';
-	import { asyncDerived, derived, writable } from '@square/svelte-store';
+	import { asyncDerived, derived } from '@square/svelte-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
 	import tinykeys from 'tinykeys';
@@ -54,60 +54,38 @@
 		}
 	);
 
-	const currentDeltaIndex = writable(parseInt($page.url.searchParams.get('delta') || '0'));
-	const currentSessionId = writable($page.params.sessionId);
-	const currentDate = writable($page.params.date);
-
-	richSessions.subscribe((sessions) => {
-		if (!sessions) return;
-		if (sessions.length === 0) return;
-		if (!sessions.some((s) => s.id === $currentSessionId)) {
-			currentSessionId.set(sessions[0].id);
-		}
-	});
-
 	const scrollToSession = () => {
 		const sessionEl = document.getElementById('current-session');
 		if (sessionEl) {
 			sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
-		const changedLines = document.getElementsByClassName('line-changed');
-		if (changedLines.length > 0) {
-			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-		}
 	};
 
-	currentSessionId.subscribe(scrollToSession);
+	const currentSession = derived(
+		[page, richSessions, data.currentSessionId],
+		([page, sessions, currentSessionId]) =>
+			sessions?.find((s) => s.id === currentSessionId) ??
+			sessions?.find((s) => s.id === page.params.sessionId)
+	);
+	currentSession.subscribe(scrollToSession);
 
-	page.subscribe((page) => {
-		currentDeltaIndex.set(parseInt(page.url.searchParams.get('delta') || '0'));
-		currentSessionId.set(page.params.sessionId);
-		currentDate.set(page.params.date);
+	const nextSessionId = derived([page, richSessions], ([page, sessions]) => {
+		if (sessions) {
+			const currentIndex = sessions.findIndex((s) => s.id === page.params.sessionId);
+			if (currentIndex === -1) return undefined;
+			if (currentIndex < sessions.length - 1) return sessions[currentIndex + 1].id;
+			return undefined;
+		}
 	});
 
-	const currentSessionIndex = derived(
-		[currentSessionId, richSessions],
-		([currentSessionId, sessions]) =>
-			sessions?.findIndex((session) => session.id === currentSessionId)
-	);
-
-	const currentSession = derived(
-		[currentSessionIndex, richSessions],
-		([currentSessionIndex, sessions]) =>
-			currentSessionIndex > -1 ? sessions[currentSessionIndex] : null
-	);
-
-	const nextSession = derived(
-		[currentSessionIndex, richSessions],
-		([currentSessionIndex, sessions]) =>
-			currentSessionIndex < sessions?.length - 1 ? sessions[currentSessionIndex + 1] : null
-	);
-
-	const prevSession = derived(
-		[currentSessionIndex, richSessions],
-		([currentSessionIndex, sessions]) =>
-			currentSessionIndex > 0 ? sessions[currentSessionIndex - 1] : null
-	);
+	const prevSessionId = derived([page, richSessions], ([page, sessions]) => {
+		if (sessions) {
+			const currentIndex = sessions.findIndex((s) => s.id === page.params.sessionId);
+			if (currentIndex === -1) return undefined;
+			if (currentIndex > 0) return sessions[currentIndex - 1].id;
+			return undefined;
+		}
+	});
 
 	const sessionRange = (session: Session) => {
 		const day = new Date(session.meta.startTimestampMs).toLocaleString('en-US', {
@@ -141,9 +119,13 @@
 	onMount(() =>
 		tinykeys(window, {
 			'Shift+ArrowRight': () =>
-				nextSession.load().then((session) => session && goto(getSessionURI(session.id))),
+				nextSessionId.load().then((sessionId) => {
+					if (sessionId) goto(getSessionURI(sessionId));
+				}),
 			'Shift+ArrowLeft': () =>
-				prevSession.load().then((session) => session && goto(getSessionURI(session.id)))
+				prevSessionId.load().then((sessionId) => {
+					if (sessionId) goto(getSessionURI(sessionId));
+				})
 		})
 	);
 </script>
@@ -173,7 +155,7 @@
 			class="mr-1 flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default pt-2 pb-2 pl-2 pr-1"
 		>
 			{#each $richSessions as session}
-				{@const isCurrent = session.id === $currentSessionId}
+				{@const isCurrent = session.id === $currentSession?.id}
 				{@const filesChagned = new Set(session.deltas.map(([path]) => path)).size}
 				<li
 					id={isCurrent ? 'current-session' : ''}
@@ -221,7 +203,7 @@
 
 <div id="player" class="card relative my-2 flex flex-auto flex-col overflow-auto">
 	<header class="flex items-center gap-3 bg-card-active px-3 py-2">
-		{#await Promise.all([currentSession.load(), nextSession.load(), prevSession.load()])}
+		{#await Promise.all([currentSession.load(), nextSessionId.load(), prevSessionId.load()])}
 			<span>Loading...</span>
 		{:then}
 			{#if !$currentSession}
@@ -234,20 +216,20 @@
 				</span>
 				<div class="flex items-center gap-1">
 					<a
-						href={$prevSession && getSessionURI($prevSession.id)}
+						href={$prevSessionId && getSessionURI($prevSessionId)}
 						class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
-						class:hover:bg-zinc-500={!!$prevSession}
-						class:pointer-events-none={!$prevSession}
-						class:text-zinc-500={!$prevSession}
+						class:hover:bg-zinc-500={!!$prevSessionId}
+						class:pointer-events-none={!$prevSessionId}
+						class:text-zinc-500={!$prevSessionId}
 					>
 						<IconChevronLeft class="h-4 w-4" />
 					</a>
 					<a
-						href={$nextSession && getSessionURI($nextSession.id)}
+						href={$nextSessionId && getSessionURI($nextSessionId)}
 						class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
-						class:hover:bg-zinc-500={!!$nextSession}
-						class:pointer-events-none={!$nextSession}
-						class:text-zinc-500={!$nextSession}
+						class:hover:bg-zinc-500={!!$nextSessionId}
+						class:pointer-events-none={!$nextSessionId}
+						class:text-zinc-500={!$nextSessionId}
 					>
 						<IconChevronRight class="h-4 w-4" />
 					</a>
