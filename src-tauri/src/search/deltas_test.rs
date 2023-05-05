@@ -7,7 +7,7 @@ use tempfile::tempdir;
 use crate::{
     app,
     deltas::{self, Operation},
-    projects, storage, users,
+    projects, sessions, storage, users,
 };
 
 fn test_repository() -> Result<git2::Repository> {
@@ -49,11 +49,13 @@ fn test_filter_by_timestamp() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let sessions_storage = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = app::gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        sessions_storage,
     )?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -125,11 +127,13 @@ fn test_sorted_by_timestamp() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let sessions_storage = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = app::gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        sessions_storage,
     )?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -181,11 +185,13 @@ fn test_simple() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let sessions_storage = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = app::gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        sessions_storage,
     )?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();

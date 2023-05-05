@@ -24,8 +24,10 @@ impl Writer for DirWriter {
     fn write(&self, path: &str, contents: &[u8]) -> Result<()> {
         let file_path = self.root.join(path);
         let dir_path = file_path.parent().unwrap();
-        std::fs::create_dir_all(dir_path)?;
-        std::fs::write(path, contents)?;
+        std::fs::create_dir_all(dir_path)
+            .with_context(|| format!("failed to create dir: {}", dir_path.display()))?;
+        std::fs::write(file_path, contents)
+            .with_context(|| format!("failed to write file: {}", path))?;
         Ok(())
     }
 

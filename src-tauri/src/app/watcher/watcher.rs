@@ -3,7 +3,7 @@ use std::sync;
 use anyhow::Result;
 use crossbeam_channel::{select, unbounded};
 
-use crate::{app::gb_repository, events as app_events, projects, search};
+use crate::{app::gb_repository, events as app_events, projects, search, sessions};
 
 use super::{dispatchers, handlers};
 
@@ -18,6 +18,7 @@ impl<'watcher> Watcher<'watcher> {
     pub fn new(
         project: &projects::Project,
         project_store: projects::Storage,
+        sessions_storage: sessions::Storage,
         gb_repository: &'watcher gb_repository::Repository,
         deltas_searcher: search::Deltas,
         events: sync::mpsc::Sender<app_events::Event>,
@@ -29,6 +30,7 @@ impl<'watcher> Watcher<'watcher> {
             handler: handlers::Handler::new(
                 project.id.clone(),
                 project_store,
+                sessions_storage,
                 gb_repository,
                 deltas_searcher,
                 events,

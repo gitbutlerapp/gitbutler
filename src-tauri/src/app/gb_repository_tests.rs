@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{app::gb_repository, deltas, projects, storage, users};
+use crate::{app::gb_repository, deltas, projects, sessions, storage, users};
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -59,11 +59,13 @@ fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     let current_session_1 = gb_repo.get_or_create_current_session()?;
@@ -82,17 +84,19 @@ fn test_must_not_return_init_session() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     assert!(gb_repo.get_current_session()?.is_none());
 
-    let iter = gb_repo.get_sessions_iterator()?;
-    assert_eq!(iter.count(), 0);
+    let iter = gb_repo.list_sessions()?;
+    assert_eq!(iter.len(), 0);
 
     Ok(())
 }
@@ -106,18 +110,20 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     let session = gb_repo.flush()?;
     assert!(session.is_none());
 
-    let iter = gb_repo.get_sessions_iterator()?;
-    assert_eq!(iter.count(), 0);
+    let iter = gb_repo.list_sessions()?;
+    assert_eq!(iter.len(), 0);
 
     Ok(())
 }
@@ -131,6 +137,7 @@ fn test_init_on_non_empty_repository() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
 
     std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
     commit_all(&repository)?;
@@ -140,6 +147,7 @@ fn test_init_on_non_empty_repository() -> Result<()> {
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     Ok(())
@@ -154,6 +162,7 @@ fn test_flush_on_existing_repository() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
 
     std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
     commit_all(&repository)?;
@@ -163,6 +172,7 @@ fn test_flush_on_existing_repository() -> Result<()> {
         project.id.clone(),
         project_store.clone(),
         user_store.clone(),
+        session_store.clone(),
     )?;
 
     let gb_repo = gb_repository::Repository::open(
@@ -170,6 +180,7 @@ fn test_flush_on_existing_repository() -> Result<()> {
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     gb_repo.get_or_create_current_session()?;
@@ -187,19 +198,21 @@ fn test_must_flush_current_session() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     gb_repo.get_or_create_current_session()?;
 
     let session = gb_repo.flush()?;
     assert!(session.is_some());
-    let iter = gb_repo.get_sessions_iterator()?;
-    assert_eq!(iter.count(), 1);
+    let iter = gb_repo.list_sessions()?;
+    assert_eq!(iter.len(), 1);
 
     Ok(())
 }
@@ -213,11 +226,13 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
@@ -252,11 +267,13 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
@@ -292,6 +309,7 @@ fn test_list_files_from_current_session() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
 
     // files are there before the session is created
     std::fs::write(
@@ -304,6 +322,7 @@ fn test_list_files_from_current_session() -> Result<()> {
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     let session = gb_repo.get_or_create_current_session()?;
@@ -326,6 +345,7 @@ fn test_list_files_from_flushed_session() -> Result<()> {
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
 
     // files are there before the session is created
     std::fs::write(
@@ -338,6 +358,7 @@ fn test_list_files_from_flushed_session() -> Result<()> {
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     gb_repo.get_or_create_current_session()?;

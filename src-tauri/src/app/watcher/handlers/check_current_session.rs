@@ -1,28 +1,28 @@
-use std::{sync, time};
+use std::time;
 
 use anyhow::{Context, Result};
 
-use crate::{app::gb_repository, sessions};
+use crate::sessions;
 
 use super::events;
 
-pub struct Handler<'handler> {
-    gb_repository: sync::Arc<sync::Mutex<&'handler gb_repository::Repository>>,
+pub struct Handler {
+    project_id: String,
+    sessions_storage: sessions::Storage,
 }
 
-impl<'handler> Handler<'handler> {
-    pub fn new(gb_repository: &'handler gb_repository::Repository) -> Self {
+impl Handler {
+    pub fn new(project_id: String, sessions_storage: sessions::Storage) -> Self {
         Self {
-            gb_repository: sync::Arc::new(sync::Mutex::new(gb_repository)),
+            project_id,
+            sessions_storage,
         }
     }
 
     pub fn handle(&self, now: time::SystemTime) -> Result<Vec<events::Event>> {
         match self
-            .gb_repository
-            .lock()
-            .unwrap()
-            .get_current_session()
+            .sessions_storage
+            .get_current(&self.project_id)
             .context("failed to get current session")?
         {
             None => Ok(vec![]),

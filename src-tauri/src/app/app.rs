@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use crossbeam_channel::{bounded, Sender};
 
 use crate::{deltas, events, git::activity, projects, pty, search, sessions, storage, users};
@@ -13,6 +13,7 @@ pub struct App {
 
     projects_storage: projects::Storage,
     users_storage: users::Storage,
+    sessions_storage: sessions::Storage,
 
     deltas_searcher: search::Deltas,
 
@@ -35,9 +36,11 @@ impl App {
         let storage = storage::Storage::from_path(local_data_dir.clone());
         let deltas_searcher =
             search::Deltas::at(local_data_dir.clone()).context("failed to open deltas searcher")?;
+        let projects_storage = projects::Storage::new(storage.clone());
         Ok(Self {
             local_data_dir: local_data_dir.to_path_buf(),
-            projects_storage: projects::Storage::new(storage.clone()),
+            sessions_storage: sessions::Storage::new(local_data_dir, projects_storage.clone()),
+            projects_storage,
             users_storage: users::Storage::new(storage.clone()),
             deltas_searcher,
             stop_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
@@ -89,6 +92,7 @@ impl App {
         let projects_storage = self.projects_storage.clone();
         let local_data_dir = self.local_data_dir.clone();
         let mut deltas_searcher = self.deltas_searcher.clone();
+        let sessions_storage = self.sessions_storage.clone();
 
         tauri::async_runtime::spawn_blocking(move || {
             let project = project;
@@ -98,6 +102,7 @@ impl App {
                 project.id.clone(),
                 projects_storage.clone(),
                 users_storage,
+                sessions_storage,
             )
             .expect("failed to open git repository");
 
@@ -117,6 +122,7 @@ impl App {
         let projects_storage = self.projects_storage.clone();
         let local_data_dir = self.local_data_dir.clone();
         let deltas_searcher = self.deltas_searcher.clone();
+        let sessions_storage = self.sessions_storage.clone();
 
         let (stop_tx, stop_rx) = bounded(1);
         self.stop_watchers
@@ -132,12 +138,14 @@ impl App {
                 project.id.clone(),
                 projects_storage.clone(),
                 users_storage,
+                sessions_storage.clone(),
             )
             .expect("failed to open git repository");
 
             let watcher = watcher::Watcher::new(
                 &project,
                 projects_storage,
+                sessions_storage,
                 &gb_repository,
                 deltas_searcher,
                 events,
@@ -224,6 +232,7 @@ impl App {
                     id.to_string(),
                     self.projects_storage.clone(),
                     self.users_storage.clone(),
+                    self.sessions_storage.clone(),
                 )
                 .context("failed to open repository")?;
 
@@ -247,35 +256,7 @@ impl App {
         project_id: &str,
         earliest_timestamp_ms: Option<u128>,
     ) -> Result<Vec<sessions::Session>> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
-
-        let mut sessions = vec![];
-        let mut iter = gb_repository.get_sessions_iterator()?;
-        while let Some(session) = iter.next() {
-            if let Err(e) = session {
-                return Err(e);
-            }
-
-            if let Some(earliest_timestamp_ms) = earliest_timestamp_ms {
-                if session.as_ref().unwrap().meta.start_timestamp_ms < earliest_timestamp_ms {
-                    break;
-                }
-            }
-
-            sessions.push(session.unwrap());
-        }
-
-        if let Some(current_session) = gb_repository.get_current_session()? {
-            sessions.insert(0, current_session);
-        }
-
-        Ok(sessions)
+        self.sessions_storage.list(project_id, earliest_timestamp_ms)
     }
 
     pub fn list_session_files(
@@ -289,12 +270,11 @@ impl App {
             project_id.to_string(),
             self.projects_storage.clone(),
             self.users_storage.clone(),
+            self.sessions_storage.clone(),
         )
         .context("failed to open repository")?;
 
-        let session = gb_repository
-            .get_session(session_id)
-            .context("failed to get session")?;
+        let session = self.sessions_storage.get_by_id(project_id, session_id).context("failed to get session")?.ok_or_else(|| anyhow!("session not found"))?;
 
         let reader = gb_repository
             .get_session_reader(&session)
@@ -314,12 +294,12 @@ impl App {
             project_id.to_string(),
             self.projects_storage.clone(),
             self.users_storage.clone(),
+            self.sessions_storage.clone(),
         )
         .context("failed to open repository")?;
 
-        let session = gb_repository
-            .get_session(session_id)
-            .context("failed to get session")?;
+        let session = self.sessions_storage.get_by_id(&project_id, &session_id)
+            .context("failed to get session")?.ok_or_else(|| anyhow!("session not found"))?;
 
         let reader = gb_repository
             .get_session_reader(&session)
@@ -419,6 +399,7 @@ impl App {
             project_id.to_string(),
             self.projects_storage.clone(),
             self.users_storage.clone(),
+            self.sessions_storage.clone(),
         )
         .context("failed to open repository")?;
 
@@ -477,6 +458,7 @@ impl App {
             project_id.to_string(),
             self.projects_storage.clone(),
             self.users_storage.clone(),
+            self.sessions_storage.clone(),
         )
         .context("failed to open repository")?;
 

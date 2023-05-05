@@ -23,6 +23,7 @@ pub struct Repository {
     pub(crate) project_id: String,
     project_store: projects::Storage,
     users_store: users::Storage,
+    sessions_store: sessions::Storage,
     pub(crate) git_repository: git2::Repository,
     fslock: sync::Arc<sync::Mutex<fslock::LockFile>>,
 }
@@ -33,6 +34,7 @@ impl Repository {
         project_id: String,
         project_store: projects::Storage,
         users_store: users::Storage,
+        sessions_store: sessions::Storage,
     ) -> Result<Self> {
         let project = project_store
             .get_project(&project_id)
@@ -63,6 +65,7 @@ impl Repository {
                 .context("failed to add disk alternate")?;
 
             Ok(Self {
+                sessions_store,
                 project_id,
                 git_repository,
                 project_store,
@@ -85,6 +88,7 @@ impl Repository {
                 .context("failed to add disk alternate")?;
 
             let gb_repository = Self {
+                sessions_store,
                 project_id,
                 git_repository,
                 project_store,
@@ -112,6 +116,14 @@ impl Repository {
 
     pub fn get_project_id(&self) -> &str {
         &self.project_id
+    }
+
+    pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
+        self.sessions_store.get_current(&self.project_id)
+    }
+
+    pub fn list_sessions(&self) -> Result<Vec<sessions::Session>> {
+        self.sessions_store.list(&self.project_id, None)
     }
 
     fn create_current_session(
@@ -147,7 +159,7 @@ impl Repository {
             activity: vec![],
         };
 
-        self.get_session_writer(&session)?;
+        self.sessions_store.write(&self.project_id, &session)?;
 
         Ok(session)
     }
@@ -179,7 +191,8 @@ impl Repository {
 
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         match self
-            .get_current_session()
+            .sessions_store
+            .get_current(&self.project_id)
             .context("failed to get current session")?
         {
             Some(session) => Ok(session),
@@ -201,7 +214,8 @@ impl Repository {
 
     pub fn flush(&self) -> Result<Option<sessions::Session>> {
         let current_session = self
-            .get_current_session()
+            .sessions_store
+            .get_current(&self.project_id)
             .context("failed to get current session")?;
         if current_session.is_none() {
             return Ok(None);
@@ -298,51 +312,6 @@ impl Repository {
         session: &sessions::Session,
     ) -> Result<session::SessionReader<'repository>> {
         session::SessionReader::open(&self, &session)
-    }
-
-    pub fn get_sessions_iterator<'repository>(
-        &'repository self,
-    ) -> Result<session::SessionsIterator<'repository>> {
-        Ok(session::SessionsIterator::new(&self.git_repository)?)
-    }
-
-    pub fn get_session(&self, session_id: &str) -> Result<sessions::Session> {
-        if let Some(oid) = session::get_hash_mapping(session_id) {
-            let commit = self.git_repository.find_commit(oid)?;
-            let reader = reader::CommitReader::from_commit(&self.git_repository, commit)?;
-            return Ok(sessions::Session::try_from(reader)?);
-        }
-
-        if let Some(session) = self.get_current_session()? {
-            if session.id == session_id {
-                return Ok(session);
-            }
-        }
-
-        let mut session_ids_iterator = session::SessionsIdsIterator::new(&self.git_repository)?;
-        while let Some(ids) = session_ids_iterator.next() {
-            match ids {
-                Result::Ok((oid, sid)) => {
-                    if sid == session_id {
-                        let commit = self.git_repository.find_commit(oid)?;
-                        let reader =
-                            reader::CommitReader::from_commit(&self.git_repository, commit)?;
-                        return Ok(sessions::Session::try_from(reader)?);
-                    }
-                }
-                Err(e) => return Err(e),
-            }
-        }
-        Err(anyhow!("session not found"))
-    }
-
-    pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
-        let reader = reader::DirReader::open(self.root());
-        match sessions::Session::try_from(reader) {
-            Result::Ok(session) => Ok(Some(session)),
-            Err(sessions::SessionError::NoSession) => Ok(None),
-            Err(sessions::SessionError::Err(err)) => Err(err),
-        }
     }
 
     pub(crate) fn root(&self) -> std::path::PathBuf {

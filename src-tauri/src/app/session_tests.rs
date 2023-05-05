@@ -1,3 +1,5 @@
+use std::path;
+
 use anyhow::Result;
 use tempfile::tempdir;
 
@@ -44,11 +46,13 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
 
     let session = sessions::Session {
@@ -72,17 +76,11 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
 fn test_should_write_full_session() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
+    let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
-        user_store,
-    )?;
+    let session_store = sessions::Storage::new(storage_path.clone(), project_store.clone());
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -96,27 +94,37 @@ fn test_should_write_full_session() -> Result<()> {
         activity: vec![],
     };
 
-    SessionWriter::open(&gb_repo, &session)?;
+    session_store.write("id", &session)?;
 
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/id"))?,
+        std::fs::read_to_string(
+            path::Path::new(&storage_path).join("projects/id/gitbutler/session/meta/id")
+        )?,
         "session_id"
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/commit"))?,
+        std::fs::read_to_string(
+            path::Path::new(&storage_path).join("projects/id/gitbutler/session/meta/commit")
+        )?,
         "commit"
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/branch"))?,
+        std::fs::read_to_string(
+            path::Path::new(&storage_path).join("projects/id/gitbutler/session/meta/branch")
+        )?,
         "branch"
     );
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/start"))?,
+        std::fs::read_to_string(
+            path::Path::new(&storage_path).join("projects/id/gitbutler/session/meta/start")
+        )?,
         "0"
     );
     assert_ne!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/last"))?,
-        "1" 
+        std::fs::read_to_string(
+            path::Path::new(&storage_path).join("projects/id/gitbutler/session/meta/last")
+        )?,
+        "1"
     );
 
     Ok(())
@@ -126,17 +134,11 @@ fn test_should_write_full_session() -> Result<()> {
 fn test_should_write_partial_session() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
+    let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
-        user_store,
-    )?;
+    let session_store = sessions::Storage::new(storage_path.clone(), project_store.clone());
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -150,20 +152,30 @@ fn test_should_write_partial_session() -> Result<()> {
         activity: vec![],
     };
 
-    SessionWriter::open(&gb_repo, &session)?;
+    session_store.write("id", &session)?;
 
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/id"))?,
+        std::fs::read_to_string(
+            path::Path::new(&storage_path).join("projects/id/gitbutler/session/meta/id")
+        )?,
         "session_id"
     );
-    assert!(!gb_repo.session_path().join("meta/commit").exists());
-    assert!(!gb_repo.session_path().join("meta/branch").exists());
+    assert!(!path::Path::new(&storage_path)
+        .join("projects/id/gitbutler/session/meta/branch")
+        .exists());
+    assert!(!path::Path::new(&storage_path)
+        .join("projects/id/gitbutler/session/meta/commit")
+        .exists());
     assert_eq!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/start"))?,
+        std::fs::read_to_string(
+            path::Path::new(&storage_path).join("projects/id/gitbutler/session/meta/start")
+        )?,
         "0"
     );
     assert_ne!(
-        std::fs::read_to_string(gb_repo.session_path().join("meta/last"))?,
+        std::fs::read_to_string(
+            path::Path::new(&storage_path).join("projects/id/gitbutler/session/meta/last")
+        )?,
         "1"
     );
 

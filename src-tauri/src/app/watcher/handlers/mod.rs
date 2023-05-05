@@ -13,7 +13,7 @@ use std::sync;
 
 use anyhow::{Context, Result};
 
-use crate::{app::gb_repository, events as app_events, projects, search};
+use crate::{app::gb_repository, events as app_events, projects, search, sessions};
 
 use super::events;
 
@@ -23,7 +23,7 @@ pub struct Handler<'handler> {
     file_change_handler: file_change::Handler,
     project_file_handler: project_file_change::Handler<'handler>,
     git_file_change_handler: git_file_change::Handler,
-    check_current_session_handler: check_current_session::Handler<'handler>,
+    check_current_session_handler: check_current_session::Handler,
     flush_session_handler: flush_session::Handler<'handler>,
 
     searcher: search::Deltas,
@@ -34,6 +34,7 @@ impl<'handler> Handler<'handler> {
     pub fn new(
         project_id: String,
         project_store: projects::Storage,
+        sessions_storage: sessions::Storage,
         gb_repository: &'handler gb_repository::Repository,
         searcher: search::Deltas,
         events: sync::mpsc::Sender<app_events::Event>,
@@ -47,7 +48,10 @@ impl<'handler> Handler<'handler> {
                 project_store.clone(),
                 gb_repository,
             ),
-            check_current_session_handler: check_current_session::Handler::new(gb_repository),
+            check_current_session_handler: check_current_session::Handler::new(
+                project_id.clone(),
+                sessions_storage,
+            ),
             git_file_change_handler: git_file_change::Handler::new(
                 project_id.clone(),
                 project_store.clone(),

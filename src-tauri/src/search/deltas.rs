@@ -96,12 +96,11 @@ impl Deltas {
     }
 
     pub fn reindex_project(&mut self, repository: &app::gb_repository::Repository) -> Result<()> {
-        let mut sessions = repository
-            .get_sessions_iterator()
-            .with_context(|| "Could not list sessions for project")?;
+        let sessions = repository
+            .list_sessions()
+            .context("could not list sessions")?;
 
-        while let Some(session) = sessions.next() {
-            let session = session.with_context(|| "Could not read session")?;
+        for session in sessions {
             if session.hash.is_none() {
                 continue;
             }

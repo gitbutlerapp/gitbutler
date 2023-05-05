@@ -65,6 +65,7 @@ fn test_register_existing_commited_file() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -75,6 +76,7 @@ fn test_register_existing_commited_file() -> Result<()> {
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
@@ -108,11 +110,13 @@ fn test_register_must_init_current_session() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
@@ -136,11 +140,13 @@ fn test_register_must_not_override_current_session() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
@@ -169,11 +175,13 @@ fn test_register_new_file() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
@@ -209,11 +217,13 @@ fn test_register_new_file_twice() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
@@ -268,11 +278,13 @@ fn test_register_file_delted() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
@@ -319,11 +331,13 @@ fn test_flow_with_commits() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
@@ -343,10 +357,7 @@ fn test_flow_with_commits() -> Result<()> {
     }
 
     // get all the created sessions
-    let mut sessions: Vec<sessions::Session> = gb_repo
-        .get_sessions_iterator()?
-        .map(|s| s.unwrap())
-        .collect();
+    let mut sessions: Vec<sessions::Session> = gb_repo.list_sessions()?;
     assert_eq!(sessions.len(), size);
     // verify sessions order is correct
     let mut last_start = sessions[0].meta.start_timestamp_ms;
@@ -412,11 +423,13 @@ fn test_flow_no_commits() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
@@ -435,10 +448,7 @@ fn test_flow_no_commits() -> Result<()> {
     }
 
     // get all the created sessions
-    let mut sessions: Vec<sessions::Session> = gb_repo
-        .get_sessions_iterator()?
-        .map(|s| s.unwrap())
-        .collect();
+    let mut sessions: Vec<sessions::Session> = gb_repo.list_sessions()?;
     assert_eq!(sessions.len(), size);
     // verify sessions order is correct
     let mut last_start = sessions[0].meta.start_timestamp_ms;
@@ -504,11 +514,13 @@ fn test_flow_signle_session() -> Result<()> {
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
+    let session_store = sessions::Storage::new(gb_repo_path.clone(), project_store.clone());
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
         project.id.clone(),
         project_store.clone(),
         user_store,
+        session_store,
     )?;
     let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
 
