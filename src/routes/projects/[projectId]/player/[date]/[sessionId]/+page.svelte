@@ -63,7 +63,7 @@
 	const currentDeltaIndex = writable(parseInt($page.url.searchParams.get('delta') || '0'));
 	const currentSessionId = writable($page.params.sessionId);
 
-	currentSessionId.subscribe(data.currentSessionId.set)
+	currentSessionId.subscribe(data.currentSessionId.set);
 
 	richSessions.subscribe((sessions) => {
 		if (!sessions) return;
