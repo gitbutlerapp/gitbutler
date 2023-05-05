@@ -6,6 +6,9 @@
 	import { Link } from '$lib/components';
 	import { bucketByTimestamp } from './histogram';
 	import { collapse } from '$lib/paths';
+	import IconRewind from '$lib/components/icons/IconRewind.svelte';
+	import IconSparkle from '$lib/components/icons/IconSparkle.svelte';
+	import IconPlayerPlayFilled from '$lib/components/icons/IconPlayerPlayFilled.svelte';
 
 	export let projectId: string;
 	export let fileDeltas: Readable<Record<string, Delta[]>>;
@@ -87,7 +90,33 @@
 		</ul>
 	</li>
 {:else}
-	<li class="text-zinc-400">
-		Waiting for your first file changes. Go edit something and come back.
-	</li>
+	<div class="space-y-4 border border-zinc-400 border-dashed px-10 py-12 rounded-lg">
+		<h3 class="mt-2 text-lg font-semibold text-blue-500">Waiting for file changes...</h3>
+		<p class="mt-1 text-gray-400">
+			GitButler is now watching your project directory for file changes. As long as GitButler is
+			running, changes to any text files in this directory will automatically be recorded.
+		</p>
+		<p class="mt-1 text-gray-400">
+			Since we record every change to every file, you can use GitButler to:
+		</p>
+		<ul class="space-y-4 pt-2 pb-4 text-zinc-400">
+			<li class="flex flex-row space-x-3">
+				<IconPlayerPlayFilled class="h-6 w-6 flex-none" />
+				<span class="text-zinc-200"
+					>Replay any of your working sessions to recall what you were doing</span
+				>
+			</li>
+			<li class="flex flex-row space-x-3">
+				<IconRewind class="h-6 w-6 flex-none" />
+				<span class="text-zinc-200"
+					>Revert to any previous working directory state or file version
+				</span>
+			</li>
+			<li class="flex flex-row space-x-3">
+				<IconSparkle class="h-6 w-6 flex-none" />
+				<span class="text-zinc-200">Get AI powered summaries of your days or sessions </span>
+			</li>
+		</ul>
+		<p class="mt-1 text-blue-500">Go make a change to a file and come back to see the recording.</p>
+	</div>
 {/each}
