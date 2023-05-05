@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { derived } from '@square/svelte-store';
-	import { Button, Login } from '$lib/components';
+	import { Button, Dialog, Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts } from '$lib';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 	const { project, user, api } = data;
@@ -82,6 +83,23 @@
 		projectNameInput = $project?.title;
 		projectDescriptionInput = $project?.api?.description;
 		saving = false;
+	};
+
+	let deleteConfirmationDialog: Dialog;
+	let isDeleting = false;
+
+	const onDeleteClicked = () => {
+		isDeleting = true;
+		project
+			.delete()
+			.then(() => deleteConfirmationDialog.close())
+			.catch((e) => {
+				log.error(e);
+				toasts.error('Failed to delete project');
+			})
+			.then(() => goto('/'))
+			.then(() => toasts.success('Project deleted'))
+			.finally(() => (isDeleting = false));
 	};
 </script>
 
@@ -196,12 +214,34 @@
 					</div>
 				</fieldset>
 
-				<footer class="flex justify-end">
-					<Button disabled={!canTriggerUpdate} loading={saving} role="primary" type="submit"
-						>Update project</Button
+				<footer class="flex justify-between">
+					<Button role="destructive" filled={false} on:click={() => deleteConfirmationDialog.show()}
+						>Delete project</Button
 					>
+
+					<Button disabled={!canTriggerUpdate} loading={saving} role="primary" type="submit">
+						Update project
+					</Button>
 				</footer>
 			</form>
 		</div>
 	</div>
 </div>
+
+<Dialog bind:this={deleteConfirmationDialog}>
+	<svelte:fragment slot="title">
+		Delete {$project.title}?
+	</svelte:fragment>
+
+	<p>
+		Are you sure you want to delete the project,
+		<span class="font-bold text-white">hugo-ianthedesigner</span>? This can’t be undone.
+	</p>
+
+	<svelte:fragment slot="controls" let:close>
+		<Button filled={false} outlined={true} on:click={close}>Cancel</Button>
+		<Button role="destructive" loading={isDeleting} on:click={onDeleteClicked}
+			>Delete project</Button
+		>
+	</svelte:fragment>
+</Dialog>

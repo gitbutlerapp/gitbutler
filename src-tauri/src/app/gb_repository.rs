@@ -459,6 +459,13 @@ impl Repository {
             }
         }
     }
+
+    pub fn purge(&self) -> Result<()> {
+        self.project_store
+            .purge(&self.project_id)
+            .context("failed to delete project from store")?;
+        std::fs::remove_dir_all(self.git_repository.path()).context("failed to remove repository")
+    }
 }
 
 fn build_wd_tree(

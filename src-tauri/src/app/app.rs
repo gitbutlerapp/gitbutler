@@ -219,16 +219,22 @@ impl App {
     pub fn delete_project(&self, id: &str) -> Result<()> {
         match self.projects_storage.get_project(id)? {
             Some(project) => {
-                self.projects_storage
-                    .update_project(&projects::UpdateRequest {
-                        id: id.to_string(),
-                        deleted: Some(true),
-                        ..Default::default()
-                    })?;
+                let gb_repository = gb_repository::Repository::open(
+                    self.local_data_dir.clone(),
+                    id.to_string(),
+                    self.projects_storage.clone(),
+                    self.users_storage.clone(),
+                )
+                .context("failed to open repository")?;
 
                 if let Err(e) = self.stop_watcher(&project.id) {
                     log::error!("failed to stop watcher for project {}: {}", project.id, e);
                 }
+
+                if let Err(e) = gb_repository.purge() {
+                    log::error!("failed to remove project dir {}: {}", project.id, e);
+                }
+
 
                 Ok(())
             }
