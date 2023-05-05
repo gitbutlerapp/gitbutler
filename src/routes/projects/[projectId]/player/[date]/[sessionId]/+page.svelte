@@ -62,7 +62,8 @@
 
 	const currentDeltaIndex = writable(parseInt($page.url.searchParams.get('delta') || '0'));
 	const currentSessionId = writable($page.params.sessionId);
-	const currentDate = writable($page.params.date);
+
+	currentSessionId.subscribe(data.currentSessionId.set)
 
 	richSessions.subscribe((sessions) => {
 		if (!sessions) return;
@@ -73,10 +74,6 @@
 	});
 
 	const scrollToSession = () => {
-		const sessionEl = document.getElementById('current-session');
-		if (sessionEl) {
-			sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-		}
 		const changedLines = document.getElementsByClassName('line-changed');
 		if (changedLines.length > 0) {
 			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -88,7 +85,6 @@
 	page.subscribe((page) => {
 		currentDeltaIndex.set(parseInt(page.url.searchParams.get('delta') || '0'));
 		currentSessionId.set(page.params.sessionId);
-		currentDate.set(page.params.date);
 	});
 
 	const currentSessionIndex = derived(
@@ -123,15 +119,10 @@
 
 	const inputValue = writable(0);
 	$: {
-		if ($richSessions) {
-			const currentSessionIndex = $richSessions.findIndex(
-				(session) => session.id === $currentSessionId
-			);
-			if (currentSessionIndex > -1) {
-				$inputValue =
-					$richSessions.slice(0, currentSessionIndex).flatMap((session) => session.deltas).length +
-					$currentDeltaIndex;
-			}
+		if ($richSessions && $currentSessionIndex > -1) {
+			$inputValue =
+				$richSessions.slice(0, $currentSessionIndex).flatMap((session) => session.deltas).length +
+				$currentDeltaIndex;
 		}
 	}
 
