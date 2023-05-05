@@ -45,17 +45,14 @@ export const Projects = () => {
 					}).then((project) => {
 						store.update((projects) => projects.map((p) => (p.id === project.id ? project : p)));
 						return project;
-					})
+					}),
+				delete: () => del({ id })
 			};
 		},
 		add: (params: { path: string }) =>
 			add(params).then((project) => {
 				store.update((projects) => [...projects, project]);
 				return project;
-			}),
-		delete: (params: { id: string }) =>
-			del(params).then(() => {
-				store.update((projects) => projects.filter((p) => p.id !== params.id));
 			})
 	};
 };

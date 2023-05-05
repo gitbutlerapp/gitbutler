@@ -4,6 +4,7 @@
 	import { IconClose } from '$lib/components/icons';
 
 	export const show = () => modal.show();
+	export const close = () => modal.close();
 
 	let modal: Modal;
 </script>
