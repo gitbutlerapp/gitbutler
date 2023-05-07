@@ -5,6 +5,7 @@ pub mod project_repository;
 pub mod projects;
 pub mod reader;
 pub mod sessions;
+pub mod users;
 pub mod watcher;
 mod writer;
 
