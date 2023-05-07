@@ -4,9 +4,10 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{git::activity, projects};
-
-use super::reader;
+use crate::{
+    app::{project_repository::activity, reader},
+    projects,
+};
 
 pub struct Repository<'repository> {
     pub(crate) git_repository: git2::Repository,
@@ -53,7 +54,10 @@ impl<'repository> Repository<'repository> {
         self.git_repository.path().parent().unwrap()
     }
 
-    pub fn git_activity(&self, start_time_ms: Option<u128>) -> Result<Vec<activity::Activity>> {
+    pub fn git_activity(
+        &self,
+        start_time_ms: Option<u128>,
+    ) -> Result<Vec<activity::Activity>> {
         let head_logs_path = self.git_repository.path().join("logs").join("HEAD");
 
         if !head_logs_path.exists() {

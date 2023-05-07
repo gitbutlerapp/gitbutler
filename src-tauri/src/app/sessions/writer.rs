@@ -2,13 +2,10 @@ use std::time;
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::{
-    app::{
-        deltas, gb_repository,
-        reader::{self, Reader},
-        writer::{self, Writer},
-    },
-    pty,
+use crate::app::{
+    deltas, gb_repository, pty,
+    reader::{self, Reader},
+    writer::{self, Writer},
 };
 
 use super::Session;

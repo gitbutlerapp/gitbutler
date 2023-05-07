@@ -3,9 +3,9 @@ use std::{collections::HashMap, sync};
 use anyhow::{Context, Result};
 use crossbeam_channel::{bounded, Sender};
 
-use crate::{events, git::activity, projects, pty, search, storage, users};
+use crate::{events, projects, search, storage, users};
 
-use super::{gb_repository, project_repository, watcher, sessions, deltas};
+use super::{gb_repository, watcher, sessions, deltas, pty, project_repository::{self, activity}};
 
 #[derive(Clone)]
 pub struct App {
