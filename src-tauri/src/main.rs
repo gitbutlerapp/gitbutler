@@ -10,7 +10,6 @@ mod git;
 mod pty;
 mod search;
 mod storage;
-mod users;
 
 #[macro_use]
 extern crate log;
@@ -27,7 +26,7 @@ use tauri_plugin_log::{
 use thiserror::Error;
 use timed::timed;
 
-use crate::app::{projects, deltas, sessions};
+use crate::app::{projects, deltas, sessions, users};
 
 #[derive(Debug, Error)]
 pub enum Error {
