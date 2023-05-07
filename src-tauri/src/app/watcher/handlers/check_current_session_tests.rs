@@ -24,7 +24,6 @@ fn test_should_flush() -> Result<()> {
             branch: None,
             commit: None,
         },
-        activity: vec![],
     };
 
     assert!(!should_flush(now, &session));

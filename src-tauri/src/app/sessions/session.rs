@@ -1,4 +1,4 @@
-use crate::{app::reader, git::activity};
+use crate::app::reader;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use thiserror::Error;
@@ -23,8 +23,6 @@ pub struct Session {
     // if hash is not set, the session is not saved aka current
     pub hash: Option<String>,
     pub meta: Meta,
-    // TODO: make this a method instead
-    pub activity: Vec<activity::Activity>,
 }
 
 #[derive(Error, Debug)]
@@ -81,7 +79,6 @@ impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
                     Some(commit.unwrap())
                 },
             },
-            activity: vec![],
         })
     }
 }
