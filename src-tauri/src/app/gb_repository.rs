@@ -147,7 +147,6 @@ impl Repository {
             id: Uuid::new_v4().to_string(),
             hash: None,
             meta,
-            activity: vec![],
         };
 
         self.get_session_writer(&session)?;

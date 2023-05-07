@@ -63,7 +63,6 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
             branch: Some("branch".to_string()),
             commit: Some("commit".to_string()),
         },
-        activity: vec![],
     };
 
     assert!(SessionWriter::open(&gb_repo, &session).is_err());
@@ -96,7 +95,6 @@ fn test_should_write_full_session() -> Result<()> {
             branch: Some("branch".to_string()),
             commit: Some("commit".to_string()),
         },
-        activity: vec![],
     };
 
     SessionWriter::open(&gb_repo, &session)?;
@@ -150,7 +148,6 @@ fn test_should_write_partial_session() -> Result<()> {
             branch: None,
             commit: None,
         },
-        activity: vec![],
     };
 
     SessionWriter::open(&gb_repo, &session)?;
