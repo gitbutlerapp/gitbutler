@@ -1,6 +1,6 @@
 use std::{path, time};
 
-use crate::{app, deltas, projects};
+use crate::{app, projects};
 
 pub enum Event {
     Tick(time::SystemTime),
@@ -21,7 +21,7 @@ pub enum Event {
             projects::Project,
             app::Session,
             path::PathBuf,
-            Vec<deltas::Delta>,
+            Vec<app::Delta>,
         ),
     ),
 }

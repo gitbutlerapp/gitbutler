@@ -3,7 +3,7 @@ use tempfile::tempdir;
 
 use crate::{
     app::{self, gb_repository, project_repository},
-    deltas, projects, storage, users,
+    projects, storage, users,
 };
 
 use super::project_file_change::Handler;
@@ -88,7 +88,7 @@ fn test_register_existing_commited_file() -> Result<()> {
     assert_eq!(deltas[0].operations.len(), 1);
     assert_eq!(
         deltas[0].operations[0],
-        deltas::Operation::Insert((4, "2".to_string())),
+        app::Operation::Insert((4, "2".to_string())),
     );
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
@@ -189,7 +189,7 @@ fn test_register_new_file() -> Result<()> {
     assert_eq!(deltas[0].operations.len(), 1);
     assert_eq!(
         deltas[0].operations[0],
-        deltas::Operation::Insert((0, "test".to_string())),
+        app::Operation::Insert((0, "test".to_string())),
     );
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
@@ -228,7 +228,7 @@ fn test_register_new_file_twice() -> Result<()> {
     assert_eq!(deltas[0].operations.len(), 1);
     assert_eq!(
         deltas[0].operations[0],
-        deltas::Operation::Insert((0, "test".to_string())),
+        app::Operation::Insert((0, "test".to_string())),
     );
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
@@ -243,12 +243,12 @@ fn test_register_new_file_twice() -> Result<()> {
     assert_eq!(deltas[0].operations.len(), 1);
     assert_eq!(
         deltas[0].operations[0],
-        deltas::Operation::Insert((0, "test".to_string())),
+        app::Operation::Insert((0, "test".to_string())),
     );
     assert_eq!(deltas[1].operations.len(), 1);
     assert_eq!(
         deltas[1].operations[0],
-        deltas::Operation::Insert((4, "2".to_string())),
+        app::Operation::Insert((4, "2".to_string())),
     );
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
@@ -287,7 +287,7 @@ fn test_register_file_delted() -> Result<()> {
     assert_eq!(deltas[0].operations.len(), 1);
     assert_eq!(
         deltas[0].operations[0],
-        deltas::Operation::Insert((0, "test".to_string())),
+        app::Operation::Insert((0, "test".to_string())),
     );
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_wd_path().join(file_path))?,
@@ -302,10 +302,10 @@ fn test_register_file_delted() -> Result<()> {
     assert_eq!(deltas[0].operations.len(), 1);
     assert_eq!(
         deltas[0].operations[0],
-        deltas::Operation::Insert((0, "test".to_string())),
+        app::Operation::Insert((0, "test".to_string())),
     );
     assert_eq!(deltas[1].operations.len(), 1);
-    assert_eq!(deltas[1].operations[0], deltas::Operation::Delete((0, 4)),);
+    assert_eq!(deltas[1].operations[0], app::Operation::Delete((0, 4)),);
 
     Ok(())
 }
@@ -364,7 +364,7 @@ fn test_flow_with_commits() -> Result<()> {
         let sessions_slice = &mut sessions[i..];
 
         // collect all operations from sessions in the reverse order
-        let mut operations: Vec<deltas::Operation> = vec![];
+        let mut operations: Vec<app::Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
             let reader = gb_repo.get_session_reader(&session).unwrap();
             let deltas_by_filepath = reader.deltas(None).unwrap();
@@ -456,7 +456,7 @@ fn test_flow_no_commits() -> Result<()> {
         let sessions_slice = &mut sessions[i..];
 
         // collect all operations from sessions in the reverse order
-        let mut operations: Vec<deltas::Operation> = vec![];
+        let mut operations: Vec<app::Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
             let reader = gb_repo.get_session_reader(&session).unwrap();
             let deltas_by_filepath = reader.deltas(None).unwrap();
@@ -526,7 +526,7 @@ fn test_flow_signle_session() -> Result<()> {
     }
 
     // collect all operations from sessions in the reverse order
-    let mut operations: Vec<deltas::Operation> = vec![];
+    let mut operations: Vec<app::Operation> = vec![];
     let session = gb_repo.get_current_session()?.unwrap();
     let reader = gb_repo.get_session_reader(&session).unwrap();
     let deltas_by_filepath = reader.deltas(None).unwrap();

@@ -4,7 +4,6 @@ extern crate scopeguard;
 extern crate lazy_static;
 
 mod app;
-mod deltas;
 mod events;
 mod fs;
 mod git;
@@ -18,7 +17,6 @@ mod users;
 extern crate log;
 
 use anyhow::{Context, Result};
-use deltas::Delta;
 use git::activity;
 use serde::{ser::SerializeMap, Serialize};
 use std::{collections::HashMap, ops::Range};
@@ -286,7 +284,7 @@ async fn list_deltas(
     project_id: &str,
     session_id: &str,
     paths: Option<Vec<&str>>,
-) -> Result<HashMap<String, Vec<Delta>>, Error> {
+) -> Result<HashMap<String, Vec<app::Delta>>, Error> {
     let app = handle.state::<app::App>();
     let deltas = app
         .list_session_deltas(project_id, session_id, paths)

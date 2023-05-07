@@ -4,10 +4,10 @@ use anyhow::{Context, Result};
 
 use crate::{
     app::{
-        gb_repository, project_repository,
+        self, gb_repository, project_repository,
         reader::{self, Reader},
     },
-    deltas, projects,
+    projects,
 };
 
 use super::events;
@@ -135,7 +135,7 @@ impl<'listener> Handler<'listener> {
     }
 
     // returns deltas for the file that are already part of the current session (if any)
-    fn get_current_deltas(&self, path: &std::path::Path) -> Result<Option<Vec<deltas::Delta>>> {
+    fn get_current_deltas(&self, path: &std::path::Path) -> Result<Option<Vec<app::Delta>>> {
         let current_session = self.gb_repository.get_current_session()?;
         if current_session.is_none() {
             return Ok(None);
@@ -197,13 +197,13 @@ impl<'listener> Handler<'listener> {
 
         let mut text_doc = match (latest_file_content, current_deltas) {
             (Some(latest_contents), Some(deltas)) => {
-                deltas::TextDocument::new(Some(&latest_contents), deltas)?
+                app::TextDocument::new(Some(&latest_contents), deltas)?
             }
             (Some(latest_contents), None) => {
-                deltas::TextDocument::new(Some(&latest_contents), vec![])?
+                app::TextDocument::new(Some(&latest_contents), vec![])?
             }
-            (None, Some(deltas)) => deltas::TextDocument::new(None, deltas)?,
-            (None, None) => deltas::TextDocument::new(None, vec![])?,
+            (None, Some(deltas)) => app::TextDocument::new(None, deltas)?,
+            (None, None) => app::TextDocument::new(None, vec![])?,
         };
 
         if !text_doc

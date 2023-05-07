@@ -1,4 +1,5 @@
 mod app;
+mod deltas;
 pub mod gb_repository;
 pub mod project_repository;
 pub mod reader;
@@ -12,5 +13,6 @@ mod gb_repository_tests;
 mod reader_tests;
 
 pub use app::{AddProjectError, App};
+pub use deltas::{Delta, Operation, TextDocument};
 pub use project_repository::FileStatus;
 pub use sessions::{Meta, Session, SessionError};
