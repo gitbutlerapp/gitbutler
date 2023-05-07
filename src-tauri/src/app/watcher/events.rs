@@ -1,11 +1,14 @@
 use std::{path, time};
 
-use crate::{app, projects};
+use crate::{
+    app::{deltas, sessions},
+    projects,
+};
 
 pub enum Event {
     Tick(time::SystemTime),
-    FlushSession(app::Session),
-    SessionFlushed(app::Session),
+    FlushSession(sessions::Session),
+    SessionFlushed(sessions::Session),
 
     FileChange(path::PathBuf),
     GitFileChange(path::PathBuf),
@@ -15,13 +18,13 @@ pub enum Event {
 
     ProjectFileChange(path::PathBuf),
 
-    Session((projects::Project, app::Session)),
+    Session((projects::Project, sessions::Session)),
     Deltas(
         (
             projects::Project,
-            app::Session,
+            sessions::Session,
             path::PathBuf,
-            Vec<app::Delta>,
+            Vec<deltas::Delta>,
         ),
     ),
 }

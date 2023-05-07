@@ -2,7 +2,7 @@ use std::time;
 
 use anyhow::Result;
 
-use crate::app;
+use crate::app::sessions;
 
 use super::check_current_session::should_flush;
 
@@ -15,10 +15,10 @@ fn test_should_flush() -> Result<()> {
     let start = now;
     let last = now;
 
-    let session = app::Session {
+    let session = sessions::Session {
         id: "session-id".to_string(),
         hash: None,
-        meta: app::Meta {
+        meta: sessions::Meta {
             start_timestamp_ms: start.duration_since(time::UNIX_EPOCH)?.as_millis(),
             last_timestamp_ms: last.duration_since(time::UNIX_EPOCH)?.as_millis(),
             branch: None,

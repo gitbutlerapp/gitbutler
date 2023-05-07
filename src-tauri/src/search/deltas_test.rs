@@ -4,7 +4,7 @@ use std::path::Path;
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{app, projects, storage, users};
+use crate::{app::{self, deltas}, projects, storage, users};
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -59,16 +59,16 @@ fn test_filter_by_timestamp() -> Result<()> {
     writer.write_deltas(
         Path::new("test.txt"),
         &vec![
-            app::Delta {
-                operations: vec![app::Operation::Insert((0, "Hello".to_string()))],
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((0, "Hello".to_string()))],
                 timestamp_ms: 0,
             },
-            app::Delta {
-                operations: vec![app::Operation::Insert((5, "World".to_string()))],
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((5, "World".to_string()))],
                 timestamp_ms: 1,
             },
-            app::Delta {
-                operations: vec![app::Operation::Insert((5, " ".to_string()))],
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((5, " ".to_string()))],
                 timestamp_ms: 2,
             },
         ],
@@ -135,12 +135,12 @@ fn test_sorted_by_timestamp() -> Result<()> {
     writer.write_deltas(
         Path::new("test.txt"),
         &vec![
-            app::Delta {
-                operations: vec![app::Operation::Insert((0, "Hello".to_string()))],
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((0, "Hello".to_string()))],
                 timestamp_ms: 0,
             },
-            app::Delta {
-                operations: vec![app::Operation::Insert((5, " World".to_string()))],
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((5, " World".to_string()))],
                 timestamp_ms: 1,
             },
         ],
@@ -192,12 +192,12 @@ fn test_simple() -> Result<()> {
     writer.write_deltas(
         Path::new("test.txt"),
         &vec![
-            app::Delta {
-                operations: vec![app::Operation::Insert((0, "Hello".to_string()))],
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((0, "Hello".to_string()))],
                 timestamp_ms: 0,
             },
-            app::Delta {
-                operations: vec![app::Operation::Insert((5, " World".to_string()))],
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((5, " World".to_string()))],
                 timestamp_ms: 0,
             },
         ],

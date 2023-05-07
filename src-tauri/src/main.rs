@@ -27,7 +27,7 @@ use tauri_plugin_log::{
 use thiserror::Error;
 use timed::timed;
 
-use crate::app::projects;
+use crate::app::{projects, deltas, sessions};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -149,7 +149,7 @@ async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
     earliest_timestamp_ms: Option<u128>,
-) -> Result<Vec<app::Session>, Error> {
+) -> Result<Vec<sessions::Session>, Error> {
     let app = handle.state::<app::App>();
     let sessions = app
         .list_sessions(project_id, earliest_timestamp_ms)
@@ -285,7 +285,7 @@ async fn list_deltas(
     project_id: &str,
     session_id: &str,
     paths: Option<Vec<&str>>,
-) -> Result<HashMap<String, Vec<app::Delta>>, Error> {
+) -> Result<HashMap<String, Vec<deltas::Delta>>, Error> {
     let app = handle.state::<app::App>();
     let deltas = app
         .list_session_deltas(project_id, session_id, paths)

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Context, Result};
 
 use crate::app::{
-    self, gb_repository,
+    deltas, gb_repository,
     reader::{self, CommitReader, Reader},
 };
 
@@ -117,7 +117,7 @@ impl<'reader> SessionReader<'reader> {
     pub fn file_deltas<P: AsRef<std::path::Path>>(
         &self,
         path: P,
-    ) -> Result<Option<Vec<app::Delta>>> {
+    ) -> Result<Option<Vec<deltas::Delta>>> {
         let path = path.as_ref();
         let file_deltas_path = std::path::Path::new("session/deltas").join(path);
         match self
@@ -137,7 +137,7 @@ impl<'reader> SessionReader<'reader> {
         }
     }
 
-    pub fn deltas(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, Vec<app::Delta>>> {
+    pub fn deltas(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, Vec<deltas::Delta>>> {
         let deltas_dir = std::path::Path::new("session/deltas");
         let files = self.reader.list_files(deltas_dir.to_str().unwrap())?;
         let mut result = HashMap::new();

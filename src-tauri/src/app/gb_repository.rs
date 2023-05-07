@@ -16,10 +16,7 @@ use crate::{fs, projects, users};
 use super::{
     project_repository,
     reader::{self, Reader},
-    sessions::{
-        get_hash_mapping, SessionReader, SessionWriter, SessionsIdsIterator, SessionsIterator,
-    },
-    Meta, Session, SessionError,
+    sessions,
 };
 
 pub struct Repository {
@@ -120,7 +117,7 @@ impl Repository {
     fn create_current_session(
         &self,
         project_repository: &project_repository::Repository,
-    ) -> Result<Session> {
+    ) -> Result<sessions::Session> {
         log::info!("{}: creating new session", self.project_id);
 
         let now_ms = time::SystemTime::now()
@@ -129,13 +126,13 @@ impl Repository {
             .as_millis();
 
         let meta = match project_repository.get_head() {
-            Result::Ok(head) => Meta {
+            Result::Ok(head) => sessions::Meta {
                 start_timestamp_ms: now_ms,
                 last_timestamp_ms: now_ms,
                 branch: head.name().map(|name| name.to_string()),
                 commit: Some(head.peel_to_commit()?.id().to_string()),
             },
-            Err(_) => Meta {
+            Err(_) => sessions::Meta {
                 start_timestamp_ms: now_ms,
                 last_timestamp_ms: now_ms,
                 branch: None,
@@ -143,7 +140,7 @@ impl Repository {
             },
         };
 
-        let session = Session {
+        let session = sessions::Session {
             id: Uuid::new_v4().to_string(),
             hash: None,
             meta,
@@ -156,9 +153,9 @@ impl Repository {
 
     pub fn get_session_writer<'repository>(
         &'repository self,
-        session: &Session,
-    ) -> Result<SessionWriter<'repository>> {
-        SessionWriter::open(&self, &session)
+        session: &sessions::Session,
+    ) -> Result<sessions::SessionWriter<'repository>> {
+        sessions::SessionWriter::open(&self, &session)
     }
 
     pub(crate) fn lock(&self) -> Result<()> {
@@ -179,7 +176,7 @@ impl Repository {
         Ok(())
     }
 
-    pub fn get_or_create_current_session(&self) -> Result<Session> {
+    pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
         match self
             .get_current_session()
             .context("failed to get current session")?
@@ -201,7 +198,7 @@ impl Repository {
         }
     }
 
-    pub fn flush(&self) -> Result<Option<Session>> {
+    pub fn flush(&self) -> Result<Option<sessions::Session>> {
         let current_session = self
             .get_current_session()
             .context("failed to get current session")?;
@@ -229,8 +226,8 @@ impl Repository {
     pub fn flush_session(
         &self,
         project_repository: &project_repository::Repository,
-        session: &Session,
-    ) -> Result<Session> {
+        session: &sessions::Session,
+    ) -> Result<sessions::Session> {
         if session.hash.is_some() {
             return Ok(session.clone());
         }
@@ -287,7 +284,7 @@ impl Repository {
             log::error!("{}: failed to push to remote: {:#}", self.project_id, e);
         }
 
-        let session = Session {
+        let session = sessions::Session {
             hash: Some(commit_oid.to_string()),
             ..session.clone()
         };
@@ -297,22 +294,22 @@ impl Repository {
 
     pub fn get_session_reader<'repository>(
         &'repository self,
-        session: &Session,
-    ) -> Result<SessionReader<'repository>> {
-        SessionReader::open(&self, &session)
+        session: &sessions::Session,
+    ) -> Result<sessions::SessionReader<'repository>> {
+        sessions::SessionReader::open(&self, &session)
     }
 
     pub fn get_sessions_iterator<'repository>(
         &'repository self,
-    ) -> Result<SessionsIterator<'repository>> {
-        Ok(SessionsIterator::new(&self.git_repository)?)
+    ) -> Result<sessions::SessionsIterator<'repository>> {
+        Ok(sessions::SessionsIterator::new(&self.git_repository)?)
     }
 
-    pub fn get_session(&self, session_id: &str) -> Result<Session> {
-        if let Some(oid) = get_hash_mapping(session_id) {
+    pub fn get_session(&self, session_id: &str) -> Result<sessions::Session> {
+        if let Some(oid) = sessions::get_hash_mapping(session_id) {
             let commit = self.git_repository.find_commit(oid)?;
             let reader = reader::CommitReader::from_commit(&self.git_repository, commit)?;
-            return Ok(Session::try_from(reader)?);
+            return Ok(sessions::Session::try_from(reader)?);
         }
 
         if let Some(session) = self.get_current_session()? {
@@ -321,7 +318,7 @@ impl Repository {
             }
         }
 
-        let mut session_ids_iterator = SessionsIdsIterator::new(&self.git_repository)?;
+        let mut session_ids_iterator = sessions::SessionsIdsIterator::new(&self.git_repository)?;
         while let Some(ids) = session_ids_iterator.next() {
             match ids {
                 Result::Ok((oid, sid)) => {
@@ -329,7 +326,7 @@ impl Repository {
                         let commit = self.git_repository.find_commit(oid)?;
                         let reader =
                             reader::CommitReader::from_commit(&self.git_repository, commit)?;
-                        return Ok(Session::try_from(reader)?);
+                        return Ok(sessions::Session::try_from(reader)?);
                     }
                 }
                 Err(e) => return Err(e),
@@ -338,12 +335,12 @@ impl Repository {
         Err(anyhow!("session not found"))
     }
 
-    pub fn get_current_session(&self) -> Result<Option<Session>> {
+    pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
         let reader = reader::DirReader::open(self.root());
-        match Session::try_from(reader) {
+        match sessions::Session::try_from(reader) {
             Result::Ok(session) => Ok(Some(session)),
-            Err(SessionError::NoSession) => Ok(None),
-            Err(SessionError::Err(err)) => Err(err),
+            Err(sessions::SessionError::NoSession) => Ok(None),
+            Err(sessions::SessionError::Err(err)) => Err(err),
         }
     }
 
