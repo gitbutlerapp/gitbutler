@@ -3,9 +3,9 @@ use std::{collections::HashMap, sync};
 use anyhow::{Context, Result};
 use crossbeam_channel::{bounded, Sender};
 
-use crate::{app, events, git::activity, projects, pty, search, storage, users};
+use crate::{events, git::activity, projects, pty, search, storage, users};
 
-use super::{gb_repository, project_repository, watcher, sessions};
+use super::{gb_repository, project_repository, watcher, sessions, deltas};
 
 #[derive(Clone)]
 pub struct App {
@@ -308,7 +308,7 @@ impl App {
         project_id: &str,
         session_id: &str,
         paths: Option<Vec<&str>>,
-    ) -> Result<HashMap<String, Vec<app::Delta>>> {
+    ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id.to_string(),

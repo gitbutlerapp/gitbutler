@@ -2,7 +2,7 @@ use anyhow::Result;
 use tempfile::tempdir;
 
 use crate::{
-    app::{gb_repository, Meta, Session},
+    app::{gb_repository, sessions},
     projects, storage, users,
 };
 
@@ -54,10 +54,10 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
         user_store,
     )?;
 
-    let session = Session {
+    let session = sessions::Session {
         id: "session_id".to_string(),
         hash: Some("hash".to_string()),
-        meta: Meta {
+        meta: sessions::Meta {
             start_timestamp_ms: 0,
             last_timestamp_ms: 1,
             branch: Some("branch".to_string()),
@@ -86,10 +86,10 @@ fn test_should_write_full_session() -> Result<()> {
         user_store,
     )?;
 
-    let session = Session {
+    let session = sessions::Session {
         id: "session_id".to_string(),
         hash: None,
-        meta: Meta {
+        meta: sessions::Meta {
             start_timestamp_ms: 0,
             last_timestamp_ms: 1,
             branch: Some("branch".to_string()),
@@ -139,10 +139,10 @@ fn test_should_write_partial_session() -> Result<()> {
         user_store,
     )?;
 
-    let session = Session {
+    let session = sessions::Session {
         id: "session_id".to_string(),
         hash: None,
-        meta: Meta {
+        meta: sessions::Meta {
             start_timestamp_ms: 0,
             last_timestamp_ms: 1,
             branch: None,

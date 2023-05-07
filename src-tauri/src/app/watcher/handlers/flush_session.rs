@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    app::{self, gb_repository, project_repository},
+    app::{gb_repository, project_repository, sessions},
     projects,
 };
 
@@ -26,7 +26,7 @@ impl<'listener> Handler<'listener> {
         }
     }
 
-    pub fn handle(&self, session: &app::Session) -> Result<Vec<events::Event>> {
+    pub fn handle(&self, session: &sessions::Session) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
             .get_project(&self.project_id)
