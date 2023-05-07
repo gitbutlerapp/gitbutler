@@ -11,7 +11,7 @@ use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
 
-use crate::{app, deltas, sessions, storage};
+use crate::{app, deltas, storage};
 
 const CURRENT_VERSION: u64 = 4; // should not decrease
 
@@ -130,7 +130,7 @@ impl Deltas {
     pub fn index_session(
         &self,
         repository: &app::gb_repository::Repository,
-        session: &sessions::Session,
+        session: &app::Session,
     ) -> Result<()> {
         index_session(
             &self.index,
@@ -187,7 +187,7 @@ pub struct SearchResults {
 fn index_session(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
-    session: &sessions::Session,
+    session: &app::Session,
     repository: &app::gb_repository::Repository,
 ) -> Result<()> {
     let reader = repository
@@ -233,7 +233,7 @@ fn index_session(
 fn index_delta(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
-    session: &sessions::Session,
+    session: &app::Session,
     project_id: &str,
     file_text: &mut Vec<char>,
     file_path: &str,

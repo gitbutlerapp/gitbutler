@@ -1,9 +1,12 @@
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{app::gb_repository, projects, sessions, storage, users};
+use crate::{
+    app::{gb_repository, Meta, Session},
+    projects, storage, users,
+};
 
-use super::session::SessionWriter;
+use super::SessionWriter;
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -51,10 +54,10 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
         user_store,
     )?;
 
-    let session = sessions::Session {
+    let session = Session {
         id: "session_id".to_string(),
         hash: Some("hash".to_string()),
-        meta: sessions::Meta {
+        meta: Meta {
             start_timestamp_ms: 0,
             last_timestamp_ms: 1,
             branch: Some("branch".to_string()),
@@ -84,10 +87,10 @@ fn test_should_write_full_session() -> Result<()> {
         user_store,
     )?;
 
-    let session = sessions::Session {
+    let session = Session {
         id: "session_id".to_string(),
         hash: None,
-        meta: sessions::Meta {
+        meta: Meta {
             start_timestamp_ms: 0,
             last_timestamp_ms: 1,
             branch: Some("branch".to_string()),
@@ -116,7 +119,7 @@ fn test_should_write_full_session() -> Result<()> {
     );
     assert_ne!(
         std::fs::read_to_string(gb_repo.session_path().join("meta/last"))?,
-        "1" 
+        "1"
     );
 
     Ok(())
@@ -138,10 +141,10 @@ fn test_should_write_partial_session() -> Result<()> {
         user_store,
     )?;
 
-    let session = sessions::Session {
+    let session = Session {
         id: "session_id".to_string(),
         hash: None,
-        meta: sessions::Meta {
+        meta: Meta {
             start_timestamp_ms: 0,
             last_timestamp_ms: 1,
             branch: None,

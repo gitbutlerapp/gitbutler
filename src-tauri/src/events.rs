@@ -1,4 +1,4 @@
-use crate::{deltas, projects, sessions};
+use crate::{app, deltas, projects};
 
 #[derive(Debug)]
 pub struct Event {
@@ -7,7 +7,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn session(project: &projects::Project, session: &sessions::Session) -> Self {
+    pub fn session(project: &projects::Project, session: &app::Session) -> Self {
         let event_name = format!("project://{}/sessions", project.id);
         Event {
             name: event_name,
@@ -41,7 +41,7 @@ impl Event {
 
     pub fn detlas(
         project: &projects::Project,
-        session: &sessions::Session,
+        session: &app::Session,
         deltas: &Vec<deltas::Delta>,
         relative_file_path: &std::path::Path,
     ) -> Self {
