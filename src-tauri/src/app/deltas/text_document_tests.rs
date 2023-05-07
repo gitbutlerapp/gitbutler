@@ -1,4 +1,4 @@
-use crate::deltas::{operations::Operation, text_document::TextDocument, Delta};
+use super::{Operation, TextDocument, Delta};
 
 #[test]
 fn test_new() {

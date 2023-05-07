@@ -1,7 +1,10 @@
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{app::gb_repository, deltas, projects, storage, users};
+use crate::{
+    app::{self, gb_repository},
+    projects, storage, users,
+};
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -224,8 +227,8 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     let writer = gb_repo.get_session_writer(&current_session)?;
     writer.write_deltas(
         "test.txt",
-        &vec![deltas::Delta {
-            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+        &vec![app::Delta {
+            operations: vec![app::Operation::Insert((0, "Hello World".to_string()))],
             timestamp_ms: 0,
         }],
     )?;
@@ -237,7 +240,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     assert_eq!(deltas.get("test.txt").unwrap()[0].operations.len(), 1);
     assert_eq!(
         deltas.get("test.txt").unwrap()[0].operations[0],
-        deltas::Operation::Insert((0, "Hello World".to_string()))
+        app::Operation::Insert((0, "Hello World".to_string()))
     );
 
     Ok(())
@@ -263,8 +266,8 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     let writer = gb_repo.get_session_writer(&current_session)?;
     writer.write_deltas(
         "test.txt",
-        &vec![deltas::Delta {
-            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+        &vec![app::Delta {
+            operations: vec![app::Operation::Insert((0, "Hello World".to_string()))],
             timestamp_ms: 0,
         }],
     )?;
@@ -277,7 +280,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     assert_eq!(deltas.get("test.txt").unwrap()[0].operations.len(), 1);
     assert_eq!(
         deltas.get("test.txt").unwrap()[0].operations[0],
-        deltas::Operation::Insert((0, "Hello World".to_string()))
+        app::Operation::Insert((0, "Hello World".to_string()))
     );
 
     Ok(())

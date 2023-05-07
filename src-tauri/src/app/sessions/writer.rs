@@ -4,11 +4,11 @@ use anyhow::{anyhow, Context, Result};
 
 use crate::{
     app::{
-        gb_repository,
+        self, gb_repository,
         reader::{self, Reader},
         writer::{self, Writer},
     },
-    deltas, pty,
+    pty,
 };
 
 use super::Session;
@@ -188,7 +188,7 @@ impl<'writer> SessionWriter<'writer> {
     pub fn write_deltas<P: AsRef<std::path::Path>>(
         &self,
         path: P,
-        deltas: &Vec<deltas::Delta>,
+        deltas: &Vec<app::Delta>,
     ) -> Result<()> {
         self.repository.lock()?;
         defer! {

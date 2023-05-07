@@ -11,7 +11,7 @@ use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
 
-use crate::{app, deltas, storage};
+use crate::{app, storage};
 
 const CURRENT_VERSION: u64 = 4; // should not decrease
 
@@ -238,7 +238,7 @@ fn index_delta(
     file_text: &mut Vec<char>,
     file_path: &str,
     i: usize,
-    delta: &deltas::Delta,
+    delta: &app::Delta,
 ) -> Result<()> {
     let mut doc = tantivy::Document::default();
     doc.add_u64(

@@ -1,4 +1,4 @@
-use crate::deltas::operations::{get_delta_operations, Operation};
+use super::{get_delta_operations, Operation};
 
 #[test]
 fn test_get_delta_operations_insert_end() {
