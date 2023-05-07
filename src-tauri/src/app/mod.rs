@@ -2,6 +2,7 @@ mod app;
 mod deltas;
 pub mod gb_repository;
 pub mod project_repository;
+pub mod projects;
 pub mod reader;
 mod sessions;
 pub mod watcher;

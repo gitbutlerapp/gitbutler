@@ -7,7 +7,6 @@ mod app;
 mod events;
 mod fs;
 mod git;
-mod projects;
 mod pty;
 mod search;
 mod storage;
@@ -27,6 +26,8 @@ use tauri_plugin_log::{
 };
 use thiserror::Error;
 use timed::timed;
+
+use crate::app::projects;
 
 #[derive(Debug, Error)]
 pub enum Error {
