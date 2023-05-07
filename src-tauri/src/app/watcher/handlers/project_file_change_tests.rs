@@ -2,8 +2,8 @@ use anyhow::Result;
 use tempfile::tempdir;
 
 use crate::{
-    app::{gb_repository, project_repository},
-    deltas, projects, sessions, storage, users,
+    app::{self, gb_repository, project_repository},
+    deltas, projects, storage, users,
 };
 
 use super::project_file_change::Handler;
@@ -343,7 +343,7 @@ fn test_flow_with_commits() -> Result<()> {
     }
 
     // get all the created sessions
-    let mut sessions: Vec<sessions::Session> = gb_repo
+    let mut sessions: Vec<app::Session> = gb_repo
         .get_sessions_iterator()?
         .map(|s| s.unwrap())
         .collect();
@@ -435,7 +435,7 @@ fn test_flow_no_commits() -> Result<()> {
     }
 
     // get all the created sessions
-    let mut sessions: Vec<sessions::Session> = gb_repo
+    let mut sessions: Vec<app::Session> = gb_repo
         .get_sessions_iterator()?
         .map(|s| s.unwrap())
         .collect();

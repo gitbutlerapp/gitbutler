@@ -11,7 +11,6 @@ mod git;
 mod projects;
 mod pty;
 mod search;
-mod sessions;
 mod storage;
 mod users;
 
@@ -151,7 +150,7 @@ async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
     earliest_timestamp_ms: Option<u128>,
-) -> Result<Vec<sessions::Session>, Error> {
+) -> Result<Vec<app::Session>, Error> {
     let app = handle.state::<app::App>();
     let sessions = app
         .list_sessions(project_id, earliest_timestamp_ms)
