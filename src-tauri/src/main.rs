@@ -6,16 +6,12 @@ extern crate lazy_static;
 mod app;
 mod events;
 mod fs;
-mod git;
-mod pty;
-mod search;
 mod storage;
 
 #[macro_use]
 extern crate log;
 
 use anyhow::{Context, Result};
-use git::activity;
 use serde::{ser::SerializeMap, Serialize};
 use std::{collections::HashMap, ops::Range};
 use tauri::{generate_context, Manager};
@@ -26,7 +22,7 @@ use tauri_plugin_log::{
 use thiserror::Error;
 use timed::timed;
 
-use crate::app::{projects, deltas, sessions, users};
+use crate::app::{project_repository::activity, search, projects, deltas, sessions, users};
 
 #[derive(Debug, Error)]
 pub enum Error {

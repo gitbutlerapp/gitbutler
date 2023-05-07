@@ -13,7 +13,9 @@ use tokio_tungstenite::{
     tungstenite::handshake::server::{Request, Response},
 };
 
-use crate::{app, pty::recorder};
+use crate::app;
+
+use super::recorder;
 
 const TERM: &str = "xterm-256color";
 
