@@ -1,6 +1,6 @@
 import { invoke, listen } from '$lib/ipc';
 import { clone } from '$lib/utils';
-import { asyncWritable } from '@square/svelte-store';
+import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 
 export namespace Session {
 	export const within = (session: Session | undefined, timestampMs: number) => {
@@ -48,8 +48,12 @@ export const subscribe = (
 		callback({ ...params, session: event.payload })
 	);
 
+const stores: Record<string, WritableLoadable<Session[]>> = {};
+
 export const Sessions = (params: { projectId: string }) => {
+	if (params.projectId in stores) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));
+
 	subscribe(params, ({ session }) => {
 		store.update((sessions) => {
 			const index = sessions.findIndex((s) => s.id === session.id);
@@ -58,5 +62,6 @@ export const Sessions = (params: { projectId: string }) => {
 			return sessions;
 		});
 	});
+	stores[params.projectId] = store;
 	return store;
 };

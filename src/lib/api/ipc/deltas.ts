@@ -1,6 +1,6 @@
 import { invoke, listen } from '$lib/ipc';
 import { clone } from '$lib/utils';
-import { asyncWritable } from '@square/svelte-store';
+import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 
 export type OperationDelete = { delete: [number, number] };
 export type OperationInsert = { insert: [number, string] };
@@ -60,7 +60,12 @@ export const subscribe = (
 		(event) => callback({ ...params, ...event.payload })
 	);
 
+const stores: Record<string, Record<string, WritableLoadable<Record<string, Delta[]>>>> = {};
+
 export const Deltas = (params: { projectId: string; sessionId: string }) => {
+	const projectStores = stores[params.projectId] || {};
+	if (params.sessionId in projectStores) return projectStores[params.sessionId];
+
 	const store = asyncWritable([], () => list(params));
 	subscribe(params, ({ filePath, deltas }) => {
 		store.update((deltasCache) => ({
@@ -68,5 +73,7 @@ export const Deltas = (params: { projectId: string; sessionId: string }) => {
 			[filePath]: deltas
 		}));
 	});
+	projectStores[params.sessionId] = store;
+	stores[params.projectId] = projectStores;
 	return store;
 };

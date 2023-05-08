@@ -8,8 +8,9 @@ export const set = (params: { user: User }) => invoke<void>('set_user', params);
 
 export const del = () => invoke<void>('delete_user');
 
+const store = asyncWritable([], get);
+
 export const CurrentUser = () => {
-	const store = asyncWritable([], get);
 	return {
 		...store,
 		set: async (user: User) => {
