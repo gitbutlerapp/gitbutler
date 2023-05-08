@@ -746,7 +746,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef552e6f588e446098f6ba40d89ac146c8c7b64aade83c051ee00bb5d2bc18d"
 dependencies = [
  "serde",
- "uuid 1.3.1",
+ "uuid 1.3.2",
 ]
 
 [[package]]
@@ -1370,7 +1370,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "urlencoding",
- "uuid 1.3.1",
+ "uuid 1.3.2",
  "walkdir",
 ]
 
@@ -2308,7 +2308,7 @@ dependencies = [
  "crash-handler",
  "minidumper",
  "thiserror",
- "uuid 1.3.1",
+ "uuid 1.3.2",
 ]
 
 [[package]]
@@ -3657,7 +3657,7 @@ dependencies = [
  "thiserror",
  "time",
  "url",
- "uuid 1.3.1",
+ "uuid 1.3.2",
 ]
 
 [[package]]
@@ -3674,7 +3674,7 @@ dependencies = [
  "thiserror",
  "time",
  "url",
- "uuid 1.3.1",
+ "uuid 1.3.2",
 ]
 
 [[package]]
@@ -4137,7 +4137,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "time",
- "uuid 1.3.1",
+ "uuid 1.3.2",
  "winapi",
 ]
 
@@ -4221,7 +4221,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "unicode-segmentation",
- "uuid 1.3.1",
+ "uuid 1.3.2",
  "windows 0.39.0",
  "windows-implement",
  "x11-dl",
@@ -4286,7 +4286,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "url",
- "uuid 1.3.1",
+ "uuid 1.3.2",
  "webkit2gtk",
  "webview2-com",
  "windows 0.39.0",
@@ -4330,7 +4330,7 @@ dependencies = [
  "tauri-utils",
  "thiserror",
  "time",
- "uuid 1.3.1",
+ "uuid 1.3.2",
  "walkdir",
 ]
 
@@ -4409,7 +4409,7 @@ dependencies = [
  "tauri-utils",
  "thiserror",
  "url",
- "uuid 1.3.1",
+ "uuid 1.3.2",
  "webview2-com",
  "windows 0.39.0",
 ]
@@ -4428,7 +4428,7 @@ dependencies = [
  "tauri-runtime",
  "tauri-utils",
  "url",
- "uuid 1.3.1",
+ "uuid 1.3.2",
  "webkit2gtk",
  "webview2-com",
  "windows 0.39.0",
@@ -4940,9 +4940,9 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 
 [[package]]
 name = "uuid"
-version = "1.3.1"
+version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b55a3fef2a1e3b3a00ce878640918820d3c51081576ac657d23af9fc7928fdb"
+checksum = "4dad5567ad0cf5b760e5665964bec1b47dfd077ba8a2544b513f3556d3d239a2"
 dependencies = [
  "getrandom 0.2.9",
  "serde",
