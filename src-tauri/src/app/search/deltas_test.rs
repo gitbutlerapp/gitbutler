@@ -4,7 +4,10 @@ use std::path::Path;
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{app::{self, deltas}, projects, storage, users};
+use crate::{
+    app::{self, deltas},
+    projects, storage, users,
+};
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -284,6 +287,61 @@ fn test_simple() -> Result<()> {
     assert!(not_found_result.is_ok());
     let not_found_result = not_found_result.unwrap();
     assert_eq!(not_found_result.total, 0);
+
+    Ok(())
+}
+
+#[test]
+fn test_delete_all() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+    let gb_repo = app::gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+
+    let session = gb_repo.get_or_create_current_session()?;
+    let writer = gb_repo.get_session_writer(&session)?;
+    writer.write_deltas(
+        Path::new("test.txt"),
+        &vec![
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((0, "Hello".to_string()))],
+                timestamp_ms: 0,
+            },
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((5, "World".to_string()))],
+                timestamp_ms: 1,
+            },
+            deltas::Delta {
+                operations: vec![deltas::Operation::Insert((5, " ".to_string()))],
+                timestamp_ms: 2,
+            },
+        ],
+    )?;
+    let session = gb_repo.flush()?;
+    let searcher = super::Deltas::at(index_path)?;
+    searcher.index_session(&gb_repo, &session.unwrap())?;
+
+    searcher.delete_all_data()?;
+
+    let search_result_from = searcher.search(&super::SearchQuery {
+        project_id: gb_repo.get_project_id().to_string(),
+        q: "test.txt".to_string(),
+        limit: 10,
+        range: Range { start: 2, end: 10 },
+        offset: None,
+    })?;
+    assert_eq!(search_result_from.total, 0);
 
     Ok(())
 }
