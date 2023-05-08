@@ -10,3 +10,7 @@ export type { Project } from './projects';
 export * as searchResults from './search';
 export { type SearchResult } from './search';
 export * as files from './files';
+
+import { invoke } from '$lib/ipc';
+
+export const deleteAllData = () => invoke<void>('delete_all_data');

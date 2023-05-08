@@ -500,4 +500,12 @@ impl App {
 
         Ok(())
     }
+
+    pub fn delete_all_data(&self) -> Result<()> {
+        self.deltas_searcher.delete_all_data().context("failed to delete search data")?;
+        for project in self.list_projects()? {
+            self.delete_project(&project.id).context("failed to delete project")?;
+        }
+        Ok(())
+    }
 }
