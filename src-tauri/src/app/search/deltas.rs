@@ -30,6 +30,17 @@ impl MetaStorage {
         }
     }
 
+    pub fn delete_all(&self) -> Result<()> {
+        let filepath = self
+            .storage
+            .local_data_dir()
+            .join("indexes")
+            .join(format!("v{}", CURRENT_VERSION))
+            .join("meta");
+        fs::remove_dir_all(filepath)?;
+        Ok(())
+    }
+
     pub fn get(&self, project_id: &str, session_hash: &str) -> Result<Option<u64>> {
         let filepath = Path::new("indexes")
             .join(format!("v{}", CURRENT_VERSION))
@@ -127,6 +138,18 @@ impl Deltas {
                 );
             }
         }
+        Ok(())
+    }
+
+    pub fn delete_all_data(&self) -> Result<()> {
+        self.meta_storage
+            .delete_all()
+            .context("Could not delete meta data")?;
+        let mut writer = self.writer.lock().unwrap();
+        writer
+            .delete_all_documents()
+            .context("Could not delete all documents")?;
+        writer.commit().context("Could not commit")?;
         Ok(())
     }
 

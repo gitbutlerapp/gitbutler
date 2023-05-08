@@ -429,6 +429,14 @@ async fn git_commit(
     Ok(())
 }
 
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    app.delete_all_data().context("failed to delete all data")?;
+    Ok(())
+}
+
 fn main() {
     let tauri_context = generate_context!();
 
@@ -560,6 +568,7 @@ fn main() {
             git_stage,
             git_unstage,
             git_wd_diff,
+            delete_all_data,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")

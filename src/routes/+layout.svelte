@@ -13,6 +13,7 @@
 
 	export let data: LayoutData;
 	const { user, posthog, projects, sentry, events, hotkeys } = data;
+	$: console.log($user);
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects?.find((project) => project.id === page.params.projectId)
@@ -66,7 +67,7 @@
 		<div class="mr-6">
 			<Link href="/users/">
 				{#await user.load() then}
-					{#if $user}
+					{#if $user !== null}
 						{#if $user.picture}
 							<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
 						{/if}

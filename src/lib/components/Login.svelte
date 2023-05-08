@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { LoginToken, CloudApi, users } from '$lib/api';
+	import { toasts, log } from '$lib';
 	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
+	import Button from './Button';
 
 	export let user: Awaited<ReturnType<typeof users.CurrentUser>>;
 	export let api: Awaited<ReturnType<typeof CloudApi>>;
@@ -19,15 +21,25 @@
 		});
 	};
 
+	let signUpOrLoginLoading = false;
+	const onSignUpOrLoginClick = () => {
+		Promise.resolve()
+			.then(() => (signUpOrLoginLoading = true))
+			.then(api.login.token.create)
+			.then(token.set)
+			.catch((e) => {
+				log.error(e);
+				toasts.error('Something went wrong');
+			})
+			.finally(() => (signUpOrLoginLoading = false));
+	};
 	const token = writable<LoginToken | null>(null);
 	const authUrl = derived(token, ($token) => $token?.url as string);
 </script>
 
 <div>
 	{#if $user}
-		<button class="text-zinc-400 hover:text-red-400 hover:underline" on:click={() => user.delete()}
-			>Log out</button
-		>
+		<Button kind="plain" color="destructive" on:click={user.delete}>Log out</Button>
 	{:else if $token !== null}
 		{#await Promise.all([open($token.url), pollForUser($token.token)])}
 			<div>Log in in your system browser</div>
@@ -37,9 +49,8 @@
 			if you are not redirected automatically, you can
 		</p>
 	{:else}
-		<button
-			class="rounded bg-blue-400 py-1 px-3 text-white"
-			on:click={() => api.login.token.create().then(token.set)}>Sign up or Log in</button
-		>
+		<Button loading={signUpOrLoginLoading} color="primary" on:click={onSignUpOrLoginClick}>
+			Sign up or Log in
+		</Button>
 	{/if}
 </div>

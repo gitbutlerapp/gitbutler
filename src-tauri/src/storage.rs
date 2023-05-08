@@ -16,6 +16,10 @@ impl Storage {
         }
     }
 
+    pub fn local_data_dir(&self) -> &Path {
+        &self.local_data_dir
+    }
+
     pub fn read<P: AsRef<Path>>(&self, path: P) -> Result<Option<String>> {
         let file_path = self.local_data_dir.join(path);
         if !file_path.exists() {
