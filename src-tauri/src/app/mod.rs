@@ -12,8 +12,6 @@ pub mod watcher;
 mod writer;
 
 #[cfg(test)]
-mod gb_repository_tests;
-#[cfg(test)]
 mod reader_tests;
 
 pub use app::{AddProjectError, App};
