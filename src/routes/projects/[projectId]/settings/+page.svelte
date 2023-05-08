@@ -91,10 +91,6 @@
 	const onDeleteClicked = () =>
 		Promise.resolve()
 			.then(() => (isDeleting = true))
-			.then(() => {
-				if ($user && $project.api)
-					api.projects.delete($user?.access_token, $project.api.repository_id);
-			})
 			.then(() => project.delete())
 			.then(() => deleteConfirmationDialog.close())
 			.catch((e) => {
