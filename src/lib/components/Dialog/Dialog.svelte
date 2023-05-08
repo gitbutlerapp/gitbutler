@@ -10,7 +10,7 @@
 </script>
 
 <Modal bind:this={modal} let:close>
-	<div class="wrapper flex w-full flex-col text-zinc-300">
+	<div class="modal modal-delete-project flex w-full flex-col text-zinc-300">
 		<header class="flex w-full justify-between gap-4 p-4">
 			<h2 class="text-xl ">
 				<slot name="title">Title</slot>
@@ -35,11 +35,6 @@
 </Modal>
 
 <style>
-	.wrapper {
-		background: linear-gradient(0deg, rgba(43, 43, 48, 0.8), rgba(43, 43, 48, 0.8)),
-			linear-gradient(0deg, rgba(63, 63, 63, 0.5), rgba(63, 63, 63, 0.5));
-	}
-
 	header {
 		box-shadow: inset 0px -1px 0px rgba(0, 0, 0, 0.1);
 	}
