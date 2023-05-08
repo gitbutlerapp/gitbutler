@@ -38,25 +38,25 @@
 >
 	{#if loading}
 		{#if icon}
-			<IconLoading class="h-4 w-4 animate-spin" />
+			<IconLoading class="h-5 w-5 animate-spin" />
 			<slot />
 		{:else}
 			<div class="items-around absolute flex w-full justify-center">
-				<IconLoading class="h-4 w-4 animate-spin" />
+				<IconLoading class="h-5 w-5 animate-spin" />
 			</div>
 			<div class="opacity-0">
 				<slot />
 			</div>
 		{/if}
 	{:else}
-		<svelte:component this={icon} class="h-4 w-4" />
+		<svelte:component this={icon} class="h-5 w-5" />
 		<slot />
 	{/if}
 </button>
 
 <style lang="postcss">
 	button {
-		@apply relative flex h-[36px] w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium underline transition transition duration-150 ease-in-out ease-out hover:ease-in;
+		@apply relative flex w-fit items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium leading-[20px] underline transition  duration-150 ease-in-out hover:ease-in;
 	}
 
 	button:focus {
@@ -67,7 +67,7 @@
 		@apply text-zinc-300;
 	}
 	.basic:hover {
-		@apply bg-[#D4D4D833]/20 no-underline;
+		@apply bg-[#D4D4D833]/20;
 	}
 	.basic:active {
 		@apply bg-transparent no-underline;
