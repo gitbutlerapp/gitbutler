@@ -5,6 +5,7 @@
 	import Button from './Button.svelte';
 
 	const heights = ['basic', 'small'] as const;
+	const kinds = ['filled', 'outlined', 'plain'] as const;
 </script>
 
 <Meta title="GitButler/Button" component={Button} />
@@ -13,48 +14,43 @@
 	<div class="flex flex-col gap-4">
 		{#each heights as height}
 			<div class="flex flex-col gap-2">
-				{#each [true, false] as filled}
-					{#each [true, false] as outlined}
-						<div class="flex gap-2">
-							{#each [false, true] as loading}
-								{#each [false, true] as disabled}
-									<Button
-										role="basic"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										on:click={() => alert('Clicked!')}
-									>
-										Button
-									</Button>
-									<Button
-										role="basic"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										icon={IconHome}
-										on:click={() => alert('Clicked!')}
-									>
-										Button with icon
-									</Button>
-									<Button
-										role="basic"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										icon={IconHome}
-										on:click={() => alert('Clicked!')}
-									/>
-								{/each}
+				{#each kinds as kind}
+					<div class="flex gap-2">
+						{#each [false, true] as loading}
+							{#each [false, true] as disabled}
+								<Button
+									color="basic"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									on:click={() => alert('Clicked!')}
+								>
+									Button
+								</Button>
+								<Button
+									color="basic"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									icon={IconHome}
+									on:click={() => alert('Clicked!')}
+								>
+									Button with icon
+								</Button>
+								<Button
+									color="basic"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									icon={IconHome}
+									on:click={() => alert('Clicked!')}
+								/>
 							{/each}
-						</div>
-					{/each}
+						{/each}
+					</div>
 				{/each}
 			</div>
 		{/each}
@@ -65,48 +61,43 @@
 	<div class="flex flex-col gap-4">
 		{#each heights as height}
 			<div class="flex flex-col gap-2">
-				{#each [true, false] as filled}
-					{#each [true, false] as outlined}
-						<div class="flex gap-2">
-							{#each [false, true] as loading}
-								{#each [false, true] as disabled}
-									<Button
-										role="primary"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										on:click={() => alert('Clicked!')}
-									>
-										Button
-									</Button>
-									<Button
-										role="primary"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										icon={IconHome}
-										on:click={() => alert('Clicked!')}
-									>
-										Button with icon
-									</Button>
-									<Button
-										role="primary"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										icon={IconHome}
-										on:click={() => alert('Clicked!')}
-									/>
-								{/each}
+				{#each kinds as kind}
+					<div class="flex gap-2">
+						{#each [false, true] as loading}
+							{#each [false, true] as disabled}
+								<Button
+									color="primary"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									on:click={() => alert('Clicked!')}
+								>
+									Button
+								</Button>
+								<Button
+									color="primary"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									icon={IconHome}
+									on:click={() => alert('Clicked!')}
+								>
+									Button with icon
+								</Button>
+								<Button
+									color="primary"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									icon={IconHome}
+									on:click={() => alert('Clicked!')}
+								/>
 							{/each}
-						</div>
-					{/each}
+						{/each}
+					</div>
 				{/each}
 			</div>
 		{/each}
@@ -117,48 +108,43 @@
 	<div class="flex flex-col gap-4">
 		{#each heights as height}
 			<div class="flex flex-col gap-2">
-				{#each [true, false] as filled}
-					{#each [true, false] as outlined}
-						<div class="flex gap-2">
-							{#each [false, true] as loading}
-								{#each [false, true] as disabled}
-									<Button
-										role="destructive"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										on:click={() => alert('Clicked!')}
-									>
-										Button
-									</Button>
-									<Button
-										role="destructive"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										icon={IconHome}
-										on:click={() => alert('Clicked!')}
-									>
-										Button with icon
-									</Button>
-									<Button
-										role="destructive"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										icon={IconHome}
-										on:click={() => alert('Clicked!')}
-									/>
-								{/each}
+				{#each kinds as kind}
+					<div class="flex gap-2">
+						{#each [false, true] as loading}
+							{#each [false, true] as disabled}
+								<Button
+									color="destructive"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									on:click={() => alert('Clicked!')}
+								>
+									Button
+								</Button>
+								<Button
+									color="destructive"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									icon={IconHome}
+									on:click={() => alert('Clicked!')}
+								>
+									Button with icon
+								</Button>
+								<Button
+									color="destructive"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									icon={IconHome}
+									on:click={() => alert('Clicked!')}
+								/>
 							{/each}
-						</div>
-					{/each}
+						{/each}
+					</div>
 				{/each}
 			</div>
 		{/each}
@@ -169,48 +155,43 @@
 	<div class="flex flex-col gap-4">
 		{#each heights as height}
 			<div class="flex flex-col gap-2">
-				{#each [true, false] as filled}
-					{#each [true, false] as outlined}
-						<div class="flex gap-2">
-							{#each [false, true] as loading}
-								{#each [false, true] as disabled}
-									<Button
-										role="purple"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										on:click={() => alert('Clicked!')}
-									>
-										Button
-									</Button>
-									<Button
-										role="purple"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										icon={IconHome}
-										on:click={() => alert('Clicked!')}
-									>
-										Button with icon
-									</Button>
-									<Button
-										role="purple"
-										{filled}
-										{disabled}
-										{outlined}
-										{height}
-										{loading}
-										icon={IconHome}
-										on:click={() => alert('Clicked!')}
-									/>
-								{/each}
+				{#each kinds as kind}
+					<div class="flex gap-2">
+						{#each [false, true] as loading}
+							{#each [false, true] as disabled}
+								<Button
+									color="purple"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									on:click={() => alert('Clicked!')}
+								>
+									Button
+								</Button>
+								<Button
+									color="purple"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									icon={IconHome}
+									on:click={() => alert('Clicked!')}
+								>
+									Button with icon
+								</Button>
+								<Button
+									color="purple"
+									{disabled}
+									{kind}
+									{height}
+									{loading}
+									icon={IconHome}
+									on:click={() => alert('Clicked!')}
+								/>
 							{/each}
-						</div>
-					{/each}
+						{/each}
+					</div>
 				{/each}
 			</div>
 		{/each}

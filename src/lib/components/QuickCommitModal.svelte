@@ -3,7 +3,6 @@
 	import { Status, type Project, git } from '$lib/api';
 	import type { CloudApi, User } from '$lib/api';
 	import { Button, Modal, Link } from '$lib/components';
-	import Tooltip from './Tooltip/Tooltip.svelte';
 	import { IconGitBranch, IconSparkle } from './icons';
 
 	export const show = () => modal.show();
@@ -151,9 +150,8 @@
 				/>
 
 				<Button
-					role="purple"
-					filled={false}
-					outlined={true}
+					color="purple"
+					kind="outlined"
 					disabled={isCommitting || !project.api?.sync}
 					loading={isAutowriting}
 					on:click={onAutowrite}
@@ -202,8 +200,8 @@
 			</div>
 
 			<div class="flex gap-2">
-				<Button filled={false} outlined={true} on:click={close}>Cancel</Button>
-				<Button type="submit" disabled={isAutowriting} role="primary" loading={isCommitting}>
+				<Button kind="outlined" on:click={close}>Cancel</Button>
+				<Button type="submit" disabled={isAutowriting} color="primary" loading={isCommitting}>
 					Commit
 				</Button>
 			</div>
