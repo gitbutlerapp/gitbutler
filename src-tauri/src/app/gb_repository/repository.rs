@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{fs, projects, users};
 
-use super::{
+use crate::app::{
     project_repository,
     reader::{self, Reader},
     sessions,
