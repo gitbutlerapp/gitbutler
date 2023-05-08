@@ -26,10 +26,10 @@ fn test_should_flush() -> Result<()> {
         },
     };
 
-    assert!(!should_flush(now, &session));
+    assert!(!should_flush(now, &session)?);
 
-    assert!(should_flush(start + FIVE_MINUTES, &session));
-    assert!(should_flush(last + ONE_HOUR, &session));
+    assert!(should_flush(start + FIVE_MINUTES, &session)?);
+    assert!(should_flush(last + ONE_HOUR, &session)?);
 
     Ok(())
 }

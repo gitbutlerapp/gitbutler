@@ -1,4 +1,6 @@
 mod check_current_session;
+mod check_fetch_project;
+mod fetch_project;
 mod file_change;
 mod flush_session;
 mod git_file_change;
@@ -25,6 +27,8 @@ pub struct Handler<'handler> {
     git_file_change_handler: git_file_change::Handler,
     check_current_session_handler: check_current_session::Handler<'handler>,
     flush_session_handler: flush_session::Handler<'handler>,
+    fetch_project_handler: fetch_project::Handler<'handler>,
+    chech_fetch_project_handler: check_fetch_project::Handler,
 
     searcher: search::Deltas,
     events: sync::mpsc::Sender<app_events::Event>,
@@ -53,10 +57,19 @@ impl<'handler> Handler<'handler> {
                 project_store.clone(),
             ),
             flush_session_handler: flush_session::Handler::new(
-                project_id,
-                project_store,
+                project_id.clone(),
+                project_store.clone(),
                 gb_repository,
             ),
+            fetch_project_handler: fetch_project::Handler::new(
+                project_store.clone(),
+                gb_repository,
+            ),
+            chech_fetch_project_handler: check_fetch_project::Handler::new(
+                project_id,
+                project_store,
+            ),
+
             searcher,
             events,
         }
@@ -108,10 +121,17 @@ impl<'handler> Handler<'handler> {
                     .context("failed to send git index event")?;
                 Ok(vec![])
             }
-            events::Event::Tick(tick) => self
-                .check_current_session_handler
-                .handle(tick)
-                .context("failed to handle tick event"),
+            events::Event::Tick(tick) => {
+                let one = self
+                    .check_current_session_handler
+                    .handle(tick)
+                    .context("failed to handle tick event")?;
+                let two = self
+                    .chech_fetch_project_handler
+                    .handle(tick)
+                    .context("failed to handle tick event")?;
+                Ok(one.into_iter().chain(two.into_iter()).collect())
+            }
             events::Event::FlushSession(session) => self
                 .flush_session_handler
                 .handle(&session)
@@ -122,6 +142,7 @@ impl<'handler> Handler<'handler> {
                     .context("failed to index session")?;
                 Ok(vec![])
             }
+            events::Event::FetchProject(project) => self.fetch_project_handler.handle(&project),
         }
     }
 }

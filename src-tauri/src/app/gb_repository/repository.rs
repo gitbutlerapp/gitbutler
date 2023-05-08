@@ -114,6 +114,77 @@ impl Repository {
         &self.project_id
     }
 
+    pub fn fetch(&self) -> Result<bool> {
+        let user = self.users_store.get().context("failed to get user")?;
+        let project = self
+            .project_store
+            .get_project(&self.project_id)
+            .context("failed to get project")?
+            .ok_or(anyhow!("project not found"))?;
+        let project = project.as_ref();
+
+        // only push if logged in
+        let access_token = match user {
+            Some(user) => user.access_token.clone(),
+            None => return Ok(false),
+        };
+
+        // only push if project is connected
+        let remote_url = match project.api {
+            Some(ref api) => api.git_url.clone(),
+            None => return Ok(false),
+        };
+
+        let mut remote = self
+            .git_repository
+            .remote_anonymous(remote_url.as_str())
+            .with_context(|| {
+                format!(
+                    "failed to create anonymous remote for {}",
+                    remote_url.as_str()
+                )
+            })?;
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+
+        callbacks.push_update_reference(move |refname, message| {
+            log::info!(
+                "{}: pulling reference '{}': {:?}",
+                project.id,
+                refname,
+                message
+            );
+            Result::Ok(())
+        });
+        callbacks.push_transfer_progress(move |one, two, three| {
+            log::info!(
+                "{}: transferred {}/{}/{} objects",
+                project.id,
+                one,
+                two,
+                three
+            );
+        });
+
+        let mut fetch_opts = git2::FetchOptions::new();
+        fetch_opts.remote_callbacks(callbacks);
+        let auth_header = format!("Authorization: {}", access_token);
+        let headers = &[auth_header.as_str()];
+        fetch_opts.custom_headers(headers);
+
+        remote
+            .fetch(
+                &["refs/heads/*:refs/remotes/*"],
+                Some(&mut fetch_opts),
+                None,
+            )
+            .with_context(|| format!("failed to pull from remote {}", remote_url.as_str()))?;
+
+        log::info!("{}: fetched from {}", project.path, remote_url.as_str());
+
+        Ok(true)
+    }
+
     fn create_current_session(
         &self,
         project_repository: &project_repository::Repository,
