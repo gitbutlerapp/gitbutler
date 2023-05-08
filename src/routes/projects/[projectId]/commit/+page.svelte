@@ -11,9 +11,11 @@
 	import { log } from '$lib';
 	import IconChevronUp from '$lib/components/icons/IconChevronUp.svelte';
 	import IconChevronDown from '$lib/components/icons/IconChevronDown.svelte';
+	import { onMount } from 'svelte';
+	import { unsubscribe } from '$lib/utils';
 
 	export let data: PageData;
-	let { statuses, diffs, user, api, projectId, project } = data;
+	let { statuses, diffs, user, api, projectId, project, hotkeys } = data;
 
 	let fullContext = false;
 	let context = 3;
@@ -210,6 +212,17 @@
 			const isUnstagedDeleted = Status.isUnstaged(status) && status.unstaged === 'deleted';
 			if (isStagedAdded && isUnstagedDeleted) git.stage({ projectId, paths: [file] });
 		})
+	);
+
+	onMount(() =>
+		unsubscribe(
+			hotkeys.on('ArrowUp', () => selectPreviousFile()),
+			hotkeys.on('Control+n', () => selectPreviousFile()),
+			hotkeys.on('k', () => selectPreviousFile()),
+			hotkeys.on('ArrowDown', () => selectNextFile()),
+			hotkeys.on('Control+p', () => selectNextFile()),
+			hotkeys.on('j', () => selectNextFile())
+		)
 	);
 </script>
 
