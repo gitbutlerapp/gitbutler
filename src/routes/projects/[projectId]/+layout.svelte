@@ -95,7 +95,7 @@
 						<Button
 							on:click={() => goto(`/projects/${$project.id}/terminal`)}
 							kind="plain"
-							height="small"
+
 							icon={IconTerminal}
 						/>
 					</Tooltip>
@@ -105,7 +105,7 @@
 						<Button
 							on:click={() => goto(`/projects/${$project.id}/settings`)}
 							kind="plain"
-							height="small"
+
 							icon={IconSettings}
 						/>
 					</Tooltip>
