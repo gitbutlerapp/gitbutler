@@ -121,7 +121,7 @@
 
 <Modal bind:this={modal} let:close>
 	<form
-		class="font-modal-stroke/50 flex w-[680px] flex-col rounded-lg border-[0.5px] border-modal-stroke bg-modal-background"
+		class="modal modal-quick-commit font-modal-stroke/50 flex w-[680px] flex-col"
 		on:submit|preventDefault={onCommit}
 	>
 		<header class="flex w-full items-center justify-between p-4">

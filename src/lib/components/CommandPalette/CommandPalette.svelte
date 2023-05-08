@@ -189,7 +189,7 @@
 <Modal bind:this={modal}>
 	<div class="h-[400px]">
 		<div
-			class="command-palette flex max-h-[400px] min-h-[40px] w-[640px] flex-col rounded-lg border-[0.5px] border-[#3F3F3f] bg-zinc-900/70 p-0 text-zinc-400 shadow-lg backdrop-blur-lg"
+			class="command-palette modal modal-command-palette flex max-h-[400px] min-h-[40px] w-[680px] flex-col "
 		>
 			<!-- Search input area -->
 			<header class="search-input-container flex items-center border-b border-zinc-400/20 py-2">
@@ -285,6 +285,10 @@
 </Modal>
 
 <style lang="postcss">
+	.command-palette {
+		@apply rounded-lg border-[0.5px] border-[#3F3F3f]  p-0 text-zinc-400 shadow-lg backdrop-blur-lg;
+		/* @apply bg-zinc-900/70;		 */
+	}
 	.command-pallete-content-container {
 		/* @apply pt-2; */
 	}
