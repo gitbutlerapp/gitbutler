@@ -1,6 +1,6 @@
 import { invoke } from '$lib/ipc';
 import type { Project as ApiProject } from '$lib/api/cloud';
-import { asyncWritable, derived } from '@square/svelte-store';
+import { asyncWritable, derived, type WritableLoadable } from '@square/svelte-store';
 
 export type Project = {
 	id: string;
@@ -23,8 +23,9 @@ export const add = (params: { path: string }) => invoke<Project>('add_project', 
 
 export const del = (params: { id: string }) => invoke('delete_project', params);
 
+const store = asyncWritable([], list);
+
 export const Projects = () => {
-	const store = asyncWritable([], list);
 	return {
 		...store,
 		get: async (id: string) => {
