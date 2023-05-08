@@ -11,8 +11,5 @@ pub mod users;
 pub mod watcher;
 mod writer;
 
-#[cfg(test)]
-mod reader_tests;
-
 pub use app::{AddProjectError, App};
 pub use project_repository::FileStatus;
