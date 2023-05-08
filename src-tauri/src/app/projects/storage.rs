@@ -15,6 +15,7 @@ pub struct UpdateRequest {
     pub id: String,
     pub title: Option<String>,
     pub api: Option<project::ApiProject>,
+    pub last_fetched_ts: Option<u128>,
 }
 
 impl Storage {
@@ -53,6 +54,8 @@ impl Storage {
         if let Some(api) = &update_request.api {
             project.api = Some(api.clone());
         }
+
+        project.last_fetched_ts = update_request.last_fetched_ts;
 
         self.storage
             .write(PROJECTS_FILE, &serde_json::to_string(&projects)?)?;

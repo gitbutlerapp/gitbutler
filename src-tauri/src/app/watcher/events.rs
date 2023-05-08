@@ -9,6 +9,7 @@ pub enum Event {
     Tick(time::SystemTime),
     FlushSession(sessions::Session),
     SessionFlushed(sessions::Session),
+    FetchProject(projects::Project),
 
     FileChange(path::PathBuf),
     GitFileChange(path::PathBuf),

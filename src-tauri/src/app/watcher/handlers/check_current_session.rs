@@ -27,7 +27,7 @@ impl<'handler> Handler<'handler> {
         {
             None => Ok(vec![]),
             Some(current_session) => {
-                if should_flush(now, &current_session) {
+                if should_flush(now, &current_session)? {
                     Ok(vec![events::Event::FlushSession(current_session)])
                 } else {
                     Ok(vec![])
@@ -37,22 +37,22 @@ impl<'handler> Handler<'handler> {
     }
 }
 
-pub(super) fn should_flush(now: time::SystemTime, session: &sessions::Session) -> bool {
-    !is_session_active(now, session) || is_session_too_old(now, session)
+pub(super) fn should_flush(now: time::SystemTime, session: &sessions::Session) -> Result<bool> {
+    Ok(!is_session_active(now, session)? || is_session_too_old(now, session)?)
 }
 
 const ONE_HOUR: time::Duration = time::Duration::new(60 * 60, 0);
 
-fn is_session_too_old(now: time::SystemTime, session: &sessions::Session) -> bool {
-    let session_start = time::UNIX_EPOCH
-        + time::Duration::from_millis(session.meta.start_timestamp_ms.try_into().unwrap());
-    session_start + ONE_HOUR < now
+fn is_session_too_old(now: time::SystemTime, session: &sessions::Session) -> Result<bool> {
+    let session_start =
+        time::UNIX_EPOCH + time::Duration::from_millis(session.meta.start_timestamp_ms.try_into()?);
+    Ok(session_start + ONE_HOUR < now)
 }
 
 const FIVE_MINUTES: time::Duration = time::Duration::new(5 * 60, 0);
 
-fn is_session_active(now: time::SystemTime, session: &sessions::Session) -> bool {
-    let session_last_update = time::UNIX_EPOCH
-        + time::Duration::from_millis(session.meta.last_timestamp_ms.try_into().unwrap());
-    session_last_update + FIVE_MINUTES > now
+fn is_session_active(now: time::SystemTime, session: &sessions::Session) -> Result<bool> {
+    let session_last_update =
+        time::UNIX_EPOCH + time::Duration::from_millis(session.meta.last_timestamp_ms.try_into()?);
+    Ok(session_last_update + FIVE_MINUTES > now)
 }

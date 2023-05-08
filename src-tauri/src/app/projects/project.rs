@@ -14,12 +14,14 @@ pub struct ApiProject {
     pub sync: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Project {
     pub id: String,
     pub title: String,
     pub path: String,
     pub api: Option<ApiProject>,
+    #[serde(default)]
+    pub last_fetched_ts: Option<u128>,
 }
 
 impl AsRef<Project> for Project {
@@ -70,6 +72,7 @@ impl Project {
             title,
             path: path.to_str().unwrap().to_string(),
             api: None,
+            ..Default::default()
         };
 
         Ok(project)
