@@ -137,7 +137,7 @@
 			<div class="flex gap-2 text-xl">Chat GitButler</div>
 
 			<div class="flex items-center gap-2">
-				<Button role="basic" height="small" on:click={setupChat}>Reset chat</Button>
+				<Button color="basic" height="small" on:click={setupChat}>Reset chat</Button>
 			</div>
 		</div>
 
@@ -282,7 +282,7 @@
 				/>
 				<Button
 					disabled={chatInput.length == 0 || !chatId}
-					role="primary"
+					color="primary"
 					on:click={() => {
 						newChatMessage(chatId, chatInput).then((data) => {
 							requestedSeq = +data;
@@ -303,7 +303,7 @@
 	</div>
 </div>
 
-<style>
+<style lang="postcss">
 	.chat-user-avatar {
 		@apply relative flex h-[40px] w-[40px] items-center justify-center rounded-full p-2;
 	}

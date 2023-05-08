@@ -16,7 +16,7 @@
 				<slot name="title">Title</slot>
 			</h2>
 
-			<Button filled={false} on:click={close} icon={IconClose} />
+			<Button kind="plain" on:click={close} icon={IconClose} />
 		</header>
 
 		{#if $$slots.default}
@@ -27,8 +27,8 @@
 
 		<footer class="flex w-full justify-end gap-4 p-4">
 			<slot name="controls" {close}>
-				<Button filled={false} outlined={true} on:click={close}>Secondary action</Button>
-				<Button role="primary" on:click={close}>Primary action</Button>
+				<Button kind="outlined" on:click={close}>Secondary action</Button>
+				<Button color="primary" on:click={close}>Primary action</Button>
 			</slot>
 		</footer>
 	</div>

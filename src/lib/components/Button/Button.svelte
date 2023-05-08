@@ -2,15 +2,17 @@
 	import { onMount, type ComponentType } from 'svelte';
 	import { IconLoading } from '../icons';
 
-	export let role: 'basic' | 'primary' | 'destructive' | 'purple' = 'basic';
-	export let filled = true;
-	export let outlined = false;
+	export let color: 'basic' | 'primary' | 'destructive' | 'purple' = 'basic';
+	export let kind: 'plain' | 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
 	export let height: 'basic' | 'small' = 'basic';
 	export let width: 'basic' | 'full-width' = 'basic';
 	export let type: 'button' | 'submit' = 'button';
 	export let icon: ComponentType | undefined = undefined;
 	export let loading = false;
+
+	let filled = kind === 'filled';
+	let outlined = kind === 'outlined';
 
 	let element: HTMLAnchorElement | HTMLButtonElement;
 
@@ -20,7 +22,7 @@
 </script>
 
 <button
-	class={role}
+	class={color}
 	class:small={height === 'small'}
 	class:full-width={width === 'full-width'}
 	class:pointer-events-none={loading}
@@ -54,7 +56,7 @@
 
 <style lang="postcss">
 	button {
-		@apply relative flex h-[36px] w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium transition transition duration-150 ease-in-out ease-out hover:ease-in;
+		@apply relative flex h-[36px] w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium underline transition transition duration-150 ease-in-out ease-out hover:ease-in;
 	}
 
 	button:focus {
@@ -65,70 +67,85 @@
 		@apply text-zinc-300;
 	}
 	.basic:hover {
-		@apply bg-[#D4D4D8]/20;
+		@apply bg-[#D4D4D833]/20 no-underline;
+	}
+	.basic:active {
+		@apply bg-transparent no-underline;
 	}
 	.basic.outlined {
-		@apply border-zinc-500;
+		@apply border-[#3F3F46] no-underline;
 	}
 	.basic.outlined:hover {
-		@apply bg-[#FFFFFF1A]/10;
+		@apply bg-[#3F3F46]/20;
 	}
 	.basic.filled {
-		@apply bg-zinc-500;
+		@apply bg-[#3F3F46] no-underline;
 	}
 	.basic.filled:hover {
-		@apply bg-zinc-600;
+		@apply bg-[#35353B];
 	}
 
 	.primary {
 		@apply text-blue-500;
 	}
 	.primary:hover {
-		@apply bg-[#3B82F6]/20;
+		@apply bg-[#3B82F6]/20 no-underline;
+	}
+	.primary:disabled {
+		@apply text-[#BDC1CC] no-underline opacity-100;
+	}
+	.primary:active {
+		@apply bg-transparent text-blue-700 underline;
 	}
 	.primary.outlined {
-		@apply border-[#3662E3];
+		@apply border-[#3662E3] no-underline;
 	}
 	.primary.outlined:hover {
 		@apply bg-[#1C48C94D]/20;
 	}
 	.primary.filled {
-		@apply bg-blue-600;
+		@apply bg-blue-600 no-underline;
 	}
 	.primary.filled:hover {
 		@apply bg-[#1C48C9];
 	}
 
 	.destructive {
-		@apply text-red-600;
+		@apply text-red-600 no-underline;
 	}
 	.destructive:hover {
 		@apply bg-[#DC2626]/20;
 	}
-	.destructive.outlined {
-		@apply border-[#E33636];
-	}
-	.destructive.outlined:hover {
-		@apply bg-[#E336364D]/30;
+	.destructive:active {
+		@apply bg-transparent text-red-400;
 	}
 	.destructive.filled {
-		@apply bg-[#E33636];
+		@apply bg-[#BF4545] text-zinc-50 no-underline;
+	}
+	.destructive.filled:disabled {
+		@apply bg-[#EB2525];
 	}
 	.destructive.filled:hover {
 		@apply bg-[#C91C1C];
+	}
+	.destructive.outlined {
+		@apply border-[#BF4545] text-[#BF4545] no-underline;
+	}
+	.destructive.outlined:hover {
+		@apply bg-[#E3363633]/20;
 	}
 
 	.purple {
 		@apply text-[#5852A0];
 	}
 	.purple.outlined {
-		@apply border-[#524C93];
+		@apply border-[#524C93] no-underline;
 	}
 	.purple.outlined:hover {
 		@apply bg-[#524C93]/20;
 	}
 	.purple.filled {
-		@apply bg-[#5852A0];
+		@apply bg-[#5852A0] no-underline;
 	}
 	.purple.filled:hover {
 		@apply bg-[#423E7A];

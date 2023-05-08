@@ -44,11 +44,6 @@
 </script>
 
 <div class="flex items-center justify-center space-x-3 text-zinc-600">
-	<Button filled={false} on:click={onBackClicked} disabled={!canGoBack} icon={IconArrowLeft} />
-	<Button
-		filled={false}
-		on:click={onForwardClicked}
-		icon={IconArrowRight}
-		disabled={!canGoForward}
-	/>
+	<Button kind="plain" on:click={onBackClicked} disabled={!canGoBack} icon={IconArrowLeft} />
+	<Button kind="plain" on:click={onForwardClicked} icon={IconArrowRight} disabled={!canGoForward} />
 </div>

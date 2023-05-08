@@ -142,7 +142,7 @@
 						<h3 class="mt-2 text-lg font-semibold text-zinc-300">No projects</h3>
 						<p class="mt-1 text-gray-500">Get started by tracking a project you're working on.</p>
 						<div class="mt-6">
-							<Button role="primary" on:click={onAddLocalRepositoryClick}>
+							<Button color="primary" on:click={onAddLocalRepositoryClick}>
 								Start Tracking a Project
 							</Button>
 						</div>
@@ -160,7 +160,7 @@
 							</div>
 							<div>
 								<Tooltip label="Adds a git repository on your computer to GitButler">
-									<Button role="primary" on:click={onAddLocalRepositoryClick}>
+									<Button color="primary" on:click={onAddLocalRepositoryClick}>
 										Track a New Project
 									</Button>
 								</Tooltip>

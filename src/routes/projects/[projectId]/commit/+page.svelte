@@ -237,8 +237,8 @@
 		</p>
 	</div>
 	<svelte:fragment slot="controls" let:close>
-		<Button filled={false} outlined={true} on:click={close}>Cancel</Button>
-		<Button role="primary" on:click={() => enableProjectSync().finally(close)}>Connect</Button>
+		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button color="primary" on:click={() => enableProjectSync().finally(close)}>Connect</Button>
 	</svelte:fragment>
 </Dialog>
 
@@ -366,7 +366,7 @@
 
 				<div class="flex justify-between">
 					<Button
-						role="purple"
+						color="purple"
 						disabled={!isGenerateCommitEnabled}
 						on:click={onGenerateCommitMessage}
 						loading={isGeneratingCommitMessage}
@@ -377,7 +377,7 @@
 					<Button
 						loading={isCommitting}
 						disabled={!isCommitEnabled || isGeneratingCommitMessage}
-						role="primary"
+						color="primary"
 						type="submit"
 					>
 						Commit changes

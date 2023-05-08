@@ -138,9 +138,9 @@
 						</div>
 
 						<footer class="flex justify-end pt-4">
-							<Button disabled={!canTriggerUpdate} loading={saving} role="primary" type="submit"
-								>Update profile</Button
-							>
+							<Button disabled={!canTriggerUpdate} loading={saving} color="primary" type="submit">
+								Update profile
+							</Button>
 						</footer>
 					</fields>
 				</form>

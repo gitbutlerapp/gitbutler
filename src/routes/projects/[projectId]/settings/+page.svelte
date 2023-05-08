@@ -218,11 +218,15 @@
 				</fieldset>
 
 				<footer class="flex justify-between">
-					<Button role="destructive" filled={false} on:click={() => deleteConfirmationDialog.show()}
-						>Delete project</Button
+					<Button
+						color="destructive"
+						kind="outlined"
+						on:click={() => deleteConfirmationDialog.show()}
 					>
+						Delete project
+					</Button>
 
-					<Button disabled={!canTriggerUpdate} loading={saving} role="primary" type="submit">
+					<Button disabled={!canTriggerUpdate} loading={saving} color="primary" type="submit">
 						Update project
 					</Button>
 				</footer>
@@ -238,13 +242,13 @@
 
 	<p>
 		Are you sure you want to delete the project,
-		<span class="font-bold text-white">hugo-ianthedesigner</span>? This can’t be undone.
+		<span class="font-bold text-white">{$project.title}</span>? This can’t be undone.
 	</p>
 
 	<svelte:fragment slot="controls" let:close>
-		<Button filled={false} outlined={true} on:click={close}>Cancel</Button>
-		<Button role="destructive" loading={isDeleting} on:click={onDeleteClicked}
-			>Delete project</Button
-		>
+		<Button kind="outlined" on:click={close}>Cancel</Button>
+		<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>
+			Delete project
+		</Button>
 	</svelte:fragment>
 </Dialog>

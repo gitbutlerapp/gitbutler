@@ -81,11 +81,11 @@
 					</div>
 				</Tooltip>
 				{#await statuses.load()}
-					<Button disabled role="primary">Commit changes</Button>
+					<Button disabled color="primary">Commit changes</Button>
 				{:then}
 					<Button
 						disabled={Object.keys($statuses).length === 0}
-						role="primary"
+						color="primary"
 						on:click={() => goto(`/projects/${$project?.id}/commit`)}
 					>
 						Commit changes
