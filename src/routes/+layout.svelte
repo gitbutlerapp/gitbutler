@@ -1,10 +1,15 @@
 <script lang="ts">
 	import '../app.postcss';
 
-	import { open } from '@tauri-apps/api/dialog';
-	import { toasts, Toaster } from '$lib';
+	import { Toaster } from '$lib';
 	import type { LayoutData } from './$types';
-	import { BackForwardButtons, Link, CommandPalette, Breadcrumbs } from '$lib/components';
+	import {
+		BackForwardButtons,
+		Link,
+		CommandPalette,
+		Breadcrumbs,
+		OpenNewProjectModal
+	} from '$lib/components';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
 	import { onMount } from 'svelte';
@@ -13,43 +18,29 @@
 
 	export let data: LayoutData;
 	const { user, posthog, projects, sentry, events, hotkeys } = data;
-	$: console.log($user);
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects?.find((project) => project.id === page.params.projectId)
 	);
 
 	let commandPalette: CommandPalette;
+	let openNewProjectModal: OpenNewProjectModal;
 
 	onMount(() =>
 		unsubscribe(
-			events.on('openNewProjectModal', async () => {
-				const selectedPath = await open({
-					directory: true,
-					recursive: true
-				});
-				if (selectedPath === null) return;
-				if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-				const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
-
-				try {
-					await projects.add({ path: projectPath });
-				} catch (e: any) {
-					toasts.error(e.message);
-				}
-			}),
+			events.on('openNewProjectModal', () => openNewProjectModal?.show()),
 			events.on('openCommandPalette', () => commandPalette?.show()),
 			events.on('closeCommandPalette', () => commandPalette?.close()),
 			events.on('goto', (path: string) => goto(path)),
 
 			hotkeys.on('Meta+k', () => events.emit('openCommandPalette')),
 			hotkeys.on('Meta+,', () => events.emit('goto', '/users/')),
-			hotkeys.on('Meta+Shift+N', () => events.emit('openNewProjectModal'))
+			hotkeys.on('Meta+Shift+N', () => events.emit('openNewProjectModal')),
+
+			user.subscribe(posthog.identify),
+			user.subscribe(sentry.identify)
 		)
 	);
-
-	user.subscribe(posthog.identify);
-	user.subscribe(sentry.identify);
 </script>
 
 <div class="flex h-full max-h-full min-h-full flex-col">
@@ -85,12 +76,8 @@
 	</div>
 	<Toaster />
 	{#await Promise.all([projects.load(), project.load()]) then}
-		<CommandPalette
-			bind:this={commandPalette}
-			{projects}
-			{project}
-			addProject={projects.add}
-			{events}
-		/>
+		<CommandPalette bind:this={commandPalette} {projects} {project} {events} />
 	{/await}
 </div>
+
+<OpenNewProjectModal bind:this={openNewProjectModal} {projects} />
