@@ -15,7 +15,7 @@
 	import { unsubscribe } from '$lib/utils';
 
 	export let data: PageData;
-	let { statuses, diffs, user, api, projectId, project, hotkeys } = data;
+	let { statuses, diffs, user, cloud, projectId, project, hotkeys } = data;
 
 	let fullContext = false;
 	let context = 3;
@@ -133,7 +133,7 @@
 		description = '';
 
 		isGeneratingCommitMessage = true;
-		api.summarize
+		cloud.summarize
 			.commit($user.access_token, {
 				diff,
 				uid: projectId
@@ -182,7 +182,7 @@
 
 		try {
 			if (!$project.api) {
-				const apiProject = await api.projects.create($user.access_token, {
+				const apiProject = await cloud.projects.create($user.access_token, {
 					name: $project.title,
 					uid: $project.id
 				});

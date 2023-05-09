@@ -6,10 +6,10 @@
 	import Button from './Button';
 
 	export let user: Awaited<ReturnType<typeof users.CurrentUser>>;
-	export let api: Awaited<ReturnType<typeof CloudApi>>;
+	export let cloud: Awaited<ReturnType<typeof CloudApi>>;
 
 	const pollForUser = async (token: string) => {
-		const apiUser = await api.login.user.get(token).catch(() => null);
+		const apiUser = await cloud.login.user.get(token).catch(() => null);
 		if (apiUser) {
 			user.set(apiUser);
 			return apiUser;
@@ -25,7 +25,7 @@
 	const onSignUpOrLoginClick = () => {
 		Promise.resolve()
 			.then(() => (signUpOrLoginLoading = true))
-			.then(api.login.token.create)
+			.then(cloud.login.token.create)
 			.then(token.set)
 			.catch((e) => {
 				log.error(e);

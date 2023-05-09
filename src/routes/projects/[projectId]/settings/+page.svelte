@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 
 	export let data: PageData;
-	const { project, user, api } = data;
+	const { project, user, cloud } = data;
 
 	const repo_id = (url: string) => {
 		const hurl = new URL(url);
@@ -30,7 +30,7 @@
 
 		try {
 			if (!$project.api) {
-				const apiProject = await api.projects.create($user.access_token, {
+				const apiProject = await cloud.projects.create($user.access_token, {
 					name: $project.title,
 					uid: $project.id
 				});
@@ -65,7 +65,7 @@
 
 		try {
 			if (name) {
-				const updated = await api.projects.update($user.access_token, $project?.api.repository_id, {
+				const updated = await cloud.projects.update($user.access_token, $project?.api.repository_id, {
 					name,
 					description
 				});
@@ -169,7 +169,7 @@
 						<div class="text-zinc-400">backup your work and access advanced features</div>
 					</div>
 					<div class="flex flex-row items-center space-x-2">
-						<Login {user} {api} />
+						<Login {user} {cloud} />
 					</div>
 				</div>
 			{/if}
