@@ -11,7 +11,6 @@
 	import type Events from '$lib/events';
 
 	export let projects: Readable<Project[]>;
-	export let addProject: (params: { path: string }) => Promise<Project>;
 	export let project = readable<Project | undefined>(undefined);
 	export let events: ReturnType<typeof Events>;
 
@@ -26,7 +25,6 @@
 			selectedGroup !== undefined
 				? [selectedGroup]
 				: listAvailableCommands({
-						addProject,
 						projects,
 						project: scopeToProject ? project : undefined,
 						input,

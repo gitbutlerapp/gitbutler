@@ -1,7 +1,5 @@
 import { type Project, git } from '$lib/api';
-import { open } from '@tauri-apps/api/dialog';
 import type Events from '$lib/events';
-import { toasts } from '$lib';
 import {
 	IconGitCommit,
 	IconFile,
@@ -49,11 +47,11 @@ export type Group = {
 };
 
 const projectsGroup = ({
-	addProject,
+	events,
 	projects,
 	input
 }: {
-	addProject: (params: { path: string }) => Promise<Project>;
+	events: ReturnType<typeof Events>;
 	projects: Project[];
 	input: string;
 }): Group => ({
@@ -63,21 +61,7 @@ const projectsGroup = ({
 			title: 'New project...',
 			hotkey: 'Meta+Shift+N',
 			icon: IconFile,
-			action: async () => {
-				const selectedPath = await open({
-					directory: true,
-					recursive: true
-				});
-				if (selectedPath === null) return;
-				if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-				const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
-
-				try {
-					addProject({ path: projectPath });
-				} catch (e: any) {
-					toasts.error(e.message);
-				}
-			}
+			action: () => events.emit('openNewProjectModal')
 		},
 		...projects
 			.filter(
@@ -235,18 +219,17 @@ const supportGroup = ({ input }: { input: string }): Group => ({
 });
 
 export default (params: {
-	addProject: (params: { path: string }) => Promise<Project>;
 	projects: Project[];
 	project?: Project;
 	input: string;
 	events: ReturnType<typeof Events>;
 }) => {
-	const { addProject, projects, input, project, events } = params;
+	const { projects, input, project, events } = params;
 	const groups = [];
 
 	groups.push(commandsGroup({ project, input, events }));
 	groups.push(navigateGroup({ project, input }));
-	!project && groups.push(projectsGroup({ addProject, projects, input }));
+	!project && groups.push(projectsGroup({ events, projects, input }));
 	project && groups.push(fileGroup({ project, input }));
 	groups.push(supportGroup({ input }));
 

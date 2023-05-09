@@ -1,28 +1,10 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { open } from '@tauri-apps/api/dialog';
-	import { toasts } from '$lib';
 	import { Button, Tooltip } from '$lib/components';
 
 	export let data: LayoutData;
 
-	const { projects } = data;
-
-	const onAddLocalRepositoryClick = async () => {
-		const selectedPath = await open({
-			directory: true,
-			recursive: true
-		});
-		if (selectedPath === null) return;
-		if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-		const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
-
-		try {
-			await projects.add({ path: projectPath });
-		} catch (e: any) {
-			toasts.error(e.message);
-		}
-	};
+	const { projects, events } = data;
 </script>
 
 <div class="h-full w-full p-8">
@@ -142,7 +124,7 @@
 						<h3 class="mt-2 text-lg font-semibold text-zinc-300">No projects</h3>
 						<p class="mt-1 text-gray-500">Get started by tracking a project you're working on.</p>
 						<div class="mt-6">
-							<Button color="primary" on:click={onAddLocalRepositoryClick}>
+							<Button color="primary" on:click={() => events.emit('openNewProjectModal')}>
 								Start Tracking a Project
 							</Button>
 						</div>
@@ -160,7 +142,7 @@
 							</div>
 							<div>
 								<Tooltip label="Adds a git repository on your computer to GitButler">
-									<Button color="primary" on:click={onAddLocalRepositoryClick}>
+									<Button color="primary" on:click={() => events.emit('openNewProjectModal')}>
 										Track a New Project
 									</Button>
 								</Tooltip>
