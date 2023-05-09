@@ -34,7 +34,5 @@ vite.config.ts.timestamp-*
 .git/gb-*
 src-tauri/data.txt
 
-# storybook
-storybook-static
 
-
+/.histoire

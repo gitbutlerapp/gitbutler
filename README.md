@@ -21,12 +21,12 @@ Now you should be able to run the app in development mode:
 $ pnpm tauri dev
 ```
 
-### Running Storybook
+### Running Stories
 
-Storybook is our easy way to view our app components. Running the following command will launch Storybook in your default browser.
+Stories is our easy way to view our app components. Running the following command will launch in your default browser.
 
 ```bash
-$ pnpm storybook dev
+$ pnpm story:dev
 ```
 
 ### Linting
