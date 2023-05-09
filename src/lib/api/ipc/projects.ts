@@ -6,7 +6,7 @@ export type Project = {
 	id: string;
 	title: string;
 	path: string;
-	api: ApiProject & { sync: boolean };
+	api?: ApiProject & { sync: boolean };
 };
 
 export const list = () => invoke<Project[]>('list_projects');
@@ -25,36 +25,31 @@ export const del = (params: { id: string }) => invoke('delete_project', params);
 
 const store = asyncWritable([], list);
 
-export const Projects = () => {
-	return {
-		...store,
-		get: async (id: string) => {
-			await store.load();
-			const project = derived(store, (projects) => {
+export const Projects = () => ({
+	...store,
+	get: async (id: string) =>
+		store.load().then(() => ({
+			...derived(store, (projects) => {
 				const project = projects.find((p) => p.id === id);
 				if (!project) throw new Error(`Project ${id} not found`);
 				return project;
-			});
-			return {
-				...project,
-				update: (params: { title?: string; api?: Project['api'] }) =>
-					update({
-						project: {
-							id,
-							...params
-						}
-					}).then((project) => {
-						store.update((projects) => projects.map((p) => (p.id === project.id ? project : p)));
-						return project;
-					}),
-				delete: () =>
-					del({ id }).then(() => store.update((projects) => projects.filter((p) => p.id !== id)))
-			};
-		},
-		add: (params: { path: string }) =>
-			add(params).then((project) => {
-				store.update((projects) => [...projects, project]);
-				return project;
-			})
-	};
-};
+			}),
+			update: (params: { title?: string; api?: Project['api'] }) =>
+				update({
+					project: {
+						id,
+						...params
+					}
+				}).then((project) => {
+					store.update((projects) => projects.map((p) => (p.id === project.id ? project : p)));
+					return project;
+				}),
+			delete: () =>
+				del({ id }).then(() => store.update((projects) => projects.filter((p) => p.id !== id)))
+		})),
+	add: (params: { path: string }) =>
+		add(params).then((project) => {
+			store.update((projects) => [...projects, project]);
+			return project;
+		})
+});

@@ -22,3 +22,5 @@ export { default as IconSearch } from './IconSearch.svelte';
 export { default as IconSparkle } from './IconSparkle.svelte';
 export { default as IconArrowLeft } from './IconArrowLeft.svelte';
 export { default as IconArrowRight } from './IconArrowRight.svelte';
+export { default as IconBookmark } from './IconBookmark.svelte';
+export { default as IconFolder } from './IconFolder.svelte';

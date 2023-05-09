@@ -8,7 +8,7 @@
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Dialog } from '$lib/components';
-	import { log } from '$lib';
+	import { log, api } from '$lib';
 	import IconChevronUp from '$lib/components/icons/IconChevronUp.svelte';
 	import IconChevronDown from '$lib/components/icons/IconChevronDown.svelte';
 	import { onMount } from 'svelte';

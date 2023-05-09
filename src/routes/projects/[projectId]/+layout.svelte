@@ -9,6 +9,7 @@
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
 	import { format } from 'date-fns';
+	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	export let data: LayoutData;
 	const { hotkeys, events, user, cloud, project, head, statuses, diffs } = data;
@@ -17,22 +18,15 @@
 
 	const onSearchSubmit = () => goto(`/projects/${$project?.id}/search?q=${query}`);
 
-	function projectUrl(project: Project) {
-		const gitUrl = project.api?.git_url;
-		// get host from git url
-		const url = new URL(gitUrl);
-		const host = url.origin;
-		const projectId = gitUrl.split('/').pop();
-
-		return `${host}/projects/${projectId}`;
-	}
+	const projectUrl = (project: Project) =>
+		new URL(`/projects/${project.id}`, new URL(PUBLIC_API_BASE_URL)).toString();
 
 	$: selection = $page?.route?.id?.split('/')?.[3];
 
 	let quickCommitModal: QuickCommitModal;
 	onMount(() =>
 		unsubscribe(
-			events.on('openQuickCommitModal', () => quickCommitModal.show()),
+			events.on('openQuickCommitModal', () => quickCommitModal?.show()),
 
 			hotkeys.on('C', () => events.emit('openQuickCommitModal')),
 			hotkeys.on('Meta+Shift+C', () => goto(`/projects/${$project.id}/commit/`)),

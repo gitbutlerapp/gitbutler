@@ -139,7 +139,7 @@
 		<h2 class="px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
 
 		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-5 pb-8">
-			{#await fileDeltas.load()}
+			{#await Promise.all([fileDeltas.load(), project])}
 				<li>
 					<IconLoading class="animate-spin" />
 				</li>
