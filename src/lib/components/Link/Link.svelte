@@ -11,10 +11,10 @@
 	let element: HTMLAnchorElement | HTMLButtonElement;
 
 	onMount(() => {
-		element.ariaLabel = element.innerText.trim();
+		element.ariaLabel = element.innerText?.trim();
 	});
 
-	const isExternal = href?.startsWith('http');
+	$: isExternal = href?.startsWith('http');
 </script>
 
 <a {href} {target} {rel} class={role} bind:this={element} class:disabled on:click>

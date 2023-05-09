@@ -16,3 +16,5 @@ yarn.lock
 /.github
 /.vscode
 /src-tauri
+
+/.histoire

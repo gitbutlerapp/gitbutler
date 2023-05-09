@@ -11,13 +11,13 @@
 	export let icon: ComponentType | undefined = undefined;
 	export let loading = false;
 
-	let filled = kind === 'filled';
-	let outlined = kind === 'outlined';
+	$: filled = kind === 'filled';
+	$: outlined = kind === 'outlined';
 
 	let element: HTMLAnchorElement | HTMLButtonElement;
 
 	onMount(() => {
-		element.ariaLabel = element.innerText.trim();
+		element.ariaLabel = element.innerText?.trim();
 	});
 </script>
 
