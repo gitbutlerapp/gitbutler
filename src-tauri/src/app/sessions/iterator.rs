@@ -14,9 +14,17 @@ impl<'iterator> SessionsIterator<'iterator> {
         let mut iter = git_repository
             .revwalk()
             .context("failed to create revwalk")?;
-        iter.push_head().context("failed to push HEAD to revwalk")?;
+
         iter.set_sorting(git2::Sort::TOPOLOGICAL)
             .context("failed to set sorting")?;
+
+        let mut branches = git_repository.branches(None)?;
+        while let Some(branch) = branches.next() {
+            let (branch, _) = branch.context("failed to get branch")?;
+            iter.push(branch.get().peel_to_commit()?.id())
+                .with_context(|| format!("failed to push branch {:?}", branch.name()))?;
+        }
+
         Ok(Self {
             git_repository,
             iter,
@@ -38,7 +46,7 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
                 if commit.parent_count() == 0 {
                     // skip initial commit, as it's impossible to get a list of files from it
                     // it's only used to bootstrap the history
-                    return None;
+                    return self.next();
                 }
 
                 let commit_reader = match CommitReader::from_commit(self.git_repository, commit) {
@@ -69,9 +77,17 @@ impl<'iterator> SessionsIdsIterator<'iterator> {
         let mut iter = git_repository
             .revwalk()
             .context("failed to create revwalk")?;
-        iter.push_head().context("failed to push HEAD to revwalk")?;
+
         iter.set_sorting(git2::Sort::TOPOLOGICAL)
             .context("failed to set sorting")?;
+
+        let mut branches = git_repository.branches(None)?;
+        while let Some(branch) = branches.next() {
+            let (branch, _) = branch.context("failed to get branch")?;
+            iter.push(branch.get().peel_to_commit()?.id())
+                .with_context(|| format!("failed to push branch {:?}", branch.name()))?;
+        }
+
         Ok(Self {
             git_repository,
             iter,
@@ -89,6 +105,13 @@ impl<'iterator> Iterator for SessionsIdsIterator<'iterator> {
                     Result::Ok(commit) => commit,
                     Err(err) => return Some(Err(err.into())),
                 };
+
+                if commit.parent_count() == 0 {
+                    // skip initial commit, as it's impossible to get a list of files from it
+                    // it's only used to bootstrap the history
+                    return self.next();
+                }
+
                 let commit_reader = match CommitReader::from_commit(self.git_repository, commit) {
                     Result::Ok(commit_reader) => commit_reader,
                     Err(err) => return Some(Err(err)),
