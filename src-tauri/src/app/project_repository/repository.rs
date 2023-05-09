@@ -24,10 +24,6 @@ impl<'repository> Repository<'repository> {
         })
     }
 
-    pub fn get_project(&self) -> &'repository projects::Project {
-        self.project
-    }
-
     pub fn get_head(&self) -> Result<git2::Reference> {
         let head = self.git_repository.head()?;
         Ok(head)
@@ -54,10 +50,7 @@ impl<'repository> Repository<'repository> {
         self.git_repository.path().parent().unwrap()
     }
 
-    pub fn git_activity(
-        &self,
-        start_time_ms: Option<u128>,
-    ) -> Result<Vec<activity::Activity>> {
+    pub fn git_activity(&self, start_time_ms: Option<u128>) -> Result<Vec<activity::Activity>> {
         let head_logs_path = self.git_repository.path().join("logs").join("HEAD");
 
         if !head_logs_path.exists() {

@@ -114,7 +114,7 @@ impl Repository {
         &self.project_id
     }
 
-    pub fn fetch(&self) -> Result<bool> {
+    fn remote(&self) -> Result<Option<(git2::Remote, String)>> {
         let user = self.users_store.get().context("failed to get user")?;
         let project = self
             .project_store
@@ -126,16 +126,16 @@ impl Repository {
         // only push if logged in
         let access_token = match user {
             Some(user) => user.access_token.clone(),
-            None => return Ok(false),
+            None => return Ok(None),
         };
 
         // only push if project is connected
         let remote_url = match project.api {
             Some(ref api) => api.git_url.clone(),
-            None => return Ok(false),
+            None => return Ok(None),
         };
 
-        let mut remote = self
+        let remote = self
             .git_repository
             .remote_anonymous(remote_url.as_str())
             .with_context(|| {
@@ -145,12 +145,20 @@ impl Repository {
                 )
             })?;
 
-        let mut callbacks = git2::RemoteCallbacks::new();
+        Ok(Some((remote, access_token)))
+    }
 
+    pub fn fetch(&self) -> Result<bool> {
+        let (mut remote, access_token) = match self.remote()? {
+            Some((remote, access_token)) => (remote, access_token),
+            None => return Ok(false),
+        };
+
+        let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
             log::info!(
                 "{}: pulling reference '{}': {:?}",
-                project.id,
+                self.project_id,
                 refname,
                 message
             );
@@ -159,7 +167,7 @@ impl Repository {
         callbacks.push_transfer_progress(move |one, two, three| {
             log::info!(
                 "{}: transferred {}/{}/{} objects",
-                project.id,
+                self.project_id,
                 one,
                 two,
                 three
@@ -178,11 +186,65 @@ impl Repository {
                 Some(&mut fetch_opts),
                 None,
             )
-            .with_context(|| format!("failed to pull from remote {}", remote_url.as_str()))?;
+            .with_context(|| format!("failed to pull from remote {}", remote.url().unwrap()))?;
 
-        log::info!("{}: fetched from {}", project.id, remote_url.as_str());
+        log::info!(
+            "{}: fetched from {}",
+            self.project_id,
+            remote.url().unwrap()
+        );
 
         Ok(true)
+    }
+
+    fn push(&self) -> Result<()> {
+        let (mut remote, access_token) = match self.remote()? {
+            Some((remote, access_token)) => (remote, access_token),
+            None => return Ok(()),
+        };
+
+        // Set the remote's callbacks
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.push_update_reference(move |refname, message| {
+            log::info!(
+                "{}: pushing reference '{}': {:?}",
+                self.project_id,
+                refname,
+                message
+            );
+            Result::Ok(())
+        });
+        callbacks.push_transfer_progress(move |one, two, three| {
+            log::info!(
+                "{}: transferred {}/{}/{} objects",
+                self.project_id,
+                one,
+                two,
+                three
+            );
+        });
+
+        let mut push_options = git2::PushOptions::new();
+        push_options.remote_callbacks(callbacks);
+        let auth_header = format!("Authorization: {}", access_token);
+        let headers = &[auth_header.as_str()];
+        push_options.custom_headers(headers);
+
+        let remote_refspec = format!("refs/heads/current:refs/heads/{}", self.project_id);
+
+        // Push to the remote
+        remote
+            .push(&[remote_refspec], Some(&mut push_options))
+            .with_context(|| {
+                format!(
+                    "failed to push refs/heads/current to {}",
+                    remote.url().unwrap()
+                )
+            })?;
+
+        log::info!("{}: pushed to {}", self.project_id, remote.url().unwrap());
+
+        Ok(())
     }
 
     fn create_current_session(
@@ -351,7 +413,7 @@ impl Repository {
 
         std::fs::remove_dir_all(self.root()).context("failed to remove session directory")?;
 
-        if let Err(e) = push_to_remote(&self, &user, project_repository.get_project()) {
+        if let Err(e) = self.push() {
             log::error!("{}: failed to push to remote: {:#}", self.project_id, e);
         }
 
@@ -1020,77 +1082,4 @@ fn write_gb_commit(
             }
         }
     }
-}
-
-// try to push the new gb history head to the remote
-fn push_to_remote(
-    gb_repository: &Repository,
-    user: &Option<users::User>,
-    project: &projects::Project,
-) -> Result<()> {
-    // only push if logged in
-    let access_token = match user {
-        Some(user) => user.access_token.clone(),
-        None => return Ok(()),
-    };
-
-    // only push if project is connected
-    let remote_url = match project.api {
-        Some(ref api) => api.git_url.clone(),
-        None => return Ok(()),
-    };
-
-    log::info!("{}: pushing to {}", project.id, remote_url);
-
-    // Create an anonymous remote
-    let mut remote = gb_repository
-        .git_repository
-        .remote_anonymous(remote_url.as_str())
-        .with_context(|| {
-            format!(
-                "failed to create anonymous remote for {}",
-                remote_url.as_str()
-            )
-        })?;
-
-    // Set the remote's callbacks
-    let mut callbacks = git2::RemoteCallbacks::new();
-    callbacks.push_update_reference(move |refname, message| {
-        log::info!(
-            "{}: pushing reference '{}': {:?}",
-            project.id,
-            refname,
-            message
-        );
-        Result::Ok(())
-    });
-    callbacks.push_transfer_progress(move |one, two, three| {
-        log::info!(
-            "{}: transferred {}/{}/{} objects",
-            project.id,
-            one,
-            two,
-            three
-        );
-    });
-
-    let mut push_options = git2::PushOptions::new();
-    push_options.remote_callbacks(callbacks);
-    let auth_header = format!("Authorization: {}", access_token);
-    let headers = &[auth_header.as_str()];
-    push_options.custom_headers(headers);
-
-    let remote_refspec = format!("refs/heads/current:refs/heads/{}", project.id.as_str());
-
-    // Push to the remote
-    remote
-        .push(&[remote_refspec], Some(&mut push_options))
-        .with_context(|| {
-            format!(
-                "failed to push refs/heads/current to {}",
-                remote_url.as_str()
-            )
-        })?;
-
-    Ok(())
 }
