@@ -6,6 +6,12 @@ use crate::{
     projects, storage, users,
 };
 
+fn remote_repository() -> Result<git2::Repository> {
+    let path = tempdir()?.path().to_str().unwrap().to_string();
+    let repository = git2::Repository::init_bare(&path)?;
+    Ok(repository)
+}
+
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
     let repository = git2::Repository::init(&path)?;
@@ -351,6 +357,99 @@ fn test_list_files_from_flushed_session() -> Result<()> {
 
     assert_eq!(files.len(), 1);
     assert_eq!(files.get("test.txt").unwrap(), "Hello World");
+
+    Ok(())
+}
+
+#[test]
+fn test_remote_syncronization() -> Result<()> {
+    // first, crate a remote, pretending it's a cloud
+    let remote = remote_repository()?;
+    println!("remote: {:?}", remote.path());
+    let api_project = projects::ApiProject {
+        name: "test-sync".to_string(),
+        description: None,
+        repository_id: "123".to_string(),
+        git_url: remote.path().to_str().unwrap().to_string(),
+        created_at: 0.to_string(),
+        updated_at: 0.to_string(),
+        sync: true,
+    };
+
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
+    println!("gb_repos_path: {:?}", gb_repos_path);
+    let user_store = users::Storage::new(storage);
+    user_store.set(&users::User {
+        name: "test".to_string(),
+        email: "test@email.com".to_string(),
+        ..Default::default()
+    })?;
+
+    // create first local project, add files, deltas and flush a session
+    let repository_one = test_repository()?;
+    let project_one = test_project(&repository_one)?;
+    project_store.add_project(&projects::Project {
+        api: Some(api_project.clone()),
+        ..project_one.clone()
+    })?;
+    std::fs::write(
+        repository_one.path().parent().unwrap().join("test.txt"),
+        "Hello World",
+    )?;
+    let gb_repo_one = gb_repository::Repository::open(
+        gb_repos_path.clone(),
+        project_one.id.clone(),
+        project_store.clone(),
+        user_store.clone(),
+    )?;
+    let session_one = gb_repo_one.get_or_create_current_session()?;
+    let writer = gb_repo_one.get_session_writer(&session_one)?;
+    writer.write_deltas(
+        "test.txt",
+        &vec![deltas::Delta {
+            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+            timestamp_ms: 0,
+        }],
+    )?;
+    let session_one = gb_repo_one.flush()?.unwrap();
+
+    // create second local project, fetch it and make sure session is there
+    let repository_two = test_repository()?;
+    let project_two = test_project(&repository_two)?;
+    project_store.add_project(&projects::Project {
+        api: Some(api_project.clone()),
+        ..project_two.clone()
+    })?;
+    let gb_repo_two = gb_repository::Repository::open(
+        gb_repos_path,
+        project_two.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+    gb_repo_two.fetch()?;
+    // now it should have the session from the first local project synced
+    let sessions_two = gb_repo_two
+        .get_sessions_iterator()?
+        .map(|s| s.unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(sessions_two.len(), 1);
+    assert_eq!(sessions_two[0].id, session_one.id);
+
+    let reader = gb_repo_two.get_session_reader(&sessions_two[0])?;
+    let deltas = reader.deltas(None)?;
+    let files = reader.files(None)?;
+    assert_eq!(deltas.len(), 1);
+    assert_eq!(files.len(), 1);
+    assert_eq!(files.get("test.txt").unwrap(), "Hello World");
+    assert_eq!(
+        deltas.get("test.txt").unwrap(),
+        &vec![deltas::Delta {
+            operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
+            timestamp_ms: 0,
+        }]
+    );
 
     Ok(())
 }

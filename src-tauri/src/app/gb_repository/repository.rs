@@ -180,7 +180,7 @@ impl Repository {
             )
             .with_context(|| format!("failed to pull from remote {}", remote_url.as_str()))?;
 
-        log::info!("{}: fetched from {}", project.path, remote_url.as_str());
+        log::info!("{}: fetched from {}", project.id, remote_url.as_str());
 
         Ok(true)
     }
@@ -1040,7 +1040,7 @@ fn push_to_remote(
         None => return Ok(()),
     };
 
-    log::info!("pushing {} to {}", project.path, remote_url);
+    log::info!("{}: pushing to {}", project.id, remote_url);
 
     // Create an anonymous remote
     let mut remote = gb_repository
@@ -1058,7 +1058,7 @@ fn push_to_remote(
     callbacks.push_update_reference(move |refname, message| {
         log::info!(
             "{}: pushing reference '{}': {:?}",
-            project.path,
+            project.id,
             refname,
             message
         );
@@ -1067,7 +1067,7 @@ fn push_to_remote(
     callbacks.push_transfer_progress(move |one, two, three| {
         log::info!(
             "{}: transferred {}/{}/{} objects",
-            project.path,
+            project.id,
             one,
             two,
             three
