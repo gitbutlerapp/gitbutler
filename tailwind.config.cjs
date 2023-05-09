@@ -37,6 +37,10 @@ const config = {
 			overlay: {
 				default: '#18181B'
 			},
+			text: {
+				default: '#D4D4D8',
+				subdued: '#71717A'
+			},
 			icon: {
 				default: '#A1A1AA'
 			},

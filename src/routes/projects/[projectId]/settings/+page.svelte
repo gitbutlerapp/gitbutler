@@ -2,11 +2,11 @@
 	import { derived } from '@square/svelte-store';
 	import { Button, Dialog, Login } from '$lib/components';
 	import type { PageData } from './$types';
-	import { log, toasts } from '$lib';
+	import { log, toasts, api } from '$lib';
 	import { goto } from '$app/navigation';
 
 	export let data: PageData;
-	const { project, user, cloud } = data;
+	const { projects, project, user, cloud } = data;
 
 	const repo_id = (url: string) => {
 		const hurl = new URL(url);
@@ -65,13 +65,17 @@
 
 		try {
 			if (name) {
-				const updated = await cloud.projects.update($user.access_token, $project?.api.repository_id, {
-					name,
-					description
-				});
+				const updated = await cloud.projects.update(
+					$user.access_token,
+					$project.api.repository_id,
+					{
+						name,
+						description
+					}
+				);
 				await project.update({
 					title: name,
-					api: { ...updated, sync: $project?.api.sync || false }
+					api: { ...updated, sync: $project.api.sync || false }
 				});
 			}
 			toasts.success('Project updated');
@@ -91,13 +95,14 @@
 	const onDeleteClicked = () =>
 		Promise.resolve()
 			.then(() => (isDeleting = true))
-			.then(() => project.delete())
+			.then(() => api.projects.del({ id: $project?.id }))
 			.then(() => deleteConfirmationDialog.close())
 			.catch((e) => {
 				log.error(e);
 				toasts.error('Failed to delete project');
 			})
 			.then(() => goto('/'))
+			.then(() => projects.update((projects) => projects.filter((p) => p.id !== $project?.id)))
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
 </script>

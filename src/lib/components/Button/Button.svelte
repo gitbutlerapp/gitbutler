@@ -56,7 +56,7 @@
 
 <style lang="postcss">
 	button {
-		@apply relative flex w-fit items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium leading-[20px] underline transition  duration-150 ease-in-out hover:ease-in;
+		@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded py-2 text-base font-medium leading-[20px] underline  transition duration-150 ease-in-out hover:ease-in;
 	}
 
 	button:focus {

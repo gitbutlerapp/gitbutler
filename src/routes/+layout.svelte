@@ -1,14 +1,16 @@
 <script lang="ts">
 	import '../app.postcss';
 
+	import { open } from '@tauri-apps/api/dialog';
+	import { toasts } from '$lib';
 	import { Toaster } from '$lib';
 	import type { LayoutData } from './$types';
 	import {
 		BackForwardButtons,
 		Link,
+		LinkProjectDialog,
 		CommandPalette,
-		Breadcrumbs,
-		OpenNewProjectModal
+		Breadcrumbs
 	} from '$lib/components';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
@@ -17,18 +19,32 @@
 	import { unsubscribe } from '$lib/utils';
 
 	export let data: LayoutData;
-	const { user, posthog, projects, sentry, events, hotkeys } = data;
+	const { user, posthog, projects, sentry, events, hotkeys, cloud } = data;
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects?.find((project) => project.id === page.params.projectId)
 	);
 
 	let commandPalette: CommandPalette;
-	let openNewProjectModal: OpenNewProjectModal;
+	let linkProjectDialog: LinkProjectDialog;
 
 	onMount(() =>
 		unsubscribe(
-			events.on('openNewProjectModal', () => openNewProjectModal?.show()),
+			events.on('openNewProjectModal', () =>
+				open({ directory: true, recursive: true })
+					.then((selectedPath) => {
+						if (selectedPath === null) return;
+						if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
+						const projectPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+						return projects.add({ path: projectPath });
+					})
+					.then(async (project) => {
+						if (!project) return;
+						toasts.success(`Project ${project.title} created`);
+						linkProjectDialog?.show(project.id);
+					})
+					.catch((e: any) => toasts.error(e.message))
+			),
 			events.on('openCommandPalette', () => commandPalette?.show()),
 			events.on('closeCommandPalette', () => commandPalette?.close()),
 			events.on('goto', (path: string) => goto(path)),
@@ -46,7 +62,7 @@
 <div class="flex h-full max-h-full min-h-full flex-col">
 	<header
 		data-tauri-drag-region
-		class="flex flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
+		class="z-1 flex flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
 	>
 		<div class="breadkcrumb-back-forward-container ml-24">
 			<BackForwardButtons />
@@ -74,10 +90,12 @@
 	<div class="flex-auto overflow-auto">
 		<slot />
 	</div>
+
 	<Toaster />
+
 	{#await Promise.all([projects.load(), project.load()]) then}
 		<CommandPalette bind:this={commandPalette} {projects} {project} {events} />
 	{/await}
-</div>
 
-<OpenNewProjectModal bind:this={openNewProjectModal} {projects} />
+	<LinkProjectDialog bind:this={linkProjectDialog} {cloud} {user} {projects} />
+</div>

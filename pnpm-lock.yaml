@@ -42,6 +42,7 @@ specifiers:
   eslint-plugin-svelte3: ^4.0.0
   histoire: ^0.16.1
   inter-ui: ^3.19.3
+  leven: ^4.0.0
   nanoevents: ^7.0.1
   nanoid: ^4.0.1
   postcss: ^8.4.14
@@ -111,6 +112,7 @@ devDependencies:
   eslint-plugin-svelte3: 4.0.0_dbthnr4b2bdkhyiebwn7su3hnq
   histoire: 0.16.1_vite@4.0.4
   inter-ui: 3.19.3
+  leven: 4.0.0
   nanoevents: 7.0.1
   nanoid: 4.0.1
   postcss: 8.4.21
@@ -2578,6 +2580,11 @@ packages:
     dependencies:
       picocolors: 1.0.0
       shell-quote: 1.8.1
+    dev: true
+
+  /leven/4.0.0:
+    resolution: {integrity: sha512-puehA3YKku3osqPlNuzGDUHq8WpwXupUg1V6NXdV38G+gr+gkBwFC8g1b/+YcIvp8gnqVIus+eJCH/eGsRmJNw==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     dev: true
 
   /levn/0.3.0:
