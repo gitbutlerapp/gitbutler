@@ -65,8 +65,6 @@
 		"prettier": "^2.8.0",
 		"prettier-plugin-svelte": "^2.8.1",
 		"prettier-plugin-tailwindcss": "^0.2.4",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0",
 		"svelte": "^3.55.1",
 		"svelte-check": "^3.0.1",
 		"svelte-floating-ui": "^1.5.2",
