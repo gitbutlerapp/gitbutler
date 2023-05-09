@@ -15,7 +15,7 @@ impl<'iterator> SessionsIterator<'iterator> {
             .revwalk()
             .context("failed to create revwalk")?;
 
-        iter.set_sorting(git2::Sort::TOPOLOGICAL)
+        iter.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
             .context("failed to set sorting")?;
 
         let mut branches = git_repository.branches(None)?;
@@ -78,7 +78,7 @@ impl<'iterator> SessionsIdsIterator<'iterator> {
             .revwalk()
             .context("failed to create revwalk")?;
 
-        iter.set_sorting(git2::Sort::TOPOLOGICAL)
+        iter.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
             .context("failed to set sorting")?;
 
         let mut branches = git_repository.branches(None)?;
