@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 
 	export let data: PageData;
-	const { user, api } = data;
+	const { user, cloud } = data;
 
 	$: saving = false;
 
@@ -49,7 +49,7 @@
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
-			$user = await api.user.update($user.access_token, {
+			$user = await cloud.user.update($user.access_token, {
 				name: userNameInput,
 				picture: picture
 			});
@@ -90,7 +90,7 @@
 					<h2 class="text-2xl font-medium">GitButler Cloud Account</h2>
 					<div class="">Your online account details on gitbutler.com</div>
 				</div>
-				<Login {user} {api} />
+				<Login {user} {cloud} />
 			</header>
 
 			<form
@@ -222,7 +222,7 @@
 				</li>
 			</ul>
 			<div class="mt-8 text-center">
-				<Login {user} {api} />
+				<Login {user} {cloud} />
 			</div>
 			<div class="text-center text-zinc-300">
 				You will still need to give us permission for each project before we transfer any data to

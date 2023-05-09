@@ -12,7 +12,7 @@
 	export let statuses: Record<string, Status>;
 	export let diffs: Record<string, string>;
 	export let user: User;
-	export let api: ReturnType<typeof CloudApi>;
+	export let cloud: ReturnType<typeof CloudApi>;
 
 	let summary = '';
 	let description = '';
@@ -96,7 +96,7 @@
 		description = '';
 
 		isAutowriting = true;
-		api.summarize
+		cloud.summarize
 			.commit(user.access_token, {
 				diff,
 				uid: project.id

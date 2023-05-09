@@ -11,7 +11,7 @@
 	import { format } from 'date-fns';
 
 	export let data: LayoutData;
-	const { hotkeys, events, user, api, project, head, statuses, diffs } = data;
+	const { hotkeys, events, user, cloud, project, head, statuses, diffs } = data;
 
 	let query: string;
 
@@ -145,7 +145,7 @@
 		<QuickCommitModal
 			bind:this={quickCommitModal}
 			user={$user}
-			{api}
+			{cloud}
 			project={$project}
 			head={$head}
 			diffs={$diffs}
