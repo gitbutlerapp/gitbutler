@@ -1,6 +1,6 @@
 import { invoke } from '$lib/ipc';
 import type { Project as ApiProject } from '$lib/api/cloud';
-import { asyncWritable, derived, type WritableLoadable } from '@square/svelte-store';
+import { asyncWritable, derived } from '@square/svelte-store';
 
 export type Project = {
 	id: string;
@@ -47,7 +47,8 @@ export const Projects = () => {
 						store.update((projects) => projects.map((p) => (p.id === project.id ? project : p)));
 						return project;
 					}),
-				delete: () => del({ id })
+				delete: () =>
+					del({ id }).then(() => store.update((projects) => projects.filter((p) => p.id !== id)))
 			};
 		},
 		add: (params: { path: string }) =>
