@@ -25,8 +25,8 @@ impl Sender {
 
 #[derive(Debug)]
 pub struct Event {
-    pub name: String,
-    pub payload: serde_json::Value,
+    name: String,
+    payload: serde_json::Value,
 }
 
 impl Event {
