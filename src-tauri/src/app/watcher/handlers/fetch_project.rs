@@ -23,6 +23,11 @@ impl<'listener> Handler<'listener> {
     }
 
     pub fn handle(&self, project: &projects::Project) -> Result<Vec<events::Event>> {
+        let sessions_before_fetch = self
+            .gb_repository
+            .get_sessions_iterator()?
+            .filter_map(|s| s.ok())
+            .collect::<Vec<_>>();
         if !self.gb_repository.fetch().context("failed to fetch")? {
             return Ok(vec![]);
         }
@@ -41,6 +46,24 @@ impl<'listener> Handler<'listener> {
                 ..Default::default()
             })
             .context("failed to update project")?;
-        Ok(vec![])
+
+        let sessions_after_fetch = self
+            .gb_repository
+            .get_sessions_iterator()?
+            .filter_map(|s| s.ok())
+            .collect::<Vec<_>>();
+
+        let new_sessions = sessions_after_fetch
+            .iter()
+            .filter(|s| !sessions_before_fetch.contains(s))
+            .collect::<Vec<_>>();
+
+        let events = new_sessions
+            .into_iter()
+            .cloned()
+            .map(|session| events::Event::Session((project.clone(), session)))
+            .collect::<Vec<_>>();
+
+        Ok(events)
     }
 }
