@@ -207,8 +207,38 @@ impl App {
         Ok(project)
     }
 
+    fn fetch_project(&self, project_id: &str) -> Result<()> {
+        let gb_repo = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )?;
+        let before_fetch = gb_repo.get_sessions_iterator()?.filter_map(|session| session.ok()).collect::<Vec<_>>();
+        gb_repo.fetch()?;
+        let after_fetch = gb_repo.get_sessions_iterator()?.filter_map(|session| session.ok()).collect::<Vec<_>>();
+        let new_sessions = after_fetch.iter().filter(|session| !before_fetch.contains(session)).collect::<Vec<_>>();
+        for new_session in new_sessions {
+            if let Err(e) = self.deltas_searcher.index_session(&gb_repo, new_session) {
+                log::error!("{}: failed to index session: {:#}", project_id, e);
+            }
+
+            if let Err(e) = self.events_sender.send(events::Event::session(&project_id, &new_session)) {
+                log::error!("{}: failed to send session event: {:#}", project_id, e);
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn update_project(&self, project: &projects::UpdateRequest) -> Result<projects::Project> {
-        self.projects_storage.update_project(&project)
+        let updated = self.projects_storage.update_project(&project)?;
+
+        if let Err(err) = self.fetch_project(&project.id) {
+            log::error!("{}: failed to fetch project: {:#}", &project.id, err);
+        }
+
+        Ok(updated)
     }
 
     pub fn get_project(&self, id: &str) -> Result<Option<projects::Project>> {
