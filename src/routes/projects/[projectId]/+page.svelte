@@ -2,8 +2,7 @@
 	import { getTime, subDays } from 'date-fns';
 	import type { PageData } from './$types';
 	import { IconGitBranch, IconLoading } from '$lib/components/icons';
-	import { asyncDerived, derived } from '@square/svelte-store';
-	import { deltas, type Delta } from '$lib/api';
+	import { derived } from '@square/svelte-store';
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';
 	import { goto } from '$app/navigation';
@@ -18,47 +17,20 @@
 	$: recentSessions = derived(
 		sessions,
 		(sessions) => {
-			const lastFourDaysOfSessions = sessions.filter(
+			const lastFourDaysOfSessions = sessions?.filter(
 				(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
 			);
-			if (lastFourDaysOfSessions.length >= 4) return lastFourDaysOfSessions;
-			return sessions.slice(0, 4);
+			if (lastFourDaysOfSessions?.length >= 4) return lastFourDaysOfSessions;
+			return sessions?.slice(0, 4);
 		},
 		[]
 	);
-
-	$: fileDeltas = asyncDerived([recentSessions, project], async ([sessions, project]) => {
-		const fileDeltas = await Promise.all(
-			sessions.map(async (session) => {
-				const store = deltas.Deltas({
-					projectId: project.id,
-					sessionId: session.id
-				});
-				await store.load();
-				return store;
-			})
-		);
-		const flat = derived(fileDeltas, (fileDeltas) => {
-			const merged: Record<string, Delta[]> = {};
-			fileDeltas.forEach((delta) =>
-				Object.entries(delta).forEach(([filepath, deltas]) => {
-					if (merged[filepath]) {
-						merged[filepath].push(...deltas);
-					} else {
-						merged[filepath] = deltas;
-					}
-				})
-			);
-			return merged;
-		});
-		return flat;
-	});
 
 	$: recentActivity = derived(
 		[activity, recentSessions],
 		([activity, recentSessions]) =>
 			activity
-				?.filter((a) => a.timestampMs >= (recentSessions.at(-1)?.meta.startTimestampMs ?? 0))
+				?.filter((a) => a.timestampMs >= (recentSessions?.at(-1)?.meta.startTimestampMs ?? 0))
 				.sort((a, b) => b.timestampMs - a.timestampMs),
 		[]
 	);
@@ -130,22 +102,14 @@
 		</div>
 	</div>
 
-	<div class="main-content-container flex w-2/3 flex-auto flex-col gap-4">
-		<h1 class="flex px-8 pt-4 text-2xl text-zinc-300">
+	<div class="main-content-container flex w-2/3 flex-auto flex-col gap-4 py-4 px-8">
+		<h1 class="flex text-2xl text-zinc-300">
 			<span>{$project?.title}</span>
 			<span class="ml-2 text-zinc-600">Project</span>
 		</h1>
 
-		<h2 class="px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
+		<h2 class="text-lg font-bold text-zinc-300">Recently changed files</h2>
 
-		<ul class="mr-1 flex flex-col space-y-4 overflow-y-auto pl-8 pr-5 pb-8">
-			{#await Promise.all([fileDeltas.load(), project])}
-				<li>
-					<IconLoading class="animate-spin" />
-				</li>
-			{:then}
-				<FileSummaries projectId={$project?.id} fileDeltas={$fileDeltas} />
-			{/await}
-		</ul>
+		<FileSummaries sessions={$recentSessions} />
 	</div>
 </div>
