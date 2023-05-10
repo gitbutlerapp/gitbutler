@@ -1,9 +1,7 @@
-use std::sync;
-
 use anyhow::Result;
 use crossbeam_channel::{select, unbounded};
 
-use crate::{app::gb_repository, events as app_events, projects, search};
+use crate::{app::gb_repository, events, projects, search};
 
 use super::{dispatchers, handlers};
 
@@ -20,8 +18,8 @@ impl<'watcher> Watcher<'watcher> {
         project_store: projects::Storage,
         gb_repository: &'watcher gb_repository::Repository,
         deltas_searcher: search::Deltas,
-        events: sync::mpsc::Sender<app_events::Event>,
         stop: crossbeam_channel::Receiver<()>,
+        events_sender: events::Sender,
     ) -> Result<Self> {
         Ok(Self {
             project_id: project.id.clone(),
@@ -31,7 +29,7 @@ impl<'watcher> Watcher<'watcher> {
                 project_store,
                 gb_repository,
                 deltas_searcher,
-                events,
+                events_sender,
             ),
             stop,
         })

@@ -11,8 +11,6 @@ mod check_current_session_tests;
 #[cfg(test)]
 mod project_file_change_tests;
 
-use std::sync;
-
 use anyhow::{Context, Result};
 
 use crate::{app::gb_repository, events as app_events, projects, search};
@@ -31,7 +29,7 @@ pub struct Handler<'handler> {
     chech_fetch_project_handler: check_fetch_project::Handler,
 
     searcher: search::Deltas,
-    events: sync::mpsc::Sender<app_events::Event>,
+    events_sender: app_events::Sender,
 }
 
 impl<'handler> Handler<'handler> {
@@ -40,9 +38,10 @@ impl<'handler> Handler<'handler> {
         project_store: projects::Storage,
         gb_repository: &'handler gb_repository::Repository,
         searcher: search::Deltas,
-        events: sync::mpsc::Sender<app_events::Event>,
+        events_sender: app_events::Sender,
     ) -> Self {
         Self {
+            events_sender,
             gb_repository,
 
             file_change_handler: file_change::Handler::new(),
@@ -71,7 +70,6 @@ impl<'handler> Handler<'handler> {
             ),
 
             searcher,
-            events,
         }
     }
 
@@ -86,13 +84,13 @@ impl<'handler> Handler<'handler> {
                 .handle(path.clone())
                 .with_context(|| format!("failed to handle project file change event: {:?}", path)),
             events::Event::Session((project, session)) => {
-                self.events
+                self.events_sender
                     .send(app_events::Event::session(&project, &session))
                     .context("failed to send session event")?;
                 Ok(vec![])
             }
             events::Event::Deltas((project, session, path, deltas)) => {
-                self.events
+                self.events_sender
                     .send(app_events::Event::detlas(
                         &project, &session, &deltas, &path,
                     ))
@@ -104,19 +102,19 @@ impl<'handler> Handler<'handler> {
                 .handle(path)
                 .context("failed to handle git file change event"),
             events::Event::GitActivity(project) => {
-                self.events
+                self.events_sender
                     .send(app_events::Event::git_activity(&project))
                     .context("failed to send git activity event")?;
                 Ok(vec![])
             }
             events::Event::GitHeadChange((project, head)) => {
-                self.events
+                self.events_sender
                     .send(app_events::Event::git_head(&project, &head))
                     .context("failed to send git head event")?;
                 Ok(vec![])
             }
             events::Event::GitIndexChange(project) => {
-                self.events
+                self.events_sender
                     .send(app_events::Event::git_index(&project))
                     .context("failed to send git index event")?;
                 Ok(vec![])

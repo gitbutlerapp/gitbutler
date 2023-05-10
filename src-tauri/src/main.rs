@@ -226,10 +226,7 @@ async fn update_project(
 #[tauri::command(async)]
 async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
     let app = handle.state::<app::App>();
-
-    let (tx, rx) = std::sync::mpsc::channel::<events::Event>();
-    let project = app.add_project(path, tx)?;
-    watch_events(handle, rx);
+    let project = app.add_project(path)?;
     Ok(project)
 }
 
@@ -497,7 +494,10 @@ fn main() {
             window.open_devtools();
 
             let app: app::App =
-                app::App::new(tauri_app.path_resolver().app_local_data_dir().unwrap())
+                app::App::new(
+                    tauri_app.path_resolver().app_local_data_dir().unwrap(),
+                    events::Sender::new(tauri_app.handle())
+                )
                     .expect("failed to initialize app");
 
             // TODO: REMOVE THIS
@@ -599,30 +599,12 @@ fn init(app_handle: tauri::AppHandle) -> Result<()> {
         sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
     }
 
-    let (events_tx, events_rx) = std::sync::mpsc::channel::<events::Event>();
-
     app.start_pty_server()
         .context("failed to start pty server")?;
 
-    app.init(events_tx).context("failed to init app")?;
-
-    watch_events(app_handle, events_rx);
+    app.init().context("failed to init app")?;
 
     Ok(())
-}
-
-fn watch_events(handle: tauri::AppHandle, rx: std::sync::mpsc::Receiver<events::Event>) {
-    tauri::async_runtime::spawn_blocking(move || {
-        while let Ok(event) = rx.recv() {
-            if let Some(window) = handle.get_window("main") {
-                log::info!("Emitting event: {}", event.name);
-                match window.emit(&event.name, event.payload) {
-                    Err(e) => log::error!("Failed to emit event: {:#}", e),
-                    _ => {}
-                }
-            }
-        }
-    });
 }
 
 fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {

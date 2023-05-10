@@ -1,7 +1,27 @@
+use anyhow::{Context, Result};
+use tauri::Manager;
+
 use crate::{
     app::{deltas, sessions},
     projects,
 };
+
+#[derive(Clone)]
+pub struct Sender {
+    app_handle: tauri::AppHandle,
+}
+
+impl Sender {
+    pub fn new(app_handle: tauri::AppHandle) -> Self {
+        Self { app_handle }
+    }
+
+    pub fn send(&self, event: Event) -> Result<()> {
+        self.app_handle
+            .emit_all(&event.name, Some(event.payload))
+            .context("emit event")
+    }
+}
 
 #[derive(Debug)]
 pub struct Event {
