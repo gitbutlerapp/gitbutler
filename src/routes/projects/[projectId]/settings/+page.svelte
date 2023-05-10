@@ -64,7 +64,7 @@
 		const description = formData.get('description') as string | undefined;
 
 		try {
-			if (name) {
+			if ($project.api && name) {
 				const updated = await cloud.projects.update(
 					$user.access_token,
 					$project.api.repository_id,
