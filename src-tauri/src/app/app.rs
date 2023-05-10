@@ -15,6 +15,7 @@ pub struct App {
     users_storage: users::Storage,
 
     deltas_searcher: search::Deltas,
+    events_sender: events::Sender,
 
     stop_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<()>>>>,
 }
@@ -30,12 +31,16 @@ pub enum AddProjectError {
 }
 
 impl App {
-    pub fn new<P: AsRef<std::path::Path>>(local_data_dir: P) -> Result<Self> {
+    pub fn new<P: AsRef<std::path::Path>>(
+        local_data_dir: P,
+        event_sender: events::Sender,
+    ) -> Result<Self> {
         let local_data_dir = local_data_dir.as_ref();
         let storage = storage::Storage::from_path(local_data_dir.clone());
         let deltas_searcher =
             search::Deltas::at(local_data_dir.clone()).context("failed to open deltas searcher")?;
         Ok(Self {
+            events_sender: event_sender,
             local_data_dir: local_data_dir.to_path_buf(),
             projects_storage: projects::Storage::new(storage.clone()),
             users_storage: users::Storage::new(storage.clone()),
@@ -58,9 +63,8 @@ impl App {
     pub fn init_project(
         &self,
         project: &projects::Project,
-        events: std::sync::mpsc::Sender<events::Event>,
     ) -> Result<()> {
-        self.start_watcher(&project, events.clone())
+        self.start_watcher(&project)
             .with_context(|| {
                 format!("failed to start watcher for project {}", project.id.clone())
             })?;
@@ -68,13 +72,13 @@ impl App {
         Ok(())
     }
 
-    pub fn init(&self, events: std::sync::mpsc::Sender<events::Event>) -> Result<()> {
+    pub fn init(&self) -> Result<()> {
         for project in self
             .projects_storage
             .list_projects()
             .with_context(|| "failed to list projects")?
         {
-            if let Err(e) = self.init_project(&project, events.clone()) {
+            if let Err(e) = self.init_project(&project) {
                 log::error!("failed to init project {}: {:#}", project.id, e);
             }
 
@@ -110,13 +114,13 @@ impl App {
     fn start_watcher(
         &self,
         project: &projects::Project,
-        events: std::sync::mpsc::Sender<events::Event>,
     ) -> Result<()> {
         let project = project.clone();
         let users_storage = self.users_storage.clone();
         let projects_storage = self.projects_storage.clone();
         let local_data_dir = self.local_data_dir.clone();
         let deltas_searcher = self.deltas_searcher.clone();
+        let events_sender = self.events_sender.clone();
 
         let (stop_tx, stop_rx) = bounded(1);
         self.stop_watchers
@@ -140,8 +144,8 @@ impl App {
                 projects_storage,
                 &gb_repository,
                 deltas_searcher,
-                events,
                 stop_rx,
+                events_sender,
             )
             .expect("failed to create watcher");
 
@@ -175,7 +179,6 @@ impl App {
        pub fn add_project(
         &self,
         path: &str,
-        events: std::sync::mpsc::Sender<events::Event>,
     ) -> Result<projects::Project, AddProjectError> {
         let all_projects = self.projects_storage.list_projects().map_err(|e| 
             AddProjectError::Other(e)
@@ -196,7 +199,7 @@ impl App {
                 AddProjectError::Other(e)
             )?;
 
-        self.init_project(&project, events.clone())
+        self.init_project(&project)
             .context("failed to init project").map_err(|e| 
                 AddProjectError::Other(e)
             )?;
