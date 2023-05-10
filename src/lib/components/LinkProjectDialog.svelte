@@ -5,7 +5,6 @@
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconBookmark, IconFolder, IconLoading } from './icons';
 	import { toasts, api } from '$lib';
-	import { onMount } from 'svelte';
 
 	type Unpromisify<T> = T extends Promise<infer U> ? U : T;
 

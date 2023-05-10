@@ -13,19 +13,6 @@
 	// const chainUrl = 'http://127.0.0.1:8000';
 	const chainUrl = 'https://zpuszumgur.us-east-1.awsapprunner.com';
 
-	async function createSummary(text: string) {
-		const response = await fetch(`${chainUrl}/summaries`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({ text: text })
-		});
-
-		const data = await response.json();
-		return data;
-	}
-
 	async function createChat() {
 		const response = await fetch(`${chainUrl}/chats`, {
 			method: 'POST',
@@ -61,19 +48,6 @@
 		return sequence;
 	}
 
-	async function addToSummary(id: string, newText: string) {
-		const response = await fetch(`${chainUrl}/summaries`, {
-			method: 'PATCH',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({ id, text: newText })
-		});
-
-		const sequence = await response.json();
-		return sequence;
-	}
-
 	async function getSummary(id: string) {
 		const response = await fetch(`${chainUrl}/summaries/${id}`, {
 			method: 'GET'
@@ -84,16 +58,13 @@
 	}
 
 	let summaryId = '';
-	let input = '';
 	let sequence = 0;
 	let processedSeq = 0;
-	let summary = '';
 
 	$: if (summaryId && processedSeq != sequence) {
 		debounce(() => {
 			console.log('polling summary');
 			getSummary(summaryId).then((data) => {
-				summary = data.text;
 				processedSeq = data.sequence;
 			});
 		}, 1000)();
@@ -359,45 +330,6 @@
 		}
 		100% {
 			transform: translate(0, 0);
-		}
-	}
-
-	.breathing-orb {
-		/* Styling */
-		position: absolute;
-		width: 20px;
-		height: 20px;
-		left: 16px;
-		top: 6px;
-		animation: breathingOrb 4s ease-in-out infinite;
-
-		background: rgba(154, 115, 221, 1);
-		filter: blur(6px);
-		border-radius: 32px;
-
-		/* 
-		* Make the initial position to be the center of the circle you want this
-		* object follow.
-		*/
-		position: absolute;
-		left: 10px;
-		top: 10px;
-	}
-
-	/*
-	* Set up the keyframes to actually describe the begining and end states of 
-	* the animation.  The browser will interpolate all the frames between these 
-	* points.  Again, remember your vendor-specific prefixes for now!
-	*/
-	@keyframes breathingOrb {
-		0% {
-			opacity: 0.8;
-		}
-		50% {
-			opacity: 0.4;
-		}
-		100% {
-			opacity: 0.8;
 		}
 	}
 
