@@ -1,31 +1,21 @@
 use std::{path, time};
 
-use crate::{
-    app::{deltas, sessions},
-    projects,
-};
+use crate::app::{deltas, sessions};
 
 pub enum Event {
     Tick(time::SystemTime),
-    FlushSession(sessions::Session),
+    Flush(sessions::Session),
     SessionFlushed(sessions::Session),
-    FetchProject(projects::Project),
+    Fetch,
 
     FileChange(path::PathBuf),
     GitFileChange(path::PathBuf),
-    GitIndexChange(projects::Project),
-    GitActivity(projects::Project),
-    GitHeadChange((projects::Project, String)),
+    GitIndexChange,
+    GitActivity,
+    GitHeadChange(String),
 
     ProjectFileChange(path::PathBuf),
 
-    Session((projects::Project, sessions::Session)),
-    Deltas(
-        (
-            projects::Project,
-            sessions::Session,
-            path::PathBuf,
-            Vec<deltas::Delta>,
-        ),
-    ),
+    Session(sessions::Session),
+    Deltas((sessions::Session, path::PathBuf, Vec<deltas::Delta>)),
 }
