@@ -66,6 +66,7 @@ impl<'handler> Handler<'handler> {
             fetch_project_handler: fetch_project::Handler::new(
                 project_id.clone(),
                 project_store.clone(),
+                searcher.clone(),
                 gb_repository,
             ),
             chech_fetch_project_handler: check_fetch_project::Handler::new(
