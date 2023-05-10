@@ -12,6 +12,7 @@ export namespace Session {
 
 export type Session = {
 	id: string;
+	projectId: string;
 	hash?: string;
 	meta: {
 		startTimestampMs: number;
@@ -20,6 +21,7 @@ export type Session = {
 		commit?: string;
 	};
 };
+
 const cache: Record<string, Promise<Session[]>> = {};
 
 export const list = async (params: { projectId: string; earliestTimestampMs?: number }) => {
@@ -32,7 +34,7 @@ export const list = async (params: { projectId: string; earliestTimestampMs?: nu
 	}
 	cache[params.projectId] = invoke<Session[]>('list_sessions', {
 		projectId: params.projectId
-	});
+	}).then((sessions) => sessions.map((s) => ({ ...s, projectId: params.projectId })));
 	return cache[params.projectId].then((sessions) =>
 		clone(sessions).filter((s) =>
 			params.earliestTimestampMs ? s.meta.startTimestampMs >= params.earliestTimestampMs : true
@@ -57,8 +59,8 @@ export const Sessions = (params: { projectId: string }) => {
 	subscribe(params, ({ session }) => {
 		store.update((sessions) => {
 			const index = sessions.findIndex((s) => s.id === session.id);
-			if (index === -1) return [...sessions, session];
-			sessions[index] = session;
+			if (index === -1) return [...sessions, { ...session, projectId: params.projectId }];
+			sessions[index] = { ...session, projectId: params.projectId };
 			return sessions;
 		});
 	});
