@@ -7,22 +7,25 @@ use crate::{app::gb_repository, projects};
 use super::events;
 
 pub struct Handler<'handler> {
+    project_id: String,
     project_storage: projects::Storage,
     gb_repository: &'handler gb_repository::Repository,
 }
 
-impl<'listener> Handler<'listener> {
+impl<'handler> Handler<'handler> {
     pub fn new(
+        project_id: String,
         project_storage: projects::Storage,
-        gb_repository: &'listener gb_repository::Repository,
+        gb_repository: &'handler gb_repository::Repository,
     ) -> Self {
         Self {
+            project_id,
             project_storage,
             gb_repository,
         }
     }
 
-    pub fn handle(&self, project: &projects::Project) -> Result<Vec<events::Event>> {
+    pub fn handle(&self) -> Result<Vec<events::Event>> {
         let sessions_before_fetch = self
             .gb_repository
             .get_sessions_iterator()?
@@ -34,7 +37,7 @@ impl<'listener> Handler<'listener> {
 
         self.project_storage
             .update_project(&projects::UpdateRequest {
-                id: project.id.clone(),
+                id: self.project_id.clone(),
                 last_fetched_ts: Some(
                     time::SystemTime::now()
                         .duration_since(time::UNIX_EPOCH)
@@ -61,7 +64,7 @@ impl<'listener> Handler<'listener> {
         let events = new_sessions
             .into_iter()
             .cloned()
-            .map(|session| events::Event::Session((project.clone(), session)))
+            .map(|session| events::Event::Session(session))
             .collect::<Vec<_>>();
 
         Ok(events)

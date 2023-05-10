@@ -34,23 +34,20 @@ impl Handler {
         match path.as_ref().to_str().unwrap() {
             "logs/HEAD" => {
                 log::info!("{}: git activity", project.id);
-                Ok(vec![events::Event::GitActivity(project)])
+                Ok(vec![events::Event::GitActivity])
             }
             "HEAD" => {
                 log::info!("{}: git head changed", project.id);
                 let head_ref = project_repository.get_head()?;
                 if let Some(head) = head_ref.name() {
-                    Ok(vec![events::Event::GitHeadChange((
-                        project.clone(),
-                        head.to_string(),
-                    ))])
+                    Ok(vec![events::Event::GitHeadChange(head.to_string())])
                 } else {
                     Ok(vec![])
                 }
             }
             "index" => {
                 log::info!("{}: git index changed", project.id);
-                Ok(vec![events::Event::GitIndexChange(project)])
+                Ok(vec![events::Event::GitIndexChange])
             }
             _ => Ok(vec![]),
         }

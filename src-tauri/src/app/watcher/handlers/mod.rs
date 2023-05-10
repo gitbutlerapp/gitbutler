@@ -18,6 +18,8 @@ use crate::{app::gb_repository, events as app_events, projects, search};
 use super::events;
 
 pub struct Handler<'handler> {
+    project_id: String,
+
     gb_repository: &'handler gb_repository::Repository,
 
     file_change_handler: file_change::Handler,
@@ -41,6 +43,7 @@ impl<'handler> Handler<'handler> {
         events_sender: app_events::Sender,
     ) -> Self {
         Self {
+            project_id: project_id.clone(),
             events_sender,
             gb_repository,
 
@@ -61,6 +64,7 @@ impl<'handler> Handler<'handler> {
                 gb_repository,
             ),
             fetch_project_handler: fetch_project::Handler::new(
+                project_id.clone(),
                 project_store.clone(),
                 gb_repository,
             ),
@@ -83,16 +87,19 @@ impl<'handler> Handler<'handler> {
                 .project_file_handler
                 .handle(path.clone())
                 .with_context(|| format!("failed to handle project file change event: {:?}", path)),
-            events::Event::Session((project, session)) => {
+            events::Event::Session(session) => {
                 self.events_sender
-                    .send(app_events::Event::session(&project, &session))
+                    .send(app_events::Event::session(&self.project_id, &session))
                     .context("failed to send session event")?;
                 Ok(vec![])
             }
-            events::Event::Deltas((project, session, path, deltas)) => {
+            events::Event::Deltas((session, path, deltas)) => {
                 self.events_sender
                     .send(app_events::Event::detlas(
-                        &project, &session, &deltas, &path,
+                        &self.project_id,
+                        &session,
+                        &deltas,
+                        &path,
                     ))
                     .context("failed to send deltas event")?;
                 Ok(vec![])
@@ -101,21 +108,21 @@ impl<'handler> Handler<'handler> {
                 .git_file_change_handler
                 .handle(path)
                 .context("failed to handle git file change event"),
-            events::Event::GitActivity(project) => {
+            events::Event::GitActivity => {
                 self.events_sender
-                    .send(app_events::Event::git_activity(&project))
+                    .send(app_events::Event::git_activity(&self.project_id))
                     .context("failed to send git activity event")?;
                 Ok(vec![])
             }
-            events::Event::GitHeadChange((project, head)) => {
+            events::Event::GitHeadChange(head) => {
                 self.events_sender
-                    .send(app_events::Event::git_head(&project, &head))
+                    .send(app_events::Event::git_head(&self.project_id, &head))
                     .context("failed to send git head event")?;
                 Ok(vec![])
             }
-            events::Event::GitIndexChange(project) => {
+            events::Event::GitIndexChange => {
                 self.events_sender
-                    .send(app_events::Event::git_index(&project))
+                    .send(app_events::Event::git_index(&self.project_id))
                     .context("failed to send git index event")?;
                 Ok(vec![])
             }
@@ -130,7 +137,7 @@ impl<'handler> Handler<'handler> {
                     .context("failed to handle tick event")?;
                 Ok(one.into_iter().chain(two.into_iter()).collect())
             }
-            events::Event::FlushSession(session) => self
+            events::Event::Flush(session) => self
                 .flush_session_handler
                 .handle(&session)
                 .context("failed to handle flush session event"),
@@ -140,7 +147,7 @@ impl<'handler> Handler<'handler> {
                     .context("failed to index session")?;
                 Ok(vec![])
             }
-            events::Event::FetchProject(project) => self.fetch_project_handler.handle(&project),
+            events::Event::Fetch => self.fetch_project_handler.handle(),
         }
     }
 }

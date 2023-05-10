@@ -28,7 +28,7 @@ impl<'handler> Handler<'handler> {
             None => Ok(vec![]),
             Some(current_session) => {
                 if should_flush(now, &current_session)? {
-                    Ok(vec![events::Event::FlushSession(current_session)])
+                    Ok(vec![events::Event::Flush(current_session)])
                 } else {
                     Ok(vec![])
                 }

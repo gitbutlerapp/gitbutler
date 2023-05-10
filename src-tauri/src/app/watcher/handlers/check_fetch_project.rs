@@ -28,7 +28,7 @@ impl Handler {
             None => Ok(vec![]),
             Some(project) => {
                 if should_fetch(now, &project)? {
-                    Ok(vec![events::Event::FetchProject(project)])
+                    Ok(vec![events::Event::Fetch])
                 } else {
                     Ok(vec![])
                 }

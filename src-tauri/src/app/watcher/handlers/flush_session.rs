@@ -39,7 +39,7 @@ impl<'listener> Handler<'listener> {
             .context("failed to flush session")?;
 
         Ok(vec![
-            events::Event::Session((project, session.clone())),
+            events::Event::Session(session.clone()),
             events::Event::SessionFlushed(session),
         ])
     }
