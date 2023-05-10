@@ -234,8 +234,10 @@ impl App {
     pub fn update_project(&self, project: &projects::UpdateRequest) -> Result<projects::Project> {
         let updated = self.projects_storage.update_project(&project)?;
 
-        if let Err(err) = self.fetch_project(&project.id) {
-            log::error!("{}: failed to fetch project: {:#}", &project.id, err);
+        if project.api.as_ref().map(|api| api.git_url.clone()).is_some() {
+            if let Err(err) = self.fetch_project(&project.id) {
+                log::error!("{}: failed to fetch project: {:#}", &project.id, err);
+            }
         }
 
         Ok(updated)
