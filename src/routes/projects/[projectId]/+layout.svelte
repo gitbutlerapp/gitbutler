@@ -5,7 +5,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
-	import QuickCommitModal from '$lib/components/QuickCommitModal.svelte';
+	import QuickCommitModal from './QuickCommitModal.svelte';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
