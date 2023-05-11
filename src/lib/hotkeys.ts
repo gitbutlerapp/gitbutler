@@ -1,26 +1,25 @@
 import { building } from '$app/environment';
-import type Events from '$lib/events';
+import { events } from '$lib';
 
-export default async (events: ReturnType<typeof Events>) =>
-	building
-		? { on: () => () => {} }
-		: await import('tinykeys').then(({ default: tinykeys }) => ({
-				on: (combo: string, callback: (event: KeyboardEvent) => void) => {
-					if (building) return () => {};
-					const comboContainsControlKeys =
-						combo.includes('Meta') || combo.includes('Alt') || combo.includes('Ctrl');
-					return tinykeys(window, {
-						[combo]: (event) => {
-							const target = event.target as HTMLElement;
-							const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
-							if (isInput && !comboContainsControlKeys) return;
+export const on = async (combo: string, callback: (event: KeyboardEvent) => void) => {
+	if (building) return () => {};
 
-							event.preventDefault();
-							event.stopPropagation();
+	const comboContainsControlKeys =
+		combo.includes('Meta') || combo.includes('Alt') || combo.includes('Ctrl');
 
-							events.emit('closeCommandPalette');
-							callback(event);
-						}
-					});
-				}
-		  }));
+	return import('tinykeys').then(({ default: tinykeys }) =>
+		tinykeys(window, {
+			[combo]: (event) => {
+				const target = event.target as HTMLElement;
+				const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+				if (isInput && !comboContainsControlKeys) return;
+
+				event.preventDefault();
+				event.stopPropagation();
+
+				events.emit('closeCommandPalette');
+				callback(event);
+			}
+		})
+	);
+};

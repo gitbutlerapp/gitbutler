@@ -2,8 +2,7 @@
 	import '../app.postcss';
 
 	import { open } from '@tauri-apps/api/dialog';
-	import { toasts } from '$lib';
-	import { Toaster } from '$lib';
+	import { toasts, Toaster, events, hotkeys } from '$lib';
 	import type { LayoutData } from './$types';
 	import {
 		BackForwardButtons,
@@ -19,7 +18,7 @@
 	import { unsubscribe } from '$lib/utils';
 
 	export let data: LayoutData;
-	const { user, posthog, projects, sentry, events, hotkeys, cloud } = data;
+	const { user, posthog, projects, sentry, cloud } = data;
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects?.find((project) => project.id === page.params.projectId)
@@ -94,7 +93,7 @@
 	<Toaster />
 
 	{#await Promise.all([projects.load(), project.load()]) then}
-		<CommandPalette bind:this={commandPalette} {projects} {project} {events} />
+		<CommandPalette bind:this={commandPalette} {projects} {project} />
 	{/await}
 
 	<LinkProjectDialog bind:this={linkProjectDialog} {cloud} {user} {projects} />
