@@ -236,11 +236,7 @@
 	</div>
 </div>
 
-<Modal bind:this={deleteConfirmationModal}>
-	<svelte:fragment slot="title">
-		Delete {$project.title}?
-	</svelte:fragment>
-
+<Modal bind:this={deleteConfirmationModal} title="Delete {$project.title}?">
 	<p>
 		Are you sure you want to delete the project,
 		<span class="font-bold text-white">{$project.title}</span>? This can’t be undone.
