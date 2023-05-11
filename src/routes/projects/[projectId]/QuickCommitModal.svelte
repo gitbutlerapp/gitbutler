@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { toasts } from '$lib';
-	import { Status, type Project, git } from '$lib/api';
-	import type { CloudApi, User } from '$lib/api';
+	import { Status, type Project, git, type CloudApi, type User } from '$lib/api';
 	import { Button, Overlay, Link } from '$lib/components';
-	import { IconGitBranch, IconSparkle } from './icons';
+	import { IconGitBranch, IconSparkle } from '$lib/components/icons';
 
 	export const show = () => modal.show();
 
