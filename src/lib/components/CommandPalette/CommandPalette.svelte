@@ -2,7 +2,7 @@
 	import tinykeys from 'tinykeys';
 	import type { Project } from '$lib/api';
 	import { derived, readable, writable, type Readable } from '@square/svelte-store';
-	import { Modal } from '$lib/components';
+	import { Overlay } from '$lib/components';
 	import listAvailableCommands, { Action, type Group } from './commands';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -118,7 +118,7 @@
 		scopeToProject.set(!!$project);
 	};
 
-	let modal: Modal | null;
+	let modal: Overlay | null;
 
 	const reset = () => {
 		input.set('');
@@ -181,7 +181,7 @@
 	);
 </script>
 
-<Modal bind:this={modal}>
+<Overlay bind:this={modal}>
 	<div class="h-[400px]">
 		<div
 			class="command-palette modal modal-command-palette flex max-h-[400px] min-h-[40px] w-[680px] flex-col "
@@ -277,7 +277,7 @@
 			{/await}
 		</div>
 	</div>
-</Modal>
+</Overlay>
 
 <style lang="postcss">
 	.command-palette {

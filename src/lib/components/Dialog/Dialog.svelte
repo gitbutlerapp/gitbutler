@@ -1,15 +1,15 @@
 <script lang="ts">
 	import Button from '../Button/Button.svelte';
-	import Modal from '../Modal.svelte';
+	import Overlay from '../Overlay.svelte';
 	import { IconClose } from '$lib/components/icons';
 
 	export const show = () => modal.show();
 	export const close = () => modal.close();
 
-	let modal: Modal;
+	let modal: Overlay;
 </script>
 
-<Modal bind:this={modal} let:close>
+<Overlay bind:this={modal} let:close>
 	<div class="modal modal-delete-project flex w-full flex-col text-zinc-300">
 		<header class="flex w-full justify-between gap-4 p-4">
 			<h2 class="text-xl">
@@ -32,7 +32,7 @@
 			</slot>
 		</footer>
 	</div>
-</Modal>
+</Overlay>
 
 <style>
 	header {

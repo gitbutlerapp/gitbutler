@@ -2,7 +2,7 @@
 	import { toasts } from '$lib';
 	import { Status, type Project, git } from '$lib/api';
 	import type { CloudApi, User } from '$lib/api';
-	import { Button, Modal, Link } from '$lib/components';
+	import { Button, Overlay, Link } from '$lib/components';
 	import { IconGitBranch, IconSparkle } from './icons';
 
 	export const show = () => modal.show();
@@ -116,10 +116,10 @@
 			});
 	};
 
-	let modal: Modal;
+	let modal: Overlay;
 </script>
 
-<Modal bind:this={modal} let:close>
+<Overlay bind:this={modal} let:close>
 	<form
 		class="modal modal-quick-commit font-modal-stroke/50 flex w-[680px] flex-col"
 		on:submit|preventDefault={onCommit}
@@ -207,7 +207,7 @@
 			</div>
 		</footer>
 	</form>
-</Modal>
+</Overlay>
 
 <style lang="postcss">
 	.quick-commit-input {
