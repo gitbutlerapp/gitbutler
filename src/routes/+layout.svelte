@@ -4,18 +4,13 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import { toasts, Toaster, events, hotkeys } from '$lib';
 	import type { LayoutData } from './$types';
-	import {
-		BackForwardButtons,
-		Link,
-		LinkProjectModal,
-		CommandPalette,
-		Breadcrumbs
-	} from '$lib/components';
+	import { BackForwardButtons, Link, CommandPalette, Breadcrumbs } from '$lib/components';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { unsubscribe } from '$lib/utils';
+	import LinkProjectModal from './LinkProjectModal.svelte';
 
 	export let data: LayoutData;
 	const { user, posthog, projects, sentry, cloud } = data;
