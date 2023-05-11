@@ -2,7 +2,7 @@
 	import { create } from './CodeHighlighter';
 	import { buildDiffRows, documentMap, RowType, type Row } from './renderer';
 
-	import './diff.css';
+	import './diff.postcss';
 	import './colors/gruvbox-alternative.css';
 	import type { DiffArray } from '$lib/diff';
 
