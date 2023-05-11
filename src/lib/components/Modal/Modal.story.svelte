@@ -1,31 +1,31 @@
 <script lang="ts">
-	import Dialog from './Dialog.svelte';
+	import Modal from './Modal.svelte';
 	import Button from '../Button/Button.svelte';
 
 	export let Hst: import('@histoire/plugin-svelte').Hst;
 
-	let dialog: Dialog;
+	let modal: Modal;
 
 	let title = 'Title';
 </script>
 
-<Hst.Story title="Dialog">
-	<Button on:click={dialog.show}>Open Dialog</Button>
+<Hst.Story title="Modal">
+	<Button on:click={modal.show}>Open Modal</Button>
 
 	<Hst.Variant title="No content">
-		<Dialog bind:this={dialog}>
+		<Modal bind:this={modal}>
 			<svelte:fragment slot="title">
 				{title}
 			</svelte:fragment>
-		</Dialog>
+		</Modal>
 	</Hst.Variant>
 
 	<Hst.Variant title="With content">
-		<Dialog bind:this={dialog}>
+		<Modal bind:this={modal}>
 			<svelte:fragment slot="title">
 				{title}
 			</svelte:fragment>
 			<p>Some content</p>
-		</Dialog>
+		</Modal>
 	</Hst.Variant>
 </Hst.Story>

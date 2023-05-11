@@ -7,7 +7,7 @@
 	import DiffViewer from '$lib/components/DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
-	import { Dialog } from '$lib/components';
+	import { Modal } from '$lib/components';
 	import { log, hotkeys } from '$lib';
 	import { IconChevronDown, IconChevronUp } from '$lib/components/icons';
 	import { onMount } from 'svelte';
@@ -33,7 +33,7 @@
 		Object.keys(statuses ?? {}).sort((a, b) => a.localeCompare(b))
 	);
 
-	let connectToCloudDialog: Dialog;
+	let connectToCloudModal: Modal;
 	let summary = '';
 	let description = '';
 
@@ -114,7 +114,7 @@
 
 	const onGenerateCommitMessage = async () => {
 		if (!isCloudEnabled) {
-			connectToCloudDialog.show();
+			connectToCloudModal.show();
 			return;
 		}
 		if ($user === null) return;
@@ -225,7 +225,7 @@
 	);
 </script>
 
-<Dialog bind:this={connectToCloudDialog}>
+<Modal bind:this={connectToCloudModal}>
 	<svelte:fragment slot="title">GitButler Cloud required</svelte:fragment>
 	<div class="w-[640px]">
 		<p class="py-2">
@@ -252,7 +252,7 @@
 		<Button kind="outlined" on:click={close}>Cancel</Button>
 		<Button color="primary" on:click={() => enableProjectSync().finally(close)}>Connect</Button>
 	</svelte:fragment>
-</Dialog>
+</Modal>
 
 <div id="commit-page" class="flex h-full w-full">
 	<div class="commit-panel-container side-panel flex flex-col">
