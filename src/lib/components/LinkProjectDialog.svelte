@@ -3,7 +3,7 @@
 	import { Button, Dialog } from '$lib/components';
 	import { asyncDerived } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
-	import { IconBookmark, IconFolder, IconLoading } from './icons';
+	import { IconFolder, IconLoading } from './icons';
 	import { toasts, api } from '$lib';
 
 	type Unpromisify<T> = T extends Promise<infer U> ? U : T;
@@ -47,10 +47,7 @@
 
 <Dialog bind:this={dialog}>
 	<svelte:fragment slot="title">
-		<div class="flex items-center gap-3">
-			<IconBookmark />
-			<span class="text-xl text-zinc-300">Link to existing GitButler project </span>
-		</div>
+		<span class="text-xl text-zinc-300">Link to existing GitButler project </span>
 	</svelte:fragment>
 
 	<div class="-m-4 grid h-[296px] w-[620px] flex-auto grid-cols-2">
