@@ -32,7 +32,7 @@ export const list = async (params: { projectId: string; earliestTimestampMs?: nu
 			)
 		);
 	}
-	cache[params.projectId] = invoke<Session[]>('list_sessions', {
+	cache[params.projectId] = invoke<Omit<Session, 'projectId'>[]>('list_sessions', {
 		projectId: params.projectId
 	}).then((sessions) => sessions.map((s) => ({ ...s, projectId: params.projectId })));
 	return cache[params.projectId].then((sessions) =>
@@ -44,9 +44,12 @@ export const list = async (params: { projectId: string; earliestTimestampMs?: nu
 
 export const subscribe = (
 	params: { projectId: string },
-	callback: (params: { projectId: string; session: Session }) => Promise<void> | void
+	callback: (params: {
+		projectId: string;
+		session: Omit<Session, 'projectId'>;
+	}) => Promise<void> | void
 ) =>
-	listen<Session>(`project://${params.projectId}/sessions`, async (event) =>
+	listen<Omit<Session, 'projectId'>>(`project://${params.projectId}/sessions`, async (event) =>
 		callback({ ...params, session: event.payload })
 	);
 
