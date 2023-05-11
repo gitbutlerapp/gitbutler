@@ -4,7 +4,7 @@
 	import { collapse } from '$lib/paths';
 	import { derived, writable } from '@square/svelte-store';
 	import { git, Status } from '$lib/api';
-	import DiffViewer from '$lib/components/DiffViewer.svelte';
+	import DiffViewer from './DiffViewer.svelte';
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Modal } from '$lib/components';

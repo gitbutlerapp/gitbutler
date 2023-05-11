@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { parseDiff } from './Differ/diff';
+	import { parseDiff } from '$lib/components/Differ/diff';
 	import { Differ } from '$lib/components';
 
 	export let diff: string;
