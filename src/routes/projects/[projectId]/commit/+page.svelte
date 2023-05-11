@@ -225,29 +225,27 @@
 	);
 </script>
 
-<Modal bind:this={connectToCloudModal}>
-	<svelte:fragment slot="title">GitButler Cloud required</svelte:fragment>
-	<div class="w-[640px]">
-		<p class="py-2">
+<Modal bind:this={connectToCloudModal} title="GitButler Cloud required">
+	<div class="flex flex-col gap-2">
+		<p>
 			By connecting to GitButler Cloud you'll unlock improved, cloud only features, including
 			AI-generated commit summaries, and the assurance of never losing your work with synced
 			project.
 		</p>
-		<p class="flex flex-col py-2">
-			<span class="font-semibold text-zinc-300">AI-genearate commits</span>
-			<span>
-				This not only saves you time and effort but also ensures consistency in tone and style,
-				ultimately helping you to boost sales and improve customer satisfaction.
-			</span>
+
+		<span class="font-semibold text-zinc-300">AI-genearate commits</span>
+		<p class="flex flex-col">
+			This not only saves you time and effort but also ensures consistency in tone and style,
+			ultimately helping you to boost sales and improve customer satisfaction.
 		</p>
-		<p class="flex flex-col py-2">
-			<span class="font-semibold text-zinc-300">Secure and reliable backup</span>
-			<span>
-				GitButler backup guarantees that anything you’ve ever written in your projects are safe,
-				secure and easily recoverable.
-			</span>
+
+		<span class="font-semibold text-zinc-300">Secure and reliable backup</span>
+		<p>
+			GitButler backup guarantees that anything you’ve ever written in your projects are safe,
+			secure and easily recoverable.
 		</p>
 	</div>
+
 	<svelte:fragment slot="controls" let:close>
 		<Button kind="outlined" on:click={close}>Cancel</Button>
 		<Button color="primary" on:click={() => enableProjectSync().finally(close)}>Connect</Button>
