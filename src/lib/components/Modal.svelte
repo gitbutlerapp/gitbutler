@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { scale } from 'svelte/transition';
+	import clickOutside from './click_outside';
 
 	let dialog: HTMLDialogElement;
-	let content: HTMLDivElement | null = null;
 
 	let open = false;
 
@@ -18,26 +18,11 @@
 		dialog.close();
 		open = false;
 	};
-
-	const handleClick = (event: Event) => {
-		if (event.defaultPrevented) return;
-		if (!dialog?.open) return;
-		const isClickInside = !content || content.contains(event.target as Node | null);
-		if (isClickInside) return;
-		close();
-	};
 </script>
 
-<dialog
-	on:click={handleClick}
-	on:keydown={handleClick}
-	class="bg-transparent"
-	in:scale={{ duration: 150 }}
-	bind:this={dialog}
-	on:close={close}
->
+<dialog class="bg-transparent" in:scale={{ duration: 150 }} bind:this={dialog} on:close={close}>
 	{#if open}
-		<div bind:this={content} class="flex">
+		<div use:clickOutside on:outclick={close} class="flex">
 			<slot {close} isOpen={open} />
 		</div>
 	{/if}
