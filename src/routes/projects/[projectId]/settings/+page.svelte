@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { derived } from '@square/svelte-store';
-	import { Button, Dialog, Login } from '$lib/components';
+	import { Button, Modal, Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts, api } from '$lib';
 	import { goto } from '$app/navigation';
@@ -89,14 +89,14 @@
 		saving = false;
 	};
 
-	let deleteConfirmationDialog: Dialog;
+	let deleteConfirmationModal: Modal;
 	let isDeleting = false;
 
 	const onDeleteClicked = () =>
 		Promise.resolve()
 			.then(() => (isDeleting = true))
 			.then(() => api.projects.del({ id: $project?.id }))
-			.then(() => deleteConfirmationDialog.close())
+			.then(() => deleteConfirmationModal.close())
 			.catch((e) => {
 				log.error(e);
 				toasts.error('Failed to delete project');
@@ -222,7 +222,7 @@
 					<Button
 						color="destructive"
 						kind="outlined"
-						on:click={() => deleteConfirmationDialog.show()}
+						on:click={() => deleteConfirmationModal.show()}
 					>
 						Delete project
 					</Button>
@@ -236,7 +236,7 @@
 	</div>
 </div>
 
-<Dialog bind:this={deleteConfirmationDialog}>
+<Modal bind:this={deleteConfirmationModal}>
 	<svelte:fragment slot="title">
 		Delete {$project.title}?
 	</svelte:fragment>
@@ -252,4 +252,4 @@
 			Delete project
 		</Button>
 	</svelte:fragment>
-</Dialog>
+</Modal>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import leven from 'leven';
-	import { Button, Dialog } from '$lib/components';
+	import { Button, Modal } from '$lib/components';
 	import { asyncDerived } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from './icons';
@@ -22,10 +22,10 @@
 
 	export const show = async (projectId: string) => {
 		project = await projects.get(projectId);
-		dialog.show();
+		modal.show();
 	};
 
-	let dialog: Dialog;
+	let modal: Modal;
 
 	let isLinking = false;
 	const onLinkClicked = () =>
@@ -38,14 +38,14 @@
 					await project
 						?.update({ api: { ...cloudProject, sync: true } })
 						.then(() => toasts.success(`Project linked`));
-				dialog.close();
+				modal.close();
 			})
 
 			.catch(() => toasts.error(`Failed to link project`))
 			.finally(() => (isLinking = false));
 </script>
 
-<Dialog bind:this={dialog}>
+<Modal bind:this={modal}>
 	<svelte:fragment slot="title">
 		<span class="text-xl text-zinc-300">Link to existing GitButler project </span>
 	</svelte:fragment>
@@ -106,4 +106,4 @@
 			Link projects
 		</Button>
 	</svelte:fragment>
-</Dialog>
+</Modal>

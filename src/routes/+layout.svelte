@@ -7,7 +7,7 @@
 	import {
 		BackForwardButtons,
 		Link,
-		LinkProjectDialog,
+		LinkProjectModal,
 		CommandPalette,
 		Breadcrumbs
 	} from '$lib/components';
@@ -25,7 +25,7 @@
 	);
 
 	let commandPalette: CommandPalette;
-	let linkProjectDialog: LinkProjectDialog;
+	let linkProjectModal: LinkProjectModal;
 
 	onMount(() =>
 		unsubscribe(
@@ -40,7 +40,7 @@
 					.then(async (project) => {
 						if (!project) return;
 						toasts.success(`Project ${project.title} created`);
-						linkProjectDialog?.show(project.id);
+						linkProjectModal?.show(project.id);
 					})
 					.catch((e: any) => toasts.error(e.message))
 			),
@@ -96,5 +96,5 @@
 		<CommandPalette bind:this={commandPalette} {projects} {project} />
 	{/await}
 
-	<LinkProjectDialog bind:this={linkProjectDialog} {cloud} {user} {projects} />
+	<LinkProjectModal bind:this={linkProjectModal} {cloud} {user} {projects} />
 </div>

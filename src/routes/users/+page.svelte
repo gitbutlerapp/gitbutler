@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Dialog, Login } from '$lib/components';
+	import { Button, Modal, Login } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts } from '$lib';
 	import { deleteAllData } from '$lib/api';
@@ -65,7 +65,7 @@
 	};
 
 	let isDeleting = false;
-	let deleteConfirmationDialog: Dialog;
+	let deleteConfirmationModal: Modal;
 
 	const onDeleteClicked = () =>
 		Promise.resolve()
@@ -77,7 +77,7 @@
 				log.error(e);
 				toasts.error('Failed to delete project');
 			})
-			.then(() => deleteConfirmationDialog.close())
+			.then(() => deleteConfirmationModal.close())
 			.then(() => goto('/', { replaceState: true, invalidateAll: true }))
 			.finally(() => (isDeleting = false));
 </script>
@@ -251,13 +251,13 @@
 	</div>
 
 	<div class="mt-8 flex flex-col gap-4 border-t border-zinc-400 pt-4">
-		<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationDialog.show()}>
+		<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
 			Delete all data
 		</Button>
 	</div>
 </div>
 
-<Dialog bind:this={deleteConfirmationDialog}>
+<Modal bind:this={deleteConfirmationModal}>
 	<svelte:fragment slot="title">Delete all local data?</svelte:fragment>
 
 	<p>Are you sure you want to delete all local data? This can’t be undone.</p>
@@ -266,4 +266,4 @@
 		<Button kind="outlined" on:click={close}>Cancel</Button>
 		<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>Delete</Button>
 	</svelte:fragment>
-</Dialog>
+</Modal>
