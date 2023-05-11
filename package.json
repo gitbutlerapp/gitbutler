@@ -76,7 +76,7 @@
 		"tauri-plugin-websocket-api": "github:tauri-apps/tauri-plugin-websocket",
 		"tinykeys": "^1.4.0",
 		"tslib": "^2.4.1",
-		"typescript": "^4.8.4",
+		"typescript": "^5.0.4",
 		"vite": "^4.0.0",
 		"xterm": "^5.1.0",
 		"xterm-addon-canvas": "^0.3.0",
