@@ -2,7 +2,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components';
-	import { IconArrowLeft, IconArrowRight } from './icons';
+	import { IconArrowLeft, IconArrowRight } from '$lib/components/icons';
 
 	const getUri = (url: URL) => url.pathname + url.search + url.hash;
 
