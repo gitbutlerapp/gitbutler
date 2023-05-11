@@ -1,16 +1,19 @@
-import { redirect } from '@sveltejs/kit';
-import { format } from 'date-fns';
+import { error, redirect } from '@sveltejs/kit';
+import { format, compareDesc } from 'date-fns';
 import type { PageLoad } from './$types';
 import { wrapLoadWithSentry } from '@sentry/sveltekit';
 
 export const load: PageLoad = wrapLoadWithSentry(async ({ parent, url }) => {
 	const { sessions, projectId } = await parent();
-	const date = format(new Date(), 'yyyy-MM-dd');
-	const dateSessions = await sessions
-		.load()
-		.then((sessions) =>
-			sessions.filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === date)
-		);
-	const firstSession = dateSessions[dateSessions.length - 1];
-	throw redirect(302, `/projects/${projectId}/player/${date}/${firstSession.id}${url.search}`);
+	const latestDate = await sessions.load().then((sessions) =>
+		sessions
+			.map((session) => session.meta.startTimestampMs)
+			.sort(compareDesc)
+			.shift()
+	);
+	if (!latestDate) throw error(404, 'No sessions found');
+	throw redirect(
+		302,
+		`/projects/${projectId}/player/${format(latestDate, 'yyyy-MM-dd')}/${url.search}`
+	);
 });

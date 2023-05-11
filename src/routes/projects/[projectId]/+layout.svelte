@@ -8,7 +8,6 @@
 	import QuickCommitModal from '$lib/components/QuickCommitModal.svelte';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
-	import { format } from 'date-fns';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 	import { events, hotkeys } from '$lib';
 
@@ -35,7 +34,7 @@
 			hotkeys.on('Meta+P', () => goto(`/projects/${$project.id}/`)),
 			hotkeys.on('Meta+Shift+,', () => goto(`/projects/${$project.id}/settings/`)),
 			hotkeys.on('Meta+R', () =>
-				goto(`/projects/${$project.id}/player/${format(new Date(), 'yyyy-MM-dd')}`)
+				goto(`/projects/${$project.id}/player/`)
 			),
 			hotkeys.on('a i p', () => goto(`/projects/${$project.id}/aiplayground/`))
 		)
