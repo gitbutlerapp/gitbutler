@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { Button, Tooltip } from '$lib/components';
+	import { events } from '$lib';
 
 	export let data: LayoutData;
 
-	const { projects, events } = data;
+	const { projects } = data;
 </script>
 
 <div class="h-full w-full p-8">

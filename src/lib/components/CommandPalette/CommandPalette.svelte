@@ -8,11 +8,9 @@
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconExternalLink } from '../icons';
-	import type Events from '$lib/events';
 
 	export let projects: Readable<Project[]>;
 	export let project = readable<Project | undefined>(undefined);
-	export let events: ReturnType<typeof Events>;
 
 	const input = writable('');
 	const scopeToProject = writable(!!$project);
@@ -27,8 +25,7 @@
 				: listAvailableCommands({
 						projects,
 						project: scopeToProject ? project : undefined,
-						input,
-						events
+						input
 				  })
 	);
 

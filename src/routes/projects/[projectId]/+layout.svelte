@@ -10,9 +10,10 @@
 	import { unsubscribe } from '$lib/utils';
 	import { format } from 'date-fns';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
+	import { events, hotkeys } from '$lib';
 
 	export let data: LayoutData;
-	const { hotkeys, events, user, cloud, project, head, statuses, diffs } = data;
+	const { user, cloud, project, head, statuses, diffs } = data;
 
 	let query: string;
 

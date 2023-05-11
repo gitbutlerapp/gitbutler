@@ -1,5 +1,5 @@
 import { type Project, git } from '$lib/api';
-import type Events from '$lib/events';
+import { events } from '$lib';
 import {
 	IconGitCommit,
 	IconFile,
@@ -46,15 +46,7 @@ export type Group = {
 	commands: Command[];
 };
 
-const projectsGroup = ({
-	events,
-	projects,
-	input
-}: {
-	events: ReturnType<typeof Events>;
-	projects: Project[];
-	input: string;
-}): Group => ({
+const projectsGroup = ({ projects, input }: { projects: Project[]; input: string }): Group => ({
 	title: 'Projects',
 	commands: [
 		{
@@ -84,15 +76,7 @@ const projectsGroup = ({
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
-const commandsGroup = ({
-	project,
-	input,
-	events
-}: {
-	project?: Project;
-	input: string;
-	events: ReturnType<typeof Events>;
-}): Group => ({
+const commandsGroup = ({ project, input }: { project?: Project; input: string }): Group => ({
 	title: 'Commands',
 	commands: [
 		...(project
@@ -218,18 +202,13 @@ const supportGroup = ({ input }: { input: string }): Group => ({
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
-export default (params: {
-	projects: Project[];
-	project?: Project;
-	input: string;
-	events: ReturnType<typeof Events>;
-}) => {
-	const { projects, input, project, events } = params;
+export default (params: { projects: Project[]; project?: Project; input: string }) => {
+	const { projects, input, project } = params;
 	const groups = [];
 
-	groups.push(commandsGroup({ project, input, events }));
+	groups.push(commandsGroup({ project, input }));
 	groups.push(navigateGroup({ project, input }));
-	!project && groups.push(projectsGroup({ events, projects, input }));
+	!project && groups.push(projectsGroup({ projects, input }));
 	project && groups.push(fileGroup({ project, input }));
 	groups.push(supportGroup({ input }));
 

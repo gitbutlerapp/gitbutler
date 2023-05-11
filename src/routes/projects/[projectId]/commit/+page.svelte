@@ -8,14 +8,13 @@
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Dialog } from '$lib/components';
-	import { log } from '$lib';
-	import IconChevronUp from '$lib/components/icons/IconChevronUp.svelte';
-	import IconChevronDown from '$lib/components/icons/IconChevronDown.svelte';
+	import { log, hotkeys } from '$lib';
+	import { IconChevronDown, IconChevronUp } from '$lib/components/icons';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
 
 	export let data: PageData;
-	let { statuses, diffs, user, cloud, projectId, project, hotkeys } = data;
+	let { statuses, diffs, user, cloud, projectId, project } = data;
 
 	let fullContext = false;
 	let context = 3;
