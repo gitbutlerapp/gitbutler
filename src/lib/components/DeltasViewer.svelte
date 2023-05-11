@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type Delta, Operation } from '$lib/api';
 	import { Differ } from '$lib/components';
-	import { lineDiff } from './Differ/diff';
+	import { line } from '$lib/diff';
 
 	export let doc: string;
 	export let deltas: Delta[];
@@ -29,7 +29,7 @@
 
 	$: left = deltas.length > 0 ? applyDeltas(doc, deltas.slice(0, deltas.length - 1)) : doc;
 	$: right = deltas.length > 0 ? applyDeltas(left, deltas.slice(deltas.length - 1)) : left;
-	$: diff = lineDiff(left.split('\n'), right.split('\n'));
+	$: diff = line(left.split('\n'), right.split('\n'));
 </script>
 
 <Differ {diff} {filepath} {highlight} {paddingLines} />

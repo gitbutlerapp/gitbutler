@@ -4,7 +4,7 @@
 
 	import './diff.css';
 	import './colors/gruvbox-alternative.css';
-	import type { DiffArray } from './diff';
+	import type { DiffArray } from '$lib/diff';
 
 	export let filepath: string;
 	export let highlight: string[] = [];
