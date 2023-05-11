@@ -5,6 +5,7 @@
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/components/icons';
 	import { toasts, api } from '$lib';
+	import { onMount } from 'svelte';
 
 	type Unpromisify<T> = T extends Promise<infer U> ? U : T;
 
@@ -45,13 +46,9 @@
 			.finally(() => (isLinking = false));
 </script>
 
-<Modal bind:this={modal}>
-	<svelte:fragment slot="title">
-		<span class="text-xl text-zinc-300">Link to existing GitButler project </span>
-	</svelte:fragment>
-
-	<div class="-m-4 grid h-[296px] w-[620px] flex-auto grid-cols-2">
-		<div class="flex flex-col gap-2 px-4 py-6">
+<Modal bind:this={modal} title="Link to existing GitButler project">
+	<div class="-mt-4 flex flex-auto grid-cols-2 pt-4">
+		<div class="flex w-1/2 flex-col gap-2 pr-10 pt-4">
 			<h3 class="text-lg">Content</h3>
 
 			<p>
@@ -61,12 +58,12 @@
 			</p>
 		</div>
 
-		<div class="flex flex-auto flex-col gap-2 overflow-y-auto bg-[#000000]/20 py-6">
+		<div class="-mr-4 flex w-1/2 flex-auto flex-col gap-2 bg-[#000000]/20 pt-4">
 			<h3 class="px-4 text-lg font-semibold">Existing GitButler Projects</h3>
 			{#await Promise.all([cloudProjects.load(), projects.load(), project?.load()])}
 				<IconLoading class="m-auto animate-spin" />
 			{:then}
-				<ul class="flex flex-col gap-2 overflow-y-scroll px-4">
+				<ul class="flex flex-auto flex-col gap-2 overflow-y-scroll px-4 pb-4">
 					{#each $cloudProjects
 						// filter out projects that are already linked
 						.filter((project) => $projects?.find((p) => p?.api?.repository_id === project.repository_id) === undefined)
