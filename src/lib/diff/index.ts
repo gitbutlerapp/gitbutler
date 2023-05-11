@@ -1,7 +1,7 @@
 import { CharacterIdMap } from './characterIdMap';
 import { diff_match_patch } from 'diff-match-patch';
 
-export const charDiff = (
+export const char = (
 	text1: string,
 	text2: string,
 	cleanup?: boolean
@@ -14,12 +14,12 @@ export const charDiff = (
 	return diff;
 };
 
-export const lineDiff = (lines1: string[], lines2: string[]): DiffArray => {
+export const line = (lines1: string[], lines2: string[]): DiffArray => {
 	const idMap = new CharacterIdMap<string>();
 	const text1 = lines1.map((line) => idMap.toChar(line)).join('');
 	const text2 = lines2.map((line) => idMap.toChar(line)).join('');
 
-	const diff = charDiff(text1, text2);
+	const diff = char(text1, text2);
 	const lineDiff = [];
 	for (let i = 0; i < diff.length; i++) {
 		const lines = [];
@@ -32,8 +32,8 @@ export const lineDiff = (lines1: string[], lines2: string[]): DiffArray => {
 	return lineDiff;
 };
 
-export const parseDiff = (rawDiff: string): DiffArray => {
-	const lines = rawDiff.split('\n');
+export const parse = (raw: string): DiffArray => {
+	const lines = raw.split('\n');
 
 	// skip header lines
 	while (isHeaderLine(lines[0])) lines.shift();
