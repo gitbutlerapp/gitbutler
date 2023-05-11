@@ -4,6 +4,13 @@
 	@apply pl-2 pr-2;
 }
 
+.token-attribute {
+	@apply cursor-default select-none;
+}
+.inner-diff {
+	border-radius: 2px;
+}
+
 .diff-line-marker-addition,
 .diff-line-addition {
 	--override-addition-background-color: hsl(144deg 55% 49% / 20%);
@@ -31,15 +38,9 @@
 }
 
 .diff-line-spacer {
-	/* @apply bg-zinc-900 bg-opacity-60 border-t-zinc-700 border-b-zinc-700; */
-	/* --override-spacer-background-color: rgba(25, 25, 39, 0.4); */
-
 	color: rgb(229, 231, 235);
 	text-align: left;
 	background-color: rgba(25, 25, 39, 0.6);
 	padding-left: 0.5rem;
 	padding-right: 0.5rem;
-
-	/* border-top: 1px solid #3f3f46;
-			border-bottom: 1px solid #3f3f46; */
 }
