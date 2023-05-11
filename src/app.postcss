@@ -25,13 +25,6 @@ input:focus {
 	@apply focus:border-[1px] focus:focus:border-blue-600;
 }
 
-.drag-none {
-	-webkit-user-select: none;
-	-webkit-user-drag: none;
-	-webkit-app-region: no-drag;
-	cursor: default;
-}
-
 /* OUTLINE REMOVAL  */
 .outline-none-important {
 	@apply outline-none focus:outline-none active:outline-none;
@@ -113,27 +106,4 @@ input:focus {
 	backdrop-filter: blur(10px);
 	background-color: rgb(36 36 41 / 0.8);
 	/* Note: backdrop-filter has minimal browser support */
-}
-
-/* TERMINAL */
-#terminal {
-	padding-right: 4px;
-	background-color: black;
-}
-.terminal {
-	height: 100%;
-	width: 100%;
-	@apply p-4;
-}
-.xtrem {
-	height: 100%;
-	width: 100%;
-}
-.xterm-viewport {
-}
-.xterm-scroll-area {
-	padding: 24px;
-}
-.xterm-screen {
-	width: 100% !important;
 }
