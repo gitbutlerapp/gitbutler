@@ -39,6 +39,7 @@ specifiers:
   diff-match-patch: ^1.0.5
   eslint: ^8.28.0
   eslint-config-prettier: ^8.5.0
+  eslint-plugin-square-svelte-store: ^1.0.0
   eslint-plugin-svelte3: ^4.0.0
   histoire: ^0.16.1
   inter-ui: ^3.19.3
@@ -109,6 +110,7 @@ devDependencies:
   diff-match-patch: 1.0.5
   eslint: 8.34.0
   eslint-config-prettier: 8.6.0_eslint@8.34.0
+  eslint-plugin-square-svelte-store: 1.0.0
   eslint-plugin-svelte3: 4.0.0_dbthnr4b2bdkhyiebwn7su3hnq
   histoire: 0.16.1_vite@4.0.4
   inter-ui: 3.19.3
@@ -1902,6 +1904,10 @@ packages:
       eslint: '>=7.0.0'
     dependencies:
       eslint: 8.34.0
+    dev: true
+
+  /eslint-plugin-square-svelte-store/1.0.0:
+    resolution: {integrity: sha512-QLybNNEPcBKVrgAeow/7ouOqbTVsWwEdStFab9ZMZaW19Y//ZEhhtuEb92P69n9u/JRL6EFhArV9AfS+LgS4mA==}
     dev: true
 
   /eslint-plugin-svelte3/4.0.0_dbthnr4b2bdkhyiebwn7su3hnq:

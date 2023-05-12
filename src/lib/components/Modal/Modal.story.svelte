@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Modal from './Modal.svelte';
 	import Button from '../Button/Button.svelte';
-	import { IconBookmark } from '../icons';
+	import { IconBookmark } from '../../icons';
 
 	export let Hst: import('@histoire/plugin-svelte').Hst;
 

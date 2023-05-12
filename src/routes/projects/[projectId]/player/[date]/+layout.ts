@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable } from '@square/svelte-store';
 import type { LayoutLoad } from './$types';
 
 export const load: LayoutLoad = () => ({
