@@ -13,6 +13,7 @@
 	import LinkProjectModal from './LinkProjectModal.svelte';
 	import BackForwardButtons from './BackForwardButtons.svelte';
 	import Breadcrumbs from './Breadcrumbs.svelte';
+	import ShareIssueModal from './ShareIssueModal.svelte';
 
 	export let data: LayoutData;
 	const { user, posthog, projects, sentry, cloud } = data;
@@ -23,6 +24,7 @@
 
 	let commandPalette: CommandPalette;
 	let linkProjectModal: LinkProjectModal;
+	let shareIssueModal: ShareIssueModal;
 
 	onMount(() =>
 		unsubscribe(
@@ -44,6 +46,7 @@
 			events.on('openCommandPalette', () => commandPalette?.show()),
 			events.on('closeCommandPalette', () => commandPalette?.close()),
 			events.on('goto', (path: string) => goto(path)),
+			events.on('openSendIssueModal', () => shareIssueModal?.show()),
 
 			hotkeys.on('Meta+k', () => events.emit('openCommandPalette')),
 			hotkeys.on('Meta+,', () => events.emit('goto', '/users/')),
@@ -94,4 +97,8 @@
 	{/await}
 
 	<LinkProjectModal bind:this={linkProjectModal} {cloud} {user} {projects} />
+
+	{#if $user}
+		<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />
+	{/if}
 </div>

@@ -14,7 +14,7 @@
 	let modal: Overlay;
 </script>
 
-<Overlay bind:this={modal} let:close>
+<Overlay bind:this={modal} let:close on:close>
 	<div
 		class="modal"
 		class:w-[680px]={width === 'default'}

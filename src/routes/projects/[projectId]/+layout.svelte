@@ -4,7 +4,7 @@
 	import { Button, Link, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { IconSearch, IconSettings, IconTerminal } from '$lib/icons';
+	import { IconEmail, IconSearch, IconSettings, IconTerminal } from '$lib/icons';
 	import QuickCommitModal from './QuickCommitModal.svelte';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
@@ -111,22 +111,34 @@
 	<footer class="w-full text-sm font-medium">
 		<div class="flex h-8 flex-shrink-0 select-none items-center border-t border-zinc-700">
 			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2">
-				{#if $project?.api?.sync}
-					<Link href="/projects/{$project?.id}/settings">
+				<Link href="/projects/{$project?.id}/settings">
+					{#if $project?.api?.sync}
 						<div class="flex flex-row items-center space-x-2 ">
 							<div class="h-2 w-2 rounded-full bg-green-700" />
-							<div>Backed up</div>
+							<span>Backed up</span>
 						</div>
-					</Link>
-					<Link target="_blank" rel="noreferrer" href={projectUrl($project)}>
-						Open in GitButler Cloud
-					</Link>
-				{:else}
-					<Link href="/projects/{$project?.id}/settings">
+					{:else}
 						<div class="h-2 w-2 rounded-full bg-red-700" />
 						Offline
-					</Link>
-				{/if}
+					{/if}
+				</Link>
+
+				<div class="flex gap-1">
+					{#if $user}
+						<Button
+							kind="plain"
+							height="small"
+							icon={IconEmail}
+							on:click={() => events.emit('openSendIssueModal')}
+						/>
+					{/if}
+
+					{#if $project?.api?.sync}
+						<Link target="_blank" rel="noreferrer" href={projectUrl($project)}>
+							Open in GitButler Cloud
+						</Link>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</footer>
