@@ -5,12 +5,7 @@
 	import FileActivity from './FileActivity.svelte';
 	import { page } from '$app/stores';
 	import { Link } from '$lib/components';
-	import {
-		IconRewind,
-		IconPlayerPlayFilled,
-		IconLoading,
-		IconSparkle
-	} from '$lib/components/icons';
+	import { IconRewind, IconPlayerPlayFilled, IconLoading, IconSparkle } from '$lib/icons';
 	import { bucketByTimestamp } from './histogram';
 	import { collapse } from '$lib/paths';
 	import type { Session } from '$lib/api';

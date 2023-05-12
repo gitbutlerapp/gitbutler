@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { IconExternalLink } from '../icons';
+	import { IconExternalLink } from '../../icons';
 
 	export let target: '_blank' | '_self' | '_parent' | '_top' | undefined = undefined;
 	export let rel: string | undefined = undefined;

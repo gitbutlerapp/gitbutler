@@ -7,7 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
-	import { IconExternalLink } from '../icons';
+	import { IconExternalLink } from '../../icons';
 
 	export let projects: Readable<Project[]>;
 	export let project = readable<Project | undefined>(undefined);

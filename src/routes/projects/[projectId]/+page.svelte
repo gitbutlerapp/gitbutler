@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getTime, subDays } from 'date-fns';
 	import type { PageData } from './$types';
-	import { IconGitBranch, IconLoading } from '$lib/components/icons';
+	import { IconGitBranch, IconLoading } from '$lib/icons';
 	import { derived } from '@square/svelte-store';
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';

@@ -23,7 +23,7 @@
 <script lang="ts">
 	import Slider from './Slider.svelte';
 	import type { PageData } from './$types';
-	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/components/icons';
+	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/icons';
 	import { collapse } from '$lib/paths';
 	import { page } from '$app/stores';
 	import { DeltasViewer, DiffContext } from '$lib/components';

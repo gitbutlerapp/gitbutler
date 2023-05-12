@@ -9,7 +9,7 @@
 	import { fly } from 'svelte/transition';
 	import { Modal } from '$lib/components';
 	import { log, hotkeys } from '$lib';
-	import { IconChevronDown, IconChevronUp } from '$lib/components/icons';
+	import { IconChevronDown, IconChevronUp } from '$lib/icons';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
 

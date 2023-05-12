@@ -10,7 +10,7 @@ import {
 	IconDiscord,
 	IconSearch,
 	IconRewind
-} from '../icons';
+} from '$lib/icons';
 import type { SvelteComponent } from 'svelte';
 
 type ActionLink = {

@@ -4,7 +4,7 @@
 	import { Button, Link, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { IconSearch, IconSettings, IconTerminal } from '$lib/components/icons';
+	import { IconSearch, IconSettings, IconTerminal } from '$lib/icons';
 	import QuickCommitModal from './QuickCommitModal.svelte';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';

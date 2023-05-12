@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Button from '../Button/Button.svelte';
 	import Overlay from '../Overlay/Overlay.svelte';
-	import { IconClose } from '$lib/components/icons';
+	import { IconClose } from '$lib/icons';
 	import type { ComponentType } from 'svelte';
 
 	export const show = () => modal.show();

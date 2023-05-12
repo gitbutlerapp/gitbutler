@@ -1,9 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { IconChevronLeft, IconChevronRight } from '$lib/components/icons';
+	import { IconChevronLeft, IconChevronRight, IconLoading } from '$lib/icons';
 	import { files, deltas, searchResults, type SearchResult } from '$lib/api';
 	import { asyncDerived } from '@square/svelte-store';
-	import { IconLoading } from '$lib/components/icons';
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { DeltasViewer } from '$lib/components';
 	import { page } from '$app/stores';
