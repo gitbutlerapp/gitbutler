@@ -46,7 +46,7 @@ jobs:
               run: |
                 pnpm check
 
-    test:
+    story:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
@@ -63,6 +63,43 @@ jobs:
                   version: 7.x.x
                   run_install: false
             
+            - name: Get pnpm store directory
+              id: pnpm-cache
+              shell: bash
+              run: |
+                echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+            - uses: actions/cache@v3
+              name: Setup pnpm cache
+              with:
+                path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+                key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+                restore-keys: |
+                  ${{ runner.os }}-pnpm-store-
+
+            - name: Install pnpm dependencies
+              run: pnpm install
+
+            - name: Build storybook
+              run: pnpm story:build
+
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Setup node
+              uses: actions/setup-node@v3
+              with:
+                  node-version: 18
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v2
+              with:
+                  version: 7.x.x
+                  run_install: false
+
             - name: Get pnpm store directory
               id: pnpm-cache
               shell: bash
