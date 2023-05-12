@@ -12,6 +12,11 @@
     "tauri": {
         "allowlist": {
             "all": false,
+            "fs": {
+                "all": false,
+                "readFile": true,
+                "scope": ["$APPCACHE/archives/*"]
+            },
             "shell": {
                 "all": false,
                 "open": "^(https://)|(mailto:)?."

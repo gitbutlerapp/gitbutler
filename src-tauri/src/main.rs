@@ -4,6 +4,7 @@ extern crate scopeguard;
 extern crate lazy_static;
 
 mod app;
+mod zip;
 mod events;
 mod fs;
 mod storage;
@@ -102,6 +103,43 @@ async fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
     std::fs::write(&save_to, bytes)?;
 
     Ok(build_asset_url(&save_to.display().to_string()))
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn get_project_archive_path(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<String, Error> {
+    let app = handle.state::<app::App>();
+    let project = app
+        .get_project(project_id)?.ok_or_else(|| Error::Message("Project not found".to_string()))?;
+
+    let zipper = zip::Zipper::new(handle.path_resolver().app_cache_dir().unwrap().join("archives"));
+    let zipped_logs = zipper.zip(project.path)?;
+    Ok(zipped_logs.to_str().unwrap().to_string())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn get_project_data_archive_path(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<String, Error> {
+    let zipper = zip::Zipper::new(handle.path_resolver().app_cache_dir().unwrap().join("archives"));
+    let zipped_logs = zipper.zip(handle.path_resolver().app_local_data_dir().unwrap().join("projects").join(project_id))?;
+    Ok(zipped_logs.to_str().unwrap().to_string())
+}
+
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn get_logs_archive_path(
+    handle: tauri::AppHandle,
+) -> Result<String, Error> {
+    let zipper = zip::Zipper::new(handle.path_resolver().app_cache_dir().unwrap().join("archives"));
+    let zipped_logs = zipper.zip(handle.path_resolver().app_log_dir().unwrap())?;
+    Ok(zipped_logs.to_str().unwrap().to_string())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -569,6 +607,9 @@ fn main() {
             git_unstage,
             git_wd_diff,
             delete_all_data,
+            get_logs_archive_path,
+            get_project_archive_path,
+            get_project_data_archive_path
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")
