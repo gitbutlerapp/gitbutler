@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Project } from '$lib/api';
-	import { IconHome } from '$lib/components/icons';
+	import { IconHome } from '$lib/icons';
 	import { Tooltip, Button } from '$lib/components';
 	import { goto } from '$app/navigation';
 

@@ -17,7 +17,7 @@
 
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { IconChevronLeft, IconChevronRight } from '$lib/components/icons';
+	import { IconChevronLeft, IconChevronRight } from '$lib/icons';
 	import { collapse } from '$lib/paths';
 	import { page } from '$app/stores';
 	import { asyncDerived, derived } from '@square/svelte-store';

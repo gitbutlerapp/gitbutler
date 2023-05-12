@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, type ComponentType } from 'svelte';
-	import { IconLoading } from '../icons';
+	import { IconLoading } from '../../icons';
 
 	export let color: 'basic' | 'primary' | 'destructive' | 'purple' = 'basic';
 	export let kind: 'plain' | 'filled' | 'outlined' = 'filled';

@@ -3,9 +3,8 @@
 	import { Button, Modal } from '$lib/components';
 	import { asyncDerived } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
-	import { IconFolder, IconLoading } from '$lib/components/icons';
+	import { IconFolder, IconLoading } from '$lib/icons';
 	import { toasts, api } from '$lib';
-	import { onMount } from 'svelte';
 
 	type Unpromisify<T> = T extends Promise<infer U> ? U : T;
 
