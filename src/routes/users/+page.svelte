@@ -4,6 +4,7 @@
 	import { log, toasts } from '$lib';
 	import { deleteAllData } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { open } from '@tauri-apps/api/shell';
 
 	export let data: PageData;
 	const { user, cloud } = data;
@@ -232,22 +233,20 @@
 	{/if}
 
 	<div class="mt-8 flex flex-col gap-4 border-t border-zinc-400 pt-4">
-		<a
+		<button
 			class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
-			href="mailto:hello@gitbutler.com?subject=Feedback or question!"
+			on:click={() => open('mailto:hello@gitbutler.com?subject=Feedback or question!')}
 		>
 			<h2 class="text-lg text-zinc-300">Get Support</h2>
 			<div class="text-zinc-500">If you have an issue or any questions, please email us.</div>
-		</a>
-		<a
+		</button>
+		<button
 			class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
-			href="https://discord.gg/wDKZCPEjXC"
-			target="_blank"
-			rel="noreferrer"
+			on:click={() => open('https://discord.gg/wDKZCPEjXC')}
 		>
 			<h2 class="text-lg text-zinc-300">Join our Discord</h2>
 			<div class="text-zinc-500">Share feedback, request, or ask questions</div>
-		</a>
+		</button>
 	</div>
 
 	<div class="mt-8 flex flex-col gap-4 border-t border-zinc-400 pt-4">
