@@ -6,6 +6,15 @@ const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
 
 const getUrl = (path: string) => new URL(path, apiUrl).toString();
 
+export type Feedback = {
+	id: number;
+	user_id: number;
+	feedback: string;
+	context: string;
+	created_at: string;
+	updated_at: string;
+};
+
 export type LoginToken = {
 	token: string;
 	expires: string;
@@ -103,8 +112,33 @@ export default (
 					}).then(parseResponseJSON)
 			}
 		},
+		feedback: {
+			create: async (
+				token: string,
+				params: {
+					message: string;
+					context?: string;
+					logs?: Blob;
+					data?: Blob;
+					repo?: Blob;
+				}
+			): Promise<Feedback> => {
+				const formData = new FormData();
+				formData.append('message', params.message);
+				if (params.logs) formData.append('logs', params.logs);
+				if (params.repo) formData.append('repo', params.repo);
+				if (params.data) formData.append('data', params.data);
+				return fetch(getUrl(`feedback`), {
+					method: 'PUT',
+					headers: {
+						'X-Auth-Token': token
+					},
+					body: formData
+				}).then(parseResponseJSON);
+			}
+		},
 		user: {
-			get: async (token: string): Promise<User> =>
+			get: (token: string): Promise<User> =>
 				fetch(getUrl(`user.json`), {
 					method: 'GET',
 					headers: {

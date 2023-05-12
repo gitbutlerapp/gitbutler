@@ -6,6 +6,7 @@ type Events = {
 	closeCommandPalette: () => void;
 	openNewProjectModal: () => void;
 	openQuickCommitModal: () => void;
+	openSendIssueModal: () => void;
 };
 
 const events = createNanoEvents<Events>();

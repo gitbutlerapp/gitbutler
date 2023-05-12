@@ -20,7 +20,13 @@
 	};
 </script>
 
-<dialog class="bg-transparent" in:scale={{ duration: 150 }} bind:this={dialog} on:close={close}>
+<dialog
+	class="bg-transparent"
+	in:scale={{ duration: 150 }}
+	bind:this={dialog}
+	on:close={close}
+	on:close
+>
 	{#if open}
 		<div use:clickOutside on:outclick={close} class="flex">
 			<slot {close} isOpen={open} />
