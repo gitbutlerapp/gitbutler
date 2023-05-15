@@ -18,6 +18,7 @@ pub struct ApiProject {
 pub struct Project {
     pub id: String,
     pub title: String,
+    pub description: Option<String>,
     pub path: String,
     pub api: Option<ApiProject>,
     #[serde(default)]

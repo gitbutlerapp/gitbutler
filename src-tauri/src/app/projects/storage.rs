@@ -14,6 +14,7 @@ pub struct Storage {
 pub struct UpdateRequest {
     pub id: String,
     pub title: Option<String>,
+    pub description: Option<String>,
     pub api: Option<project::ApiProject>,
     pub last_fetched_ts: Option<u128>,
 }
@@ -28,6 +29,18 @@ impl Storage {
             Some(projects) => {
                 let all_projects: Vec<project::Project> = serde_json::from_str(&projects)
                     .with_context(|| format!("Failed to parse projects from {}", PROJECTS_FILE))?;
+                let all_projects: Vec<project::Project> = all_projects
+                    .into_iter()
+                    .map(|mut p| {
+                        // backwards compatibility for description field
+                        if let Some(api_description) =
+                            p.api.as_ref().and_then(|api| api.description.as_ref())
+                        {
+                            p.description = Some(api_description.to_string());
+                        }
+                        p
+                    })
+                    .collect();
                 Ok(all_projects)
             }
             None => Ok(vec![]),
@@ -49,6 +62,10 @@ impl Storage {
 
         if let Some(title) = &update_request.title {
             project.title = title.clone();
+        }
+
+        if let Some(description) = &update_request.description {
+            project.description = Some(description.clone());
         }
 
         if let Some(api) = &update_request.api {
