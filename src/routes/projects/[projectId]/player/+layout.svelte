@@ -6,7 +6,7 @@
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
-	const { sessions, projectId } = data;
+	const { sessions } = data;
 
 	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
 
@@ -14,7 +14,7 @@
 		const sessionDeltas = await Promise.all(
 			sessions.map((session) =>
 				deltas.list({
-					projectId,
+					projectId: $page.params.projectId,
 					sessionId: session.id,
 					paths: fileFilter ? [fileFilter] : undefined
 				})
@@ -60,7 +60,7 @@
 						{@const isToday = format(new Date(date), 'yyyy-MM-dd') === today}
 						<li>
 							<a
-								href="/projects/{projectId}/player/{date}{$page.url.search}"
+								href="/projects/{$page.params.projectId}/player/{date}{$page.url.search}"
 								class:bg-card-active={date === $currentDate}
 								class:text-white={date === $currentDate}
 								class:border-zinc-700={date !== $currentDate}

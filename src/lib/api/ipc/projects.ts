@@ -25,28 +25,24 @@ export const del = (params: { id: string }) => invoke('delete_project', params);
 
 const store = asyncWritable([], list);
 
+export const Project = ({ id }: { id: string }) => ({
+	...derived(store, (projects) => projects?.find((p) => p.id === id)),
+	update: (params: { title?: string; api?: Project['api'] }) =>
+		update({
+			project: {
+				id,
+				...params
+			}
+		}).then((project) => {
+			store.update((projects) => projects.map((p) => (p.id === project.id ? project : p)));
+			return project;
+		}),
+	delete: () =>
+		del({ id }).then(() => store.update((projects) => projects.filter((p) => p.id !== id)))
+});
+
 export const Projects = () => ({
 	...store,
-	get: async (id: string) =>
-		store.load().then(() => ({
-			...derived(store, (projects) => {
-				const project = projects.find((p) => p.id === id);
-				if (!project) throw new Error(`Project ${id} not found`);
-				return project;
-			}),
-			update: (params: { title?: string; api?: Project['api'] }) =>
-				update({
-					project: {
-						id,
-						...params
-					}
-				}).then((project) => {
-					store.update((projects) => projects.map((p) => (p.id === project.id ? project : p)));
-					return project;
-				}),
-			delete: () =>
-				del({ id }).then(() => store.update((projects) => projects.filter((p) => p.id !== id)))
-		})),
 	add: (params: { path: string }) =>
 		add(params).then((project) => {
 			store.update((projects) => [...projects, project]);

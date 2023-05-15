@@ -5,6 +5,7 @@
 	import { derived, writable } from '@square/svelte-store';
 	import { git, Status } from '$lib/api';
 	import DiffViewer from './DiffViewer.svelte';
+	import { page } from '$app/stores';
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Modal } from '$lib/components';
@@ -14,7 +15,7 @@
 	import { unsubscribe } from '$lib/utils';
 
 	export let data: PageData;
-	let { statuses, diffs, user, cloud, projectId, project } = data;
+	let { statuses, diffs, user, cloud, project } = data;
 
 	let fullContext = false;
 	let context = 3;
@@ -96,7 +97,7 @@
 		isCommitting = true;
 		git
 			.commit({
-				projectId,
+				projectId: $page.params.projectId,
 				message: description.length > 0 ? `${summary}\n\n${description}` : summary,
 				push: false
 			})
@@ -135,7 +136,7 @@
 		cloud.summarize
 			.commit($user.access_token, {
 				diff,
-				uid: projectId
+				uid: $page.params.projectId
 			})
 			.then(({ message }) => {
 				const firstNewLine = message.indexOf('\n');
@@ -157,7 +158,7 @@
 		if (target.checked) {
 			git
 				.stage({
-					projectId,
+					projectId: $page.params.projectId,
 					paths: $unstagedFiles
 				})
 				.catch(() => {
@@ -166,7 +167,7 @@
 		} else {
 			git
 				.unstage({
-					projectId,
+					projectId: $page.params.projectId,
 					paths: $stagedFiles
 				})
 				.catch(() => {
@@ -209,7 +210,8 @@
 		Object.entries(statuses ?? {}).forEach(([file, status]) => {
 			const isStagedAdded = Status.isStaged(status) && status.staged === 'added';
 			const isUnstagedDeleted = Status.isUnstaged(status) && status.unstaged === 'deleted';
-			if (isStagedAdded && isUnstagedDeleted) git.stage({ projectId, paths: [file] });
+			if (isStagedAdded && isUnstagedDeleted)
+				git.stage({ projectId: $page.params.projectId, paths: [file] });
 		})
 	);
 
@@ -290,12 +292,16 @@
 										value={path}
 										on:click={() => {
 											Status.isStaged(status)
-												? git.unstage({ projectId, paths: [path] }).catch(() => {
-														error('Failed to unstage file');
-												  })
-												: git.stage({ projectId, paths: [path] }).catch(() => {
-														error('Failed to stage file');
-												  });
+												? git
+														.unstage({ projectId: $page.params.projectId, paths: [path] })
+														.catch(() => {
+															error('Failed to unstage file');
+														})
+												: git
+														.stage({ projectId: $page.params.projectId, paths: [path] })
+														.catch(() => {
+															error('Failed to stage file');
+														});
 										}}
 									/>
 									<label class="flex h-5 w-full overflow-auto" for="path">
