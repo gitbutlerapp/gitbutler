@@ -2,11 +2,13 @@
 	import { derived } from '@square/svelte-store';
 	import { Button, Modal, Login, Checkbox } from '$lib/components';
 	import type { PageData } from './$types';
-	import { log, toasts, api } from '$lib';
+	import { log, toasts, api, stores } from '$lib';
 	import { goto } from '$app/navigation';
 
 	export let data: PageData;
-	const { projects, project, user, cloud } = data;
+	const { projects, project, cloud } = data;
+
+	const user = stores.user;
 
 	const repo_id = (url: string) => {
 		const hurl = new URL(url);
@@ -171,7 +173,7 @@
 						<div class="text-zinc-400">backup your work and access advanced features</div>
 					</div>
 					<div class="flex flex-row items-center space-x-2">
-						<Login {user} {cloud} />
+						<Login {cloud} />
 					</div>
 				</div>
 			{/if}

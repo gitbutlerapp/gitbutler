@@ -9,10 +9,12 @@
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
-	import { events, hotkeys } from '$lib';
+	import { events, hotkeys, stores } from '$lib';
 
 	export let data: LayoutData;
-	const { user, cloud, project, head, statuses, diffs } = data;
+	const { cloud, project, head, statuses, diffs } = data;
+
+	const user = stores.user;
 
 	let query: string;
 

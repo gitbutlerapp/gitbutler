@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { Button, Modal, Login } from '$lib/components';
 	import type { PageData } from './$types';
-	import { log, toasts } from '$lib';
+	import { log, stores, toasts } from '$lib';
 	import { deleteAllData } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import { open } from '@tauri-apps/api/shell';
 
 	export let data: PageData;
-	const { user, cloud } = data;
+	const { cloud } = data;
+
+	const user = stores.user;
 
 	$: saving = false;
 
@@ -72,7 +74,7 @@
 		Promise.resolve()
 			.then(() => (isDeleting = true))
 			.then(() => deleteAllData())
-			.then(() => user.delete())
+			.then(() => user.set(null))
 			.then(() => toasts.success('All data deleted'))
 			.catch((e) => {
 				log.error(e);
@@ -91,7 +93,7 @@
 					<h2 class="text-2xl font-medium">GitButler Cloud Account</h2>
 					<div class="">Your online account details on gitbutler.com</div>
 				</div>
-				<Login {user} {cloud} />
+				<Login {cloud} />
 			</header>
 
 			<form
@@ -223,7 +225,7 @@
 				</li>
 			</ul>
 			<div class="mt-8 text-center">
-				<Login {user} {cloud} />
+				<Login {cloud} />
 			</div>
 			<div class="text-center text-zinc-300">
 				You will still need to give us permission for each project before we transfer any data to

@@ -2,7 +2,7 @@
 	import '../app.postcss';
 
 	import { open } from '@tauri-apps/api/dialog';
-	import { toasts, Toaster, events, hotkeys } from '$lib';
+	import { toasts, Toaster, events, hotkeys, stores } from '$lib';
 	import type { LayoutData } from './$types';
 	import { Link, CommandPalette } from '$lib/components';
 	import { page } from '$app/stores';
@@ -16,7 +16,9 @@
 	import ShareIssueModal from './ShareIssueModal.svelte';
 
 	export let data: LayoutData;
-	const { user, posthog, projects, sentry, cloud } = data;
+	const { posthog, projects, sentry, cloud } = data;
+
+	const user = stores.user;
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects?.find((project) => project.id === page.params.projectId)
@@ -96,7 +98,7 @@
 		<CommandPalette bind:this={commandPalette} {projects} {project} />
 	{/await}
 
-	<LinkProjectModal bind:this={linkProjectModal} {cloud} {user} {projects} />
+	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projects} />
 
 	{#if $user}
 		<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />

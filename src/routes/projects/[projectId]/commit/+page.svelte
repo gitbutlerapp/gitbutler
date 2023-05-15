@@ -9,13 +9,15 @@
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Modal } from '$lib/components';
-	import { log, hotkeys } from '$lib';
+	import { log, hotkeys, stores } from '$lib';
 	import { IconChevronDown, IconChevronUp } from '$lib/icons';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
 
 	export let data: PageData;
-	let { statuses, diffs, user, cloud, project } = data;
+	let { statuses, diffs, cloud, project } = data;
+
+	const user = stores.user;
 
 	let fullContext = false;
 	let context = 3;
