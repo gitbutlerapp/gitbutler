@@ -2,7 +2,7 @@
 	import { stores, log, toasts } from '$lib';
 	import { CloudApi, type Project } from '$lib/api';
 	import { Login, Checkbox } from '$lib/components';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 
 	export let project: Project;
 	const user = stores.user;
@@ -11,6 +11,15 @@
 	const dispatch = createEventDispatcher<{
 		updated: Project;
 	}>();
+
+	onMount(async () => {
+		if (!project.api) return;
+		const u = await user.load();
+		if (!u) return;
+		const cloudProject = await cloud.projects.get(u.access_token, project.api.repository_id);
+		if (cloudProject === project.api) return;
+		dispatch('updated', { ...project, api: { ...cloudProject, sync: project.api.sync } });
+	});
 
 	const onSyncChange = async (event: Event) => {
 		if ($user === null) return;
@@ -26,7 +35,6 @@
 					description: project.description,
 					uid: project.id
 				}));
-
 			dispatch('updated', { ...project, api: { ...cloudProject, sync } });
 		} catch (error) {
 			log.error(`Failed to update project sync status: ${error}`);
