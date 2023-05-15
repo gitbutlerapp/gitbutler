@@ -817,6 +817,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "data-encoding"
+version = "2.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23d8666cb01533c39dde32bcbab8e227b4ed6679b2c925eba05feabea39508fb"
+
+[[package]]
 name = "debugid"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1473,7 +1479,7 @@ dependencies = [
  "thiserror",
  "timed",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.18.0",
  "urlencoding",
  "uuid",
  "walkdir",
@@ -4543,7 +4549,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-log"
 version = "0.0.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#e46acc74be5681e0e1f22e9b08f9ba39140ff1b2"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#bc0ea5a74f0823e3f8f12f08f58ce0583cdc9bd5"
 dependencies = [
  "byte-unit",
  "fern",
@@ -4558,7 +4564,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-websocket"
 version = "0.0.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#e46acc74be5681e0e1f22e9b08f9ba39140ff1b2"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#bc0ea5a74f0823e3f8f12f08f58ce0583cdc9bd5"
 dependencies = [
  "futures-util",
  "log",
@@ -4568,13 +4574,13 @@ dependencies = [
  "tauri",
  "thiserror",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.19.0",
 ]
 
 [[package]]
 name = "tauri-plugin-window-state"
 version = "0.1.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#e46acc74be5681e0e1f22e9b08f9ba39140ff1b2"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#bc0ea5a74f0823e3f8f12f08f58ce0583cdc9bd5"
 dependencies = [
  "bincode",
  "bitflags 2.2.1",
@@ -4843,10 +4849,22 @@ checksum = "54319c93411147bced34cb5609a80e0a8e44c5999c93903a81cd866630ec0bfd"
 dependencies = [
  "futures-util",
  "log",
+ "tokio",
+ "tungstenite 0.18.0",
+]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec509ac96e9a0c43427c74f003127d953a265737636129424288d27cb5c4b12c"
+dependencies = [
+ "futures-util",
+ "log",
  "native-tls",
  "tokio",
  "tokio-native-tls",
- "tungstenite",
+ "tungstenite 0.19.0",
 ]
 
 [[package]]
@@ -4999,6 +5017,25 @@ dependencies = [
  "base64 0.13.1",
  "byteorder",
  "bytes",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.8.5",
+ "sha1",
+ "thiserror",
+ "url",
+ "utf-8",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15fba1a6d6bb030745759a9a2a588bfe8490fc8b4751a277db3a0be1c9ebbf67"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "data-encoding",
  "http",
  "httparse",
  "log",
