@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { PageData } from './$types';
 	import { IconChevronLeft, IconChevronRight, IconLoading } from '$lib/icons';
 	import { files, deltas, searchResults, type SearchResult } from '$lib/api';
 	import { asyncDerived } from '@square/svelte-store';
@@ -8,9 +7,9 @@
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
 	import { goto } from '$app/navigation';
+	import { stores } from '$lib';
 
-	export let data: PageData;
-	const { project } = data;
+	$: project = stores.project({ id: $page.params.projectId });
 
 	const limit = 10;
 	const query = derived(page, (page) => page.url.searchParams.get('q'));

@@ -12,8 +12,9 @@
 	import { events, hotkeys, stores } from '$lib';
 
 	export let data: LayoutData;
-	const { cloud, project, head, statuses, diffs } = data;
+	const { cloud, head, statuses, diffs } = data;
 
+	$: project = stores.project({ id: $page.params.projectId });
 	const user = stores.user;
 
 	let query: string;
@@ -31,12 +32,12 @@
 			events.on('openQuickCommitModal', () => quickCommitModal?.show()),
 
 			hotkeys.on('C', () => events.emit('openQuickCommitModal')),
-			hotkeys.on('Meta+Shift+C', () => goto(`/projects/${$project.id}/commit/`)),
-			hotkeys.on('Meta+T', () => goto(`/projects/${$project.id}/terminal/`)),
-			hotkeys.on('Meta+P', () => goto(`/projects/${$project.id}/`)),
-			hotkeys.on('Meta+Shift+,', () => goto(`/projects/${$project.id}/settings/`)),
-			hotkeys.on('Meta+R', () => goto(`/projects/${$project.id}/player/`)),
-			hotkeys.on('a i p', () => goto(`/projects/${$project.id}/aiplayground/`))
+			hotkeys.on('Meta+Shift+C', () => $project && goto(`/projects/${$project.id}/commit/`)),
+			hotkeys.on('Meta+T', () => $project && goto(`/projects/${$project.id}/terminal/`)),
+			hotkeys.on('Meta+P', () => $project && goto(`/projects/${$project.id}/`)),
+			hotkeys.on('Meta+Shift+,', () => $project && goto(`/projects/${$project.id}/settings/`)),
+			hotkeys.on('Meta+R', () => $project && goto(`/projects/${$project.id}/player/`)),
+			hotkeys.on('a i p', () => $project && goto(`/projects/${$project.id}/aiplayground/`))
 		)
 	);
 </script>
@@ -87,7 +88,7 @@
 				<li>
 					<Tooltip label="Terminal">
 						<Button
-							on:click={() => goto(`/projects/${$project.id}/terminal`)}
+							on:click={() => $project && goto(`/projects/${$project.id}/terminal`)}
 							kind="plain"
 							icon={IconTerminal}
 						/>
@@ -96,7 +97,7 @@
 				<li>
 					<Tooltip label="Project settings">
 						<Button
-							on:click={() => goto(`/projects/${$project.id}/settings`)}
+							on:click={() => $project && goto(`/projects/${$project.id}/settings`)}
 							kind="plain"
 							icon={IconSettings}
 						/>
@@ -147,7 +148,7 @@
 </div>
 
 {#await Promise.all([diffs.load(), user.load(), project.load(), statuses.load()]) then}
-	{#if $user}
+	{#if $user && $project}
 		<QuickCommitModal
 			bind:this={quickCommitModal}
 			user={$user}

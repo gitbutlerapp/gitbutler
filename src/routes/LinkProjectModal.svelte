@@ -6,10 +6,10 @@
 	import { IconFolder, IconLoading } from '$lib/icons';
 	import { toasts, api, stores } from '$lib';
 
-	export let projects: ReturnType<typeof api.projects.Projects>;
 	export let cloud: ReturnType<typeof api.CloudApi>;
 
 	const user = stores.user;
+	const projects = stores.projects;
 
 	const cloudProjects = asyncDerived(user, async (user) =>
 		user ? await cloud.projects.list(user.access_token) : []
@@ -17,10 +17,10 @@
 
 	let selectedRepositoryId: string | null = null;
 
-	let project: ReturnType<typeof api.projects.Project> | undefined;
+	let project: ReturnType<typeof stores.project> | undefined;
 
 	export const show = async (id: string) => {
-		project = api.projects.Project({ id });
+		project = stores.project({ id });
 		modal.show();
 	};
 

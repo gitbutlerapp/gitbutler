@@ -6,7 +6,6 @@
 	import type { LayoutData } from './$types';
 	import { Link, CommandPalette } from '$lib/components';
 	import { page } from '$app/stores';
-	import { derived } from '@square/svelte-store';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { unsubscribe } from '$lib/utils';
@@ -16,13 +15,12 @@
 	import ShareIssueModal from './ShareIssueModal.svelte';
 
 	export let data: LayoutData;
-	const { posthog, projects, sentry, cloud } = data;
+	const { posthog, sentry, cloud } = data;
 
+	const projects = stores.projects;
 	const user = stores.user;
 
-	const project = derived([page, projects], ([page, projects]) =>
-		projects?.find((project) => project.id === page.params.projectId)
-	);
+	$: project = stores.project({ id: $page.params.projectId });
 
 	let commandPalette: CommandPalette;
 	let linkProjectModal: LinkProjectModal;
@@ -98,7 +96,7 @@
 		<CommandPalette bind:this={commandPalette} {projects} {project} />
 	{/await}
 
-	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projects} />
+	<LinkProjectModal bind:this={linkProjectModal} {cloud} />
 
-	<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />
+	<ShareIssueModal bind:this={shareIssueModal} {cloud} />
 </div>

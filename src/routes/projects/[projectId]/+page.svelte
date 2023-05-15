@@ -6,10 +6,12 @@
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';
 	import { goto } from '$app/navigation';
+	import { stores } from '$lib';
+	import { page } from '$app/stores';
 
 	export let data: PageData;
 	$: activity = derived(data.activity, (activity) => activity);
-	$: project = derived(data.project, (project) => project);
+	$: project = stores.project({ id: $page.params.projectId });
 	$: statuses = derived(data.statuses, (statuses) => statuses);
 	$: sessions = derived(data.sessions, (sessions) => sessions);
 	$: head = derived(data.head, (head) => head);
