@@ -6,8 +6,6 @@
 	import { IconFolder, IconLoading } from '$lib/icons';
 	import { toasts, api } from '$lib';
 
-	type Unpromisify<T> = T extends Promise<infer U> ? U : T;
-
 	export let user: ReturnType<typeof api.users.CurrentUser>;
 	export let projects: ReturnType<typeof api.projects.Projects>;
 	export let cloud: ReturnType<typeof api.CloudApi>;
@@ -18,10 +16,10 @@
 
 	let selectedRepositoryId: string | null = null;
 
-	let project: Unpromisify<ReturnType<ReturnType<typeof api.projects.Projects>['get']>> | undefined;
+	let project: ReturnType<typeof api.projects.Project> | undefined;
 
-	export const show = async (projectId: string) => {
-		project = await projects.get(projectId);
+	export const show = async (id: string) => {
+		project = api.projects.Project({ id });
 		modal.show();
 	};
 
