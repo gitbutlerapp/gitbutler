@@ -5,14 +5,10 @@
 	import 'xterm/css/xterm.css';
 	import type { Project } from '$lib/api';
 	import { debounce } from '$lib/utils';
-	import { page } from '$app/stores';
 	import { Button, Statuses } from '$lib/components';
-	import { stores } from '$lib';
 
 	export let data: LayoutData;
-	const { statuses } = data;
-
-	$: project = stores.project({ id: $page.params.projectId });
+	const { project, statuses } = data;
 
 	type Unpromisify<T> = T extends Promise<infer U> ? U : T;
 	let term: Unpromisify<ReturnType<typeof setupTerminal>> | undefined;
@@ -51,12 +47,8 @@
 
 	<div class="main-content-container h-full">
 		<div class="flex h-full w-full flex-row">
-			{#await project.load() then}
-				{#if $project}
-					<div class="h-full w-full" use:terminal={{ project: $project }} />
-					<ResizeObserver on:resize={handleTerminalResize} />
-				{/if}
-			{/await}
+			<div class="h-full w-full" use:terminal={{ project: $project }} />
+			<ResizeObserver on:resize={handleTerminalResize} />
 		</div>
 	</div>
 </div>
