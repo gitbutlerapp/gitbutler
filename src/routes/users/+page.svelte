@@ -93,7 +93,7 @@
 					<h2 class="text-2xl font-medium">GitButler Cloud Account</h2>
 					<div class="">Your online account details on gitbutler.com</div>
 				</div>
-				<Login {cloud} />
+				<Login />
 			</header>
 
 			<form
@@ -225,7 +225,7 @@
 				</li>
 			</ul>
 			<div class="mt-8 text-center">
-				<Login {cloud} />
+				<Login />
 			</div>
 			<div class="text-center text-zinc-300">
 				You will still need to give us permission for each project before we transfer any data to

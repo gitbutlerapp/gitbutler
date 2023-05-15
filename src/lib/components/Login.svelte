@@ -1,12 +1,11 @@
 <script lang="ts">
-	import type { LoginToken, CloudApi } from '$lib/api';
+	import { type LoginToken, CloudApi } from '$lib/api';
 	import { toasts, log, stores } from '$lib';
 	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import Button from './Button';
 
-	export let cloud: Awaited<ReturnType<typeof CloudApi>>;
-
+	const cloud = CloudApi();
 	const user = stores.user;
 
 	const pollForUser = async (token: string) => {
