@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { derived } from '@square/svelte-store';
-	import { Button, Modal, Login } from '$lib/components';
+	import { Button, Modal, Login, Checkbox } from '$lib/components';
 	import type { PageData } from './$types';
 	import { log, toasts, api } from '$lib';
 	import { goto } from '$app/navigation';
@@ -151,18 +151,15 @@
 										</div>
 									</div>
 								{/if}
-								<div>
-									<form>
-										<input
-											class="mr-1"
-											disabled={$user === undefined}
-											type="checkbox"
-											checked={$isSyncing}
-											on:change={onSyncChange}
-										/>
-										<label for="sync">Backup your data to GitButler Cloud</label>
-									</form>
-								</div>
+								<form class="flex gap-1">
+									<Checkbox
+										name="sync"
+										disabled={$user === undefined}
+										checked={$isSyncing}
+										on:change={onSyncChange}
+									/>
+									<label for="sync">Backup your data to GitButler Cloud</label>
+								</form>
 							</div>
 						</div>
 					</div>

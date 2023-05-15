@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { toasts, api } from '$lib';
-	import { Button, Modal } from '$lib/components';
+	import { Button, Checkbox, Modal } from '$lib/components';
 	import { page } from '$app/stores';
 	import type { User } from '$lib/api';
 
@@ -100,41 +100,21 @@
 
 		<div class="flex flex-col gap-3 text-lg">
 			<div class="flex items-center gap-2">
-				<input
-					type="checkbox"
-					disabled={isSending}
-					checked
-					bind:value={sendLogs}
-					name="logs"
-					id="logs"
-					class="h-4 w-4"
-				/>
+				<Checkbox name="logs" bind:checked={sendLogs} disabled={isSending} />
 				<label for="logs">Share logs</label>
 			</div>
 
 			{#if projectId}
 				<div class="flex items-center gap-2">
-					<input
-						type="checkbox"
-						disabled={isSending}
-						checked
-						bind:value={sendProjectData}
-						name="project-data"
-						id="project-data"
-						class="h-4 w-4"
-					/>
+					<Checkbox name="project-data" bind:checked={sendProjectData} disabled={isSending} />
 					<label for="project-data">Share project data</label>
 				</div>
 
 				<div class="flex items-center gap-2">
-					<input
-						type="checkbox"
-						checked
-						disabled={isSending}
-						bind:value={sendProjectRepository}
+					<Checkbox
 						name="project-repository"
-						id="project-repository"
-						class="h-4 w-4"
+						bind:checked={sendProjectRepository}
+						disabled={isSending}
 					/>
 					<label for="project-data">Share project repository</label>
 				</div>

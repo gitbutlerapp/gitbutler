@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { Button, DiffContext } from '$lib/components';
+	import { Button, Checkbox, DiffContext } from '$lib/components';
 	import { collapse } from '$lib/paths';
 	import { derived, writable } from '@square/svelte-store';
 	import { git, Status } from '$lib/api';
@@ -259,16 +259,15 @@
 			<ul class="card flex h-full w-full flex-col overflow-auto">
 				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
 					{#await Promise.all([stagedFiles.load(), unstagedFiles.load(), allFiles.load()]) then}
-						<input
-							type="checkbox"
-							class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
-							on:click={onGroupCheckboxClick}
+						<Checkbox
 							checked={$allFiles.length > 0 && $stagedFiles.length === $allFiles.length}
 							indeterminate={$stagedFiles.length > 0 &&
 								$unstagedFiles.length > 0 &&
 								$allFiles.length > 0}
 							disabled={isCommitting || isGeneratingCommitMessage}
+							on:click={onGroupCheckboxClick}
 						/>
+
 						<h1 class="m-auto flex">
 							<span class="w-full text-center">{$allFiles.length} changed files</span>
 						</h1>
@@ -284,10 +283,12 @@
 									class:hover:bg-divider={$selectedDiffPath !== path}
 									class="file-changed-item mx-1 mt-1 flex select-text  items-center gap-2 rounded bg-card-default px-1 py-1"
 								>
-									<input
-										class="h-[15px] w-[15px] cursor-default disabled:opacity-50"
+									<Checkbox
+										checked={Status.isStaged(status)}
+										name="path"
 										disabled={isCommitting || isGeneratingCommitMessage}
-										on:click|preventDefault={() => {
+										value={path}
+										on:click={() => {
 											Status.isStaged(status)
 												? git.unstage({ projectId, paths: [path] }).catch(() => {
 														error('Failed to unstage file');
@@ -296,10 +297,6 @@
 														error('Failed to stage file');
 												  });
 										}}
-										name="path"
-										type="checkbox"
-										checked={Status.isStaged(status)}
-										value={path}
 									/>
 									<label class="flex h-5 w-full overflow-auto" for="path">
 										<button
