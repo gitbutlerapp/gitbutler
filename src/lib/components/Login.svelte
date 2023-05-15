@@ -1,17 +1,18 @@
 <script lang="ts">
-	import type { LoginToken, CloudApi, users } from '$lib/api';
-	import { toasts, log } from '$lib';
+	import type { LoginToken, CloudApi } from '$lib/api';
+	import { toasts, log, stores } from '$lib';
 	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import Button from './Button';
 
-	export let user: Awaited<ReturnType<typeof users.CurrentUser>>;
 	export let cloud: Awaited<ReturnType<typeof CloudApi>>;
+
+	const user = stores.user;
 
 	const pollForUser = async (token: string) => {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
 		if (apiUser) {
-			user.set(apiUser);
+			$user = apiUser;
 			return apiUser;
 		}
 		return new Promise((resolve) => {
@@ -39,7 +40,7 @@
 
 <div>
 	{#if $user}
-		<Button kind="plain" color="destructive" on:click={user.delete}>Log out</Button>
+		<Button kind="plain" color="destructive" on:click={() => ($user = null)}>Log out</Button>
 	{:else if $token !== null}
 		{#await Promise.all([open($token.url), pollForUser($token.token)])}
 			<div>Log in in your system browser</div>

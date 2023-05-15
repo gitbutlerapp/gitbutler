@@ -4,11 +4,12 @@
 	import { asyncDerived } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/icons';
-	import { toasts, api } from '$lib';
+	import { toasts, api, stores } from '$lib';
 
-	export let user: ReturnType<typeof api.users.CurrentUser>;
 	export let projects: ReturnType<typeof api.projects.Projects>;
 	export let cloud: ReturnType<typeof api.CloudApi>;
+
+	const user = stores.user;
 
 	const cloudProjects = asyncDerived(user, async (user) =>
 		user ? await cloud.projects.list(user.access_token) : []

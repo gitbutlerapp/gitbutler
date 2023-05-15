@@ -12,7 +12,6 @@ export const load: LayoutLoad = wrapLoadWithSentry(({ fetch }) => {
 	log.setup();
 	return {
 		projects: api.projects.Projects(),
-		user: api.users.CurrentUser(),
 		cloud: api.CloudApi({ fetch }),
 		posthog: Posthog(),
 		sentry: Sentry()
