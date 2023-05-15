@@ -10,3 +10,4 @@ export { default as Statuses } from './Statuses.svelte';
 export { default as Differ } from './Differ';
 export { default as DeltasViewer } from './DeltasViewer.svelte';
 export { default as DiffContext } from './DiffContext.svelte';
+export { default as Checkbox } from './Checkbox';
