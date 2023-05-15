@@ -114,25 +114,26 @@ export default (
 		},
 		feedback: {
 			create: async (
-				token: string,
+				token: string | undefined,
 				params: {
+					email?: string;
 					message: string;
 					context?: string;
-					logs?: Blob;
-					data?: Blob;
-					repo?: Blob;
+					logs?: Blob | File;
+					data?: Blob | File;
+					repo?: Blob | File;
 				}
 			): Promise<Feedback> => {
 				const formData = new FormData();
 				formData.append('message', params.message);
+				if (params.email) formData.append('email', params.email);
 				if (params.logs) formData.append('logs', params.logs);
 				if (params.repo) formData.append('repo', params.repo);
 				if (params.data) formData.append('data', params.data);
+				const headers: HeadersInit = token ? { 'X-Auth-Token': token } : {};
 				return fetch(getUrl(`feedback`), {
 					method: 'PUT',
-					headers: {
-						'X-Auth-Token': token
-					},
+					headers,
 					body: formData
 				}).then(parseResponseJSON);
 			}

@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import type { User } from '$lib/api';
 
-	export let user: User;
+	export let user: User | null;
 	export let cloud: ReturnType<typeof api.CloudApi>;
 
 	export const show = () => modal.show();
@@ -15,6 +15,7 @@
 	let sendLogs = true;
 	let sendProjectData = true;
 	let sendProjectRepository = true;
+	let email = '';
 
 	let isSending = false;
 
@@ -28,10 +29,13 @@
 		isSending = false;
 	};
 
-	const readZipFile = (path: string): Promise<Blob> =>
+	const readZipFile = (path: string, filename?: string): Promise<File | Blob> =>
 		import('@tauri-apps/api/fs').then(async ({ readBinaryFile }) => {
 			const file = await readBinaryFile(path);
-			return new Blob([file], { type: 'application/zip' });
+			const fileName = filename ?? path.split('/').pop();
+			return fileName
+				? new File([file], fileName, { type: 'application/zip' })
+				: new Blob([file], { type: 'application/zip' });
 		});
 
 	const onSubmit = () =>
@@ -39,13 +43,18 @@
 			.then(() => (isSending = true))
 			.then(() =>
 				Promise.all([
-					sendLogs ? api.zip.logs().then(readZipFile) : undefined,
-					sendProjectData ? api.zip.gitbutlerData({ projectId }).then(readZipFile) : undefined,
-					sendProjectRepository ? api.zip.projectData({ projectId }).then(readZipFile) : undefined
+					sendLogs ? api.zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
+					sendProjectData
+						? api.zip.gitbutlerData({ projectId }).then((path) => readZipFile(path, 'data.zip'))
+						: undefined,
+					sendProjectRepository
+						? api.zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
+						: undefined
 				])
 			)
 			.then(async ([logs, data, repo]) =>
 				cloud.feedback.create(user?.access_token, {
+					email: user?.email ?? email,
 					message: comments,
 					logs,
 					data,
@@ -74,8 +83,20 @@
 			and all shared data will only be used internal and deleted after resolution is found.
 		</p>
 
+		{#if !user}
+			<div class="flex flex-col gap-1">
+				<label for="email">Email</label>
+				<input
+					name="email"
+					placeholder="Provide an email if you want to hear back from us"
+					type="email"
+					bind:value={email}
+				/>
+			</div>
+		{/if}
+
 		<div class="flex flex-col gap-1">
-			<span>Comments</span>
+			<label for="comments">Comments</label>
 
 			<textarea
 				placeholder="Provide any steps nessesary to reproduce the problem."

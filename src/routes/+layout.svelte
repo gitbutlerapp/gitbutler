@@ -98,7 +98,5 @@
 
 	<LinkProjectModal bind:this={linkProjectModal} {cloud} {user} {projects} />
 
-	{#if $user}
-		<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />
-	{/if}
+	<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />
 </div>
