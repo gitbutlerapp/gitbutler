@@ -50,8 +50,7 @@
 	let projectNameInput = $project?.title;
 	let projectDescriptionInput = $project?.api?.description;
 	$: canTriggerUpdate =
-		(projectNameInput !== $project?.title ||
-			projectDescriptionInput !== $project?.api?.description) &&
+		(projectNameInput !== $project?.title || projectDescriptionInput !== $project?.description) &&
 		projectNameInput;
 
 	$: saving = false;
@@ -65,29 +64,28 @@
 		const name = formData.get('name') as string | undefined;
 		const description = formData.get('description') as string | undefined;
 
-		try {
-			if ($project.api && name) {
-				const updated = await cloud.projects.update(
-					$user.access_token,
-					$project.api.repository_id,
-					{
-						name,
-						description
-					}
-				);
+		if (name || description) {
+			try {
+				const cloudProject = $project.api
+					? await cloud.projects.update($user.access_token, $project.api.repository_id, {
+							name: name || $project.title,
+							description
+					  })
+					: $project.api;
+
 				await project.update({
 					title: name,
-					api: { ...updated, sync: $project.api.sync || false }
+					description,
+					api: cloudProject ? { ...cloudProject, sync: $project.api?.sync || false } : undefined
 				});
+
+				toasts.success('Project updated');
+			} catch (e) {
+				log.error(e);
+				toasts.error('Failed to update project');
 			}
-			toasts.success('Project updated');
-		} catch (e) {
-			log.error(e);
-			toasts.error('Failed to update project');
 		}
 
-		projectNameInput = $project?.title;
-		projectDescriptionInput = $project?.api?.description;
 		saving = false;
 	};
 

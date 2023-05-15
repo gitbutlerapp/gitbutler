@@ -1,12 +1,13 @@
 import { invoke } from '$lib/ipc';
-import type { Project as ApiProject } from '$lib/api/cloud';
+import type { Project as CloudProject } from '$lib/api/cloud';
 import { asyncWritable, derived } from '@square/svelte-store';
 
 export type Project = {
 	id: string;
 	title: string;
+	description?: string;
 	path: string;
-	api?: ApiProject & { sync: boolean };
+	api?: CloudProject & { sync: boolean };
 };
 
 export const list = () => invoke<Project[]>('list_projects');
@@ -15,7 +16,7 @@ export const update = (params: {
 	project: {
 		id: string;
 		title?: string;
-		api?: ApiProject & { sync: boolean };
+		api?: CloudProject & { sync: boolean };
 	};
 }) => invoke<Project>('update_project', params);
 
@@ -27,7 +28,7 @@ const store = asyncWritable([], list);
 
 export const Project = ({ id }: { id: string }) => ({
 	...derived(store, (projects) => projects?.find((p) => p.id === id)),
-	update: (params: { title?: string; api?: Project['api'] }) =>
+	update: (params: Partial<Pick<Project, 'title' | 'description' | 'api'>>) =>
 		update({
 			project: {
 				id,
