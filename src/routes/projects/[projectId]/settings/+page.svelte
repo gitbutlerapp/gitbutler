@@ -7,19 +7,22 @@
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
 	import type { Project } from '$lib/api';
+	import { page } from '$app/stores';
 
 	export let data: PageData;
-	const { projects, project, cloud } = data;
+	const { cloud } = data;
 
+	const projects = stores.projects;
 	const user = stores.user;
+	$: project = stores.project({ id: $page.params.projectId });
 
 	let deleteConfirmationModal: Modal;
 	let isDeleting = false;
 
-	const onDeleteClicked = () =>
+	const onDeleteClicked = () => {
 		Promise.resolve()
 			.then(() => (isDeleting = true))
-			.then(() => api.projects.del({ id: $project?.id }))
+			.then(() => $project && api.projects.delete({ id: $project.id }))
 			.then(() => deleteConfirmationModal.close())
 			.catch((e) => {
 				log.error(e);
@@ -29,6 +32,7 @@
 			.then(() => projects.update((projects) => projects.filter((p) => p.id !== $project?.id)))
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
+	};
 
 	const onCloudUpdated = (e: { detail: Project }) => project.update({ ...e.detail });
 	const onDetailsUpdated = async (e: { detail: Project }) => {
@@ -58,8 +62,10 @@
 			</div>
 			<hr class="border-zinc-600" />
 			{#await project.load() then}
-				<CloudForm project={$project} on:updated={onCloudUpdated} />
-				<DetailsForm project={$project} on:updated={onDetailsUpdated} />
+				{#if $project}
+					<CloudForm project={$project} on:updated={onCloudUpdated} />
+					<DetailsForm project={$project} on:updated={onDetailsUpdated} />
+				{/if}
 			{/await}
 
 			<hr class="border-zinc-600" />
@@ -104,16 +110,20 @@
 	</div>
 </div>
 
-<Modal bind:this={deleteConfirmationModal} title="Delete {$project.title}?">
-	<p>
-		Are you sure you want to delete the project,
-		<span class="font-bold text-white">{$project.title}</span>? This can’t be undone.
-	</p>
+{#await project.load() then}
+	{#if $project}
+		<Modal bind:this={deleteConfirmationModal} title="Delete {$project.title}?">
+			<p>
+				Are you sure you want to delete the project,
+				<span class="font-bold text-white">{$project.title}</span>? This can’t be undone.
+			</p>
 
-	<svelte:fragment slot="controls" let:close>
-		<Button kind="outlined" on:click={close}>Cancel</Button>
-		<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>
-			Delete project
-		</Button>
-	</svelte:fragment>
-</Modal>
+			<svelte:fragment slot="controls" let:close>
+				<Button kind="outlined" on:click={close}>Cancel</Button>
+				<Button color="destructive" loading={isDeleting} on:click={onDeleteClicked}>
+					Delete project
+				</Button>
+			</svelte:fragment>
+		</Modal>
+	{/if}
+{/await}

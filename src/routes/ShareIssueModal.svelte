@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { toasts, api } from '$lib';
+	import { toasts, api, stores } from '$lib';
 	import { Button, Checkbox, Modal } from '$lib/components';
 	import { page } from '$app/stores';
-	import type { User } from '$lib/api';
 
-	export let user: User | null;
 	export let cloud: ReturnType<typeof api.CloudApi>;
 
 	export const show = () => modal.show();
+
+	const user = stores.user;
 
 	let modal: Modal;
 
@@ -53,8 +53,8 @@
 				])
 			)
 			.then(async ([logs, data, repo]) =>
-				cloud.feedback.create(user?.access_token, {
-					email: user?.email ?? email,
+				cloud.feedback.create($user?.access_token, {
+					email: $user?.email ?? email,
 					message: comments,
 					logs,
 					data,
