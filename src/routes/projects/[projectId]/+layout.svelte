@@ -126,14 +126,14 @@
 				</Link>
 
 				<div class="flex gap-1">
-					{#if $user}
+					<Tooltip label="Send feedback">
 						<Button
 							kind="plain"
 							height="small"
 							icon={IconEmail}
 							on:click={() => events.emit('openSendIssueModal')}
 						/>
-					{/if}
+					</Tooltip>
 
 					{#if $project?.api?.sync}
 						<Link target="_blank" rel="noreferrer" href={projectUrl($project)}>
