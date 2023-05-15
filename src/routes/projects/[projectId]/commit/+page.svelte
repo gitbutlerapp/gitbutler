@@ -15,9 +15,8 @@
 	import { unsubscribe } from '$lib/utils';
 
 	export let data: PageData;
-	let { statuses, diffs, cloud } = data;
+	let { statuses, diffs, cloud, project } = data;
 
-	$: project = stores.project({ id: $page.params.projectId });
 	const user = stores.user;
 
 	let fullContext = false;
