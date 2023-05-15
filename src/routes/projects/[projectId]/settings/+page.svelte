@@ -1,93 +1,17 @@
 <script lang="ts">
-	import { derived } from '@square/svelte-store';
-	import { Button, Modal, Login, Checkbox } from '$lib/components';
+	import { Button, Modal } from '$lib/components';
 	import type { PageData } from './$types';
-	import { log, toasts, api, stores } from '$lib';
+	import { open } from '@tauri-apps/api/shell';
+	import { log, toasts, api, stores, events } from '$lib';
 	import { goto } from '$app/navigation';
+	import CloudForm from './CloudForm.svelte';
+	import DetailsForm from './DetailsForm.svelte';
+	import type { Project } from '$lib/api';
 
 	export let data: PageData;
 	const { projects, project, cloud } = data;
 
 	const user = stores.user;
-
-	const repo_id = (url: string) => {
-		const hurl = new URL(url);
-		const path = hurl.pathname.split('/');
-		return path[path.length - 1];
-	};
-
-	const hostname = (url: string) => {
-		const hurl = new URL(url);
-		return hurl.hostname;
-	};
-
-	const isSyncing = derived(project, (project) => project?.api?.sync);
-
-	const onSyncChange = async (event: Event) => {
-		if ($project === undefined) return;
-		if ($user === null) return;
-
-		const target = event.target as HTMLInputElement;
-		const sync = target.checked;
-
-		try {
-			if (!$project.api) {
-				const apiProject = await cloud.projects.create($user.access_token, {
-					name: $project.title,
-					uid: $project.id
-				});
-				await project.update({ api: { ...apiProject, sync } });
-			} else {
-				await project.update({ api: { ...$project.api, sync } });
-			}
-		} catch (error) {
-			target.checked = $project.api?.sync || false;
-			log.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
-		}
-	};
-
-	let projectNameInput = $project?.title;
-	let projectDescriptionInput = $project?.api?.description;
-	$: canTriggerUpdate =
-		(projectNameInput !== $project?.title || projectDescriptionInput !== $project?.description) &&
-		projectNameInput;
-
-	$: saving = false;
-	const onSubmit = async (e: SubmitEvent) => {
-		if (!$project) return;
-		if (!$user) return;
-		saving = true;
-
-		const target = e.target as HTMLFormElement;
-		const formData = new FormData(target);
-		const name = formData.get('name') as string | undefined;
-		const description = formData.get('description') as string | undefined;
-
-		if (name || description) {
-			try {
-				const cloudProject = $project.api
-					? await cloud.projects.update($user.access_token, $project.api.repository_id, {
-							name: name || $project.title,
-							description
-					  })
-					: $project.api;
-
-				await project.update({
-					title: name,
-					description,
-					api: cloudProject ? { ...cloudProject, sync: $project.api?.sync || false } : undefined
-				});
-
-				toasts.success('Project updated');
-			} catch (e) {
-				log.error(e);
-				toasts.error('Failed to update project');
-			}
-		}
-
-		saving = false;
-	};
 
 	let deleteConfirmationModal: Modal;
 	let isDeleting = false;
@@ -105,6 +29,22 @@
 			.then(() => projects.update((projects) => projects.filter((p) => p.id !== $project?.id)))
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
+
+	const onCloudUpdated = (e: { detail: Project }) => project.update({ ...e.detail });
+	const onDetailsUpdated = async (e: { detail: Project }) => {
+		const api =
+			$user && e.detail.api
+				? await cloud.projects.update($user?.access_token, e.detail.api.repository_id, {
+						name: e.detail.title,
+						description: e.detail.description
+				  })
+				: undefined;
+
+		project.update({
+			...e.detail,
+			api: api ? { ...api, sync: e.detail.api?.sync || false } : undefined
+		});
+	};
 </script>
 
 <div class="mx-auto h-full overflow-auto p-4">
@@ -117,118 +57,49 @@
 				</div>
 			</div>
 			<hr class="border-zinc-600" />
-			{#if $user}
-				<div class="space-y-2">
-					<div class="ml-1">GitButler Cloud</div>
-					<div
-						class="flex flex-row items-center justify-between rounded-lg border border-zinc-600 p-2"
+			{#await project.load() then}
+				<CloudForm project={$project} on:updated={onCloudUpdated} />
+				<DetailsForm project={$project} on:updated={onDetailsUpdated} />
+			{/await}
+
+			<hr class="border-zinc-600" />
+			<div class="flex flex-col gap-1">
+				<h2 class="text-xl">Need help?</h2>
+				<div class="grid grid-cols-3 gap-4">
+					<button
+						class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-left text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
+						on:click={() => events.emit('openSendIssueModal')}
 					>
-						<div class="flex flex-row space-x-3">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="white"
-								class="h-6 w-6"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
-								/>
-							</svg>
-							<div class="flex flex-row">
-								{#if $project?.api?.git_url}
-									<div class="flex flex-col">
-										<div class="">Git Host</div>
-										<div class="font-mono text-zinc-400">
-											{hostname($project?.api?.git_url)}
-										</div>
-										<div class="mt-3 ">Repository ID</div>
-										<div class="font-mono text-zinc-400">
-											{repo_id($project?.api?.git_url)}
-										</div>
-									</div>
-								{/if}
-								<form class="flex gap-1">
-									<Checkbox
-										name="sync"
-										disabled={$user === undefined}
-										checked={$isSyncing}
-										on:change={onSyncChange}
-									/>
-									<label for="sync">Backup your data to GitButler Cloud</label>
-								</form>
-							</div>
+						<h2 class="text-lg text-zinc-300">Having troubles?</h2>
+						<div class="text-zinc-500">
+							Are having issues? Contact us, privately share files, and logs.
 						</div>
-					</div>
-				</div>
-			{:else}
-				<div class="space-y-2">
-					<div class="flex flex-row items-end space-x-2">
-						<div class="">GitButler Cloud</div>
-						<div class="text-zinc-400">backup your work and access advanced features</div>
-					</div>
-					<div class="flex flex-row items-center space-x-2">
-						<Login {cloud} />
-					</div>
-				</div>
-			{/if}
-			<form on:submit={onSubmit} class="flex flex-col gap-3">
-				<fieldset class="flex flex-col gap-2">
-					<div class="flex flex-col gap-2">
-						<label for="path" class="ml-1">Path</label>
-						<input
-							disabled
-							id="path"
-							name="path"
-							type="text"
-							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
-							value={$project?.path}
-						/>
-					</div>
-					<div class="flex flex-col gap-2">
-						<label for="name" class="ml-1">Project Name</label>
-						<input
-							id="name"
-							name="name"
-							type="text"
-							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
-							placeholder="Project name can't be empty"
-							bind:value={projectNameInput}
-							required
-						/>
-					</div>
-					<div class="flex flex-col gap-2">
-						<label for="description" class="ml-1">Project Description</label>
-						<textarea
-							autocomplete="off"
-							autocorrect="off"
-							spellcheck="false"
-							id="description"
-							name="description"
-							rows="3"
-							class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
-							bind:value={projectDescriptionInput}
-						/>
-					</div>
-				</fieldset>
+					</button>
 
-				<footer class="flex justify-between">
-					<Button
-						color="destructive"
-						kind="outlined"
-						on:click={() => deleteConfirmationModal.show()}
+					<button
+						class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-left text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
+						on:click={() => open('https://discord.gg/wDKZCPEjXC')}
 					>
-						Delete project
-					</Button>
+						<h2 class="text-lg text-zinc-300">Join our Discord</h2>
+						<div class="text-zinc-500">
+							Join our community and share feedback, requests, or ask a question.
+						</div>
+					</button>
 
-					<Button disabled={!canTriggerUpdate} loading={saving} color="primary" type="submit">
-						Update project
-					</Button>
-				</footer>
-			</form>
+					<button
+						class="flex flex-col gap-2 rounded border border-zinc-700 bg-card-default p-3 text-left text-zinc-400 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
+						on:click={() => open('mailto:hello@gitbutler.com?subject=Feedback or question!')}
+					>
+						<h2 class="text-lg text-zinc-300">Get Support</h2>
+						<div class="text-zinc-500">If you have an issue or any questions, contact us.</div>
+					</button>
+				</div>
+			</div>
+
+			<hr class="border-zinc-600" />
+			<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>
+				Delete project
+			</Button>
 		</div>
 	</div>
 </div>

@@ -177,7 +177,10 @@ export default (
 				}).then(parseResponseJSON)
 		},
 		projects: {
-			create: (token: string, params: { name: string; uid?: string }): Promise<Project> =>
+			create: (
+				token: string,
+				params: { name: string; description?: string; uid?: string }
+			): Promise<Project> =>
 				fetch(getUrl('projects.json'), {
 					method: 'POST',
 					headers: {
