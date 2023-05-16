@@ -161,7 +161,7 @@ impl Deltas {
         index_session(
             &self.index,
             &mut self.writer.lock().unwrap(),
-            session,
+            &session,
             &repository,
         )?;
         self.meta_storage
@@ -243,7 +243,7 @@ fn index_session(
             index_delta(
                 index,
                 writer,
-                session,
+                &session.id,
                 &repository.get_project_id(),
                 &mut file_text,
                 &file_path,
@@ -259,7 +259,7 @@ fn index_session(
 fn index_delta(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
-    session: &sessions::Session,
+    session_id: &str,
     project_id: &str,
     file_text: &mut Vec<char>,
     file_path: &str,
@@ -274,7 +274,7 @@ fn index_delta(
     doc.add_u64(index.schema().get_field("index").unwrap(), i.try_into()?);
     doc.add_text(
         index.schema().get_field("session_id").unwrap(),
-        session.id.clone(),
+        session_id.clone(),
     );
     doc.add_text(index.schema().get_field("file_path").unwrap(), file_path);
     doc.add_text(index.schema().get_field("project_id").unwrap(), project_id);
