@@ -52,6 +52,8 @@ sentry-rust-minidump = "0.5.1"
 sentry-debug-images = "0.31.0"
 lazy_static = "1.4.0"
 zip = "0.6.5"
+rusqlite = { version = "0.29.0", features = ["bundled"] }
+refinery = { version = "0.8", features = ["rusqlite"]}
 
 [features]
 # by default Tauri runs in production mode

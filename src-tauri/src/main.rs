@@ -4,6 +4,7 @@ extern crate scopeguard;
 extern crate lazy_static;
 
 mod app;
+mod database;
 mod zip;
 mod events;
 mod fs;
