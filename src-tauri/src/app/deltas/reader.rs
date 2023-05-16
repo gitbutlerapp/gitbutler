@@ -10,11 +10,11 @@ use crate::app::{
 use super::Delta;
 
 pub struct DeltasReader<'reader> {
-    sessions_reader: &'reader sessions::SessionReader<'reader>,
+    sessions_reader: &'reader sessions::Reader<'reader>,
 }
 
 impl<'reader> DeltasReader<'reader> {
-    pub fn new(session_reader: &'reader sessions::SessionReader) -> Self {
+    pub fn new(session_reader: &'reader sessions::Reader) -> Self {
         DeltasReader {
             sessions_reader: session_reader,
         }
