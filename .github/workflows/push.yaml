@@ -125,6 +125,8 @@ jobs:
               with:
                 workspaces: src-tauri
             
+            - run: sudo apt-get update
+              if: runner.os == 'Linux'
             - name: Install system dependencies
               uses: daaku/gh-action-apt-install@v4
               if: runner.os == 'Linux'
