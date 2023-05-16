@@ -278,16 +278,10 @@ impl Repository {
             meta,
         };
 
-        self.get_session_writer(&session)?;
+        // write session to disk
+        sessions::Writer::open(&self, &session)?;
 
         Ok(session)
-    }
-
-    pub fn get_session_writer<'repository>(
-        &'repository self,
-        session: &sessions::Session,
-    ) -> Result<sessions::SessionWriter<'repository>> {
-        sessions::SessionWriter::open(&self, &session)
     }
 
     pub(crate) fn lock(&self) -> Result<()> {
@@ -368,8 +362,8 @@ impl Repository {
             return Err(anyhow!("nothing to flush"));
         }
 
-        // take session writer to update last timestamp
-        self.get_session_writer(session)?;
+        // touch session writer to update last timestamp
+        sessions::Writer::open(&self, &session)?;
 
         self.lock()?;
         defer! {
