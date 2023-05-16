@@ -51,7 +51,7 @@ specifiers:
   posthog-js: ^1.46.1
   prettier: ^2.8.0
   prettier-plugin-svelte: ^2.8.1
-  prettier-plugin-tailwindcss: ^0.2.4
+  prettier-plugin-tailwindcss: ^0.3.0
   svelte: ^3.55.1
   svelte-check: ^3.0.1
   svelte-floating-ui: ^1.5.2
@@ -122,7 +122,7 @@ devDependencies:
   posthog-js: 1.46.1
   prettier: 2.8.4
   prettier-plugin-svelte: 2.9.0_jrsxveqmsx2uadbqiuq74wlc4u
-  prettier-plugin-tailwindcss: 0.2.4_yjdjpc7im5hvpskij45owfsns4
+  prettier-plugin-tailwindcss: 0.3.0_yjdjpc7im5hvpskij45owfsns4
   svelte: 3.55.1
   svelte-check: 3.0.3_gqx7lw3sljhsd4bstor5m2aa2u
   svelte-floating-ui: 1.5.2
@@ -130,7 +130,7 @@ devDependencies:
   svelte-resize-observer: 2.0.0
   tailwindcss: 3.2.4_postcss@8.4.21
   tauri-plugin-log-api: github.com/tauri-apps/tauri-plugin-log/5e14c2cad7335a4284a6caad81d8cf37dd675a27
-  tauri-plugin-websocket-api: github.com/tauri-apps/tauri-plugin-websocket/8facde5df5401c0cc8155082027863b494b06291
+  tauri-plugin-websocket-api: github.com/tauri-apps/tauri-plugin-websocket/c77fa23243388bdeff6ca1b09f78b71b62ef01da
   tinykeys: 1.4.0
   tslib: 2.5.0
   typescript: 5.0.4
@@ -3161,12 +3161,11 @@ packages:
       svelte: 3.55.1
     dev: true
 
-  /prettier-plugin-tailwindcss/0.2.4_yjdjpc7im5hvpskij45owfsns4:
-    resolution: {integrity: sha512-wMyugRI2yD8gqmMpZSS8kTA0gGeKozX/R+w8iWE+yiCZL09zY0SvfiHfHabNhjGhzxlQ2S2VuTxPE3T72vppCQ==}
+  /prettier-plugin-tailwindcss/0.3.0_yjdjpc7im5hvpskij45owfsns4:
+    resolution: {integrity: sha512-009/Xqdy7UmkcTBpwlq7jsViDqXAYSOMLDrHAdTMlVZOrKfM2o9Ci7EMWTMZ7SkKBFTG04UM9F9iM2+4i6boDA==}
     engines: {node: '>=12.17.0'}
     peerDependencies:
       '@ianvs/prettier-plugin-sort-imports': '*'
-      '@prettier/plugin-php': '*'
       '@prettier/plugin-pug': '*'
       '@shopify/prettier-plugin-liquid': '*'
       '@shufo/prettier-plugin-blade': '*'
@@ -3176,6 +3175,7 @@ packages:
       prettier-plugin-css-order: '*'
       prettier-plugin-import-sort: '*'
       prettier-plugin-jsdoc: '*'
+      prettier-plugin-marko: '*'
       prettier-plugin-organize-attributes: '*'
       prettier-plugin-organize-imports: '*'
       prettier-plugin-style-order: '*'
@@ -3183,8 +3183,6 @@ packages:
       prettier-plugin-twig-melody: '*'
     peerDependenciesMeta:
       '@ianvs/prettier-plugin-sort-imports':
-        optional: true
-      '@prettier/plugin-php':
         optional: true
       '@prettier/plugin-pug':
         optional: true
@@ -3201,6 +3199,8 @@ packages:
       prettier-plugin-import-sort:
         optional: true
       prettier-plugin-jsdoc:
+        optional: true
+      prettier-plugin-marko:
         optional: true
       prettier-plugin-organize-attributes:
         optional: true
@@ -4107,8 +4107,8 @@ packages:
       '@tauri-apps/api': 1.3.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/8facde5df5401c0cc8155082027863b494b06291:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/8facde5df5401c0cc8155082027863b494b06291}
+  github.com/tauri-apps/tauri-plugin-websocket/c77fa23243388bdeff6ca1b09f78b71b62ef01da:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/c77fa23243388bdeff6ca1b09f78b71b62ef01da}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:
