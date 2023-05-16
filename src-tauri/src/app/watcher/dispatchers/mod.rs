@@ -13,6 +13,7 @@ pub struct Dispatcher {
     project_id: String,
     tick_dispatcher: tick::Dispatcher,
     file_change_dispatcher: file_change::Dispatcher,
+    proxy: crossbeam_channel::Receiver<events::Event>,
     stop: (
         crossbeam_channel::Sender<()>,
         crossbeam_channel::Receiver<()>,
@@ -20,12 +21,17 @@ pub struct Dispatcher {
 }
 
 impl Dispatcher {
-    pub fn new<P: AsRef<path::Path>>(project_id: String, path: P) -> Self {
+    pub fn new<P: AsRef<path::Path>>(
+        project_id: String,
+        path: P,
+        proxy_chan: crossbeam_channel::Receiver<events::Event>,
+    ) -> Self {
         Self {
             project_id: project_id.clone(),
             tick_dispatcher: tick::Dispatcher::new(project_id.clone()),
-            file_change_dispatcher: file_change::Dispatcher::new(project_id, path),
+            file_change_dispatcher: file_change::Dispatcher::new(project_id.clone(), path),
             stop: bounded(1),
+            proxy: proxy_chan,
         }
     }
 
@@ -73,6 +79,16 @@ impl Dispatcher {
                     },
                     Err(e) => {
                         log::error!("{}: failed to receive file change event: {:#}", self.project_id, e);
+                    }
+                },
+                recv(self.proxy) -> event => match event {
+                    Ok(event) => {
+                        if let Err(e) = sender.send(event) {
+                            log::error!("{}: failed to proxy event: {:#}", self.project_id, e);
+                        }
+                    },
+                    Err(e) => {
+                        log::error!("{}: failed to receive event: {:#}", self.project_id, e);
                     }
                 },
                 recv(self.stop.1) -> _ => {
