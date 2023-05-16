@@ -418,13 +418,6 @@ impl Repository {
         Ok(session)
     }
 
-    pub fn get_session_reader<'repository>(
-        &'repository self,
-        session: &sessions::Session,
-    ) -> Result<sessions::Reader<'repository>> {
-        sessions::Reader::open(&self, &session)
-    }
-
     pub fn get_sessions_iterator<'repository>(
         &'repository self,
     ) -> Result<sessions::SessionsIterator<'repository>> {

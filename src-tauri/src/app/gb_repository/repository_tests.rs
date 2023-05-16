@@ -241,7 +241,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
         }],
     )?;
 
-    let session_reader = gb_repo.get_session_reader(&current_session)?;
+    let session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read(None)?;
 
@@ -282,7 +282,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     )?;
     let session = gb_repo.flush()?;
 
-    let session_reader = gb_repo.get_session_reader(&session.unwrap())?;
+    let session_reader = sessions::Reader::open(&gb_repo, &session.unwrap())?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read(None)?;
 
@@ -321,7 +321,7 @@ fn test_list_files_from_current_session() -> Result<()> {
 
     let session = gb_repo.get_or_create_current_session()?;
 
-    let reader = gb_repo.get_session_reader(&session)?;
+    let reader = sessions::Reader::open(&gb_repo, &session)?;
     let files = reader.files(None)?;
 
     assert_eq!(files.len(), 1);
@@ -356,7 +356,7 @@ fn test_list_files_from_flushed_session() -> Result<()> {
     gb_repo.get_or_create_current_session()?;
     let session = gb_repo.flush()?.unwrap();
 
-    let reader = gb_repo.get_session_reader(&session)?;
+    let reader = sessions::Reader::open(&gb_repo, &session)?;
     let files = reader.files(None)?;
 
     assert_eq!(files.len(), 1);
@@ -441,7 +441,7 @@ fn test_remote_syncronization() -> Result<()> {
     assert_eq!(sessions_two.len(), 1);
     assert_eq!(sessions_two[0].id, session_one.id);
 
-    let session_reader = gb_repo_two.get_session_reader(&sessions_two[0])?;
+    let session_reader = sessions::Reader::open(&gb_repo_two, &sessions_two[0])?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read(None)?;
     let files = session_reader.files(None)?;
