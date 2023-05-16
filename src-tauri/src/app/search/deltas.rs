@@ -216,16 +216,17 @@ fn index_session(
     session: &sessions::Session,
     repository: &app::gb_repository::Repository,
 ) -> Result<()> {
-    let reader = repository
+    let session_reader = repository
         .get_session_reader(&session)
         .with_context(|| "could not get session reader")?;
-    let deltas = reader
-        .deltas(None)
+    let deltas_reader = deltas::Reader::new(&session_reader);
+    let deltas = deltas_reader
+        .read(None)
         .with_context(|| "could not list deltas for session")?;
     if deltas.is_empty() {
         return Ok(());
     }
-    let files = reader
+    let files = session_reader
         .files(Some(deltas.keys().map(|k| k.as_str()).collect()))
         .with_context(|| "could not list files for session")?;
     // index every file
