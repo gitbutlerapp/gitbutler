@@ -18,6 +18,7 @@ pub struct App {
     events_sender: events::Sender,
 
     stop_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<()>>>>,
+    proxy_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<watcher::Event>>>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -46,6 +47,7 @@ impl App {
             users_storage: users::Storage::new(storage.clone()),
             deltas_searcher,
             stop_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
+            proxy_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
         })
     }
 
@@ -128,6 +130,13 @@ impl App {
             .unwrap()
             .insert(project.id.clone(), stop_tx.clone());
 
+        let (proxy_tx, proxy_rx) = bounded(1);
+        self.proxy_watchers
+            .lock()
+            .unwrap()
+            .insert(project.id.clone(), proxy_tx);
+
+
         tauri::async_runtime::spawn_blocking(|| {
             let project = project;
 
@@ -145,6 +154,7 @@ impl App {
                 &gb_repository,
                 deltas_searcher,
                 stop_rx,
+                proxy_rx,
                 events_sender,
             )
             .expect("failed to create watcher");
@@ -153,6 +163,10 @@ impl App {
         });
 
         Ok(())
+    }
+
+    fn send_event(&self, project_id: &str, event: watcher::Event) -> Result<()> {
+        self.proxy_watchers.lock().unwrap().get(project_id).unwrap().send(event).context("failed to send event to proxy")
     }
 
     fn stop_watcher(&self, project_id: &str) -> Result<()> {
@@ -176,7 +190,7 @@ impl App {
         self.users_storage.delete()
     }
 
-       pub fn add_project(
+    pub fn add_project(
         &self,
         path: &str,
     ) -> Result<projects::Project, AddProjectError> {
@@ -207,37 +221,11 @@ impl App {
         Ok(project)
     }
 
-    fn fetch_project(&self, project_id: &str) -> Result<()> {
-        let gb_repo = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )?;
-        let before_fetch = gb_repo.get_sessions_iterator()?.filter_map(|session| session.ok()).collect::<Vec<_>>();
-        gb_repo.fetch()?;
-        let after_fetch = gb_repo.get_sessions_iterator()?.filter_map(|session| session.ok()).collect::<Vec<_>>();
-        let new_sessions = after_fetch.iter().filter(|session| !before_fetch.contains(session)).collect::<Vec<_>>();
-        for new_session in new_sessions {
-            if let Err(e) = self.deltas_searcher.index_session(&gb_repo, new_session) {
-                log::error!("{}: failed to index session: {:#}", project_id, e);
-            }
-
-            if let Err(e) = self.events_sender.send(events::Event::session(&project_id, &new_session)) {
-                log::error!("{}: failed to send session event: {:#}", project_id, e);
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn update_project(&self, project: &projects::UpdateRequest) -> Result<projects::Project> {
         let updated = self.projects_storage.update_project(&project)?;
 
-        if project.api.as_ref().map(|api| api.git_url.clone()).is_some() {
-            if let Err(err) = self.fetch_project(&project.id) {
-                log::error!("{}: failed to fetch project: {:#}", &project.id, err);
-            }
+        if let Err(err) = self.send_event(&project.id, watcher::Event::Fetch) {
+            log::error!("{}: failed to fetch project: {:#}", &project.id, err);
         }
 
         Ok(updated)

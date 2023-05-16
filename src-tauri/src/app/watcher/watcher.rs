@@ -19,11 +19,16 @@ impl<'watcher> Watcher<'watcher> {
         gb_repository: &'watcher gb_repository::Repository,
         deltas_searcher: search::Deltas,
         stop: crossbeam_channel::Receiver<()>,
+        publisher: crossbeam_channel::Receiver<super::events::Event>,
         events_sender: events::Sender,
     ) -> Result<Self> {
         Ok(Self {
             project_id: project.id.clone(),
-            dispatcher: dispatchers::Dispatcher::new(project.id.clone(), project.path.clone()),
+            dispatcher: dispatchers::Dispatcher::new(
+                project.id.clone(),
+                project.path.clone(),
+                publisher,
+            ),
             handler: handlers::Handler::new(
                 project.id.clone(),
                 project_store,
