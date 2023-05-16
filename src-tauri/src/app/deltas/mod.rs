@@ -1,10 +1,7 @@
 mod delta;
+mod document;
 mod operations;
-mod text_document;
 
 pub use delta::Delta;
+pub use document::Document;
 pub use operations::Operation;
-pub use text_document::TextDocument;
-
-#[cfg(test)]
-mod text_document_tests;

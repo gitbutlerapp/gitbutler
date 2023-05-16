@@ -1,8 +1,11 @@
-use super::{Operation, TextDocument, Delta};
+use super::{
+    super::{Delta, Operation},
+    Document,
+};
 
 #[test]
 fn test_new() {
-    let document = TextDocument::new(Some("hello world"), vec![]);
+    let document = Document::new(Some("hello world"), vec![]);
     assert_eq!(document.is_ok(), true);
     let document = document.unwrap();
     assert_eq!(document.to_string(), "hello world");
@@ -11,7 +14,7 @@ fn test_new() {
 
 #[test]
 fn test_update() {
-    let document = TextDocument::new(Some("hello world"), vec![]);
+    let document = Document::new(Some("hello world"), vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
     document.update("hello world!").unwrap();
@@ -26,7 +29,7 @@ fn test_update() {
 
 #[test]
 fn test_empty() {
-    let document = TextDocument::new(None, vec![]);
+    let document = Document::new(None, vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
     document.update("hello world!").unwrap();
@@ -41,7 +44,7 @@ fn test_empty() {
 
 #[test]
 fn test_from_deltas() {
-    let document = TextDocument::new(
+    let document = Document::new(
         None,
         vec![
             Delta {
@@ -68,7 +71,7 @@ fn test_from_deltas() {
 
 #[test]
 fn test_complex_line() {
-    let document = TextDocument::new(None, vec![]);
+    let document = Document::new(None, vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
 
@@ -106,7 +109,7 @@ fn test_complex_line() {
 
 #[test]
 fn test_multiline_add() {
-    let document = TextDocument::new(None, vec![]);
+    let document = Document::new(None, vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
 
@@ -144,7 +147,7 @@ fn test_multiline_add() {
 
 #[test]
 fn test_multiline_remove() {
-    let document = TextDocument::new(None, vec![]);
+    let document = Document::new(None, vec![]);
     assert_eq!(document.is_ok(), true);
     let mut document = document.unwrap();
 
@@ -193,7 +196,7 @@ fn test_multiline_remove() {
 fn test_unicode() {
     let latest = Some("🌚");
     let current = "🌝";
-    let mut document = TextDocument::new(latest, vec![]).unwrap();
+    let mut document = Document::new(latest, vec![]).unwrap();
     document.update(current).unwrap();
     assert_eq!(document.to_string(), "🌝");
 }

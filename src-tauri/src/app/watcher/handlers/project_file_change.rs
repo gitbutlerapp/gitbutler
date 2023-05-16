@@ -197,13 +197,13 @@ impl<'listener> Handler<'listener> {
 
         let mut text_doc = match (latest_file_content, current_deltas) {
             (Some(latest_contents), Some(deltas)) => {
-                deltas::TextDocument::new(Some(&latest_contents), deltas)?
+                deltas::Document::new(Some(&latest_contents), deltas)?
             }
             (Some(latest_contents), None) => {
-                deltas::TextDocument::new(Some(&latest_contents), vec![])?
+                deltas::Document::new(Some(&latest_contents), vec![])?
             }
-            (None, Some(deltas)) => deltas::TextDocument::new(None, deltas)?,
-            (None, None) => deltas::TextDocument::new(None, vec![])?,
+            (None, Some(deltas)) => deltas::Document::new(None, deltas)?,
+            (None, None) => deltas::Document::new(None, vec![])?,
         };
 
         if !text_doc
