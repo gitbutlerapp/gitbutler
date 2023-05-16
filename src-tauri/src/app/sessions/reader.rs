@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::app::{
-    gb_repository,
+use crate::{
+    app::gb_repository,
     reader::{self, CommitReader, Reader},
 };
 

@@ -4,10 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{
-    app::{project_repository::activity, reader},
-    projects,
-};
+use crate::{app::project_repository::activity, projects, reader};
 
 pub struct Repository<'repository> {
     pub(crate) git_repository: git2::Repository,

@@ -2,9 +2,9 @@ use std::{collections::HashMap, path};
 
 use anyhow::Result;
 
-use crate::app::{
+use crate::{
+    app::sessions,
     reader::{self, Reader},
-    sessions,
 };
 
 use super::Delta;
