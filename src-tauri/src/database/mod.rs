@@ -5,9 +5,7 @@ use anyhow::{Context, Result};
 use rusqlite::{Connection, Transaction};
 
 mod embedded {
-
     use refinery::embed_migrations;
-
     embed_migrations!("src/database/migrations");
 }
 
@@ -19,6 +17,7 @@ impl Database {
     #[cfg(test)]
     pub fn memory() -> Result<Self> {
         let mut conn = Connection::open_in_memory().context("Failed to open in memory database")?;
+
         embedded::migrations::runner()
             .run(&mut conn)
             .context("Failed to run migrations")?;

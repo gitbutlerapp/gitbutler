@@ -1,3 +1,4 @@
+mod database;
 mod delta;
 mod document;
 mod operations;

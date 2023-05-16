@@ -1,5 +1,6 @@
 mod app;
 pub mod deltas;
+pub mod files;
 pub mod gb_repository;
 pub mod project_repository;
 pub mod projects;
