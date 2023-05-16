@@ -13,10 +13,9 @@ use uuid::Uuid;
 
 use crate::{fs, projects, users};
 
-use crate::app::{
-    project_repository,
+use crate::{
+    app::{project_repository, sessions},
     reader::{self, Reader},
-    sessions,
 };
 
 pub struct Repository {

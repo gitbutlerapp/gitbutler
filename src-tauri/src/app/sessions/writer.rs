@@ -2,8 +2,8 @@ use std::time;
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::app::{
-    deltas, gb_repository, pty,
+use crate::{
+    app::{deltas, gb_repository, pty},
     reader::{self, Reader},
     writer::{self, Writer},
 };

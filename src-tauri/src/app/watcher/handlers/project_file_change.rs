@@ -3,11 +3,9 @@ use std::vec;
 use anyhow::{Context, Result};
 
 use crate::{
-    app::{
-        deltas, gb_repository, project_repository,
-        reader::{self, Reader},
-    },
+    app::{deltas, gb_repository, project_repository},
     projects,
+    reader::{self, Reader},
 };
 
 use super::events;

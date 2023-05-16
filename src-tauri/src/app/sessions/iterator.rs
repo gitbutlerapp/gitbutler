@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::app::reader::{CommitReader, Reader};
+use crate::reader::{CommitReader, Reader};
 
 use super::{cache, Session, SessionError};
 
