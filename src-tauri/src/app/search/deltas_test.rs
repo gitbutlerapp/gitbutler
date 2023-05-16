@@ -5,7 +5,7 @@ use anyhow::Result;
 use tempfile::tempdir;
 
 use crate::{
-    app::{self, deltas},
+    app::{self, deltas, sessions},
     projects, storage, users,
 };
 
@@ -58,7 +58,7 @@ fn test_filter_by_timestamp() -> Result<()> {
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
     let session = gb_repo.get_or_create_current_session()?;
-    let writer = gb_repo.get_session_writer(&session)?;
+    let writer = sessions::Writer::open(&gb_repo, &session)?;
     writer.write_deltas(
         Path::new("test.txt"),
         &vec![
@@ -134,7 +134,7 @@ fn test_sorted_by_timestamp() -> Result<()> {
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
     let session = gb_repo.get_or_create_current_session()?;
-    let writer = gb_repo.get_session_writer(&session)?;
+    let writer = sessions::Writer::open(&gb_repo, &session)?;
     writer.write_deltas(
         Path::new("test.txt"),
         &vec![
@@ -190,8 +190,7 @@ fn test_simple() -> Result<()> {
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
     let session = gb_repo.get_or_create_current_session()?;
-    let writer = gb_repo.get_session_writer(&session)?;
-
+    let writer = sessions::Writer::open(&gb_repo, &session)?;
     writer.write_deltas(
         Path::new("test.txt"),
         &vec![
@@ -310,7 +309,7 @@ fn test_delete_all() -> Result<()> {
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
     let session = gb_repo.get_or_create_current_session()?;
-    let writer = gb_repo.get_session_writer(&session)?;
+    let writer = sessions::Writer::open(&gb_repo, &session)?;
     writer.write_deltas(
         Path::new("test.txt"),
         &vec![

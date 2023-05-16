@@ -6,7 +6,7 @@ use crate::{
     projects, storage, users,
 };
 
-use super::SessionWriter;
+use super::Writer;
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -65,7 +65,7 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
         },
     };
 
-    assert!(SessionWriter::open(&gb_repo, &session).is_err());
+    assert!(Writer::open(&gb_repo, &session).is_err());
 
     Ok(())
 }
@@ -97,7 +97,7 @@ fn test_should_write_full_session() -> Result<()> {
         },
     };
 
-    SessionWriter::open(&gb_repo, &session)?;
+    Writer::open(&gb_repo, &session)?;
 
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_path().join("meta/id"))?,
@@ -150,7 +150,7 @@ fn test_should_write_partial_session() -> Result<()> {
         },
     };
 
-    SessionWriter::open(&gb_repo, &session)?;
+    Writer::open(&gb_repo, &session)?;
 
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_path().join("meta/id"))?,

@@ -12,4 +12,4 @@ pub use cache::get_hash_mapping;
 pub use iterator::{SessionsIdsIterator, SessionsIterator};
 pub use reader::SessionReader as Reader;
 pub use session::{Meta, Session, SessionError};
-pub use writer::SessionWriter;
+pub use writer::SessionWriter as Writer;

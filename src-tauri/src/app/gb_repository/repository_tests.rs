@@ -4,7 +4,7 @@ use anyhow::Result;
 use tempfile::tempdir;
 
 use crate::{
-    app::{deltas, gb_repository},
+    app::{deltas, gb_repository, sessions},
     projects, storage, users,
 };
 
@@ -232,7 +232,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     )?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
-    let writer = gb_repo.get_session_writer(&current_session)?;
+    let writer = sessions::Writer::open(&gb_repo, &current_session)?;
     writer.write_deltas(
         "test.txt",
         &vec![deltas::Delta {
@@ -272,7 +272,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     )?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
-    let writer = gb_repo.get_session_writer(&current_session)?;
+    let writer = sessions::Writer::open(&gb_repo, &current_session)?;
     writer.write_deltas(
         "test.txt",
         &vec![deltas::Delta {
@@ -409,7 +409,7 @@ fn test_remote_syncronization() -> Result<()> {
         user_store.clone(),
     )?;
     let session_one = gb_repo_one.get_or_create_current_session()?;
-    let writer = gb_repo_one.get_session_writer(&session_one)?;
+    let writer = sessions::Writer::open(&gb_repo_one, &session_one)?;
     writer.write_deltas(
         "test.txt",
         &vec![deltas::Delta {

@@ -519,7 +519,7 @@ impl App {
         let session = gb_repository
             .get_or_create_current_session()
             .context("failed to get session")?;
-        let writer = gb_repository.get_session_writer(&session)?;
+        let writer = sessions::Writer::open(&gb_repository, &session)?;
 
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

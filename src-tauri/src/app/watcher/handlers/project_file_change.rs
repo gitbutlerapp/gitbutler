@@ -3,7 +3,7 @@ use std::vec;
 use anyhow::{Context, Result};
 
 use crate::{
-    app::{deltas, gb_repository, project_repository},
+    app::{deltas, gb_repository, project_repository, sessions},
     projects,
     reader::{self, Reader},
 };
@@ -216,8 +216,7 @@ impl<'listener> Handler<'listener> {
         }
 
         let current_session = self.gb_repository.get_or_create_current_session()?;
-
-        let writer = self.gb_repository.get_session_writer(&current_session)?;
+        let writer = sessions::Writer::open(&self.gb_repository, &current_session)?;
 
         let deltas = text_doc.get_deltas();
 
