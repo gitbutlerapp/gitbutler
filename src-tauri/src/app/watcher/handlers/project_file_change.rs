@@ -141,12 +141,13 @@ impl<'listener> Handler<'listener> {
             return Ok(None);
         }
         let current_session = current_session.unwrap();
-        let reader = self
+        let session_reader = self
             .gb_repository
             .get_session_reader(&current_session)
             .context("failed to get session reader")?;
-        let deltas = reader
-            .file_deltas(path)
+        let deltas_reader = deltas::Reader::new(&session_reader);
+        let deltas = deltas_reader
+            .read_file(path)
             .context("failed to get file deltas")?;
         Ok(deltas)
     }
@@ -199,9 +200,7 @@ impl<'listener> Handler<'listener> {
             (Some(latest_contents), Some(deltas)) => {
                 deltas::Document::new(Some(&latest_contents), deltas)?
             }
-            (Some(latest_contents), None) => {
-                deltas::Document::new(Some(&latest_contents), vec![])?
-            }
+            (Some(latest_contents), None) => deltas::Document::new(Some(&latest_contents), vec![])?,
             (None, Some(deltas)) => deltas::Document::new(None, deltas)?,
             (None, None) => deltas::Document::new(None, vec![])?,
         };

@@ -356,11 +356,12 @@ impl App {
             .get_session(session_id)
             .context("failed to get session")?;
 
-        let reader = gb_repository
+        let session_reader = gb_repository
             .get_session_reader(&session)
             .context("failed to get session reader")?;
+        let deltas_reader = deltas::Reader::new(&session_reader);
 
-        reader.deltas(paths)
+        deltas_reader.read(paths)
     }
 
     pub fn git_activity(

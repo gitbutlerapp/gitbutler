@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Context, Result};
 
 use crate::app::{
-    deltas, gb_repository,
+    gb_repository,
     reader::{self, CommitReader, Reader},
 };
 
@@ -112,45 +112,5 @@ impl<'reader> SessionReader<'reader> {
         }
 
         Ok(files_with_content)
-    }
-
-    pub fn file_deltas<P: AsRef<std::path::Path>>(
-        &self,
-        path: P,
-    ) -> Result<Option<Vec<deltas::Delta>>> {
-        let path = path.as_ref();
-        let file_deltas_path = std::path::Path::new("session/deltas").join(path);
-        match self
-            .reader
-            .read_to_string(file_deltas_path.to_str().unwrap())
-        {
-            Ok(content) => {
-                if content.is_empty() {
-                    // this is a leftover from some bug, shouldn't happen anymore
-                    Ok(None)
-                } else {
-                    Ok(Some(serde_json::from_str(&content)?))
-                }
-            }
-            Err(reader::Error::NotFound) => Ok(None),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    pub fn deltas(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        let deltas_dir = std::path::Path::new("session/deltas");
-        let files = self.reader.list_files(deltas_dir.to_str().unwrap())?;
-        let mut result = HashMap::new();
-        for file_path in files {
-            if let Some(paths) = paths.as_ref() {
-                if !paths.iter().any(|path| file_path.eq(path)) {
-                    continue;
-                }
-            }
-            if let Some(deltas) = self.file_deltas(file_path.clone())? {
-                result.insert(file_path, deltas);
-            }
-        }
-        Ok(result)
     }
 }
