@@ -1,9 +1,9 @@
-use super::{delta, operations};
+use super::super::{delta, operations};
 use anyhow::Result;
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, Default)]
-pub struct TextDocument {
+pub struct Document {
     doc: Vec<char>,
     deltas: Vec<delta::Delta>,
 }
@@ -17,13 +17,13 @@ fn apply_deltas(doc: &mut Vec<char>, deltas: &Vec<delta::Delta>) -> Result<()> {
     Ok(())
 }
 
-impl TextDocument {
+impl Document {
     pub fn get_deltas(&self) -> Vec<delta::Delta> {
         self.deltas.clone()
     }
 
     // returns a text document where internal state is seeded with value, and deltas are applied.
-    pub fn new(value: Option<&str>, deltas: Vec<delta::Delta>) -> Result<TextDocument> {
+    pub fn new(value: Option<&str>, deltas: Vec<delta::Delta>) -> Result<Document> {
         let mut all_deltas = vec![];
         if let Some(value) = value {
             all_deltas.push(delta::Delta {
@@ -34,7 +34,7 @@ impl TextDocument {
         all_deltas.append(&mut deltas.clone());
         let mut doc = vec![];
         apply_deltas(&mut doc, &all_deltas)?;
-        Ok(TextDocument { doc, deltas })
+        Ok(Document { doc, deltas })
     }
 
     pub fn update(&mut self, value: &str) -> Result<bool> {
