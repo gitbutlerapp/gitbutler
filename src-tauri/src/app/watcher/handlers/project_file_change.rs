@@ -139,9 +139,7 @@ impl<'listener> Handler<'listener> {
             return Ok(None);
         }
         let current_session = current_session.unwrap();
-        let session_reader = self
-            .gb_repository
-            .get_session_reader(&current_session)
+        let session_reader = sessions::Reader::open(&self.gb_repository, &current_session)
             .context("failed to get session reader")?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader

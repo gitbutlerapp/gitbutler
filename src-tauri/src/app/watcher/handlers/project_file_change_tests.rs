@@ -82,7 +82,7 @@ fn test_register_existing_commited_file() -> Result<()> {
     listener.handle(file_path)?;
 
     let session = gb_repo.get_current_session()?.unwrap();
-    let session_reader = gb_repo.get_session_reader(&session)?;
+    let session_reader = sessions::Reader::open(&gb_repo, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
@@ -184,7 +184,7 @@ fn test_register_new_file() -> Result<()> {
     listener.handle(file_path)?;
 
     let session = gb_repo.get_current_session()?.unwrap();
-    let session_reader = gb_repo.get_session_reader(&session)?;
+    let session_reader = sessions::Reader::open(&gb_repo, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
@@ -224,7 +224,7 @@ fn test_register_new_file_twice() -> Result<()> {
     listener.handle(file_path)?;
 
     let session = gb_repo.get_current_session()?.unwrap();
-    let session_reader = gb_repo.get_session_reader(&session)?;
+    let session_reader = sessions::Reader::open(&gb_repo, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
@@ -284,7 +284,7 @@ fn test_register_file_delted() -> Result<()> {
     listener.handle(file_path)?;
 
     let session = gb_repo.get_current_session()?.unwrap();
-    let session_reader = gb_repo.get_session_reader(&session)?;
+    let session_reader = sessions::Reader::open(&gb_repo, &session)?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader.read_file("test.txt")?.unwrap();
     assert_eq!(deltas.len(), 1);
@@ -370,7 +370,7 @@ fn test_flow_with_commits() -> Result<()> {
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<deltas::Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
-            let session_reader = gb_repo.get_session_reader(&session).unwrap();
+            let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
             let deltas_reader = deltas::Reader::new(&session_reader);
             let deltas_by_filepath = deltas_reader.read(None).unwrap();
             for deltas in deltas_by_filepath.values() {
@@ -382,9 +382,7 @@ fn test_flow_with_commits() -> Result<()> {
             }
         });
 
-        let reader = gb_repo
-            .get_session_reader(&sessions_slice.first().unwrap())
-            .unwrap();
+        let reader = sessions::Reader::open(&gb_repo, &sessions_slice.first().unwrap()).unwrap();
         let files = reader.files(None).unwrap();
 
         if i == 0 {
@@ -463,7 +461,7 @@ fn test_flow_no_commits() -> Result<()> {
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<deltas::Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
-            let session_reader = gb_repo.get_session_reader(&session).unwrap();
+            let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
             let deltas_reader = deltas::Reader::new(&session_reader);
             let deltas_by_filepath = deltas_reader.read(None).unwrap();
             for deltas in deltas_by_filepath.values() {
@@ -475,9 +473,7 @@ fn test_flow_no_commits() -> Result<()> {
             }
         });
 
-        let reader = gb_repo
-            .get_session_reader(&sessions_slice.first().unwrap())
-            .unwrap();
+        let reader = sessions::Reader::open(&gb_repo, &sessions_slice.first().unwrap()).unwrap();
         let files = reader.files(None).unwrap();
 
         if i == 0 {
@@ -534,7 +530,7 @@ fn test_flow_signle_session() -> Result<()> {
     // collect all operations from sessions in the reverse order
     let mut operations: Vec<deltas::Operation> = vec![];
     let session = gb_repo.get_current_session()?.unwrap();
-    let session_reader = gb_repo.get_session_reader(&session).unwrap();
+    let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas_by_filepath = deltas_reader.read(None).unwrap();
     for deltas in deltas_by_filepath.values() {
@@ -545,7 +541,7 @@ fn test_flow_signle_session() -> Result<()> {
         });
     }
 
-    let reader = gb_repo.get_session_reader(&session).unwrap();
+    let reader = sessions::Reader::open(&gb_repo, &session).unwrap();
     let files = reader.files(None).unwrap();
 
     let base_file = files.get(&relative_file_path.to_str().unwrap().to_string());

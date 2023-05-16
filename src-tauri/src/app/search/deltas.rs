@@ -216,8 +216,7 @@ fn index_session(
     session: &sessions::Session,
     repository: &app::gb_repository::Repository,
 ) -> Result<()> {
-    let session_reader = repository
-        .get_session_reader(&session)
+    let session_reader = sessions::Reader::open(&repository, &session)
         .with_context(|| "could not get session reader")?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader

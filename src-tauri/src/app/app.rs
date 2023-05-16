@@ -331,8 +331,7 @@ impl App {
             .get_session(session_id)
             .context("failed to get session")?;
 
-        let reader = gb_repository
-            .get_session_reader(&session)
+        let reader = sessions::Reader::open(&gb_repository, &session)
             .context("failed to get session reader")?;
 
         reader.files(paths)
@@ -356,8 +355,7 @@ impl App {
             .get_session(session_id)
             .context("failed to get session")?;
 
-        let session_reader = gb_repository
-            .get_session_reader(&session)
+        let session_reader = sessions::Reader::open(&gb_repository, &session)
             .context("failed to get session reader")?;
         let deltas_reader = deltas::Reader::new(&session_reader);
 
