@@ -2,17 +2,13 @@ use std::time;
 
 use anyhow::{Context, Result};
 
-use crate::{
-    app::{gb_repository, search},
-    projects,
-};
+use crate::{app::gb_repository, projects};
 
 use super::events;
 
 pub struct Handler<'handler> {
     project_id: String,
     project_storage: projects::Storage,
-    deltas_searcher: search::Deltas,
     gb_repository: &'handler gb_repository::Repository,
 }
 
@@ -20,13 +16,11 @@ impl<'handler> Handler<'handler> {
     pub fn new(
         project_id: String,
         project_storage: projects::Storage,
-        deltas_searcher: search::Deltas,
         gb_repository: &'handler gb_repository::Repository,
     ) -> Self {
         Self {
             project_id,
             project_storage,
-            deltas_searcher,
             gb_repository,
         }
     }
@@ -66,15 +60,6 @@ impl<'handler> Handler<'handler> {
             .iter()
             .filter(|s| !sessions_before_fetch.contains(s))
             .collect::<Vec<_>>();
-
-        for session in &new_sessions {
-            if let Err(e) = self
-                .deltas_searcher
-                .index_session(&self.gb_repository, &session)
-            {
-                log::error!("{}: failed to index session: {:#}", self.project_id, e);
-            }
-        }
 
         let events = new_sessions
             .into_iter()
