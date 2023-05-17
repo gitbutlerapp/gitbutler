@@ -1476,7 +1476,6 @@ dependencies = [
  "futures",
  "futures-util",
  "git2",
- "lazy_static",
  "log",
  "md5",
  "notify",
