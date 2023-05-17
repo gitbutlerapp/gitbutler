@@ -17,5 +17,6 @@ pub enum Event {
     ProjectFileChange(path::PathBuf),
 
     Session(sessions::Session),
+    File((sessions::Session, path::PathBuf, String)),
     Deltas((sessions::Session, path::PathBuf, Vec<deltas::Delta>)),
 }

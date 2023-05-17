@@ -109,38 +109,6 @@ impl Deltas {
         search(&self.index, &self.reader, query)
     }
 
-    pub fn reindex_project(&mut self, repository: &app::gb_repository::Repository) -> Result<()> {
-        let mut sessions = repository
-            .get_sessions_iterator()
-            .with_context(|| "Could not list sessions for project")?;
-
-        while let Some(session) = sessions.next() {
-            let session = session.with_context(|| "Could not read session")?;
-            if session.hash.is_none() {
-                continue;
-            }
-
-            let version = self
-                .meta_storage
-                .get(repository.get_project_id(), &session.id)?
-                .unwrap_or(0);
-
-            if version == CURRENT_VERSION {
-                continue;
-            }
-
-            if let Err(e) = self.index_session(repository, &session) {
-                log::error!(
-                    "{}: could not index session {}: {:#}",
-                    repository.get_project_id(),
-                    session.id,
-                    e
-                );
-            }
-        }
-        Ok(())
-    }
-
     pub fn delete_all_data(&self) -> Result<()> {
         self.meta_storage
             .delete_all()
@@ -158,6 +126,20 @@ impl Deltas {
         repository: &app::gb_repository::Repository,
         session: &sessions::Session,
     ) -> Result<()> {
+        // TODO: maybe we should index current sessions?
+        if session.hash.is_none() {
+            return Ok(());
+        }
+
+        let version = self
+            .meta_storage
+            .get(repository.get_project_id(), &session.id)?
+            .unwrap_or(0);
+
+        if version == CURRENT_VERSION {
+            return Ok(());
+        }
+
         index_session(
             &self.index,
             &mut self.writer.lock().unwrap(),

@@ -1,7 +1,10 @@
 use anyhow::Result;
 use crossbeam_channel::{select, unbounded};
 
-use crate::{app::gb_repository, events, projects, search};
+use crate::{
+    app::{deltas, files, gb_repository, sessions},
+    events, projects, search,
+};
 
 use super::{dispatchers, handlers};
 
@@ -21,6 +24,9 @@ impl<'watcher> Watcher<'watcher> {
         stop: crossbeam_channel::Receiver<()>,
         publisher: crossbeam_channel::Receiver<super::events::Event>,
         events_sender: events::Sender,
+        sessions_database: sessions::Database,
+        deltas_database: deltas::Database,
+        files_database: files::Database,
     ) -> Result<Self> {
         Ok(Self {
             project_id: project.id.clone(),
@@ -35,6 +41,9 @@ impl<'watcher> Watcher<'watcher> {
                 gb_repository,
                 deltas_searcher,
                 events_sender,
+                sessions_database,
+                deltas_database,
+                files_database,
             ),
             stop,
         })

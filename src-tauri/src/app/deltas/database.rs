@@ -6,12 +6,13 @@ use crate::database;
 
 use super::{delta, operations};
 
-pub struct Database<'database> {
-    database: &'database database::Database,
+#[derive(Clone)]
+pub struct Database {
+    database: database::Database,
 }
 
-impl<'database> Database<'database> {
-    pub fn new(database: &'database database::Database) -> Self {
+impl Database {
+    pub fn new(database: database::Database) -> Self {
         Self { database }
     }
 
@@ -19,7 +20,7 @@ impl<'database> Database<'database> {
         &self,
         session_id: &str,
         file_path: &str,
-        deltas: &[&delta::Delta],
+        deltas: &Vec<delta::Delta>,
     ) -> Result<()> {
         self.database.transaction(|tx| -> Result<()> {
             let mut stmt = insert_stmt(tx).context("Failed to prepare insert statement")?;
@@ -36,7 +37,16 @@ impl<'database> Database<'database> {
                 .context("Failed to execute insert statement")?;
             }
             Ok(())
-        })
+        })?;
+
+        log::info!(
+            "db: inserted {} deltas for file {} for session {}",
+            deltas.len(),
+            file_path,
+            session_id
+        );
+
+        Ok(())
     }
 
     pub fn get_by_session_id_file_path(
@@ -156,7 +166,7 @@ mod tests {
     #[test]
     fn test_insert_query() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(&db);
+        let database = Database::new(db);
 
         let session_id = "session_id";
         let file_path = "file_path";
@@ -164,7 +174,7 @@ mod tests {
             timestamp_ms: 0,
             operations: vec![operations::Operation::Insert((0, "text".to_string()))],
         };
-        let deltas = vec![&delta1];
+        let deltas = vec![delta1.clone()];
 
         database.insert(session_id, file_path, &deltas)?;
 
@@ -191,7 +201,7 @@ mod tests {
     #[test]
     fn test_insert_update() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(&db);
+        let database = Database::new(db);
 
         let session_id = "session_id";
         let file_path = "file_path";
@@ -207,8 +217,8 @@ mod tests {
             ))],
         };
 
-        database.insert(session_id, file_path, &vec![&delta1])?;
-        database.insert(session_id, file_path, &vec![&delta2])?;
+        database.insert(session_id, file_path, &vec![delta1])?;
+        database.insert(session_id, file_path, &vec![delta2.clone()])?;
 
         assert_eq!(
             database.list_by_session_id(session_id, None)?,

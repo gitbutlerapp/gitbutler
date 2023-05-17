@@ -226,6 +226,11 @@ impl<'listener> Handler<'listener> {
             .with_context(|| "failed to write file")?;
 
         Ok(vec![
+            events::Event::File((
+                current_session.clone(),
+                path.to_path_buf(),
+                current_file_content,
+            )),
             events::Event::Session(current_session.clone()),
             events::Event::Deltas((current_session, path.to_path_buf(), deltas)),
         ])
