@@ -56,6 +56,7 @@ rusqlite = { version = "0.28.0", features = [ "bundled", "blob", "hooks" ] }
 refinery = { version = "0.8", features = [ "rusqlite" ] }
 r2d2 = "0.8.10"
 r2d2_sqlite = { version = "0.21.0", features = ["bundled"] }
+sha1 = "0.10.5"
 
 [features]
 # by default Tauri runs in production mode

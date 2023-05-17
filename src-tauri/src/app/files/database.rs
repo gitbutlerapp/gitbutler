@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use sha1::{Digest, Sha1};
 
 use crate::database;
 
@@ -15,12 +16,39 @@ impl Database {
     }
 
     pub fn insert(&self, session_id: &str, file_path: &str, content: &str) -> Result<()> {
+        let mut hasher = Sha1::new();
+        hasher.update(content);
+        let sha1 = hasher.finalize();
+
         self.database.transaction(|tx| -> Result<()> {
-            let mut stmt = insert_stmt(tx).context("Failed to prepare insert statement")?;
+            let mut stmt = is_content_exist_by_sha1_stmt(tx)
+                .context("Failed to prepare is_content_exist_by_sha1 statement")?;
+            let mut rows = stmt
+                .query(rusqlite::named_params! {
+                    ":sha1": sha1.as_slice(),
+                })
+                .context("Failed to execute is_content_exist_by_sha1 statement")?;
+            let is_content_exist: bool = rows
+                .next()
+                .context("Failed to iterate over is_content_exist_by_sha1 results")?
+                .is_some();
+
+            if !is_content_exist {
+                let mut stmt =
+                    insert_content_stmt(tx).context("Failed to prepare insert statement")?;
+                stmt.execute(rusqlite::named_params! {
+                    ":sha1": sha1.as_slice(),
+                    ":content": content,
+                })
+                .context("Failed to execute insert statement")?;
+            }
+
+            let mut stmt =
+                insert_file_stmt(tx).context("Failed to prepare insert file statement")?;
             stmt.execute(rusqlite::named_params! {
                 ":session_id": session_id,
                 ":file_path": file_path,
-                ":content": content,
+                ":sha1": sha1.as_slice(),
             })
             .context("Failed to execute insert statement")?;
             Ok(())
@@ -112,22 +140,43 @@ fn list_by_session_id_stmt<'conn>(
     Ok(tx.prepare_cached(
         "SELECT `file_path`, `content`
         FROM `files`
+        JOIN `contents` ON `files`.`sha1` = `contents`.`sha1`
         WHERE `session_id` = :session_id",
     )?)
 }
 
-fn insert_stmt<'conn>(
+fn is_content_exist_by_sha1_stmt<'conn>(
+    tx: &'conn rusqlite::Transaction,
+) -> Result<rusqlite::CachedStatement<'conn>> {
+    Ok(tx.prepare_cached(
+        "SELECT 1
+            FROM `contents`
+            WHERE `sha1` = :sha1",
+    )?)
+}
+
+fn insert_content_stmt<'conn>(
+    tx: &'conn rusqlite::Transaction,
+) -> Result<rusqlite::CachedStatement<'conn>> {
+    Ok(tx.prepare_cached(
+        "INSERT INTO `contents` (
+            `sha1`, `content`
+        ) VALUES (
+            :sha1, :content
+        )",
+    )?)
+}
+
+fn insert_file_stmt<'conn>(
     tx: &'conn rusqlite::Transaction,
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "INSERT INTO `files` (
-            `session_id`, `file_path`, `content`
+            `session_id`, `file_path`, `sha1`
         ) VALUES (
-            :session_id, :file_path, :content
-        )
-        ON CONFLICT(`session_id`, `file_path`) DO UPDATE SET
-            `content` = :content
-        ",
+            :session_id, :file_path, :sha1
+        ) ON CONFLICT(`session_id`, `file_path`) 
+            DO UPDATE SET `sha1` = :sha1",
     )?)
 }
 
@@ -136,8 +185,9 @@ fn get_by_rowid_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "SELECT `file_path`, `content`, `session_id`
-        FROM `files`
-        WHERE `rowid` = :rowid",
+        FROM `files` 
+        JOIN `contents` ON `files`.`sha1` = `contents`.`sha1`
+        WHERE `files`.`rowid` = :rowid",
     )?)
 }
 
@@ -180,8 +230,11 @@ mod tests {
 
     #[test]
     fn test_upsert() -> Result<()> {
+        println!("1");
         let db = database::Database::memory()?;
+        println!("2");
         let database = Database::new(db);
+        println!("3");
 
         let session_id = "session_id";
         let file_path = "file_path";
