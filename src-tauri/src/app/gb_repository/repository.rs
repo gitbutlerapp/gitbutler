@@ -424,36 +424,6 @@ impl Repository {
         Ok(sessions::SessionsIterator::new(&self.git_repository)?)
     }
 
-    pub fn get_session(&self, session_id: &str) -> Result<sessions::Session> {
-        if let Some(oid) = sessions::get_hash_mapping(session_id) {
-            let commit = self.git_repository.find_commit(oid)?;
-            let reader = reader::CommitReader::from_commit(&self.git_repository, commit)?;
-            return Ok(sessions::Session::try_from(reader)?);
-        }
-
-        if let Some(session) = self.get_current_session()? {
-            if session.id == session_id {
-                return Ok(session);
-            }
-        }
-
-        let mut session_ids_iterator = sessions::SessionsIdsIterator::new(&self.git_repository)?;
-        while let Some(ids) = session_ids_iterator.next() {
-            match ids {
-                Result::Ok((oid, sid)) => {
-                    if sid == session_id {
-                        let commit = self.git_repository.find_commit(oid)?;
-                        let reader =
-                            reader::CommitReader::from_commit(&self.git_repository, commit)?;
-                        return Ok(sessions::Session::try_from(reader)?);
-                    }
-                }
-                Err(e) => return Err(e),
-            }
-        }
-        Err(anyhow!("session not found"))
-    }
-
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
         let reader = reader::DirReader::open(self.root());
         match sessions::Session::try_from(reader) {

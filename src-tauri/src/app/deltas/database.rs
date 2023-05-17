@@ -52,44 +52,6 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_by_project_id_session_id_file_path(
-        &self,
-        project_id: &str,
-        session_id: &str,
-        file_path: &str,
-    ) -> Result<Option<delta::Delta>> {
-        let mut delta: Option<delta::Delta> = None;
-        self.database.transaction(|tx| -> Result<()> {
-            let mut stmt = get_by_project_id_session_id_file_path_stmt(tx)
-                .context("Failed to prepare get_by_session_id_file_path statement")?;
-            let mut rows = stmt
-                .query(rusqlite::named_params! {
-                    ":project_id": project_id,
-                    ":session_id": session_id,
-                    ":file_path": file_path,
-                })
-                .context("Failed to execute get_by_session_id_file_path statement")?;
-            while let Some(row) = rows
-                .next()
-                .context("Failed to iterate over get_by_session_id_file_path results")?
-            {
-                let timestamp_ms: String = row.get(0).context("Failed to get timestamp_ms")?;
-                let operations: Vec<u8> = row.get(1).context("Failed to get operations")?;
-                let operations: Vec<operations::Operation> = serde_json::from_slice(&operations)
-                    .context("Failed to deserialize operations")?;
-                let timestamp_ms: u128 = timestamp_ms
-                    .parse()
-                    .context("Failed to parse timestamp_ms")?;
-                delta = Some(delta::Delta {
-                    timestamp_ms,
-                    operations,
-                });
-            }
-            Ok(())
-        })?;
-        Ok(delta)
-    }
-
     pub fn on<F>(&self, callback: F) -> Result<()>
     where
         F: Fn(&str, &str, delta::Delta) + Send + 'static,
@@ -190,14 +152,6 @@ impl Database {
     }
 }
 
-fn get_by_project_id_session_id_file_path_stmt<'conn>(
-    tx: &'conn rusqlite::Transaction,
-) -> Result<rusqlite::CachedStatement<'conn>> {
-    Ok(tx.prepare_cached(
-        "SELECT `timestamp_ms`, `operations` FROM `deltas` WHERE `project_id` = :project_id AND `session_id` = :session_id AND `file_path` = :file_path",
-    )?)
-}
-
 fn get_by_rowid_stmt<'conn>(
     tx: &'conn rusqlite::Transaction,
 ) -> Result<rusqlite::CachedStatement<'conn>> {
@@ -256,20 +210,6 @@ mod tests {
                 .collect()
         );
 
-        assert_eq!(
-            database.get_by_project_id_session_id_file_path(project_id, session_id, file_path)?,
-            Some(delta1)
-        );
-
-        assert_eq!(
-            database.get_by_project_id_session_id_file_path(
-                project_id,
-                session_id,
-                "other_file_path"
-            )?,
-            None
-        );
-
         Ok(())
     }
 
@@ -301,11 +241,6 @@ mod tests {
             vec![(file_path.to_string(), vec![delta2.clone()])]
                 .into_iter()
                 .collect()
-        );
-
-        assert_eq!(
-            database.get_by_project_id_session_id_file_path(project_id, session_id, file_path)?,
-            Some(delta2)
         );
 
         Ok(())
