@@ -75,11 +75,10 @@ impl<'handler> Handler<'handler> {
             ),
             chech_fetch_project_handler: check_fetch_project::Handler::new(
                 project_id.clone(),
-                project_store.clone(),
+                project_store,
             ),
             index_handler: index_handler::Handler::new(
                 project_id,
-                project_store,
                 searcher,
                 gb_repository,
                 files_database,
@@ -139,10 +138,20 @@ impl<'handler> Handler<'handler> {
             events::Event::SessionFlushed(session) => self.index_handler.index_session(&session),
             events::Event::Fetch => self.fetch_project_handler.handle(),
 
-            events::Event::File((session, file_path, contents)) => self
-                .index_handler
-                .index_file(&session.id, file_path.to_str().unwrap(), &contents)
-                .context("failed to index file"),
+            events::Event::File((session_id, file_path, contents)) => {
+                self.index_handler
+                    .index_file(&session_id, file_path.to_str().unwrap(), &contents)
+                    .context("failed to index file")?;
+                self.events_sender
+                    .send(app_events::Event::file(
+                        &self.project_id,
+                        &session_id,
+                        file_path.to_str().unwrap(),
+                        &contents,
+                    ))
+                    .context("failed to send file event")?;
+                Ok(vec![])
+            }
             events::Event::Session(session) => {
                 self.index_handler
                     .index_session(&session)
@@ -152,14 +161,14 @@ impl<'handler> Handler<'handler> {
                     .context("failed to send session event")?;
                 Ok(vec![])
             }
-            events::Event::Deltas((session, path, deltas)) => {
+            events::Event::Deltas((session_id, path, deltas)) => {
                 self.index_handler
-                    .index_deltas(&session.id, path.to_str().unwrap(), &deltas)
+                    .index_deltas(&session_id, path.to_str().unwrap(), &deltas)
                     .context("failed to index deltas")?;
                 self.events_sender
-                    .send(app_events::Event::detlas(
+                    .send(app_events::Event::deltas(
                         &self.project_id,
-                        &session,
+                        &session_id,
                         &deltas,
                         &path,
                     ))

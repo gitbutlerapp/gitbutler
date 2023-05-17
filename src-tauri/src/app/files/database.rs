@@ -54,12 +54,55 @@ impl Database {
                     }
                 }
 
-                let content: Vec<u8> = row.get(1)?;
-                files.insert(file_path, String::from_utf8(content)?);
+                let content: String = row.get(1)?;
+                files.insert(file_path, content);
             }
             Ok(())
         })?;
         Ok(files)
+    }
+
+    pub fn on<F>(&self, callback: F) -> Result<()>
+    where
+        F: Fn(&str, &str, &str) + Send + 'static,
+    {
+        let boxed_database = Box::new(self.database.clone());
+        self.database.on_update(
+            move |action, _database_name, table_name, rowid| match action {
+                rusqlite::hooks::Action::SQLITE_INSERT | rusqlite::hooks::Action::SQLITE_UPDATE => {
+                    match table_name {
+                        "files" => {
+                            if let Err(err) = boxed_database.transaction(|tx| -> Result<()> {
+                                let mut stmt = get_by_rowid_stmt(tx)
+                                    .context("Failed to prepare get_by_rowid statement")?;
+
+                                let mut rows = stmt
+                                    .query(rusqlite::named_params! {
+                                        ":rowid": rowid,
+                                    })
+                                    .context("Failed to execute get_by_rowid statement")?;
+
+                                if let Some(row) = rows
+                                    .next()
+                                    .context("Failed to iterate over get_by_rowid results")?
+                                {
+                                    let file_path: String = row.get(0)?;
+                                    let content: String = row.get(1)?;
+                                    let session_id: String = row.get(2)?;
+                                    callback(&session_id, &file_path, &content)
+                                }
+
+                                Ok(())
+                            }) {
+                                log::error!("db: failed to get file by rowid: {}", err);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            },
+        )
     }
 }
 
@@ -88,6 +131,16 @@ fn insert_stmt<'conn>(
     )?)
 }
 
+fn get_by_rowid_stmt<'conn>(
+    tx: &'conn rusqlite::Transaction,
+) -> Result<rusqlite::CachedStatement<'conn>> {
+    Ok(tx.prepare_cached(
+        "SELECT `file_path`, `content`, `session_id`
+        FROM `files`
+        WHERE `rowid` = :rowid",
+    )?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,19 +154,24 @@ mod tests {
         let file_path = "file_path";
 
         let file = "file";
-        database.insert(session_id, file_path, file)?;
+        database
+            .insert(session_id, file_path, file)
+            .context("Failed to insert file")?;
 
         assert_eq!(
-            database.list_by_session_id(session_id, Some(vec!["file_path"]))?,
+            database
+                .list_by_session_id(session_id, Some(vec!["file_path"]))
+                .context("filed to list by session id")?,
             {
                 let mut files = HashMap::new();
                 files.insert(String::from(file_path), file.to_string());
                 files
             }
         );
-
         assert_eq!(
-            database.list_by_session_id(session_id, Some(vec!["file_path2"]))?,
+            database
+                .list_by_session_id(session_id, Some(vec!["file_path2"]))
+                .context("filed to list by session id")?,
             HashMap::new()
         );
 
@@ -129,16 +187,25 @@ mod tests {
         let file_path = "file_path";
 
         let file = "file";
-        database.insert(session_id, file_path, file)?;
+        database
+            .insert(session_id, file_path, file)
+            .context("Failed to insert file1")?;
 
         let file2 = "file2";
-        database.insert(session_id, file_path, file2)?;
+        database
+            .insert(session_id, file_path, file2)
+            .context("Failed to insert file2")?;
 
-        assert_eq!(database.list_by_session_id(session_id, None)?, {
-            let mut files = HashMap::new();
-            files.insert(String::from(file_path), file2.to_string());
-            files
-        });
+        assert_eq!(
+            database
+                .list_by_session_id(session_id, None)
+                .context("filed to list by session id")?,
+            {
+                let mut files = HashMap::new();
+                files.insert(String::from(file_path), file2.to_string());
+                files
+            }
+        );
 
         Ok(())
     }
