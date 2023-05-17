@@ -39,7 +39,7 @@ impl<'handler> Handler<'handler> {
         deltas: &Vec<deltas::Delta>,
     ) -> Result<Vec<events::Event>> {
         self.deltas_database
-            .insert(session_id, file_path, deltas)
+            .insert(&self.project_id, session_id, file_path, deltas)
             .context("failed to insert deltas into database")?;
         Ok(vec![])
     }
@@ -51,12 +51,15 @@ impl<'handler> Handler<'handler> {
         content: &str,
     ) -> Result<Vec<events::Event>> {
         self.files_database
-            .insert(session_id, file_path, content)
+            .insert(&self.project_id, session_id, file_path, content)
             .context("failed to insert file into database")?;
         Ok(vec![])
     }
 
-    pub fn index_session(&self, session: &sessions::Session) -> Result<Vec<events::Event>> {
+    pub fn index_session(
+        &self,
+        session: &sessions::Session,
+    ) -> Result<Vec<events::Event>> {
         self.deltas_searcher
             .index_session(&self.gb_repository, &session)
             .context("failed to index session")?;
