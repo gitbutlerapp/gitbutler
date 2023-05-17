@@ -19,6 +19,7 @@ impl Database {
 
     pub fn insert(
         &self,
+        project_id: &str,
         session_id: &str,
         file_path: &str,
         deltas: &Vec<delta::Delta>,
@@ -30,6 +31,7 @@ impl Database {
                     .context("Failed to serialize operations")?;
                 let timestamp_ms = delta.timestamp_ms.to_string();
                 stmt.execute(rusqlite::named_params! {
+                    ":project_id": project_id,
                     ":session_id": session_id,
                     ":file_path": file_path,
                     ":timestamp_ms": timestamp_ms,
@@ -50,17 +52,19 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_by_session_id_file_path(
+    pub fn get_by_project_id_session_id_file_path(
         &self,
+        project_id: &str,
         session_id: &str,
         file_path: &str,
     ) -> Result<Option<delta::Delta>> {
         let mut delta: Option<delta::Delta> = None;
         self.database.transaction(|tx| -> Result<()> {
-            let mut stmt = get_by_session_id_file_path_stmt(tx)
+            let mut stmt = get_by_project_id_session_id_file_path_stmt(tx)
                 .context("Failed to prepare get_by_session_id_file_path statement")?;
             let mut rows = stmt
                 .query(rusqlite::named_params! {
+                    ":project_id": project_id,
                     ":session_id": session_id,
                     ":file_path": file_path,
                 })
@@ -141,17 +145,19 @@ impl Database {
         )
     }
 
-    pub fn list_by_session_id(
+    pub fn list_by_project_id_session_id(
         &self,
+        project_id: &str,
         session_id: &str,
         file_path_filter: Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<delta::Delta>>> {
         let mut deltas = HashMap::new();
         self.database.transaction(|tx| -> Result<()> {
-            let mut stmt =
-                list_by_session_id_stmt(tx).context("Failed to prepare query statement")?;
+            let mut stmt = list_by_project_id_session_id_stmt(tx)
+                .context("Failed to prepare query statement")?;
             let mut rows = stmt
                 .query(rusqlite::named_params! {
+                    ":project_id": project_id,
                     ":session_id": session_id,
                 })
                 .context("Failed to execute query statement")?;
@@ -184,11 +190,11 @@ impl Database {
     }
 }
 
-fn get_by_session_id_file_path_stmt<'conn>(
+fn get_by_project_id_session_id_file_path_stmt<'conn>(
     tx: &'conn rusqlite::Transaction,
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
-        "SELECT `timestamp_ms`, `operations` FROM `deltas` WHERE `session_id` = :session_id AND `file_path` = :file_path",
+        "SELECT `timestamp_ms`, `operations` FROM `deltas` WHERE `project_id` = :project_id AND `session_id` = :session_id AND `file_path` = :file_path",
     )?)
 }
 
@@ -200,11 +206,11 @@ fn get_by_rowid_stmt<'conn>(
     )?)
 }
 
-fn list_by_session_id_stmt<'conn>(
+fn list_by_project_id_session_id_stmt<'conn>(
     tx: &'conn rusqlite::Transaction,
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
-        "SELECT `file_path`, `timestamp_ms`, `operations` FROM `deltas` WHERE `session_id` = :session_id",
+        "SELECT `file_path`, `timestamp_ms`, `operations` FROM `deltas` WHERE `session_id` = :session_id AND `project_id` = :project_id",
     )?)
 }
 
@@ -213,11 +219,11 @@ fn insert_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "INSERT INTO `deltas` (
-            `session_id`, `timestamp_ms`, `operations`, `file_path`
+            `project_id`, `session_id`, `timestamp_ms`, `operations`, `file_path`
         ) VALUES (
-            :session_id, :timestamp_ms, :operations, :file_path
+            :project_id, :session_id, :timestamp_ms, :operations, :file_path
         )
-        ON CONFLICT(`session_id`, `file_path`, `timestamp_ms`) DO UPDATE SET
+        ON CONFLICT(`project_id`, `session_id`, `file_path`, `timestamp_ms`) DO UPDATE SET
             `operations` = :operations
         ",
     )?)
@@ -232,6 +238,7 @@ mod tests {
         let db = database::Database::memory()?;
         let database = Database::new(db);
 
+        let project_id = "project_id";
         let session_id = "session_id";
         let file_path = "file_path";
         let delta1 = delta::Delta {
@@ -240,22 +247,26 @@ mod tests {
         };
         let deltas = vec![delta1.clone()];
 
-        database.insert(session_id, file_path, &deltas)?;
+        database.insert(project_id, session_id, file_path, &deltas)?;
 
         assert_eq!(
-            database.list_by_session_id(session_id, None)?,
+            database.list_by_project_id_session_id(project_id, session_id, None)?,
             vec![(file_path.to_string(), vec![delta1.clone()])]
                 .into_iter()
                 .collect()
         );
 
         assert_eq!(
-            database.get_by_session_id_file_path(session_id, file_path)?,
+            database.get_by_project_id_session_id_file_path(project_id, session_id, file_path)?,
             Some(delta1)
         );
 
         assert_eq!(
-            database.get_by_session_id_file_path(session_id, "other_file_path")?,
+            database.get_by_project_id_session_id_file_path(
+                project_id,
+                session_id,
+                "other_file_path"
+            )?,
             None
         );
 
@@ -267,6 +278,7 @@ mod tests {
         let db = database::Database::memory()?;
         let database = Database::new(db);
 
+        let project_id = "project_id";
         let session_id = "session_id";
         let file_path = "file_path";
         let delta1 = delta::Delta {
@@ -281,18 +293,18 @@ mod tests {
             ))],
         };
 
-        database.insert(session_id, file_path, &vec![delta1])?;
-        database.insert(session_id, file_path, &vec![delta2.clone()])?;
+        database.insert(project_id, session_id, file_path, &vec![delta1])?;
+        database.insert(project_id, session_id, file_path, &vec![delta2.clone()])?;
 
         assert_eq!(
-            database.list_by_session_id(session_id, None)?,
+            database.list_by_project_id_session_id(project_id, session_id, None)?,
             vec![(file_path.to_string(), vec![delta2.clone()])]
                 .into_iter()
                 .collect()
         );
 
         assert_eq!(
-            database.get_by_session_id_file_path(session_id, file_path)?,
+            database.get_by_project_id_session_id_file_path(project_id, session_id, file_path)?,
             Some(delta2)
         );
 

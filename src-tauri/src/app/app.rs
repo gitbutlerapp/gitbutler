@@ -293,20 +293,20 @@ impl App {
 
     pub fn list_session_files(
         &self,
-        _project_id: &str,
+        project_id: &str,
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        self.files_database.list_by_session_id(session_id, paths)
+        self.files_database.list_by_project_id_session_id(project_id, session_id, paths)
     }
 
     pub fn list_session_deltas(
         &self,
-        _project_id: &str,
+        project_id: &str,
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        self.deltas_database.list_by_session_id(session_id, paths)
+        self.deltas_database.list_by_project_id_session_id(project_id, session_id, paths)
     }
 
     pub fn git_activity(

@@ -15,7 +15,13 @@ impl Database {
         Self { database }
     }
 
-    pub fn insert(&self, session_id: &str, file_path: &str, content: &str) -> Result<()> {
+    pub fn insert(
+        &self,
+        project_id: &str,
+        session_id: &str,
+        file_path: &str,
+        content: &str,
+    ) -> Result<()> {
         let mut hasher = Sha1::new();
         hasher.update(content);
         let sha1 = hasher.finalize();
@@ -46,6 +52,7 @@ impl Database {
             let mut stmt =
                 insert_file_stmt(tx).context("Failed to prepare insert file statement")?;
             stmt.execute(rusqlite::named_params! {
+                ":project_id": project_id,
                 ":session_id": session_id,
                 ":file_path": file_path,
                 ":sha1": sha1.as_slice(),
@@ -57,17 +64,19 @@ impl Database {
         Ok(())
     }
 
-    pub fn list_by_session_id(
+    pub fn list_by_project_id_session_id(
         &self,
+        project_id: &str,
         session_id: &str,
         file_path_filter: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
         let mut files = HashMap::new();
         self.database.transaction(|tx| -> Result<()> {
-            let mut stmt = list_by_session_id_stmt(tx)
+            let mut stmt = list_by_project_id_session_id_stmt(tx)
                 .context("Failed to prepare list_by_session_id statement")?;
             let mut rows = stmt
                 .query(rusqlite::named_params! {
+                    ":project_id": project_id,
                     ":session_id": session_id,
                 })
                 .context("Failed to execute list_by_session_id statement")?;
@@ -134,14 +143,14 @@ impl Database {
     }
 }
 
-fn list_by_session_id_stmt<'conn>(
+fn list_by_project_id_session_id_stmt<'conn>(
     tx: &'conn rusqlite::Transaction,
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "SELECT `file_path`, `content`
         FROM `files`
         JOIN `contents` ON `files`.`sha1` = `contents`.`sha1`
-        WHERE `session_id` = :session_id",
+        WHERE `project_id` = :project_id AND `session_id` = :session_id",
     )?)
 }
 
@@ -172,10 +181,10 @@ fn insert_file_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "INSERT INTO `files` (
-            `session_id`, `file_path`, `sha1`
+            `project_id`, `session_id`, `file_path`, `sha1`
         ) VALUES (
-            :session_id, :file_path, :sha1
-        ) ON CONFLICT(`session_id`, `file_path`) 
+            :project_id, :session_id, :file_path, :sha1
+        ) ON CONFLICT(`project_id`, `session_id`, `file_path`) 
             DO UPDATE SET `sha1` = :sha1",
     )?)
 }
@@ -200,17 +209,18 @@ mod tests {
         let db = database::Database::memory()?;
         let database = Database::new(db);
 
+        let project_id = "project_id";
         let session_id = "session_id";
         let file_path = "file_path";
 
         let file = "file";
         database
-            .insert(session_id, file_path, file)
+            .insert(project_id, session_id, file_path, file)
             .context("Failed to insert file")?;
 
         assert_eq!(
             database
-                .list_by_session_id(session_id, Some(vec!["file_path"]))
+                .list_by_project_id_session_id(project_id, session_id, Some(vec!["file_path"]))
                 .context("filed to list by session id")?,
             {
                 let mut files = HashMap::new();
@@ -220,7 +230,7 @@ mod tests {
         );
         assert_eq!(
             database
-                .list_by_session_id(session_id, Some(vec!["file_path2"]))
+                .list_by_project_id_session_id(project_id, session_id, Some(vec!["file_path2"]))
                 .context("filed to list by session id")?,
             HashMap::new()
         );
@@ -236,22 +246,23 @@ mod tests {
         let database = Database::new(db);
         println!("3");
 
+        let project_id = "project_id";
         let session_id = "session_id";
         let file_path = "file_path";
 
         let file = "file";
         database
-            .insert(session_id, file_path, file)
+            .insert(project_id, session_id, file_path, file)
             .context("Failed to insert file1")?;
 
         let file2 = "file2";
         database
-            .insert(session_id, file_path, file2)
+            .insert(project_id, session_id, file_path, file2)
             .context("Failed to insert file2")?;
 
         assert_eq!(
             database
-                .list_by_session_id(session_id, None)
+                .list_by_project_id_session_id(project_id, session_id, None)
                 .context("filed to list by session id")?,
             {
                 let mut files = HashMap::new();
