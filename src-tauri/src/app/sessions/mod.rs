@@ -13,3 +13,4 @@ pub use iterator::{SessionsIdsIterator, SessionsIterator};
 pub use reader::SessionReader as Reader;
 pub use session::{Meta, Session, SessionError};
 pub use writer::SessionWriter as Writer;
+pub use database::Database;

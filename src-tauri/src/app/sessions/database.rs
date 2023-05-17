@@ -4,12 +4,13 @@ use crate::database;
 
 use super::session;
 
-pub struct Database<'database> {
-    database: &'database database::Database,
+#[derive(Clone)]
+pub struct Database {
+    database: database::Database,
 }
 
-impl<'database> Database<'database> {
-    pub fn new(database: &'database database::Database) -> Self {
+impl Database {
+    pub fn new(database: database::Database) -> Self {
         Self { database }
     }
 
@@ -29,7 +30,15 @@ impl<'database> Database<'database> {
                 .context("Failed to execute insert statement")?;
             }
             Ok(())
-        })
+        })?;
+
+        log::info!(
+            "db: inserted {} sessions for project {}",
+            sessions.len(),
+            project_id
+        );
+
+        Ok(())
     }
 
     pub fn list_by_project_id(&self, project_id: &str) -> Result<Vec<session::Session>> {
@@ -137,7 +146,7 @@ mod tests {
     #[test]
     fn test_insert_query() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(&db);
+        let database = Database::new(db);
 
         let project_id = "project_id";
         let session1 = session::Session {
@@ -178,7 +187,7 @@ mod tests {
     #[test]
     fn test_update() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(&db);
+        let database = Database::new(db);
 
         let project_id = "project_id";
         let session1 = session::Session {

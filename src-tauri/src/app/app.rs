@@ -3,9 +3,9 @@ use std::{collections::HashMap, sync};
 use anyhow::{Context, Result};
 use crossbeam_channel::{bounded, Sender};
 
-use crate::{events, projects, search, storage, users};
+use crate::{events, projects, search, storage, users, database};
 
-use super::{gb_repository, watcher, sessions, deltas, pty, project_repository::{self, activity}};
+use super::{gb_repository, watcher, sessions, deltas, pty, project_repository::{self, activity}, files};
 
 #[derive(Clone)]
 pub struct App {
@@ -19,6 +19,10 @@ pub struct App {
 
     stop_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<()>>>>,
     proxy_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<watcher::Event>>>>,
+
+    sessions_database: sessions::Database,
+    files_database: files::Database,
+    deltas_database: deltas::Database,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -40,6 +44,7 @@ impl App {
         let storage = storage::Storage::from_path(local_data_dir.clone());
         let deltas_searcher =
             search::Deltas::at(local_data_dir.clone()).context("failed to open deltas searcher")?;
+        let database = database::Database::open(local_data_dir.join("database.sqlite3"))?;
         Ok(Self {
             events_sender: event_sender,
             local_data_dir: local_data_dir.to_path_buf(),
@@ -48,6 +53,9 @@ impl App {
             deltas_searcher,
             stop_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
             proxy_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
+            sessions_database: sessions::Database::new(database.clone()),
+            deltas_database: deltas::Database::new(database.clone()),
+            files_database: files::Database::new(database.clone()),
         })
     }
 
@@ -94,7 +102,7 @@ impl App {
         let users_storage = self.users_storage.clone();
         let projects_storage = self.projects_storage.clone();
         let local_data_dir = self.local_data_dir.clone();
-        let mut deltas_searcher = self.deltas_searcher.clone();
+        let proxy_watchers = self.proxy_watchers.clone();
 
         tauri::async_runtime::spawn_blocking(move || {
             let project = project;
@@ -107,8 +115,13 @@ impl App {
             )
             .expect("failed to open git repository");
 
-            if let Err(e) = deltas_searcher.reindex_project(&gb_repository) {
-                log::error!("{}: failed to reindex project: {:#}", project.id, e);
+            let mut iterator = gb_repository.get_sessions_iterator().expect("failed to get sessions iterator");
+            while let Some(session) = iterator.next() {
+                let session = session.expect("failed to get session");
+
+                if let Err(e) = proxy_watchers.lock().unwrap().get(&project.id).unwrap().send(watcher::Event::Session(session.clone())) {
+                    log::error!("failed to send session event: {:#}", e);
+                }
             }
         });
     }
@@ -123,6 +136,9 @@ impl App {
         let local_data_dir = self.local_data_dir.clone();
         let deltas_searcher = self.deltas_searcher.clone();
         let events_sender = self.events_sender.clone();
+        let sessions_database = self.sessions_database.clone();
+        let files_database = self.files_database.clone();
+        let deltas_database = self.deltas_database.clone();
 
         let (stop_tx, stop_rx) = bounded(1);
         self.stop_watchers
@@ -135,7 +151,6 @@ impl App {
             .lock()
             .unwrap()
             .insert(project.id.clone(), proxy_tx);
-
 
         tauri::async_runtime::spawn_blocking(|| {
             let project = project;
@@ -156,6 +171,9 @@ impl App {
                 stop_rx,
                 proxy_rx,
                 events_sender,
+                sessions_database,
+                deltas_database,
+                files_database,
             )
             .expect("failed to create watcher");
 

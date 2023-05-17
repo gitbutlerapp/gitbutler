@@ -4,26 +4,29 @@ use anyhow::{Context, Result};
 
 use crate::database;
 
-pub struct Database<'database> {
-    database: &'database database::Database,
+#[derive(Clone)]
+pub struct Database {
+    database: database::Database,
 }
 
-impl<'database> Database<'database> {
-    pub fn new(database: &'database database::Database) -> Self {
+impl Database {
+    pub fn new(database: database::Database) -> Self {
         Self { database }
     }
 
-    pub fn insert(&self, session_id: &str, file_path: &str, file: &[u8]) -> Result<()> {
+    pub fn insert(&self, session_id: &str, file_path: &str, content: &str) -> Result<()> {
         self.database.transaction(|tx| -> Result<()> {
             let mut stmt = insert_stmt(tx).context("Failed to prepare insert statement")?;
             stmt.execute(rusqlite::named_params! {
                 ":session_id": session_id,
                 ":file_path": file_path,
-                ":content": file,
+                ":content": content,
             })
             .context("Failed to execute insert statement")?;
             Ok(())
-        })
+        })?;
+        log::info!("db: inserted file {} for session {}", file_path, session_id);
+        Ok(())
     }
 
     pub fn list_by_session_id(
@@ -92,19 +95,19 @@ mod tests {
     #[test]
     fn test_insert_query_with_filter() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(&db);
+        let database = Database::new(db);
 
         let session_id = "session_id";
         let file_path = "file_path";
 
-        let file = b"file";
+        let file = "file";
         database.insert(session_id, file_path, file)?;
 
         assert_eq!(
             database.list_by_session_id(session_id, Some(vec!["file_path"]))?,
             {
                 let mut files = HashMap::new();
-                files.insert(String::from(file_path), String::from_utf8(file.to_vec())?);
+                files.insert(String::from(file_path), file.to_string());
                 files
             }
         );
@@ -120,20 +123,20 @@ mod tests {
     #[test]
     fn test_upsert() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(&db);
+        let database = Database::new(db);
 
         let session_id = "session_id";
         let file_path = "file_path";
 
-        let file = b"file";
+        let file = "file";
         database.insert(session_id, file_path, file)?;
 
-        let file2 = b"file2";
+        let file2 = "file2";
         database.insert(session_id, file_path, file2)?;
 
         assert_eq!(database.list_by_session_id(session_id, None)?, {
             let mut files = HashMap::new();
-            files.insert(String::from(file_path), String::from_utf8(file2.to_vec())?);
+            files.insert(String::from(file_path), file2.to_string());
             files
         });
 

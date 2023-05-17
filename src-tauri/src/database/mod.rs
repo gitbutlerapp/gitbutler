@@ -1,4 +1,7 @@
-use std::{path, sync::Mutex};
+use std::{
+    path,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{Context, Result};
 
@@ -9,8 +12,9 @@ mod embedded {
     embed_migrations!("src/database/migrations");
 }
 
+#[derive(Clone)]
 pub struct Database {
-    pub conn: Mutex<Connection>,
+    pub conn: Arc<Mutex<Connection>>,
 }
 
 impl Database {
@@ -21,7 +25,9 @@ impl Database {
         embedded::migrations::runner()
             .run(&mut conn)
             .context("Failed to run migrations")?;
-        Ok(Self { conn: conn.into() })
+        Ok(Self {
+            conn: Arc::new(Mutex::new(conn)),
+        })
     }
 
     pub fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
@@ -31,7 +37,9 @@ impl Database {
         embedded::migrations::runner()
             .run(&mut conn)
             .context("Failed to run migrations")?;
-        Ok(Self { conn: conn.into() })
+        Ok(Self {
+            conn: Arc::new(Mutex::new(conn)),
+        })
     }
 
     pub fn transaction(&self, f: impl FnOnce(&Transaction) -> Result<()>) -> Result<()> {
