@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use rusqlite::hooks;
 
 use crate::database;
 
@@ -41,7 +42,33 @@ impl Database {
         Ok(())
     }
 
-    pub fn list_by_project_id(&self, project_id: &str) -> Result<Vec<session::Session>> {
+    pub fn on<F>(&self, callback: F) -> Result<()>
+    where
+        F: Fn(session::Session) + Send + 'static,
+    {
+        let boxed_self = Box::new(self.clone());
+        self.database.on_update(
+            move |action, _database_name, table_name, rowid| match action {
+                hooks::Action::SQLITE_INSERT | hooks::Action::SQLITE_UPDATE => match table_name {
+                    "sessions" => match boxed_self.get_by_rowid(&rowid) {
+                        Ok(Some(session)) => callback(session),
+                        Ok(None) => {}
+                        Err(err) => {
+                            log::error!("db: failed to get session by rowid: {:#}", err)
+                        }
+                    },
+                    _ => {}
+                },
+                _ => {}
+            },
+        )
+    }
+
+    pub fn list_by_project_id(
+        &self,
+        project_id: &str,
+        earliest_timestamp_ms: Option<u128>,
+    ) -> Result<Vec<session::Session>> {
         let mut sessions = Vec::new();
         self.database.transaction(|tx| -> Result<()> {
             let mut stmt = list_by_project_id_stmt(tx)
@@ -55,11 +82,40 @@ impl Database {
                 .next()
                 .context("Failed to iterate over list_by_project_id results")?
             {
-                sessions.push(parse_row(&row)?);
+                let session = parse_row(&row)?;
+
+                if let Some(earliest_timestamp_ms) = earliest_timestamp_ms {
+                    if session.meta.last_timestamp_ms < earliest_timestamp_ms {
+                        continue;
+                    }
+                }
+
+                sessions.push(session);
             }
             Ok(())
         })?;
         Ok(sessions)
+    }
+
+    pub fn get_by_rowid(&self, rowid: &i64) -> Result<Option<session::Session>> {
+        let mut session: Option<session::Session> = None;
+        self.database.transaction(|tx| -> Result<()> {
+            let mut stmt =
+                get_by_rowid_stmt(tx).context("Failed to prepare get_by_rowid statement")?;
+            let mut rows = stmt
+                .query(rusqlite::named_params! {
+                    ":rowid": rowid,
+                })
+                .context("Failed to execute get_by_rowid statement")?;
+            if let Some(row) = rows
+                .next()
+                .context("Failed to iterate over get_by_rowid results")?
+            {
+                session = Some(parse_row(&row)?);
+            }
+            Ok(())
+        })?;
+        Ok(session)
     }
 
     pub fn get_by_id(&self, id: &str) -> Result<Option<session::Session>> {
@@ -120,6 +176,14 @@ fn get_by_id_stmt<'conn>(
     )?)
 }
 
+fn get_by_rowid_stmt<'conn>(
+    tx: &'conn rusqlite::Transaction,
+) -> Result<rusqlite::CachedStatement<'conn>> {
+    Ok(tx.prepare_cached(
+        "SELECT `id`, `project_id`, `hash`, `branch`, `commit`, `start_timestamp_ms`, `last_timestamp_ms` FROM `sessions` WHERE `rowid` = :rowid",
+    )?)
+}
+
 fn insert_stmt<'conn>(
     tx: &'conn rusqlite::Transaction,
 ) -> Result<rusqlite::CachedStatement<'conn>> {
@@ -174,7 +238,7 @@ mod tests {
         database.insert(project_id, &sessions)?;
 
         assert_eq!(
-            database.list_by_project_id(project_id)?,
+            database.list_by_project_id(project_id, None)?,
             vec![session2.clone(), session1.clone()]
         );
         assert_eq!(database.get_by_id("id1")?.unwrap(), session1);
@@ -214,7 +278,7 @@ mod tests {
         database.insert(project_id, &vec![&session_updated])?;
 
         assert_eq!(
-            database.list_by_project_id(project_id)?,
+            database.list_by_project_id(project_id, None)?,
             vec![session_updated.clone()]
         );
         assert_eq!(database.get_by_id("id1")?.unwrap(), session_updated);

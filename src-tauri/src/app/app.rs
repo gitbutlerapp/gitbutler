@@ -288,84 +288,25 @@ impl App {
         project_id: &str,
         earliest_timestamp_ms: Option<u128>,
     ) -> Result<Vec<sessions::Session>> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
-
-        let mut sessions = vec![];
-        let mut iter = gb_repository.get_sessions_iterator()?;
-        while let Some(session) = iter.next() {
-            if let Err(e) = session {
-                return Err(e);
-            }
-
-            if let Some(earliest_timestamp_ms) = earliest_timestamp_ms {
-                if session.as_ref().unwrap().meta.start_timestamp_ms < earliest_timestamp_ms {
-                    break;
-                }
-            }
-
-            sessions.push(session.unwrap());
-        }
-
-        if let Some(current_session) = gb_repository.get_current_session()? {
-            sessions.insert(0, current_session);
-        }
-
-        Ok(sessions)
+        self.sessions_database.list_by_project_id(project_id, earliest_timestamp_ms)
     }
 
     pub fn list_session_files(
         &self,
-        project_id: &str,
+        _project_id: &str,
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
-
-        let session = gb_repository
-            .get_session(session_id)
-            .context("failed to get session")?;
-
-        let reader = sessions::Reader::open(&gb_repository, &session)
-            .context("failed to get session reader")?;
-
-        reader.files(paths)
+        self.files_database.list_by_session_id(session_id, paths)
     }
 
     pub fn list_session_deltas(
         &self,
-        project_id: &str,
+        _project_id: &str,
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
-
-        let session = gb_repository
-            .get_session(session_id)
-            .context("failed to get session")?;
-
-        let session_reader = sessions::Reader::open(&gb_repository, &session)
-            .context("failed to get session reader")?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
-
-        deltas_reader.read(paths)
+        self.deltas_database.list_by_session_id(session_id, paths)
     }
 
     pub fn git_activity(

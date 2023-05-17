@@ -1,17 +1,11 @@
-use std::time;
-
 use anyhow::{Context, Result};
 
-use crate::{
-    app::{deltas, files, gb_repository, search, sessions},
-    projects,
-};
+use crate::app::{deltas, files, gb_repository, search, sessions};
 
 use super::events;
 
 pub struct Handler<'handler> {
     project_id: String,
-    project_storage: projects::Storage,
     deltas_searcher: search::Deltas,
     gb_repository: &'handler gb_repository::Repository,
     files_database: files::Database,
@@ -22,7 +16,6 @@ pub struct Handler<'handler> {
 impl<'handler> Handler<'handler> {
     pub fn new(
         project_id: String,
-        project_storage: projects::Storage,
         deltas_searcher: search::Deltas,
         gb_repository: &'handler gb_repository::Repository,
         files_database: files::Database,
@@ -31,7 +24,6 @@ impl<'handler> Handler<'handler> {
     ) -> Self {
         Self {
             project_id,
-            project_storage,
             deltas_searcher,
             gb_repository,
             files_database,
@@ -69,6 +61,11 @@ impl<'handler> Handler<'handler> {
             .index_session(&self.gb_repository, &session)
             .context("failed to index session")?;
 
+        let from_db = self.sessions_database.get_by_id(&session.id)?;
+        if from_db.is_some() && from_db.unwrap() == *session {
+            return Ok(vec![]);
+        }
+
         self.sessions_database
             .insert(&self.project_id, &vec![session])
             .context("failed to insert session into database")?;
@@ -78,19 +75,19 @@ impl<'handler> Handler<'handler> {
         let session_reader = sessions::Reader::open(&self.gb_repository, &session)?;
         let deltas_reader = deltas::Reader::new(&session_reader);
 
-        let deltas = deltas_reader
-            .read(None)
-            .with_context(|| "could not list deltas for session")?;
-        let files = session_reader
-            .files(Some(deltas.keys().map(|k| k.as_str()).collect()))
-            .context("could not list files for session")?;
-
-        for (file_path, content) in files.into_iter() {
+        for (file_path, content) in session_reader
+            .files(None)
+            .context("could not list files for session")?
+        {
             let file_events = self.index_file(&session.id, &file_path, &content)?;
             events.extend(file_events);
         }
 
-        for (file_path, deltas) in deltas.into_iter() {
+        for (file_path, deltas) in deltas_reader
+            .read(None)
+            .context("could not list deltas for session")?
+            .into_iter()
+        {
             let delta_events = self.index_deltas(&session.id, &file_path, &deltas)?;
             events.extend(delta_events);
         }

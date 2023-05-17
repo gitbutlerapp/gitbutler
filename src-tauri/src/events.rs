@@ -27,52 +27,56 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn session(project_id: &str, session: &sessions::Session) -> Self {
-        let event_name = format!("project://{}/sessions", project_id);
-        Event {
-            name: event_name,
-            payload: serde_json::to_value(session).unwrap(),
-        }
-    }
-
     pub fn git_index(project_id: &str) -> Self {
-        let event_name = format!("project://{}/git/index", project_id);
         Event {
-            name: event_name,
+            name: format!("project://{}/git/index", project_id),
             payload: serde_json::json!({}),
         }
     }
 
     pub fn git_head(project_id: &str, head: &str) -> Self {
-        let event_name = format!("project://{}/git/head", project_id);
         Event {
-            name: event_name,
+            name: format!("project://{}/git/head", project_id),
             payload: serde_json::json!({ "head": head }),
         }
     }
 
     pub fn git_activity(project_id: &str) -> Self {
-        let event_name = format!("project://{}/git/activity", project_id);
         Event {
-            name: event_name,
+            name: format!("project://{}/git/activity", project_id),
             payload: serde_json::json!({}),
         }
     }
 
-    pub fn detlas(
+    pub fn file(project_id: &str, session_id: &str, file_path: &str, contents: &str) -> Self {
+        Event {
+            name: format!("project://{}/sessions/{}/files", project_id, session_id),
+            payload: serde_json::json!({
+                "filePath": file_path,
+                "contents": contents,
+            }),
+        }
+    }
+
+    pub fn session(project_id: &str, session: &sessions::Session) -> Self {
+        Event {
+            name: format!("project://{}/sessions", project_id),
+            payload: serde_json::to_value(session).unwrap(),
+        }
+    }
+
+    pub fn deltas(
         project_id: &str,
-        session: &sessions::Session,
+        session_id: &str,
         deltas: &Vec<deltas::Delta>,
         relative_file_path: &std::path::Path,
     ) -> Self {
-        let event_name = format!("project://{}/sessions/{}/deltas", project_id, session.id);
-        let payload = serde_json::json!({
-            "deltas": deltas,
-            "filePath": relative_file_path,
-        });
         Event {
-            name: event_name,
-            payload,
+            name: format!("project://{}/sessions/{}/deltas", project_id, session_id),
+            payload: serde_json::json!({
+                "deltas": deltas,
+                "filePath": relative_file_path,
+            }),
         }
     }
 }

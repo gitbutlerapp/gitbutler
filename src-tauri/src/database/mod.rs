@@ -1,11 +1,8 @@
-use std::{
-    path,
-    sync::{Arc, Mutex},
-};
+use std::path;
 
 use anyhow::{Context, Result};
 
-use rusqlite::{Connection, Transaction};
+use rusqlite::{hooks, Transaction};
 
 mod embedded {
     use refinery::embed_migrations;
@@ -14,39 +11,66 @@ mod embedded {
 
 #[derive(Clone)]
 pub struct Database {
-    pub conn: Arc<Mutex<Connection>>,
+    pub pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 }
 
 impl Database {
     #[cfg(test)]
     pub fn memory() -> Result<Self> {
-        let mut conn = Connection::open_in_memory().context("Failed to open in memory database")?;
-
-        embedded::migrations::runner()
-            .run(&mut conn)
-            .context("Failed to run migrations")?;
+        let manager = r2d2_sqlite::SqliteConnectionManager::memory().with_init(|conn| {
+            embedded::migrations::runner()
+                .run(conn)
+                .map(|report| {
+                    report
+                        .applied_migrations()
+                        .iter()
+                        .for_each(|m| log::info!("Applied migration: {}", m))
+                })
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))
+        });
         Ok(Self {
-            conn: Arc::new(Mutex::new(conn)),
+            pool: r2d2::Pool::new(manager).context("Failed to create pool")?,
         })
     }
 
     pub fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let mut conn = Connection::open(path)
-            .with_context(|| format!("Failed to open database at path: {}", path.display()))?;
-        embedded::migrations::runner()
-            .run(&mut conn)
-            .context("Failed to run migrations")?;
+        let manager = r2d2_sqlite::SqliteConnectionManager::file(path).with_init(|conn| {
+            embedded::migrations::runner()
+                .run(conn)
+                .map(|report| {
+                    report
+                        .applied_migrations()
+                        .iter()
+                        .for_each(|m| log::info!("Applied migration: {}", m))
+                })
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))
+        });
         Ok(Self {
-            conn: Arc::new(Mutex::new(conn)),
+            pool: r2d2::Pool::new(manager).context("Failed to create pool")?,
         })
     }
 
     pub fn transaction(&self, f: impl FnOnce(&Transaction) -> Result<()>) -> Result<()> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self
+            .pool
+            .get()
+            .context("Failed to get connection from pool")?;
         let tx = conn.transaction().context("Failed to start transaction")?;
         f(&tx)?;
         tx.commit().context("Failed to commit transaction")?;
+        Ok(())
+    }
+
+    pub fn on_update<F>(&self, hook: F) -> Result<()>
+    where
+        F: FnMut(hooks::Action, &str, &str, i64) + Send + 'static,
+    {
+        let conn = self
+            .pool
+            .get()
+            .context("Failed to get connection from pool")?;
+        conn.update_hook(Some(hook));
         Ok(())
     }
 }
