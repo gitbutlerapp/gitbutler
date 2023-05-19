@@ -29,9 +29,11 @@
 	$: recentActivity = derived(
 		[activity, recentSessions],
 		([activity, recentSessions]) =>
-			activity
-				?.filter((a) => a.timestampMs >= (recentSessions?.at(-1)?.meta.startTimestampMs ?? 0))
-				.sort((a, b) => b.timestampMs - a.timestampMs),
+			recentSessions?.length
+				? activity
+						?.filter((a) => a.timestampMs >= (recentSessions?.at(-1)?.meta.startTimestampMs ?? 0))
+						.sort((a, b) => b.timestampMs - a.timestampMs)
+				: [],
 		[]
 	);
 </script>
