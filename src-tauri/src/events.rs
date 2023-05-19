@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use tauri::Manager;
 
-use crate::app::{deltas, sessions};
+use crate::{deltas, sessions};
 
 #[derive(Clone)]
 pub struct Sender {

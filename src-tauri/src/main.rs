@@ -2,7 +2,18 @@
 extern crate scopeguard;
 
 mod app;
+mod bookmarks;
 mod database;
+mod deltas;
+mod sessions;
+mod files;
+mod gb_repository;
+mod project_repository;
+mod projects;
+mod pty;
+mod search;
+mod users;
+mod watcher;
 mod reader;
 mod writer;
 mod zip;
@@ -14,7 +25,6 @@ mod storage;
 extern crate log;
 
 use anyhow::{Context, Result};
-use app::bookmarks;
 use serde::{ser::SerializeMap, Serialize};
 use std::{collections::HashMap, ops};
 use tauri::{generate_context, Manager};
@@ -25,7 +35,7 @@ use tauri_plugin_log::{
 use thiserror::Error;
 use timed::timed;
 
-use crate::app::{project_repository::activity, search, projects, deltas, sessions, users};
+use crate::project_repository::activity;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -349,7 +359,7 @@ async fn git_activity(
 async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<HashMap<String, app::FileStatus>, Error> {
+) -> Result<HashMap<String, project_repository::FileStatus>, Error> {
     let app = handle.state::<app::App>();
     let status = app
         .git_status(project_id)
