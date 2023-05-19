@@ -123,7 +123,7 @@ impl Database {
                         ":session_id": session_id,
                     })
                     .context("Failed to execute query statement")?;
-                let mut deltas = HashMap::new();
+                let mut deltas: HashMap<String, Vec<super::Delta>> = HashMap::new();
                 while let Some(row) = rows
                     .next()
                     .context("Failed to iterate over query results")?
@@ -146,7 +146,11 @@ impl Database {
                         timestamp_ms,
                         operations,
                     };
-                    deltas.extend(vec![(file_path, vec![delta])]);
+                    if let Some(deltas_for_file_path) = deltas.get_mut(&file_path) {
+                        deltas_for_file_path.push(delta);
+                    } else {
+                        deltas.insert(file_path, vec![delta]);
+                    }
                 }
                 Ok(deltas)
             })
@@ -165,7 +169,11 @@ fn list_by_project_id_session_id_stmt<'conn>(
     tx: &'conn rusqlite::Transaction,
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
-        "SELECT `file_path`, `timestamp_ms`, `operations` FROM `deltas` WHERE `session_id` = :session_id AND `project_id` = :project_id",
+        "
+        SELECT `file_path`, `timestamp_ms`, `operations` 
+        FROM `deltas` 
+        WHERE `session_id` = :session_id AND `project_id` = :project_id
+        ORDER BY `timestamp_ms` ASC",
     )?)
 }
 
@@ -189,7 +197,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_insert_query() -> Result<()> {
+    fn insert_query() -> Result<()> {
         let db = database::Database::memory()?;
         let database = Database::new(db);
 
@@ -215,7 +223,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_update() -> Result<()> {
+    fn insert_update() -> Result<()> {
         let db = database::Database::memory()?;
         let database = Database::new(db);
 
@@ -242,6 +250,44 @@ mod tests {
             vec![(file_path.to_string(), vec![delta2.clone()])]
                 .into_iter()
                 .collect()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn aggregate_deltas_by_file() -> Result<()> {
+        let db = database::Database::memory()?;
+        let database = Database::new(db);
+
+        let project_id = "project_id";
+        let session_id = "session_id";
+        let file_path1 = "file_path1";
+        let file_path2 = "file_path2";
+        let delta1 = delta::Delta {
+            timestamp_ms: 1,
+            operations: vec![operations::Operation::Insert((0, "text".to_string()))],
+        };
+        let delta2 = delta::Delta {
+            timestamp_ms: 2,
+            operations: vec![operations::Operation::Insert((
+                0,
+                "updated_text".to_string(),
+            ))],
+        };
+
+        database.insert(project_id, session_id, file_path1, &vec![delta1.clone()])?;
+        database.insert(project_id, session_id, file_path2, &vec![delta1.clone()])?;
+        database.insert(project_id, session_id, file_path2, &vec![delta2.clone()])?;
+
+        assert_eq!(
+            database.list_by_project_id_session_id(project_id, session_id, None)?,
+            vec![
+                (file_path1.to_string(), vec![delta1.clone()]),
+                (file_path2.to_string(), vec![delta1.clone(), delta2.clone()])
+            ]
+            .into_iter()
+            .collect()
         );
 
         Ok(())
