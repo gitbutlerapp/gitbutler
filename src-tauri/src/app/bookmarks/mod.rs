@@ -1,8 +1,9 @@
 mod database;
+mod reader;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Bookmark {
     pub id: String,
@@ -12,3 +13,4 @@ pub struct Bookmark {
 }
 
 pub use database::Database;
+pub use reader::BookmarksReader as Reader;

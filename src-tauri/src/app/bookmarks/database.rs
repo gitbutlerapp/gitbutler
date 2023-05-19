@@ -80,43 +80,6 @@ impl Database {
             self.list_by_project_id_all(project_id)
         }
     }
-
-    pub fn get_by_row_id(&self, rowid: &i64) -> Result<Option<Bookmark>> {
-        self.database.transaction(|tx| {
-            let mut stmt =
-                get_by_rowid_stmt(tx).context("Failed to prepare get_by_rowid statement")?;
-            let mut rows = stmt
-                .query(rusqlite::named_params! { ":rowid": rowid })
-                .context("Failed to execute get_by_rowid statement")?;
-            if let Some(row) = rows.next()? {
-                Ok(Some(parse_row(row)?))
-            } else {
-                Ok(None)
-            }
-        })
-    }
-
-    pub fn on<F>(&self, callback: F) -> Result<()>
-    where
-        F: Fn(&Bookmark) + Send + 'static,
-    {
-        let boxed_self = Box::new(self.clone());
-        self.database.on_update(
-            move |action, _database_name, table_name, rowid| match action {
-                rusqlite::hooks::Action::SQLITE_INSERT | rusqlite::hooks::Action::SQLITE_UPDATE => {
-                    match table_name {
-                        "bookmarks" => match boxed_self.get_by_row_id(&rowid) {
-                            Ok(Some(bookmark)) => callback(&bookmark),
-                            Ok(None) => {}
-                            Err(e) => log::error!("Failed to get bookmark: {}", e),
-                        },
-                        _ => {}
-                    }
-                }
-                _ => {}
-            },
-        )
-    }
 }
 
 fn insert_stmt<'conn>(
@@ -158,18 +121,6 @@ fn list_by_project_id_stmt<'conn>(
     )?)
 }
 
-fn get_by_rowid_stmt<'conn>(
-    tx: &'conn rusqlite::Transaction,
-) -> Result<rusqlite::CachedStatement<'conn>> {
-    Ok(tx.prepare_cached(
-        "
-        SELECT `id`, `project_id`, `timestamp_ms`, `note`
-        FROM `bookmarks`
-        WHERE `rowid` = :rowid
-        ",
-    )?)
-}
-
 fn parse_row(row: &rusqlite::Row) -> Result<Bookmark> {
     Ok(Bookmark {
         id: row.get(0).context("Failed to get id")?,
@@ -186,36 +137,6 @@ fn parse_row(row: &rusqlite::Row) -> Result<Bookmark> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn get_by_rowid() -> Result<()> {
-        let db = database::Database::memory()?;
-        let database = Database::new(db);
-
-        let bookmark = Bookmark {
-            id: "id".to_string(),
-            project_id: "project_id".to_string(),
-            timestamp_ms: 123,
-            note: "note".to_string(),
-        };
-
-        database.insert(&bookmark)?;
-
-        let rowid = database
-            .database
-            .transaction(|tx| {
-                Ok(tx
-                    .prepare_cached("SELECT rowid FROM bookmarks LIMIT 1")?
-                    .query_row([], |row| row.get(0))?)
-            })
-            .context("Failed to get rowid")?;
-
-        let result = database.get_by_row_id(&rowid)?;
-
-        assert_eq!(result, Some(bookmark));
-
-        Ok(())
-    }
 
     #[test]
     fn list_by_project_id_all() -> Result<()> {
