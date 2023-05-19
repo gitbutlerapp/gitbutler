@@ -302,26 +302,26 @@ impl App {
         self.files_database.list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub fn create_bookmark(&self, project_id: &str, timestamp_ms: &u128, note: &str) -> Result<bookmarks::Bookmark> {
+    pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            project_id.to_string(),
+            bookmark.project_id.to_string(),
             self.projects_storage.clone(),
             self.users_storage.clone(),
         )
         .context("failed to open repository")?;
 
-        let bookmark = bookmarks::Bookmark{
-            id: uuid::Uuid::new_v4().to_string(),
-            project_id: project_id.to_string(),
-            timestamp_ms: *timestamp_ms,
-            note: note.to_string(),
-        };
-
         let session = gb_repository.get_or_create_current_session().context("failed to get or create current session")?;
         let writer = sessions::Writer::open(&gb_repository, &session).context("failed to open session writer")?;
         writer.write_bookmark(&bookmark).context("failed to write bookmark")?;
-        Ok(bookmark)
+
+        self.proxy_watchers.lock().unwrap().get(&bookmark.project_id).map(|proxy_watcher| {
+            if let Err(e) = proxy_watcher.send(watcher::Event::Bookmark(bookmark.clone())) {
+                log::error!("failed to send bookmark event to proxy: {}", e);
+            }
+        });
+
+        Ok(())
     }
 
     pub fn list_bookmarks(&self, project_id: &str, range: Option<ops::Range<u128>>) -> Result<Vec<bookmarks::Bookmark>> {
@@ -336,6 +336,7 @@ impl App {
     ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
         self.deltas_database.list_by_project_id_session_id(project_id, session_id, paths)
     }
+
 
     pub fn git_activity(
         &self,

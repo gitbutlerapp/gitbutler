@@ -139,7 +139,8 @@ impl<'handler> Handler<'handler> {
             events::Event::Fetch => self.fetch_project_handler.handle(),
 
             events::Event::File((session_id, file_path, contents)) => {
-                self.index_handler
+                let file_events = self
+                    .index_handler
                     .index_file(&session_id, file_path.to_str().unwrap(), &contents)
                     .context("failed to index file")?;
                 self.events_sender
@@ -150,19 +151,21 @@ impl<'handler> Handler<'handler> {
                         &contents,
                     ))
                     .context("failed to send file event")?;
-                Ok(vec![])
+                Ok(file_events)
             }
             events::Event::Session(session) => {
-                self.index_handler
+                let session_events = self
+                    .index_handler
                     .index_session(&session)
                     .context("failed to index session")?;
                 self.events_sender
                     .send(app_events::Event::session(&self.project_id, &session))
                     .context("failed to send session event")?;
-                Ok(vec![])
+                Ok(session_events)
             }
             events::Event::Deltas((session_id, path, deltas)) => {
-                self.index_handler
+                let delta_events = self
+                    .index_handler
                     .index_deltas(&session_id, path.to_str().unwrap(), &deltas)
                     .context("failed to index deltas")?;
                 self.events_sender
@@ -173,8 +176,12 @@ impl<'handler> Handler<'handler> {
                         &path,
                     ))
                     .context("failed to send deltas event")?;
-                Ok(vec![])
+                Ok(delta_events)
             }
+            events::Event::Bookmark(bookmark) => self
+                .index_handler
+                .index_bookmark(&bookmark)
+                .context("failed to index bookmark"),
         }
     }
 }
