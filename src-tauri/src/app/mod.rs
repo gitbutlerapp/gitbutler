@@ -1,4 +1,5 @@
 mod app;
+pub mod bookmarks;
 pub mod deltas;
 pub mod files;
 pub mod gb_repository;
