@@ -1,11 +1,11 @@
-use std::{collections::HashMap, sync};
+use std::{collections::HashMap, sync, ops};
 
 use anyhow::{Context, Result};
 use crossbeam_channel::{bounded, Sender};
 
 use crate::{events, projects, search, storage, users, database};
 
-use super::{gb_repository, watcher, sessions, deltas, pty, project_repository::{self, activity}, files};
+use super::{gb_repository, watcher, sessions, deltas, pty, project_repository::{self, activity}, files, bookmarks};
 
 #[derive(Clone)]
 pub struct App {
@@ -23,6 +23,7 @@ pub struct App {
     sessions_database: sessions::Database,
     files_database: files::Database,
     deltas_database: deltas::Database,
+    bookmarks_database: bookmarks::Database,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +57,7 @@ impl App {
             sessions_database: sessions::Database::new(database.clone()),
             deltas_database: deltas::Database::new(database.clone()),
             files_database: files::Database::new(database.clone()),
+            bookmarks_database: bookmarks::Database::new(database.clone()),
         })
     }
 
@@ -139,6 +141,7 @@ impl App {
         let sessions_database = self.sessions_database.clone();
         let files_database = self.files_database.clone();
         let deltas_database = self.deltas_database.clone();
+        let bookmarks_database = self.bookmarks_database.clone();
 
         let (stop_tx, stop_rx) = bounded(1);
         self.stop_watchers
@@ -174,6 +177,7 @@ impl App {
                 sessions_database,
                 deltas_database,
                 files_database,
+                bookmarks_database,
             )
             .expect("failed to create watcher");
 
@@ -298,6 +302,32 @@ impl App {
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
         self.files_database.list_by_project_id_session_id(project_id, session_id, paths)
+    }
+
+    pub fn create_bookmark(&self, project_id: &str, timestamp_ms: &u128, note: &str) -> Result<bookmarks::Bookmark> {
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")?;
+
+        let bookmark = bookmarks::Bookmark{
+            id: uuid::Uuid::new_v4().to_string(),
+            project_id: project_id.to_string(),
+            timestamp_ms: *timestamp_ms,
+            note: note.to_string(),
+        };
+
+        let session = gb_repository.get_or_create_current_session().context("failed to get or create current session")?;
+        let writer = sessions::Writer::open(&gb_repository, &session).context("failed to open session writer")?;
+        writer.write_bookmark(&bookmark).context("failed to write bookmark")?;
+        Ok(bookmark)
+    }
+
+    pub fn list_bookmarks(&self, project_id: &str, range: Option<ops::Range<u128>>) -> Result<Vec<bookmarks::Bookmark>> {
+        self.bookmarks_database.list_by_project_id(project_id, range)
     }
 
     pub fn list_session_deltas(

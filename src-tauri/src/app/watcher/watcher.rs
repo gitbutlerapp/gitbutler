@@ -2,7 +2,7 @@ use anyhow::Result;
 use crossbeam_channel::{select, unbounded};
 
 use crate::{
-    app::{deltas, files, gb_repository, sessions},
+    app::{deltas, files, gb_repository, sessions, bookmarks},
     events, projects, search,
 };
 
@@ -27,6 +27,7 @@ impl<'watcher> Watcher<'watcher> {
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,
         files_database: files::Database,
+        bookmarks_database: bookmarks::Database,
     ) -> Result<Self> {
         Ok(Self {
             project_id: project.id.clone(),
@@ -47,6 +48,7 @@ impl<'watcher> Watcher<'watcher> {
                 sessions_database,
                 deltas_database,
                 files_database,
+                bookmarks_database,
             ),
             stop,
         })

@@ -14,8 +14,9 @@ mod storage;
 extern crate log;
 
 use anyhow::{Context, Result};
+use app::bookmarks;
 use serde::{ser::SerializeMap, Serialize};
-use std::{collections::HashMap, ops::Range};
+use std::{collections::HashMap, ops};
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
@@ -161,7 +162,7 @@ async fn search(
         q: query.to_string(),
         limit: limit.unwrap_or(100),
         offset,
-        range: Range {
+        range: ops::Range {
             start: timestamp_ms_gte.unwrap_or(0),
             end: timestamp_ms_lt.unwrap_or(u64::MAX),
         },
@@ -473,6 +474,22 @@ async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     Ok(())
 }
 
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn create_bookmark(handle: tauri::AppHandle, project_id: &str, timestamp_ms: u128, note: &str) -> Result<bookmarks::Bookmark, Error> {
+    let app = handle.state::<app::App>();
+    let bookmark = app.create_bookmark(project_id, &timestamp_ms, note).context("failed to create bookmark")?;
+    Ok(bookmark)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn list_bookmarks(handle: tauri::AppHandle, project_id: &str, range: Option<ops::Range<u128>>) -> Result<Vec<bookmarks::Bookmark>,Error> {
+    let app = handle.state::<app::App>();
+    let bookmarks = app.list_bookmarks(project_id, range).context("failed to list bookmarks")?;
+    Ok(bookmarks)
+}
+
 fn main() {
     let tauri_context = generate_context!();
 
@@ -610,7 +627,9 @@ fn main() {
             delete_all_data,
             get_logs_archive_path,
             get_project_archive_path,
-            get_project_data_archive_path
+            get_project_data_archive_path,
+            create_bookmark,
+            list_bookmarks,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")

@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::app::{deltas, files, gb_repository, search, sessions};
+use crate::app::{bookmarks, deltas, files, gb_repository, search, sessions};
 
 use super::events;
 
@@ -11,6 +11,7 @@ pub struct Handler<'handler> {
     files_database: files::Database,
     sessions_database: sessions::Database,
     deltas_database: deltas::Database,
+    bookmarks_database: bookmarks::Database,
 }
 
 impl<'handler> Handler<'handler> {
@@ -21,6 +22,7 @@ impl<'handler> Handler<'handler> {
         files_database: files::Database,
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,
+        bookmarks_database: bookmarks::Database,
     ) -> Self {
         Self {
             project_id,
@@ -29,6 +31,7 @@ impl<'handler> Handler<'handler> {
             files_database,
             sessions_database,
             deltas_database,
+            bookmarks_database,
         }
     }
 
@@ -56,10 +59,12 @@ impl<'handler> Handler<'handler> {
         Ok(vec![])
     }
 
-    pub fn index_session(
-        &self,
-        session: &sessions::Session,
-    ) -> Result<Vec<events::Event>> {
+    pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {
+        self.bookmarks_database.insert(&bookmark)?;
+        Ok(vec![])
+    }
+
+    pub fn index_session(&self, session: &sessions::Session) -> Result<Vec<events::Event>> {
         self.deltas_searcher
             .index_session(&self.gb_repository, &session)
             .context("failed to index session")?;
@@ -76,7 +81,6 @@ impl<'handler> Handler<'handler> {
         let mut events: Vec<events::Event> = vec![];
 
         let session_reader = sessions::Reader::open(&self.gb_repository, &session)?;
-        let deltas_reader = deltas::Reader::new(&session_reader);
 
         for (file_path, content) in session_reader
             .files(None)
@@ -86,6 +90,7 @@ impl<'handler> Handler<'handler> {
             events.extend(file_events);
         }
 
+        let deltas_reader = deltas::Reader::new(&session_reader);
         for (file_path, deltas) in deltas_reader
             .read(None)
             .context("could not list deltas for session")?
@@ -93,6 +98,12 @@ impl<'handler> Handler<'handler> {
         {
             let delta_events = self.index_deltas(&session.id, &file_path, &deltas)?;
             events.extend(delta_events);
+        }
+
+        let bookmarks_reader = bookmarks::Reader::new(&session_reader);
+        for bookmark in bookmarks_reader.read()? {
+            let bookmark_events = self.index_bookmark(&bookmark)?;
+            events.extend(bookmark_events);
         }
 
         Ok(events)

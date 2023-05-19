@@ -15,7 +15,7 @@ mod project_file_change_tests;
 use anyhow::{Context, Result};
 
 use crate::{
-    app::{deltas, files, gb_repository, sessions},
+    app::{deltas, files, gb_repository, sessions, bookmarks},
     events as app_events, projects, search,
 };
 
@@ -46,6 +46,7 @@ impl<'handler> Handler<'handler> {
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,
         files_database: files::Database,
+        bookmarks_database: bookmarks::Database,
     ) -> Self {
         Self {
             project_id: project_id.clone(),
@@ -83,6 +84,7 @@ impl<'handler> Handler<'handler> {
                 files_database,
                 sessions_database,
                 deltas_database,
+                bookmarks_database,
             ),
         }
     }
