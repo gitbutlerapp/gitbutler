@@ -18,6 +18,8 @@ impl Database {
     #[cfg(test)]
     pub fn memory() -> Result<Self> {
         let manager = r2d2_sqlite::SqliteConnectionManager::memory().with_init(|conn| {
+            conn.execute_batch("PRAGMA journal_mode=WAL;")
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
             embedded::migrations::runner()
                 .run(conn)
                 .map(|report| {
@@ -36,6 +38,8 @@ impl Database {
     pub fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let manager = r2d2_sqlite::SqliteConnectionManager::file(path).with_init(|conn| {
+            conn.execute_batch("PRAGMA journal_mode=WAL;")
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
             embedded::migrations::runner()
                 .run(conn)
                 .map(|report| {
