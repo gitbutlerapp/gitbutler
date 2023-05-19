@@ -113,42 +113,43 @@ impl Database {
         session_id: &str,
         file_path_filter: Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<delta::Delta>>> {
-        let mut deltas = HashMap::new();
-        self.database.transaction(|tx| -> Result<()> {
-            let mut stmt = list_by_project_id_session_id_stmt(tx)
-                .context("Failed to prepare query statement")?;
-            let mut rows = stmt
-                .query(rusqlite::named_params! {
-                    ":project_id": project_id,
-                    ":session_id": session_id,
-                })
-                .context("Failed to execute query statement")?;
-            while let Some(row) = rows
-                .next()
-                .context("Failed to iterate over query results")?
-            {
-                let file_path: String = row.get(0).context("Failed to get file_path")?;
-                if let Some(file_path_filter) = &file_path_filter {
-                    if !file_path_filter.contains(&file_path.as_str()) {
-                        continue;
+        self.database
+            .transaction(|tx| -> Result<HashMap<String, Vec<delta::Delta>>> {
+                let mut stmt = list_by_project_id_session_id_stmt(tx)
+                    .context("Failed to prepare query statement")?;
+                let mut rows = stmt
+                    .query(rusqlite::named_params! {
+                        ":project_id": project_id,
+                        ":session_id": session_id,
+                    })
+                    .context("Failed to execute query statement")?;
+                let mut deltas = HashMap::new();
+                while let Some(row) = rows
+                    .next()
+                    .context("Failed to iterate over query results")?
+                {
+                    let file_path: String = row.get(0).context("Failed to get file_path")?;
+                    if let Some(file_path_filter) = &file_path_filter {
+                        if !file_path_filter.contains(&file_path.as_str()) {
+                            continue;
+                        }
                     }
+                    let timestamp_ms: String = row.get(1).context("Failed to get timestamp_ms")?;
+                    let operations: Vec<u8> = row.get(2).context("Failed to get operations")?;
+                    let operations: Vec<operations::Operation> =
+                        serde_json::from_slice(&operations)
+                            .context("Failed to deserialize operations")?;
+                    let timestamp_ms: u128 = timestamp_ms
+                        .parse()
+                        .context("Failed to parse timestamp_ms as u64")?;
+                    let delta = delta::Delta {
+                        timestamp_ms,
+                        operations,
+                    };
+                    deltas.extend(vec![(file_path, vec![delta])]);
                 }
-                let timestamp_ms: String = row.get(1).context("Failed to get timestamp_ms")?;
-                let operations: Vec<u8> = row.get(2).context("Failed to get operations")?;
-                let operations: Vec<operations::Operation> = serde_json::from_slice(&operations)
-                    .context("Failed to deserialize operations")?;
-                let timestamp_ms: u128 = timestamp_ms
-                    .parse()
-                    .context("Failed to parse timestamp_ms as u64")?;
-                let delta = delta::Delta {
-                    timestamp_ms,
-                    operations,
-                };
-                deltas.extend(vec![(file_path, vec![delta])]);
-            }
-            Ok(())
-        })?;
-        Ok(deltas)
+                Ok(deltas)
+            })
     }
 }
 

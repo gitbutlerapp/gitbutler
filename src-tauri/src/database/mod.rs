@@ -51,15 +51,15 @@ impl Database {
         })
     }
 
-    pub fn transaction(&self, f: impl FnOnce(&Transaction) -> Result<()>) -> Result<()> {
+    pub fn transaction<T>(&self, f: impl FnOnce(&Transaction) -> Result<T>) -> Result<T> {
         let mut conn = self
             .pool
             .get()
             .context("Failed to get connection from pool")?;
         let tx = conn.transaction().context("Failed to start transaction")?;
-        f(&tx)?;
+        let result = f(&tx)?;
         tx.commit().context("Failed to commit transaction")?;
-        Ok(())
+        Ok(result)
     }
 
     pub fn on_update<F>(&self, hook: F) -> Result<()>
