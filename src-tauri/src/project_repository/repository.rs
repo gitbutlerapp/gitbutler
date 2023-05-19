@@ -36,13 +36,6 @@ impl<'repository> Repository<'repository> {
         reader::DirReader::open(self.root().to_path_buf())
     }
 
-    pub fn get_head_reader(&self) -> Result<reader::CommitReader> {
-        let head = self.git_repository.head()?;
-        let commit = head.peel_to_commit()?;
-        let reader = reader::CommitReader::from_commit(&self.git_repository, commit)?;
-        Ok(reader)
-    }
-
     pub fn root(&self) -> &std::path::Path {
         self.git_repository.path().parent().unwrap()
     }

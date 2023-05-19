@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path};
 
 use anyhow::{anyhow, Context, Result};
 
@@ -94,16 +94,7 @@ impl<'reader> SessionReader<'reader> {
                     continue;
                 }
             }
-            match self
-                .previous_reader
-                .read(
-                    std::path::Path::new("wd")
-                        .join(file_path.clone())
-                        .to_str()
-                        .unwrap(),
-                )
-                .with_context(|| format!("failed to read {}", file_path))?
-            {
+            match self.file(&file_path)? {
                 reader::Content::UTF8(content) => {
                     files_with_content.insert(file_path.clone(), content);
                 }
@@ -112,5 +103,11 @@ impl<'reader> SessionReader<'reader> {
         }
 
         Ok(files_with_content)
+    }
+
+    pub fn file<P: AsRef<path::Path>>(&self, path: P) -> Result<reader::Content, reader::Error> {
+        let path = path.as_ref();
+        self.previous_reader
+            .read(std::path::Path::new("wd").join(path).to_str().unwrap())
     }
 }
