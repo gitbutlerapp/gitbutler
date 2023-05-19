@@ -44,19 +44,15 @@
 			.finally(() => (isLinking = false));
 </script>
 
-<Modal bind:this={modal} title="Link to existing GitButler project">
+<Modal bind:this={modal} title="Sync with existing GitButler project">
 	<div class="-mt-4 flex flex-auto grid-cols-2 pt-4">
 		<div class="flex w-1/2 flex-col gap-2 pr-10 pt-4">
-			<h3 class="text-lg">Content</h3>
-
-			<p>
-				Lorem ipsum dor sit all met. Lorem ipsum dor sit all met. Lorem ipsum dor sit all met. Lorem
-				ipsum dor sit all met. Lorem ipsum dor sit all met. Lorem ipsum dor sit all met. Lorem ipsum
-				dor sit all met. Lorem ipsum dor sit all met.
-			</p>
+			<h3 class="text-lg font-medium">GitButler Cloud projects</h3>
+			<p>Syncing projects will save working directory to GitButler Cloud.</p>
+			<p>Would you like to link this project to any existing GitButler Cloud projects?</p>
 		</div>
 
-		<div class="-mr-4 flex w-1/2 flex-auto flex-col gap-2 bg-[#000000]/20 pt-4">
+		<div class="-mt-4 -mr-4 -mb-4 flex w-1/2 flex-auto flex-col gap-2 bg-[#000000]/20 pt-4">
 			<h3 class="px-4 text-lg font-semibold">Existing GitButler Projects</h3>
 			{#await Promise.all([cloudProjects.load(), projects.load(), project?.load()])}
 				<IconLoading class="m-auto animate-spin" />
