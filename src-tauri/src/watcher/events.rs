@@ -1,6 +1,6 @@
 use std::{path, time};
 
-use crate::{deltas, sessions};
+use crate::{bookmarks, deltas, sessions};
 
 pub enum Event {
     Tick(time::SystemTime),
@@ -17,6 +17,7 @@ pub enum Event {
     ProjectFileChange(path::PathBuf),
 
     Session(sessions::Session),
+    Bookmark(bookmarks::Bookmark),
     File((String, path::PathBuf, String)),
     Deltas((String, path::PathBuf, Vec<deltas::Delta>)),
 }

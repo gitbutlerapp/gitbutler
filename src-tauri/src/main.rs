@@ -486,10 +486,10 @@ async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn create_bookmark(handle: tauri::AppHandle, project_id: &str, timestamp_ms: u128, note: &str) -> Result<bookmarks::Bookmark, Error> {
+async fn upsert_bookmark(handle: tauri::AppHandle, bookmark: bookmarks::Bookmark) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let bookmark = app.create_bookmark(project_id, &timestamp_ms, note).context("failed to create bookmark")?;
-    Ok(bookmark)
+    app.upsert_bookmark(&bookmark).context("failed to upsert bookmark")?;
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -638,7 +638,7 @@ fn main() {
             get_logs_archive_path,
             get_project_archive_path,
             get_project_data_archive_path,
-            create_bookmark,
+            upsert_bookmark,
             list_bookmarks,
         ])
         .build(tauri_context)
