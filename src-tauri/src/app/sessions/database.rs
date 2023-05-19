@@ -69,8 +69,7 @@ impl Database {
         project_id: &str,
         earliest_timestamp_ms: Option<u128>,
     ) -> Result<Vec<session::Session>> {
-        let mut sessions = Vec::new();
-        self.database.transaction(|tx| -> Result<()> {
+        self.database.transaction(|tx| {
             let mut stmt = list_by_project_id_stmt(tx)
                 .context("Failed to prepare list_by_project_id statement")?;
             let mut rows = stmt
@@ -78,6 +77,8 @@ impl Database {
                     ":project_id": project_id,
                 })
                 .context("Failed to execute list_by_project_id statement")?;
+
+            let mut sessions = Vec::new();
             while let Some(row) = rows
                 .next()
                 .context("Failed to iterate over list_by_project_id results")?
@@ -92,14 +93,12 @@ impl Database {
 
                 sessions.push(session);
             }
-            Ok(())
-        })?;
-        Ok(sessions)
+            Ok(sessions)
+        })
     }
 
     pub fn get_by_rowid(&self, rowid: &i64) -> Result<Option<session::Session>> {
-        let mut session: Option<session::Session> = None;
-        self.database.transaction(|tx| -> Result<()> {
+        self.database.transaction(|tx| {
             let mut stmt =
                 get_by_rowid_stmt(tx).context("Failed to prepare get_by_rowid statement")?;
             let mut rows = stmt
@@ -111,16 +110,15 @@ impl Database {
                 .next()
                 .context("Failed to iterate over get_by_rowid results")?
             {
-                session = Some(parse_row(&row)?);
+                return Ok(Some(parse_row(&row)?));
+            } else {
+                return Ok(None);
             }
-            Ok(())
-        })?;
-        Ok(session)
+        })
     }
 
     pub fn get_by_id(&self, id: &str) -> Result<Option<session::Session>> {
-        let mut session: Option<session::Session> = None;
-        self.database.transaction(|tx| -> Result<()> {
+        self.database.transaction(|tx| {
             let mut stmt = get_by_id_stmt(tx).context("Failed to prepare get_by_id statement")?;
             let mut rows = stmt
                 .query(rusqlite::named_params! {
@@ -131,11 +129,11 @@ impl Database {
                 .next()
                 .context("Failed to iterate over get_by_id results")?
             {
-                session = Some(parse_row(&row)?);
+                Ok(Some(parse_row(&row)?))
+            } else {
+                Ok(None)
             }
-            Ok(())
-        })?;
-        Ok(session)
+        })
     }
 }
 

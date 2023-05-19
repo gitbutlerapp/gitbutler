@@ -70,33 +70,34 @@ impl Database {
         session_id: &str,
         file_path_filter: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        let mut files = HashMap::new();
-        self.database.transaction(|tx| -> Result<()> {
-            let mut stmt = list_by_project_id_session_id_stmt(tx)
-                .context("Failed to prepare list_by_session_id statement")?;
-            let mut rows = stmt
-                .query(rusqlite::named_params! {
-                    ":project_id": project_id,
-                    ":session_id": session_id,
-                })
-                .context("Failed to execute list_by_session_id statement")?;
-            while let Some(row) = rows
-                .next()
-                .context("Failed to iterate over list_by_session_id results")?
-            {
-                let file_path: String = row.get(0)?;
-                if let Some(file_path_filter) = &file_path_filter {
-                    if !file_path_filter.contains(&file_path.as_str()) {
-                        continue;
-                    }
-                }
+        self.database
+            .transaction(|tx| -> Result<HashMap<String, String>> {
+                let mut stmt = list_by_project_id_session_id_stmt(tx)
+                    .context("Failed to prepare list_by_session_id statement")?;
+                let mut rows = stmt
+                    .query(rusqlite::named_params! {
+                        ":project_id": project_id,
+                        ":session_id": session_id,
+                    })
+                    .context("Failed to execute list_by_session_id statement")?;
 
-                let content: String = row.get(1)?;
-                files.insert(file_path, content);
-            }
-            Ok(())
-        })?;
-        Ok(files)
+                let mut files = HashMap::new();
+                while let Some(row) = rows
+                    .next()
+                    .context("Failed to iterate over list_by_session_id results")?
+                {
+                    let file_path: String = row.get(0)?;
+                    if let Some(file_path_filter) = &file_path_filter {
+                        if !file_path_filter.contains(&file_path.as_str()) {
+                            continue;
+                        }
+                    }
+
+                    let content: String = row.get(1)?;
+                    files.insert(file_path, content);
+                }
+                Ok(files)
+            })
     }
 
     pub fn on<F>(&self, callback: F) -> Result<()>
