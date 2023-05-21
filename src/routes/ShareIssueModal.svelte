@@ -79,8 +79,8 @@
 <Modal bind:this={modal} title="Share with GitButler team for review" on:close={onClose}>
 	<div class="flex flex-col gap-4">
 		<p>
-			Submit an issue to be review by the GitButler team. This information is collected anonymously
-			and all shared data will only be used internal and deleted after resolution is found.
+			Submit an issue to be review by the GitButler team. This information will only be used
+			internally and will deleted after resolution is found.
 		</p>
 
 		{#if !user}
