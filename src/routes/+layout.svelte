@@ -11,7 +11,6 @@
 	import { goto } from '$app/navigation';
 	import { unsubscribe } from '$lib/utils';
 	import LinkProjectModal from './LinkProjectModal.svelte';
-	import BackForwardButtons from './BackForwardButtons.svelte';
 	import Breadcrumbs from './Breadcrumbs.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
 
@@ -65,10 +64,7 @@
 		data-tauri-drag-region
 		class="z-1 flex flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
 	>
-		<div class="breadkcrumb-back-forward-container ml-24">
-			<BackForwardButtons />
-		</div>
-		<div class="breadcrumb-project-container ml-6">
+		<div class="breadcrumb-project-container ml-24">
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
