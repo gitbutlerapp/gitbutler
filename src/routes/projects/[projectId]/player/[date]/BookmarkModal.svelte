@@ -1,11 +1,9 @@
 <script lang="ts">
-	import { log, stores, toasts, api } from '$lib';
+	import { log, toasts, api } from '$lib';
 	import { Button, Modal } from '$lib/components';
 	import { IconBookmarkFilled } from '$lib/icons';
 
 	export let projectId: string;
-
-	const bookmarks = stores.bookmarks({ projectId });
 
 	let isCreating = false;
 	let timestampMs: number | undefined;

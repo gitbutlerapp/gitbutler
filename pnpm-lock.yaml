@@ -1,10 +1,5 @@
 lockfileVersion: '6.0'
 
-dependencies:
-  svelte-loadable-store:
-    specifier: ^1.0.0
-    version: 1.0.0
-
 devDependencies:
   '@codemirror/autocomplete':
     specifier: ^6.4.2
@@ -171,6 +166,9 @@ devDependencies:
   svelte-french-toast:
     specifier: ^1.0.3
     version: 1.0.3(svelte@3.55.1)
+  svelte-loadable-store:
+    specifier: ^1.0.1
+    version: 1.0.1
   svelte-resize-observer:
     specifier: ^2.0.0
     version: 2.0.0
@@ -3654,11 +3652,11 @@ packages:
       svelte: 3.55.1
     dev: true
 
-  /svelte-loadable-store@1.0.0:
-    resolution: {integrity: sha512-HtCaU1k+tyjf0uDrMlNXzyXdOBZdsQJ1oJ+UDrEQJDbcmEr9W/FkvIIagDbAnriylgI8GUiQtFibI5UyR3rbDg==}
+  /svelte-loadable-store@1.0.1:
+    resolution: {integrity: sha512-ZPRBNqaDF6PW4nruHWh73b9WWdmt5SMAZ6he9KsZo4XDvl1h4jECBKPVdnHCc4zEQMCig01BofH3bwu67G44SQ==}
     dependencies:
       svelte: 3.59.1
-    dev: false
+    dev: true
 
   /svelte-preprocess@5.0.1(postcss-load-config@4.0.1)(postcss@8.4.21)(svelte@3.55.1)(typescript@4.9.5):
     resolution: {integrity: sha512-0HXyhCoc9rsW4zGOgtInylC6qj259E1hpFnJMJWTf+aIfeqh4O/QHT31KT2hvPEqQfdjmqBR/kO2JDkkciBLrQ==}
@@ -3732,7 +3730,7 @@ packages:
   /svelte@3.59.1:
     resolution: {integrity: sha512-pKj8fEBmqf6mq3/NfrB9SLtcJcUvjYSWyePlfCqN9gujLB25RitWK8PvFzlwim6hD/We35KbPlRteuA6rnPGcQ==}
     engines: {node: '>= 8'}
-    dev: false
+    dev: true
 
   /symbol-tree@3.2.4:
     resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}

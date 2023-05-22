@@ -1,21 +1,18 @@
 <script lang="ts">
-	import { api, stores } from '$lib';
+	import { api } from '$lib';
 	import type { Bookmark } from '$lib/api';
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { collapse } from '$lib/paths';
-	import { writable } from '@square/svelte-store';
+	import type { Loadable } from 'svelte-loadable-store';
 
 	export let projectId: string;
 	export let filename: string;
+	export let bookmarks: Loadable<Bookmark[]>;
 	export let timestampMs: number;
 
-	// TODO: this is stupid, find out why derived stores don't work
-	$: bookmarks = stores.bookmarks({ projectId });
-	const bookmark = writable<Bookmark | undefined>(undefined);
-	$: bookmarks?.subscribe((bookmarks) => {
-		if (bookmarks.isLoading) return;
-		bookmark.set(bookmarks.value.find((bookmark) => bookmark.timestampMs === timestampMs));
-	});
+	$: bookmark = bookmarks.isLoading
+		? undefined
+		: bookmarks.value.find((bookmark) => bookmark.timestampMs === timestampMs);
 </script>
 
 <div class="flex flex-auto items-center gap-3 overflow-auto">
@@ -26,10 +23,10 @@
 	<button
 		on:click={() =>
 			api.bookmarks.upsert(
-				$bookmark
+				bookmark
 					? {
-							...$bookmark,
-							deleted: !$bookmark.deleted
+							...bookmark,
+							deleted: !bookmark.deleted
 					  }
 					: {
 							projectId,
@@ -39,9 +36,9 @@
 					  }
 			)}
 	>
-		{#if $bookmark && $bookmark.deleted}
+		{#if bookmark?.deleted}
 			<IconBookmark class="h-4 w-4 text-zinc-700" />
-		{:else if !$bookmark}
+		{:else if !bookmark}
 			<IconBookmark class="h-4 w-4 text-zinc-700" />
 		{:else}
 			<IconBookmarkFilled class="h-4 w-4 text-bookmark-selected" />
