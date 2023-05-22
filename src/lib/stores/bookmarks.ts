@@ -1,6 +1,6 @@
 import { writable, type Loadable } from 'svelte-loadable-store';
 import { bookmarks, type Bookmark } from '$lib/api';
-import { get, type Readable } from 'svelte/store';
+import { get, type Readable } from '@square/svelte-store';
 
 const stores: Record<string, Readable<Loadable<Bookmark[]>>> = {};
 
