@@ -366,7 +366,6 @@ fn test_list_files_from_flushed_session() -> Result<()> {
 fn test_remote_syncronization() -> Result<()> {
     // first, crate a remote, pretending it's a cloud
     let cloud = remote_repository()?;
-    println!("cloud: {:?}", cloud.path());
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
         description: None,
@@ -380,7 +379,6 @@ fn test_remote_syncronization() -> Result<()> {
     let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
     let project_store = projects::Storage::new(storage.clone());
     let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
-    println!("gb_repos_path: {:?}", gb_repos_path);
     let user_store = users::Storage::new(storage);
     user_store.set(&users::User {
         name: "test".to_string(),
@@ -460,7 +458,6 @@ fn test_remote_syncronization() -> Result<()> {
 fn test_remote_sync_order() -> Result<()> {
     // first, crate a remote, pretending it's a cloud
     let cloud = remote_repository()?;
-    println!("cloud: {:?}", cloud.path());
     let api_project = projects::ApiProject {
         name: "test-sync".to_string(),
         description: None,
@@ -474,7 +471,6 @@ fn test_remote_sync_order() -> Result<()> {
     let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
     let project_store = projects::Storage::new(storage.clone());
     let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
-    println!("gb_repos_path: {:?}", gb_repos_path);
     let user_store = users::Storage::new(storage);
     user_store.set(&users::User {
         name: "test".to_string(),
