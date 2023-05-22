@@ -3,7 +3,7 @@
 	import type { Bookmark } from '$lib/api';
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { collapse } from '$lib/paths';
-	import { writable } from 'svelte/store';
+	import { writable } from '@square/svelte-store';
 
 	export let projectId: string;
 	export let filename: string;
