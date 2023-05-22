@@ -2,7 +2,7 @@ use std::path;
 
 use anyhow::{Context, Result};
 
-use rusqlite::{hooks, Transaction};
+use rusqlite::Transaction;
 
 mod embedded {
     use refinery::embed_migrations;
@@ -64,18 +64,6 @@ impl Database {
         let result = f(&tx)?;
         tx.commit().context("Failed to commit transaction")?;
         Ok(result)
-    }
-
-    pub fn on_update<F>(&self, hook: F) -> Result<()>
-    where
-        F: FnMut(hooks::Action, &str, &str, i64) + Send + 'static,
-    {
-        let conn = self
-            .pool
-            .get()
-            .context("Failed to get connection from pool")?;
-        conn.update_hook(Some(hook));
-        Ok(())
     }
 }
 

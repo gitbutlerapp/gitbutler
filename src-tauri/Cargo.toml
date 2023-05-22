@@ -51,7 +51,7 @@ sentry-anyhow = "0.31.0"
 sentry-rust-minidump = "0.5.1"
 sentry-debug-images = "0.31.0"
 zip = "0.6.5"
-rusqlite = { version = "0.28.0", features = [ "bundled", "blob", "hooks" ] }
+rusqlite = { version = "0.28.0", features = [ "bundled", "blob" ] }
 refinery = { version = "0.8", features = [ "rusqlite" ] }
 r2d2_sqlite = { version = "0.21.0", features = ["bundled"] }
 sha1 = "0.10.5"
