@@ -20,9 +20,9 @@
 			);
 			const start = Math.min(...timestamps);
 			const end = Math.max(...timestamps);
-			return bookmarks.value.filter(
-				(bookmark) => bookmark.timestampMs >= start && bookmark.timestampMs < end
-			);
+			return bookmarks.value
+				.filter((bookmark) => !bookmark.deleted)
+				.filter((bookmark) => bookmark.timestampMs >= start && bookmark.timestampMs < end);
 		}
 	);
 
