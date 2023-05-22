@@ -98,49 +98,6 @@ impl Database {
                 Ok(files)
             })
     }
-
-    pub fn on<F>(&self, callback: F) -> Result<()>
-    where
-        F: Fn(&str, &str, &str) + Send + 'static,
-    {
-        let boxed_database = Box::new(self.database.clone());
-        self.database.on_update(
-            move |action, _database_name, table_name, rowid| match action {
-                rusqlite::hooks::Action::SQLITE_INSERT | rusqlite::hooks::Action::SQLITE_UPDATE => {
-                    match table_name {
-                        "files" => {
-                            if let Err(err) = boxed_database.transaction(|tx| -> Result<()> {
-                                let mut stmt = get_by_rowid_stmt(tx)
-                                    .context("Failed to prepare get_by_rowid statement")?;
-
-                                let mut rows = stmt
-                                    .query(rusqlite::named_params! {
-                                        ":rowid": rowid,
-                                    })
-                                    .context("Failed to execute get_by_rowid statement")?;
-
-                                if let Some(row) = rows
-                                    .next()
-                                    .context("Failed to iterate over get_by_rowid results")?
-                                {
-                                    let file_path: String = row.get(0)?;
-                                    let content: String = row.get(1)?;
-                                    let session_id: String = row.get(2)?;
-                                    callback(&session_id, &file_path, &content)
-                                }
-
-                                Ok(())
-                            }) {
-                                log::error!("db: failed to get file by rowid: {}", err);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                _ => {}
-            },
-        )
-    }
 }
 
 fn list_by_project_id_session_id_stmt<'conn>(
@@ -186,17 +143,6 @@ fn insert_file_stmt<'conn>(
             :project_id, :session_id, :file_path, :sha1
         ) ON CONFLICT(`project_id`, `session_id`, `file_path`) 
             DO UPDATE SET `sha1` = :sha1",
-    )?)
-}
-
-fn get_by_rowid_stmt<'conn>(
-    tx: &'conn rusqlite::Transaction,
-) -> Result<rusqlite::CachedStatement<'conn>> {
-    Ok(tx.prepare_cached(
-        "SELECT `file_path`, `content`, `session_id`
-        FROM `files` 
-        JOIN `contents` ON `files`.`sha1` = `contents`.`sha1`
-        WHERE `files`.`rowid` = :rowid",
     )?)
 }
 

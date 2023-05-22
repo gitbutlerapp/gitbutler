@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use rusqlite::hooks;
 
 use crate::database;
 
@@ -36,28 +35,6 @@ impl Database {
         Ok(())
     }
 
-    pub fn on<F>(&self, callback: F) -> Result<()>
-    where
-        F: Fn(session::Session) + Send + 'static,
-    {
-        let boxed_self = Box::new(self.clone());
-        self.database.on_update(
-            move |action, _database_name, table_name, rowid| match action {
-                hooks::Action::SQLITE_INSERT | hooks::Action::SQLITE_UPDATE => match table_name {
-                    "sessions" => match boxed_self.get_by_rowid(&rowid) {
-                        Ok(Some(session)) => callback(session),
-                        Ok(None) => {}
-                        Err(err) => {
-                            log::error!("db: failed to get session by rowid: {:#}", err)
-                        }
-                    },
-                    _ => {}
-                },
-                _ => {}
-            },
-        )
-    }
-
     pub fn list_by_project_id(
         &self,
         project_id: &str,
@@ -88,26 +65,6 @@ impl Database {
                 sessions.push(session);
             }
             Ok(sessions)
-        })
-    }
-
-    pub fn get_by_rowid(&self, rowid: &i64) -> Result<Option<session::Session>> {
-        self.database.transaction(|tx| {
-            let mut stmt =
-                get_by_rowid_stmt(tx).context("Failed to prepare get_by_rowid statement")?;
-            let mut rows = stmt
-                .query(rusqlite::named_params! {
-                    ":rowid": rowid,
-                })
-                .context("Failed to execute get_by_rowid statement")?;
-            if let Some(row) = rows
-                .next()
-                .context("Failed to iterate over get_by_rowid results")?
-            {
-                return Ok(Some(parse_row(&row)?));
-            } else {
-                return Ok(None);
-            }
         })
     }
 
@@ -165,14 +122,6 @@ fn get_by_id_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "SELECT `id`, `project_id`, `hash`, `branch`, `commit`, `start_timestamp_ms`, `last_timestamp_ms` FROM `sessions` WHERE `id` = :id",
-    )?)
-}
-
-fn get_by_rowid_stmt<'conn>(
-    tx: &'conn rusqlite::Transaction,
-) -> Result<rusqlite::CachedStatement<'conn>> {
-    Ok(tx.prepare_cached(
-        "SELECT `id`, `project_id`, `hash`, `branch`, `commit`, `start_timestamp_ms`, `last_timestamp_ms` FROM `sessions` WHERE `rowid` = :rowid",
     )?)
 }
 

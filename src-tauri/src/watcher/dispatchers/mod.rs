@@ -6,8 +6,6 @@ use std::{path, time};
 use anyhow::Result;
 use crossbeam_channel::{bounded, select, unbounded, Sender};
 
-use crate::{bookmarks, deltas, files, sessions};
-
 use super::events;
 
 #[derive(Clone)]
@@ -99,9 +97,6 @@ impl Dispatcher {
                     }
                     if let Err(e) = self.file_change_dispatcher.stop() {
                         log::error!("{}: failed to stop file watcher: {:#}", self.project_id, e);
-                    }
-                    if let Err(e) = self.database_dispatcher.stop() {
-                        log::error!("{}: failed to stop database listener: {:#}", self.project_id, e);
                     }
                     break;
                 }
