@@ -23,29 +23,28 @@
 		{collapse(filename)}
 	</span>
 
-	{#if $bookmark}
-		<button
-			on:click={() =>
-				$bookmark &&
-				api.bookmarks.upsert(
-					$bookmark
-						? {
-								...$bookmark,
-								deleted: !$bookmark.deleted
-						  }
-						: {
-								projectId,
-								timestampMs,
-								note: '',
-								deleted: false
-						  }
-				)}
-		>
-			{#if $bookmark.deleted}
-				<IconBookmark class="h-4 w-4 text-zinc-700" />
-			{:else}
-				<IconBookmarkFilled class="h-4 w-4 text-bookmark-selected" />
-			{/if}
-		</button>
-	{/if}
+	<button
+		on:click={() =>
+			api.bookmarks.upsert(
+				$bookmark
+					? {
+							...$bookmark,
+							deleted: !$bookmark.deleted
+					  }
+					: {
+							projectId,
+							timestampMs,
+							note: '',
+							deleted: false
+					  }
+			)}
+	>
+		{#if $bookmark && $bookmark.deleted}
+			<IconBookmark class="h-4 w-4 text-zinc-700" />
+		{:else if !$bookmark}
+			<IconBookmark class="h-4 w-4 text-zinc-700" />
+		{:else}
+			<IconBookmarkFilled class="h-4 w-4 text-bookmark-selected" />
+		{/if}
+	</button>
 </div>
