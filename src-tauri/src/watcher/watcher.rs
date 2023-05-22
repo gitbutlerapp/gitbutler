@@ -32,9 +32,6 @@ impl<'watcher> Watcher<'watcher> {
                 project.id.clone(),
                 project.path.clone(),
                 publisher,
-                sessions_database.clone(),
-                deltas_database.clone(),
-                files_database.clone(),
             ),
             handler: handlers::Handler::new(
                 project.id.clone(),

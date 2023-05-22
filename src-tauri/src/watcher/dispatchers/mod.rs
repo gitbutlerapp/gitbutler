@@ -1,4 +1,3 @@
-mod database;
 mod file_change;
 mod tick;
 
@@ -7,7 +6,7 @@ use std::{path, time};
 use anyhow::Result;
 use crossbeam_channel::{bounded, select, unbounded, Sender};
 
-use crate::{deltas, files, sessions};
+use crate::{bookmarks, deltas, files, sessions};
 
 use super::events;
 
@@ -16,7 +15,6 @@ pub struct Dispatcher {
     project_id: String,
     tick_dispatcher: tick::Dispatcher,
     file_change_dispatcher: file_change::Dispatcher,
-    database_dispatcher: database::Dispatcher,
     proxy: crossbeam_channel::Receiver<events::Event>,
     stop: (
         crossbeam_channel::Sender<()>,
@@ -29,20 +27,11 @@ impl Dispatcher {
         project_id: String,
         path: P,
         proxy_chan: crossbeam_channel::Receiver<events::Event>,
-        sessions_database: sessions::Database,
-        deltas_database: deltas::Database,
-        files_database: files::Database,
     ) -> Self {
         Self {
             project_id: project_id.clone(),
             tick_dispatcher: tick::Dispatcher::new(project_id.clone()),
             file_change_dispatcher: file_change::Dispatcher::new(project_id.clone(), path),
-            database_dispatcher: database::Dispatcher::new(
-                project_id.clone(),
-                sessions_database,
-                deltas_database,
-                files_database,
-            ),
             stop: bounded(1),
             proxy: proxy_chan,
         }
@@ -72,27 +61,8 @@ impl Dispatcher {
             }
         });
 
-        let (db_tx, db_rx) = unbounded();
-        let database_dispatcher = self.database_dispatcher.clone();
-        let project_id = self.project_id.clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            if let Err(e) = database_dispatcher.start(db_tx) {
-                log::error!("{}: failed to start database listener: {:#}", project_id, e);
-            }
-        });
-
         loop {
             select! {
-                recv(db_rx) -> event => match event {
-                    Ok(event) => {
-                        if let Err(e) = sender.send(event) {
-                            log::error!("{}: failed to proxy database event: {:#}", self.project_id, e);
-                        }
-                    },
-                    Err(e) => {
-                        log::error!("{}: failed to receive database event: {:#}", self.project_id, e);
-                    }
-                },
                 recv(t_rx) -> ts => match ts{
                     Ok(ts) => {
                         if let Err(e) = sender.send(events::Event::Tick(ts)) {

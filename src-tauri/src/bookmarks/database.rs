@@ -1,6 +1,7 @@
 use std::ops;
 
 use anyhow::{Context, Result};
+use rusqlite::hooks;
 
 use crate::database;
 
@@ -16,8 +17,63 @@ impl Database {
         Self { database }
     }
 
-    pub fn upsert(&self, bookmark: &Bookmark) -> Result<()> {
-        self.database.transaction(|tx| -> Result<()> {
+    fn get_by_project_id_timestamp_ms(
+        &self,
+        project_id: &str,
+        timestamp_ms: &u128,
+    ) -> Result<Option<Bookmark>> {
+        self.database.transaction(|tx| {
+            let mut stmt = get_by_project_id_timestamp_ms_stmt(tx)
+                .context("Failed to prepare get_by_project_id_timestamp_ms statement")?;
+            let mut rows = stmt
+                .query(rusqlite::named_params! {
+                    ":project_id": project_id,
+                    ":timestamp_ms": timestamp_ms.to_string(),
+                })
+                .context("Failed to execute get_by_project_id_timestamp_ms statement")?;
+            if let Some(row) = rows.next()? {
+                let bookmark = parse_row(row)?;
+                Ok(Some(bookmark))
+            } else {
+                Ok(None)
+            }
+        })
+    }
+
+    pub fn upsert(&self, bookmark: &Bookmark) -> Result<Option<Bookmark>> {
+        let existing = self
+            .get_by_project_id_timestamp_ms(&bookmark.project_id, &bookmark.timestamp_ms)
+            .context("Failed to get bookmark")?;
+        if let Some(existing) = existing {
+            if existing.note == bookmark.note && existing.deleted == bookmark.deleted {
+                return Ok(None);
+            }
+            self.update(bookmark).context("Failed to update bookmark")?;
+            Ok(Some(bookmark.clone()))
+        } else {
+            self.insert(bookmark).context("Failed to insert bookmark")?;
+            Ok(Some(bookmark.clone()))
+        }
+    }
+
+    fn update(&self, bookmark: &Bookmark) -> Result<()> {
+        self.database.transaction(|tx| {
+            let mut stmt = update_bookmark_by_project_id_timestamp_ms_stmt(tx)
+                .context("Failed to prepare update statement")?;
+            stmt.execute(rusqlite::named_params! {
+                ":project_id": &bookmark.project_id,
+                ":timestamp_ms": &bookmark.timestamp_ms.to_string(),
+                ":updated_timestamp_ms": &bookmark.updated_timestamp_ms.to_string(),
+                ":note": &bookmark.note,
+                ":deleted": &bookmark.deleted,
+            })
+            .context("Failed to execute update statement")?;
+            Ok(())
+        })
+    }
+
+    fn insert(&self, bookmark: &Bookmark) -> Result<()> {
+        self.database.transaction(|tx| {
             let mut stmt = insert_stmt(tx).context("Failed to prepare insert statement")?;
             stmt.execute(rusqlite::named_params! {
                 ":project_id": &bookmark.project_id,
@@ -81,6 +137,81 @@ impl Database {
             self.list_by_project_id_all(project_id)
         }
     }
+
+    pub fn on<F>(&self, callback: F) -> Result<()>
+    where
+        F: Fn(&Bookmark) + Send + 'static,
+    {
+        let boxed_database = Box::new(self.database.clone());
+        self.database.on_update(
+            move |action, _database_name, table_name, rowid| match action {
+                hooks::Action::SQLITE_INSERT | hooks::Action::SQLITE_UPDATE => match table_name {
+                    "bookmarks" => {
+                        if let Err(err) = boxed_database.transaction(|tx| -> Result<()> {
+                            let mut stmt = get_by_rowid_stmt(tx)
+                                .context("Failed to prepare get_by_rowid statement")?;
+                            let mut rows = stmt
+                                .query(rusqlite::named_params! {
+                                    ":rowid": rowid,
+                                })
+                                .context("Failed to execute get_by_rowid statement")?;
+
+                            if let Some(row) = rows.next()? {
+                                let bookmark = parse_row(row)?;
+                                callback(&bookmark);
+                            }
+
+                            Ok(())
+                        }) {
+                            log::error!("db: failed to get bookmark by rowid: {}", err);
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
+            },
+        )
+    }
+}
+
+fn get_by_rowid_stmt<'conn>(
+    tx: &'conn rusqlite::Transaction,
+) -> Result<rusqlite::CachedStatement<'conn>> {
+    Ok(tx.prepare_cached(
+        "
+        SELECT `project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `note`, `deleted`, `timestamp_ms`
+        FROM `bookmarks`
+        WHERE `rowid` = :rowid
+        ",
+    )?)
+}
+
+fn get_by_project_id_timestamp_ms_stmt<'conn>(
+    tx: &'conn rusqlite::Transaction,
+) -> Result<rusqlite::CachedStatement<'conn>> {
+    Ok(tx.prepare_cached(
+        "
+        SELECT `project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `note`, `deleted`, `timestamp_ms`
+        FROM `bookmarks`
+        WHERE `project_id` = :project_id
+        AND `timestamp_ms` = :timestamp_ms
+        ",
+    )?)
+}
+
+fn update_bookmark_by_project_id_timestamp_ms_stmt<'conn>(
+    tx: &'conn rusqlite::Transaction,
+) -> Result<rusqlite::CachedStatement<'conn>> {
+    Ok(tx.prepare_cached(
+        "
+        UPDATE `bookmarks`
+        SET `updated_timestamp_ms` = :updated_timestamp_ms,
+            `note` = :note,
+            `deleted` = :deleted
+        WHERE `project_id` = :project_id
+        AND `timestamp_ms` = :timestamp_ms
+        ",
+    )?)
 }
 
 fn insert_stmt<'conn>(
@@ -90,10 +221,6 @@ fn insert_stmt<'conn>(
         "
         INSERT INTO `bookmarks` (`project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `timestamp_ms`, `note`, `deleted`)
         VALUES (:project_id, :created_timestamp_ms, :updated_timestamp_ms, :timestamp_ms, :note, :deleted)
-        ON CONFLICT(`project_id`, `timestamp_ms`) DO UPDATE SET
-            `updated_timestamp_ms` = :updated_timestamp_ms,
-            `note` = :note,
-            `deleted` = :deleted
         ",
     )?)
 }

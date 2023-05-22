@@ -42,13 +42,6 @@ impl Database {
             Ok(())
         })?;
 
-        log::info!(
-            "db: inserted {} deltas for file {} for session {}",
-            deltas.len(),
-            file_path,
-            session_id
-        );
-
         Ok(())
     }
 

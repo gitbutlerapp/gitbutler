@@ -60,7 +60,6 @@ impl Database {
             .context("Failed to execute insert statement")?;
             Ok(())
         })?;
-        log::info!("db: inserted file {} for session {}", file_path, session_id);
         Ok(())
     }
 

@@ -492,7 +492,7 @@ async fn upsert_bookmark(
     timestamp_ms: u64,
     note: String,
     deleted: bool
-) -> Result<(), Error> {
+) -> Result<Option<bookmarks::Bookmark>, Error> {
     let app = handle.state::<app::App>();
     let now = time::UNIX_EPOCH.elapsed().context("failed to get time")?.as_millis();
     let bookmark = bookmarks::Bookmark { 
@@ -503,8 +503,8 @@ async fn upsert_bookmark(
         note,
         deleted
     };
-    app.upsert_bookmark(&bookmark).context("failed to upsert bookmark")?;
-    Ok(())
+    let bookmark = app.upsert_bookmark(&bookmark).context("failed to upsert bookmark")?;
+    Ok(bookmark)
 }
 
 #[timed(duration(printer = "debug!"))]

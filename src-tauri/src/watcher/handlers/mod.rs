@@ -49,7 +49,7 @@ impl<'handler> Handler<'handler> {
     ) -> Self {
         Self {
             project_id: project_id.clone(),
-            events_sender,
+            events_sender: events_sender.clone(),
 
             file_change_handler: file_change::Handler::new(),
             project_file_handler: project_file_change::Handler::new(
@@ -84,6 +84,7 @@ impl<'handler> Handler<'handler> {
                 sessions_database,
                 deltas_database,
                 bookmarks_database,
+                events_sender,
             ),
         }
     }
@@ -179,14 +180,14 @@ impl<'handler> Handler<'handler> {
                 Ok(delta_events)
             }
             events::Event::Bookmark(bookmark) => {
-                let bookmarks_events = self
+                let bookmark_events = self
                     .index_handler
                     .index_bookmark(&bookmark)
                     .context("failed to index bookmark")?;
                 self.events_sender
                     .send(app_events::Event::bookmark(&self.project_id, &bookmark))
                     .context("failed to send bookmark event")?;
-                Ok(bookmarks_events)
+                Ok(bookmark_events)
             }
         }
     }
