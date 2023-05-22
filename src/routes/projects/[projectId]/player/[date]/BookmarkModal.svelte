@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { log, stores, toasts } from '$lib';
+	import { log, stores, toasts, api } from '$lib';
 	import { Button, Modal } from '$lib/components';
-	import { IconBookmark } from '$lib/icons';
+	import { IconBookmarkFilled } from '$lib/icons';
 
 	export let projectId: string;
 
@@ -27,7 +27,14 @@
 	const createBookmark = () =>
 		Promise.resolve()
 			.then(() => (isCreating = true))
-			.then(() => bookmarks.create({ note, timestampMs }))
+			.then(() =>
+				api.bookmarks.upsert({
+					projectId,
+					note,
+					timestampMs: timestampMs ?? Date.now(),
+					deleted: false
+				})
+			)
 			.then(() => {
 				toasts.success('Bookmark created');
 				modal.close();
@@ -39,7 +46,7 @@
 			.finally(() => (isCreating = false));
 </script>
 
-<Modal bind:this={modal} title="Bookmark" icon={IconBookmark}>
+<Modal bind:this={modal} title="Bookmark" icon={IconBookmarkFilled}>
 	<form class="flex w-full flex-col gap-2">
 		<input type="submit" hidden />
 		<span>Note</span>
