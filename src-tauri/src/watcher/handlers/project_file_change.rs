@@ -133,17 +133,9 @@ impl<'listener> Handler<'listener> {
             Err(err) => Err(err).context("failed to get file content")?,
         };
 
-        // let latest_file_content = self
-        //     .get_latest_file_contents(&current_session, &project_repository, &path)
-        //     .with_context(|| "failed to get latest file content")?;
-
         let current_deltas = self
             .get_current_deltas(&path)
             .with_context(|| "failed to get current deltas")?;
-
-        println!("current_file_content: {:?}", current_file_content);
-        println!("latest_file_content: {:?}", latest_file_content);
-        println!("current_deltas: {:?}", current_deltas);
 
         let mut text_doc = deltas::Document::new(
             Some(&latest_file_content),
@@ -165,8 +157,6 @@ impl<'listener> Handler<'listener> {
         let writer = sessions::Writer::open(&self.gb_repository, &current_session)?;
 
         let deltas = text_doc.get_deltas();
-
-        println!("deltas: {:?}", deltas);
 
         writer
             .write_deltas(path, &deltas)

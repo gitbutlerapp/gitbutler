@@ -241,11 +241,8 @@ mod tests {
 
     #[test]
     fn test_upsert() -> Result<()> {
-        println!("1");
         let db = database::Database::memory()?;
-        println!("2");
         let database = Database::new(db);
-        println!("3");
 
         let project_id = "project_id";
         let session_id = "session_id";
