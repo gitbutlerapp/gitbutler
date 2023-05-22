@@ -24,7 +24,6 @@
 	import Slider from './Slider.svelte';
 	import type { PageData } from './$types';
 	import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '$lib/icons';
-	import { collapse } from '$lib/paths';
 	import { page } from '$app/stores';
 	import { DeltasViewer, DiffContext } from '$lib/components';
 	import { asyncDerived, derived, writable } from '@square/svelte-store';
@@ -48,6 +47,8 @@
 
 	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
 	const projectId = derived(page, (page) => page.params.projectId);
+
+	$: bookmarks = stores.bookmarks({ projectId: $projectId });
 
 	const richSessions = asyncDerived(
 		[dateSessions, fileFilter, projectId],
@@ -242,6 +243,7 @@
 				<Filename
 					filename={$frame.filepath}
 					timestampMs={currentDelta.timestampMs}
+					bookmarks={$bookmarks}
 					projectId={$projectId}
 				/>
 			</div>
