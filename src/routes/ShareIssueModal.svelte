@@ -79,7 +79,8 @@
 <Modal bind:this={modal} title="Share with GitButler team for review" on:close={onClose}>
 	<div class="flex flex-col gap-4">
 		<p>
-			If you are having trouble, please share your project and logs with the Gitbutler team. We will review it for you and help identify how we can help resolve the issue. 
+			If you are having trouble, please share your project and logs with the Gitbutler team. We will
+			review it for you and help identify how we can help resolve the issue.
 		</p>
 
 		{#if !user}
@@ -113,7 +114,8 @@
 		<div class="flex flex-col gap-1">
 			<span class="text-xl font-semibold"> Share logs </span>
 			<span class="text-sm text-text-subdued">
-				We personally ensure all information you share with us will be reviewed internally only and discarded post-resolution
+				We personally ensure all information you share with us will be reviewed internally only and
+				discarded post-resolution
 			</span>
 		</div>
 
