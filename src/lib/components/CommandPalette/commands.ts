@@ -1,5 +1,5 @@
-import { type Project, git } from '$lib/api';
-import { events } from '$lib';
+import { type Project, git, bookmarks } from '$lib/api';
+import { events, stores, api } from '$lib';
 import {
 	IconGitCommit,
 	IconFile,
@@ -9,7 +9,8 @@ import {
 	IconAdjustmentsHorizontal,
 	IconDiscord,
 	IconSearch,
-	IconRewind
+	IconRewind,
+	IconBookmark
 } from '$lib/icons';
 import type { SvelteComponent } from 'svelte';
 
@@ -94,6 +95,12 @@ const commandsGroup = ({ project, input }: { project?: Project; input: string })
 							href: `/projects/${project.id}/player/`
 						},
 						icon: IconRewind
+					},
+					{
+						title: 'Quick Bookmark',
+						hotkey: 'D',
+						action: () => stores.bookmarks({ projectId: project.id }).create(),
+						icon: IconBookmark
 					},
 					{
 						title: 'Project settings',

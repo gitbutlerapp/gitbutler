@@ -12,6 +12,7 @@ export { type SearchResult } from './search';
 export * as files from './files';
 export * as zip from './zip';
 export * as bookmarks from './bookmarks';
+export type { Bookmark } from './bookmarks';
 
 import { invoke } from '$lib/ipc';
 
