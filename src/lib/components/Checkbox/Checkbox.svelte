@@ -96,8 +96,8 @@
 
 	/* sizes */
 	input {
-		width: 18px;
-		height: 18px;
+		width: 16px;
+		height: 16px;
 	}
 	input.large {
 		width: 20px;
