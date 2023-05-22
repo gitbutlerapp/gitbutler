@@ -31,7 +31,8 @@
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
-	import { hotkeys } from '$lib';
+	import { hotkeys, stores } from '$lib';
+	import Filename from './Filename.svelte';
 
 	export let data: PageData;
 	const { currentFilepath, currentTimestamp } = data;
@@ -114,6 +115,7 @@
 	frame.subscribe((frame) => frame?.filepath && currentFilepath.set(frame.filepath));
 
 	$: currentDelta = $frame?.deltas[$frame?.deltas.length - 1];
+
 	$: {
 		const timestamp = currentDelta?.timestampMs;
 		if (timestamp) {
@@ -237,13 +239,11 @@
 				background-color: rgba(1, 1, 1, 0.6);
 			"
 			>
-				<span class="flex-auto overflow-auto font-mono text-[12px] text-zinc-300">
-					{collapse($frame.filepath)}
-				</span>
-				<span class="whitespace-nowrap text-zinc-500">
-					–
-					{new Date(currentDelta.timestampMs).toLocaleString('en-US')}
-				</span>
+				<Filename
+					filename={$frame.filepath}
+					timestampMs={currentDelta.timestampMs}
+					projectId={$projectId}
+				/>
 			</div>
 		{/if}
 

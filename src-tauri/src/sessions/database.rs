@@ -33,12 +33,6 @@ impl Database {
             Ok(())
         })?;
 
-        log::info!(
-            "db: inserted {} sessions for project {}",
-            sessions.len(),
-            project_id
-        );
-
         Ok(())
     }
 

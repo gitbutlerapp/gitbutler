@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::{bookmarks, deltas, files, gb_repository, search, sessions};
+use crate::{bookmarks, deltas, events as app_events, files, gb_repository, search, sessions};
 
 use super::events;
 
@@ -12,6 +12,7 @@ pub struct Handler<'handler> {
     sessions_database: sessions::Database,
     deltas_database: deltas::Database,
     bookmarks_database: bookmarks::Database,
+    events_sender: app_events::Sender,
 }
 
 impl<'handler> Handler<'handler> {
@@ -23,6 +24,7 @@ impl<'handler> Handler<'handler> {
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,
         bookmarks_database: bookmarks::Database,
+        events_sender: app_events::Sender,
     ) -> Self {
         Self {
             project_id,
@@ -32,6 +34,7 @@ impl<'handler> Handler<'handler> {
             sessions_database,
             deltas_database,
             bookmarks_database,
+            events_sender,
         }
     }
 
@@ -60,7 +63,11 @@ impl<'handler> Handler<'handler> {
     }
 
     pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {
-        self.bookmarks_database.upsert(&bookmark)?;
+        let updated = self.bookmarks_database.upsert(&bookmark)?;
+        if let Some(updated) = updated {
+            self.events_sender
+                .send(app_events::Event::bookmark(&self.project_id, &updated))?;
+        }
         Ok(vec![])
     }
 

@@ -302,7 +302,7 @@ impl App {
         self.files_database.list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
+    pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Option<bookmarks::Bookmark>> {
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             bookmark.project_id.to_string(),
@@ -311,17 +311,19 @@ impl App {
         )
         .context("failed to open repository")?;
 
+
         let session = gb_repository.get_or_create_current_session().context("failed to get or create current session")?;
         let writer = sessions::Writer::open(&gb_repository, &session).context("failed to open session writer")?;
         writer.write_bookmark(&bookmark).context("failed to write bookmark")?;
+        let updated = self.bookmarks_database.upsert(bookmark).context("failed to upsert bookmark")?;
 
-        self.proxy_watchers.lock().unwrap().get(&bookmark.project_id).map(|proxy_watcher| {
-            if let Err(e) = proxy_watcher.send(watcher::Event::Bookmark(bookmark.clone())) {
-                log::error!("failed to send bookmark event to proxy: {}", e);
+        if let Some(updated) = updated.as_ref() {
+            if let Err(e) = self.proxy_watchers.lock().unwrap().get(&bookmark.project_id).unwrap().send(watcher::Event::Bookmark(updated.clone())) {
+                log::error!("failed to send session event: {:#}", e);
             }
-        });
+        }
 
-        Ok(())
+        Ok(updated)
     }
 
     pub fn list_bookmarks(&self, project_id: &str, range: Option<ops::Range<u128>>) -> Result<Vec<bookmarks::Bookmark>> {
