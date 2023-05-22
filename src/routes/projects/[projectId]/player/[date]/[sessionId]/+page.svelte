@@ -30,10 +30,11 @@
 	import { asyncDerived, derived, writable } from '@square/svelte-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
-	import tinykeys from 'tinykeys';
+	import { unsubscribe } from '$lib/utils';
+	import { hotkeys } from '$lib';
 
 	export let data: PageData;
-	const { currentFilepath } = data;
+	const { currentFilepath, currentTimestamp } = data;
 
 	let fullContext = true;
 	let context = 8;
@@ -112,6 +113,14 @@
 	});
 	frame.subscribe((frame) => frame?.filepath && currentFilepath.set(frame.filepath));
 
+	$: currentDelta = $frame?.deltas[$frame?.deltas.length - 1];
+	$: {
+		const timestamp = currentDelta?.timestampMs;
+		if (timestamp) {
+			currentTimestamp.set(timestamp);
+		}
+	}
+
 	// scroller
 	const maxInput = derived(richSessions, (sessions) =>
 		sessions ? sessions.flatMap((session) => session.deltas).length : 0
@@ -182,17 +191,17 @@
 	};
 
 	onMount(() =>
-		tinykeys(window, {
-			ArrowRight: gotoNextDelta,
-			ArrowLeft: gotoPrevDelta,
-			Space: () => {
+		unsubscribe(
+			hotkeys.on('ArrowRight', () => gotoNextDelta()),
+			hotkeys.on('ArrowLeft', () => gotoPrevDelta()),
+			hotkeys.on('Space', () => {
 				if (isPlaying) {
 					stop();
 				} else {
 					play();
 				}
-			}
-		})
+			})
+		)
 	);
 </script>
 
@@ -218,23 +227,27 @@
 			</div>
 		</div>
 
-		<div
-			id="info"
-			class="w-content absolute bottom-[86px] ml-2 flex max-w-full gap-2 rounded-full bg-zinc-900/80 py-2 px-4 shadow"
-			style="
+		{#if currentDelta}
+			<div
+				id="info"
+				class="w-content absolute bottom-[86px] ml-2 flex max-w-full gap-2 rounded-full bg-zinc-900/80 py-2 px-4 shadow"
+				style="
 				border: 0.5px solid rgba(63, 63, 70, 0.5);
 				-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
 				background-color: rgba(1, 1, 1, 0.6);
 			"
-		>
-			<span class="flex-auto overflow-auto font-mono text-[12px] text-zinc-300">
-				{collapse($frame.filepath)}
-			</span>
-			<span class="whitespace-nowrap text-zinc-500">
-				–
-				{new Date($frame.deltas[$frame.deltas.length - 1].timestampMs).toLocaleString('en-US')}
-			</span>
-		</div>
+			>
+				<span class="flex-auto overflow-auto font-mono text-[12px] text-zinc-300">
+					{collapse($frame.filepath)}
+				</span>
+				<span class="whitespace-nowrap text-zinc-500">
+					–
+					{currentDelta.timestampMs}
+					–
+					{new Date(currentDelta.timestampMs).toLocaleString('en-US')}
+				</span>
+			</div>
+		{/if}
 
 		<div
 			id="controls"

@@ -23,11 +23,14 @@
 	import { asyncDerived, derived } from '@square/svelte-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
+	import { events, hotkeys, stores, toasts } from '$lib';
+	import BookmarkModal from './BookmarkModal.svelte';
 	import tinykeys from 'tinykeys';
 	import { goto } from '$app/navigation';
+	import { unsubscribe } from '$lib/utils';
 
 	export let data: LayoutData;
-	const { currentFilepath } = data;
+	const { currentFilepath, currentTimestamp } = data;
 
 	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
 	const lexically = (a: string, b: string) => a.localeCompare(b);
@@ -116,17 +119,30 @@
 			$page.params.date
 		}/${sessionId}?${removeFromSearchParams($page.url.searchParams, 'delta').toString()}`;
 
+	let bookmarkModal: BookmarkModal;
+
 	onMount(() =>
-		tinykeys(window, {
-			'Shift+ArrowRight': () =>
-				nextSessionId.load().then((sessionId) => {
-					if (sessionId) goto(getSessionURI(sessionId));
-				}),
-			'Shift+ArrowLeft': () =>
-				prevSessionId.load().then((sessionId) => {
-					if (sessionId) goto(getSessionURI(sessionId));
-				})
-		})
+		unsubscribe(
+			tinykeys(window, {
+				'Shift+ArrowRight': () =>
+					nextSessionId.load().then((sessionId) => {
+						if (sessionId) goto(getSessionURI(sessionId));
+					}),
+				'Shift+ArrowLeft': () =>
+					prevSessionId.load().then((sessionId) => {
+						if (sessionId) goto(getSessionURI(sessionId));
+					})
+			}),
+
+			events.on('openBookmarkModal', () => bookmarkModal?.show($currentTimestamp)),
+			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show($currentTimestamp)),
+			hotkeys.on('D', () =>
+				stores
+					.bookmarks({ projectId: $projectId })
+					.create({ timestampMs: $currentTimestamp })
+					.then(() => toasts.success('Bookmark created'))
+			)
+		)
 	);
 </script>
 
@@ -240,3 +256,5 @@
 
 	<slot />
 </div>
+
+<BookmarkModal bind:this={bookmarkModal} projectId={$projectId} />
