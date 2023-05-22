@@ -178,10 +178,16 @@ impl<'handler> Handler<'handler> {
                     .context("failed to send deltas event")?;
                 Ok(delta_events)
             }
-            events::Event::Bookmark(bookmark) => self
-                .index_handler
-                .index_bookmark(&bookmark)
-                .context("failed to index bookmark"),
+            events::Event::Bookmark(bookmark) => {
+                let bookmarks_events = self
+                    .index_handler
+                    .index_bookmark(&bookmark)
+                    .context("failed to index bookmark")?;
+                self.events_sender
+                    .send(app_events::Event::bookmark(&self.project_id, &bookmark))
+                    .context("failed to send bookmark event")?;
+                Ok(bookmarks_events)
+            }
         }
     }
 }

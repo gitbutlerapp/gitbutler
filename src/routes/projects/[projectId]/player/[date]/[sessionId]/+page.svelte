@@ -242,8 +242,6 @@
 				</span>
 				<span class="whitespace-nowrap text-zinc-500">
 					–
-					{currentDelta.timestampMs}
-					–
 					{new Date(currentDelta.timestampMs).toLocaleString('en-US')}
 				</span>
 			</div>

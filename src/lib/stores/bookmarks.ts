@@ -1,41 +1,16 @@
-import { asyncWritable, type Loadable } from '@square/svelte-store';
-import { type Bookmark, bookmarks } from '$lib/api';
+import { writable, type Loadable } from 'svelte-loadable-store';
+import { bookmarks, type Bookmark } from '$lib/api';
+import type { Readable } from 'svelte/store';
 
-export type Store = Loadable<Bookmark[]> & {
-	create: (params?: { note?: string; timestampMs?: number }) => Promise<Bookmark>;
-};
+const stores: Record<string, Readable<Loadable<Bookmark[]>>> = {};
 
-const stores: Record<string, Store> = {};
+export default (params: { projectId: string }) => {
+	if (params.projectId in stores) return stores[params.projectId];
 
-export default (params: { projectId: string }): Store => {
-	const { projectId } = params;
-	if (projectId in stores) {
-		return stores[projectId];
-	}
-	const store = asyncWritable<[], Bookmark[]>(
-		[],
-		() => bookmarks.list(params),
-		async (newValue, _parents, oldValue) => {
-			const changedBookmarks = newValue.filter((bookmark) => {
-				const oldBookmark = oldValue?.find((b) => b.timestampMs === bookmark.timestampMs);
-				if (!oldBookmark) return true;
-				return oldBookmark !== bookmark;
-			});
-			await Promise.all(changedBookmarks.map((bookmark) => bookmarks.upsert(bookmark)));
-			return newValue;
-		}
+	const { subscribe } = writable(bookmarks.list(params), (set) =>
+		bookmarks.subscribe(params, () => bookmarks.list(params).then(set))
 	);
-	return {
-		...store,
-		create: async ({ timestampMs, note }: { note?: string; timestampMs?: number } = {}) => {
-			const newBookmark = {
-				projectId,
-				timestampMs: timestampMs ?? Date.now(),
-				note: note ?? '',
-				deleted: false
-			};
-			await store.update((value) => [...value, newBookmark]);
-			return newBookmark;
-		}
-	};
+	const store = { subscribe };
+	stores[params.projectId] = store;
+	return store;
 };

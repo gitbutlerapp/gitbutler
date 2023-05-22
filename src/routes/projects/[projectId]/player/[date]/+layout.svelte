@@ -1,39 +1,19 @@
-<script lang="ts" context="module">
-	import { deltas, type Session, type Delta } from '$lib/api';
-	const enrichSession = async (projectId: string, session: Session, paths?: string[]) => {
-		const sessionDeltas = await deltas
-			.list({ projectId, sessionId: session.id, paths })
-			.then((deltas) =>
-				Object.entries(deltas)
-					.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
-					.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
-			);
-		return {
-			...session,
-			deltas: sessionDeltas
-		};
-	};
-</script>
-
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { IconChevronLeft, IconChevronRight } from '$lib/icons';
-	import { collapse } from '$lib/paths';
 	import { page } from '$app/stores';
 	import { asyncDerived, derived } from '@square/svelte-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
-	import { events, hotkeys, stores, toasts } from '$lib';
+	import { api, events, hotkeys, toasts } from '$lib';
 	import BookmarkModal from './BookmarkModal.svelte';
 	import tinykeys from 'tinykeys';
 	import { goto } from '$app/navigation';
 	import { unsubscribe } from '$lib/utils';
+	import SessionCard from './SessionCard.svelte';
 
 	export let data: LayoutData;
 	const { currentFilepath, currentTimestamp } = data;
-
-	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
-	const lexically = (a: string, b: string) => a.localeCompare(b);
 
 	const dateSessions = derived([data.sessions, page], ([sessions, page]) =>
 		sessions?.filter(
@@ -47,12 +27,16 @@
 	const richSessions = asyncDerived(
 		[dateSessions, fileFilter, projectId],
 		async ([sessions, fileFilter, projectId]) => {
-			const paths = fileFilter ? [fileFilter] : undefined;
-			const richSessions = await Promise.all(
-				sessions.map((s) => enrichSession(projectId, s, paths))
-			);
-			return richSessions
-				.filter((s) => s.deltas.length > 0)
+			return sessions
+				.map((session) => ({
+					...session,
+					deltas: derived(api.deltas.Deltas({ projectId, sessionId: session.id }), (deltas) => {
+						if (!fileFilter) return deltas;
+						return Object.fromEntries(
+							Object.entries(deltas).filter(([path]) => fileFilter.includes(path))
+						);
+					})
+				}))
 				.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
 		}
 	);
@@ -90,25 +74,6 @@
 		}
 	});
 
-	const sessionRange = (session: Session) => {
-		const day = new Date(session.meta.startTimestampMs).toLocaleString('en-US', {
-			month: 'short',
-			day: 'numeric'
-		});
-		const start = new Date(session.meta.startTimestampMs).toLocaleString('en-US', {
-			hour: 'numeric',
-			minute: 'numeric'
-		});
-		const end = new Date(session.meta.lastTimestampMs).toLocaleString('en-US', {
-			hour: 'numeric',
-			minute: 'numeric'
-		});
-		return `${day} ${start} - ${end}`;
-	};
-
-	const sessionDuration = (session: Session) =>
-		`${Math.round((session.meta.lastTimestampMs - session.meta.startTimestampMs) / 1000 / 60)} min`;
-
 	const removeFromSearchParams = (params: URLSearchParams, key: string) => {
 		params.delete(key);
 		return params;
@@ -137,9 +102,13 @@
 			events.on('openBookmarkModal', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('D', () =>
-				stores
-					.bookmarks({ projectId: $projectId })
-					.create({ timestampMs: $currentTimestamp })
+				api.bookmarks
+					.upsert({
+						projectId: $projectId,
+						note: '',
+						timestampMs: $currentTimestamp,
+						deleted: false
+					})
 					.then(() => toasts.success('Bookmark created'))
 			)
 		)
@@ -172,44 +141,12 @@
 		>
 			{#each $richSessions as session}
 				{@const isCurrent = session.id === $currentSession?.id}
-				{@const filesChagned = new Set(session.deltas.map(([path]) => path)).size}
-				<li
-					id={isCurrent ? 'current-session' : ''}
-					class:bg-card-active={isCurrent}
-					class="session-card rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
-				>
-					<a href={getSessionURI(session.id)} class:pointer-events-none={isCurrent} class="w-full">
-						<div class="flex flex-row justify-between rounded-t px-3 pt-3">
-							<span>{sessionRange(session)}</span>
-							<span>{sessionDuration(session)}</span>
-						</div>
-
-						<span class="flex flex-row justify-between px-3 pb-3">
-							{filesChagned}
-							{filesChagned !== 1 ? 'files' : 'file'}
-						</span>
-
-						{#if isCurrent}
-							<ul
-								class="list-disk list-none overflow-hidden rounded-bl rounded-br bg-zinc-800 py-1 pl-0 pr-2"
-								style:list-style="disc"
-							>
-								{#each session.deltas
-									.map((d) => d[0])
-									.filter(unique)
-									.sort(lexically) as filename}
-									<li
-										class:text-zinc-100={$currentFilepath === filename}
-										class:bg-[#3356C2]={$currentFilepath === filename}
-										class="mx-5 ml-1 w-full list-none rounded p-1 text-zinc-500"
-									>
-										{collapse(filename)}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					</a>
-				</li>
+				<SessionCard
+					{isCurrent}
+					{session}
+					deltas={session.deltas}
+					currentFilepath={$currentFilepath}
+				/>
 			{:else}
 				<div class="mt-4 text-center text-zinc-300">No activities found</div>
 			{/each}
