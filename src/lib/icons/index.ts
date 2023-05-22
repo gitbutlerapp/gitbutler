@@ -25,3 +25,4 @@ export { default as IconArrowRight } from './IconArrowRight.svelte';
 export { default as IconBookmark } from './IconBookmark.svelte';
 export { default as IconFolder } from './IconFolder.svelte';
 export { default as IconEmail } from './IconEmail.svelte';
+export { default as IconBookmarkFilled } from './IconBookmarkFilled.svelte';

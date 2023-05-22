@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use tauri::Manager;
 
-use crate::{deltas, sessions};
+use crate::{bookmarks, deltas, sessions};
 
 #[derive(Clone)]
 pub struct Sender {
@@ -62,6 +62,13 @@ impl Event {
         Event {
             name: format!("project://{}/sessions", project_id),
             payload: serde_json::to_value(session).unwrap(),
+        }
+    }
+
+    pub fn bookmark(project_id: &str, bookmark: &bookmarks::Bookmark) -> Self {
+        Event {
+            name: format!("project://{}/bookmarks", project_id),
+            payload: serde_json::to_value(bookmark).unwrap(),
         }
     }
 

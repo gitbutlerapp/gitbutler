@@ -44,6 +44,9 @@ const config = {
 			icon: {
 				default: '#A1A1AA'
 			},
+			bookmark: {
+				selected: '#2563EB'
+			},
 			white: '#FFFFFF',
 			transparent: 'transparent',
 			gray: {
