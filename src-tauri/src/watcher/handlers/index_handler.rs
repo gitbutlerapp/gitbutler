@@ -60,14 +60,7 @@ impl<'handler> Handler<'handler> {
     }
 
     pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {
-        match self.bookmarks_database.get_by_id(&bookmark.id)? {
-            Some(existing) => {
-                if existing.updated_timestamp_ms < bookmark.updated_timestamp_ms {
-                    self.bookmarks_database.upsert(&bookmark)?;
-                }
-            }
-            None => self.bookmarks_database.upsert(&bookmark)?,
-        }
+        self.bookmarks_database.upsert(&bookmark)?;
         Ok(vec![])
     }
 

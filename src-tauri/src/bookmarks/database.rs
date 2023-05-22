@@ -16,30 +16,14 @@ impl Database {
         Self { database }
     }
 
-    pub fn get_by_id(&self, id: &str) -> Result<Option<Bookmark>> {
-        self.database.transaction(|tx| {
-            let mut stmt = get_by_id_stmt(tx).context("Failed to prepare get_by_id statement")?;
-            let mut rows = stmt
-                .query(rusqlite::named_params! { ":id": id })
-                .context("Failed to execute get_by_id statement")?;
-            if let Some(row) = rows.next()? {
-                Ok(Some(parse_row(row)?))
-            } else {
-                Ok(None)
-            }
-        })
-    }
-
     pub fn upsert(&self, bookmark: &Bookmark) -> Result<()> {
         self.database.transaction(|tx| -> Result<()> {
             let mut stmt = insert_stmt(tx).context("Failed to prepare insert statement")?;
-            let created_timestamp_ms = bookmark.created_timestamp_ms.to_string();
-            let updated_timestamp_ms = bookmark.updated_timestamp_ms.to_string();
             stmt.execute(rusqlite::named_params! {
-                ":id": &bookmark.id,
                 ":project_id": &bookmark.project_id,
-                ":created_timestamp_ms": &created_timestamp_ms,
-                ":updated_timestamp_ms": &updated_timestamp_ms,
+                ":timestamp_ms": &bookmark.timestamp_ms.to_string(),
+                ":created_timestamp_ms": &bookmark.created_timestamp_ms.to_string(),
+                ":updated_timestamp_ms": &bookmark.updated_timestamp_ms.to_string(),
                 ":note": &bookmark.note,
                 ":deleted": &bookmark.deleted,
             })
@@ -104,24 +88,12 @@ fn insert_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "
-        INSERT INTO `bookmarks` (`id`, `project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `note`, `deleted`)
-        VALUES (:id, :project_id, :created_timestamp_ms, :updated_timestamp_ms, :note, :deleted)
-        ON CONFLICT(`id`) DO UPDATE SET
+        INSERT INTO `bookmarks` (`project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `timestamp_ms`, `note`, `deleted`)
+        VALUES (:project_id, :created_timestamp_ms, :updated_timestamp_ms, :timestamp_ms, :note, :deleted)
+        ON CONFLICT(`project_id`, `timestamp_ms`) DO UPDATE SET
             `updated_timestamp_ms` = :updated_timestamp_ms,
             `note` = :note,
             `deleted` = :deleted
-        ",
-    )?)
-}
-
-fn get_by_id_stmt<'conn>(
-    tx: &'conn rusqlite::Transaction,
-) -> Result<rusqlite::CachedStatement<'conn>> {
-    Ok(tx.prepare_cached(
-        "
-        SELECT `id`, `project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `note`, `deleted`
-        FROM `bookmarks`
-        WHERE `id` = :id
         ",
     )?)
 }
@@ -131,12 +103,12 @@ fn list_by_project_id_range_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "
-        SELECT `id`, `project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `note`, `deleted`
+        SELECT `project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `note`, `deleted`, `timestamp_ms`
         FROM `bookmarks`
         WHERE `project_id` = :project_id
-        AND `updated_timestamp_ms` >= :start
-        AND `updated_timestamp_ms` < :end
-        ORDER BY `created_timestamp_ms` DESC
+        AND `timestamp_ms` >= :start
+        AND `timestamp_ms` < :end
+        ORDER BY `timestamp_ms` DESC
         ",
     )?)
 }
@@ -146,7 +118,7 @@ fn list_by_project_id_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "
-        SELECT `id`, `project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `note`, `deleted`
+        SELECT `project_id`, `created_timestamp_ms`, `updated_timestamp_ms`, `note`, `deleted`, `timestamp_ms`
         FROM `bookmarks`
         WHERE `project_id` = :project_id
         ORDER BY `created_timestamp_ms` DESC
@@ -156,20 +128,24 @@ fn list_by_project_id_stmt<'conn>(
 
 fn parse_row(row: &rusqlite::Row) -> Result<Bookmark> {
     Ok(Bookmark {
-        id: row.get(0).context("Failed to get id")?,
-        project_id: row.get(1).context("Failed to get project_id")?,
+        project_id: row.get(0).context("Failed to get project_id")?,
         created_timestamp_ms: row
-            .get::<usize, String>(2)
+            .get::<usize, String>(1)
             .context("Failed to get created_timestamp_ms")?
             .parse::<u128>()
             .context("Failed to parse created_timestamp_ms")?,
         updated_timestamp_ms: row
-            .get::<usize, String>(3)
+            .get::<usize, String>(2)
             .context("Failed to get updated_timestamp_ms")?
             .parse::<u128>()
             .context("Failed to parse updated_timestamp_ms")?,
-        note: row.get(4).context("Failed to get note")?,
-        deleted: row.get(5).context("Failed to get deleted")?,
+        note: row.get(3).context("Failed to get note")?,
+        deleted: row.get(4).context("Failed to get deleted")?,
+        timestamp_ms: row
+            .get::<usize, String>(5)
+            .context("Failed to get timestamp_ms")?
+            .parse::<u128>()
+            .context("Failed to parse timestamp_ms")?,
     })
 }
 
@@ -183,10 +159,10 @@ mod tests {
         let database = Database::new(db);
 
         let bookmark = Bookmark {
-            id: "id".to_string(),
             project_id: "project_id".to_string(),
-            created_timestamp_ms: 123,
-            updated_timestamp_ms: 123,
+            timestamp_ms: 123,
+            created_timestamp_ms: 0,
+            updated_timestamp_ms: 0,
             note: "note".to_string(),
             deleted: false,
         };
@@ -206,20 +182,20 @@ mod tests {
         let database = Database::new(db);
 
         let bookmark_one = Bookmark {
-            id: "id".to_string(),
             project_id: "project_id".to_string(),
-            created_timestamp_ms: 123,
-            updated_timestamp_ms: 123,
+            timestamp_ms: 123,
+            created_timestamp_ms: 0,
+            updated_timestamp_ms: 0,
             note: "note".to_string(),
             deleted: false,
         };
         database.upsert(&bookmark_one)?;
 
         let bookmark_two = Bookmark {
-            id: "id2".to_string(),
             project_id: "project_id".to_string(),
-            created_timestamp_ms: 456,
-            updated_timestamp_ms: 456,
+            timestamp_ms: 456,
+            created_timestamp_ms: 0,
+            updated_timestamp_ms: 1,
             note: "note".to_string(),
             deleted: false,
         };
@@ -239,27 +215,31 @@ mod tests {
         let db = database::Database::memory()?;
         let database = Database::new(db);
 
-        assert_eq!(database.get_by_id("id")?, None);
-
         let bookmark = Bookmark {
-            id: "id".to_string(),
             project_id: "project_id".to_string(),
-            created_timestamp_ms: 123,
-            updated_timestamp_ms: 123,
+            timestamp_ms: 123,
+            created_timestamp_ms: 0,
+            updated_timestamp_ms: 0,
             note: "note".to_string(),
             deleted: false,
         };
 
         database.upsert(&bookmark)?;
-        assert_eq!(database.get_by_id(&bookmark.id)?, Some(bookmark.clone()));
+        assert_eq!(
+            database.list_by_project_id_all(&bookmark.project_id)?,
+            vec![bookmark.clone()]
+        );
 
         let updated = Bookmark {
             note: "updated".to_string(),
-            updated_timestamp_ms: 456,
+            deleted: true,
             ..bookmark.clone()
         };
         database.upsert(&updated)?;
-        assert_eq!(database.get_by_id(&bookmark.id.clone())?, Some(updated));
+        assert_eq!(
+            database.list_by_project_id_all(&bookmark.project_id)?,
+            vec![updated.clone()]
+        );
 
         Ok(())
     }
