@@ -8,13 +8,16 @@
 	const bookmarks = stores.bookmarks({ projectId });
 
 	let isCreating = false;
+	let timestampMs: number | undefined;
 
 	const reset = () => {
 		note = '';
+		timestampMs = undefined;
 	};
 
-	export const show = () => {
+	export const show = (ts: number) => {
 		reset();
+		timestampMs = ts;
 		modal.show();
 	};
 
@@ -24,7 +27,7 @@
 	const createBookmark = () =>
 		Promise.resolve()
 			.then(() => (isCreating = true))
-			.then(() => bookmarks.create({ note }))
+			.then(() => bookmarks.create({ note, timestampMs }))
 			.then(() => {
 				toasts.success('Bookmark created');
 				modal.close();

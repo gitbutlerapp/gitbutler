@@ -21,7 +21,6 @@ export default (params: { projectId: string }): Store => {
 				if (!oldBookmark) return true;
 				return oldBookmark !== bookmark;
 			});
-			console.log('changedBookmarks', changedBookmarks);
 			await Promise.all(changedBookmarks.map((bookmark) => bookmarks.upsert(bookmark)));
 			return newValue;
 		}

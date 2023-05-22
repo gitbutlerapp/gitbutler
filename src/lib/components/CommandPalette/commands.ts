@@ -1,5 +1,5 @@
 import { type Project, git } from '$lib/api';
-import { events, stores } from '$lib';
+import { events } from '$lib';
 import {
 	IconGitCommit,
 	IconFile,
@@ -13,6 +13,8 @@ import {
 	IconBookmark
 } from '$lib/icons';
 import type { SvelteComponent } from 'svelte';
+import { page } from '$app/stores';
+import { get } from '@square/svelte-store';
 
 type ActionLink = {
 	href: string;
@@ -80,6 +82,22 @@ const projectsGroup = ({ projects, input }: { projects: Project[]; input: string
 const commandsGroup = ({ project, input }: { project?: Project; input: string }): Group => ({
 	title: 'Commands',
 	commands: [
+		...(project && get(page).params.date
+			? [
+					{
+						title: 'Bookmark',
+						hotkey: 'Meta+Shift+D',
+						action: () => events.emit('openBookmarkModal'),
+						icon: IconBookmark
+					},
+					{
+						title: 'Quick Bookmark',
+						hotkey: 'D',
+						action: () => events.emit('createBookmark', { projectId: project.id }),
+						icon: IconBookmark
+					}
+			  ]
+			: []),
 		...(project
 			? [
 					{
@@ -95,18 +113,6 @@ const commandsGroup = ({ project, input }: { project?: Project; input: string })
 							href: `/projects/${project.id}/player/`
 						},
 						icon: IconRewind
-					},
-					{
-						title: 'Quick Bookmark',
-						hotkey: 'D',
-						action: () => stores.bookmarks({ projectId: project.id }).create(),
-						icon: IconBookmark
-					},
-					{
-						title: 'Bookmark',
-						hotkey: 'Meta+Shift+D',
-						action: () => events.emit('openBookmarkModal'),
-						icon: IconBookmark
 					},
 					{
 						title: 'Project settings',

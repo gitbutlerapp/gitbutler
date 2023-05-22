@@ -8,6 +8,7 @@ type Events = {
 	openQuickCommitModal: () => void;
 	openSendIssueModal: () => void;
 	openBookmarkModal: () => void;
+	createBookmark: (params: { projectId: string }) => void;
 };
 
 const events = createNanoEvents<Events>();
