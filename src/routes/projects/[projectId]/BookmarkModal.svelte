@@ -1,0 +1,71 @@
+<script lang="ts">
+	import { log, stores, toasts } from '$lib';
+	import { Button, Modal } from '$lib/components';
+	import { IconBookmark } from '$lib/icons';
+
+	export let projectId: string;
+
+	const bookmarks = stores.bookmarks({ projectId });
+
+	let isCreating = false;
+
+	const reset = () => {
+		note = '';
+	};
+
+	export const show = () => {
+		reset();
+		modal.show();
+	};
+
+	let modal: Modal;
+	let note: '';
+
+	const createBookmark = () =>
+		Promise.resolve()
+			.then(() => (isCreating = true))
+			.then(() => bookmarks.create({ note }))
+			.then(() => {
+				toasts.success('Bookmark created');
+				modal.close();
+			})
+			.catch((err) => {
+				log.error(err);
+				toasts.error('Failed to create bookmark');
+			})
+			.finally(() => (isCreating = false));
+</script>
+
+<Modal bind:this={modal} title="Bookmark" icon={IconBookmark}>
+	<form class="flex w-full flex-col gap-2">
+		<input type="submit" hidden />
+		<span>Note</span>
+		<!-- svelte-ignore a11y-autofocus -->
+		<textarea
+			on:keydown={(e) => {
+				if (e.key === 'Enter' && e.metaKey) createBookmark();
+			}}
+			autofocus
+			autocomplete="off"
+			autocorrect="off"
+			spellcheck="true"
+			name="description"
+			disabled={isCreating}
+			class="
+                h-full w-full resize-none rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
+                hover:border-zinc-500/80
+                focus:border-[1px] focus:focus:border-blue-600 
+                focus:ring-2 focus:ring-blue-600/30
+            "
+			rows="6"
+			bind:value={note}
+		/>
+
+		<span class="text-text-subdued"> Using hashtags to help search for bookmarks later </span>
+	</form>
+
+	<svelte:fragment slot="controls" let:close>
+		<Button kind="outlined" on:click={close}>Close</Button>
+		<Button loading={isCreating} color="purple" on:click={() => createBookmark()}>Bookmark</Button>
+	</svelte:fragment>
+</Modal>

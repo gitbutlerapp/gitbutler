@@ -1,5 +1,5 @@
-import { type Project, git, bookmarks } from '$lib/api';
-import { events, stores, api } from '$lib';
+import { type Project, git } from '$lib/api';
+import { events, stores } from '$lib';
 import {
 	IconGitCommit,
 	IconFile,
@@ -100,6 +100,12 @@ const commandsGroup = ({ project, input }: { project?: Project; input: string })
 						title: 'Quick Bookmark',
 						hotkey: 'D',
 						action: () => stores.bookmarks({ projectId: project.id }).create(),
+						icon: IconBookmark
+					},
+					{
+						title: 'Bookmark',
+						hotkey: 'Meta+Shift+D',
+						action: () => events.emit('openBookmarkModal'),
 						icon: IconBookmark
 					},
 					{

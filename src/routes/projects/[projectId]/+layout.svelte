@@ -10,6 +10,8 @@
 	import { unsubscribe } from '$lib/utils';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 	import { events, hotkeys, stores } from '$lib';
+	import BookmarkModal from './BookmarkModal.svelte';
+	import { bookmarks } from '$lib/stores';
 
 	export let data: LayoutData;
 	const { cloud, project, head, statuses, diffs } = data;
@@ -26,10 +28,14 @@
 	$: selection = $page?.route?.id?.split('/')?.[3];
 
 	let quickCommitModal: QuickCommitModal;
+	let bookmarkModal: BookmarkModal;
 	onMount(() =>
 		unsubscribe(
 			events.on('openQuickCommitModal', () => quickCommitModal?.show()),
+			events.on('openBookmarkModal', () => bookmarkModal?.show()),
 
+			hotkeys.on('D', () => bookmarks({ projectId: $project.id }).create()),
+			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show()),
 			hotkeys.on('C', () => events.emit('openQuickCommitModal')),
 			hotkeys.on('Meta+Shift+C', () => goto(`/projects/${$project.id}/commit/`)),
 			hotkeys.on('Meta+T', () => goto(`/projects/${$project.id}/terminal/`)),
@@ -158,4 +164,8 @@
 			statuses={$statuses}
 		/>
 	{/if}
+{/await}
+
+{#await project.load() then}
+	<BookmarkModal bind:this={bookmarkModal} projectId={$project.id} />
 {/await}

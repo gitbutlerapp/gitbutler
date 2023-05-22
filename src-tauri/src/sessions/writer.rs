@@ -196,7 +196,7 @@ impl<'writer> SessionWriter<'writer> {
         log::info!(
             "{}: wrote bookmark {}",
             self.repository.project_id,
-            &bookmark.id
+            bookmark.timestamp_ms
         );
 
         Ok(())

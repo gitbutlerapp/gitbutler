@@ -26,7 +26,7 @@ extern crate log;
 
 use anyhow::{Context, Result};
 use serde::{ser::SerializeMap, Serialize};
-use std::{collections::HashMap, ops};
+use std::{collections::HashMap, ops, time};
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
@@ -486,8 +486,23 @@ async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn upsert_bookmark(handle: tauri::AppHandle, bookmark: bookmarks::Bookmark) -> Result<(), Error> {
+async fn upsert_bookmark(
+    handle: tauri::AppHandle, 
+    project_id: String,
+    timestamp_ms: u64,
+    note: String,
+    deleted: bool
+) -> Result<(), Error> {
     let app = handle.state::<app::App>();
+    let now = time::UNIX_EPOCH.elapsed().context("failed to get time")?.as_millis();
+    let bookmark = bookmarks::Bookmark { 
+        project_id,
+        timestamp_ms: timestamp_ms.try_into().context("failed to convert timestamp")?,
+        created_timestamp_ms: now,
+        updated_timestamp_ms: now, 
+        note,
+        deleted
+    };
     app.upsert_bookmark(&bookmark).context("failed to upsert bookmark")?;
     Ok(())
 }
