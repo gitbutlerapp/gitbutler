@@ -1,77 +1,18 @@
 <script lang="ts">
 	import Button from '$lib/components/Button/Button.svelte';
-	import { onMount } from 'svelte';
+	import type { PageData } from './$types';
+	import { CloudApi } from '$lib/api';
+	import { stores } from '$lib';
 
-	const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
-		let timeout: ReturnType<typeof setTimeout>;
-		return (...args: any[]) => {
-			clearTimeout(timeout);
-			timeout = setTimeout(() => fn(...args), delay);
-		};
-	};
+	const cloud = CloudApi();
+	const user = stores.user;
 
-	// const chainUrl = 'http://127.0.0.1:8000';
-	const chainUrl = 'https://zpuszumgur.us-east-1.awsapprunner.com';
-
-	async function createChat() {
-		const response = await fetch(`${chainUrl}/chats`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({})
-		});
-
-		const data = await response.json();
-		return data;
-	}
-
-	async function getChatHistory(id: string) {
-		const response = await fetch(`${chainUrl}/chats/${id}`, {
-			method: 'GET'
-		});
-
-		const data = await response.json();
-		return data;
-	}
-
-	async function newChatMessage(id: string, text: string) {
-		const response = await fetch(`${chainUrl}/chats`, {
-			method: 'PATCH',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({ id, text: text })
-		});
-
-		const sequence = await response.json();
-		return sequence;
-	}
-
-	async function getSummary(id: string) {
-		const response = await fetch(`${chainUrl}/summaries/${id}`, {
-			method: 'GET'
-		});
-
-		const data = await response.json();
-		return data;
-	}
-
-	let summaryId = '';
-	let sequence = 0;
-	let processedSeq = 0;
-
-	$: if (summaryId && processedSeq != sequence) {
-		debounce(() => {
-			console.log('polling summary');
-			getSummary(summaryId).then((data) => {
-				processedSeq = data.sequence;
-			});
-		}, 1000)();
-	}
+	export let data: PageData;
+	const { project } = data;
 
 	const setupChat = () => {
-		createChat().then((data) => {
+		cloud.chat.new($user?.access_token || '', $project?.api?.repository_id || '').then((data) => {
+			console.log('new chat', data);
 			chatId = data.id;
 		});
 		chatHistory = [];
@@ -84,18 +25,22 @@
 	let completedSeq = 0;
 	let requestedSeq = 0;
 
-	onMount(setupChat);
+	$: if ($user) {
+		setupChat();
+	}
 
 	let ms = 2000;
 	let clear: any;
 	$: if (chatId) {
 		clearInterval(clear);
 		clear = setInterval(() => {
-			getChatHistory(chatId).then((data) => {
-				chatHistory = data.history;
-				completedSeq = data.sequence;
-				console.log(chatHistory);
-			});
+			cloud.chat
+				.history($user?.access_token || '', $project?.api?.repository_id || '', chatId)
+				.then((data) => {
+					console.log('history', data);
+					chatHistory = data.history;
+					completedSeq = data.sequence;
+				});
 		}, ms);
 	}
 
@@ -255,10 +200,17 @@
 					disabled={chatInput.length == 0 || !chatId}
 					color="primary"
 					on:click={() => {
-						newChatMessage(chatId, chatInput).then((data) => {
-							requestedSeq = +data;
-							chatInput = '';
-						});
+						cloud.chat
+							.newMessage(
+								$user?.access_token || '',
+								$project?.api?.repository_id || '',
+								chatId,
+								chatInput
+							)
+							.then((data) => {
+								requestedSeq = +data;
+								chatInput = '';
+							});
 					}}
 				>
 					Send
