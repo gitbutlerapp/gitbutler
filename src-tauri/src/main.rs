@@ -440,17 +440,6 @@ async fn git_switch_branch(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_push(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.git_gb_push(project_id).with_context(|| format!("failed to push git branch for project {}", project_id))?;
-    Ok(())
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn git_stage(
     handle: tauri::AppHandle,
     project_id: &str,
