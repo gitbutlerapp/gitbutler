@@ -121,7 +121,7 @@
 
 	<footer class="w-full text-sm font-medium">
 		<div class="flex h-8 flex-shrink-0 select-none items-center border-t border-zinc-700">
-			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2">
+			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
 				<Link href="/projects/{$project?.id}/settings">
 					{#if $project?.api?.sync}
 						<div class="flex flex-row items-center space-x-2 ">
