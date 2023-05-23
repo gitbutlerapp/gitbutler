@@ -58,14 +58,14 @@
 				>
 					{#each $dates as date}
 						{@const isToday = format(new Date(date), 'yyyy-MM-dd') === today}
-						<li>
+						<li class="date-card ">
 							<a
 								href="/projects/{$page.params.projectId}/player/{date}{$page.url.search}"
 								class:bg-card-active={date === $currentDate}
 								class:text-white={date === $currentDate}
 								class:border-zinc-700={date !== $currentDate}
 								class:bg-card-default={date !== $currentDate}
-								class="card max-h-content flex w-full flex-col items-center justify-around p-2 text-zinc-300 shadow transition duration-150 ease-out hover:ease-in"
+								class="card max-h-content flex w-full flex-col items-center justify-around p-2 text-zinc-300 shadow hover:bg-card-active transition duration-150 ease-out hover:ease-in"
 							>
 								{#if isToday}
 									<div class="py-2 text-lg leading-5">Today</div>
