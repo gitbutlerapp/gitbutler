@@ -268,7 +268,9 @@ async fn update_project(
     let project = app
         .update_project(&project)
         .with_context(|| format!("failed to update project {}", project.id))?;
-
+    if project.api.is_some() {
+        app.git_gb_push(&project.id).with_context(|| format!("failed to push git branch for project {}", &project.id))?;
+    }
     Ok(project)
 }
 
@@ -433,6 +435,17 @@ async fn git_switch_branch(
     let app = handle.state::<app::App>();
     app.git_switch_branch(project_id, branch)
         .with_context(|| format!("failed to switch git branch for project {}", project_id))?;
+    Ok(())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn git_push(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    app.git_gb_push(project_id).with_context(|| format!("failed to push git branch for project {}", project_id))?;
     Ok(())
 }
 

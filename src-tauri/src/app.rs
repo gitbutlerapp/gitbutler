@@ -438,6 +438,17 @@ impl App {
         project_repository.git_switch_branch(branch)
     }
 
+    pub fn git_gb_push(&self, project_id: &str) -> Result<()> {
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")?;
+        return gb_repository.push();
+    }
+
     pub fn git_stage_files<P: AsRef<std::path::Path>>(
         &self,
         project_id: &str,
