@@ -2,34 +2,31 @@
 	import type { Delta, Session } from '$lib/api';
 	import { page } from '$app/stores';
 	import { collapse } from '$lib/paths';
-	import { derived, type Loadable } from '@square/svelte-store';
+	import { derived } from '@square/svelte-store';
 	import { stores } from '$lib';
 	import { IconBookmarkFilled } from '$lib/icons';
 
 	export let isCurrent: boolean;
 	export let session: Session;
 	export let currentFilepath: string;
-	export let deltas: Loadable<Record<string, Delta[]>>;
+	export let deltas: Record<string, Delta[]>;
 
-	$: bookmarks = derived(
-		[stores.bookmarks({ projectId: session.projectId }), deltas],
-		([bookmarks, deltas]) => {
-			if (bookmarks.isLoading) return [];
-			const timestamps = Object.values(deltas ?? {}).flatMap((deltas) =>
-				deltas.map((d) => d.timestampMs)
-			);
-			const start = Math.min(...timestamps);
-			const end = Math.max(...timestamps);
-			return bookmarks.value
-				.filter((bookmark) => !bookmark.deleted)
-				.filter((bookmark) => bookmark.timestampMs >= start && bookmark.timestampMs < end);
-		}
-	);
+	$: bookmarks = derived(stores.bookmarks({ projectId: session.projectId }), (bookmarks) => {
+		if (bookmarks.isLoading) return [];
+		const timestamps = Object.values(deltas ?? {}).flatMap((deltas) =>
+			deltas.map((d) => d.timestampMs)
+		);
+		const start = Math.min(...timestamps);
+		const end = Math.max(...timestamps);
+		return bookmarks.value
+			.filter((bookmark) => !bookmark.deleted)
+			.filter((bookmark) => bookmark.timestampMs >= start && bookmark.timestampMs < end);
+	});
 
 	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
 	const lexically = (a: string, b: string) => a.localeCompare(b);
 
-	const changedFiles = derived(deltas, (deltas) => Object.keys(deltas ?? {}).filter(unique));
+	const changedFiles = Object.keys(deltas ?? {}).filter(unique);
 
 	const sessionDuration = (session: Session) =>
 		`${Math.round((session.meta.lastTimestampMs - session.meta.startTimestampMs) / 1000 / 60)} min`;
@@ -59,9 +56,15 @@
 		`/projects/${$page.params.projectId}/player/${
 			$page.params.date
 		}/${sessionId}?${removeFromSearchParams($page.url.searchParams, 'delta').toString()}`;
+
+	let card: HTMLLIElement;
+	$: if (isCurrent) {
+		card?.scrollIntoView({ behavior: 'smooth' });
+	}
 </script>
 
 <li
+	bind:this={card}
 	id={isCurrent ? 'current-session' : ''}
 	class:bg-card-active={isCurrent}
 	class="session-card relative rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md transition-colors duration-200 ease-in-out hover:bg-card-active"
@@ -81,27 +84,25 @@
 		</div>
 
 		<span class="flex flex-row justify-between px-3 pb-3">
-			{$changedFiles.length}
-			{$changedFiles.length !== 1 ? 'files' : 'file'}
+			{changedFiles.length}
+			{changedFiles.length !== 1 ? 'files' : 'file'}
 		</span>
 
 		{#if isCurrent}
-			{#await changedFiles.load() then}
-				<ul
-					class="list-disk list-none overflow-hidden rounded-bl rounded-br bg-zinc-800 py-1 pl-0 pr-2"
-					style:list-style="disc"
-				>
-					{#each $changedFiles.sort(lexically) as filename}
-						<li
-							class:text-zinc-100={currentFilepath === filename}
-							class:bg-[#3356C2]={currentFilepath === filename}
-							class="mx-5 ml-1 w-full list-none rounded p-1 text-zinc-500"
-						>
-							{collapse(filename)}
-						</li>
-					{/each}
-				</ul>
-			{/await}
+			<ul
+				class="list-disk list-none overflow-hidden rounded-bl rounded-br bg-zinc-800 py-1 pl-0 pr-2"
+				style:list-style="disc"
+			>
+				{#each changedFiles.sort(lexically) as filename}
+					<li
+						class:text-zinc-100={currentFilepath === filename}
+						class:bg-[#3356C2]={currentFilepath === filename}
+						class="mx-5 ml-1 w-full list-none rounded p-1 text-zinc-500"
+					>
+						{collapse(filename)}
+					</li>
+				{/each}
+			</ul>
 		{/if}
 	</a>
 </li>

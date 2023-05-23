@@ -155,7 +155,7 @@ devDependencies:
     specifier: ^0.3.0
     version: 0.3.0(prettier-plugin-svelte@2.9.0)(prettier@2.8.4)
   svelte:
-    specifier: ^3.55.1
+    specifier: ~3.55.1
     version: 3.55.1
   svelte-check:
     specifier: ^3.0.1
@@ -167,8 +167,8 @@ devDependencies:
     specifier: ^1.0.3
     version: 1.0.3(svelte@3.55.1)
   svelte-loadable-store:
-    specifier: ^1.0.1
-    version: 1.0.1
+    specifier: ^1.0.7
+    version: 1.0.7(svelte@3.55.1)
   svelte-outclick:
     specifier: ^3.5.0
     version: 3.5.0(svelte@3.55.1)
@@ -3655,10 +3655,12 @@ packages:
       svelte: 3.55.1
     dev: true
 
-  /svelte-loadable-store@1.0.1:
-    resolution: {integrity: sha512-ZPRBNqaDF6PW4nruHWh73b9WWdmt5SMAZ6he9KsZo4XDvl1h4jECBKPVdnHCc4zEQMCig01BofH3bwu67G44SQ==}
+  /svelte-loadable-store@1.0.7(svelte@3.55.1):
+    resolution: {integrity: sha512-FLahOiMtD9lxVNS9bzbdxHC8+D0y7qxZjaaeybCyxc9uzS3/9EMTSDpv/FMTLwncQ4syOtwz5oQBO+9iAqm7hQ==}
+    peerDependencies:
+      svelte: ^3.0.0
     dependencies:
-      svelte: 3.59.1
+      svelte: 3.55.1
     dev: true
 
   /svelte-outclick@3.5.0(svelte@3.55.1):
@@ -3735,11 +3737,6 @@ packages:
 
   /svelte@3.55.1:
     resolution: {integrity: sha512-S+87/P0Ve67HxKkEV23iCdAh/SX1xiSfjF1HOglno/YTbSTW7RniICMCofWGdJJbdjw3S+0PfFb1JtGfTXE0oQ==}
-    engines: {node: '>= 8'}
-    dev: true
-
-  /svelte@3.59.1:
-    resolution: {integrity: sha512-pKj8fEBmqf6mq3/NfrB9SLtcJcUvjYSWyePlfCqN9gujLB25RitWK8PvFzlwim6hD/We35KbPlRteuA6rnPGcQ==}
     engines: {node: '>= 8'}
     dev: true
 
