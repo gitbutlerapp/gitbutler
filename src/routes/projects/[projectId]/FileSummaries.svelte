@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { format, startOfDay } from 'date-fns';
-	import { deltas, type Delta } from '$lib/api';
-	import { derived } from '@square/svelte-store';
+	import type { Delta } from '$lib/api';
+	import { derived } from 'svelte-loadable-store';
 	import FileActivity from './FileActivity.svelte';
 	import { page } from '$app/stores';
 	import { Link } from '$lib/components';
@@ -9,16 +9,17 @@
 	import { bucketByTimestamp } from './histogram';
 	import { collapse } from '$lib/paths';
 	import type { Session } from '$lib/api';
+	import { stores } from '$lib';
 
 	export let sessions: Session[];
 
 	$: sessionDeltas = (sessions ?? []).map(({ id, projectId }) =>
-		deltas.Deltas({ sessionId: id, projectId })
+		stores.deltas({ sessionId: id, projectId })
 	);
 
 	$: deltasByDate = derived(sessionDeltas, (sessionDeltas) =>
-		sessionDeltas?.reduce((acc, sessionDelta) => {
-			Object.entries(sessionDelta ?? {}).forEach(([filepath, deltas]) => {
+		sessionDeltas.reduce((acc, sessionDelta) => {
+			Object.entries(sessionDelta).forEach(([filepath, deltas]) => {
 				const date = startOfDay(new Date(deltas[0].timestampMs)).toString();
 				if (!acc[date]) acc[date] = {};
 				if (!acc[date][filepath]) acc[date][filepath] = [];
@@ -43,15 +44,15 @@
 </script>
 
 <ul class="flex flex-1 flex-col space-y-4 overflow-y-auto pr-1">
-	{#await deltasByDate.load()}
+	{#if $deltasByDate.isLoading}
 		<li class="flex flex-1 space-y-4 rounded-lg border border-dashed border-zinc-400">
 			<div class="flex flex-1 flex-col items-center justify-center gap-4">
 				<IconLoading class="h-16 w-16 animate-spin text-zinc-400 " />
 				<h2 class="text-2xl font-bold text-zinc-400">Loading file changes...</h2>
 			</div>
 		</li>
-	{:then}
-		{#each Object.entries($deltasByDate) as [ts, fileDeltas]}
+	{:else}
+		{#each Object.entries($deltasByDate.value) as [ts, fileDeltas]}
 			{@const largestBucketSize = getLargestBucket(fileDeltas)}
 			{@const date = new Date(ts)}
 			<li class="card changed-day-card flex flex-col">
@@ -127,5 +128,5 @@
 				</div>
 			</div>
 		{/each}
-	{/await}
+	{/if}
 </ul>
