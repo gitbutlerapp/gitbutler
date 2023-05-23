@@ -1,10 +1,15 @@
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
+import { PUBLIC_CHAIN_API } from '$env/static/public';
 import * as log from '$lib/log';
 import { nanoid } from 'nanoid';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
 
 const getUrl = (path: string) => new URL(path, apiUrl).toString();
+
+const chainApiUrl = new URL(PUBLIC_CHAIN_API);
+
+const getChainUrl = (path: string) => new URL(path, chainApiUrl).toString();
 
 export type Feedback = {
 	id: number;
@@ -175,6 +180,42 @@ export default (
 						'X-Auth-Token': token
 					},
 					body: JSON.stringify(params)
+				}).then(parseResponseJSON)
+		},
+		chat: {
+			new: (token: string, repositoryId: string): Promise<{ id: string }> =>
+				fetch(getChainUrl(`${repositoryId}/chat`), {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-Auth-Token': token
+					}
+				}).then(parseResponseJSON),
+			history: (
+				token: string,
+				repositoryId: string,
+				chatId: string
+			): Promise<{ history: []; sequence: number }> =>
+				fetch(getChainUrl(`${repositoryId}/chat/${chatId}`), {
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-Auth-Token': token
+					}
+				}).then(parseResponseJSON),
+			newMessage: (
+				token: string,
+				repositoryId: string,
+				chatId: string,
+				message: string
+			): Promise<{ sequence: number }> =>
+				fetch(getChainUrl(`${repositoryId}/chat/${chatId}`), {
+					method: 'PATCH',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-Auth-Token': token
+					},
+					body: JSON.stringify({ text: message })
 				}).then(parseResponseJSON)
 		},
 		projects: {
