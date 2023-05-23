@@ -104,13 +104,13 @@
 		</div>
 	</div>
 
-	<div class="main-content-container flex w-2/3 flex-auto flex-col gap-4 py-4 px-8">
-		<h1 class="flex text-2xl text-zinc-300">
+	<div class="main-content-container flex w-2/3 flex-auto flex-col">
+		<h1 class="flex py-4 px-8 text-2xl text-zinc-300">
 			<span>{$project?.title}</span>
 			<span class="ml-2 text-zinc-600">Project</span>
 		</h1>
 
-		<h2 class="text-lg font-bold text-zinc-300">Recently changed files</h2>
+		<h2 class="py-4 px-8 text-lg font-bold text-zinc-300">Recently changed files</h2>
 
 		<FileSummaries sessions={$recentSessions} />
 	</div>

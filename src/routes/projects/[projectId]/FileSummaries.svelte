@@ -43,7 +43,7 @@
 		);
 </script>
 
-<ul class="flex flex-1 flex-col space-y-4 overflow-y-auto pr-1">
+<ul class="mr-1 flex flex-1 flex-col space-y-4 overflow-y-auto px-8 pb-8">
 	{#if $deltasByDate.isLoading}
 		<li class="flex flex-1 space-y-4 rounded-lg border border-dashed border-zinc-400">
 			<div class="flex flex-1 flex-col items-center justify-center gap-4">
