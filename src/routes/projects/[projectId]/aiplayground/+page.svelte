@@ -232,7 +232,7 @@
 		</div>
 
 		<div
-			class="absolute bottom-0 flex w-full flex-col gap-2 border-t border-zinc-700 p-4 rounded-br rounded-bl"
+			class="absolute bottom-0 flex w-full flex-col gap-2 rounded-br rounded-bl border-t border-zinc-700 p-4"
 			style="                
 				border-width: 0.5px; 
 				-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
@@ -266,7 +266,8 @@
 			</div>
 			<div class="flex">
 				<p class="text-sm text-zinc-500">
-					GitButler Chat may produce inaccurate statements about your code. Please use your judgement before you commit changes.
+					GitButler Chat may produce inaccurate statements about your code. Please use your
+					judgement before you commit changes.
 				</p>
 			</div>
 		</div>
