@@ -1484,9 +1484,9 @@ dependencies = [
  "reqwest",
  "rusqlite",
  "scopeguard",
- "sentry 0.31.0",
+ "sentry 0.31.1",
  "sentry-anyhow",
- "sentry-debug-images 0.31.0",
+ "sentry-debug-images 0.31.1",
  "sentry-rust-minidump",
  "serde",
  "serde-jsonlines",
@@ -3768,32 +3768,32 @@ dependencies = [
 
 [[package]]
 name = "sentry"
-version = "0.31.0"
+version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c3d7f8bf7373e75222452fcdd9347d857452a92d0eec738f941bc4656c5b5df"
+checksum = "37dd6c0cdca6b1d1ca44cde7fff289f2592a97965afec870faa7b81b9fc87745"
 dependencies = [
  "httpdate",
  "native-tls",
  "reqwest",
  "sentry-anyhow",
- "sentry-backtrace 0.31.0",
- "sentry-contexts 0.31.0",
- "sentry-core 0.31.0",
- "sentry-debug-images 0.31.0",
- "sentry-panic 0.31.0",
+ "sentry-backtrace 0.31.1",
+ "sentry-contexts 0.31.1",
+ "sentry-core 0.31.1",
+ "sentry-debug-images 0.31.1",
+ "sentry-panic 0.31.1",
  "tokio",
  "ureq",
 ]
 
 [[package]]
 name = "sentry-anyhow"
-version = "0.31.0"
+version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ef7f47c57a1146d553b4976f20e8bba370195a88858bdf6945a63c529549236"
+checksum = "d9c3d7032fff178c77c107c32c6d3337b12847adf67165ccc876c898e7154b00"
 dependencies = [
  "anyhow",
- "sentry-backtrace 0.31.0",
- "sentry-core 0.31.0",
+ "sentry-backtrace 0.31.1",
+ "sentry-core 0.31.1",
 ]
 
 [[package]]
@@ -3810,14 +3810,14 @@ dependencies = [
 
 [[package]]
 name = "sentry-backtrace"
-version = "0.31.0"
+version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03b7cdefbdca51f1146f0f24a3cb4ecb6428951f030ff5c720cfb5c60bd174c0"
+checksum = "c029fe8317cdd75cb2b52c600bab4e2ef64c552198e669ba874340447f330962"
 dependencies = [
  "backtrace",
  "once_cell",
  "regex",
- "sentry-core 0.31.0",
+ "sentry-core 0.31.1",
 ]
 
 [[package]]
@@ -3836,15 +3836,15 @@ dependencies = [
 
 [[package]]
 name = "sentry-contexts"
-version = "0.31.0"
+version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6af4cb29066e0e8df0cc3111211eb93543ccb09e1ccbe71de6d88b4bb459a2b1"
+checksum = "bc575098d73c8b942b589ab453b06e4c43527556dd8f95532220d1b54d7c6b4b"
 dependencies = [
  "hostname",
  "libc",
  "os_info",
  "rustc_version",
- "sentry-core 0.31.0",
+ "sentry-core 0.31.1",
  "uname",
 ]
 
@@ -3863,13 +3863,13 @@ dependencies = [
 
 [[package]]
 name = "sentry-core"
-version = "0.31.0"
+version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e781b55761e47a60d1ff326ae8059de22b0e6b0cee68eab1c5912e4fb199a76"
+checksum = "20216140001bbf05895f013abd0dae4df58faee24e016d54cbf107f070bac56b"
 dependencies = [
  "once_cell",
  "rand 0.8.5",
- "sentry-types 0.31.0",
+ "sentry-types 0.31.1",
  "serde",
  "serde_json",
 ]
@@ -3887,13 +3887,13 @@ dependencies = [
 
 [[package]]
 name = "sentry-debug-images"
-version = "0.31.0"
+version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e758030b31ee2cd97424a980dfa34a12dcd8477424861cf81ae3aa1f9f616a8c"
+checksum = "4886e99be0a23d3f5563d74503ae97cb3443af3b0d7004e084b2ad6f7c01c678"
 dependencies = [
  "findshlibs",
  "once_cell",
- "sentry-core 0.31.0",
+ "sentry-core 0.31.1",
 ]
 
 [[package]]
@@ -3908,12 +3908,12 @@ dependencies = [
 
 [[package]]
 name = "sentry-panic"
-version = "0.31.0"
+version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e0b877981990d9e84ae6916df61993d188fdf76afb59521f0aeaf9b8e6d26d0"
+checksum = "4e45cd0a113fc06d6edba01732010518816cdc8ce3bccc70f5e41570046bf046"
 dependencies = [
- "sentry-backtrace 0.31.0",
- "sentry-core 0.31.0",
+ "sentry-backtrace 0.31.1",
+ "sentry-core 0.31.1",
 ]
 
 [[package]]
@@ -3946,9 +3946,9 @@ dependencies = [
 
 [[package]]
 name = "sentry-types"
-version = "0.31.0"
+version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d642a04657cc77d8de52ae7c6d93a15cb02284eb219344a89c1e2b26bbaf578c"
+checksum = "d7f6959d8cb3a77be27e588eef6ce9a2a469651a556d9de662e4d07e5ace4232"
 dependencies = [
  "debugid",
  "getrandom 0.2.9",
