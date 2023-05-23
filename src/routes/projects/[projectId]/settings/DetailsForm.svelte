@@ -27,14 +27,7 @@
 	<fieldset class="flex flex-col gap-3">
 		<div class="flex flex-col gap-1">
 			<label for="path">Path</label>
-			<input
-				disabled
-				id="path"
-				name="path"
-				type="text"
-				class="w-full"
-				value={project?.path}
-			/>
+			<input disabled id="path" name="path" type="text" class="w-full" value={project?.path} />
 		</div>
 		<div class="flex flex-col gap-1">
 			<label for="name">Project Name</label>
