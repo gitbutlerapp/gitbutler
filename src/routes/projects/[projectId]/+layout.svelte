@@ -4,7 +4,7 @@
 	import { Button, Link, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { IconEmail, IconSearch, IconSettings, IconTerminal } from '$lib/icons';
+	import { IconEmail, IconRewind, IconSearch, IconSettings, IconTerminal } from '$lib/icons';
 	import QuickCommitModal from './QuickCommitModal.svelte';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
@@ -83,7 +83,16 @@
 				</div>
 			</div>
 
-			<ul class="flex gap-2">
+			<ul class="app-page-navigation flex gap-2">
+				<li>
+					<Tooltip label="Replay">
+						<Button
+							on:click={() => goto(`/projects/${$project.id}/player`)}
+							kind="plain"
+							icon={IconRewind}
+						/>
+					</Tooltip>
+				</li>
 				<li>
 					<Tooltip label="Terminal">
 						<Button
