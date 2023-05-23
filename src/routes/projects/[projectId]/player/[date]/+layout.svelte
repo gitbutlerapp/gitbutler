@@ -9,45 +9,38 @@
 	import { unsubscribe } from '$lib/utils';
 	import SessionsList from './SessionsList.svelte';
 	import SessionNavigations from './SessionNavigations.svelte';
+	import { IconLoading } from '$lib/icons';
 
 	export let data: LayoutData;
 	const { currentFilepath, currentTimestamp } = data;
 
-	let sessions = stores.sessions({ projectId: $page.params.projectId });
+	const filter = derived(page, (page) => page.url.searchParams.get('file'));
+	const projectId = derived(page, (page) => page.params.projectId);
 
-	let dateSessions = derived([sessions, page], ([sessions, page]) =>
+	$: sessions = stores.sessions({ projectId: $page.params.projectId });
+	$: dateSessions = derived([sessions, page], ([sessions, page]) =>
 		sessions
 			.filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date)
 			.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
 	);
 
-	let richSessions = derived([dateSessions, page], ([sessions, page]) =>
+	$: richSessions = derived([dateSessions, projectId, filter], ([sessions, projectId, filter]) =>
 		sessions.map((session) => ({
 			...session,
-			deltas: derived(
-				stores.deltas({ projectId: page.params.projectId, sessionId: session.id }),
-				(deltas) =>
-					Object.fromEntries(
-						Object.entries(deltas).filter(([path]) => {
-							const filter = page.url.searchParams.get('file');
-							return filter ? path === filter : true;
-						})
-					)
+			deltas: derived(stores.deltas({ projectId: projectId, sessionId: session.id }), (deltas) =>
+				Object.fromEntries(
+					Object.entries(deltas).filter(([path]) => (filter ? path === filter : true))
+				)
 			),
-			files: derived(
-				stores.files({ projectId: page.params.projectId, sessionId: session.id }),
-				(files) =>
-					Object.fromEntries(
-						Object.entries(files).filter(([path]) => {
-							const filter = page.url.searchParams.get('file');
-							return filter ? path === filter : true;
-						})
-					)
+			files: derived(stores.files({ projectId: projectId, sessionId: session.id }), (files) =>
+				Object.fromEntries(
+					Object.entries(files).filter(([path]) => (filter ? path === filter : true))
+				)
 			)
 		}))
 	);
 
-	let currentSession = derived(
+	$: currentSession = derived(
 		[page, richSessions, data.currentSessionId],
 		([page, sessions, currentSessionId]) =>
 			sessions?.find((s) => s.id === currentSessionId) ??
@@ -77,9 +70,7 @@
 <article id="activities" class="card my-2 flex w-80 flex-shrink-0 flex-grow-0 flex-col xl:w-96">
 	{#if $richSessions.isLoading || $currentSession.isLoading}
 		<div class="flex h-full flex-col items-center justify-center">
-			<div
-				class="loader border-gray-200 mb-4 h-12 w-12 rounded-full border-4 border-t-4 ease-linear"
-			/>
+			<IconLoading class="mb-4 h-12 w-12 animate-spin ease-linear" />
 			<h2 class="text-center text-2xl font-medium text-gray-500">Loading...</h2>
 		</div>
 	{:else}
