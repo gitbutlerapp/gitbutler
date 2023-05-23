@@ -64,7 +64,7 @@
 <li
 	id={isCurrent ? 'current-session' : ''}
 	class:bg-card-active={isCurrent}
-	class="session-card relative rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md"
+	class="session-card relative rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md transition-colors duration-200 ease-in-out hover:bg-card-active"
 >
 	{#await bookmarks.load() then}
 		{#if $bookmarks?.length > 0}
