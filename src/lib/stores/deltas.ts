@@ -16,7 +16,9 @@ export default (params: { projectId: string; sessionId: string }) => {
 			} else {
 				set({
 					...oldValue.value,
-					[filePath]: [...oldValue.value[filePath], ...newDeltas]
+					[filePath]: oldValue.value[filePath]
+						? [...oldValue.value[filePath], ...newDeltas]
+						: newDeltas
 				});
 			}
 		})
