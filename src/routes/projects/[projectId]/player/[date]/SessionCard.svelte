@@ -26,7 +26,7 @@
 	const unique = (value: any, index: number, self: any[]) => self.indexOf(value) === index;
 	const lexically = (a: string, b: string) => a.localeCompare(b);
 
-	const changedFiles = Object.keys(deltas ?? {}).filter(unique);
+	$: changedFiles = Object.keys(deltas ?? {}).filter(unique);
 
 	const sessionDuration = (session: Session) =>
 		`${Math.round((session.meta.lastTimestampMs - session.meta.startTimestampMs) / 1000 / 60)} min`;
