@@ -27,14 +27,7 @@
 	<fieldset class="flex flex-col gap-3">
 		<div class="flex flex-col gap-1">
 			<label for="path">Path</label>
-			<input
-				disabled
-				id="path"
-				name="path"
-				type="text"
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
-				value={project?.path}
-			/>
+			<input disabled id="path" name="path" type="text" class="w-full" value={project?.path} />
 		</div>
 		<div class="flex flex-col gap-1">
 			<label for="name">Project Name</label>
@@ -42,7 +35,7 @@
 				id="name"
 				name="name"
 				type="text"
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
+				class="w-full"
 				placeholder="Project name can't be empty"
 				bind:value={title}
 				required
@@ -58,7 +51,7 @@
 				id="description"
 				name="description"
 				rows="3"
-				class="w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300"
+				class="w-full"
 				value={description}
 				on:input={onDescriptionInput}
 			/>
