@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { scale } from 'svelte/transition';
-	import clickOutside from './click_outside';
+	import OutClick from 'svelte-outclick';
 
 	let dialog: HTMLDialogElement;
 
@@ -28,8 +28,10 @@
 	on:close
 >
 	{#if open}
-		<div use:clickOutside on:outclick={close} class="flex">
-			<slot {close} isOpen={open} />
-		</div>
+		<OutClick on:outclick={close}>
+			<div class="flex">
+				<slot {close} isOpen={open} />
+			</div>
+		</OutClick>
 	{/if}
 </dialog>
