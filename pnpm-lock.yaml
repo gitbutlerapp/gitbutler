@@ -169,6 +169,9 @@ devDependencies:
   svelte-loadable-store:
     specifier: ^1.0.1
     version: 1.0.1
+  svelte-outclick:
+    specifier: ^3.5.0
+    version: 3.5.0(svelte@3.55.1)
   svelte-resize-observer:
     specifier: ^2.0.0
     version: 2.0.0
@@ -3656,6 +3659,14 @@ packages:
     resolution: {integrity: sha512-ZPRBNqaDF6PW4nruHWh73b9WWdmt5SMAZ6he9KsZo4XDvl1h4jECBKPVdnHCc4zEQMCig01BofH3bwu67G44SQ==}
     dependencies:
       svelte: 3.59.1
+    dev: true
+
+  /svelte-outclick@3.5.0(svelte@3.55.1):
+    resolution: {integrity: sha512-mny/D6aOoAjw2rmMy1dUKUkNnLhqZXZ218t38gLLW790LLtloTk/FsZzSRfVqb3+oCLTAYGVBQxwiMy6i5TlHw==}
+    peerDependencies:
+      svelte: 3.x
+    dependencies:
+      svelte: 3.55.1
     dev: true
 
   /svelte-preprocess@5.0.1(postcss-load-config@4.0.1)(postcss@8.4.21)(svelte@3.55.1)(typescript@4.9.5):
