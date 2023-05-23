@@ -96,7 +96,7 @@
 		{/if}
 
 		<div class="flex flex-col gap-1">
-			<label for="comments">Comments</label>
+			<label for="comments" class="text-xl font-semibold">Comments</label>
 
 			<textarea
 				placeholder="Provide any steps necessary to reproduce the problem."
@@ -106,7 +106,7 @@
 				name="comments"
 				disabled={isSending}
 				rows="6"
-				class="h-full w-full resize-none rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100  hover:border-zinc-500/80 focus:border-[] focus:focus:border-blue-600 focus:ring-2 focus:ring-blue-600/30"
+				class="h-full w-full resize-none"
 				bind:value={comments}
 			/>
 		</div>

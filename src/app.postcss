@@ -13,11 +13,9 @@ button {
 	cursor: default;
 }
 
-textarea {
-	@apply rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100;
-}
-textarea:focus {
+input, textarea, textarea:focus {
 	outline: none;
+	@apply rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300;
 	@apply hover:border-zinc-500/80;
 	@apply focus:ring-2 focus:ring-blue-600/30;
 	@apply focus:border-[1px] focus:focus:border-blue-600;

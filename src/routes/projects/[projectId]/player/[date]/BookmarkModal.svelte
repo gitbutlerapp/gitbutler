@@ -59,12 +59,7 @@
 			spellcheck="true"
 			name="description"
 			disabled={isCreating}
-			class="
-                h-full w-full resize-none rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
-                hover:border-zinc-500/80
-                focus:border-[1px] focus:focus:border-blue-600 
-                focus:ring-2 focus:ring-blue-600/30
-            "
+			class="h-full w-full resize-none"
 			rows="6"
 			bind:value={note}
 		/>

@@ -137,7 +137,7 @@
 							name="name"
 							bind:value={userNameInput}
 							type="text"
-							class="w-full rounded border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
+							class="w-full"
 							placeholder="Name can't be empty"
 							required
 						/>
@@ -154,7 +154,7 @@
 							name="email"
 							bind:value={$user.email}
 							type="text"
-							class="w-full rounded border border-zinc-600 bg-zinc-700 px-4 py-2 text-zinc-300"
+							class="w-full"
 						/>
 					</div>
 

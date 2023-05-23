@@ -329,12 +329,7 @@
 					autocorrect="off"
 					spellcheck="true"
 					name="summary"
-					class="
-						w-full rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
-						hover:border-zinc-500/80
-						focus:border-[1px] focus:focus:border-blue-600 
-						focus:ring-2 focus:ring-blue-600/30
-					"
+					class="w-full"
 					disabled={isGeneratingCommitMessage || isCommitting}
 					type="text"
 					placeholder="Summary (required)"
@@ -367,12 +362,7 @@
 						spellcheck="true"
 						name="description"
 						disabled={isGeneratingCommitMessage || isCommitting}
-						class="
-							h-full w-full resize-none rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-100 
-							hover:border-zinc-500/80
-							focus:border-[1px] focus:focus:border-blue-600 
-							focus:ring-2 focus:ring-blue-600/30
-						"
+						class="h-full w-full resize-none"
 						rows="10"
 						placeholder="Description (optional)"
 						bind:value={description}
