@@ -232,7 +232,7 @@
 		</div>
 
 		<div
-			class="absolute bottom-0 flex w-full flex-col gap-2 border-t border-zinc-700 p-4 "
+			class="absolute bottom-0 flex w-full flex-col gap-2 border-t border-zinc-700 p-4 rounded-br rounded-bl"
 			style="                
 				border-width: 0.5px; 
 				-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
@@ -249,7 +249,7 @@
 					spellcheck="true"
 					bind:value={chatInput}
 					placeholder="Send a message..."
-					class="w-full"
+					class="chat-input-text w-full"
 				/>
 				<Button
 					disabled={chatInput.length == 0 || !chatId}
@@ -266,8 +266,7 @@
 			</div>
 			<div class="flex">
 				<p class="text-sm text-zinc-500">
-					Chat GitButler may produce inaccurate statements about your code. Please use your
-					judgement before you commit changes.
+					GitButler Chat may produce inaccurate statements about your code. Please use your judgement before you commit changes.
 				</p>
 			</div>
 		</div>
