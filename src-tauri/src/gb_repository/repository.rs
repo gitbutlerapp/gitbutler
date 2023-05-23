@@ -197,7 +197,7 @@ impl Repository {
         Ok(true)
     }
 
-    fn push(&self) -> Result<()> {
+    pub fn push(&self) -> Result<()> {
         let (mut remote, access_token) = match self.remote()? {
             Some((remote, access_token)) => (remote, access_token),
             None => return Ok(()),
