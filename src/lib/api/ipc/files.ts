@@ -1,4 +1,4 @@
-import { invoke } from '$lib/ipc';
+import { invoke, listen } from '$lib/ipc';
 import { clone } from '$lib/utils';
 
 const cache: Record<string, Record<string, Promise<Record<string, string>>>> = {};
@@ -29,3 +29,12 @@ export const list = async (params: { projectId: string; sessionId: string; paths
 		)
 	);
 };
+
+export const subscribe = (
+	params: { projectId: string; sessionId: string },
+	callback: (params: { filePath: string; contents: string }) => Promise<void> | void
+) =>
+	listen<{ contents: string; filePath: string }>(
+		`project://${params.projectId}/sessions/${params.sessionId}/files`,
+		(event) => callback({ ...params, ...event.payload })
+	);
