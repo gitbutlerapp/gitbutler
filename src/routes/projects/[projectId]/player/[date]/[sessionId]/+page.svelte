@@ -260,7 +260,7 @@
                 border: 0.5px solid rgba(63, 63, 70, 0.50);
             "
 		>
-			<Slider sessions={$richSessions} bind:value={$inputValue} />
+			<Slider sessions={$richSessions} bookmarks={$bookmarks} bind:value={$inputValue} />
 
 			<div class="playback-controller-ui mx-auto flex w-full items-center justify-between gap-2">
 				<div class="left-side flex space-x-8">
