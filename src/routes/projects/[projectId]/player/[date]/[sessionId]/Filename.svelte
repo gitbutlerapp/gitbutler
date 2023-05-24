@@ -15,7 +15,13 @@
 		: bookmarks.value.find((bookmark) => bookmark.timestampMs === timestampMs);
 </script>
 
-<div class="flex flex-auto items-center gap-3 overflow-auto">
+<div
+	class="ml-2 flex flex max-w-full flex-auto items-center gap-3 gap-2 overflow-auto rounded-full bg-zinc-900/80 py-2 px-4 shadow"
+	style="border: 0.5px solid rgba(63, 63, 70, 0.5);
+    -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
+    background-color: rgba(1, 1, 1, 0.6);
+"
+>
 	<span class="font-mono text-[12px] text-zinc-300">
 		{collapse(filename)}
 	</span>

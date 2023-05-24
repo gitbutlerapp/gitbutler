@@ -5,6 +5,8 @@ export type Bookmark = {
 	timestampMs: number;
 	note: string;
 	deleted: boolean;
+	updatedTimestampMs: number;
+	createdTimestampMs: number;
 };
 
 export const upsert = (params: {
