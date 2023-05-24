@@ -4,7 +4,7 @@
 	import { derived } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
-	import { api, events, hotkeys, stores, toasts } from '$lib';
+	import { api, events, hotkeys, stores } from '$lib';
 	import BookmarkModal from './BookmarkModal.svelte';
 	import { unsubscribe } from '$lib/utils';
 	import SessionsList from './SessionsList.svelte';
@@ -48,16 +48,28 @@
 		unsubscribe(
 			events.on('openBookmarkModal', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show($currentTimestamp)),
-			hotkeys.on('D', () =>
-				api.bookmarks
-					.upsert({
-						projectId: $page.params.projectId,
-						note: '',
-						timestampMs: $currentTimestamp,
-						deleted: false
-					})
-					.then(() => toasts.success('Bookmark created'))
-			)
+			hotkeys.on('D', async () => {
+				const existing = await api.bookmarks.list({
+					projectId: $page.params.projectId,
+					range: {
+						start: $currentTimestamp,
+						end: $currentTimestamp + 1
+					}
+				});
+				const newBookmark =
+					existing.length === 0
+						? {
+								projectId: $page.params.projectId,
+								note: '',
+								timestampMs: $currentTimestamp,
+								deleted: false
+						  }
+						: {
+								...existing[0],
+								deleted: !existing[0].deleted
+						  };
+				api.bookmarks.upsert(newBookmark);
+			})
 		)
 	);
 </script>
