@@ -7,7 +7,6 @@
 
 	export let sessions: (Session & {
 		deltas: Readable<Loadable<Record<string, Delta[]>>>;
-		files: Readable<Loadable<Record<string, string>>>;
 	})[];
 	export let currentSession: Session | undefined;
 	export let currentFilepath: string;
