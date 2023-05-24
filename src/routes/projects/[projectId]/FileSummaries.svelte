@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { format, startOfDay } from 'date-fns';
 	import type { Delta } from '$lib/api';
+	import { generateBuckets } from './histogram';
 	import { derived } from 'svelte-loadable-store';
 	import FileActivity from './FileActivity.svelte';
 	import { page } from '$app/stores';
 	import { Link } from '$lib/components';
 	import { IconRewind, IconPlayerPlayFilled, IconLoading, IconSparkle } from '$lib/icons';
-	import { bucketByTimestamp } from './histogram';
 	import { collapse } from '$lib/paths';
 	import type { Session } from '$lib/api';
 	import { stores } from '$lib';
@@ -29,22 +29,15 @@
 		}, {} as Record<string, Record<string, Delta[]>>)
 	);
 
-	const getLargestBucket = (fileDeltas: Record<string, Delta[]>): number =>
-		Math.max(
-			...Object.entries(fileDeltas).map((entry) => {
-				const deltas = entry[1];
-				return Math.max(
-					...bucketByTimestamp(
-						deltas.map((delta) => delta.timestampMs),
-						18
-					).map((bucket) => bucket.length)
-				);
-			})
-		);
+	$: buckets = derived(sessionDeltas, (sessionDeltas) => {
+		const deltas = sessionDeltas.flatMap((deltas) => Object.values(deltas).flat());
+		const timestamps = deltas.map((delta) => delta.timestampMs);
+		return generateBuckets(timestamps, 18);
+	});
 </script>
 
 <ul class="mr-1 flex flex-1 flex-col space-y-4 overflow-y-auto px-8 pb-8">
-	{#if $deltasByDate.isLoading}
+	{#if $deltasByDate.isLoading || $buckets.isLoading}
 		<li class="flex flex-1 space-y-4 rounded-lg border border-dashed border-zinc-400">
 			<div class="flex flex-1 flex-col items-center justify-center gap-4">
 				<IconLoading class="h-16 w-16 animate-spin text-zinc-400 " />
@@ -53,7 +46,6 @@
 		</li>
 	{:else}
 		{#each Object.entries($deltasByDate.value) as [ts, fileDeltas]}
-			{@const largestBucketSize = getLargestBucket(fileDeltas)}
 			{@const date = new Date(ts)}
 			<li class="card changed-day-card flex flex-col">
 				<header
@@ -88,7 +80,7 @@
 									{collapse(filepath)}
 								</span>
 							</a>
-							<FileActivity {deltas} {largestBucketSize} />
+							<FileActivity {deltas} buckets={$buckets.value} />
 						</li>
 					{/each}
 				</ul>
