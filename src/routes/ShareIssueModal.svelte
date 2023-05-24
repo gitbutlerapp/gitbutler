@@ -11,16 +11,16 @@
 
 	let modal: Modal;
 
-	let comments = '';
+	let messageInputValue = '';
+	let emailInputValue = '';
 	let sendLogs = false;
 	let sendProjectData = false;
 	let sendProjectRepository = false;
-	let email = '';
 
 	$: projectId = $page.params.projectId;
 
 	const reset = () => {
-		comments = '';
+		messageInputValue = '';
 		sendLogs = false;
 		sendProjectData = false;
 		sendProjectRepository = false;
@@ -36,6 +36,8 @@
 		});
 
 	const onSubmit = () => {
+		const message = messageInputValue;
+		const email = user?.email ?? emailInputValue;
 		toasts.promise(
 			Promise.all([
 				sendLogs ? api.zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
@@ -47,8 +49,8 @@
 					: undefined
 			]).then(async ([logs, data, repo]) =>
 				cloud.feedback.create(user?.access_token, {
-					email: user?.email ?? email,
-					message: comments,
+					email,
+					message,
 					logs,
 					data,
 					repo
@@ -86,7 +88,7 @@
 					name="email"
 					placeholder="Provide an email if you want to hear back from us"
 					type="email"
-					bind:value={email}
+					bind:value={emailInputValue}
 				/>
 			</div>
 		{/if}
@@ -102,7 +104,7 @@
 				name="comments"
 				rows="6"
 				class="h-full w-full resize-none"
-				bind:value={comments}
+				bind:value={messageInputValue}
 			/>
 		</div>
 
