@@ -75,15 +75,6 @@
 		}
 	});
 
-	const scrollToSession = () => {
-		const changedLines = document.getElementsByClassName('line-changed');
-		if (changedLines.length > 0) {
-			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-		}
-	};
-
-	currentSessionId.subscribe(scrollToSession);
-
 	page.subscribe((page) => {
 		currentDeltaIndex.set(parseInt(page.url.searchParams.get('delta') || '0'));
 		currentSessionId.set(page.params.sessionId);
