@@ -1,4 +1,4 @@
-import { writable, type Loadable } from 'svelte-loadable-store';
+import { writable, type Loadable, Value } from 'svelte-loadable-store';
 import { deltas, type Delta } from '$lib/api';
 import { get, type Readable } from '@square/svelte-store';
 
@@ -8,10 +8,12 @@ export default (params: { projectId: string; sessionId: string }) => {
 	const key = `${params.projectId}/${params.sessionId}`;
 	if (key in stores) return stores[key];
 
-	const store = writable(deltas.list(params), (set) =>
-		deltas.subscribe(params, ({ filePath, deltas: newDeltas }) => {
+	const store = writable(deltas.list(params), (set) => {
+		const unsubscribe = deltas.subscribe(params, ({ filePath, deltas: newDeltas }) => {
 			const oldValue = get(store);
 			if (oldValue.isLoading) {
+				deltas.list(params).then(set);
+			} else if (Value.isError(oldValue.value)) {
 				deltas.list(params).then(set);
 			} else {
 				set({
@@ -21,8 +23,11 @@ export default (params: { projectId: string; sessionId: string }) => {
 						: newDeltas
 				});
 			}
-		})
-	);
+		});
+		return () => {
+			Promise.resolve(unsubscribe).then((unsubscribe) => unsubscribe());
+		};
+	});
 	stores[key] = store;
 	return store as Readable<Loadable<Record<string, Delta[]>>>;
 };

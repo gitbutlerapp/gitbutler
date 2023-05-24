@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Delta, Session } from '$lib/api';
 	import type { Readable } from '@square/svelte-store';
-	import type { Loadable } from 'svelte-loadable-store';
+	import { Value, type Loadable } from 'svelte-loadable-store';
 	import { derived } from 'svelte-loadable-store';
 	import SessionCard from './SessionCard.svelte';
 
@@ -18,7 +18,10 @@
 
 	$: visibleSessions = sessions?.map((session, i) => ({
 		...session,
-		visible: !$visibleDeltas.isLoading && Object.keys($visibleDeltas.value[i]).length > 0
+		visible:
+			!$visibleDeltas.isLoading &&
+			!Value.isError($visibleDeltas.value) &&
+			Object.keys($visibleDeltas.value[i]).length > 0
 	}));
 </script>
 
@@ -39,7 +42,7 @@
 >
 	{#each visibleSessions as session, i}
 		{@const isCurrent = session.id === currentSession?.id}
-		{#if session.visible && !$visibleDeltas.isLoading}
+		{#if session.visible && !$visibleDeltas.isLoading && !Value.isError($visibleDeltas.value)}
 			<SessionCard {isCurrent} {session} deltas={$visibleDeltas.value[i]} {currentFilepath} />
 		{/if}
 	{:else}

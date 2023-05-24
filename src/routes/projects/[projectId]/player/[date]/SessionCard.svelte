@@ -5,6 +5,7 @@
 	import { derived } from '@square/svelte-store';
 	import { stores } from '$lib';
 	import { IconBookmarkFilled } from '$lib/icons';
+	import { Value } from 'svelte-loadable-store';
 
 	export let isCurrent: boolean;
 	export let session: Session;
@@ -13,6 +14,7 @@
 
 	$: bookmarks = derived(stores.bookmarks.list({ projectId: session.projectId }), (bookmarks) => {
 		if (bookmarks.isLoading) return [];
+		if (Value.isError(bookmarks.value)) return [];
 		const timestamps = Object.values(deltas ?? {}).flatMap((deltas) =>
 			deltas.map((d) => d.timestampMs)
 		);
