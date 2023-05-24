@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Bookmark, Delta } from '$lib/api';
-	import type { Loadable } from 'svelte-loadable-store';
+	import { Value, type Loadable } from 'svelte-loadable-store';
 	import slider from './slider';
 
 	type RichSession = { id: string; deltas: [string, Delta][] };
@@ -8,13 +8,14 @@
 	export let value: number;
 	export let bookmarks: Loadable<Bookmark[]>;
 
-	$: markers = bookmarks.isLoading
-		? ({} as Record<number, string>)
-		: (Object.fromEntries(
-				bookmarks.value
-					.filter(({ deleted }) => !deleted)
-					.map(({ timestampMs, note }) => [timestampMs, note])
-		  ) as Record<number, string>);
+	$: markers =
+		bookmarks.isLoading || Value.isError(bookmarks.value)
+			? ({} as Record<number, string>)
+			: (Object.fromEntries(
+					bookmarks.value
+						.filter(({ deleted }) => !deleted)
+						.map(({ timestampMs, note }) => [timestampMs, note])
+			  ) as Record<number, string>);
 
 	$: totalDeltas = sessions.reduce((acc, { deltas }) => acc + deltas.length, 0);
 	$: chapters = sessions.map((session, index, all) => {
