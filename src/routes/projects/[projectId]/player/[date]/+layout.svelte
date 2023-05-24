@@ -31,11 +31,6 @@
 				Object.fromEntries(
 					Object.entries(deltas).filter(([path]) => (filter ? path === filter : true))
 				)
-			),
-			files: derived(stores.files({ projectId: projectId, sessionId: session.id }), (files) =>
-				Object.fromEntries(
-					Object.entries(files).filter(([path]) => (filter ? path === filter : true))
-				)
 			)
 		}))
 	);
