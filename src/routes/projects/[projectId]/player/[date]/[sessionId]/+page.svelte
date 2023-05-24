@@ -32,6 +32,7 @@
 	import { unsubscribe } from '$lib/utils';
 	import { hotkeys, stores } from '$lib';
 	import Filename from './Filename.svelte';
+	import Bookmark from './Bookmark.svelte';
 
 	export let data: PageData;
 	const { currentFilepath, currentTimestamp } = data;
@@ -48,7 +49,7 @@
 	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
 	const projectId = derived(page, (page) => page.params.projectId);
 
-	$: bookmarks = stores.bookmarks({ projectId: $projectId });
+	$: bookmarks = stores.bookmarks.list({ projectId: $projectId });
 
 	const richSessions = asyncDerived(
 		[dateSessions, fileFilter, projectId],
@@ -231,21 +232,17 @@
 		</div>
 
 		{#if currentDelta}
-			<div
-				id="info"
-				class="w-content absolute bottom-[86px] ml-2 flex max-w-full gap-2 rounded-full bg-zinc-900/80 py-2 px-4 shadow"
-				style="
-				border: 0.5px solid rgba(63, 63, 70, 0.5);
-				-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
-				background-color: rgba(1, 1, 1, 0.6);
-			"
-			>
+			<div id="filename" class="floating absolute bottom-[86px]">
 				<Filename
 					filename={$frame.filepath}
 					timestampMs={currentDelta.timestampMs}
 					bookmarks={$bookmarks}
 					projectId={$projectId}
 				/>
+			</div>
+
+			<div id="bookmark" class="absolute bottom-[86px] right-[9px]">
+				<Bookmark projectId={$projectId} timestampMs={currentDelta.timestampMs} />
 			</div>
 		{/if}
 

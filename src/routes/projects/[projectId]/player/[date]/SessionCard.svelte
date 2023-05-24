@@ -11,7 +11,7 @@
 	export let currentFilepath: string;
 	export let deltas: Record<string, Delta[]>;
 
-	$: bookmarks = derived(stores.bookmarks({ projectId: session.projectId }), (bookmarks) => {
+	$: bookmarks = derived(stores.bookmarks.list({ projectId: session.projectId }), (bookmarks) => {
 		if (bookmarks.isLoading) return [];
 		const timestamps = Object.values(deltas ?? {}).flatMap((deltas) =>
 			deltas.map((d) => d.timestampMs)
