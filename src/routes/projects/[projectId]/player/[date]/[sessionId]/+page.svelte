@@ -31,8 +31,7 @@
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
 	import { hotkeys, stores } from '$lib';
-	import Filename from './Filename.svelte';
-	import Bookmark from './Bookmark.svelte';
+	import Info from './Info.svelte';
 
 	export let data: PageData;
 	const { currentFilepath, currentTimestamp } = data;
@@ -231,17 +230,12 @@
 		</div>
 
 		{#if currentDelta}
-			<div id="filename" class="floating absolute bottom-[86px]">
-				<Filename
-					filename={$frame.filepath}
-					timestampMs={currentDelta.timestampMs}
-					bookmarks={$bookmarks}
+			<div id="info" class="floating absolute bottom-[86px] right-[9px]">
+				<Info
 					projectId={$projectId}
+					timestampMs={currentDelta.timestampMs}
+					filename={$frame.filepath}
 				/>
-			</div>
-
-			<div id="bookmark" class="absolute bottom-[86px] right-[9px]">
-				<Bookmark projectId={$projectId} timestampMs={currentDelta.timestampMs} />
 			</div>
 		{/if}
 
