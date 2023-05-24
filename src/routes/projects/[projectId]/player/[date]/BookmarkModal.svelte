@@ -13,14 +13,23 @@
 		timestampMs = undefined;
 	};
 
-	export const show = (ts: number) => {
+	export const show = async (ts: number) => {
 		reset();
 		timestampMs = ts;
+		const existing = await api.bookmarks.list({
+			projectId,
+			range: {
+				start: ts,
+				end: ts + 1
+			}
+		});
+		if (existing.length === 1) note = existing[0].note;
+
 		modal.show();
 	};
 
 	let modal: Modal;
-	let note: '';
+	let note: string;
 
 	const createBookmark = () =>
 		Promise.resolve()
