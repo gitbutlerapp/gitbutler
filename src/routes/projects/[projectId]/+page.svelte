@@ -6,6 +6,7 @@
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';
 	import { goto } from '$app/navigation';
+	import Chat from './Chat.svelte'
 
 	export let data: PageData;
 	$: activity = derived(data.activity, (activity) => activity);
@@ -72,35 +73,7 @@
 		</div>
 
 		<div class="flex flex-auto flex-col overflow-auto ">
-			<h2 class="p-4 text-lg font-bold text-zinc-300">Recent Activity</h2>
-
-			<ul class="mx-1 flex flex-auto flex-col overflow-auto">
-				{#await recentActivity.load()}
-					<li class="mb-2 ml-3 mr-1">
-						<IconLoading class="animate-spin" />
-					</li>
-				{:then}
-					{#each $recentActivity as activity}
-						<li class="card mb-2 ml-3 mr-1 flex flex-col gap-2 p-3 text-zinc-400">
-							<div class="flex flex-row justify-between text-zinc-500">
-								<span>
-									{new Date(activity.timestampMs).toLocaleDateString('en-us', {
-										weekday: 'short',
-										year: 'numeric',
-										month: 'short',
-										day: 'numeric'
-									})}
-								</span>
-								<div class="text-right font-mono">{activity.type}</div>
-							</div>
-
-							<div class="rounded-b bg-[#2F2F33] text-zinc-100">{activity.message}</div>
-						</li>
-					{:else}
-						<li class="px-3 text-zinc-400">No activity yet.</li>
-					{/each}
-				{/await}
-			</ul>
+			<Chat project={$project}/>
 		</div>
 	</div>
 
