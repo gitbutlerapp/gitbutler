@@ -1,49 +1,18 @@
 <script lang="ts">
 	import Button from '$lib/components/Button/Button.svelte';
-	import type { PageData } from './$types';
-	import { CloudApi } from '$lib/api';
+	import { CloudApi, type Project } from '$lib/api';
 	import { stores } from '$lib';
 
 	const cloud = CloudApi();
 	const user = stores.user;
 
-	export let data: PageData;
-	const { project } = data;
-
-	const setupChat = () => {
-		cloud.chat.new($user?.access_token || '', $project?.api?.repository_id || '').then((data) => {
-			console.log('new chat', data);
-			chatId = data.id;
-		});
-		chatHistory = [];
-		chatInput = '';
-	};
+	export let project: Project;
 
 	let chatId = '';
 	let chatHistory: string[][] = [];
 	let chatInput = '';
 	let completedSeq = 0;
 	let requestedSeq = 0;
-
-	$: if ($user && $project) {
-		setupChat();
-	}
-
-	let ms = 2000;
-	let clear: any;
-	$: if (chatId) {
-		clearInterval(clear);
-		clear = setInterval(() => {
-			cloud.chat
-				.history($user?.access_token || '', $project?.api?.repository_id || '', chatId)
-				.then((data) => {
-					console.log('history', data);
-					chatHistory = data.history;
-					completedSeq = data.sequence;
-				});
-		}, ms);
-	}
-
 	$: waitingForResponse = requestedSeq != completedSeq;
 </script>
 
@@ -51,10 +20,6 @@
 	<div class="card relative flex h-full flex-col">
 		<div class="flex  justify-between gap-2 border-b border-zinc-700 bg-card-active p-2">
 			<div class="flex gap-2 text-xl">Chat GitButler</div>
-
-			<div class="flex items-center gap-2">
-				<Button color="basic" height="small" on:click={setupChat}>Reset chat</Button>
-			</div>
 		</div>
 
 		<div class="chat-container flex h-full flex-col overflow-auto border-zinc-700 pb-[122px]">
@@ -203,7 +168,7 @@
 						cloud.chat
 							.newMessage(
 								$user?.access_token || '',
-								$project?.api?.repository_id || '',
+								project?.api?.repository_id || '',
 								chatId,
 								chatInput
 							)
