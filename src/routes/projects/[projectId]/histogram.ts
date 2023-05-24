@@ -1,6 +1,6 @@
-type Timestamp = number;
+export type Bucket = [number, number];
 
-export const bucketByTimestamp = (timestamps: Timestamp[], bucketCount: number): Timestamp[][] => {
+export const generateBuckets = (timestamps: number[], bucketCount: number): Bucket[] => {
 	// 1. Find the minimum and maximum timestamps
 	const min = Math.min(...timestamps);
 	const max = Math.max(...timestamps);
@@ -10,18 +10,20 @@ export const bucketByTimestamp = (timestamps: Timestamp[], bucketCount: number):
 	const bucketSize = range / bucketCount;
 
 	// 3. Create an empty array of buckets
-	const buckets: Timestamp[][] = new Array(bucketCount).fill(null).map(() => []);
-
-	// 4. Iterate through the timestamps, find the corresponding bucket, and push the timestamp into the bucket
-	for (const timestamp of timestamps) {
-		let bucketIndex = Math.floor((timestamp - min) / bucketSize);
-		if (bucketIndex === bucketCount) {
-			bucketIndex--; // Edge case: if the timestamp is equal to the max, assign it to the last bucket
-		}
-		if (!bucketIndex) {
-			bucketIndex = bucketCount - 1;
-		}
-		buckets[bucketIndex].push(timestamp);
+	const buckets: Bucket[] = [];
+	for (let i = 0; i < bucketCount; i++) {
+		const from = min + i * bucketSize;
+		const to = min + (i + 1) * bucketSize;
+		buckets.push([from, to]);
 	}
 	return buckets;
+};
+
+export const fillBuckets = (timestamps: number[], buckets: Bucket[]): number[][] => {
+	const groups: number[][] = new Array(buckets.length).fill(null).map(() => []);
+	for (const timestamp of timestamps) {
+		const index = buckets.findIndex(([min, max]) => timestamp >= min && timestamp <= max);
+		groups[index].push(timestamp);
+	}
+	return groups;
 };

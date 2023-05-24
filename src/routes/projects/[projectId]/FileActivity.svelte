@@ -1,24 +1,28 @@
 <script lang="ts">
 	import type { Delta } from '$lib/api';
-	import { bucketByTimestamp } from './histogram';
+	import { fillBuckets, type Bucket } from './histogram';
 
 	export let deltas: Delta[];
-	export let largestBucketSize: number;
+	export let buckets: Bucket[];
 
-	$: buckets = bucketByTimestamp(
+	$: groups = fillBuckets(
 		deltas.map((delta) => delta.timestampMs),
-		18
+		buckets
 	);
+
+	$: largestGroup = Math.max(...groups.map((group) => group.length));
+
+	$: console.log({ groups, largestBucketSize: largestGroup });
 </script>
 
 <div class="file-activity w-full font-mono text-zinc-400">
-	{#each buckets as bucket}
+	{#each groups as group}
 		<span
 			class={`inline-block w-full rounded-t-sm`}
 			style="
-			height: {Math.round((bucket.length / largestBucketSize) * 100)}%;
+			height: {Math.round((group.length / largestGroup) * 100)}%;
 			background: linear-gradient(0deg, #3b82f6 0%, #9565FF {100 -
-				Math.round((bucket.length / largestBucketSize) * 100) +
+				Math.round((group.length / largestGroup) * 100) +
 				100}%);
 			"
 		/>
