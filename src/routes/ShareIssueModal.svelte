@@ -17,16 +17,13 @@
 	let sendProjectRepository = false;
 	let email = '';
 
-	let isSending = false;
-
 	$: projectId = $page.params.projectId;
 
 	const reset = () => {
 		comments = '';
-		sendLogs = true;
-		sendProjectData = true;
-		sendProjectRepository = true;
-		isSending = false;
+		sendLogs = false;
+		sendProjectData = false;
+		sendProjectRepository = false;
 	};
 
 	const readZipFile = (path: string, filename?: string): Promise<File | Blob> =>
@@ -38,21 +35,17 @@
 				: new Blob([file], { type: 'application/zip' });
 		});
 
-	const onSubmit = () =>
-		Promise.resolve()
-			.then(() => (isSending = true))
-			.then(() =>
-				Promise.all([
-					sendLogs ? api.zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
-					sendProjectData
-						? api.zip.gitbutlerData({ projectId }).then((path) => readZipFile(path, 'data.zip'))
-						: undefined,
-					sendProjectRepository
-						? api.zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
-						: undefined
-				])
-			)
-			.then(async ([logs, data, repo]) =>
+	const onSubmit = () => {
+		toasts.promise(
+			Promise.all([
+				sendLogs ? api.zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
+				sendProjectData
+					? api.zip.gitbutlerData({ projectId }).then((path) => readZipFile(path, 'data.zip'))
+					: undefined,
+				sendProjectRepository
+					? api.zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
+					: undefined
+			]).then(async ([logs, data, repo]) =>
 				cloud.feedback.create(user?.access_token, {
 					email: user?.email ?? email,
 					message: comments,
@@ -60,15 +53,18 @@
 					data,
 					repo
 				})
-			)
-			.then(() => {
-				onClose();
-				toasts.success('Issue sent');
-			})
-			.catch(() => {
-				isSending = false;
-				toasts.error('Failed to send issue');
-			});
+			),
+			{
+				loading:
+					!sendLogs && !sendProjectData && !sendProjectRepository
+						? 'Sending feedback...'
+						: 'Uploading data...',
+				success: 'Feedback sent successfully',
+				error: 'Failed to send feedback'
+			}
+		);
+		onClose();
+	};
 
 	const onClose = () => {
 		reset();
@@ -104,7 +100,6 @@
 				autocorrect="off"
 				spellcheck="true"
 				name="comments"
-				disabled={isSending}
 				rows="6"
 				class="h-full w-full resize-none"
 				bind:value={comments}
@@ -121,22 +116,18 @@
 
 		<div class="flex flex-col gap-3">
 			<div class="flex items-center gap-2">
-				<Checkbox name="logs" bind:checked={sendLogs} disabled={isSending} />
+				<Checkbox name="logs" bind:checked={sendLogs} />
 				<label for="logs">Share logs</label>
 			</div>
 
 			{#if projectId}
 				<div class="flex items-center gap-2">
-					<Checkbox name="project-data" bind:checked={sendProjectData} disabled={isSending} />
+					<Checkbox name="project-data" bind:checked={sendProjectData} />
 					<label for="project-data">Share project data</label>
 				</div>
 
 				<div class="flex items-center gap-2">
-					<Checkbox
-						name="project-repository"
-						bind:checked={sendProjectRepository}
-						disabled={isSending}
-					/>
+					<Checkbox name="project-repository" bind:checked={sendProjectRepository} />
 					<label for="project-data">Share project repository</label>
 				</div>
 			{/if}
@@ -145,6 +136,6 @@
 
 	<svelte:fragment slot="controls">
 		<Button kind="outlined" on:click={onClose}>Close</Button>
-		<Button color="purple" loading={isSending} on:click={onSubmit}>Share with GitButler</Button>
+		<Button color="purple" on:click={onSubmit}>Share with GitButler</Button>
 	</svelte:fragment>
 </Modal>

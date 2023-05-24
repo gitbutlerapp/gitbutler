@@ -11,3 +11,12 @@ export const error = (msg: string, options: ToastOptions = {}) =>
 
 export const success = (msg: string, options: ToastOptions = {}) =>
 	toast.success(msg, { ...defaultOptions, ...options });
+
+export const promise = (
+	promise: Promise<any>,
+	opts: { loading: string; success: string; error: string } = {
+		loading: 'Loading...',
+		success: 'Success!',
+		error: 'Error!'
+	}
+) => toast.promise(promise, opts, defaultOptions);
