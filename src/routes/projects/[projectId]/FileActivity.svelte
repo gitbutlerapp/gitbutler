@@ -11,8 +11,6 @@
 	);
 
 	$: largestGroup = Math.max(...groups.map((group) => group.length));
-
-	$: console.log({ groups, largestBucketSize: largestGroup });
 </script>
 
 <div class="file-activity w-full font-mono text-zinc-400">
