@@ -2,6 +2,7 @@
 	import Button from '$lib/components/Button/Button.svelte';
 	import { CloudApi, type Project } from '$lib/api';
 	import { stores } from '$lib';
+	import { marked } from 'marked';
 
 	const cloud = CloudApi();
 	const user = stores.user;
@@ -107,7 +108,7 @@
 						</div>
 						<div class="message-block flex max-w-[500px] flex-col gap-2">
 							<div class="automated-message">
-								<div class="automated-text">{pair[1]}</div>
+								<div class="automated-text">{@html marked(pair[1])}</div>
 							</div>
 						</div>
 					</div>
@@ -230,7 +231,14 @@
 		@apply max-w-[500px] rounded-[18px] rounded-tl-md bg-zinc-200 text-[14px] font-medium text-zinc-800;
 	}
 	.automated-text {
-		@apply w-full cursor-text select-text px-4 py-3 text-[14px];
+		@apply w-64 cursor-text select-text px-4 py-3 text-[14px];
+	}
+	.automated-text :global(pre) {
+		@apply bg-zinc-300;
+		@apply overflow-x-auto p-2 my-2
+	}
+	.automated-text :global(code) {
+		@apply bg-zinc-300;
 	}
 	.user-message {
 		@apply w-[fit-content] max-w-[80%] cursor-text select-text rounded-[18px] rounded-tr-md bg-blue-700 py-3 px-4 text-[14px] font-medium text-white;

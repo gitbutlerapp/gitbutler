@@ -59,6 +59,7 @@
 		"histoire": "^0.16.1",
 		"inter-ui": "^3.19.3",
 		"leven": "^4.0.0",
+		"marked": "^5.0.2",
 		"nanoevents": "^7.0.1",
 		"nanoid": "^4.0.1",
 		"postcss": "^8.4.14",
