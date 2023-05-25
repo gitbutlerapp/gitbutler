@@ -22,9 +22,9 @@
 		(deltas) => deltas
 	);
 
-	$: nextSessionId = derived([page, sessionDeltas], ([page, sessionDeltas]) => {
+	$: nextSessionId = derived(sessionDeltas, (sessionDeltas) => {
 		if (sessions) {
-			const currentIndex = sessions.findIndex((s) => s.id === page.params.sessionId);
+			const currentIndex = sessions.findIndex((s) => s.id === currentSession.id);
 			if (currentIndex === -1) return undefined;
 			for (let i = currentIndex + 1; i < sessions.length; i++) {
 				if (Object.keys(sessionDeltas[i]).length > 0) return sessions[i].id;
@@ -33,9 +33,9 @@
 		}
 	});
 
-	$: prevSessionId = derived([page, sessionDeltas], ([page, sessionDeltas]) => {
+	$: prevSessionId = derived(sessionDeltas, (sessionDeltas) => {
 		if (sessions) {
-			const currentIndex = sessions.findIndex((s) => s.id === page.params.sessionId);
+			const currentIndex = sessions.findIndex((s) => s.id === currentSession.id);
 			if (currentIndex === -1) return undefined;
 			for (let i = currentIndex - 1; i >= 0; i--) {
 				if (Object.keys(sessionDeltas[i]).length > 0) return sessions[i].id;
