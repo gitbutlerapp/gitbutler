@@ -1,5 +1,4 @@
 import { invoke, listen } from '$lib/ipc';
-import { clone } from '$lib/utils';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 
 export namespace Session {
@@ -22,25 +21,10 @@ export type Session = {
 	};
 };
 
-const cache: Record<string, Promise<Session[]>> = {};
-
-export const list = async (params: { projectId: string; earliestTimestampMs?: number }) => {
-	if (params.projectId in cache) {
-		return cache[params.projectId].then((sessions) =>
-			clone(sessions).filter((s) =>
-				params.earliestTimestampMs ? s.meta.startTimestampMs >= params.earliestTimestampMs : true
-			)
-		);
-	}
-	cache[params.projectId] = invoke<Omit<Session, 'projectId'>[]>('list_sessions', {
-		projectId: params.projectId
-	}).then((sessions) => sessions.map((s) => ({ ...s, projectId: params.projectId })));
-	return cache[params.projectId].then((sessions) =>
-		clone(sessions).filter((s) =>
-			params.earliestTimestampMs ? s.meta.startTimestampMs >= params.earliestTimestampMs : true
-		)
+export const list = async (params: { projectId: string; earliestTimestampMs?: number }) =>
+	invoke<Omit<Session, 'projectId'>[]>('list_sessions', params).then((sessions) =>
+		sessions.map((s) => ({ ...s, projectId: params.projectId }))
 	);
-};
 
 export const subscribe = (
 	params: { projectId: string },

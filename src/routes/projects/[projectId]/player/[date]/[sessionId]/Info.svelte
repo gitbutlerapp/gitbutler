@@ -4,12 +4,12 @@
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { format } from 'date-fns';
 	import { Value } from 'svelte-loadable-store';
+	import { page } from '$app/stores';
 
-	export let projectId: string;
 	export let timestampMs: number;
 	export let filename: string;
 
-	$: bookmark = stores.bookmarks.get({ projectId, timestampMs });
+	$: bookmark = stores.bookmarks.get({ projectId: $page.params.projectId, timestampMs });
 
 	const toggleBookmark = () => {
 		if ($bookmark.isLoading) return;
@@ -17,7 +17,7 @@
 		api.bookmarks.upsert(
 			!$bookmark.value
 				? {
-						projectId,
+						projectId: $page.params.projectId,
 						timestampMs,
 						note: '',
 						deleted: false

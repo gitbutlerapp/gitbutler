@@ -5,13 +5,15 @@
 	import { unsubscribe } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { hotkeys } from '$lib';
+	import type { Readable } from '@square/svelte-store';
+	import { type Loadable, derived, Value } from 'svelte-loadable-store';
 
 	export let value: number;
 	export let context: number;
 	export let fullContext: boolean;
-	export let deltas: [string, Delta][][];
+	export let deltas: Readable<Loadable<[string, Delta][][]>>;
 
-	$: maxDeltaIndex = deltas.flatMap((d) => d).length - 1;
+	$: maxDeltaIndex = derived(deltas, (deltas) => deltas.flatMap((d) => d).length - 1);
 
 	let interval: ReturnType<typeof setInterval> | undefined;
 	let direction: -1 | 1 = 1;
@@ -36,7 +38,9 @@
 	};
 
 	const gotoNextDelta = () => {
-		if (value < maxDeltaIndex) {
+		if ($maxDeltaIndex.isLoading) return;
+		if (Value.isError($maxDeltaIndex.value)) return;
+		if (value < $maxDeltaIndex.value) {
 			value += 1;
 		} else {
 			stop();

@@ -1,5 +1,4 @@
 import { invoke, listen } from '$lib/ipc';
-import { clone } from '$lib/utils';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 
 export type OperationDelete = { delete: [number, number] };
@@ -17,34 +16,8 @@ export namespace Operation {
 
 export type Delta = { timestampMs: number; operations: Operation[] };
 
-const cache: Record<string, Record<string, Promise<Record<string, Delta[]>>>> = {};
-
-export const list = async (params: { projectId: string; sessionId: string; paths?: string[] }) => {
-	const sessionDeltasCache = cache[params.projectId] || {};
-	if (params.sessionId in sessionDeltasCache) {
-		return sessionDeltasCache[params.sessionId].then((deltas) =>
-			Object.fromEntries(
-				Object.entries(clone(deltas)).filter(([path]) =>
-					params.paths ? params.paths.includes(path) : true
-				)
-			)
-		);
-	}
-
-	const promise = invoke<Record<string, Delta[]>>('list_deltas', {
-		sessionId: params.sessionId,
-		projectId: params.projectId
-	});
-	sessionDeltasCache[params.sessionId] = promise;
-	cache[params.projectId] = sessionDeltasCache;
-	return promise.then((deltas) =>
-		Object.fromEntries(
-			Object.entries(clone(deltas)).filter(([path]) =>
-				params.paths ? params.paths.includes(path) : true
-			)
-		)
-	);
-};
+export const list = async (params: { projectId: string; sessionId: string; paths?: string[] }) =>
+	invoke<Record<string, Delta[]>>('list_deltas', params);
 
 export const subscribe = (
 	params: { projectId: string; sessionId: string },
