@@ -167,8 +167,8 @@ devDependencies:
     specifier: ^1.0.3
     version: 1.0.3(svelte@3.55.1)
   svelte-loadable-store:
-    specifier: ^1.1.0
-    version: 1.1.0(svelte@3.55.1)
+    specifier: ^1.1.2
+    version: 1.1.2(svelte@3.55.1)
   svelte-outclick:
     specifier: ^3.5.0
     version: 3.5.0(svelte@3.55.1)
@@ -3699,8 +3699,8 @@ packages:
       svelte: 3.55.1
     dev: true
 
-  /svelte-loadable-store@1.1.0(svelte@3.55.1):
-    resolution: {integrity: sha512-2YPnhTHRcQxWpvIwTu8w+oulHTLti3jrHmPzebazRHeZ/qyX8p8/FY8Jb0THy+OaME8Il0QYA210c8eiZeMVtw==}
+  /svelte-loadable-store@1.1.2(svelte@3.55.1):
+    resolution: {integrity: sha512-cQvXnSqjq+UA8Sv7BqRsgarLaYsdrQ9CVKt+YyXGWGDbjgJr2vxErRIV0hA+42tbIFGg9+DEM4WPVc+KjXMTCw==}
     peerDependencies:
       svelte: ^3.0.0
     dependencies:
