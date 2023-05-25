@@ -1,36 +1,16 @@
-<script lang="ts" context="module">
-	import { deltas, files, type Session, type Delta } from '$lib/api';
-	const enrichSession = async (projectId: string, session: Session, paths?: string[]) => {
-		const sessionFiles = await files.list({ projectId, sessionId: session.id, paths });
-		const sessionDeltas = await deltas
-			.list({ projectId, sessionId: session.id, paths })
-			.then((deltas) =>
-				Object.entries(deltas)
-					.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
-					.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
-			);
-		const deltasFiles = new Set(sessionDeltas.map(([path]) => path));
-		return {
-			...session,
-			files: Object.fromEntries(
-				Object.entries(sessionFiles).filter(([filepath]) => deltasFiles.has(filepath))
-			),
-			deltas: sessionDeltas
-		};
-	};
-</script>
-
 <script lang="ts">
 	import Slider from './Slider.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import { asyncDerived, derived, writable } from '@square/svelte-store';
+	import { get, writable } from '@square/svelte-store';
+	import { derived, Value } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
 	import { stores } from '$lib';
 	import Playback from './Playback.svelte';
 	import type { Frame as FrameType } from './frame';
 	import Frame from './Frame.svelte';
 	import Info from './Info.svelte';
+	import type { Delta } from '$lib/api';
 
 	export let data: PageData;
 	const { currentFilepath, currentTimestamp, currentSessionId } = data;
@@ -38,48 +18,54 @@
 	let fullContext = true;
 	let context = 8;
 
-	const dateSessions = derived([data.sessions, page], ([sessions, page]) =>
-		sessions?.filter(
-			(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date
-		)
-	);
-
 	page.subscribe((page) => {
 		currentDeltaIndex = parseInt(page.url.searchParams.get('delta') || '0');
 		currentSessionId.set(page.params.sessionId);
 	});
 
-	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
+	const filter = derived(page, (page) => page.url.searchParams.get('file'));
 	const projectId = derived(page, (page) => page.params.projectId);
 
-	$: bookmarks = stores.bookmarks.list({ projectId: $projectId });
+	$: bookmarks = stores.bookmarks.list({ projectId: $page.params.projectId });
+	$: sessions = stores.sessions({ projectId: $page.params.projectId });
+	$: dateSessions = derived([sessions, page], ([sessions, page]) =>
+		sessions?.filter(
+			(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date
+		)
+	);
 
-	const richSessions = asyncDerived(
-		[dateSessions, fileFilter, projectId],
-		async ([sessions, fileFilter, projectId]) => {
-			const paths = fileFilter ? [fileFilter] : undefined;
-			const richSessions = await Promise.all(
-				sessions.map((s) => enrichSession(projectId, s, paths))
-			);
-			return richSessions
-				.filter((s) => s.deltas.length > 0)
-				.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
-		}
+	$: richSessions = derived([dateSessions, filter, projectId], ([sessions, filter, projectId]) =>
+		sessions.map((session) => ({
+			...session,
+			deltas: derived(stores.deltas({ projectId: projectId, sessionId: session.id }), (deltas) =>
+				Object.entries(deltas)
+					.filter(([path]) => (filter ? path === filter : true))
+					.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
+					.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
+			),
+			files: derived(stores.files({ projectId, sessionId: session.id }), (files) =>
+				Object.fromEntries(
+					Object.entries(files).filter(([path]) => (filter ? path === filter : true))
+				)
+			)
+		}))
 	);
 
 	$: currentDeltaIndex = parseInt($page.url.searchParams.get('delta') || '0');
 
-	richSessions.subscribe((sessions) => {
-		if (!sessions) return;
-		if (sessions.length === 0) return;
-		if (!sessions.some((s) => s.id === $currentSessionId)) {
-			$currentSessionId = sessions[0].id;
+	richSessions?.subscribe((sessions) => {
+		if (sessions.isLoading) return;
+		if (Value.isError(sessions.value)) return;
+		if (sessions.value.length === 0) return;
+		if (!sessions.value.some((s) => s.id === $currentSessionId)) {
+			$currentSessionId = sessions.value[0].id;
 		}
 	});
 
 	let frame: FrameType | null = null;
 
 	$: if (frame) {
+		currentSessionId.set(frame.sessionId);
 		currentFilepath.set(frame.filepath);
 		currentTimestamp.set(frame.deltas[frame?.deltas.length - 1].timestampMs);
 	}
@@ -87,48 +73,54 @@
 	const value = writable(0);
 
 	$: {
-		if ($richSessions) {
-			const currentSessionIndex = $richSessions.findIndex((s) => s.id === $currentSessionId);
+		if (!$richSessions.isLoading && Value.isValue($richSessions.value)) {
+			const currentSessionIndex = $richSessions.value.findIndex((s) => s.id === $currentSessionId);
 			$value =
-				$richSessions
+				$richSessions.value
 					.filter((_, index) => index < currentSessionIndex)
-					.reduce((acc, s) => acc + s.deltas.length, 0) + currentDeltaIndex;
+					.reduce((acc, s) => {
+						const deltas = get(s.deltas);
+						if (!deltas.isLoading && Value.isValue(deltas.value)) {
+							return acc + deltas.value.length;
+						} else {
+							return acc;
+						}
+					}, 0) + currentDeltaIndex;
 		}
 	}
-
-	value.subscribe((value) => {
-		let i = 0;
-		for (const session of $richSessions || []) {
-			if (i < value && value < i + session.deltas.length) {
-				$currentSessionId = session.id;
-				currentDeltaIndex = value - i;
-				break;
-			}
-			i += session.deltas.length;
-		}
-	});
 </script>
 
-{#await richSessions.load()}
+{#if $richSessions.isLoading}
 	<div class="flex h-full flex-col items-center justify-center">
 		<div
 			class="loader border-gray-200 mb-4 h-12 w-12 rounded-full border-4 border-t-4 ease-linear"
 		/>
 		<h2 class="text-center text-2xl font-medium text-gray-500">Loading...</h2>
 	</div>
-{:then}
+{:else if Value.isError($richSessions.value)}
+	<div class="flex h-full flex-col items-center justify-center">
+		<h2 class="text-center text-2xl font-medium text-gray-500">Something went wrong</h2>
+	</div>
+{:else}
 	<Frame
 		{context}
 		{fullContext}
-		deltas={$richSessions.map(({ deltas }) => deltas)}
-		files={$richSessions.map(({ files }) => files)}
+		sessions={$richSessions.value}
+		deltas={derived(
+			$richSessions.value.map(({ deltas }) => deltas),
+			(deltas) => deltas
+		)}
+		files={derived(
+			$richSessions.value.map(({ files }) => files),
+			(files) => files
+		)}
 		bind:frame
 		value={$value}
 	/>
 
 	{#if frame}
 		<div id="info" class="floating absolute bottom-[86px] right-[9px]">
-			<Info projectId={$projectId} timestampMs={$currentTimestamp} filename={$currentFilepath} />
+			<Info timestampMs={$currentTimestamp} filename={$currentFilepath} />
 		</div>
 	{/if}
 
@@ -143,13 +135,22 @@
             border: 0.5px solid rgba(63, 63, 70, 0.50);
         "
 	>
-		<Slider sessions={$richSessions} bookmarks={$bookmarks} bind:value={$value} />
-
+		<Slider
+			sessions={derived(
+				$richSessions.value.map(({ deltas }) => deltas),
+				(deltas) => deltas
+			)}
+			bookmarks={$bookmarks}
+			bind:value={$value}
+		/>
 		<Playback
-			deltas={$richSessions.map(({ deltas }) => deltas)}
+			deltas={derived(
+				$richSessions.value.map(({ deltas }) => deltas),
+				(deltas) => deltas
+			)}
 			bind:value={$value}
 			bind:context
 			bind:fullContext
 		/>
 	</div>
-{/await}
+{/if}
