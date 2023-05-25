@@ -1,4 +1,3 @@
-use std::ops::Range;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -10,10 +9,16 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
 use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
+use tantivy::{query::QueryParser, Term};
+use tantivy::{
+    query::{Occur, TermQuery},
+    schema::{TextFieldIndexing, TextOptions},
+};
+use tantivy::{schema::IndexRecordOption, tokenizer};
 
 use crate::{deltas, gb_repository, sessions, storage};
 
-const CURRENT_VERSION: u64 = 4; // should not decrease
+const CURRENT_VERSION: u64 = 5; // should not decrease
 
 #[derive(Clone)]
 struct MetaStorage {
@@ -91,6 +96,12 @@ impl Deltas {
             .settings(index_settings)
             .open_or_create(mmap_dir)?;
 
+        index.tokenizers().register(
+            "ngram2_3",
+            tokenizer::TextAnalyzer::from(tokenizer::NgramTokenizer::all_ngrams(2, 3))
+                .filter(tokenizer::LowerCaser),
+        );
+
         let reader = index.reader()?;
         let writer = index.writer_with_num_threads(1, WRITE_BUFFER_SIZE)?;
 
@@ -102,8 +113,96 @@ impl Deltas {
         })
     }
 
-    pub fn search(&self, query: &SearchQuery) -> Result<SearchResults> {
-        search(&self.index, &self.reader, query)
+    pub fn search(&self, q: &SearchQuery) -> Result<SearchResults> {
+        let version_field = self.index.schema().get_field("version").unwrap();
+        let project_id_field = self.index.schema().get_field("project_id").unwrap();
+        let diff_field = self.index.schema().get_field("diff").unwrap();
+        let file_path_field = self.index.schema().get_field("file_path").unwrap();
+        let timestamp_ns_field = self.index.schema().get_field("timestamp_ms").unwrap();
+
+        let version_term_query = Box::new(TermQuery::new(
+            Term::from_field_u64(version_field, CURRENT_VERSION),
+            IndexRecordOption::Basic,
+        ));
+        let project_id_term_query = Box::new(TermQuery::new(
+            Term::from_field_text(project_id_field, q.project_id.as_str()),
+            IndexRecordOption::Basic,
+        ));
+        let diff_or_file_path_query = Box::new(
+            QueryParser::for_index(&self.index, vec![diff_field, file_path_field])
+                .parse_query(&q.q)?,
+        );
+
+        let query = tantivy::query::BooleanQuery::new(vec![
+            (Occur::Must, version_term_query),
+            (Occur::Must, project_id_term_query),
+            (Occur::Must, diff_or_file_path_query),
+        ]);
+
+        self.reader.reload()?;
+        let searcher = self.reader.searcher();
+
+        let mut collectors = collector::MultiCollector::new();
+        let top_docs_handle = collectors.add_collector(
+            collector::TopDocs::with_limit(q.limit)
+                .and_offset(q.offset.unwrap_or(0))
+                .order_by_u64_field(timestamp_ns_field),
+        );
+        let count_handle = collectors.add_collector(collector::Count);
+
+        let snippet_generator = tantivy::SnippetGenerator::create(
+            &searcher,
+            &query,
+            self.index.schema().get_field("diff").unwrap(),
+        )?;
+
+        let mut result = searcher.search(&query, &collectors)?;
+        let count = count_handle.extract(&mut result);
+        let top_docs = top_docs_handle.extract(&mut result);
+
+        let page = top_docs
+            .iter()
+            .map(|(_score, doc_address)| {
+                let retrieved_doc = searcher.doc(*doc_address)?;
+
+                let project_id = retrieved_doc
+                    .get_first(self.index.schema().get_field("project_id").unwrap())
+                    .unwrap()
+                    .as_text()
+                    .unwrap();
+                let file_path = retrieved_doc
+                    .get_first(self.index.schema().get_field("file_path").unwrap())
+                    .unwrap()
+                    .as_text()
+                    .unwrap();
+                let session_id = retrieved_doc
+                    .get_first(self.index.schema().get_field("session_id").unwrap())
+                    .unwrap()
+                    .as_text()
+                    .unwrap();
+                let index = retrieved_doc
+                    .get_first(self.index.schema().get_field("index").unwrap())
+                    .unwrap()
+                    .as_u64()
+                    .unwrap();
+                let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
+                let fragment = snippet.fragment();
+                let highlighted: Vec<String> = snippet
+                    .highlighted()
+                    .iter()
+                    .map(|range| fragment[range.start..range.end].to_string())
+                    .collect();
+                Ok(SearchResult {
+                    project_id: project_id.to_string(),
+                    file_path: file_path.to_string(),
+                    session_id: session_id.to_string(),
+                    highlighted,
+                    index,
+                })
+            })
+            .collect::<Result<Vec<SearchResult>>>()?;
+
+        Ok(SearchResults { page, total: count })
     }
 
     pub fn delete_all_data(&self) -> Result<()> {
@@ -158,15 +257,29 @@ impl Deltas {
 
 fn build_schema() -> schema::Schema {
     let mut schema_builder = schema::Schema::builder();
-    schema_builder.add_u64_field("version", schema::INDEXED | schema::FAST);
-    schema_builder.add_text_field("project_id", schema::TEXT | schema::STORED | schema::FAST);
-    schema_builder.add_text_field("session_id", schema::STORED);
-    schema_builder.add_u64_field("index", schema::STORED);
-    schema_builder.add_text_field("file_path", schema::TEXT | schema::STORED | schema::FAST);
-    schema_builder.add_text_field("diff", schema::TEXT | schema::STORED);
-    schema_builder.add_bool_field("is_addition", schema::FAST);
-    schema_builder.add_bool_field("is_deletion", schema::FAST);
+
+    schema_builder.add_u64_field("version", schema::INDEXED);
     schema_builder.add_u64_field("timestamp_ms", schema::INDEXED | schema::FAST);
+    schema_builder.add_u64_field("index", schema::STORED);
+
+    let id_options = TextOptions::default()
+        .set_indexing_options(TextFieldIndexing::default().set_tokenizer("raw"))
+        .set_stored();
+
+    schema_builder.add_text_field("project_id", id_options.clone());
+    schema_builder.add_text_field("session_id", id_options);
+
+    let text_options = TextOptions::default()
+        .set_indexing_options(
+            TextFieldIndexing::default()
+                .set_tokenizer("ngram2_3")
+                .set_index_option(schema::IndexRecordOption::WithFreqsAndPositions),
+        )
+        .set_stored();
+
+    schema_builder.add_text_field("file_path", text_options.clone());
+    schema_builder.add_text_field("diff", text_options);
+
     schema_builder.build()
 }
 
@@ -300,91 +413,4 @@ pub struct SearchQuery {
     pub project_id: String,
     pub limit: usize,
     pub offset: Option<usize>,
-    pub range: Range<u64>,
-}
-
-pub fn search(
-    index: &tantivy::Index,
-    reader: &tantivy::IndexReader,
-    q: &SearchQuery,
-) -> Result<SearchResults> {
-    let query = tantivy::query::QueryParser::for_index(
-        index,
-        vec![
-            index.schema().get_field("diff").unwrap(),
-            index.schema().get_field("file_path").unwrap(),
-        ],
-    )
-    .parse_query(
-        format!(
-            "version:\"{}\" AND project_id:\"{}\" AND timestamp_ms:[{} TO {}}} AND ({})",
-            CURRENT_VERSION, q.project_id, q.range.start, q.range.end, q.q,
-        )
-        .as_str(),
-    )?;
-
-    reader.reload()?;
-    let searcher = reader.searcher();
-
-    let mut collectors = collector::MultiCollector::new();
-    let top_docs_handle = collectors.add_collector(
-        collector::TopDocs::with_limit(q.limit)
-            .and_offset(q.offset.unwrap_or(0))
-            .order_by_u64_field(index.schema().get_field("timestamp_ms").unwrap()),
-    );
-    let count_handle = collectors.add_collector(collector::Count);
-
-    let snippet_generator = tantivy::SnippetGenerator::create(
-        &searcher,
-        &*query,
-        index.schema().get_field("diff").unwrap(),
-    )?;
-
-    let mut result = searcher.search(&query, &collectors)?;
-    let count = count_handle.extract(&mut result);
-    let top_docs = top_docs_handle.extract(&mut result);
-
-    let page = top_docs
-        .iter()
-        .map(|(_score, doc_address)| {
-            let retrieved_doc = searcher.doc(*doc_address)?;
-
-            let project_id = retrieved_doc
-                .get_first(index.schema().get_field("project_id").unwrap())
-                .unwrap()
-                .as_text()
-                .unwrap();
-            let file_path = retrieved_doc
-                .get_first(index.schema().get_field("file_path").unwrap())
-                .unwrap()
-                .as_text()
-                .unwrap();
-            let session_id = retrieved_doc
-                .get_first(index.schema().get_field("session_id").unwrap())
-                .unwrap()
-                .as_text()
-                .unwrap();
-            let index = retrieved_doc
-                .get_first(index.schema().get_field("index").unwrap())
-                .unwrap()
-                .as_u64()
-                .unwrap();
-            let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
-            let fragment = snippet.fragment();
-            let highlighted: Vec<String> = snippet
-                .highlighted()
-                .iter()
-                .map(|range| fragment[range.start..range.end].to_string())
-                .collect();
-            Ok(SearchResult {
-                project_id: project_id.to_string(),
-                file_path: file_path.to_string(),
-                session_id: session_id.to_string(),
-                highlighted,
-                index,
-            })
-        })
-        .collect::<Result<Vec<SearchResult>>>()?;
-
-    Ok(SearchResults { page, total: count })
 }
