@@ -162,8 +162,6 @@ async fn search(
     query: &str,
     limit: Option<usize>,
     offset: Option<usize>,
-    timestamp_ms_gte: Option<u64>,
-    timestamp_ms_lt: Option<u64>,
 ) -> Result<search::SearchResults, Error> {
     let app = handle.state::<app::App>();
 
@@ -172,10 +170,6 @@ async fn search(
         q: query.to_string(),
         limit: limit.unwrap_or(100),
         offset,
-        range: ops::Range {
-            start: timestamp_ms_gte.unwrap_or(0),
-            end: timestamp_ms_lt.unwrap_or(u64::MAX),
-        },
     };
 
     let results = app.search(&query).with_context(|| {
