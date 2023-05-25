@@ -20,6 +20,10 @@
 	let project: ReturnType<typeof api.projects.Project> | undefined;
 
 	export const show = async (id: string) => {
+		await user.load();
+		await cloudProjects.load();
+		if ($user === null) return;
+		if ($cloudProjects?.length === 0) return;
 		project = api.projects.Project({ id });
 		modal.show();
 	};
