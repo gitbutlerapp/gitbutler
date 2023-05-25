@@ -38,8 +38,8 @@
 	$: currentSession = derived(
 		[page, richSessions, data.currentSessionId],
 		([page, sessions, currentSessionId]) =>
-			sessions?.find((s) => s.id === currentSessionId) ??
-			sessions?.find((s) => s.id === page.params.sessionId)
+			sessions.find((s) => s.id === currentSessionId) ??
+			sessions.find((s) => s.id === page.params.sessionId)
 	);
 
 	let bookmarkModal: BookmarkModal;
