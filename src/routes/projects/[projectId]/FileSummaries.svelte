@@ -34,8 +34,6 @@
 		const timestamps = deltas.map((delta) => delta.timestampMs);
 		return generateBuckets(timestamps, 18);
 	});
-
-    $: console.log($deltasByDate, $buckets)
 </script>
 
 <ul class="mr-1 flex flex-1 flex-col space-y-4 overflow-y-auto px-8 pb-8">
