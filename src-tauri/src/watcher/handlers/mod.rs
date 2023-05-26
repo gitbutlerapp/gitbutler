@@ -40,7 +40,7 @@ impl<'handler> Handler<'handler> {
         project_id: String,
         project_store: projects::Storage,
         gb_repository: &'handler gb_repository::Repository,
-        searcher: search::Deltas,
+        searcher: search::Searcher,
         events_sender: app_events::Sender,
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,

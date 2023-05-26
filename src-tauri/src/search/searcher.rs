@@ -8,15 +8,15 @@ use std::{
 use anyhow::{Context, Result};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
-use tantivy::{collector, directory::MmapDirectory, schema, IndexWriter};
+use tantivy::{collector, directory::MmapDirectory, schema, Document, IndexWriter};
 use tantivy::{query::QueryParser, Term};
 use tantivy::{
-    query::{Occur, TermQuery},
+    query::TermQuery,
     schema::{TextFieldIndexing, TextOptions},
 };
 use tantivy::{schema::IndexRecordOption, tokenizer};
 
-use crate::{deltas, gb_repository, sessions, storage};
+use crate::{bookmarks, deltas, gb_repository, sessions, storage};
 
 const CURRENT_VERSION: u64 = 5; // should not decrease
 
@@ -69,7 +69,7 @@ impl MetaStorage {
 }
 
 #[derive(Clone)]
-pub struct Deltas {
+pub struct Searcher {
     meta_storage: MetaStorage,
 
     index: tantivy::Index,
@@ -77,7 +77,7 @@ pub struct Deltas {
     writer: Arc<Mutex<tantivy::IndexWriter>>,
 }
 
-impl Deltas {
+impl Searcher {
     pub fn at<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let dir = path
@@ -113,12 +113,13 @@ impl Deltas {
         })
     }
 
-    pub fn search(&self, q: &SearchQuery) -> Result<SearchResults> {
+    pub fn search(&self, q: &Query) -> Result<Results> {
         let version_field = self.index.schema().get_field("version").unwrap();
         let project_id_field = self.index.schema().get_field("project_id").unwrap();
         let diff_field = self.index.schema().get_field("diff").unwrap();
         let file_path_field = self.index.schema().get_field("file_path").unwrap();
         let timestamp_ns_field = self.index.schema().get_field("timestamp_ms").unwrap();
+        let note_field = self.index.schema().get_field("note").unwrap();
 
         let version_term_query = Box::new(TermQuery::new(
             Term::from_field_u64(version_field, CURRENT_VERSION),
@@ -128,18 +129,20 @@ impl Deltas {
             Term::from_field_text(project_id_field, q.project_id.as_str()),
             IndexRecordOption::Basic,
         ));
-        let diff_or_file_path_query = Box::new(
-            QueryParser::for_index(&self.index, vec![diff_field, file_path_field])
-                .parse_query(&q.q)?,
-        );
 
-        let query = tantivy::query::BooleanQuery::new(vec![
-            (Occur::Must, version_term_query),
-            (Occur::Must, project_id_term_query),
-            (Occur::Must, diff_or_file_path_query),
+        let diff_or_file_path_or_note_query = Box::new({
+            let mut parser =
+                QueryParser::for_index(&self.index, vec![diff_field, file_path_field, note_field]);
+            parser.set_conjunction_by_default();
+            parser.parse_query(&q.q)?
+        });
+
+        let query = tantivy::query::BooleanQuery::intersection(vec![
+            version_term_query,
+            project_id_term_query,
+            diff_or_file_path_or_note_query,
         ]);
 
-        self.reader.reload()?;
         let searcher = self.reader.searcher();
 
         let mut collectors = collector::MultiCollector::new();
@@ -202,7 +205,7 @@ impl Deltas {
             })
             .collect::<Result<Vec<SearchResult>>>()?;
 
-        Ok(SearchResults { page, total: count })
+        Ok(Results { page, total: count })
     }
 
     pub fn delete_all_data(&self) -> Result<()> {
@@ -214,6 +217,37 @@ impl Deltas {
             .delete_all_documents()
             .context("Could not delete all documents")?;
         writer.commit().context("Could not commit")?;
+        self.reader.reload()?;
+        Ok(())
+    }
+
+    pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
+        let id = build_id(&bookmark.project_id, &bookmark.timestamp_ms);
+        let id_field = self.index.schema().get_field("id").unwrap();
+
+        let mut writer = self.writer.lock().unwrap();
+        let mut doc = match find_document_by_id(&self.index, &self.reader, &id)? {
+            Some(doc) => {
+                writer.delete_term(Term::from_field_text(id_field, id.as_str()));
+                doc
+            }
+            None => Document::default(),
+        };
+
+        doc.add_text(id_field, &id);
+        doc.add_text(
+            self.index.schema().get_field("note").unwrap(),
+            if bookmark.deleted {
+                ""
+            } else {
+                bookmark.note.as_str()
+            },
+        );
+
+        writer.add_document(doc)?;
+        writer.commit()?;
+        self.reader.reload()?;
+
         Ok(())
     }
 
@@ -239,6 +273,7 @@ impl Deltas {
         index_session(
             &self.index,
             &mut self.writer.lock().unwrap(),
+            &self.reader,
             &session,
             &repository,
         )?;
@@ -255,30 +290,48 @@ impl Deltas {
     }
 }
 
+fn build_id(project_id: &str, timestamp_ms: &u128) -> String {
+    format!("{}-{}-{}", CURRENT_VERSION, project_id, timestamp_ms)
+}
+
 fn build_schema() -> schema::Schema {
     let mut schema_builder = schema::Schema::builder();
 
-    schema_builder.add_u64_field("version", schema::INDEXED);
-    schema_builder.add_u64_field("timestamp_ms", schema::INDEXED | schema::FAST);
-    schema_builder.add_u64_field("index", schema::STORED);
+    schema_builder.add_u64_field(
+        "version",
+        schema::INDEXED // version is searchable to allow reindexing
+        | schema::STORED, // version is stored to allow updating document
+    );
+    schema_builder.add_u64_field(
+        "timestamp_ms",
+        schema::STORED // timestamp is stored to allow updating document
+        |schema::FAST, // timestamp is fast to allow sorting
+    );
+    schema_builder.add_u64_field(
+        "index",
+        schema::STORED, // index is stored because we want to return it in search results and allow
+                        // filtering
+    );
 
     let id_options = TextOptions::default()
-        .set_indexing_options(TextFieldIndexing::default().set_tokenizer("raw"))
-        .set_stored();
+        .set_indexing_options(TextFieldIndexing::default().set_tokenizer("raw")) // id is indexed raw to allow exact matching only
+        .set_stored(); // and stored to allow updates document
 
+    schema_builder.add_text_field("id", id_options.clone());
     schema_builder.add_text_field("project_id", id_options.clone());
     schema_builder.add_text_field("session_id", id_options);
 
     let text_options = TextOptions::default()
         .set_indexing_options(
             TextFieldIndexing::default()
-                .set_tokenizer("ngram2_3")
-                .set_index_option(schema::IndexRecordOption::WithFreqsAndPositions),
+                .set_tokenizer("ngram2_3") // text is indexed with ngram tokenizer to allow partial matching
+                .set_index_option(schema::IndexRecordOption::WithFreqsAndPositions), // text is indexed with positions to allow highlighted snippets generation
         )
-        .set_stored();
+        .set_stored(); // text values stored to aloow updating document
 
     schema_builder.add_text_field("file_path", text_options.clone());
-    schema_builder.add_text_field("diff", text_options);
+    schema_builder.add_text_field("diff", text_options.clone());
+    schema_builder.add_text_field("note", text_options);
 
     schema_builder.build()
 }
@@ -297,7 +350,7 @@ pub struct SearchResult {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SearchResults {
+pub struct Results {
     pub page: Vec<SearchResult>,
     pub total: usize,
 }
@@ -305,6 +358,7 @@ pub struct SearchResults {
 fn index_session(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
+    reader: &tantivy::IndexReader,
     session: &sessions::Session,
     repository: &gb_repository::Repository,
 ) -> Result<()> {
@@ -335,6 +389,7 @@ fn index_session(
             index_delta(
                 index,
                 writer,
+                reader,
                 &session.id,
                 &repository.get_project_id(),
                 &mut file_text,
@@ -345,12 +400,34 @@ fn index_session(
         }
     }
     writer.commit()?;
+    reader.reload()?;
     Ok(())
+}
+
+fn find_document_by_id(
+    index: &tantivy::Index,
+    reader: &tantivy::IndexReader,
+    id: &str,
+) -> Result<Option<Document>> {
+    let id_field = index.schema().get_field("id").unwrap();
+    let searcher = reader.searcher();
+    let query = TermQuery::new(
+        Term::from_field_text(id_field, id),
+        tantivy::schema::IndexRecordOption::Basic,
+    );
+    let top_docs = searcher.search(&query, &collector::TopDocs::with_limit(1))?;
+    if top_docs.is_empty() {
+        return Ok(None);
+    }
+    let doc_address = top_docs[0].1;
+    let doc = searcher.doc(doc_address)?;
+    Ok(Some(doc))
 }
 
 fn index_delta(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
+    reader: &tantivy::IndexReader,
     session_id: &str,
     project_id: &str,
     file_text: &mut Vec<char>,
@@ -358,7 +435,18 @@ fn index_delta(
     i: usize,
     delta: &deltas::Delta,
 ) -> Result<()> {
-    let mut doc = tantivy::Document::default();
+    let id = build_id(project_id, &delta.timestamp_ms);
+    let id_field = index.schema().get_field("id").unwrap();
+
+    let mut doc = match find_document_by_id(&index, &reader, &id)? {
+        Some(doc) => {
+            writer.delete_term(Term::from_field_text(id_field, id.as_str()));
+            doc
+        }
+        None => Document::default(),
+    };
+
+    doc.add_text(id_field, id);
     doc.add_u64(
         index.schema().get_field("version").unwrap(),
         CURRENT_VERSION.try_into()?,
@@ -408,7 +496,7 @@ fn index_delta(
 }
 
 #[derive(Debug)]
-pub struct SearchQuery {
+pub struct Query {
     pub q: String,
     pub project_id: String,
     pub limit: usize,
