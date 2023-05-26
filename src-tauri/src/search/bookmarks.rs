@@ -4,7 +4,12 @@ use std::{
 };
 
 use anyhow::Result;
-use tantivy::{collector, directory::MmapDirectory, schema};
+use tantivy::{
+    collector,
+    directory::MmapDirectory,
+    schema::{self, TextFieldIndexing, TextOptions},
+    tokenizer,
+};
 
 use crate::bookmarks;
 
@@ -19,11 +24,22 @@ const WRITE_BUFFER_SIZE: usize = 10_000_000; // 10MB
 
 fn build_schema() -> schema::Schema {
     let mut schema_builder = schema::Schema::builder();
+
     schema_builder.add_u64_field("version", schema::INDEXED);
-    schema_builder.add_text_field("id", schema::STRING);
-    schema_builder.add_text_field("project_id", schema::STRING);
     schema_builder.add_u64_field("timestamp_ms", schema::INDEXED | schema::STORED);
-    schema_builder.add_text_field("note", schema::TEXT);
+
+    let id_options = TextOptions::default()
+        .set_indexing_options(TextFieldIndexing::default().set_tokenizer("raw"))
+        .set_stored();
+
+    schema_builder.add_text_field("id", id_options.clone());
+    schema_builder.add_text_field("project_id", id_options);
+
+    let text_options = TextOptions::default()
+        .set_indexing_options(TextFieldIndexing::default().set_tokenizer("ngram2_3"));
+
+    schema_builder.add_text_field("note", text_options);
+
     schema_builder.build()
 }
 
@@ -60,6 +76,12 @@ impl Bookmarks {
             .schema(schema)
             .settings(index_settings)
             .open_or_create(mmap_dir)?;
+
+        index.tokenizers().register(
+            "ngram2_3",
+            tokenizer::TextAnalyzer::from(tokenizer::NgramTokenizer::all_ngrams(2, 3))
+                .filter(tokenizer::LowerCaser),
+        );
 
         let reader = index.reader()?;
         let writer = index.writer_with_num_threads(1, WRITE_BUFFER_SIZE)?;
