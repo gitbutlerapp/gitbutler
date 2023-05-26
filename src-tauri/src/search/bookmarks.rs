@@ -197,4 +197,53 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn update_bookmark() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let path = PathBuf::from(dir.path());
+        let bookmarks = Bookmarks::at(path)?;
+
+        let bookmark = bookmarks::Bookmark {
+            project_id: "test".to_string(),
+            timestamp_ms: 0,
+            note: "hello world".to_string(),
+            created_timestamp_ms: 0,
+            updated_timestamp_ms: 0,
+            deleted: false,
+        };
+        bookmarks.index(&bookmark).unwrap();
+
+        let query = SearchQuery {
+            q: "hello".to_string(),
+            project_id: bookmark.project_id.clone(),
+            limit: 10,
+            offset: None,
+        };
+
+        let results = bookmarks.search(&query).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], bookmark.timestamp_ms);
+
+        let bookmark = bookmarks::Bookmark {
+            project_id: "test".to_string(),
+            timestamp_ms: 0,
+            note: "goodbye world".to_string(),
+            created_timestamp_ms: 0,
+            updated_timestamp_ms: 0,
+            deleted: false,
+        };
+        bookmarks.index(&bookmark).unwrap();
+
+        let results = bookmarks
+            .search(&SearchQuery {
+                q: "goodbye".to_string(),
+                ..query
+            })
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], bookmark.timestamp_ms);
+
+        Ok(())
+    }
 }
