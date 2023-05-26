@@ -162,10 +162,10 @@ async fn search(
     query: &str,
     limit: Option<usize>,
     offset: Option<usize>,
-) -> Result<search::SearchResults, Error> {
+) -> Result<search::Results, Error> {
     let app = handle.state::<app::App>();
 
-    let query = search::SearchQuery {
+    let query = search::Query {
         project_id: project_id.to_string(),
         q: query.to_string(),
         limit: limit.unwrap_or(100),
@@ -488,7 +488,7 @@ async fn upsert_bookmark(
     timestamp_ms: u64,
     note: String,
     deleted: bool
-) -> Result<Option<bookmarks::Bookmark>, Error> {
+) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     let now = time::UNIX_EPOCH.elapsed().context("failed to get time")?.as_millis();
     let bookmark = bookmarks::Bookmark { 
@@ -499,8 +499,8 @@ async fn upsert_bookmark(
         note,
         deleted
     };
-    let bookmark = app.upsert_bookmark(&bookmark).context("failed to upsert bookmark")?;
-    Ok(bookmark)
+    app.upsert_bookmark(&bookmark).context("failed to upsert bookmark")?;
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]

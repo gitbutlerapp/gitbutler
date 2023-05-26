@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde_jsonlines::JsonLinesReader;
 
 use crate::{
@@ -26,8 +26,10 @@ impl<'reader> BookmarksReader<'reader> {
                 let iter = JsonLinesReader::new(content.as_bytes()).read_all();
                 let mut bookmarks = vec![];
                 for result in iter {
-                    let bookmark: Bookmark = result.context("failed to parse bookmark")?;
-                    bookmarks.push(bookmark);
+                    if result.is_err() {
+                        continue;
+                    }
+                    bookmarks.push(result.unwrap());
                 }
                 Ok(bookmarks)
             }

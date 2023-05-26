@@ -6,7 +6,7 @@ use super::events;
 
 pub struct Handler<'handler> {
     project_id: String,
-    deltas_searcher: search::Deltas,
+    deltas_searcher: search::Searcher,
     gb_repository: &'handler gb_repository::Repository,
     files_database: files::Database,
     sessions_database: sessions::Database,
@@ -18,7 +18,7 @@ pub struct Handler<'handler> {
 impl<'handler> Handler<'handler> {
     pub fn new(
         project_id: String,
-        deltas_searcher: search::Deltas,
+        deltas_searcher: search::Searcher,
         gb_repository: &'handler gb_repository::Repository,
         files_database: files::Database,
         sessions_database: sessions::Database,
@@ -65,6 +65,7 @@ impl<'handler> Handler<'handler> {
     pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {
         let updated = self.bookmarks_database.upsert(&bookmark)?;
         if let Some(updated) = updated {
+            self.deltas_searcher.index_bookmark(&bookmark)?;
             self.events_sender
                 .send(app_events::Event::bookmark(&self.project_id, &updated))?;
         }
@@ -72,10 +73,22 @@ impl<'handler> Handler<'handler> {
     }
 
     pub fn index_session(&self, session: &sessions::Session) -> Result<Vec<events::Event>> {
+        // first of all, index session for searching. searhcer keeps it's own state to
+        // decide if the actual indexing needed
         self.deltas_searcher
             .index_session(&self.gb_repository, &session)
             .context("failed to index session")?;
 
+        // index bookmarks right away. bookmarks are stored in the session during which it was
+        // created, not in the session that is actually bookmarked. so we want to make sure all of
+        // them are indexed at all times
+        let session_reader = sessions::Reader::open(&self.gb_repository, &session)?;
+        let bookmarks_reader = bookmarks::Reader::new(&session_reader);
+        for bookmark in bookmarks_reader.read()? {
+            self.index_bookmark(&bookmark)?;
+        }
+
+        // now, index session if it has changed to the database.
         let from_db = self.sessions_database.get_by_id(&session.id)?;
         if from_db.is_some() && from_db.unwrap() == *session {
             return Ok(vec![]);
@@ -86,8 +99,6 @@ impl<'handler> Handler<'handler> {
             .context("failed to insert session into database")?;
 
         let mut events: Vec<events::Event> = vec![];
-
-        let session_reader = sessions::Reader::open(&self.gb_repository, &session)?;
 
         for (file_path, content) in session_reader
             .files(None)
@@ -105,12 +116,6 @@ impl<'handler> Handler<'handler> {
         {
             let delta_events = self.index_deltas(&session.id, &file_path, &deltas)?;
             events.extend(delta_events);
-        }
-
-        let bookmarks_reader = bookmarks::Reader::new(&session_reader);
-        for bookmark in bookmarks_reader.read()? {
-            let bookmark_events = self.index_bookmark(&bookmark)?;
-            events.extend(bookmark_events);
         }
 
         Ok(events)

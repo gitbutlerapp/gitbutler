@@ -44,7 +44,7 @@ impl Database {
             .get_by_project_id_timestamp_ms(&bookmark.project_id, &bookmark.timestamp_ms)
             .context("Failed to get bookmark")?;
         if let Some(existing) = existing {
-            if existing.note == bookmark.note && existing.deleted == bookmark.deleted {
+            if existing.updated_timestamp_ms >= bookmark.updated_timestamp_ms {
                 return Ok(None);
             }
             self.update(bookmark).context("Failed to update bookmark")?;

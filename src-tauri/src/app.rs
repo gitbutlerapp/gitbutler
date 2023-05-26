@@ -12,7 +12,7 @@ pub struct App {
     projects_storage: projects::Storage,
     users_storage: users::Storage,
 
-    deltas_searcher: search::Deltas,
+    searcher: search::Searcher,
     events_sender: events::Sender,
 
     stop_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<()>>>>,
@@ -42,14 +42,14 @@ impl App {
         let local_data_dir = local_data_dir.as_ref();
         let storage = storage::Storage::from_path(local_data_dir.clone());
         let deltas_searcher =
-            search::Deltas::at(local_data_dir.clone()).context("failed to open deltas searcher")?;
+            search::Searcher::at(local_data_dir.clone()).context("failed to open deltas searcher")?;
         let database = database::Database::open(local_data_dir.join("database.sqlite3"))?;
         Ok(Self {
             events_sender: event_sender,
             local_data_dir: local_data_dir.to_path_buf(),
             projects_storage: projects::Storage::new(storage.clone()),
             users_storage: users::Storage::new(storage.clone()),
-            deltas_searcher,
+            searcher: deltas_searcher,
             stop_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
             proxy_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
             sessions_database: sessions::Database::new(database.clone()),
@@ -134,7 +134,7 @@ impl App {
         let users_storage = self.users_storage.clone();
         let projects_storage = self.projects_storage.clone();
         let local_data_dir = self.local_data_dir.clone();
-        let deltas_searcher = self.deltas_searcher.clone();
+        let deltas_searcher = self.searcher.clone();
         let events_sender = self.events_sender.clone();
         let sessions_database = self.sessions_database.clone();
         let files_database = self.files_database.clone();
@@ -302,7 +302,7 @@ impl App {
         self.files_database.list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Option<bookmarks::Bookmark>> {
+    pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             bookmark.project_id.to_string(),
@@ -315,15 +315,16 @@ impl App {
         let session = gb_repository.get_or_create_current_session().context("failed to get or create current session")?;
         let writer = sessions::Writer::open(&gb_repository, &session).context("failed to open session writer")?;
         writer.write_bookmark(&bookmark).context("failed to write bookmark")?;
-        let updated = self.bookmarks_database.upsert(bookmark).context("failed to upsert bookmark")?;
+        // let updated = self.bookmarks_database.upsert(bookmark).context("failed to upsert bookmark")?;
 
-        if let Some(updated) = updated.as_ref() {
-            if let Err(e) = self.proxy_watchers.lock().unwrap().get(&bookmark.project_id).unwrap().send(watcher::Event::Bookmark(updated.clone())) {
+        // if let Some(updated) = updated.as_ref() {
+            if let Err(e) = self.proxy_watchers.lock().unwrap().get(&bookmark.project_id).unwrap().send(watcher::Event::Bookmark(bookmark.clone())) {
                 log::error!("failed to send session event: {:#}", e);
             }
-        }
+        Ok(())
+        // }
 
-        Ok(updated)
+        // Ok(updated)
     }
 
     pub fn list_bookmarks(&self, project_id: &str, range: Option<ops::Range<u128>>) -> Result<Vec<bookmarks::Bookmark>> {
@@ -490,8 +491,8 @@ impl App {
         project_repository.git_commit(message, push)
     }
 
-    pub fn search(&self, query: &search::SearchQuery) -> Result<search::SearchResults> {
-        self.deltas_searcher.search(query)
+    pub fn search(&self, query: &search::Query) -> Result<search::Results> {
+        self.searcher.search(query)
     }
 
     pub fn record_pty(&self, project_id: &str, typ: pty::Type, bytes: &Vec<u8>) -> Result<()> {
@@ -525,7 +526,7 @@ impl App {
     }
 
     pub fn delete_all_data(&self) -> Result<()> {
-        self.deltas_searcher.delete_all_data().context("failed to delete search data")?;
+        self.searcher.delete_all_data().context("failed to delete search data")?;
         for project in self.list_projects()? {
             self.delete_project(&project.id).context("failed to delete project")?;
         }

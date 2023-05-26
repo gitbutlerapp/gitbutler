@@ -17,7 +17,7 @@ impl<'watcher> Watcher<'watcher> {
         project: &projects::Project,
         project_store: projects::Storage,
         gb_repository: &'watcher gb_repository::Repository,
-        deltas_searcher: search::Deltas,
+        deltas_searcher: search::Searcher,
         stop: crossbeam_channel::Receiver<()>,
         publisher: crossbeam_channel::Receiver<super::events::Event>,
         events_sender: events::Sender,

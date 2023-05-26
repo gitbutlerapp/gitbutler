@@ -14,17 +14,5 @@ pub struct Bookmark {
     pub deleted: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum Event {
-    Created(Bookmark),
-    Updated {
-        id: String,
-        note: Option<String>,
-        deleted: Option<bool>,
-        timestamp_ms: u128,
-    },
-}
-
 pub use database::Database;
 pub use reader::BookmarksReader as Reader;

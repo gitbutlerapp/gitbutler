@@ -1,7 +1,6 @@
-mod deltas;
-mod bookmarks;
+mod searcher;
 
-pub use deltas::{Deltas, SearchQuery, SearchResults};
+pub use searcher::{Searcher, Query, Results};
 
 #[cfg(test)]
-mod deltas_test;
+mod searcher_test;
