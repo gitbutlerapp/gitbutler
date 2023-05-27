@@ -6,7 +6,7 @@
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';
 	import { goto } from '$app/navigation';
-	import Chat from './Chat.svelte'
+	import Chat from './Chat.svelte';
 
 	export let data: PageData;
 	$: activity = derived(data.activity, (activity) => activity);
@@ -73,7 +73,7 @@
 		</div>
 
 		<div class="flex flex-auto flex-col overflow-auto ">
-			<Chat project={$project}/>
+			<Chat project={$project} />
 		</div>
 	</div>
 
