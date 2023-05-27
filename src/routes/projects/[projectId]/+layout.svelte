@@ -36,7 +36,6 @@
 			hotkeys.on('Meta+P', () => goto(`/projects/${$project.id}/`)),
 			hotkeys.on('Meta+Shift+,', () => goto(`/projects/${$project.id}/settings/`)),
 			hotkeys.on('Meta+R', () => goto(`/projects/${$project.id}/player/`)),
-			hotkeys.on('a i p', () => goto(`/projects/${$project.id}/aiplayground/`))
 		)
 	);
 </script>
