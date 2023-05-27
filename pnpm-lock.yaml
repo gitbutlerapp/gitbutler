@@ -94,6 +94,9 @@ devDependencies:
   '@types/diff-match-patch':
     specifier: ^1.0.32
     version: 1.0.32
+  '@types/marked':
+    specifier: ^5.0.0
+    version: 5.0.0
   '@typescript-eslint/eslint-plugin':
     specifier: ^5.59.7
     version: 5.59.7(@typescript-eslint/parser@5.59.7)(eslint@8.41.0)(typescript@5.0.4)
@@ -1281,6 +1284,10 @@ packages:
     dependencies:
       '@types/linkify-it': 3.0.2
       '@types/mdurl': 1.0.2
+    dev: true
+
+  /@types/marked@5.0.0:
+    resolution: {integrity: sha512-YcZe50jhltsCq7rc9MNZC/4QB/OnA2Pd6hrOSTOFajtabN+38slqgDDCeE/0F83SjkKBQcsZUj7VLWR0H5cKRA==}
     dev: true
 
   /@types/mdurl@1.0.2:
