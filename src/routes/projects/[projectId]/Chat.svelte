@@ -4,6 +4,7 @@
 	import { stores } from '$lib';
 	import { marked } from 'marked';
 	import { IconAISparkles } from '$lib/icons';
+	import { onMount } from 'svelte';
 
 	const cloud = CloudApi();
 	const user = stores.user;
@@ -22,6 +23,16 @@
 	}
 
 	$: cloudEnabled = !!project?.api?.repository_id;
+
+	onMount(async () => {
+		if (cloudEnabled) {
+			const u = await user.load();
+			if (!u) return;
+			cloud.chat.new(u.access_token || '', project.api?.repository_id || '').then((data) => {
+				chatId = data.id;
+			});
+		}
+	});
 
 	let ms = 3000;
 	let clear: any;
@@ -46,7 +57,7 @@
 
 		<div class="chat-container flex h-full flex-col overflow-auto border-zinc-700 pb-[122px]">
 			<ul class="flex flex-col gap-2 p-4">
-				{#if cloudEnabled}
+				{#if cloudEnabled && chatId}
 					<div class="flex items-start gap-2 align-top">
 						<div class="chat-user-avatar bg-zinc-900">
 							<IconAISparkles />
@@ -102,7 +113,7 @@
 
 						<!-- END Generating response! -->
 					{/if}
-				{:else}
+				{:else if !cloudEnabled}
 					<div class="flex items-start gap-2 align-top">
 						<div class="chat-user-avatar bg-zinc-900">
 							<IconAISparkles />
@@ -115,6 +126,19 @@
 									<a class="cursor-pointer underline" href="/projects/{project?.id}/settings"
 										>project settings</a
 									>.
+								</div>
+							</div>
+						</div>
+					</div>
+				{:else}
+					<div class="flex items-start gap-2 align-top">
+						<div class="chat-user-avatar bg-zinc-900">
+							<IconAISparkles />
+						</div>
+						<div class="message-block flex flex-col gap-2">
+							<div class="automated-message">
+								<div class="automated-text">
+									Updating project embeddings... This may take a while.
 								</div>
 							</div>
 						</div>

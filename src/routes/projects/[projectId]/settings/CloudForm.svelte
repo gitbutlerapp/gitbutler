@@ -69,7 +69,7 @@
 					/>
 				</svg>
 				<div class="flex flex-row">
-					<form class="flex gap-1 items-center">
+					<form class="flex items-center gap-1">
 						<Checkbox
 							name="sync"
 							disabled={$user === undefined}
