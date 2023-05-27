@@ -47,7 +47,7 @@
 	<header>
 		<h2 class="text-xl">GitButler Cloud</h2>
 		<span class="text-text-subdued">
-			Synce with GitButler secured cloud for AI features, team features, and more.
+			Sync with GitButler secure cloud for AI features, team features, and more.
 		</span>
 	</header>
 
@@ -69,14 +69,14 @@
 					/>
 				</svg>
 				<div class="flex flex-row">
-					<form class="flex gap-1">
+					<form class="flex gap-1 items-center">
 						<Checkbox
 							name="sync"
 							disabled={$user === undefined}
 							checked={project.api?.sync || false}
 							on:change={onSyncChange}
 						/>
-						<label for="sync">Backup your data to GitButler Cloud</label>
+						<label for="sync">Enable GitButler Cloud</label>
 					</form>
 				</div>
 			</div>
