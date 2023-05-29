@@ -131,10 +131,9 @@ impl Searcher {
         ));
 
         let diff_or_file_path_or_note_query = Box::new({
-            let mut parser =
+            let parser =
                 QueryParser::for_index(&self.index, vec![diff_field, file_path_field, note_field]);
-            parser.set_conjunction_by_default();
-            parser.parse_query(&q.q)?
+            parser.parse_query(&format!("\"{}\"", &q.q))?
         });
 
         let query = tantivy::query::BooleanQuery::intersection(vec![
@@ -329,8 +328,16 @@ fn build_schema() -> schema::Schema {
         )
         .set_stored(); // text values stored to aloow updating document
 
+    let code_options = TextOptions::default()
+        .set_indexing_options(
+            TextFieldIndexing::default()
+                .set_tokenizer("ngram2_3") // text is indexed with ngram tokenizer to allow partial matching
+                .set_index_option(schema::IndexRecordOption::WithFreqsAndPositions), // text is indexed with positions to allow highlighted snippets generation
+        )
+        .set_stored(); // text values stored to aloow updating document
+
     schema_builder.add_text_field("file_path", text_options.clone());
-    schema_builder.add_text_field("diff", text_options.clone());
+    schema_builder.add_text_field("diff", code_options);
     schema_builder.add_text_field("note", text_options);
 
     schema_builder.build()
