@@ -514,8 +514,7 @@ fn search_by_filename() -> Result<()> {
 
     let searcher = super::Searcher::at(index_path).unwrap();
 
-    let write_result = searcher.index_session(&gb_repo, &session);
-    assert!(write_result.is_ok());
+    searcher.index_session(&gb_repo, &session)?;
 
     let found_result = searcher
         .search(&super::Query {
@@ -537,6 +536,68 @@ fn search_by_filename() -> Result<()> {
         offset: None,
     })?;
     assert_eq!(not_found_result.total, 0);
+
+    Ok(())
+}
+
+#[test]
+fn test_highlight() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+
+    let session = gb_repo.get_or_create_current_session()?;
+    let writer = sessions::Writer::open(&gb_repo, &session)?;
+    writer.write_deltas(
+        Path::new("test.txt"),
+        &vec![deltas::Delta {
+            operations: vec![deltas::Operation::Insert((
+                0,
+                "hello world hello".to_string(),
+            ))],
+            timestamp_ms: 0,
+        }],
+    )?;
+    let session = gb_repo.flush()?;
+    let session = session.unwrap();
+
+    let searcher = super::Searcher::at(index_path).unwrap();
+
+    searcher.index_session(&gb_repo, &session)?;
+
+    let result = searcher
+        .search(&super::Query {
+            project_id: gb_repo.get_project_id().to_string(),
+            q: "hello".to_string(),
+            limit: 10,
+            offset: None,
+        })?
+        .page;
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].highlighted, vec!["hello"]);
+
+    let result = searcher
+        .search(&super::Query {
+            project_id: gb_repo.get_project_id().to_string(),
+            q: "hello world".to_string(),
+            limit: 10,
+            offset: None,
+        })?
+        .page;
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].highlighted, vec!["hello", "hello world"]);
 
     Ok(())
 }
