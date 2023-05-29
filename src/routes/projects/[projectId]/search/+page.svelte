@@ -19,13 +19,7 @@
 	const openNextPage = () => goto(`?q=${$query}&offset=${$offset + limit}`);
 	const openPrevPage = () => goto(`?q=${$query}&offset=${$offset - limit}`);
 
-	const fetchResultData = async ({
-		sessionId,
-		projectId,
-		filePath,
-		index,
-		highlighted
-	}: SearchResult) => {
+	const fetchResultData = async ({ sessionId, projectId, filePath, index }: SearchResult) => {
 		const [doc, dd] = await Promise.all([
 			files.list({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? ''),
 			deltas
@@ -38,7 +32,6 @@
 			doc,
 			deltas: dd,
 			filepath: filePath,
-			highlight: highlighted,
 			sessionId,
 			projectId,
 			date
@@ -85,7 +78,7 @@
 		</figcaption>
 
 		<ul class="search-result-list -mr-14 flex flex-auto flex-col gap-6 overflow-auto pb-6">
-			{#each $results.page as { doc, deltas, filepath, highlight, sessionId, projectId, date }}
+			{#each $results.page as { doc, deltas, filepath, sessionId, projectId, date }}
 				{@const timestamp = deltas[deltas.length - 1].timestampMs}
 				<li class="search-result mr-14">
 					<a

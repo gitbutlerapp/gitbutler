@@ -6,8 +6,6 @@ export type SearchResult = {
 	filePath: string;
 	// index of the delta in the session.
 	index: number;
-	// contains the highlighted text snippets.
-	highlighted: string[];
 };
 
 export const list = (params: {
