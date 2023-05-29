@@ -5,6 +5,7 @@
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/icons';
 	import { toasts, api, stores } from '$lib';
+	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
 
 	export let projects: ReturnType<typeof api.projects.Projects>;
 	export let cloud: ReturnType<typeof api.CloudApi>;
@@ -34,13 +35,23 @@
 	const onLinkClicked = () =>
 		Promise.resolve((isLinking = true))
 			.then(async () => {
-				const cloudProject = $cloudProjects.find(
+				const existingCloudProject = $cloudProjects.find(
 					(project) => project.repository_id === selectedRepositoryId
 				);
-				if (cloudProject !== undefined)
+				if (existingCloudProject !== undefined && project) {
 					await project
-						?.update({ api: { ...cloudProject, sync: true } })
+						.update({ api: { ...existingCloudProject, sync: true } })
 						.then(() => toasts.success(`Project linked`));
+				} else if (selectedRepositoryId === null && $user && project && $project) {
+					const cloudProject = await cloud.projects.create($user?.access_token, {
+						name: $project.title,
+						description: $project.description,
+						uid: $project.id
+					});
+					await project
+						.update({ api: { ...cloudProject, sync: true } })
+						.then(() => toasts.success(`Project linked`));
+				}
 				modal.close();
 			})
 
@@ -57,11 +68,21 @@
 		</div>
 
 		<div class="-mt-4 -mr-4 -mb-4 flex w-1/2 flex-auto flex-col gap-2 bg-[#000000]/20 pt-4">
-			<h3 class="px-4 text-lg font-semibold">Existing GitButler Projects</h3>
 			{#await Promise.all([cloudProjects.load(), projects.load(), project?.load()])}
 				<IconLoading class="m-auto animate-spin" />
 			{:then}
 				<ul class="flex flex-auto flex-col gap-2 overflow-y-scroll px-4 pb-4">
+					<button
+						class="hover:bg-card-hover flex gap-[10px] rounded bg-card-default p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer"
+						class:bg-card-active={selectedRepositoryId === null}
+						on:click={() => (selectedRepositoryId = null)}
+					>
+						<IconFolderPlus class="text-blue-500" />
+						<div class="flex flex-col gap-1">
+							<span class="text-text-default">Create new project</span>
+							<span class="text-xs text-text-subdued"> Syncing will begin after first save </span>
+						</div>
+					</button>
 					{#each $cloudProjects
 						// filter out projects that are already linked
 						.map( (project) => ({ ...project, disabled: $projects?.some((p) => p?.api?.repository_id === project.repository_id) }) )
@@ -96,13 +117,6 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button kind="outlined" on:click={close}>Not Now</Button>
-		<Button
-			disabled={selectedRepositoryId === null}
-			color="primary"
-			loading={isLinking}
-			on:click={onLinkClicked}
-		>
-			Link projects
-		</Button>
+		<Button color="primary" loading={isLinking} on:click={onLinkClicked}>Select project</Button>
 	</svelte:fragment>
 </Modal>
