@@ -213,12 +213,10 @@ fn search_by_full_match() -> Result<()> {
     let writer = sessions::Writer::open(&gb_repo, &session)?;
     writer.write_deltas(
         Path::new("test.txt"),
-        &vec![
-            deltas::Delta {
-                operations: vec![deltas::Operation::Insert((0, "hello".to_string()))],
-                timestamp_ms: 0,
-            },
-        ],
+        &vec![deltas::Delta {
+            operations: vec![deltas::Operation::Insert((0, "hello".to_string()))],
+            timestamp_ms: 0,
+        }],
     )?;
     let session = gb_repo.flush()?;
     let session = session.unwrap();
@@ -410,6 +408,67 @@ fn test_delete_all() -> Result<()> {
         offset: None,
     })?;
     assert_eq!(search_result_from.total, 0);
+
+    Ok(())
+}
+
+#[test]
+fn search_bookmark_by_phrase() -> Result<()> {
+    let repository = test_repository()?;
+    let project = test_project(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let project_store = projects::Storage::new(storage.clone());
+    project_store.add_project(&project)?;
+    let user_store = users::Storage::new(storage);
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store.clone(),
+        user_store,
+    )?;
+
+    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+
+    let session = gb_repo.get_or_create_current_session()?;
+    let writer = sessions::Writer::open(&gb_repo, &session)?;
+    writer.write_deltas(
+        Path::new("test.txt"),
+        &vec![deltas::Delta {
+            operations: vec![deltas::Operation::Insert((0, "Hello".to_string()))],
+            timestamp_ms: 0,
+        }],
+    )?;
+    let session = gb_repo.flush()?;
+    let session = session.unwrap();
+
+    let searcher = super::Searcher::at(index_path).unwrap();
+
+    searcher.index_session(&gb_repo, &session)?;
+    searcher.index_bookmark(&bookmarks::Bookmark {
+        project_id: gb_repo.get_project_id().to_string(),
+        timestamp_ms: 0,
+        created_timestamp_ms: 0,
+        updated_timestamp_ms: 0,
+        note: "bookmark text note".to_string(),
+        deleted: false,
+    })?;
+
+    let result = searcher.search(&super::Query {
+        project_id: gb_repo.get_project_id().to_string(),
+        q: "bookmark note".to_string(),
+        limit: 10,
+        offset: None,
+    })?;
+    assert_eq!(result.total, 0);
+
+    let result = searcher.search(&super::Query {
+        project_id: gb_repo.get_project_id().to_string(),
+        q: "text note".to_string(),
+        limit: 10,
+        offset: None,
+    })?;
+    assert_eq!(result.total, 1);
 
     Ok(())
 }
