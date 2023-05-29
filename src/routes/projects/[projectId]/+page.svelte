@@ -21,7 +21,9 @@
 				(session) => session.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
 			);
 			if (lastFourDaysOfSessions?.length >= 4) return lastFourDaysOfSessions;
-			return sessions?.slice(0, 4);
+			return sessions
+				?.slice(0, 4)
+				.sort((a, b) => b.meta.startTimestampMs - a.meta.startTimestampMs);
 		},
 		[]
 	);
@@ -33,6 +35,7 @@
 				? activity
 						?.filter((a) => a.timestampMs >= (recentSessions?.at(-1)?.meta.startTimestampMs ?? 0))
 						.sort((a, b) => b.timestampMs - a.timestampMs)
+						.slice(0, 100)
 				: [],
 		[]
 	);
