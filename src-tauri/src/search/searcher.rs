@@ -12,7 +12,7 @@ use tantivy::{collector, directory::MmapDirectory, IndexWriter};
 use tantivy::{query::QueryParser, Term};
 use tantivy::{schema::IndexRecordOption, tokenizer};
 
-use crate::{bookmarks, deltas, gb_repository, sessions};
+use crate::{bookmarks, deltas, gb_repository, search::highlighted::get_highlighted, sessions};
 
 use super::{index, meta};
 
@@ -99,7 +99,7 @@ impl Searcher {
         );
         let count_handle = collectors.add_collector(collector::Count);
 
-        let snippet_generator = tantivy::SnippetGenerator::create(
+        let diff_snippet_generator = tantivy::SnippetGenerator::create(
             &searcher,
             &query,
             self.index.schema().get_field("diff").unwrap(),
@@ -112,41 +112,16 @@ impl Searcher {
         let page = top_docs
             .iter()
             .map(|(_score, doc_address)| {
-                let retrieved_doc = searcher.doc(*doc_address)?;
-
-                let project_id = retrieved_doc
-                    .get_first(self.index.schema().get_field("project_id").unwrap())
-                    .unwrap()
-                    .as_text()
-                    .unwrap();
-                let file_path = retrieved_doc
-                    .get_first(self.index.schema().get_field("file_path").unwrap())
-                    .unwrap()
-                    .as_text()
-                    .unwrap();
-                let session_id = retrieved_doc
-                    .get_first(self.index.schema().get_field("session_id").unwrap())
-                    .unwrap()
-                    .as_text()
-                    .unwrap();
-                let index = retrieved_doc
-                    .get_first(self.index.schema().get_field("index").unwrap())
-                    .unwrap()
-                    .as_u64()
-                    .unwrap();
-                let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
-                let fragment = snippet.fragment();
-                let highlighted: Vec<String> = snippet
-                    .highlighted()
-                    .iter()
-                    .map(|range| fragment[range.start..range.end].to_string())
-                    .collect();
+                let doc = &searcher.doc(*doc_address)?;
+                let index_document =
+                    index::IndexDocument::from_document(&self.index.schema(), &doc);
+                let snippet = diff_snippet_generator.snippet_from_doc(&doc);
                 Ok(SearchResult {
-                    project_id: project_id.to_string(),
-                    file_path: file_path.to_string(),
-                    session_id: session_id.to_string(),
-                    highlighted,
-                    index,
+                    project_id: index_document.project_id.unwrap(),
+                    file_path: index_document.file_path.unwrap(),
+                    session_id: index_document.session_id.unwrap(),
+                    highlighted: get_highlighted(&snippet),
+                    index: index_document.index.unwrap(),
                 })
             })
             .collect::<Result<Vec<SearchResult>>>()?;
