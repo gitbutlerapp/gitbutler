@@ -64,15 +64,19 @@
 				<ul class="flex flex-auto flex-col gap-2 overflow-y-scroll px-4 pb-4">
 					{#each $cloudProjects
 						// filter out projects that are already linked
-						.filter((project) => $projects?.find((p) => p?.api?.repository_id === project.repository_id) === undefined)
+						.map( (project) => ({ ...project, disabled: $projects?.some((p) => p?.api?.repository_id === project.repository_id) }) )
 						// sort by last updated
 						.sort((a, b) => compareDesc(new Date(a.updated_at), new Date(b.updated_at)))
 						// sort by name
 						.sort((a, b) => a.name.localeCompare(b.name))
 						// sort by name distance to linking project title
-						.sort( (a, b) => (!$project ? 0 : leven(a.name.toLowerCase(), $project.title.toLowerCase()) < leven(b.name.toLowerCase(), $project.title.toLowerCase()) ? -1 : 1) ) as project}
+						.sort( (a, b) => (!$project ? 0 : leven(a.name.toLowerCase(), $project.title.toLowerCase()) < leven(b.name.toLowerCase(), $project.title.toLowerCase()) ? -1 : 1) )
+						// disbled on the bottom
+						.sort((a, b) => (a.disabled === b.disabled ? 0 : a.disabled ? 1 : -1)) as project}
 						<button
+							disabled={project.disabled}
 							class="hover:bg-card-hover flex gap-[10px] rounded bg-card-default p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer"
+							class:opacity-40={project.disabled}
 							class:bg-card-active={selectedRepositoryId === project.repository_id}
 							on:click={() => (selectedRepositoryId = project.repository_id)}
 						>
