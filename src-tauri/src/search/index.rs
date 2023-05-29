@@ -127,7 +127,7 @@ pub fn build_schema() -> schema::Schema {
                 .set_tokenizer("ngram2_3") // text is indexed with ngram tokenizer to allow partial matching
                 .set_index_option(schema::IndexRecordOption::WithFreqsAndPositions), // text is indexed with positions to allow highlighted snippets generation
         )
-        .set_stored(); // text values stored to aloow updating document
+        .set_stored(); // text values stored to allow updating document
 
     let code_options = TextOptions::default()
         .set_indexing_options(
@@ -135,7 +135,7 @@ pub fn build_schema() -> schema::Schema {
                 .set_tokenizer("ngram2_3") // text is indexed with ngram tokenizer to allow partial matching
                 .set_index_option(schema::IndexRecordOption::WithFreqsAndPositions), // text is indexed with positions to allow highlighted snippets generation
         )
-        .set_stored(); // text values stored to aloow updating document
+        .set_stored(); // text values stored to allow updating document
 
     schema_builder.add_text_field("file_path", text_options.clone());
     schema_builder.add_text_field("diff", code_options);

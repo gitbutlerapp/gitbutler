@@ -12,7 +12,7 @@ use tantivy::{collector, directory::MmapDirectory, IndexWriter};
 use tantivy::{query::QueryParser, Term};
 use tantivy::{schema::IndexRecordOption, tokenizer};
 
-use crate::{bookmarks, deltas, gb_repository, search::highlighted::get_highlighted, sessions};
+use crate::{bookmarks, deltas, gb_repository, sessions};
 
 use super::{index, meta};
 
@@ -99,12 +99,6 @@ impl Searcher {
         );
         let count_handle = collectors.add_collector(collector::Count);
 
-        let diff_snippet_generator = tantivy::SnippetGenerator::create(
-            &searcher,
-            &query,
-            self.index.schema().get_field("diff").unwrap(),
-        )?;
-
         let mut result = searcher.search(&query, &collectors)?;
         let count = count_handle.extract(&mut result);
         let top_docs = top_docs_handle.extract(&mut result);
@@ -115,12 +109,10 @@ impl Searcher {
                 let doc = &searcher.doc(*doc_address)?;
                 let index_document =
                     index::IndexDocument::from_document(&self.index.schema(), &doc);
-                let snippet = diff_snippet_generator.snippet_from_doc(&doc);
                 Ok(SearchResult {
                     project_id: index_document.project_id.unwrap(),
                     file_path: index_document.file_path.unwrap(),
                     session_id: index_document.session_id.unwrap(),
-                    highlighted: get_highlighted(&snippet),
                     index: index_document.index.unwrap(),
                 })
             })
@@ -226,7 +218,6 @@ pub struct SearchResult {
     pub session_id: String,
     pub file_path: String,
     pub index: u64,
-    pub highlighted: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
