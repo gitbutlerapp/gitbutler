@@ -23,6 +23,48 @@
 	$: currentHighlighter = create(diffRows.currentLines.join('\n'), filepath);
 	$: currentMap = documentMap(diffRows.currentLines);
 
+	const markRanges = (row: Row, highlight: string[]): [number, number][] => {
+		if (row.type !== RowType.Addition && row.type !== RowType.Deletion) return [];
+		let ranges: [number, number][] = [];
+		const line = row.tokens.reduce((acc, token) => acc + token.text, '');
+		for (const h of highlight) {
+			let pos = 0;
+			let index = line.indexOf(h, pos);
+			while (index !== -1) {
+				ranges.push([index, index + h.length]);
+				pos = index + h.length;
+				index = line.indexOf(h, pos);
+			}
+		}
+		ranges = mergeTouchingRanges(ranges);
+		if (ranges.length > 0) {
+			console.log({ ranges, line });
+		}
+		return ranges;
+	};
+
+	const mergeTouchingRanges = (ranges: [number, number][]): [number, number][] => {
+		ranges = ranges.sort((a, b) => a[0] - b[0]);
+		const merged: [number, number][][] = [];
+		for (const range of ranges) {
+			const touching = merged.find((r) => r.some((t) => t[1] === range[0] || t[0] === range[1]));
+			if (touching) {
+				touching.push(range);
+			} else {
+				merged.push([range]);
+			}
+		}
+		return merged.map((r) => [Math.min(...r.map((t) => t[0])), Math.max(...r.map((t) => t[1]))]);
+	};
+
+	const isIntersecting = (a: [number, number], b: [number, number]): boolean => {
+		if (a[0] > b[0]) return isIntersecting(b, a);
+		if (a[1] <= b[0]) return false;
+		if (a[0] <= b[0] && b[0] <= a[1]) return true;
+		if (b[0] <= a[0] && b[0] <= b[1]) return true;
+		return false;
+	};
+
 	const renderRowContent = (row: Row): { html: string[]; highlighted: boolean } => {
 		if (row.type === RowType.Spacer) {
 			return { html: row.tokens.map((tok) => `${tok.text}`), highlighted: false };
@@ -36,22 +78,33 @@
 		const content: string[] = [];
 		let pos = startPos;
 
-		let highlighted = false;
+		const mark = markRanges(row, highlight).map(([start, end]) => [start + pos, end + pos]);
+
+		let highlighted = mark.length > 0;
 		for (const token of row.tokens) {
 			let tokenContent = '';
 
+			let tokenPos = pos;
 			doc.highlightRange(pos, pos + token.text.length, (text, classNames) => {
 				const token = classNames
 					? `<span class=${classNames}>${sanitize(text)}</span>`
 					: sanitize(text);
 
-				const shouldHighlight =
-					(row.type === RowType.Deletion || row.type === RowType.Addition) &&
-					highlight.find((h) => text.includes(h));
+				const isHighlighted = mark.some(([from, to]) => {
+					const is = isIntersecting([from, to], [tokenPos, tokenPos + text.length]);
+					if (is) {
+						console.log({
+							pos: [from, to],
+							tokenPos: [tokenPos, tokenPos + text.length],
+							text,
+							is
+						});
+					}
+					return is;
+				});
+				tokenPos += text.length;
 
-				if (shouldHighlight) highlighted = true;
-
-				tokenContent += shouldHighlight ? `<mark>${token}</mark>` : token;
+				tokenContent += isHighlighted ? `<mark>${token}</mark>` : token;
 			});
 
 			content.push(

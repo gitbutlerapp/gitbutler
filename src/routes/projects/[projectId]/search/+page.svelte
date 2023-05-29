@@ -100,7 +100,13 @@
 						<div
 							class="flex-auto overflow-auto rounded-lg border border-zinc-700 bg-[#2F2F33] p-2 text-[#EBDBB2] shadow-lg"
 						>
-							<DeltasViewer {doc} {deltas} {filepath} paddingLines={2} {highlight} />
+							<DeltasViewer
+								{doc}
+								{deltas}
+								{filepath}
+								paddingLines={2}
+								highlight={$query ? [$query.trim()] : []}
+							/>
 						</div>
 					</a>
 				</li>
