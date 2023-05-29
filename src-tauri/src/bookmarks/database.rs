@@ -312,6 +312,7 @@ mod tests {
         let updated = Bookmark {
             note: "updated".to_string(),
             deleted: true,
+            updated_timestamp_ms: 1,
             ..bookmark.clone()
         };
         database.upsert(&updated)?;

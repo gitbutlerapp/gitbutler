@@ -64,8 +64,8 @@ impl<'handler> Handler<'handler> {
 
     pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {
         let updated = self.bookmarks_database.upsert(&bookmark)?;
+        self.deltas_searcher.index_bookmark(&bookmark)?;
         if let Some(updated) = updated {
-            self.deltas_searcher.index_bookmark(&bookmark)?;
             self.events_sender
                 .send(app_events::Event::bookmark(&self.project_id, &updated))?;
         }
