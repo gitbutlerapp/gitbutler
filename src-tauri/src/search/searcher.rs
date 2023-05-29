@@ -1,6 +1,5 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
     sync::{Arc, Mutex},
     vec,
 };
@@ -8,69 +7,18 @@ use std::{
 use anyhow::{Context, Result};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
-use tantivy::{collector, directory::MmapDirectory, schema, Document, IndexWriter};
+use tantivy::query::TermQuery;
+use tantivy::{collector, directory::MmapDirectory, IndexWriter};
 use tantivy::{query::QueryParser, Term};
-use tantivy::{
-    query::TermQuery,
-    schema::{TextFieldIndexing, TextOptions},
-};
 use tantivy::{schema::IndexRecordOption, tokenizer};
 
-use crate::{bookmarks, deltas, gb_repository, sessions, storage};
+use crate::{bookmarks, deltas, gb_repository, sessions};
 
-const CURRENT_VERSION: u64 = 5; // should not decrease
-
-#[derive(Clone)]
-struct MetaStorage {
-    storage: storage::Storage,
-}
-
-impl MetaStorage {
-    pub fn new(base_path: PathBuf) -> Self {
-        Self {
-            storage: storage::Storage::from_path(base_path),
-        }
-    }
-
-    pub fn delete_all(&self) -> Result<()> {
-        let filepath = self
-            .storage
-            .local_data_dir()
-            .join("indexes")
-            .join(format!("v{}", CURRENT_VERSION))
-            .join("meta");
-        fs::remove_dir_all(filepath)?;
-        Ok(())
-    }
-
-    pub fn get(&self, project_id: &str, session_hash: &str) -> Result<Option<u64>> {
-        let filepath = Path::new("indexes")
-            .join(format!("v{}", CURRENT_VERSION))
-            .join("meta")
-            .join(project_id)
-            .join(session_hash);
-        let meta = match self.storage.read(&filepath.to_str().unwrap())? {
-            None => None,
-            Some(meta) => meta.parse::<u64>().ok(),
-        };
-        Ok(meta)
-    }
-
-    pub fn set(&self, project_id: &str, session_hash: &str, version: u64) -> Result<()> {
-        let filepath = Path::new("indexes")
-            .join(format!("v{}", CURRENT_VERSION))
-            .join("meta")
-            .join(project_id)
-            .join(session_hash);
-        self.storage
-            .write(&filepath.to_str().unwrap(), &version.to_string())?;
-        Ok(())
-    }
-}
+use super::{index, meta};
 
 #[derive(Clone)]
 pub struct Searcher {
-    meta_storage: MetaStorage,
+    meta_storage: meta::Storage,
 
     index: tantivy::Index,
     reader: tantivy::IndexReader,
@@ -82,17 +30,16 @@ impl Searcher {
         let path = path.as_ref().to_path_buf();
         let dir = path
             .join("indexes")
-            .join(format!("v{}", CURRENT_VERSION))
+            .join(format!("v{}", index::VERSION))
             .join("deltas");
         fs::create_dir_all(&dir)?;
 
         let mmap_dir = MmapDirectory::open(dir)?;
-        let schema = build_schema();
         let index_settings = tantivy::IndexSettings {
             ..Default::default()
         };
         let index = tantivy::IndexBuilder::new()
-            .schema(schema)
+            .schema(index::build_schema())
             .settings(index_settings)
             .open_or_create(mmap_dir)?;
 
@@ -106,7 +53,7 @@ impl Searcher {
         let writer = index.writer_with_num_threads(1, WRITE_BUFFER_SIZE)?;
 
         Ok(Self {
-            meta_storage: MetaStorage::new(path),
+            meta_storage: meta::Storage::new(path),
             reader,
             writer: Arc::new(Mutex::new(writer)),
             index,
@@ -122,7 +69,7 @@ impl Searcher {
         let note_field = self.index.schema().get_field("note").unwrap();
 
         let version_term_query = Box::new(TermQuery::new(
-            Term::from_field_u64(version_field, CURRENT_VERSION),
+            Term::from_field_u64(version_field, index::VERSION),
             IndexRecordOption::Basic,
         ));
         let project_id_term_query = Box::new(TermQuery::new(
@@ -220,34 +167,36 @@ impl Searcher {
         Ok(())
     }
 
-    pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
+    pub fn index_bookmark(
+        &self,
+        bookmark: &bookmarks::Bookmark,
+    ) -> Result<Option<index::IndexDocument>> {
         let id = build_id(&bookmark.project_id, &bookmark.timestamp_ms);
         let id_field = self.index.schema().get_field("id").unwrap();
 
         let mut writer = self.writer.lock().unwrap();
         let mut doc = match find_document_by_id(&self.index, &self.reader, &id)? {
-            Some(doc) => {
-                writer.delete_term(Term::from_field_text(id_field, id.as_str()));
-                doc
-            }
-            None => Document::default(),
+            Some(doc) => doc,
+            None => index::IndexDocument {
+                id: id.clone(),
+                version: index::VERSION,
+                ..Default::default()
+            },
         };
 
-        doc.add_text(id_field, &id);
-        doc.add_text(
-            self.index.schema().get_field("note").unwrap(),
-            if bookmark.deleted {
-                ""
-            } else {
-                bookmark.note.as_str()
-            },
-        );
+        let note = if bookmark.deleted { "" } else { &bookmark.note };
+        if note == doc.note.clone().unwrap_or_default() {
+            return Ok(None);
+        }
 
-        writer.add_document(doc)?;
+        doc.note = Some(note.to_string());
+
+        writer.delete_term(Term::from_field_text(id_field, id.as_str()));
+        writer.add_document(doc.to_document(&self.index.schema()))?;
         writer.commit()?;
         self.reader.reload()?;
 
-        Ok(())
+        Ok(Some(doc))
     }
 
     pub fn index_session(
@@ -265,7 +214,7 @@ impl Searcher {
             .get(repository.get_project_id(), &session.id)?
             .unwrap_or(0);
 
-        if version == CURRENT_VERSION {
+        if version == index::VERSION {
             return Ok(());
         }
 
@@ -277,7 +226,7 @@ impl Searcher {
             &repository,
         )?;
         self.meta_storage
-            .set(&repository.get_project_id(), &session.id, CURRENT_VERSION)?;
+            .set(&repository.get_project_id(), &session.id, index::VERSION)?;
 
         log::info!(
             "{}: indexed session {}",
@@ -290,57 +239,7 @@ impl Searcher {
 }
 
 fn build_id(project_id: &str, timestamp_ms: &u128) -> String {
-    format!("{}-{}-{}", CURRENT_VERSION, project_id, timestamp_ms)
-}
-
-fn build_schema() -> schema::Schema {
-    let mut schema_builder = schema::Schema::builder();
-
-    schema_builder.add_u64_field(
-        "version",
-        schema::INDEXED // version is searchable to allow reindexing
-        | schema::STORED, // version is stored to allow updating document
-    );
-    schema_builder.add_u64_field(
-        "timestamp_ms",
-        schema::STORED // timestamp is stored to allow updating document
-        |schema::FAST, // timestamp is fast to allow sorting
-    );
-    schema_builder.add_u64_field(
-        "index",
-        schema::STORED, // index is stored because we want to return it in search results and allow
-                        // filtering
-    );
-
-    let id_options = TextOptions::default()
-        .set_indexing_options(TextFieldIndexing::default().set_tokenizer("raw")) // id is indexed raw to allow exact matching only
-        .set_stored(); // and stored to allow updates document
-
-    schema_builder.add_text_field("id", id_options.clone());
-    schema_builder.add_text_field("project_id", id_options.clone());
-    schema_builder.add_text_field("session_id", id_options);
-
-    let text_options = TextOptions::default()
-        .set_indexing_options(
-            TextFieldIndexing::default()
-                .set_tokenizer("ngram2_3") // text is indexed with ngram tokenizer to allow partial matching
-                .set_index_option(schema::IndexRecordOption::WithFreqsAndPositions), // text is indexed with positions to allow highlighted snippets generation
-        )
-        .set_stored(); // text values stored to aloow updating document
-
-    let code_options = TextOptions::default()
-        .set_indexing_options(
-            TextFieldIndexing::default()
-                .set_tokenizer("ngram2_3") // text is indexed with ngram tokenizer to allow partial matching
-                .set_index_option(schema::IndexRecordOption::WithFreqsAndPositions), // text is indexed with positions to allow highlighted snippets generation
-        )
-        .set_stored(); // text values stored to aloow updating document
-
-    schema_builder.add_text_field("file_path", text_options.clone());
-    schema_builder.add_text_field("diff", code_options);
-    schema_builder.add_text_field("note", text_options);
-
-    schema_builder.build()
+    format!("{}-{}-{}", index::VERSION, project_id, timestamp_ms)
 }
 
 const WRITE_BUFFER_SIZE: usize = 10_000_000; // 10MB
@@ -415,7 +314,7 @@ fn find_document_by_id(
     index: &tantivy::Index,
     reader: &tantivy::IndexReader,
     id: &str,
-) -> Result<Option<Document>> {
+) -> Result<Option<index::IndexDocument>> {
     let id_field = index.schema().get_field("id").unwrap();
     let searcher = reader.searcher();
     let query = TermQuery::new(
@@ -428,7 +327,10 @@ fn find_document_by_id(
     }
     let doc_address = top_docs[0].1;
     let doc = searcher.doc(doc_address)?;
-    Ok(Some(doc))
+    Ok(Some(index::IndexDocument::from_document(
+        &index.schema(),
+        &doc,
+    )))
 }
 
 fn index_delta(
@@ -450,25 +352,12 @@ fn index_delta(
             writer.delete_term(Term::from_field_text(id_field, id.as_str()));
             doc
         }
-        None => Document::default(),
+        None => index::IndexDocument {
+            id: id.clone(),
+            version: index::VERSION,
+            ..Default::default()
+        },
     };
-
-    doc.add_text(id_field, id);
-    doc.add_u64(
-        index.schema().get_field("version").unwrap(),
-        CURRENT_VERSION.try_into()?,
-    );
-    doc.add_u64(index.schema().get_field("index").unwrap(), i.try_into()?);
-    doc.add_text(
-        index.schema().get_field("session_id").unwrap(),
-        session_id.clone(),
-    );
-    doc.add_text(index.schema().get_field("file_path").unwrap(), file_path);
-    doc.add_text(index.schema().get_field("project_id").unwrap(), project_id);
-    doc.add_u64(
-        index.schema().get_field("timestamp_ms").unwrap(),
-        delta.timestamp_ms.try_into()?,
-    );
 
     let prev_file_text = file_text.clone();
     // for every operation in the delta
@@ -495,9 +384,14 @@ fn index_delta(
         .collect::<Vec<&str>>()
         .join(" ");
 
-    doc.add_text(index.schema().get_field("diff").unwrap(), changes);
+    doc.index = Some(i.try_into()?);
+    doc.session_id = Some(session_id.to_string());
+    doc.file_path = Some(file_path.to_string());
+    doc.project_id = Some(project_id.to_string());
+    doc.timestamp_ms = Some(delta.timestamp_ms.try_into()?);
+    doc.diff = Some(changes.clone());
 
-    writer.add_document(doc)?;
+    writer.add_document(doc.to_document(&index.schema()))?;
 
     Ok(())
 }
