@@ -11,3 +11,4 @@ export { default as Differ } from './Differ';
 export { default as DeltasViewer } from './DeltasViewer.svelte';
 export { default as DiffContext } from './DiffContext.svelte';
 export { default as Checkbox } from './Checkbox';
+export { default as Stats } from './Stats.svelte';

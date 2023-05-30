@@ -1,16 +1,55 @@
 <script lang="ts">
-	import type { Delta, Session } from '$lib/api';
+	import { Operation, type Delta, type Session } from '$lib/api';
 	import { page } from '$app/stores';
 	import { collapse } from '$lib/paths';
 	import { derived } from '@square/svelte-store';
 	import { stores } from '$lib';
 	import { IconBookmarkFilled } from '$lib/icons';
 	import { Value } from 'svelte-loadable-store';
+	import { line } from '$lib/diff';
+	import { Stats } from '$lib/components';
 
 	export let isCurrent: boolean;
 	export let session: Session;
 	export let currentFilepath: string;
 	export let deltas: Record<string, Delta[]>;
+	export let files: Record<string, string>;
+
+	const applyDeltas = (text: string, deltas: Delta[]) => {
+		const operations = deltas.flatMap((delta) => delta.operations);
+
+		operations.forEach((operation) => {
+			if (Operation.isInsert(operation)) {
+				text =
+					text.slice(0, operation.insert[0]) +
+					operation.insert[1] +
+					text.slice(operation.insert[0]);
+			} else if (Operation.isDelete(operation)) {
+				text =
+					text.slice(0, operation.delete[0]) +
+					text.slice(operation.delete[0] + operation.delete[1]);
+			}
+		});
+		return text;
+	};
+
+	$: stats = Object.entries(deltas)
+		.map(([path, deltas]) => {
+			const doc = files[path] ?? '';
+			const left = deltas.length > 0 ? applyDeltas(doc, deltas.slice(0, deltas.length - 1)) : doc;
+			const right = deltas.length > 0 ? applyDeltas(left, deltas.slice(deltas.length - 1)) : left;
+			const diff = line(left.split('\n'), right.split('\n'));
+			const linesAdded = diff
+				.filter((d) => d[0] === 1)
+				.map((d) => d[1].length)
+				.reduce((a, b) => a + b, 0);
+			const linesRemoved = diff
+				.filter((d) => d[0] === -1)
+				.map((d) => d[1].length)
+				.reduce((a, b) => a + b, 0);
+			return [linesAdded, linesRemoved];
+		})
+		.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]);
 
 	$: bookmarks = derived(stores.bookmarks.list({ projectId: session.projectId }), (bookmarks) => {
 		if (bookmarks.isLoading) return [];
@@ -88,6 +127,8 @@
 		<span class="flex flex-row justify-between px-3 pb-3">
 			{changedFiles.length}
 			{changedFiles.length !== 1 ? 'files' : 'file'}
+
+			<Stats added={stats[0]} removed={stats[1]} />
 		</span>
 
 		{#if isCurrent}
