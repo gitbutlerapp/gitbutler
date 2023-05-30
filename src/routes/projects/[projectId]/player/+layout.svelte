@@ -1,19 +1,17 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { deltas } from '$lib/api';
-	import { asyncDerived, derived } from '@square/svelte-store';
+	import { stores, api } from '$lib';
 	import { format } from 'date-fns';
-	import type { LayoutData } from './$types';
+	import { derived, Value } from 'svelte-loadable-store';
 
-	export let data: LayoutData;
-	const { sessions } = data;
+	const sessions = stores.sessions({ projectId: $page.params.projectId });
 
-	const fileFilter = derived(page, (page) => page.url.searchParams.get('file'));
+	$: fileFilter = $page.url.searchParams.get('file');
 
-	const dates = asyncDerived([sessions, fileFilter], async ([sessions, fileFilter]) => {
+	const dates = derived(sessions, async (sessions) => {
 		const sessionDeltas = await Promise.all(
 			sessions.map((session) =>
-				deltas.list({
+				api.deltas.list({
 					projectId: $page.params.projectId,
 					sessionId: session.id,
 					paths: fileFilter ? [fileFilter] : undefined
@@ -28,26 +26,26 @@
 			.filter((date, index, self) => self.indexOf(date) === index);
 	});
 
-	const currentDate = derived(page, (page) => page.params.date);
+	$: currentDate = $page.params.date;
 
 	const today = format(new Date(), 'yyyy-MM-dd');
 </script>
 
 <div id="player-page" class="flex h-full w-full flex-col">
-	{#await dates.load() then}
-		{#if $dates.length === 0}
+	{#if !$dates.isLoading && Value.isValue($dates.value)}
+		{#if $dates.value.length === 0}
 			<div class="text-center">
 				<h2 class="text-2xl">I haven't seen any changes yet</h2>
 				<p class="text-gray-500">Go code something!</p>
 			</div>
 		{:else}
-			{#if $fileFilter}
+			{#if fileFilter}
 				<a
 					href="/projects/{$page.params.projectId}/player/{$page.params.date}/{$page.params
 						.sessionId}"
 					class="w-full p-2 text-left font-mono text-lg"
 				>
-					{$fileFilter}
+					{fileFilter}
 				</a>
 			{/if}
 
@@ -56,15 +54,15 @@
 					id="days"
 					class="scrollbar-hidden grid h-full flex-shrink-0 auto-rows-min gap-2 overflow-y-scroll py-2"
 				>
-					{#each $dates as date}
+					{#each $dates.value as date}
 						{@const isToday = format(new Date(date), 'yyyy-MM-dd') === today}
 						<li class="date-card ">
 							<a
 								href="/projects/{$page.params.projectId}/player/{date}{$page.url.search}"
-								class:bg-card-active={date === $currentDate}
-								class:text-white={date === $currentDate}
-								class:border-zinc-700={date !== $currentDate}
-								class:bg-card-default={date !== $currentDate}
+								class:bg-card-active={date === currentDate}
+								class:text-white={date === currentDate}
+								class:border-zinc-700={date !== currentDate}
+								class:bg-card-default={date !== currentDate}
 								class="card max-h-content flex w-full flex-col items-center justify-around p-2 text-zinc-300 shadow transition duration-150 ease-out hover:bg-card-active hover:ease-in"
 							>
 								{#if isToday}
@@ -81,5 +79,5 @@
 				<slot />
 			</div>
 		{/if}
-	{/await}
+	{/if}
 </div>
