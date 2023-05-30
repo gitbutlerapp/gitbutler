@@ -2,7 +2,8 @@
 	import type { Bookmark, Delta } from '$lib/api';
 	import { derived, Value, type Loadable } from 'svelte-loadable-store';
 	import type { Readable } from '@square/svelte-store';
-	import slider from './slider';
+	import { ModuleChapters } from './ModuleChapters';
+	import { JSR, ModuleSlider } from 'mm-jsr';
 
 	export let sessions: Readable<Loadable<[string, Delta][][]>>;
 	export let value: number;
@@ -21,92 +22,134 @@
 		sessions.reduce((acc, deltas) => acc + deltas.length, 0)
 	);
 
-	$: chapters = derived([sessions, totalDeltas], ([sessions, totalDeltas]) =>
+	$: chapters = derived(sessions, (sessions) =>
 		sessions.map((session, index, all) => {
 			const from = all.slice(0, index).reduce((acc, deltas) => acc + deltas.length, 0);
 			const to = from + session.length;
-			const saves = session.map((delta, deltaIndex) => ({
-				value: from + deltaIndex,
-				timestampMs: delta[1].timestampMs,
-				note: markers[delta[1].timestampMs]
-			}));
-			return {
-				saves,
-				from,
-				to,
-				highlighted: from <= value && value <= to,
-				width: ((to - from) / totalDeltas) * 100
-			};
+			return [from, to] as [number, number];
 		})
 	);
 
-	let timeline: HTMLElement;
+	type Config = {
+		min: number;
+		max: number;
+		initialValue: number;
+		chapters: [number, number][];
+	};
 
-	const selectValue = (e: MouseEvent) => {
-		const { left, width } = timeline.getBoundingClientRect();
-		const clickOffset = e.clientX;
-		const clickPos = Math.min(Math.max((clickOffset - left) / width, 0), 1) || 0;
-		if (!$totalDeltas.isLoading && !Value.isError($totalDeltas.value)) {
-			value = clickPos * $totalDeltas.value;
-		}
+	const jsrSlider = (target: HTMLElement, config: Config) => {
+		const fromConfig = (target: HTMLElement, config: Config) => {
+			const jsr = new JSR({
+				modules: [new ModuleSlider(), new ModuleChapters(config.chapters)],
+				config: {
+					min: config.min,
+					max: config.max,
+					step: 1,
+					initialValues: [config.initialValue],
+					container: target
+				}
+			});
+			jsr.onValueChange(({ real }) => (value = real));
+			return jsr;
+		};
+
+		let jsr = fromConfig(target, config);
+		return {
+			update(config: Config) {
+				jsr.destroy();
+				jsr = fromConfig(target, config);
+			},
+			destroy() {
+				jsr.destroy();
+			}
+		};
 	};
 </script>
 
-<div id="slider">
-	{#if $chapters.isLoading || $totalDeltas.isLoading}
-		<div class="mt-8 text-center">Loading...</div>
-	{:else if Value.isError($chapters.value) || Value.isError($totalDeltas.value)}
-		<div class="mt-8 text-center">Something went wrong.</div>
-	{:else}
-		<div class="relative flex w-full items-center" bind:this={timeline}>
-			{#each $chapters.value as { from, to, width, saves }, i}
-				{@const isCurrent = value >= from && value <= to}
-				{@const filledPrecentage = Math.max(0, Math.min(100, ((value - from) / (to - from)) * 100))}
-				<li
-					on:mousedown={(e) => selectValue(e)}
-					class="relative flex cursor-pointer items-center"
-					style:width="{width}%"
-				>
-					<div
-						class:ml-[3px]={i > 0}
-						class:mr-[3px]={i < $chapters.value.length - 1}
-						class="h-[6px] w-full rounded-[5px]"
-						class:h-[10px]={isCurrent}
-						class:rounded-[8px]={isCurrent}
-						style:background="linear-gradient(90deg, #2563EB {filledPrecentage}%,
-						var(--color-zinc-700) {filledPrecentage}%)"
-					/>
-				</li>
+{#if !$totalDeltas.isLoading && Value.isValue($totalDeltas.value) && !$chapters.isLoading && Value.isValue($chapters.value)}
+	<div
+		use:jsrSlider={{
+			min: 0,
+			max: $totalDeltas.value,
+			initialValue: value,
+			chapters: $chapters.value
+		}}
+	>
+		<style>
+			.jsr {
+				position: relative;
 
-				{#each saves as save}
-					{#if save.note !== undefined}
-						<button
-							on:click={() => (value = save.value)}
-							class="z-1 absolute cursor-pointer rounded-[16px] transition hover:h-[8px] hover:w-[8px] hover:scale-150"
-							style:left="calc({(save.value / $totalDeltas.value) * 100}% - 4px)"
-							class:h-[4px]={!isCurrent}
-							class:w-[4px]={!isCurrent}
-							class:h-[8px]={isCurrent}
-							class:w-[8px]={isCurrent}
-							class:bg-[#D4D4D8]={save.value <= value}
-							class:bg-[#2563EB]={save.value > value}
-						/>
-					{/if}
-				{/each}
-			{/each}
-			<div
-				id="cursor"
-				use:slider
-				on:drag={({ detail: offset }) => {
-					if (!$totalDeltas.isLoading && !Value.isError($totalDeltas.value)) {
-						value = offset * $totalDeltas.value;
-					}
-				}}
-				class="absolute flex h-[48px] w-[16px] cursor-pointer items-center justify-around transition hover:scale-150"
-				style:left="calc({(value / $totalDeltas.value) * 100}% - 8px)"
-			>
-				<div class="h-[18px] w-[3px] rounded-sm bg-white shadow-md" />
-			</div>
-		</div>
-	{/if}
-</div>
+				height: 100%;
+				width: 100%;
+
+				-webkit-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+			}
+
+			.jsr_slider {
+				position: absolute;
+				left: 0;
+				top: 8px;
+
+				display: flex;
+				align-items: center;
+
+				transform: translate(-50%, -50%);
+
+				width: 16px;
+				height: 48px;
+
+				cursor: col-resize;
+				transition: background 0.1s ease-in-out;
+			}
+
+			.jsr_slider::before {
+				content: '';
+				width: 3px;
+				height: 18px;
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				background: white;
+				border-radius: 2px;
+			}
+
+			.jsr_chapters {
+				display: flex;
+				align-items: center;
+				height: 15px;
+			}
+
+			.jsr_chapter {
+				display: flex;
+				align-items: center;
+				height: 6px;
+				border-radius: 5px;
+				background: var(--color-zinc-700);
+			}
+
+			.jsr_chapter__filled,
+			.jsr_chapter__not-filled {
+				border-radius: 5px;
+			}
+
+			.jsr_chapter__filled {
+				height: 100%;
+				background: #2563eb;
+			}
+
+			.jsr_chapter--active > .jsr_chapter__not-filled,
+			.jsr_chapter--active > .jsr_chapter__filled {
+				border-radius: 8px;
+			}
+
+			.jsr_chapter--active {
+				height: 10px;
+				border-radius: 8px;
+			}
+		</style>
+	</div>
+{/if}
