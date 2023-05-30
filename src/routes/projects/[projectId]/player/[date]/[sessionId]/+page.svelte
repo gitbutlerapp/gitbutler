@@ -73,8 +73,11 @@
 	const value = writable(0);
 
 	$: {
+		// this hook updates player value if current page url has changed
 		if (!$richSessions.isLoading && Value.isValue($richSessions.value)) {
-			const currentSessionIndex = $richSessions.value.findIndex((s) => s.id === $currentSessionId);
+			const currentSessionIndex = $richSessions.value.findIndex(
+				(s) => s.id === $page.params.sessionId
+			);
 			$value =
 				$richSessions.value
 					.filter((_, index) => index < currentSessionIndex)
