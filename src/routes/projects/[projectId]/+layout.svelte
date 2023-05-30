@@ -18,7 +18,8 @@
 
 	let query: string;
 
-	const onSearchSubmit = () => goto(`/projects/${$project?.id}/search?q=${query}`);
+	const onSearchSubmit = () =>
+		goto(`/projects/${$project?.id}/search?q=${encodeURIComponent(query)}`);
 
 	const projectUrl = (project: Project) =>
 		new URL(`/projects/${project.id}`, new URL(PUBLIC_API_BASE_URL)).toString();
