@@ -3,6 +3,7 @@
 	import { Status, type Project, git, type CloudApi, type User } from '$lib/api';
 	import { Button, Overlay, Link } from '$lib/components';
 	import { IconGitBranch, IconSparkle } from '$lib/icons';
+	import { Stats } from '$lib/components';
 
 	export const show = () => modal.show();
 
@@ -29,7 +30,7 @@
 		});
 	};
 
-	let [linesAdded, linesRemoved] = Object.values(diffs)
+	$: [linesAdded, linesRemoved] = Object.values(diffs)
 		.map((diff) => {
 			let added = 0;
 			let removed = 0;
@@ -49,10 +50,6 @@
 			return [added, removed];
 		})
 		.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]);
-
-	let diffStatRatio = linesAdded / (linesAdded + linesRemoved);
-	let diffStatAdded = Math.floor(4 * diffStatRatio);
-	let diffStatRemoved = 4 - diffStatAdded;
 
 	const reset = () => {
 		summary = '';
@@ -180,22 +177,8 @@
 					href="/projects/{project.id}/commit/"
 				>
 					{Object.keys(statuses).length} files changed
+					<Stats added={linesAdded} removed={linesRemoved} />
 				</Link>
-
-				<div id="diffstat" class="flex items-center gap-2">
-					<div id="diffstat-lines" class="flex items-center gap-1">
-						<span class="text-green-400">+{linesAdded}</span>
-						<span class="text-red-500">-{linesRemoved}</span>
-					</div>
-					<div id="diffstat-squares" class="flex items-center gap-0.5">
-						{#each { length: diffStatAdded } as _}
-							<div class="h-2 w-2 rounded-sm bg-green-400" />
-						{/each}
-						{#each { length: diffStatRemoved } as _}
-							<div class="h-2 w-2 rounded-sm bg-red-500" />
-						{/each}
-					</div>
-				</div>
 			</div>
 
 			<div class="flex gap-2">

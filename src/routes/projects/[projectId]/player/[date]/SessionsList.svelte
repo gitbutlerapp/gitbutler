@@ -7,6 +7,7 @@
 
 	export let sessions: (Session & {
 		deltas: Readable<Loadable<Record<string, Delta[]>>>;
+		files: Readable<Loadable<Record<string, string>>>;
 	})[];
 	export let currentSession: Session | undefined;
 	export let currentFilepath: string;
@@ -14,6 +15,11 @@
 	$: visibleDeltas = derived(
 		sessions.map(({ deltas }) => deltas),
 		(deltas) => deltas.map((delta) => Object.fromEntries(Object.entries(delta ?? {})))
+	);
+
+	$: visibleFiles = derived(
+		sessions.map(({ files }) => files),
+		(files) => files.map((file) => Object.fromEntries(Object.entries(file ?? {})))
 	);
 
 	$: visibleSessions = sessions?.map((session, i) => ({
@@ -42,8 +48,14 @@
 >
 	{#each visibleSessions as session, i}
 		{@const isCurrent = session.id === currentSession?.id}
-		{#if session.visible && !$visibleDeltas.isLoading && !Value.isError($visibleDeltas.value)}
-			<SessionCard {isCurrent} {session} deltas={$visibleDeltas.value[i]} {currentFilepath} />
+		{#if session.visible && !$visibleDeltas.isLoading && !Value.isError($visibleDeltas.value) && !$visibleFiles.isLoading && !Value.isError($visibleFiles.value)}
+			<SessionCard
+				{isCurrent}
+				{session}
+				deltas={$visibleDeltas.value[i]}
+				files={$visibleFiles.value[i]}
+				{currentFilepath}
+			/>
 		{/if}
 	{:else}
 		<div class="mt-4 text-center text-zinc-300">No activities found</div>
