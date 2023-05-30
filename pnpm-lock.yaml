@@ -1,5 +1,10 @@
 lockfileVersion: '6.0'
 
+dependencies:
+  mm-jsr:
+    specifier: ^3.0.2
+    version: 3.0.2
+
 devDependencies:
   '@codemirror/autocomplete':
     specifier: ^6.4.2
@@ -2916,6 +2921,10 @@ packages:
       pkg-types: 1.0.3
       ufo: 1.1.2
     dev: true
+
+  /mm-jsr@3.0.2:
+    resolution: {integrity: sha512-ATbSVKgOU9i54eBLPV+QETFKhGODnCDKsi18TLsET7BCJnX00LjcbOZYvw6ODplJpRY7JCrA861mYfViCDnh3w==}
+    dev: false
 
   /mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}

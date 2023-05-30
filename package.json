@@ -89,5 +89,8 @@
 		"xterm-addon-ligatures": "^0.6.0",
 		"xterm-addon-unicode11": "^0.5.0",
 		"xterm-addon-webgl": "^0.14.0"
+	},
+	"dependencies": {
+		"mm-jsr": "^3.0.2"
 	}
 }
