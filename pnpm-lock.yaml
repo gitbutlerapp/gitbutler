@@ -1,10 +1,5 @@
 lockfileVersion: '6.0'
 
-dependencies:
-  mm-jsr:
-    specifier: ^3.0.2
-    version: 3.0.2
-
 devDependencies:
   '@codemirror/autocomplete':
     specifier: ^6.4.2
@@ -141,6 +136,9 @@ devDependencies:
   marked:
     specifier: ^5.0.2
     version: 5.0.2
+  mm-jsr:
+    specifier: ^3.0.2
+    version: 3.0.2
   nanoevents:
     specifier: ^7.0.1
     version: 7.0.1
@@ -178,8 +176,8 @@ devDependencies:
     specifier: ^1.0.3
     version: 1.0.3(svelte@3.55.1)
   svelte-loadable-store:
-    specifier: ^1.1.2
-    version: 1.1.2(svelte@3.55.1)
+    specifier: ^1.2.3
+    version: 1.2.3(svelte@3.55.1)
   svelte-outclick:
     specifier: ^3.5.0
     version: 3.5.0(svelte@3.55.1)
@@ -2924,7 +2922,7 @@ packages:
 
   /mm-jsr@3.0.2:
     resolution: {integrity: sha512-ATbSVKgOU9i54eBLPV+QETFKhGODnCDKsi18TLsET7BCJnX00LjcbOZYvw6ODplJpRY7JCrA861mYfViCDnh3w==}
-    dev: false
+    dev: true
 
   /mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
@@ -3724,8 +3722,8 @@ packages:
       svelte: 3.55.1
     dev: true
 
-  /svelte-loadable-store@1.1.2(svelte@3.55.1):
-    resolution: {integrity: sha512-cQvXnSqjq+UA8Sv7BqRsgarLaYsdrQ9CVKt+YyXGWGDbjgJr2vxErRIV0hA+42tbIFGg9+DEM4WPVc+KjXMTCw==}
+  /svelte-loadable-store@1.2.3(svelte@3.55.1):
+    resolution: {integrity: sha512-efoCRCGLxzU+RE1D09cpnKKBO2CVXAzjUY0/RatOtPXSNPbb0/HeGcV/baH5davabwiDm7iWf2rqI9ogIRQ1Pw==}
     peerDependencies:
       svelte: ^3.0.0
     dependencies:
