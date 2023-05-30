@@ -117,7 +117,7 @@
 			.jsr_slider {
 				position: absolute;
 				left: 0;
-				top: 8px;
+				top: 7.5px;
 
 				display: flex;
 				align-items: center;
@@ -184,7 +184,7 @@
 
 			.jsr_marker {
 				position: absolute;
-				top: 8px;
+				top: 7.5px;
 				width: 8px;
 				height: 8px;
 				left: 0;
