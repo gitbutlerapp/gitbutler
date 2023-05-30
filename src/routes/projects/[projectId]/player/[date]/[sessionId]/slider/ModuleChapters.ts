@@ -2,11 +2,9 @@ import { type StateDto, Module, Value } from 'mm-jsr';
 
 export type ModuleChaptersSettings = [number, number][];
 
-export type ChangeChaptersCommand = [number, number][];
-
 /**
  * Module for rendering chapters on the rail.
- * Only workds with single value.
+ * Only works with single value.
  *
  * Uses `.jsr_chapters` CSS class to render a chapters container.
  * Uses `.jsr_chapter` CSS class to render a chapter.
@@ -21,7 +19,7 @@ export class ModuleChapters extends Module {
 	constructor(settings: ModuleChaptersSettings = []) {
 		super();
 
-		this.changeLimit(settings);
+		this.settings = settings;
 		this.chapters = [];
 	}
 
@@ -29,20 +27,15 @@ export class ModuleChapters extends Module {
 		this.container.remove();
 	}
 
-	public changeLimit(command: ChangeChaptersCommand) {
-		this.settings = command;
-	}
-
 	public initView() {
-		this.container = document.createElement('ul');
+		this.container = document.createElement('div');
 		this.container.classList.add('jsr_chapters');
 		this.renderer.addChild(this.container);
-		this.container.style.display = 'flex';
 		this.container.addEventListener('click', this.handleClick);
 	}
 
 	private createChapter([from, to]: [Value, Value]) {
-		const chapter = document.createElement('li');
+		const chapter = document.createElement('div');
 		chapter.classList.add('jsr_chapter');
 
 		const filled = document.createElement('div');
@@ -70,12 +63,13 @@ export class ModuleChapters extends Module {
 	};
 
 	private getChapter([from, to]: [Value, Value]) {
-		const found = this.chapters.find(
-			(chapter) =>
-				chapter.dataset.from === from.asReal().toString() &&
-				chapter.dataset.to === to.asReal().toString()
+		return (
+			this.chapters.find(
+				(chapter) =>
+					chapter.dataset.from === from.asReal().toString() &&
+					chapter.dataset.to === to.asReal().toString()
+			) ?? this.createChapter([from, to])
 		);
-		return found ?? this.createChapter([from, to]);
 	}
 
 	private cleanup() {
@@ -96,21 +90,21 @@ export class ModuleChapters extends Module {
 		return () => {
 			this.cleanup();
 
-			this.settings.forEach(([from, to]) => {
+			this.settings.forEach(([from, to], index) => {
 				const chapter = this.getChapter([toValue(from), toValue(to)]);
 
 				const filled = chapter.querySelector('.jsr_chapter__filled') as HTMLElement;
 				const notFilled = chapter.querySelector('.jsr_chapter__not-filled') as HTMLElement;
 				const filledWidth = (state.values[0].asReal() - from) / (to - from);
-                filled.style.width = `calc(${filledWidth * 100}%)`;
-                notFilled.style.width = `calc(${(1 - filledWidth) * 100}%)`;
+				filled.style.width = `calc(${filledWidth * 100}%)`;
+				notFilled.style.width = `calc(${(1 - filledWidth) * 100}%)`;
 
-				const isActive = from <= state.values[0].asReal() && state.values[0].asReal() <= to;
-				if (isActive) {
-					chapter.classList.add('jsr_chapter--active');
-				} else {
-					chapter.classList.remove('jsr_chapter--active');
-				}
+				chapter.classList.toggle(
+					'jsr_chapter--active',
+					from <= state.values[0].asReal() &&
+						(state.values[0].asReal() < to ||
+							(state.values[0].asReal() === to && index === this.settings.length - 1)) // last chapter
+				);
 			});
 		};
 	}

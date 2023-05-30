@@ -140,7 +140,7 @@
 				$richSessions.value.map(({ deltas }) => deltas),
 				(deltas) => deltas
 			)}
-			bookmarks={$bookmarks}
+			{bookmarks}
 			bind:value={$value}
 		/>
 		<Playback

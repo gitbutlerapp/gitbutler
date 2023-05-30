@@ -2,21 +2,29 @@
 	import type { Bookmark, Delta } from '$lib/api';
 	import { derived, Value, type Loadable } from 'svelte-loadable-store';
 	import type { Readable } from '@square/svelte-store';
-	import { ModuleChapters } from './ModuleChapters';
+	import { ModuleChapters, ModuleMarkers, type Marker } from './slider';
 	import { JSR, ModuleSlider } from 'mm-jsr';
 
 	export let sessions: Readable<Loadable<[string, Delta][][]>>;
 	export let value: number;
-	export let bookmarks: Loadable<Bookmark[]>;
+	export let bookmarks: Readable<Loadable<Bookmark[]>>;
 
-	$: markers =
-		bookmarks.isLoading || Value.isError(bookmarks.value)
-			? ({} as Record<number, string>)
-			: (Object.fromEntries(
-					bookmarks.value
-						.filter(({ deleted }) => !deleted)
-						.map(({ timestampMs, note }) => [timestampMs, note])
-			  ) as Record<number, string>);
+	$: bookmarkedTimestamps = derived(bookmarks, (bookmarks) =>
+		bookmarks.filter(({ deleted }) => !deleted).map((bookmark) => bookmark.timestampMs)
+	);
+
+	$: markers = derived([sessions, bookmarkedTimestamps], ([sessions, bookmarkedTimestamps]) =>
+		sessions.flatMap((session, index, all) => {
+			const from = all.slice(0, index).reduce((acc, deltas) => acc + deltas.length, 0);
+			return session
+				.map((delta, index) => ({
+					timestampMs: delta[1].timestampMs,
+					value: from + index,
+					large: false
+				}))
+				.filter(({ timestampMs }) => bookmarkedTimestamps.includes(timestampMs));
+		})
+	);
 
 	$: totalDeltas = derived(sessions, (sessions) =>
 		sessions.reduce((acc, deltas) => acc + deltas.length, 0)
@@ -35,12 +43,14 @@
 		max: number;
 		initialValue: number;
 		chapters: [number, number][];
+		markers: Marker[];
 	};
 
 	const jsrSlider = (target: HTMLElement, config: Config) => {
 		const fromConfig = (target: HTMLElement, config: Config) => {
+			const moduleMarkers = new ModuleMarkers(config.markers);
 			const jsr = new JSR({
-				modules: [new ModuleSlider(), new ModuleChapters(config.chapters)],
+				modules: [new ModuleSlider(), new ModuleChapters(config.chapters), moduleMarkers],
 				config: {
 					min: config.min,
 					max: config.max,
@@ -50,6 +60,19 @@
 				}
 			});
 			jsr.onValueChange(({ real }) => (value = real));
+			jsr.onValueChange(({ real }) => {
+				config.markers.forEach((marker) => {
+					const markerChapter = config.chapters.find(
+						([from, to]) => from <= marker.value && marker.value < to
+					);
+					if (!markerChapter) return;
+					const isChapterSelected =
+						markerChapter &&
+						markerChapter[0] <= real &&
+						(real < markerChapter[1] || real === config.max);
+					moduleMarkers.setLarge(marker.value, isChapterSelected);
+				});
+			});
 			return jsr;
 		};
 
@@ -66,13 +89,14 @@
 	};
 </script>
 
-{#if !$totalDeltas.isLoading && Value.isValue($totalDeltas.value) && !$chapters.isLoading && Value.isValue($chapters.value)}
+{#if !$totalDeltas.isLoading && Value.isValue($totalDeltas.value) && !$chapters.isLoading && Value.isValue($chapters.value) && !$markers.isLoading && Value.isValue($markers.value)}
 	<div
 		use:jsrSlider={{
 			min: 0,
 			max: $totalDeltas.value,
 			initialValue: value,
-			chapters: $chapters.value
+			chapters: $chapters.value,
+			markers: $markers.value
 		}}
 	>
 		<style>
@@ -87,6 +111,8 @@
 				-ms-user-select: none;
 				user-select: none;
 			}
+
+			/* slider */
 
 			.jsr_slider {
 				position: absolute;
@@ -103,6 +129,7 @@
 
 				cursor: col-resize;
 				transition: background 0.1s ease-in-out;
+				z-index: 1;
 			}
 
 			.jsr_slider::before {
@@ -116,6 +143,8 @@
 				background: white;
 				border-radius: 2px;
 			}
+
+			/* chapters */
 
 			.jsr_chapters {
 				display: flex;
@@ -149,6 +178,39 @@
 			.jsr_chapter--active {
 				height: 10px;
 				border-radius: 8px;
+			}
+
+			/* markers */
+
+			.jsr_marker {
+				position: absolute;
+				top: 8px;
+				width: 8px;
+				height: 8px;
+				left: 0;
+				transform: translate(-50%, -50%);
+			}
+
+			.jsr_marker::before {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				content: '';
+				height: 4px;
+				width: 4px;
+				border-radius: 16px;
+				background: #d4d4d8;
+			}
+
+			.jsr_marker.jsr_marker--large::before {
+				width: 8px;
+				height: 8px;
+			}
+
+			.jsr_marker--after.jsr_marker--large::before,
+			.jsr_marker--after::before {
+				background: #2563eb;
 			}
 		</style>
 	</div>
