@@ -52,10 +52,10 @@
 <div class="GitBTLR-container  h-full p-4">
 	<div class="card relative flex h-full flex-col">
 		<div class="flex  justify-between gap-2 border-b border-zinc-700 bg-card-active p-2">
-			<div class="flex gap-2 text-xl">Codebase knowledgebase</div>
+		<div class="flex  justify-between  gap-2  border-b  border-zinc-700  bg-card-active p-2">
+			<div class="flex gap-2 text-xl">Ask GitButler Chat</div>
 		</div>
 
-		<div class="chat-container flex h-full flex-col overflow-auto border-zinc-700 pb-[122px]">
 			<ul class="flex flex-col gap-2 p-4">
 				{#if cloudEnabled && chatId}
 					<div class="flex items-start gap-2 align-top">
@@ -65,9 +65,9 @@
 						<div class="message-block flex flex-col gap-2">
 							<div class="automated-message">
 								<div class="automated-text">
-									Hello! I can questions specific to the code or history of your codebase. You can
-									ask me things like "How/Where is use authentication implemented?" and "What's the
-									story behind the bookmarking feature?"
+									Hello! I can answer questions specific to this project's history and codebase. You
+									can ask me things like "How/Where is use authentication implemented?" and "What's
+									the story behind the bookmarking feature?"
 								</div>
 							</div>
 						</div>
@@ -138,7 +138,7 @@
 						<div class="message-block flex flex-col gap-2">
 							<div class="automated-message">
 								<div class="automated-text">
-									Updating project embeddings... This may take a while.
+									Analyzing your project's codebase. This may take a sometime...
 								</div>
 							</div>
 						</div>
