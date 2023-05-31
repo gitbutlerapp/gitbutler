@@ -49,13 +49,21 @@
 	}
 </script>
 
-<div class="GitBTLR-container  h-full p-4">
+<div class="GitBTLR-container h-full p-4">
 	<div class="card relative flex h-full flex-col">
-		<div class="flex  justify-between gap-2 border-b border-zinc-700 bg-card-active p-2">
-			<div class="flex gap-2 text-xl">Codebase knowledgebase</div>
+		<div
+			class="content-header border-opacity-2 absolute top-0 left-0 right-0 z-10 flex justify-between gap-2 rounded-tr rounded-tl border-b border-zinc-700 bg-card-active py-3 px-4"
+			style="
+				-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+				backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+				background: rgba(59, 59, 63, 0.600;
+
+			"
+		>
+			<div class="flex gap-2 text-lg font-bold">Ask GitButler Chat</div>
 		</div>
 
-		<div class="chat-container flex h-full flex-col overflow-auto border-zinc-700 pb-[122px]">
+		<div class="chat-container flex h-full flex-col overflow-auto border-zinc-700 pb-[122px] pt-12">
 			<ul class="flex flex-col gap-2 p-4">
 				{#if cloudEnabled && chatId}
 					<div class="flex items-start gap-2 align-top">
@@ -65,9 +73,9 @@
 						<div class="message-block flex flex-col gap-2">
 							<div class="automated-message">
 								<div class="automated-text">
-									Hello! I can questions specific to the code or history of your codebase. You can
-									ask me things like "How/Where is use authentication implemented?" and "What's the
-									story behind the bookmarking feature?"
+									Hello! I can answer questions specific to this project's history and codebase. You
+									can ask me things like "How/Where is use authentication implemented?" and "What's
+									the story behind the bookmarking feature?"
 								</div>
 							</div>
 						</div>
@@ -138,7 +146,7 @@
 						<div class="message-block flex flex-col gap-2">
 							<div class="automated-message">
 								<div class="automated-text">
-									Updating project embeddings... This may take a while.
+									Analyzing your project's codebase. This may take a sometime...
 								</div>
 							</div>
 						</div>
@@ -151,8 +159,8 @@
 			class="absolute bottom-0 flex w-full flex-col gap-2 rounded-br rounded-bl border-t border-zinc-700 p-4"
 			style="                
 				border-width: 0.5px; 
-				-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
-				backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
+				-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
+				backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
 				background-color: rgba(24, 24, 27, 0.60);
 				border: 0.5px solid rgba(63, 63, 70, 0.50);
 			"
