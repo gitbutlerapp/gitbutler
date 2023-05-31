@@ -18,8 +18,9 @@
 		<span
 			class={`inline-block w-full rounded-t-sm`}
 			style="
-			height: {Math.round((group.length / largestGroup) * 100)}%;
-			background: linear-gradient(0deg, #3b82f6 0%, #9565FF {100 -
+				min-height: 0.3px;
+				height: {Math.round((group.length / largestGroup) * 100)}%;
+				background: linear-gradient(0deg, #3b82f6 0%, #9565FF {100 -
 				Math.round((group.length / largestGroup) * 100) +
 				100}%);
 			"
