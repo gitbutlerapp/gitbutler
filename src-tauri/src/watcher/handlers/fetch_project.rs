@@ -42,9 +42,7 @@ impl<'handler> Handler<'handler> {
                     time::SystemTime::now()
                         .duration_since(time::UNIX_EPOCH)
                         .context("failed to get time since epoch")?
-                        .as_millis()
-                        .try_into()
-                        .context("failed to convert time to millis")?,
+                        .as_millis(),
                 ),
                 ..Default::default()
             })
@@ -64,7 +62,7 @@ impl<'handler> Handler<'handler> {
         let events = new_sessions
             .into_iter()
             .cloned()
-            .map(|session| events::Event::Session(session))
+            .map(events::Event::Session)
             .collect::<Vec<_>>();
 
         Ok(events)

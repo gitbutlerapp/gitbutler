@@ -39,7 +39,7 @@ impl<'reader> SessionReader<'reader> {
         let wd_reader = reader::DirReader::open(repository.root());
 
         let current_session_id = wd_reader.read_to_string(
-            &repository
+            repository
                 .session_path()
                 .join("meta")
                 .join("id")
@@ -66,7 +66,7 @@ impl<'reader> SessionReader<'reader> {
             ));
         };
 
-        let oid = git2::Oid::from_str(&session_hash)
+        let oid = git2::Oid::from_str(session_hash)
             .with_context(|| format!("failed to parse commit hash {}", session_hash))?;
 
         let commit = repository

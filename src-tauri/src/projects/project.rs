@@ -46,24 +46,24 @@ impl Project {
         // make sure path exists
         let path = std::path::Path::new(&fpath);
         if !path.exists() {
-            return Err(CreateError::PathNotFound(fpath).into());
+            return Err(CreateError::PathNotFound(fpath));
         }
 
         // make sure path is a directory
         if !path.is_dir() {
-            return Err(CreateError::NotADirectory(fpath).into());
+            return Err(CreateError::NotADirectory(fpath));
         }
 
         // make sure it's a git repository
         if !path.join(".git").exists() {
-            return Err(CreateError::NotAGitRepository(fpath).into());
+            return Err(CreateError::NotAGitRepository(fpath));
         };
 
         let id = uuid::Uuid::new_v4().to_string();
 
         // title is the base name of the file
         let title = path
-            .into_iter()
+            .iter()
             .last()
             .map(|p| p.to_str().unwrap().to_string())
             .unwrap_or_else(|| id.clone());

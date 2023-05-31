@@ -108,7 +108,7 @@ impl Searcher {
             .map(|(_score, doc_address)| {
                 let doc = &searcher.doc(*doc_address)?;
                 let index_document =
-                    index::IndexDocument::from_document(&self.index.schema(), &doc);
+                    index::IndexDocument::from_document(&self.index.schema(), doc);
                 Ok(SearchResult {
                     project_id: index_document.project_id.unwrap(),
                     file_path: index_document.file_path.unwrap(),
@@ -189,11 +189,11 @@ impl Searcher {
             &self.index,
             &mut self.writer.lock().unwrap(),
             &self.reader,
-            &session,
-            &repository,
+            session,
+            repository,
         )?;
         self.meta_storage
-            .set(&repository.get_project_id(), &session.id, index::VERSION)?;
+            .set(repository.get_project_id(), &session.id, index::VERSION)?;
 
         log::info!(
             "{}: indexed session {}",
@@ -234,7 +234,7 @@ fn index_session(
     session: &sessions::Session,
     repository: &gb_repository::Repository,
 ) -> Result<()> {
-    let session_reader = sessions::Reader::open(&repository, &session)
+    let session_reader = sessions::Reader::open(repository, session)
         .with_context(|| "could not get session reader")?;
     let deltas_reader = deltas::Reader::new(&session_reader);
     let deltas = deltas_reader
@@ -263,7 +263,7 @@ fn index_session(
                 writer,
                 reader,
                 &session.id,
-                &repository.get_project_id(),
+                repository.get_project_id(),
                 &mut file_text,
                 &file_path,
                 i,
@@ -299,6 +299,7 @@ fn find_document_by_id(
     )))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn index_delta(
     index: &tantivy::Index,
     writer: &mut IndexWriter,
@@ -313,7 +314,7 @@ fn index_delta(
     let id = build_id(project_id, &delta.timestamp_ms);
     let id_field = index.schema().get_field("id").unwrap();
 
-    let mut doc = match find_document_by_id(&index, &reader, &id)? {
+    let mut doc = match find_document_by_id(index, reader, &id)? {
         Some(doc) => {
             writer.delete_term(Term::from_field_text(id_field, id.as_str()));
             doc
@@ -355,7 +356,7 @@ fn index_delta(
     doc.file_path = Some(file_path.to_string());
     doc.project_id = Some(project_id.to_string());
     doc.timestamp_ms = Some(delta.timestamp_ms.try_into()?);
-    doc.diff = Some(changes.clone());
+    doc.diff = Some(changes);
 
     writer.add_document(doc.to_document(&index.schema()))?;
 

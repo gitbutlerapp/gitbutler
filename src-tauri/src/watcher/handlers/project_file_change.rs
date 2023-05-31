@@ -55,7 +55,7 @@ impl<'listener> Handler<'listener> {
             reader::Content::UTF8(content) => Ok(Some(content)),
             reader::Content::Binary(_) => {
                 log::warn!("{}: ignoring non-utf8 file: {}", self.project_id, path);
-                return Ok(None);
+                Ok(None)
             }
         }
     }
@@ -67,7 +67,7 @@ impl<'listener> Handler<'listener> {
             return Ok(None);
         }
         let current_session = current_session.unwrap();
-        let session_reader = sessions::Reader::open(&self.gb_repository, &current_session)
+        let session_reader = sessions::Reader::open(self.gb_repository, &current_session)
             .context("failed to get session reader")?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader
@@ -105,7 +105,7 @@ impl<'listener> Handler<'listener> {
         let path = path.as_ref();
 
         let current_file_content = match self
-            .get_current_file_content(&project_repository, &path)
+            .get_current_file_content(&project_repository, path)
             .context("failed to get current file content")?
         {
             Some(content) => content,
@@ -116,7 +116,7 @@ impl<'listener> Handler<'listener> {
             .gb_repository
             .get_or_create_current_session()
             .context("failed to get or create current session")?;
-        let reader = sessions::Reader::open(&self.gb_repository, &current_session)
+        let reader = sessions::Reader::open(self.gb_repository, &current_session)
             .context("failed to get session reader")?;
 
         let latest_file_content = match reader.file(path) {
@@ -134,7 +134,7 @@ impl<'listener> Handler<'listener> {
         };
 
         let current_deltas = self
-            .get_current_deltas(&path)
+            .get_current_deltas(path)
             .with_context(|| "failed to get current deltas")?;
 
         let mut text_doc = deltas::Document::new(
@@ -154,7 +154,7 @@ impl<'listener> Handler<'listener> {
             return Ok(vec![]);
         }
 
-        let writer = sessions::Writer::open(&self.gb_repository, &current_session)?;
+        let writer = sessions::Writer::open(self.gb_repository, &current_session)?;
 
         let deltas = text_doc.get_deltas();
 

@@ -14,7 +14,7 @@ pub struct DirWriter {
     root: std::path::PathBuf,
 }
 
-impl<'writer> DirWriter {
+impl DirWriter {
     pub fn open(root: std::path::PathBuf) -> Self {
         Self { root }
     }

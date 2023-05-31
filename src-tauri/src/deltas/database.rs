@@ -143,7 +143,7 @@ mod tests {
 
         assert_eq!(
             database.list_by_project_id_session_id(project_id, session_id, None)?,
-            vec![(file_path.to_string(), vec![delta1.clone()])]
+            vec![(file_path.to_string(), vec![delta1])]
                 .into_iter()
                 .collect()
         );
@@ -176,7 +176,7 @@ mod tests {
 
         assert_eq!(
             database.list_by_project_id_session_id(project_id, session_id, None)?,
-            vec![(file_path.to_string(), vec![delta2.clone()])]
+            vec![(file_path.to_string(), vec![delta2])]
                 .into_iter()
                 .collect()
         );
@@ -213,7 +213,7 @@ mod tests {
             database.list_by_project_id_session_id(project_id, session_id, None)?,
             vec![
                 (file_path1.to_string(), vec![delta1.clone()]),
-                (file_path2.to_string(), vec![delta1.clone(), delta2.clone()])
+                (file_path2.to_string(), vec![delta1, delta2])
             ]
             .into_iter()
             .collect()

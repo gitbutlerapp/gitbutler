@@ -141,5 +141,5 @@ pub fn build_schema() -> schema::Schema {
     schema_builder.add_text_field("diff", code_options);
     schema_builder.add_text_field("note", text_options);
 
-    schema_builder.build().into()
+    schema_builder.build()
 }

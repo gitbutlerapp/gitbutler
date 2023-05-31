@@ -12,12 +12,12 @@ pub struct User {
     pub access_token: String,
 }
 
-impl Into<sentry::User> for User {
-    fn into(self) -> sentry::User {
+impl From<User> for sentry::User {
+    fn from(val: User) -> Self {
         sentry::User {
-            id: Some(self.id.to_string()),
-            username: Some(self.name),
-            email: Some(self.email),
+            id: Some(val.id.to_string()),
+            username: Some(val.name),
+            email: Some(val.email),
             ..Default::default()
         }
     }

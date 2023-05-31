@@ -7,7 +7,7 @@ use super::project_file_change::Handler;
 
 fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
     let mut index = repository.index()?;
-    index.add_all(&["."], git2::IndexAddOption::DEFAULT, None)?;
+    index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
     index.write()?;
     let oid = index.write_tree()?;
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
@@ -24,7 +24,7 @@ fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
-    let repository = git2::Repository::init(&path)?;
+    let repository = git2::Repository::init(path)?;
     let mut index = repository.index()?;
     let oid = index.write_tree()?;
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
@@ -58,7 +58,7 @@ fn test_register_existing_commited_file() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -102,7 +102,7 @@ fn test_register_must_init_current_session() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -130,7 +130,7 @@ fn test_register_must_not_override_current_session() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -163,7 +163,7 @@ fn test_register_new_file() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -204,7 +204,7 @@ fn test_register_new_file_twice() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -264,7 +264,7 @@ fn test_register_file_delted() -> Result<()> {
     let project = test_project(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -316,7 +316,7 @@ fn test_flow_with_commits() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -339,7 +339,7 @@ fn test_flow_with_commits() -> Result<()> {
         )?;
 
         commit_all(&repository)?;
-        listener.handle(&relative_file_path)?;
+        listener.handle(relative_file_path)?;
         assert!(gb_repo.flush()?.is_some());
     }
 
@@ -367,7 +367,7 @@ fn test_flow_with_commits() -> Result<()> {
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<deltas::Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
-            let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+            let session_reader = sessions::Reader::open(&gb_repo, session).unwrap();
             let deltas_reader = deltas::Reader::new(&session_reader);
             let deltas_by_filepath = deltas_reader.read(None).unwrap();
             for deltas in deltas_by_filepath.values() {
@@ -379,7 +379,7 @@ fn test_flow_with_commits() -> Result<()> {
             }
         });
 
-        let reader = sessions::Reader::open(&gb_repo, &sessions_slice.first().unwrap()).unwrap();
+        let reader = sessions::Reader::open(&gb_repo, sessions_slice.first().unwrap()).unwrap();
         let files = reader.files(None).unwrap();
 
         if i == 0 {
@@ -408,7 +408,7 @@ fn test_flow_no_commits() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -430,7 +430,7 @@ fn test_flow_no_commits() -> Result<()> {
             i.to_string(),
         )?;
 
-        listener.handle(&relative_file_path)?;
+        listener.handle(relative_file_path)?;
         assert!(gb_repo.flush()?.is_some());
     }
 
@@ -458,7 +458,7 @@ fn test_flow_no_commits() -> Result<()> {
         // collect all operations from sessions in the reverse order
         let mut operations: Vec<deltas::Operation> = vec![];
         sessions_slice.iter().for_each(|session| {
-            let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+            let session_reader = sessions::Reader::open(&gb_repo, session).unwrap();
             let deltas_reader = deltas::Reader::new(&session_reader);
             let deltas_by_filepath = deltas_reader.read(None).unwrap();
             for deltas in deltas_by_filepath.values() {
@@ -470,7 +470,7 @@ fn test_flow_no_commits() -> Result<()> {
             }
         });
 
-        let reader = sessions::Reader::open(&gb_repo, &sessions_slice.first().unwrap()).unwrap();
+        let reader = sessions::Reader::open(&gb_repo, sessions_slice.first().unwrap()).unwrap();
         let files = reader.files(None).unwrap();
 
         if i == 0 {
@@ -499,7 +499,7 @@ fn test_flow_signle_session() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
@@ -521,7 +521,7 @@ fn test_flow_signle_session() -> Result<()> {
             i.to_string(),
         )?;
 
-        listener.handle(&relative_file_path)?;
+        listener.handle(relative_file_path)?;
     }
 
     // collect all operations from sessions in the reverse order

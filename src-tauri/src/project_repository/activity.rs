@@ -11,7 +11,7 @@ pub struct Activity {
 }
 
 pub fn parse_reflog_line(line: &str) -> Result<Activity> {
-    match line.split("\t").collect::<Vec<&str>>()[..] {
+    match line.split('\t').collect::<Vec<&str>>()[..] {
         [meta, message] => {
             let meta_parts = meta.split_whitespace().collect::<Vec<&str>>();
             let timestamp_s = meta_parts[meta_parts.len() - 2].parse::<u64>()?;

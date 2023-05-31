@@ -36,6 +36,7 @@ pub struct Handler<'handler> {
 }
 
 impl<'handler> Handler<'handler> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         project_id: String,
         project_store: projects::Storage,

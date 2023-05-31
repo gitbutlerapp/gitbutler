@@ -23,7 +23,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
     let mut project = None;
     let copy_uri_callback = |req: &Request, response: Response| {
         let path = req.uri().path().to_string();
-        if let Some(project_id) = path.split("/").last() {
+        if let Some(project_id) = path.split('/').last() {
             project = match app.get_project(project_id) {
                 Ok(p) => p,
                 Err(e) => {
@@ -37,13 +37,13 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
 
     let mut ws_stream = tokio_tungstenite::accept_hdr_async(stream, copy_uri_callback)
         .await
-        .with_context(|| format!("failed to accept connection"))?;
+        .with_context(|| "failed to accept connection".to_string())?;
 
     if project.is_none() {
         ws_stream
             .close(None)
             .await
-            .with_context(|| format!("failed to close connection"))?;
+            .with_context(|| "failed to close connection".to_string())?;
         return Ok(());
     }
     let project = project.unwrap();
@@ -64,7 +64,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
             pixel_width: 0,
             pixel_height: 0,
         })
-        .with_context(|| format!("failed to open pty"))?;
+        .with_context(|| "failed to open pty".to_string())?;
 
     let mut cmd = if cfg!(target_os = "windows") {
         // CommandBuilder::new(r"powershell")
@@ -107,9 +107,9 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
             buffer.resize(1024, 0u8);
             loop {
                 buffer[0] = 0u8;
-                let mut tail = &mut buffer[1..];
+                let tail = &mut buffer[1..];
 
-                match pty_reader.read(&mut tail) {
+                match pty_reader.read(tail) {
                     Ok(0) => {
                         // EOF
                         log::info!("0 bytes read from pty. EOF.");
@@ -143,7 +143,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                         if let Err(e) = shared_app.record_pty(
                             &shared_project_id,
                             recorder::Type::Output,
-                            &data.to_vec(),
+                            data,
                         ) {
                             log::error!("{}: error recording data: {:#}", shared_project_id, e);
                         }
@@ -187,7 +187,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                 log::info!("Killing PTY child process...");
                 pty_child_process
                     .kill()
-                    .with_context(|| format!("failed to kill pty child process"))?;
+                    .with_context(|| "failed to kill pty child process".to_string())?;
                 break;
             }
             Ok(_) => log::error!("Unknown received data type"),
