@@ -2,7 +2,7 @@ name: "Test"
 on: [push]
 
 jobs:
-    lint:
+    lint-frontend:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
@@ -24,7 +24,7 @@ jobs:
               run: |
                 pnpm lint
 
-    check:
+    check-frontend:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
@@ -45,6 +45,16 @@ jobs:
             - name: check frontend
               run: |
                 pnpm check
+
+
+    lint-rust:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+            - run: cargo fmt --check
+              working-directory: src-tauri
+
 
     story:
         runs-on: ubuntu-latest
@@ -117,9 +127,6 @@ jobs:
             - name: Install pnpm dependencies
               run: pnpm install
 
-            - name: Setup rust
-              uses: dtolnay/rust-toolchain@stable
-
             - name: Cache rust dependencies
               uses: Swatinem/rust-cache@v2
               with:
@@ -136,6 +143,12 @@ jobs:
 
             - name: Build frontend
               run: pnpm build
+
+            - name: Install clippy
+              run: rustup component add clippy
+
+            - run: cargo clippy --all-features
+              working-directory: src-tauri
 
             - name: Test rust
               working-directory: src-tauri
