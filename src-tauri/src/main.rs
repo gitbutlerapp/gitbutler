@@ -5,21 +5,21 @@ mod app;
 mod bookmarks;
 mod database;
 mod deltas;
-mod sessions;
+mod events;
 mod files;
+mod fs;
 mod gb_repository;
 mod project_repository;
 mod projects;
 mod pty;
+mod reader;
 mod search;
+mod sessions;
+mod storage;
 mod users;
 mod watcher;
-mod reader;
 mod writer;
 mod zip;
-mod events;
-mod fs;
-mod storage;
 
 #[macro_use]
 extern crate log;
@@ -45,7 +45,6 @@ pub enum Error {
     Unknown,
 }
 
-
 impl Serialize for Error {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -68,7 +67,9 @@ impl From<anyhow::Error> for Error {
 impl From<app::AddProjectError> for Error {
     fn from(e: app::AddProjectError) -> Self {
         match e {
-            app::AddProjectError::ProjectAlreadyExists => Error::Message("Project already exists".to_string()),
+            app::AddProjectError::ProjectAlreadyExists => {
+                Error::Message("Project already exists".to_string())
+            }
             app::AddProjectError::OpenError(e) => Error::Message(e.to_string()),
             app::AddProjectError::Other(e) => e.into(),
         }
@@ -125,9 +126,16 @@ async fn get_project_archive_path(
 ) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let project = app
-        .get_project(project_id)?.ok_or_else(|| Error::Message("Project not found".to_string()))?;
+        .get_project(project_id)?
+        .ok_or_else(|| Error::Message("Project not found".to_string()))?;
 
-    let zipper = zip::Zipper::new(handle.path_resolver().app_cache_dir().unwrap().join("archives"));
+    let zipper = zip::Zipper::new(
+        handle
+            .path_resolver()
+            .app_cache_dir()
+            .unwrap()
+            .join("archives"),
+    );
     let zipped_logs = zipper.zip(project.path)?;
     Ok(zipped_logs.to_str().unwrap().to_string())
 }
@@ -138,18 +146,34 @@ async fn get_project_data_archive_path(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<String, Error> {
-    let zipper = zip::Zipper::new(handle.path_resolver().app_cache_dir().unwrap().join("archives"));
-    let zipped_logs = zipper.zip(handle.path_resolver().app_local_data_dir().unwrap().join("projects").join(project_id))?;
+    let zipper = zip::Zipper::new(
+        handle
+            .path_resolver()
+            .app_cache_dir()
+            .unwrap()
+            .join("archives"),
+    );
+    let zipped_logs = zipper.zip(
+        handle
+            .path_resolver()
+            .app_local_data_dir()
+            .unwrap()
+            .join("projects")
+            .join(project_id),
+    )?;
     Ok(zipped_logs.to_str().unwrap().to_string())
 }
 
-
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn get_logs_archive_path(
-    handle: tauri::AppHandle,
-) -> Result<String, Error> {
-    let zipper = zip::Zipper::new(handle.path_resolver().app_cache_dir().unwrap().join("archives"));
+async fn get_logs_archive_path(handle: tauri::AppHandle) -> Result<String, Error> {
+    let zipper = zip::Zipper::new(
+        handle
+            .path_resolver()
+            .app_cache_dir()
+            .unwrap()
+            .join("archives"),
+    );
     let zipped_logs = zipper.zip(handle.path_resolver().app_log_dir().unwrap())?;
     Ok(zipped_logs.to_str().unwrap().to_string())
 }
@@ -192,12 +216,7 @@ async fn list_sessions(
     let app = handle.state::<app::App>();
     let sessions = app
         .list_sessions(project_id, earliest_timestamp_ms)
-        .with_context(|| {
-            format!(
-                "failed to list sessions for project {}",
-                project_id
-            )
-        })?;
+        .with_context(|| format!("failed to list sessions for project {}", project_id))?;
     Ok(sessions)
 }
 
@@ -263,7 +282,8 @@ async fn update_project(
         .update_project(&project)
         .with_context(|| format!("failed to update project {}", project.id))?;
     if project.api.is_some() {
-        app.git_gb_push(&project.id).with_context(|| format!("failed to push git branch for project {}", &project.id))?;
+        app.git_gb_push(&project.id)
+            .with_context(|| format!("failed to push git branch for project {}", &project.id))?;
     }
     Ok(project)
 }
@@ -291,7 +311,8 @@ async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project
 async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
-    app.delete_project(id).with_context(|| format!("failed to delete project {}", id))?;
+    app.delete_project(id)
+        .with_context(|| format!("failed to delete project {}", id))?;
 
     Ok(())
 }
@@ -410,12 +431,9 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 #[tauri::command(async)]
 async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
-    let head = app.git_head(project_id).with_context(|| {
-        format!(
-            "failed to get git head for project {}",
-            project_id
-        )
-    })?;
+    let head = app
+        .git_head(project_id)
+        .with_context(|| format!("failed to get git head for project {}", project_id))?;
     Ok(head)
 }
 
@@ -483,31 +501,43 @@ async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn upsert_bookmark(
-    handle: tauri::AppHandle, 
+    handle: tauri::AppHandle,
     project_id: String,
     timestamp_ms: u64,
     note: String,
-    deleted: bool
+    deleted: bool,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let now = time::UNIX_EPOCH.elapsed().context("failed to get time")?.as_millis();
-    let bookmark = bookmarks::Bookmark { 
+    let now = time::UNIX_EPOCH
+        .elapsed()
+        .context("failed to get time")?
+        .as_millis();
+    let bookmark = bookmarks::Bookmark {
         project_id,
-        timestamp_ms: timestamp_ms.try_into().context("failed to convert timestamp")?,
+        timestamp_ms: timestamp_ms
+            .try_into()
+            .context("failed to convert timestamp")?,
         created_timestamp_ms: now,
-        updated_timestamp_ms: now, 
+        updated_timestamp_ms: now,
         note,
-        deleted
+        deleted,
     };
-    app.upsert_bookmark(&bookmark).context("failed to upsert bookmark")?;
+    app.upsert_bookmark(&bookmark)
+        .context("failed to upsert bookmark")?;
     Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn list_bookmarks(handle: tauri::AppHandle, project_id: &str, range: Option<ops::Range<u128>>) -> Result<Vec<bookmarks::Bookmark>,Error> {
+async fn list_bookmarks(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    range: Option<ops::Range<u128>>,
+) -> Result<Vec<bookmarks::Bookmark>, Error> {
     let app = handle.state::<app::App>();
-    let bookmarks = app.list_bookmarks(project_id, range).context("failed to list bookmarks")?;
+    let bookmarks = app
+        .list_bookmarks(project_id, range)
+        .context("failed to list bookmarks")?;
     Ok(bookmarks)
 }
 
@@ -530,7 +560,8 @@ fn main() {
 
     tauri::Builder::default()
         .system_tray(tray)
-        .on_system_tray_event(|app_handle, event| if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
+        .on_system_tray_event(|app_handle, event| {
+            if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
                 let app_title = app_handle.package_info().name.clone();
                 let item_handle = app_handle.tray_handle().get_item(&id);
                 match id.as_str() {
@@ -554,22 +585,24 @@ fn main() {
                     },
                     _ => {}
                 }
+            }
         })
-        .on_window_event(|event| if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
-            hide_window(&event.window().app_handle()).expect("Failed to hide window");
-            api.prevent_close();
+        .on_window_event(|event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+                hide_window(&event.window().app_handle()).expect("Failed to hide window");
+                api.prevent_close();
+            }
         })
         .setup(move |tauri_app| {
             let window = create_window(&tauri_app.handle()).expect("Failed to create window");
             #[cfg(debug_assertions)]
             window.open_devtools();
 
-            let app: app::App =
-                app::App::new(
-                    tauri_app.path_resolver().app_local_data_dir().unwrap(),
-                    events::Sender::new(tauri_app.handle())
-                )
-                    .expect("failed to initialize app");
+            let app: app::App = app::App::new(
+                tauri_app.path_resolver().app_local_data_dir().unwrap(),
+                events::Sender::new(tauri_app.handle()),
+            )
+            .expect("failed to initialize app");
 
             // TODO: REMOVE THIS
             // debug_test_consistency(&app_state, "fec3d50c-503f-4021-89fb-e7ec2433ceae")
@@ -649,15 +682,16 @@ fn main() {
         .build(tauri_context)
         .expect("Failed to build tauri app")
         .run(|app_handle, event| match event {
-            tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::Focused(is_focused), .. } => {
-                    if is_focused {
-                        set_toggle_menu_hide(app_handle)
-                            .expect("Failed to set toggle menu hide");
-                    } else {
-                        set_toggle_menu_show(app_handle)
-                            .expect("Failed to set toggle menu show");
-                    }
+            tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::Focused(is_focused),
+                ..
+            } => {
+                if is_focused {
+                    set_toggle_menu_hide(app_handle).expect("Failed to set toggle menu hide");
+                } else {
+                    set_toggle_menu_show(app_handle).expect("Failed to set toggle menu show");
                 }
+            }
             tauri::RunEvent::ExitRequested { api, .. } => {
                 hide_window(app_handle).expect("Failed to hide window");
                 api.prevent_exit();
@@ -720,7 +754,6 @@ fn set_toggle_menu_hide(handle: &tauri::AppHandle) -> tauri::Result<()> {
 
 fn show_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
     set_toggle_menu_hide(handle)?;
-
 
     #[cfg(target_os = "macos")]
     handle.show()?;

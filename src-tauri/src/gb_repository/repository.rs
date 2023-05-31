@@ -808,14 +808,8 @@ fn add_wd_path(
     // create a new IndexEntry from the file metadata
     index
         .add(&git2::IndexEntry {
-            ctime: git2::IndexTime::new(
-                ctime.seconds().try_into()?,
-                ctime.nanoseconds(),
-            ),
-            mtime: git2::IndexTime::new(
-                mtime.seconds().try_into()?,
-                mtime.nanoseconds(),
-            ),
+            ctime: git2::IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds()),
+            mtime: git2::IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds()),
             dev: metadata.dev().try_into()?,
             ino: metadata.ino().try_into()?,
             mode: 33188,
@@ -899,14 +893,8 @@ fn add_log_path(
     let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
     index.add(&git2::IndexEntry {
-        ctime: git2::IndexTime::new(
-            ctime.seconds().try_into()?,
-            ctime.nanoseconds(),
-        ),
-        mtime: git2::IndexTime::new(
-            mtime.seconds().try_into()?,
-            mtime.nanoseconds(),
-        ),
+        ctime: git2::IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds()),
+        mtime: git2::IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds()),
         dev: metadata.dev().try_into()?,
         ino: metadata.ino().try_into()?,
         mode: metadata.mode(),
@@ -959,14 +947,8 @@ fn add_session_path(
     // create a new IndexEntry from the file metadata
     index
         .add(&git2::IndexEntry {
-            ctime: git2::IndexTime::new(
-                ctime.seconds().try_into()?,
-                ctime.nanoseconds(),
-            ),
-            mtime: git2::IndexTime::new(
-                mtime.seconds().try_into()?,
-                mtime.nanoseconds(),
-            ),
+            ctime: git2::IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds()),
+            mtime: git2::IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds()),
             dev: metadata.dev().try_into()?,
             ino: metadata.ino().try_into()?,
             mode: metadata.mode(),

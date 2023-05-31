@@ -1,9 +1,13 @@
-use std::{collections::HashMap, sync, ops};
+use std::{collections::HashMap, ops, sync};
 
 use anyhow::{Context, Result};
 use crossbeam_channel::{bounded, Sender};
 
-use crate::{events, projects, search, storage, users, database, watcher, sessions, deltas, pty, project_repository::{self, activity}, files, bookmarks, gb_repository};
+use crate::{
+    bookmarks, database, deltas, events, files, gb_repository,
+    project_repository::{self, activity},
+    projects, pty, search, sessions, storage, users, watcher,
+};
 
 #[derive(Clone)]
 pub struct App {
@@ -31,7 +35,7 @@ pub enum AddProjectError {
     #[error("{0}")]
     OpenError(projects::CreateError),
     #[error("{0}")]
-    Other(anyhow::Error)
+    Other(anyhow::Error),
 }
 
 impl App {
@@ -70,14 +74,10 @@ impl App {
         Ok(())
     }
 
-    pub fn init_project(
-        &self,
-        project: &projects::Project,
-    ) -> Result<()> {
-        self.start_watcher(project)
-            .with_context(|| {
-                format!("failed to start watcher for project {}", project.id.clone())
-            })?;
+    pub fn init_project(&self, project: &projects::Project) -> Result<()> {
+        self.start_watcher(project).with_context(|| {
+            format!("failed to start watcher for project {}", project.id.clone())
+        })?;
 
         Ok(())
     }
@@ -115,21 +115,26 @@ impl App {
             )
             .expect("failed to open git repository");
 
-            let iterator = gb_repository.get_sessions_iterator().expect("failed to get sessions iterator");
+            let iterator = gb_repository
+                .get_sessions_iterator()
+                .expect("failed to get sessions iterator");
             for session in iterator {
                 let session = session.expect("failed to get session");
 
-                if let Err(e) = proxy_watchers.lock().unwrap().get(&project.id).unwrap().send(watcher::Event::Session(session.clone())) {
+                if let Err(e) = proxy_watchers
+                    .lock()
+                    .unwrap()
+                    .get(&project.id)
+                    .unwrap()
+                    .send(watcher::Event::Session(session.clone()))
+                {
                     log::error!("failed to send session event: {:#}", e);
                 }
             }
         });
     }
 
-    fn start_watcher(
-        &self,
-        project: &projects::Project,
-    ) -> Result<()> {
+    fn start_watcher(&self, project: &projects::Project) -> Result<()> {
         let project = project.clone();
         let users_storage = self.users_storage.clone();
         let projects_storage = self.projects_storage.clone();
@@ -186,7 +191,13 @@ impl App {
     }
 
     fn send_event(&self, project_id: &str, event: watcher::Event) -> Result<()> {
-        self.proxy_watchers.lock().unwrap().get(project_id).unwrap().send(event).context("failed to send event to proxy")
+        self.proxy_watchers
+            .lock()
+            .unwrap()
+            .get(project_id)
+            .unwrap()
+            .send(event)
+            .context("failed to send event to proxy")
     }
 
     fn stop_watcher(&self, project_id: &str) -> Result<()> {
@@ -210,29 +221,27 @@ impl App {
         self.users_storage.delete()
     }
 
-    pub fn add_project(
-        &self,
-        path: &str,
-    ) -> Result<projects::Project, AddProjectError> {
-        let all_projects = self.projects_storage.list_projects().map_err(AddProjectError::Other
-        )?;
+    pub fn add_project(&self, path: &str) -> Result<projects::Project, AddProjectError> {
+        let all_projects = self
+            .projects_storage
+            .list_projects()
+            .map_err(AddProjectError::Other)?;
 
         if all_projects.iter().any(|project| project.path == path) {
             return Err(AddProjectError::ProjectAlreadyExists);
         }
 
         let project =
-            projects::Project::from_path(path.to_string()).map_err(AddProjectError::OpenError
-            )?;
+            projects::Project::from_path(path.to_string()).map_err(AddProjectError::OpenError)?;
 
         self.projects_storage
             .add_project(&project)
-            .context("failed to add project").map_err(AddProjectError::Other
-            )?;
+            .context("failed to add project")
+            .map_err(AddProjectError::Other)?;
 
         self.init_project(&project)
-            .context("failed to init project").map_err(AddProjectError::Other
-            )?;
+            .context("failed to init project")
+            .map_err(AddProjectError::Other)?;
 
         Ok(project)
     }
@@ -274,7 +283,6 @@ impl App {
                     log::error!("failed to remove project dir {}: {}", project.id, e);
                 }
 
-
                 Ok(())
             }
             None => Ok(()),
@@ -286,7 +294,8 @@ impl App {
         project_id: &str,
         earliest_timestamp_ms: Option<u128>,
     ) -> Result<Vec<sessions::Session>> {
-        self.sessions_database.list_by_project_id(project_id, earliest_timestamp_ms)
+        self.sessions_database
+            .list_by_project_id(project_id, earliest_timestamp_ms)
     }
 
     pub fn list_session_files(
@@ -295,7 +304,8 @@ impl App {
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        self.files_database.list_by_project_id_session_id(project_id, session_id, paths)
+        self.files_database
+            .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
@@ -307,24 +317,40 @@ impl App {
         )
         .context("failed to open repository")?;
 
-
-        let session = gb_repository.get_or_create_current_session().context("failed to get or create current session")?;
-        let writer = sessions::Writer::open(&gb_repository, &session).context("failed to open session writer")?;
-        writer.write_bookmark(bookmark).context("failed to write bookmark")?;
+        let session = gb_repository
+            .get_or_create_current_session()
+            .context("failed to get or create current session")?;
+        let writer = sessions::Writer::open(&gb_repository, &session)
+            .context("failed to open session writer")?;
+        writer
+            .write_bookmark(bookmark)
+            .context("failed to write bookmark")?;
         // let updated = self.bookmarks_database.upsert(bookmark).context("failed to upsert bookmark")?;
 
         // if let Some(updated) = updated.as_ref() {
-            if let Err(e) = self.proxy_watchers.lock().unwrap().get(&bookmark.project_id).unwrap().send(watcher::Event::Bookmark(bookmark.clone())) {
-                log::error!("failed to send session event: {:#}", e);
-            }
+        if let Err(e) = self
+            .proxy_watchers
+            .lock()
+            .unwrap()
+            .get(&bookmark.project_id)
+            .unwrap()
+            .send(watcher::Event::Bookmark(bookmark.clone()))
+        {
+            log::error!("failed to send session event: {:#}", e);
+        }
         Ok(())
         // }
 
         // Ok(updated)
     }
 
-    pub fn list_bookmarks(&self, project_id: &str, range: Option<ops::Range<u128>>) -> Result<Vec<bookmarks::Bookmark>> {
-        self.bookmarks_database.list_by_project_id(project_id, range)
+    pub fn list_bookmarks(
+        &self,
+        project_id: &str,
+        range: Option<ops::Range<u128>>,
+    ) -> Result<Vec<bookmarks::Bookmark>> {
+        self.bookmarks_database
+            .list_by_project_id(project_id, range)
     }
 
     pub fn list_session_deltas(
@@ -333,9 +359,9 @@ impl App {
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<deltas::Delta>>> {
-        self.deltas_database.list_by_project_id_session_id(project_id, session_id, paths)
+        self.deltas_database
+            .list_by_project_id_session_id(project_id, session_id, paths)
     }
-
 
     pub fn git_activity(
         &self,
@@ -522,9 +548,12 @@ impl App {
     }
 
     pub fn delete_all_data(&self) -> Result<()> {
-        self.searcher.delete_all_data().context("failed to delete search data")?;
+        self.searcher
+            .delete_all_data()
+            .context("failed to delete search data")?;
         for project in self.list_projects()? {
-            self.delete_project(&project.id).context("failed to delete project")?;
+            self.delete_project(&project.id)
+                .context("failed to delete project")?;
         }
         Ok(())
     }
