@@ -146,7 +146,7 @@
 						<div class="message-block flex flex-col gap-2">
 							<div class="automated-message">
 								<div class="automated-text">
-									Analyzing your project's codebase. This may take a sometime...
+									Analyzing your project's codebase. This may take sometime...
 								</div>
 							</div>
 						</div>
