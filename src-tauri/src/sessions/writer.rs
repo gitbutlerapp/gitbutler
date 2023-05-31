@@ -66,10 +66,7 @@ impl<'writer> SessionWriter<'writer> {
             .with_context(|| "failed to write last timestamp")?;
 
         if current_session_id.is_ok() && current_session_id.as_ref().unwrap().eq(&session.id) {
-            let writer = SessionWriter {
-                repository,
-                writer,
-            };
+            let writer = SessionWriter { repository, writer };
             return Ok(writer);
         }
 
@@ -125,10 +122,7 @@ impl<'writer> SessionWriter<'writer> {
                 .with_context(|| "failed to write commit")?;
         }
 
-        let writer = SessionWriter {
-            repository,
-            writer,
-        };
+        let writer = SessionWriter { repository, writer };
 
         Ok(writer)
     }
@@ -164,8 +158,7 @@ impl<'writer> SessionWriter<'writer> {
 
         let path = path.as_ref();
         self.writer.write_string(
-            self
-                .repository
+            self.repository
                 .session_wd_path()
                 .join(path)
                 .to_str()

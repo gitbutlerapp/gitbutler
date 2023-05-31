@@ -107,8 +107,7 @@ impl Searcher {
             .iter()
             .map(|(_score, doc_address)| {
                 let doc = &searcher.doc(*doc_address)?;
-                let index_document =
-                    index::IndexDocument::from_document(&self.index.schema(), doc);
+                let index_document = index::IndexDocument::from_document(&self.index.schema(), doc);
                 Ok(SearchResult {
                     project_id: index_document.project_id.unwrap(),
                     file_path: index_document.file_path.unwrap(),

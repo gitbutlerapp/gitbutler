@@ -4,4 +4,3 @@ mod server;
 
 pub use recorder::{Record, Type};
 pub use server::start_server;
-

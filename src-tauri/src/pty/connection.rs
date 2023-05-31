@@ -140,11 +140,9 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                             );
                         }
 
-                        if let Err(e) = shared_app.record_pty(
-                            &shared_project_id,
-                            recorder::Type::Output,
-                            data,
-                        ) {
+                        if let Err(e) =
+                            shared_app.record_pty(&shared_project_id, recorder::Type::Output, data)
+                        {
                             log::error!("{}: error recording data: {:#}", shared_project_id, e);
                         }
                     }
