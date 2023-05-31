@@ -35,7 +35,7 @@ impl Storage {
             .join("meta")
             .join(project_id)
             .join(session_hash);
-        let meta = match self.storage.read(&filepath.to_str().unwrap())? {
+        let meta = match self.storage.read(filepath.to_str().unwrap())? {
             None => None,
             Some(meta) => meta.parse::<u64>().ok(),
         };
@@ -49,7 +49,7 @@ impl Storage {
             .join(project_id)
             .join(session_hash);
         self.storage
-            .write(&filepath.to_str().unwrap(), &version.to_string())?;
+            .write(filepath.to_str().unwrap(), &version.to_string())?;
         Ok(())
     }
 }

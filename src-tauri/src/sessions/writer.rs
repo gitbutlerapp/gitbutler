@@ -46,7 +46,7 @@ impl<'writer> SessionWriter<'writer> {
             ));
         }
 
-        let writer = writer::DirWriter::open(repository.root().to_path_buf());
+        let writer = writer::DirWriter::open(repository.root());
 
         writer
             .write_string(
@@ -67,7 +67,7 @@ impl<'writer> SessionWriter<'writer> {
 
         if current_session_id.is_ok() && current_session_id.as_ref().unwrap().eq(&session.id) {
             let writer = SessionWriter {
-                repository: &repository,
+                repository,
                 writer,
             };
             return Ok(writer);
@@ -126,7 +126,7 @@ impl<'writer> SessionWriter<'writer> {
         }
 
         let writer = SessionWriter {
-            repository: &repository,
+            repository,
             writer,
         };
 
@@ -140,7 +140,7 @@ impl<'writer> SessionWriter<'writer> {
         }
 
         serde_jsonlines::append_json_lines(
-            &self.repository.session_path().join("pty.jsonl"),
+            self.repository.session_path().join("pty.jsonl"),
             [record],
         )?;
 
@@ -164,7 +164,7 @@ impl<'writer> SessionWriter<'writer> {
 
         let path = path.as_ref();
         self.writer.write_string(
-            &self
+            self
                 .repository
                 .session_wd_path()
                 .join(path)
@@ -189,7 +189,7 @@ impl<'writer> SessionWriter<'writer> {
         }
 
         serde_jsonlines::append_json_lines(
-            &self.repository.session_path().join("bookmarks.jsonl"),
+            self.repository.session_path().join("bookmarks.jsonl"),
             [bookmark],
         )?;
 
@@ -217,7 +217,7 @@ impl<'writer> SessionWriter<'writer> {
         let raw_deltas = serde_json::to_string(&deltas)?;
 
         self.writer.write_string(
-            &self.repository.deltas_path().join(path).to_str().unwrap(),
+            self.repository.deltas_path().join(path).to_str().unwrap(),
             &raw_deltas,
         )?;
 

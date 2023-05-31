@@ -130,8 +130,8 @@ impl Database {
         project_id: &str,
         range: Option<ops::Range<u128>>,
     ) -> Result<Vec<Bookmark>> {
-        if range.is_some() {
-            self.list_by_project_id_range(project_id, range.unwrap())
+        if let Some(range) = range {
+            self.list_by_project_id_range(project_id, range)
         } else {
             self.list_by_project_id_all(project_id)
         }
@@ -318,7 +318,7 @@ mod tests {
         database.upsert(&updated)?;
         assert_eq!(
             database.list_by_project_id_all(&bookmark.project_id)?,
-            vec![updated.clone()]
+            vec![updated]
         );
 
         Ok(())

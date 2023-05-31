@@ -7,7 +7,7 @@ use super::Writer;
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
-    let repository = git2::Repository::init(&path)?;
+    let repository = git2::Repository::init(path)?;
     let mut index = repository.index()?;
     let oid = index.write_tree()?;
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
@@ -40,14 +40,14 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 
@@ -72,14 +72,14 @@ fn test_should_write_full_session() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 
@@ -125,14 +125,14 @@ fn test_should_write_partial_session() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 

@@ -29,7 +29,7 @@ impl Dispatcher {
         Self {
             project_id: project_id.clone(),
             tick_dispatcher: tick::Dispatcher::new(project_id.clone()),
-            file_change_dispatcher: file_change::Dispatcher::new(project_id.clone(), path),
+            file_change_dispatcher: file_change::Dispatcher::new(project_id, path),
             stop: bounded(1),
             proxy: proxy_chan,
         }

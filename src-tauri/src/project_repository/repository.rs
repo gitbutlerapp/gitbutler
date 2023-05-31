@@ -87,7 +87,7 @@ impl<'repository> Repository<'repository> {
             })
             .collect();
 
-        return Ok(files);
+        Ok(files)
     }
 
     fn staged_statuses(&self) -> Result<HashMap<String, FileStatusType>> {
@@ -112,7 +112,7 @@ impl<'repository> Repository<'repository> {
             })
             .collect();
 
-        return Ok(files);
+        Ok(files)
     }
 
     pub fn git_status(&self) -> Result<HashMap<String, FileStatus>> {
@@ -186,17 +186,17 @@ impl<'repository> Repository<'repository> {
                 result.insert(last_path.clone(), results.clone());
                 results = String::new();
                 current_line_count = 0;
-                last_path = new_path.clone();
+                last_path = new_path;
             }
             match line.origin() {
                 '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
                 _ => {}
             }
-            results.push_str(&format!("{}", std::str::from_utf8(line.content()).unwrap()));
+            results.push_str(std::str::from_utf8(line.content()).unwrap());
             current_line_count += 1;
             true
         })?;
-        result.insert(last_path.clone(), results.clone());
+        result.insert(last_path, results);
         Ok(result)
     }
 
@@ -222,7 +222,7 @@ impl<'repository> Repository<'repository> {
                         entry.path().to_str() == workdir.to_str()  // but we need to traverse the first one
                             || ((entry.file_type().is_dir() // traverse all directories if they are not ignored by git
                                 || relative_path.to_lowercase().contains(&pattern)) // but only pass on files that match the regex
-                                && !self.git_repository.is_path_ignored(&entry.path()).unwrap_or(true))
+                                && !self.git_repository.is_path_ignored(entry.path()).unwrap_or(true))
                     })
                     .filter_map(Result::ok)
                 {
@@ -242,7 +242,7 @@ impl<'repository> Repository<'repository> {
                     }
                 }
         files.sort();
-        return Ok(files);
+        Ok(files)
     }
 
     pub fn git_branches(&self) -> Result<Vec<String>> {
@@ -403,7 +403,7 @@ impl<'repository> Repository<'repository> {
                 })?;
         }
 
-        return Ok(());
+        Ok(())
     }
 }
 

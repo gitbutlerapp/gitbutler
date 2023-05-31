@@ -172,7 +172,7 @@ mod tests {
         let tmp_dir = tempdir().unwrap();
         let tmp_dir_path = tmp_dir.path();
         let file_path = tmp_dir_path.join("test.txt");
-        let mut file = File::create(&file_path).unwrap();
+        let mut file = File::create(file_path).unwrap();
         file.write_all(b"test").unwrap();
 
         let zipper_cache = tempdir().unwrap();
@@ -199,7 +199,7 @@ mod tests {
         let tmp_dir = tempdir().unwrap();
         let tmp_dir_path = tmp_dir.path();
         let file_path = tmp_dir_path.join("test.txt");
-        let mut file = File::create(&file_path).unwrap();
+        let mut file = File::create(file_path).unwrap();
         file.write_all(b"test").unwrap();
 
         let zipper_cache = tempdir().unwrap();

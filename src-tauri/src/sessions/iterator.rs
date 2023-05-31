@@ -18,8 +18,8 @@ impl<'iterator> SessionsIterator<'iterator> {
         iter.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
             .context("failed to set sorting")?;
 
-        let mut branches = git_repository.branches(None)?;
-        while let Some(branch) = branches.next() {
+        let branches = git_repository.branches(None)?;
+        for branch in branches {
             let (branch, _) = branch.context("failed to get branch")?;
             iter.push(branch.get().peel_to_commit()?.id())
                 .with_context(|| format!("failed to push branch {:?}", branch.name()))?;

@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};
@@ -14,21 +16,21 @@ pub enum Operation {
 impl Operation {
     pub fn apply(&self, text: &mut Vec<char>) -> Result<()> {
         match self {
-            Operation::Insert((index, chunk)) => {
-                if *index > text.len() {
-                    Err(anyhow::anyhow!(
-                        "Index out of bounds, {} > {}",
-                        index,
-                        text.len()
-                    ))
-                } else if *index as usize == text.len() {
+            Operation::Insert((index, chunk)) => match index.cmp(&text.len()) {
+                Ordering::Greater => Err(anyhow::anyhow!(
+                    "Index out of bounds, {} > {}",
+                    index,
+                    text.len()
+                )),
+                Ordering::Equal => {
                     text.extend(chunk.chars());
                     Ok(())
-                } else {
-                    text.splice(*index as usize..*index as usize, chunk.chars());
+                }
+                Ordering::Less => {
+                    text.splice(*index..*index, chunk.chars());
                     Ok(())
                 }
-            }
+            },
             Operation::Delete((index, len)) => {
                 if *index > text.len() {
                     Err(anyhow::anyhow!(
@@ -36,14 +38,14 @@ impl Operation {
                         index,
                         text.len()
                     ))
-                } else if *index as usize + *len as usize > text.len() {
+                } else if *index + *len > text.len() {
                     Err(anyhow::anyhow!(
                         "Index + length out of bounds, {} > {}",
                         index + len,
                         text.len()
                     ))
                 } else {
-                    text.splice(*index as usize..(*index + *len) as usize, "".chars());
+                    text.splice(*index..(*index + *len), "".chars());
                     Ok(())
                 }
             }
@@ -78,7 +80,7 @@ fn merge_touching(ops: &Vec<Operation>) -> Vec<Operation> {
         }
     }
 
-    return merged;
+    merged
 }
 
 pub fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operation> {
@@ -110,5 +112,64 @@ pub fn get_delta_operations(initial_text: &str, final_text: &str) -> Vec<Operati
         }
     }
 
-    return merge_touching(&deltas);
+    merge_touching(&deltas)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_delta_operations_insert_end() {
+        let initial_text = "hello";
+        let final_text = "hello world!";
+        let operations = get_delta_operations(initial_text, final_text);
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0], Operation::Insert((5, " world!".to_string())));
+    }
+
+    #[test]
+    fn test_get_delta_operations_insert_middle() {
+        let initial_text = "helloworld";
+        let final_text = "hello, world";
+        let operations = get_delta_operations(initial_text, final_text);
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0], Operation::Insert((5, ", ".to_string())));
+    }
+
+    #[test]
+    fn test_get_delta_operations_insert_begin() {
+        let initial_text = "world";
+        let final_text = "hello world";
+        let operations = get_delta_operations(initial_text, final_text);
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0], Operation::Insert((0, "hello ".to_string())));
+    }
+
+    #[test]
+    fn test_get_delta_operations_delete_end() {
+        let initial_text = "hello world!";
+        let final_text = "hello";
+        let operations = get_delta_operations(initial_text, final_text);
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0], Operation::Delete((5, 7)));
+    }
+
+    #[test]
+    fn test_get_delta_operations_delete_middle() {
+        let initial_text = "hello, world";
+        let final_text = "helloworld";
+        let operations = get_delta_operations(initial_text, final_text);
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0], Operation::Delete((5, 2)));
+    }
+
+    #[test]
+    fn test_get_delta_operations_delete_begin() {
+        let initial_text = "hello world";
+        let final_text = "world";
+        let operations = get_delta_operations(initial_text, final_text);
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0], Operation::Delete((0, 6)));
+    }
 }

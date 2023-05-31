@@ -45,21 +45,21 @@ impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
         let id = reader
             .read_to_string("session/meta/id")
             .with_context(|| "failed to read session id")
-            .map_err(|err| SessionError::Err(err))?;
+            .map_err(SessionError::Err)?;
         let start_timestamp_ms = reader
             .read_to_string("session/meta/start")
             .with_context(|| "failed to read session start timestamp")
-            .map_err(|err| SessionError::Err(err))?
+            .map_err(SessionError::Err)?
             .parse::<u128>()
             .with_context(|| "failed to parse session start timestamp")
-            .map_err(|err| SessionError::Err(err))?;
+            .map_err(SessionError::Err)?;
         let last_timestamp_ms = reader
             .read_to_string("session/meta/last")
             .with_context(|| "failed to read session last timestamp")
-            .map_err(|err| SessionError::Err(err))?
+            .map_err(SessionError::Err)?
             .parse::<u128>()
             .with_context(|| "failed to parse session last timestamp")
-            .map_err(|err| SessionError::Err(err))?;
+            .map_err(SessionError::Err)?;
         let branch = reader.read_to_string("session/meta/branch");
         let commit = reader.read_to_string("session/meta/commit");
 
@@ -69,15 +69,15 @@ impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
             meta: Meta {
                 start_timestamp_ms,
                 last_timestamp_ms,
-                branch: if branch.is_err() {
-                    None
+                branch: if let Ok(branch) = branch {
+                    Some(branch)
                 } else {
-                    Some(branch.unwrap())
+                    None
                 },
-                commit: if commit.is_err() {
-                    None
+                commit: if let Ok(commit) = commit {
+                    Some(commit)
                 } else {
-                    Some(commit.unwrap())
+                    None
                 },
             },
         })

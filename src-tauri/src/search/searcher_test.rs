@@ -7,7 +7,7 @@ use crate::{bookmarks, deltas, gb_repository, projects, sessions, storage, users
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
-    let repository = git2::Repository::init(&path)?;
+    let repository = git2::Repository::init(path)?;
     let mut index = repository.index()?;
     let oid = index.write_tree()?;
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
@@ -40,14 +40,14 @@ fn test_sorted_by_timestamp() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 
@@ -95,14 +95,14 @@ fn search_by_bookmark_note() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 
@@ -196,14 +196,14 @@ fn search_by_full_match() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 
@@ -242,14 +242,14 @@ fn search_by_diff() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 
@@ -366,14 +366,14 @@ fn test_delete_all() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 
@@ -420,14 +420,14 @@ fn search_bookmark_by_phrase() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 
@@ -481,14 +481,14 @@ fn search_by_filename() -> Result<()> {
     let repository = test_repository()?;
     let project = test_project(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path().to_path_buf());
+    let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path,
-        project.id.clone(),
-        project_store.clone(),
+        project.id,
+        project_store,
         user_store,
     )?;
 

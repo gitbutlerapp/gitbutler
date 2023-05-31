@@ -195,7 +195,7 @@ async fn list_sessions(
         .with_context(|| {
             format!(
                 "failed to list sessions for project {}",
-                project_id.to_string()
+                project_id
             )
         })?;
     Ok(sessions)
@@ -217,7 +217,7 @@ async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error
             };
 
             let user = users::User {
-                picture: local_picture.to_string(),
+                picture: local_picture,
                 ..user
             };
 
@@ -530,24 +530,23 @@ fn main() {
 
     tauri::Builder::default()
         .system_tray(tray)
-        .on_system_tray_event(|app_handle, event| match event {
-            tauri::SystemTrayEvent::MenuItemClick { id, .. } => {
+        .on_system_tray_event(|app_handle, event| if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
                 let app_title = app_handle.package_info().name.clone();
                 let item_handle = app_handle.tray_handle().get_item(&id);
                 match id.as_str() {
                     "quit" => {
                         app_handle.exit(0);
                     }
-                    "toggle" => match get_window(&app_handle) {
+                    "toggle" => match get_window(app_handle) {
                         Some(window) => {
                             if window.is_visible().unwrap() {
-                                hide_window(&app_handle).expect("Failed to hide window");
+                                hide_window(app_handle).expect("Failed to hide window");
                             } else {
-                                show_window(&app_handle).expect("Failed to show window");
+                                show_window(app_handle).expect("Failed to show window");
                             }
                         }
                         None => {
-                            create_window(&app_handle).expect("Failed to create window");
+                            create_window(app_handle).expect("Failed to create window");
                             item_handle
                                 .set_title(format!("Hide {}", app_title))
                                 .unwrap();
@@ -555,15 +554,10 @@ fn main() {
                     },
                     _ => {}
                 }
-            }
-            _ => {}
         })
-        .on_window_event(|event| match event.event() {
-            tauri::WindowEvent::CloseRequested { api, .. } => {
-                hide_window(&event.window().app_handle()).expect("Failed to hide window");
-                api.prevent_close();
-            }
-            _ => {}
+        .on_window_event(|event| if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+            hide_window(&event.window().app_handle()).expect("Failed to hide window");
+            api.prevent_close();
         })
         .setup(move |tauri_app| {
             let window = create_window(&tauri_app.handle()).expect("Failed to create window");
@@ -655,20 +649,17 @@ fn main() {
         .build(tauri_context)
         .expect("Failed to build tauri app")
         .run(|app_handle, event| match event {
-            tauri::RunEvent::WindowEvent { event, .. } => match event {
-                tauri::WindowEvent::Focused(is_focused) => {
+            tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::Focused(is_focused), .. } => {
                     if is_focused {
-                        set_toggle_menu_hide(&app_handle)
+                        set_toggle_menu_hide(app_handle)
                             .expect("Failed to set toggle menu hide");
                     } else {
-                        set_toggle_menu_show(&app_handle)
+                        set_toggle_menu_show(app_handle)
                             .expect("Failed to set toggle menu show");
                     }
-                },
-                _ => {}
-            }
+                }
             tauri::RunEvent::ExitRequested { api, .. } => {
-                hide_window(&app_handle).expect("Failed to hide window");
+                hide_window(app_handle).expect("Failed to hide window");
                 api.prevent_exit();
             }
             _ => {}

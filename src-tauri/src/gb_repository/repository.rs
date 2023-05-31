@@ -72,7 +72,7 @@ impl Repository {
         } else {
             let git_repository = git2::Repository::init_opts(
                 &path,
-                &git2::RepositoryInitOptions::new()
+                git2::RepositoryInitOptions::new()
                     .bare(true)
                     .initial_head("refs/heads/current")
                     .external_template(false),
@@ -125,7 +125,7 @@ impl Repository {
 
         // only push if logged in
         let access_token = match user {
-            Some(user) => user.access_token.clone(),
+            Some(user) => user.access_token,
             None => return Ok(None),
         };
 
@@ -280,7 +280,7 @@ impl Repository {
         };
 
         // write session to disk
-        sessions::Writer::open(&self, &session)?;
+        sessions::Writer::open(self, &session)?;
 
         Ok(session)
     }
@@ -364,18 +364,18 @@ impl Repository {
         }
 
         // touch session writer to update last timestamp
-        sessions::Writer::open(&self, &session)?;
+        sessions::Writer::open(self, session)?;
 
         self.lock()?;
         defer! {
             self.unlock().expect("failed to unlock");
         }
 
-        let wd_tree_oid = build_wd_tree(&self, &project_repository)
+        let wd_tree_oid = build_wd_tree(self, project_repository)
             .context("failed to build working directory tree")?;
-        let session_tree_oid = build_session_tree(&self).context("failed to build session tree")?;
+        let session_tree_oid = build_session_tree(self).context("failed to build session tree")?;
         let log_tree_oid =
-            build_log_tree(&self, &project_repository).context("failed to build logs tree")?;
+            build_log_tree(self, project_repository).context("failed to build logs tree")?;
 
         let mut tree_builder = self
             .git_repository
@@ -395,8 +395,7 @@ impl Repository {
 
         let user = self.users_store.get().context("failed to get user")?;
 
-        let commit_oid =
-            write_gb_commit(tree, &self, &user).context("failed to write gb commit")?;
+        let commit_oid = write_gb_commit(tree, self, &user).context("failed to write gb commit")?;
 
         log::info!(
             "{}: flushed session {} into commit {}",
@@ -419,9 +418,7 @@ impl Repository {
         Ok(session)
     }
 
-    pub fn get_sessions_iterator<'repository>(
-        &'repository self,
-    ) -> Result<sessions::SessionsIterator<'repository>> {
+    pub fn get_sessions_iterator(&self) -> Result<sessions::SessionsIterator<'_>> {
         Ok(sessions::SessionsIterator::new(&self.git_repository)?)
     }
 
@@ -520,7 +517,7 @@ impl Repository {
                                     Some("HEAD"),
                                     &commit.author(),
                                     &commit.committer(),
-                                    &commit.message().unwrap(),
+                                    commit.message().unwrap(),
                                     &tree,
                                     &[&parent],
                                 )
@@ -532,9 +529,9 @@ impl Repository {
                                     Some("HEAD"),
                                     &commit.author(),
                                     &commit.committer(),
-                                    &commit.message().unwrap(),
+                                    commit.message().unwrap(),
                                     &tree,
-                                    &vec![],
+                                    &[],
                                 )
                                 .context("failed to commit")?;
                         }
@@ -606,17 +603,17 @@ fn build_wd_tree(
                     .add(&git2::IndexEntry {
                         ctime: git2::IndexTime::new(
                             ctime.seconds().try_into()?,
-                            ctime.nanoseconds().try_into().unwrap(),
+                            ctime.nanoseconds(),
                         ),
                         mtime: git2::IndexTime::new(
                             mtime.seconds().try_into()?,
-                            mtime.nanoseconds().try_into().unwrap(),
+                            mtime.nanoseconds(),
                         ),
                         dev: metadata.dev().try_into()?,
                         ino: metadata.ino().try_into()?,
                         mode: 33188,
-                        uid: metadata.uid().try_into().unwrap(),
-                        gid: metadata.gid().try_into().unwrap(),
+                        uid: metadata.uid(),
+                        gid: metadata.gid(),
                         file_size: metadata.len().try_into().unwrap(),
                         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
                         flags_extended: 0, // no extended flags
@@ -628,7 +625,7 @@ fn build_wd_tree(
 
             let wd_tree_oid = index
                 .write_tree_to(&gb_repository.git_repository)
-                .with_context(|| format!("failed to write wd tree"))?;
+                .with_context(|| "failed to write wd tree".to_string())?;
             Ok(wd_tree_oid)
         }
         Err(e) => {
@@ -653,7 +650,7 @@ fn build_wd_tree_from_repo(
     let repo_index = &mut project_repository
         .git_repository
         .index()
-        .with_context(|| format!("failed to open repo index"))?;
+        .with_context(|| "failed to open repo index".to_string())?;
 
     let mut added: HashMap<String, bool> = HashMap::new();
 
@@ -668,7 +665,7 @@ fn build_wd_tree_from_repo(
         let file_path = std::path::Path::new(&file_path);
         if project_repository
             .git_repository
-            .is_path_ignored(&file_path)
+            .is_path_ignored(file_path)
             .unwrap_or(true)
         {
             continue;
@@ -678,8 +675,8 @@ fn build_wd_tree_from_repo(
             &mut index,
             repo_index,
             &gb_repository.session_wd_path(),
-            &file_path,
-            &gb_repository,
+            file_path,
+            gb_repository,
         )
         .with_context(|| {
             format!(
@@ -691,7 +688,7 @@ fn build_wd_tree_from_repo(
     }
 
     // finally, add files from the working directory if they aren't already in the index
-    for file_path in fs::list_files(&project_repository.root()).with_context(|| {
+    for file_path in fs::list_files(project_repository.root()).with_context(|| {
         format!(
             "failed to working directory list files in {}",
             project_repository.root().display()
@@ -705,7 +702,7 @@ fn build_wd_tree_from_repo(
 
         if project_repository
             .git_repository
-            .is_path_ignored(&file_path)
+            .is_path_ignored(file_path)
             .unwrap_or(true)
         {
             continue;
@@ -715,8 +712,8 @@ fn build_wd_tree_from_repo(
             &mut index,
             repo_index,
             project_repository.root(),
-            &file_path,
-            &gb_repository,
+            file_path,
+            gb_repository,
         )
         .with_context(|| {
             format!(
@@ -754,7 +751,7 @@ fn add_wd_path(
     if let Some(entry) = repo_index.get_path(rel_file_path, 0) {
         // if we find the entry and the metadata of the file has not changed, we can just use the existing entry
         if entry.mtime.seconds() == i32::try_from(mtime.seconds())?
-            && entry.mtime.nanoseconds() == u32::try_from(mtime.nanoseconds()).unwrap()
+            && entry.mtime.nanoseconds() == mtime.nanoseconds()
             && entry.file_size == u32::try_from(metadata.len())?
             && entry.mode == metadata.mode()
         {
@@ -787,10 +784,10 @@ fn add_wd_path(
         let mut lfs_pointer = String::from("version https://git-lfs.github.com/spec/v1\n");
         lfs_pointer.push_str("oid sha256:");
         lfs_pointer.push_str(&sha);
-        lfs_pointer.push_str("\n");
+        lfs_pointer.push('\n');
         lfs_pointer.push_str("size ");
         lfs_pointer.push_str(&metadata.len().to_string());
-        lfs_pointer.push_str("\n");
+        lfs_pointer.push('\n');
 
         // write the file to the .git/lfs/objects directory
         // create the directory recursively if it doesn't exist
@@ -813,17 +810,17 @@ fn add_wd_path(
         .add(&git2::IndexEntry {
             ctime: git2::IndexTime::new(
                 ctime.seconds().try_into()?,
-                ctime.nanoseconds().try_into().unwrap(),
+                ctime.nanoseconds(),
             ),
             mtime: git2::IndexTime::new(
                 mtime.seconds().try_into()?,
-                mtime.nanoseconds().try_into().unwrap(),
+                mtime.nanoseconds(),
             ),
             dev: metadata.dev().try_into()?,
             ino: metadata.ino().try_into()?,
             mode: 33188,
-            uid: metadata.uid().try_into().unwrap(),
-            gid: metadata.gid().try_into().unwrap(),
+            uid: metadata.uid(),
+            gid: metadata.gid(),
             file_size: metadata.len().try_into().unwrap(),
             flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
             flags_extended: 0, // no extended flags
@@ -871,10 +868,10 @@ fn build_log_tree(
     let logs_dir = project_repository.git_repository.path().join("logs");
     for file_path in fs::list_files(logs_dir).context("failed to list log files")? {
         add_log_path(
-            &std::path::Path::new(&file_path),
+            std::path::Path::new(&file_path),
             &mut index,
             gb_repository,
-            &project_repository,
+            project_repository,
         )
         .with_context(|| format!("failed to add log file to index: {}", file_path.display()))?;
     }
@@ -904,17 +901,17 @@ fn add_log_path(
     index.add(&git2::IndexEntry {
         ctime: git2::IndexTime::new(
             ctime.seconds().try_into()?,
-            ctime.nanoseconds().try_into().unwrap(),
+            ctime.nanoseconds(),
         ),
         mtime: git2::IndexTime::new(
             mtime.seconds().try_into()?,
-            mtime.nanoseconds().try_into().unwrap(),
+            mtime.nanoseconds(),
         ),
         dev: metadata.dev().try_into()?,
         ino: metadata.ino().try_into()?,
         mode: metadata.mode(),
-        uid: metadata.uid().try_into().unwrap(),
-        gid: metadata.gid().try_into().unwrap(),
+        uid: metadata.uid(),
+        gid: metadata.gid(),
         file_size: metadata.len().try_into()?,
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
@@ -935,7 +932,7 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
         fs::list_files(&gb_repository.session_path()).context("failed to list session files")?
     {
         let file_path = std::path::Path::new(&file_path);
-        add_session_path(&gb_repository, &mut index, &file_path)
+        add_session_path(gb_repository, &mut index, file_path)
             .with_context(|| format!("failed to add session file: {}", file_path.display()))?;
     }
 
@@ -964,17 +961,17 @@ fn add_session_path(
         .add(&git2::IndexEntry {
             ctime: git2::IndexTime::new(
                 ctime.seconds().try_into()?,
-                ctime.nanoseconds().try_into().unwrap(),
+                ctime.nanoseconds(),
             ),
             mtime: git2::IndexTime::new(
                 mtime.seconds().try_into()?,
-                mtime.nanoseconds().try_into().unwrap(),
+                mtime.nanoseconds(),
             ),
             dev: metadata.dev().try_into()?,
             ino: metadata.ino().try_into()?,
             mode: metadata.mode(),
-            uid: metadata.uid().try_into().unwrap(),
-            gid: metadata.gid().try_into().unwrap(),
+            uid: metadata.uid(),
+            gid: metadata.gid(),
             file_size: metadata.len().try_into()?,
             flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
             flags_extended: 0, // no extended flags
@@ -1035,7 +1032,7 @@ fn write_gb_commit(
                 )?;
                 Ok(new_commit)
             } else {
-                return Err(e.into());
+                Err(e.into())
             }
         }
     }

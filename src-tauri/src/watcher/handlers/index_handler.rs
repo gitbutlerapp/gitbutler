@@ -16,6 +16,7 @@ pub struct Handler<'handler> {
 }
 
 impl<'handler> Handler<'handler> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         project_id: String,
         deltas_searcher: search::Searcher,
@@ -63,8 +64,8 @@ impl<'handler> Handler<'handler> {
     }
 
     pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {
-        let updated = self.bookmarks_database.upsert(&bookmark)?;
-        self.deltas_searcher.index_bookmark(&bookmark)?;
+        let updated = self.bookmarks_database.upsert(bookmark)?;
+        self.deltas_searcher.index_bookmark(bookmark)?;
         if let Some(updated) = updated {
             self.events_sender
                 .send(app_events::Event::bookmark(&self.project_id, &updated))?;
@@ -76,13 +77,13 @@ impl<'handler> Handler<'handler> {
         // first of all, index session for searching. searhcer keeps it's own state to
         // decide if the actual indexing needed
         self.deltas_searcher
-            .index_session(&self.gb_repository, &session)
+            .index_session(self.gb_repository, session)
             .context("failed to index session")?;
 
         // index bookmarks right away. bookmarks are stored in the session during which it was
         // created, not in the session that is actually bookmarked. so we want to make sure all of
         // them are indexed at all times
-        let session_reader = sessions::Reader::open(&self.gb_repository, &session)?;
+        let session_reader = sessions::Reader::open(self.gb_repository, session)?;
         let bookmarks_reader = bookmarks::Reader::new(&session_reader);
         for bookmark in bookmarks_reader.read()? {
             self.index_bookmark(&bookmark)?;
@@ -95,7 +96,7 @@ impl<'handler> Handler<'handler> {
         }
 
         self.sessions_database
-            .insert(&self.project_id, &vec![session])
+            .insert(&self.project_id, &[session])
             .context("failed to insert session into database")?;
 
         let mut events: Vec<events::Event> = vec![];

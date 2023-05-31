@@ -54,7 +54,7 @@ impl Database {
                 .next()
                 .context("Failed to iterate over list_by_project_id results")?
             {
-                let session = parse_row(&row)?;
+                let session = parse_row(row)?;
 
                 if let Some(earliest_timestamp_ms) = earliest_timestamp_ms {
                     if session.meta.last_timestamp_ms < earliest_timestamp_ms {
@@ -80,7 +80,7 @@ impl Database {
                 .next()
                 .context("Failed to iterate over get_by_id results")?
             {
-                Ok(Some(parse_row(&row)?))
+                Ok(Some(parse_row(row)?))
             } else {
                 Ok(None)
             }
@@ -215,8 +215,8 @@ mod tests {
                 last_timestamp_ms: 4,
             },
         };
-        database.insert(project_id, &vec![&session1])?;
-        database.insert(project_id, &vec![&session_updated])?;
+        database.insert(project_id, &[&session1])?;
+        database.insert(project_id, &[&session_updated])?;
 
         assert_eq!(
             database.list_by_project_id(project_id, None)?,

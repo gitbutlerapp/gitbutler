@@ -25,7 +25,7 @@ impl Dispatcher {
     pub fn stop(&self) -> Result<()> {
         if let Some(mut watcher) = self.watcher.lock().unwrap().take() {
             watcher
-                .unwatch(&std::path::Path::new(&self.project_path))
+                .unwatch(std::path::Path::new(&self.project_path))
                 .context(format!(
                     "failed to unwatch project path: {}",
                     self.project_path.display()
@@ -39,7 +39,7 @@ impl Dispatcher {
         let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
         watcher
             .watch(
-                &std::path::Path::new(&self.project_path),
+                std::path::Path::new(&self.project_path),
                 notify::RecursiveMode::Recursive,
             )
             .with_context(|| {
@@ -88,11 +88,11 @@ impl Dispatcher {
 }
 
 fn is_interesting_event(kind: &notify::EventKind) -> bool {
-    match kind {
-        notify::EventKind::Create(notify::event::CreateKind::File) => true,
-        notify::EventKind::Modify(notify::event::ModifyKind::Data(_)) => true,
-        notify::EventKind::Modify(notify::event::ModifyKind::Name(_)) => true,
-        notify::EventKind::Remove(notify::event::RemoveKind::File) => true,
-        _ => false,
-    }
+    matches!(
+        kind,
+        notify::EventKind::Create(notify::event::CreateKind::File)
+            | notify::EventKind::Modify(notify::event::ModifyKind::Data(_))
+            | notify::EventKind::Modify(notify::event::ModifyKind::Name(_))
+            | notify::EventKind::Remove(notify::event::RemoveKind::File)
+    )
 }

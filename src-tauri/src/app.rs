@@ -40,22 +40,22 @@ impl App {
         event_sender: events::Sender,
     ) -> Result<Self> {
         let local_data_dir = local_data_dir.as_ref();
-        let storage = storage::Storage::from_path(local_data_dir.clone());
+        let storage = storage::Storage::from_path(local_data_dir);
         let deltas_searcher =
-            search::Searcher::at(local_data_dir.clone()).context("failed to open deltas searcher")?;
+            search::Searcher::at(local_data_dir).context("failed to open deltas searcher")?;
         let database = database::Database::open(local_data_dir.join("database.sqlite3"))?;
         Ok(Self {
             events_sender: event_sender,
             local_data_dir: local_data_dir.to_path_buf(),
             projects_storage: projects::Storage::new(storage.clone()),
-            users_storage: users::Storage::new(storage.clone()),
+            users_storage: users::Storage::new(storage),
             searcher: deltas_searcher,
             stop_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
             proxy_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
             sessions_database: sessions::Database::new(database.clone()),
             deltas_database: deltas::Database::new(database.clone()),
             files_database: files::Database::new(database.clone()),
-            bookmarks_database: bookmarks::Database::new(database.clone()),
+            bookmarks_database: bookmarks::Database::new(database),
         })
     }
 
@@ -74,7 +74,7 @@ impl App {
         &self,
         project: &projects::Project,
     ) -> Result<()> {
-        self.start_watcher(&project)
+        self.start_watcher(project)
             .with_context(|| {
                 format!("failed to start watcher for project {}", project.id.clone())
             })?;
@@ -115,8 +115,8 @@ impl App {
             )
             .expect("failed to open git repository");
 
-            let mut iterator = gb_repository.get_sessions_iterator().expect("failed to get sessions iterator");
-            while let Some(session) = iterator.next() {
+            let iterator = gb_repository.get_sessions_iterator().expect("failed to get sessions iterator");
+            for session in iterator {
                 let session = session.expect("failed to get session");
 
                 if let Err(e) = proxy_watchers.lock().unwrap().get(&project.id).unwrap().send(watcher::Event::Session(session.clone())) {
@@ -145,7 +145,7 @@ impl App {
         self.stop_watchers
             .lock()
             .unwrap()
-            .insert(project.id.clone(), stop_tx.clone());
+            .insert(project.id.clone(), stop_tx);
 
         let (proxy_tx, proxy_rx) = bounded(1);
         self.proxy_watchers
@@ -214,35 +214,31 @@ impl App {
         &self,
         path: &str,
     ) -> Result<projects::Project, AddProjectError> {
-        let all_projects = self.projects_storage.list_projects().map_err(|e| 
-            AddProjectError::Other(e)
+        let all_projects = self.projects_storage.list_projects().map_err(AddProjectError::Other
         )?;
 
-        if let Some(_) = all_projects.iter().find(|project| project.path == path) {
+        if all_projects.iter().any(|project| project.path == path) {
             return Err(AddProjectError::ProjectAlreadyExists);
         }
 
         let project =
-            projects::Project::from_path(path.to_string()).map_err(|e| 
-                AddProjectError::OpenError(e)
+            projects::Project::from_path(path.to_string()).map_err(AddProjectError::OpenError
             )?;
 
         self.projects_storage
             .add_project(&project)
-            .context("failed to add project").map_err(|e| 
-                AddProjectError::Other(e)
+            .context("failed to add project").map_err(AddProjectError::Other
             )?;
 
         self.init_project(&project)
-            .context("failed to init project").map_err(|e| 
-                AddProjectError::Other(e)
+            .context("failed to init project").map_err(AddProjectError::Other
             )?;
 
         Ok(project)
     }
 
     pub fn update_project(&self, project: &projects::UpdateRequest) -> Result<projects::Project> {
-        let updated = self.projects_storage.update_project(&project)?;
+        let updated = self.projects_storage.update_project(project)?;
 
         if let Err(err) = self.send_event(&project.id, watcher::Event::Fetch) {
             log::error!("{}: failed to fetch project: {:#}", &project.id, err);
@@ -314,7 +310,7 @@ impl App {
 
         let session = gb_repository.get_or_create_current_session().context("failed to get or create current session")?;
         let writer = sessions::Writer::open(&gb_repository, &session).context("failed to open session writer")?;
-        writer.write_bookmark(&bookmark).context("failed to write bookmark")?;
+        writer.write_bookmark(bookmark).context("failed to write bookmark")?;
         // let updated = self.bookmarks_database.upsert(bookmark).context("failed to upsert bookmark")?;
 
         // if let Some(updated) = updated.as_ref() {
@@ -447,7 +443,7 @@ impl App {
             self.users_storage.clone(),
         )
         .context("failed to open repository")?;
-        return gb_repository.push();
+        gb_repository.push()
     }
 
     pub fn git_stage_files<P: AsRef<std::path::Path>>(
@@ -495,7 +491,7 @@ impl App {
         self.searcher.search(query)
     }
 
-    pub fn record_pty(&self, project_id: &str, typ: pty::Type, bytes: &Vec<u8>) -> Result<()> {
+    pub fn record_pty(&self, project_id: &str, typ: pty::Type, bytes: &[u8]) -> Result<()> {
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id.to_string(),
