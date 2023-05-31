@@ -51,8 +51,8 @@
 
 <div class="GitBTLR-container h-full p-4">
 	<div class="card relative flex h-full flex-col">
-		<div 
-			class="content-header flex justify-between gap-2 border-b border-zinc-700 border-opacity-2 bg-card-active py-3 px-4 absolute top-0 left-0 right-0 rounded-tr rounded-tl z-10"
+		<div
+			class="content-header border-opacity-2 absolute top-0 left-0 right-0 z-10 flex justify-between gap-2 rounded-tr rounded-tl border-b border-zinc-700 bg-card-active py-3 px-4"
 			style="
 				-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
 				backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
