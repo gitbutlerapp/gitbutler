@@ -1,46 +1,41 @@
 use std::time;
 
 use anyhow::Result;
-use crossbeam_channel::{bounded, select, tick, Receiver, Sender};
+use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     project_id: String,
-    stop: (Sender<()>, Receiver<()>),
+    cancellation_token: CancellationToken,
 }
 
 impl Dispatcher {
     pub fn new(project_id: String) -> Self {
         Self {
             project_id,
-            stop: bounded(1),
+            cancellation_token: CancellationToken::new(),
         }
     }
 
     pub fn stop(&self) -> Result<()> {
-        self.stop.0.send(())?;
+        self.cancellation_token.cancel();
         Ok(())
     }
 
-    pub fn start(&self, interval: time::Duration, rtx: Sender<time::SystemTime>) -> Result<()> {
-        let update = tick(interval);
-
-        log::info!("{}: ticker started", self.project_id);
+    pub async fn start(
+        &self,
+        interval: time::Duration,
+        rtx: crossbeam_channel::Sender<time::SystemTime>,
+    ) -> Result<()> {
+        let mut ticker = tokio::time::interval(interval);
 
         loop {
-            select! {
-                recv(update) -> ts => match ts {
-                    Ok(_) => {
-                        if let Err(e) = rtx.send(time::SystemTime::now()) {
-                            log::error!("{}: failed to send tick event: {:#}", self.project_id, e);
-                        }
-                    },
-                    Err(e) => log::error!("{}: failed to receive tick event: {:#}", self.project_id, e)
-                },
-                recv(self.stop.1) -> _ => {
-                    break;
-                }
+            ticker.tick().await;
+            if self.cancellation_token.is_cancelled() {
+                break;
             }
+            println!("{}: tick", self.project_id);
+            rtx.send(time::SystemTime::now())?;
         }
 
         log::info!("{}: ticker stopped", self.project_id);
