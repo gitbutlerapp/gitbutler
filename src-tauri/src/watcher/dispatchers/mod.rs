@@ -44,8 +44,11 @@ impl Dispatcher {
         let (t_tx, t_rx) = unbounded();
         let tick_dispatcher = self.tick_dispatcher.clone();
         let project_id = self.project_id.clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            if let Err(e) = tick_dispatcher.start(time::Duration::from_secs(10), t_tx) {
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = tick_dispatcher
+                .start(time::Duration::from_secs(10), t_tx)
+                .await
+            {
                 log::error!("{}: failed to start ticker: {:#}", project_id, e);
             }
         });
@@ -53,8 +56,8 @@ impl Dispatcher {
         let (fw_tx, fw_rx) = unbounded();
         let file_change_dispatcher = self.file_change_dispatcher.clone();
         let project_id = self.project_id.clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            if let Err(e) = file_change_dispatcher.start(fw_tx) {
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = file_change_dispatcher.start(fw_tx).await {
                 log::error!("{}: failed to start file watcher: {:#}", project_id, e);
             }
         });

@@ -4,7 +4,11 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use notify::{Config, RecommendedWatcher, Watcher};
+use futures::{
+    channel::mpsc::{channel, Receiver},
+    SinkExt, StreamExt,
+};
+use notify::{Config, Event, RecommendedWatcher, Watcher};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -34,9 +38,8 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub fn start(&self, rtx: crossbeam_channel::Sender<PathBuf>) -> Result<()> {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+    pub async fn start(&self, rtx: crossbeam_channel::Sender<PathBuf>) -> Result<()> {
+        let (mut watcher, mut rx) = async_watcher()?;
         watcher
             .watch(
                 std::path::Path::new(&self.project_path),
@@ -52,7 +55,7 @@ impl Dispatcher {
 
         log::info!("{}: file watcher started", self.project_id);
 
-        for res in rx {
+        while let Some(res) = rx.next().await {
             match res {
                 Ok(event) => {
                     if !is_interesting_event(&event.kind) {
@@ -95,4 +98,21 @@ fn is_interesting_event(kind: &notify::EventKind) -> bool {
             | notify::EventKind::Modify(notify::event::ModifyKind::Name(_))
             | notify::EventKind::Remove(notify::event::RemoveKind::File)
     )
+}
+
+fn async_watcher() -> notify::Result<(RecommendedWatcher, Receiver<notify::Result<Event>>)> {
+    let (mut tx, rx) = channel(1);
+
+    // Automatically select the best implementation for your platform.
+    // You can also access each implementation directly e.g. INotifyWatcher.
+    let watcher = RecommendedWatcher::new(
+        move |res| {
+            futures::executor::block_on(async {
+                tx.send(res).await.unwrap();
+            })
+        },
+        Config::default(),
+    )?;
+
+    Ok((watcher, rx))
 }
