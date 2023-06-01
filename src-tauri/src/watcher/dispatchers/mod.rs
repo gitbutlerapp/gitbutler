@@ -4,6 +4,7 @@ mod tick;
 use std::{path, time};
 
 use anyhow::Result;
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use super::events;
@@ -37,7 +38,7 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub async fn start(&self, sender: crossbeam_channel::Sender<events::Event>) -> Result<()> {
+    pub async fn start(&self, sender: mpsc::UnboundedSender<events::Event>) -> Result<()> {
         let tick_dispatcher = self.tick_dispatcher.clone();
         let s1 = sender.clone();
         let project_id = self.project_id.clone();

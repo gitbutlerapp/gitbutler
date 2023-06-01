@@ -2,6 +2,7 @@ use std::{collections::HashMap, ops, sync};
 
 use anyhow::{Context, Result};
 use crossbeam_channel::{bounded, Sender};
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
@@ -19,7 +20,7 @@ pub struct App {
     searcher: search::Searcher,
     events_sender: events::Sender,
 
-    stop_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<()>>>>,
+    stop_watchers: sync::Arc<sync::Mutex<HashMap<String, CancellationToken>>>,
     proxy_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<watcher::Event>>>>,
 
     sessions_database: sessions::Database,
@@ -146,11 +147,11 @@ impl App {
         let deltas_database = self.deltas_database.clone();
         let bookmarks_database = self.bookmarks_database.clone();
 
-        let (stop_tx, stop_rx) = bounded(1);
+        let cancellation_token = CancellationToken::new();
         self.stop_watchers
             .lock()
             .unwrap()
-            .insert(project.id.clone(), stop_tx);
+            .insert(project.id.clone(), cancellation_token.clone());
 
         let (proxy_tx, proxy_rx) = bounded(1);
         self.proxy_watchers
@@ -174,7 +175,7 @@ impl App {
                 projects_storage,
                 &gb_repository,
                 deltas_searcher,
-                stop_rx,
+                cancellation_token,
                 proxy_rx,
                 events_sender,
                 sessions_database,
@@ -184,7 +185,7 @@ impl App {
             )
             .expect("failed to create watcher");
 
-            watcher.start().expect("failed to start watcher");
+            futures::executor::block_on(watcher.start()).expect("failed to init watcher");
         });
 
         Ok(())
@@ -201,10 +202,8 @@ impl App {
     }
 
     fn stop_watcher(&self, project_id: &str) -> Result<()> {
-        if let Some((_, stop_tx)) = self.stop_watchers.lock().unwrap().remove_entry(project_id) {
-            stop_tx
-                .send(())
-                .context("failed to send stop signal to watcher")?;
+        if let Some((_, token)) = self.stop_watchers.lock().unwrap().remove_entry(project_id) {
+            token.cancel();
         };
         Ok(())
     }
