@@ -30,6 +30,7 @@
 						sessionId: sessions[j].id,
 						deltas: frameDeltas
 							.filter((delta) => delta[0] === frameFilepath)
+							.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
 							.map((delta) => delta[1]),
 						filepath: frameFilepath,
 						doc: $files.value[j][frameFilepath] || ''
