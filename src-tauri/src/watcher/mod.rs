@@ -25,7 +25,6 @@ impl<'watcher> Watcher<'watcher> {
         gb_repository: &'watcher gb_repository::Repository,
         deltas_searcher: search::Searcher,
         cancellation_token: CancellationToken,
-        publisher: crossbeam_channel::Receiver<events::Event>,
         events_sender: crate::events::Sender,
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,
@@ -34,11 +33,7 @@ impl<'watcher> Watcher<'watcher> {
     ) -> Result<Self> {
         Ok(Self {
             project_id: project.id.clone(),
-            dispatcher: dispatchers::Dispatcher::new(
-                project.id.clone(),
-                project.path.clone(),
-                publisher,
-            ),
+            dispatcher: dispatchers::Dispatcher::new(project.id.clone(), project.path.clone()),
             handler: handlers::Handler::new(
                 project.id.clone(),
                 project_store,
@@ -54,7 +49,7 @@ impl<'watcher> Watcher<'watcher> {
         })
     }
 
-    pub async fn start(&self) -> Result<()> {
+    pub async fn start(&self, mut proxy: mpsc::UnboundedReceiver<events::Event>) -> Result<()> {
         let (events_tx, mut events_rx) = mpsc::unbounded_channel();
         let dispatcher = self.dispatcher.clone();
         let project_id = self.project_id.clone();
@@ -67,6 +62,11 @@ impl<'watcher> Watcher<'watcher> {
 
         loop {
             tokio::select! {
+                Some(event) = proxy.recv() => {
+                    if let Err(e) = events_tx.send(event) {
+                        log::error!("{}: failed to post event: {:#}", self.project_id, e);
+                    }
+                },
                 Some(event) = events_rx.recv() =>
                     match self.handler.handle(event) {
                     Err(err) => log::error!("{}: failed to handle event: {:#}", self.project_id, err),

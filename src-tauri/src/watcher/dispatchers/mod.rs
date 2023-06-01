@@ -14,21 +14,15 @@ pub struct Dispatcher {
     project_id: String,
     tick_dispatcher: tick::Dispatcher,
     file_change_dispatcher: file_change::Dispatcher,
-    proxy: crossbeam_channel::Receiver<events::Event>,
     cancellation_token: CancellationToken,
 }
 
 impl Dispatcher {
-    pub fn new<P: AsRef<path::Path>>(
-        project_id: String,
-        path: P,
-        proxy_chan: crossbeam_channel::Receiver<events::Event>,
-    ) -> Self {
+    pub fn new<P: AsRef<path::Path>>(project_id: String, path: P) -> Self {
         Self {
             project_id: project_id.clone(),
             tick_dispatcher: tick::Dispatcher::new(project_id.clone()),
             file_change_dispatcher: file_change::Dispatcher::new(project_id, path),
-            proxy: proxy_chan,
             cancellation_token: CancellationToken::new(),
         }
     }
@@ -57,17 +51,6 @@ impl Dispatcher {
         tauri::async_runtime::spawn(async move {
             if let Err(e) = file_change_dispatcher.start(s2).await {
                 log::error!("{}: failed to start file watcher: {:#}", project_id, e);
-            }
-        });
-
-        let project_id = self.project_id.clone();
-        let s3 = sender;
-        let proxy = self.proxy.clone();
-        tauri::async_runtime::spawn(async move {
-            for event in proxy {
-                if let Err(e) = s3.send(event) {
-                    log::error!("{}: failed to proxy event: {:#}", project_id, e);
-                }
             }
         });
 

@@ -1470,7 +1470,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bytes",
- "crossbeam-channel",
  "filetime",
  "fslock",
  "futures",

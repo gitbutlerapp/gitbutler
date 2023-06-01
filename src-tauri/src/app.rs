@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops, sync};
 
 use anyhow::{Context, Result};
-use crossbeam_channel::{bounded, Sender};
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -21,7 +21,7 @@ pub struct App {
     events_sender: events::Sender,
 
     stop_watchers: sync::Arc<sync::Mutex<HashMap<String, CancellationToken>>>,
-    proxy_watchers: sync::Arc<sync::Mutex<HashMap<String, Sender<watcher::Event>>>>,
+    proxy_watchers: sync::Arc<sync::Mutex<HashMap<String, mpsc::UnboundedSender<watcher::Event>>>>,
 
     sessions_database: sessions::Database,
     files_database: files::Database,
@@ -153,7 +153,7 @@ impl App {
             .unwrap()
             .insert(project.id.clone(), cancellation_token.clone());
 
-        let (proxy_tx, proxy_rx) = bounded(1);
+        let (proxy_tx, proxy_rx) = mpsc::unbounded_channel();
         self.proxy_watchers
             .lock()
             .unwrap()
@@ -176,7 +176,6 @@ impl App {
                 &gb_repository,
                 deltas_searcher,
                 cancellation_token,
-                proxy_rx,
                 events_sender,
                 sessions_database,
                 deltas_database,
@@ -185,7 +184,7 @@ impl App {
             )
             .expect("failed to create watcher");
 
-            futures::executor::block_on(watcher.start()).expect("failed to init watcher");
+            futures::executor::block_on(watcher.start(proxy_rx)).expect("failed to init watcher");
         });
 
         Ok(())
