@@ -45,7 +45,6 @@ futures = "0.3"
 futures-util = "0.3.8"
 timed = "0.2.1"
 serde-jsonlines = "0.4.0"
-crossbeam-channel = "0.5.8"
 scopeguard = "1.1.0"
 sentry-anyhow = "0.31.0"
 sentry-rust-minidump = "0.5.1"
@@ -55,6 +54,7 @@ rusqlite = { version = "0.28.0", features = [ "bundled", "blob" ] }
 refinery = { version = "0.8", features = [ "rusqlite" ] }
 sha1 = "0.10.5"
 tokio-util = "0.7.8"
+crossbeam-channel = "0.5.8"
 
 [features]
 # by default Tauri runs in production mode

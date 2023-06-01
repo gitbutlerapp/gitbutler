@@ -5,7 +5,8 @@ mod handlers;
 pub use events::Event;
 
 use anyhow::Result;
-use crossbeam_channel::{select, unbounded};
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 
 use crate::{bookmarks, deltas, files, gb_repository, projects, search, sessions};
 
@@ -13,7 +14,7 @@ pub struct Watcher<'watcher> {
     project_id: String,
     dispatcher: dispatchers::Dispatcher,
     handler: handlers::Handler<'watcher>,
-    stop: crossbeam_channel::Receiver<()>,
+    cancellation_token: CancellationToken,
 }
 
 impl<'watcher> Watcher<'watcher> {
@@ -23,7 +24,7 @@ impl<'watcher> Watcher<'watcher> {
         project_store: projects::Storage,
         gb_repository: &'watcher gb_repository::Repository,
         deltas_searcher: search::Searcher,
-        stop: crossbeam_channel::Receiver<()>,
+        cancellation_token: CancellationToken,
         publisher: crossbeam_channel::Receiver<events::Event>,
         events_sender: crate::events::Sender,
         sessions_database: sessions::Database,
@@ -49,12 +50,12 @@ impl<'watcher> Watcher<'watcher> {
                 files_database,
                 bookmarks_database,
             ),
-            stop,
+            cancellation_token,
         })
     }
 
-    pub fn start(&self) -> Result<()> {
-        let (events_tx, events_rx) = unbounded();
+    pub async fn start(&self) -> Result<()> {
+        let (events_tx, mut events_rx) = mpsc::unbounded_channel();
         let dispatcher = self.dispatcher.clone();
         let project_id = self.project_id.clone();
         let etx = events_tx.clone();
@@ -65,35 +66,27 @@ impl<'watcher> Watcher<'watcher> {
         });
 
         loop {
-            select! {
-                recv(events_rx) -> event => match event {
-                    Ok(event) => {
-                        match self.handler.handle(event) {
-                            Ok(events) => {
-                                for event in events {
-                                    if let Err(e) = events_tx.send(event) {
-                                        log::error!("{}: failed to post event: {:#}", self.project_id, e);
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                log::error!("{}: failed to handle event: {:#}", self.project_id, e);
-                            }
+            tokio::select! {
+                Some(event) = events_rx.recv() =>
+                    match self.handler.handle(event) {
+                    Err(err) => log::error!("{}: failed to handle event: {:#}", self.project_id, err),
+                    Ok(events) => {
+                        for event in events {
+
+                        if let Err(e) = events_tx.send(event) {
+                            log::error!("{}: failed to post event: {:#}", self.project_id, e);
                         }
-                    },
-                    Err(e) => {
-                        log::error!("{}: failed to receive event: {:#}", self.project_id, e);
+                        }
                     }
                 },
-                recv(self.stop) -> _ => {
+                _ = self.cancellation_token.cancelled() => {
                     if let Err(e) = self.dispatcher.stop() {
-                        log::error!("{}: failed to stop dispatcher : {:#}", self.project_id, e);
+                        log::error!("{}: failed to stop dispatcher: {:#}", self.project_id, e);
                     }
                     break;
                 }
             }
         }
-
         Ok(())
     }
 }

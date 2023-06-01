@@ -1,6 +1,7 @@
 use std::time;
 
 use anyhow::Result;
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::watcher::events;
@@ -27,7 +28,7 @@ impl Dispatcher {
     pub async fn start(
         &self,
         interval: time::Duration,
-        rtx: crossbeam_channel::Sender<events::Event>,
+        rtx: mpsc::UnboundedSender<events::Event>,
     ) -> Result<()> {
         let mut ticker = tokio::time::interval(interval);
 
