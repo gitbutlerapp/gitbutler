@@ -58,8 +58,8 @@ impl<'watcher> Watcher<'watcher> {
         let dispatcher = self.dispatcher.clone();
         let project_id = self.project_id.clone();
         let etx = events_tx.clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            if let Err(e) = dispatcher.start(etx.clone()) {
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = dispatcher.start(etx.clone()).await {
                 log::error!("{}: failed to start dispatcher: {:#}", project_id, e);
             }
         });
@@ -67,8 +67,8 @@ impl<'watcher> Watcher<'watcher> {
         loop {
             select! {
                 recv(events_rx) -> event => match event {
-                    Ok(events) => {
-                        match self.handler.handle(events) {
+                    Ok(event) => {
+                        match self.handler.handle(event) {
                             Ok(events) => {
                                 for event in events {
                                     if let Err(e) = events_tx.send(event) {

@@ -3,6 +3,8 @@ use std::time;
 use anyhow::Result;
 use tokio_util::sync::CancellationToken;
 
+use crate::watcher::events;
+
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     project_id: String,
@@ -25,16 +27,18 @@ impl Dispatcher {
     pub async fn start(
         &self,
         interval: time::Duration,
-        rtx: crossbeam_channel::Sender<time::SystemTime>,
+        rtx: crossbeam_channel::Sender<events::Event>,
     ) -> Result<()> {
         let mut ticker = tokio::time::interval(interval);
+
+        log::info!("{}: ticker started", self.project_id);
 
         loop {
             ticker.tick().await;
             if self.cancellation_token.is_cancelled() {
                 break;
             }
-            if let Err(e) = rtx.send(time::SystemTime::now()) {
+            if let Err(e) = rtx.send(events::Event::Tick(time::SystemTime::now())) {
                 log::error!("{}: failed to send tick: {}", self.project_id, e);
             }
         }
