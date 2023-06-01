@@ -10,6 +10,8 @@ use futures::{
 };
 use notify::{Config, Event, RecommendedWatcher, Watcher};
 
+use crate::watcher::events;
+
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     watcher: Arc<Mutex<Option<RecommendedWatcher>>>,
@@ -38,7 +40,7 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub async fn start(&self, rtx: crossbeam_channel::Sender<PathBuf>) -> Result<()> {
+    pub async fn start(&self, rtx: crossbeam_channel::Sender<events::Event>) -> Result<()> {
         let (mut watcher, mut rx) = async_watcher()?;
         watcher
             .watch(
@@ -62,34 +64,23 @@ impl Dispatcher {
                         continue;
                     }
                     for file_path in event.paths {
-                        if let Err(e) = file_path
-                            .strip_prefix(&self.project_path)
-                            .with_context(|| {
-                                format!(
-                                    "failed to striprefix from file path: {}",
-                                    file_path.display()
-                                )
-                            })
-                            .map(|relative_file_path| {
-                                log::info!(
-                                    "{}: file changed: {}",
-                                    self.project_id,
-                                    relative_file_path.display()
-                                );
-                                if let Err(e) = rtx.send(relative_file_path.to_path_buf()) {
+                        match file_path.strip_prefix(&self.project_path) {
+                            Ok(relative_file_path) => {
+                                if let Err(e) = rtx.send(events::Event::FileChange(
+                                    relative_file_path.to_path_buf(),
+                                )) {
                                     log::error!(
                                         "{}: failed to send file change event: {:#}",
                                         self.project_id,
                                         e
                                     );
                                 }
-                            })
-                        {
-                            log::error!(
-                                "{}: failed to send file change event: {:#}",
+                            }
+                            Err(err) => log::error!(
+                                "{}: failed to strip prefix: {:#}",
                                 self.project_id,
-                                e
-                            );
+                                err
+                            ),
                         }
                     }
                 }
@@ -116,12 +107,13 @@ fn is_interesting_event(kind: &notify::EventKind) -> bool {
 fn async_watcher() -> notify::Result<(RecommendedWatcher, Receiver<notify::Result<Event>>)> {
     let (mut tx, rx) = channel(1);
 
-    // Automatically select the best implementation for your platform.
-    // You can also access each implementation directly e.g. INotifyWatcher.
     let watcher = RecommendedWatcher::new(
         move |res| {
             futures::executor::block_on(async {
-                tx.send(res).await.unwrap();
+                if let Err(err) = tx.send(res).await {
+                    log::error!("failed to send file change event: {:#}", err);
+                }
+                println!("sent");
             })
         },
         Config::default(),
