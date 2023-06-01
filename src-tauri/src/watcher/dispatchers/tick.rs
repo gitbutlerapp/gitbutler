@@ -34,8 +34,9 @@ impl Dispatcher {
             if self.cancellation_token.is_cancelled() {
                 break;
             }
-            println!("{}: tick", self.project_id);
-            rtx.send(time::SystemTime::now())?;
+            if let Err(e) = rtx.send(time::SystemTime::now()) {
+                log::error!("{}: failed to send tick: {}", self.project_id, e);
+            }
         }
 
         log::info!("{}: ticker stopped", self.project_id);

@@ -70,7 +70,20 @@ impl Dispatcher {
                                     file_path.display()
                                 )
                             })
-                            .map(|relative_file_path| rtx.send(relative_file_path.to_path_buf()))
+                            .map(|relative_file_path| {
+                                log::info!(
+                                    "{}: file changed: {}",
+                                    self.project_id,
+                                    relative_file_path.display()
+                                );
+                                if let Err(e) = rtx.send(relative_file_path.to_path_buf()) {
+                                    log::error!(
+                                        "{}: failed to send file change event: {:#}",
+                                        self.project_id,
+                                        e
+                                    );
+                                }
+                            })
                         {
                             log::error!(
                                 "{}: failed to send file change event: {:#}",
