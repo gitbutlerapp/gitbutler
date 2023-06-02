@@ -14,6 +14,7 @@ pub struct IndexDocument {
     pub file_path: Option<String>,
     pub diff: Option<String>,
     pub note: Option<String>,
+    pub indexed_at: u64,
 }
 
 impl IndexDocument {
@@ -27,6 +28,7 @@ impl IndexDocument {
             doc.add_u64(schema.get_field("index").unwrap(), index);
         }
         doc.add_text(schema.get_field("id").unwrap(), &self.id);
+        doc.add_u64(schema.get_field("indexed_at").unwrap(), self.indexed_at);
         if let Some(project_id) = self.project_id.as_ref() {
             doc.add_text(schema.get_field("project_id").unwrap(), project_id);
         }
@@ -78,7 +80,13 @@ impl IndexDocument {
         let note = doc
             .get_first(schema.get_field("note").unwrap())
             .map(|v| v.as_text().unwrap().to_string());
+        let indexed_at = doc
+            .get_first(schema.get_field("indexed_at").unwrap())
+            .unwrap()
+            .as_u64()
+            .unwrap();
         Self {
+            indexed_at,
             version,
             timestamp_ms,
             index,
@@ -92,7 +100,7 @@ impl IndexDocument {
     }
 }
 
-pub const VERSION: u64 = 5; // should not decrease
+pub const VERSION: u64 = 6; // should not decrease
 
 pub fn build_schema() -> schema::Schema {
     let mut schema_builder = schema::Schema::builder();
@@ -101,6 +109,10 @@ pub fn build_schema() -> schema::Schema {
         "version",
         schema::INDEXED // version is searchable to allow reindexing
         | schema::STORED, // version is stored to allow updating document
+    );
+    schema_builder.add_u64_field(
+        "indexed_at",
+        schema::STORED, // indexed_at is stored to allow updating document
     );
     schema_builder.add_u64_field(
         "timestamp_ms",
