@@ -61,6 +61,7 @@
 		"inter-ui": "^3.19.3",
 		"leven": "^4.0.0",
 		"marked": "^5.0.2",
+		"mm-jsr": "^3.0.2",
 		"nanoevents": "^7.0.1",
 		"nanoid": "^4.0.1",
 		"postcss": "^8.4.14",
@@ -71,6 +72,7 @@
 		"prettier-plugin-tailwindcss": "^0.3.0",
 		"svelte": "~3.55.1",
 		"svelte-check": "^3.0.1",
+		"svelte-dnd-action": "^0.9.22",
 		"svelte-floating-ui": "^1.5.2",
 		"svelte-french-toast": "^1.0.3",
 		"svelte-loadable-store": "^1.2.3",
@@ -88,7 +90,6 @@
 		"xterm-addon-fit": "^0.7.0",
 		"xterm-addon-ligatures": "^0.6.0",
 		"xterm-addon-unicode11": "^0.5.0",
-		"xterm-addon-webgl": "^0.14.0",
-		"mm-jsr": "^3.0.2"
+		"xterm-addon-webgl": "^0.14.0"
 	}
 }

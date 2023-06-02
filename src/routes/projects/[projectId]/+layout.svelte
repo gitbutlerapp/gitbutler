@@ -36,7 +36,8 @@
 			hotkeys.on('Meta+T', () => goto(`/projects/${$project.id}/terminal/`)),
 			hotkeys.on('Meta+P', () => goto(`/projects/${$project.id}/`)),
 			hotkeys.on('Meta+Shift+,', () => goto(`/projects/${$project.id}/settings/`)),
-			hotkeys.on('Meta+R', () => goto(`/projects/${$project.id}/player/`))
+			hotkeys.on('Meta+R', () => goto(`/projects/${$project.id}/player/`)),
+			hotkeys.on('l f g', () => goto(`/projects_new/${$project.id}`))
 		)
 	);
 </script>
