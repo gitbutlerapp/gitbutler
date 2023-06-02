@@ -91,6 +91,7 @@ impl<'handler> Handler<'handler> {
     }
 
     pub fn handle(&self, event: events::Event) -> Result<Vec<events::Event>> {
+        log::info!("{}: handling event: {}", self.project_id, event);
         match event {
             events::Event::FileChange(path) => self
                 .file_change_handler
