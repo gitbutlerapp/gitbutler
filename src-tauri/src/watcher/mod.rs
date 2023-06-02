@@ -67,15 +67,13 @@ impl<'watcher> Watcher<'watcher> {
                         log::error!("{}: failed to post event: {:#}", self.project_id, e);
                     }
                 },
-                Some(event) = events_rx.recv() =>
-                    match self.handler.handle(event) {
+                Some(event) = events_rx.recv() => match self.handler.handle(event) {
                     Err(err) => log::error!("{}: failed to handle event: {:#}", self.project_id, err),
                     Ok(events) => {
                         for event in events {
-
-                        if let Err(e) = events_tx.send(event) {
-                            log::error!("{}: failed to post event: {:#}", self.project_id, e);
-                        }
+                            if let Err(e) = events_tx.send(event) {
+                                log::error!("{}: failed to post event: {:#}", self.project_id, e);
+                            }
                         }
                     }
                 },

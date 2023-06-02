@@ -4,10 +4,6 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use futures::{
-    channel::mpsc::{channel, Receiver},
-    SinkExt, StreamExt,
-};
 use notify::{Config, Event, RecommendedWatcher, Watcher};
 use tokio::sync::mpsc;
 
@@ -58,7 +54,7 @@ impl Dispatcher {
 
         log::info!("{}: file watcher started", self.project_id);
 
-        while let Some(res) = rx.next().await {
+        while let Some(res) = rx.recv().await {
             match res {
                 Ok(event) => {
                     if !is_interesting_event(&event.kind) {
@@ -105,17 +101,17 @@ fn is_interesting_event(kind: &notify::EventKind) -> bool {
     )
 }
 
-fn async_watcher() -> notify::Result<(RecommendedWatcher, Receiver<notify::Result<Event>>)> {
-    let (mut tx, rx) = channel(1);
+fn async_watcher() -> notify::Result<(
+    RecommendedWatcher,
+    mpsc::UnboundedReceiver<notify::Result<Event>>,
+)> {
+    let (tx, rx) = mpsc::unbounded_channel();
 
     let watcher = RecommendedWatcher::new(
         move |res| {
-            futures::executor::block_on(async {
-                if let Err(err) = tx.send(res).await {
-                    log::error!("failed to send file change event: {:#}", err);
-                }
-                println!("sent");
-            })
+            if let Err(err) = tx.send(res) {
+                log::error!("failed to send file change event: {:#}", err);
+            }
         },
         Config::default(),
     )?;

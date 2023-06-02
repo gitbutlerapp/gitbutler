@@ -49,3 +49,38 @@ impl Dispatcher {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_ticker() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let dispatcher = Dispatcher::new("test".to_string());
+        let dispatcher2 = dispatcher.clone();
+        let handle = tokio::spawn(async move {
+            dispatcher2
+                .start(Duration::from_millis(10), tx)
+                .await
+                .unwrap();
+        });
+
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        dispatcher.stop().unwrap();
+
+        handle.await.unwrap();
+
+        let mut count = 0;
+        while let Some(event) = rx.recv().await {
+            match event {
+                events::Event::Tick(_) => count += 1,
+                _ => panic!("unexpected event: {:?}", event),
+            }
+        }
+
+        assert!(count >= 4);
+    }
+}
