@@ -1473,7 +1473,6 @@ dependencies = [
  "filetime",
  "fslock",
  "futures",
- "futures-util",
  "git2",
  "log",
  "md5",

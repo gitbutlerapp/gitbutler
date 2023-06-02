@@ -2,7 +2,7 @@ use std::{fmt::Display, path, time};
 
 use crate::{bookmarks, deltas, sessions};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Event {
     Tick(time::SystemTime),
     Flush(sessions::Session),

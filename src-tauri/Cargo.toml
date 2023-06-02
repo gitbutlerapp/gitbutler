@@ -42,7 +42,6 @@ tokio-tungstenite = "0.18.0"
 portable-pty = { version = "0.8.0", features = [ "serde_support" ] }
 bytes = "1.1.0"
 futures = "0.3"
-futures-util = "0.3.8"
 timed = "0.2.1"
 serde-jsonlines = "0.4.0"
 scopeguard = "1.1.0"
