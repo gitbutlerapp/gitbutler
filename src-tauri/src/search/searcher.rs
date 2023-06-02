@@ -1,12 +1,13 @@
 use std::{
     fs,
-    sync::{Arc, Mutex},
-    vec,
+    sync::{Arc, RwLock},
+    time, vec,
 };
 
 use anyhow::{Context, Result};
 use serde::Serialize;
 use similar::{ChangeTag, TextDiff};
+use std::cmp::Ordering;
 use tantivy::query::TermQuery;
 use tantivy::{collector, directory::MmapDirectory, IndexWriter};
 use tantivy::{query::QueryParser, Term};
@@ -22,7 +23,7 @@ pub struct Searcher {
 
     index: tantivy::Index,
     reader: tantivy::IndexReader,
-    writer: Arc<Mutex<tantivy::IndexWriter>>,
+    writer: Arc<RwLock<tantivy::IndexWriter>>,
 }
 
 impl Searcher {
@@ -55,7 +56,7 @@ impl Searcher {
         Ok(Self {
             meta_storage: meta::Storage::new(path),
             reader,
-            writer: Arc::new(Mutex::new(writer)),
+            writer: Arc::new(RwLock::new(writer)),
             index,
         })
     }
@@ -124,7 +125,7 @@ impl Searcher {
         self.meta_storage
             .delete_all()
             .context("Could not delete meta data")?;
-        let mut writer = self.writer.lock().unwrap();
+        let mut writer = self.writer.write().unwrap();
         writer
             .delete_all_documents()
             .context("Could not delete all documents")?;
@@ -140,12 +141,22 @@ impl Searcher {
         let id = build_id(&bookmark.project_id, &bookmark.timestamp_ms);
         let id_field = self.index.schema().get_field("id").unwrap();
 
-        let mut writer = self.writer.lock().unwrap();
+        let mut writer = self.writer.write().unwrap();
         let mut doc = match find_document_by_id(&self.index, &self.reader, &id)? {
-            Some(doc) => doc,
+            Some(doc) => {
+                if doc
+                    .indexed_at
+                    .cmp(&bookmark.updated_timestamp_ms.try_into()?)
+                    == Ordering::Greater
+                {
+                    return Ok(None);
+                }
+                doc
+            }
             None => index::IndexDocument {
                 id: id.clone(),
                 version: index::VERSION,
+                indexed_at: time::UNIX_EPOCH.elapsed()?.as_millis().try_into()?,
                 ..Default::default()
             },
         };
@@ -161,6 +172,12 @@ impl Searcher {
         writer.add_document(doc.to_document(&self.index.schema()))?;
         writer.commit()?;
         self.reader.reload()?;
+
+        log::info!(
+            "{}: bookmark {} added to search",
+            bookmark.project_id,
+            bookmark.timestamp_ms
+        );
 
         Ok(Some(doc))
     }
@@ -186,7 +203,7 @@ impl Searcher {
 
         index_session(
             &self.index,
-            &mut self.writer.lock().unwrap(),
+            &mut self.writer.write().unwrap(),
             &self.reader,
             session,
             repository,
@@ -195,7 +212,7 @@ impl Searcher {
             .set(repository.get_project_id(), &session.id, index::VERSION)?;
 
         log::info!(
-            "{}: indexed session {}",
+            "{}: session added to search {}",
             repository.get_project_id(),
             session.id,
         );
@@ -321,6 +338,7 @@ fn index_delta(
         None => index::IndexDocument {
             id: id.clone(),
             version: index::VERSION,
+            indexed_at: time::UNIX_EPOCH.elapsed()?.as_millis().try_into()?,
             ..Default::default()
         },
     };

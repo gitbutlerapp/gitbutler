@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time};
 
 use anyhow::Result;
 use tempfile::tempdir;
@@ -118,7 +118,7 @@ fn search_by_bookmark_note() -> Result<()> {
         project_id: gb_repo.get_project_id().to_string(),
         timestamp_ms: 123456,
         created_timestamp_ms: 0,
-        updated_timestamp_ms: 0,
+        updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
         note: "bookmark note".to_string(),
         deleted: false,
     })?;
@@ -157,7 +157,7 @@ fn search_by_bookmark_note() -> Result<()> {
         project_id: gb_repo.get_project_id().to_string(),
         timestamp_ms: 123456,
         created_timestamp_ms: 0,
-        updated_timestamp_ms: 0,
+        updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
         note: "updated bookmark note".to_string(),
         deleted: false,
     })?;
@@ -288,7 +288,7 @@ fn should_index_bookmark_once() -> Result<()> {
             project_id: "test".to_string(),
             timestamp_ms: 0,
             created_timestamp_ms: 0,
-            updated_timestamp_ms: 0,
+            updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
             note: "bookmark text note".to_string(),
             deleted: true,
         })?
@@ -300,7 +300,7 @@ fn should_index_bookmark_once() -> Result<()> {
             project_id: "test".to_string(),
             timestamp_ms: 0,
             created_timestamp_ms: 0,
-            updated_timestamp_ms: 0,
+            updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
             note: "bookmark text note".to_string(),
             deleted: false,
         })?
@@ -312,7 +312,7 @@ fn should_index_bookmark_once() -> Result<()> {
             project_id: "test".to_string(),
             timestamp_ms: 0,
             created_timestamp_ms: 0,
-            updated_timestamp_ms: 0,
+            updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
             note: "bookmark text note".to_string(),
             deleted: false,
         })?
@@ -324,7 +324,7 @@ fn should_index_bookmark_once() -> Result<()> {
             project_id: "test".to_string(),
             timestamp_ms: 0,
             created_timestamp_ms: 0,
-            updated_timestamp_ms: 0,
+            updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
             note: "bookmark text note".to_string(),
             deleted: true,
         })?
@@ -336,7 +336,7 @@ fn should_index_bookmark_once() -> Result<()> {
             project_id: "test".to_string(),
             timestamp_ms: 0,
             created_timestamp_ms: 0,
-            updated_timestamp_ms: 0,
+            updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
             note: "bookmark text note".to_string(),
             deleted: true,
         })?
@@ -428,7 +428,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
         project_id: gb_repo.get_project_id().to_string(),
         timestamp_ms: 0,
         created_timestamp_ms: 0,
-        updated_timestamp_ms: 0,
+        updated_timestamp_ms: time::UNIX_EPOCH.elapsed()?.as_millis(),
         note: "bookmark text note".to_string(),
         deleted: false,
     })?;

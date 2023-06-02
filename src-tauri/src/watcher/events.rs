@@ -41,7 +41,9 @@ impl Display for Event {
             Event::Session(session) => write!(f, "Session({})", session.id),
             Event::Bookmark(_) => write!(f, "Bookmark"),
             Event::File((sid, path, _)) => write!(f, "File({},{})", sid, path.display()),
-            Event::Deltas((sid, path, deltas)) => write!(f, "Deltas({},{},{})", sid, path.display(), deltas.len()),
+            Event::Deltas((sid, path, deltas)) => {
+                write!(f, "Deltas({},{},{})", sid, path.display(), deltas.len())
+            }
         }
     }
 }
