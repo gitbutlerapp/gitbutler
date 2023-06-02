@@ -169,6 +169,9 @@ devDependencies:
   svelte-check:
     specifier: ^3.0.1
     version: 3.0.3(postcss-load-config@4.0.1)(postcss@8.4.21)(svelte@3.55.1)
+  svelte-dnd-action:
+    specifier: ^0.9.22
+    version: 0.9.22(svelte@3.55.1)
   svelte-floating-ui:
     specifier: ^1.5.2
     version: 1.5.2
@@ -3681,6 +3684,14 @@ packages:
       - sass
       - stylus
       - sugarss
+    dev: true
+
+  /svelte-dnd-action@0.9.22(svelte@3.55.1):
+    resolution: {integrity: sha512-lOQJsNLM1QWv5mdxIkCVtk6k4lHCtLgfE59y8rs7iOM6erchbLC9hMEFYSveZz7biJV0mpg7yDSs4bj/RT/YkA==}
+    peerDependencies:
+      svelte: '>=3.23.0'
+    dependencies:
+      svelte: 3.55.1
     dev: true
 
   /svelte-eslint-parser@0.29.0(svelte@3.55.1):
