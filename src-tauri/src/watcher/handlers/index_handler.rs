@@ -73,6 +73,15 @@ impl<'handler> Handler<'handler> {
         Ok(vec![])
     }
 
+    pub fn reindex(&self) -> Result<Vec<events::Event>> {
+        let sessions_iter = self.gb_repository.get_sessions_iterator()?;
+        let mut events = vec![];
+        for session in sessions_iter {
+            events.extend(self.index_session(&session?)?);
+        }
+        Ok(events)
+    }
+
     pub fn index_session(&self, session: &sessions::Session) -> Result<Vec<events::Event>> {
         // first of all, index session for searching. searhcer keeps it's own state to
         // decide if the actual indexing needed

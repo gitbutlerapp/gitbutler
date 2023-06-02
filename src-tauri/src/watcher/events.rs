@@ -17,6 +17,7 @@ pub enum Event {
 
     ProjectFileChange(path::PathBuf),
 
+    Reindex,
     Session(sessions::Session),
     Bookmark(bookmarks::Bookmark),
     File((String, path::PathBuf, String)),
@@ -26,6 +27,7 @@ pub enum Event {
 impl Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Event::Reindex => write!(f, "Reindex"),
             Event::Tick(_) => write!(f, "Tick"),
             Event::Flush(_) => write!(f, "Flush"),
             Event::SessionFlushed(_) => write!(f, "SessionFlushed"),
