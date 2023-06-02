@@ -54,8 +54,11 @@ jobs:
             - name: Install pnpm dependencies
               run: pnpm install
 
-            - name: Setup rust
-              uses: dtolnay/rust-toolchain@stable
+            - name: Install latest stable rust
+              uses: actions-rs/toolchain@v1
+              with:
+                toolchain: stable
+                override: true
 
             - name: Cache rust dependencies
               uses: Swatinem/rust-cache@v2
