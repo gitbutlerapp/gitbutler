@@ -93,46 +93,18 @@ impl App {
                 log::error!("failed to init project {}: {:#}", project.id, e);
             }
 
-            self.reindex_project(&project)
+            if let Err(e) = self
+                .proxy_watchers
+                .lock()
+                .unwrap()
+                .get(&project.id)
+                .unwrap()
+                .send(watcher::Event::Reindex)
+            {
+                log::error!("failed to send session event: {:#}", e);
+            }
         }
         Ok(())
-    }
-
-    fn reindex_project(&self, project: &projects::Project) {
-        let project = project.clone();
-        let users_storage = self.users_storage.clone();
-        let projects_storage = self.projects_storage.clone();
-        let local_data_dir = self.local_data_dir.clone();
-        let proxy_watchers = self.proxy_watchers.clone();
-
-        tauri::async_runtime::spawn_blocking(move || {
-            let project = project;
-
-            let gb_repository = gb_repository::Repository::open(
-                local_data_dir,
-                project.id.clone(),
-                projects_storage.clone(),
-                users_storage,
-            )
-            .expect("failed to open git repository");
-
-            let iterator = gb_repository
-                .get_sessions_iterator()
-                .expect("failed to get sessions iterator");
-            for session in iterator {
-                let session = session.expect("failed to get session");
-
-                if let Err(e) = proxy_watchers
-                    .lock()
-                    .unwrap()
-                    .get(&project.id)
-                    .unwrap()
-                    .send(watcher::Event::Session(session.clone()))
-                {
-                    log::error!("failed to send session event: {:#}", e);
-                }
-            }
-        });
     }
 
     fn start_watcher(&self, project: &projects::Project) -> Result<()> {

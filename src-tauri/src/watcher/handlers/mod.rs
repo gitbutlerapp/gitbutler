@@ -190,6 +190,7 @@ impl<'handler> Handler<'handler> {
                     .context("failed to send bookmark event")?;
                 Ok(bookmark_events)
             }
+            events::Event::Reindex => self.index_handler.reindex(),
         }
     }
 }
