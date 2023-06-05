@@ -3,7 +3,7 @@ use std::{path::Path, time};
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{bookmarks, deltas, gb_repository, projects, sessions, storage, users};
+use crate::{bookmarks, deltas, gb_repository, projects, storage, users};
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -49,9 +49,8 @@ fn test_sorted_by_timestamp() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         Path::new("test.txt"),
         &vec![
             deltas::Delta {
@@ -100,9 +99,8 @@ fn search_by_bookmark_note() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         Path::new("test.txt"),
         &vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "Hello".to_string()))],
@@ -197,9 +195,8 @@ fn search_by_full_match() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         Path::new("test.txt"),
         &vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "hello".to_string()))],
@@ -239,9 +236,8 @@ fn search_by_diff() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         Path::new("test.txt"),
         &vec![
             deltas::Delta {
@@ -359,9 +355,8 @@ fn test_delete_all() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         Path::new("test.txt"),
         &vec![
             deltas::Delta {
@@ -409,9 +404,8 @@ fn search_bookmark_by_phrase() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         Path::new("test.txt"),
         &vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "Hello".to_string()))],
@@ -466,9 +460,8 @@ fn search_by_filename() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         Path::new("test.txt"),
         &vec![
             deltas::Delta {

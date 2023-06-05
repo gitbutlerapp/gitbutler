@@ -154,13 +154,13 @@ impl<'listener> Handler<'listener> {
             return Ok(vec![]);
         }
 
-        let writer = sessions::Writer::open(self.gb_repository, &current_session)?;
-
+        let deltas_writer = deltas::Writer::new(self.gb_repository)?;
         let deltas = text_doc.get_deltas();
-
-        writer
-            .write_deltas(path, &deltas)
+        deltas_writer
+            .write(path, &deltas)
             .with_context(|| "failed to write deltas")?;
+
+        let writer = sessions::Writer::open(self.gb_repository, &current_session)?;
         writer
             .write_session_wd_file(path, &current_file_content)
             .with_context(|| "failed to write file")?;
