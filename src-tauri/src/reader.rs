@@ -1,3 +1,5 @@
+use std::str;
+
 use anyhow::{Context, Result};
 
 use crate::fs;
@@ -13,7 +15,7 @@ pub enum Error {
     #[error("file not found")]
     NotFound,
     #[error("io error: {0}")]
-    Other(std::io::Error),
+    IOError(std::io::Error),
 }
 
 pub trait Reader {
@@ -22,14 +24,34 @@ pub trait Reader {
     fn exists(&self, file_path: &str) -> bool;
     fn size(&self, file_path: &str) -> Result<usize>;
 
-    fn read_to_string(&self, file_path: &str) -> Result<String, Error> {
+    fn read_string(&self, file_path: &str) -> Result<String, Error> {
         match self.read(file_path)? {
             Content::UTF8(s) => Ok(s),
-            Content::Binary(_) => Err(Error::Other(std::io::Error::new(
+            Content::Binary(_) => Err(Error::IOError(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "file is not utf8",
             ))),
         }
+    }
+
+    fn read_u128(&self, file_path: &str) -> Result<u128, Error> {
+        let s = self.read_string(file_path)?;
+        s.parse::<u128>().map_err(|_| {
+            Error::IOError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "file is not u128",
+            ))
+        })
+    }
+
+    fn read_bool(&self, file_path: &str) -> Result<bool, Error> {
+        let s = self.read_string(file_path)?;
+        s.parse::<bool>().map_err(|_| {
+            Error::IOError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "file is not bool",
+            ))
+        })
     }
 }
 
@@ -58,7 +80,7 @@ impl Reader for DirReader {
         if !path.exists() {
             return Err(Error::NotFound);
         }
-        let content = std::fs::read(path).map_err(Error::Other)?;
+        let content = std::fs::read(path).map_err(Error::IOError)?;
         match String::from_utf8_lossy(&content).into_owned() {
             s if s.as_bytes().eq(&content) => Ok(Content::UTF8(s)),
             _ => Ok(Content::Binary(content)),

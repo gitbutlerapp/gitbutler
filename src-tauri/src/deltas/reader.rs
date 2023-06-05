@@ -25,7 +25,7 @@ impl<'reader> DeltasReader<'reader> {
         let file_deltas_path = std::path::Path::new("session/deltas").join(path);
         match self
             .sessions_reader
-            .read_to_string(file_deltas_path.to_str().unwrap())
+            .read_string(file_deltas_path.to_str().unwrap())
         {
             Ok(content) => {
                 if content.is_empty() {

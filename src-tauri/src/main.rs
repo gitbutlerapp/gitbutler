@@ -17,6 +17,7 @@ mod search;
 mod sessions;
 mod storage;
 mod users;
+mod virtual_branches;
 mod watcher;
 mod writer;
 mod zip;
