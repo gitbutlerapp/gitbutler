@@ -236,7 +236,7 @@
 		</span>
 
 		<span
-			class="diff-line-{row.type} overflow-hidden whitespace-pre-wrap"
+			class="diff-line-{row.type} overflow-hidden whitespace-pre-wrap cursor-text"
 			class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
 		>
 			{#each row.render.html as content}
