@@ -58,7 +58,7 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
         },
     };
 
-    assert!(Writer::open(&gb_repo, &session).is_err());
+    assert!(Writer::new(&gb_repo).write(&session).is_err());
 
     Ok(())
 }
@@ -86,7 +86,7 @@ fn test_should_write_full_session() -> Result<()> {
         },
     };
 
-    Writer::open(&gb_repo, &session)?;
+    Writer::new(&gb_repo).write(&session)?;
 
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_path().join("meta/id"))?,
@@ -135,7 +135,7 @@ fn test_should_write_partial_session() -> Result<()> {
         },
     };
 
-    Writer::open(&gb_repo, &session)?;
+    Writer::new(&gb_repo).write(&session)?;
 
     assert_eq!(
         std::fs::read_to_string(gb_repo.session_path().join("meta/id"))?,
