@@ -43,25 +43,25 @@ impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
         }
 
         let id = reader
-            .read_to_string("session/meta/id")
+            .read_string("session/meta/id")
             .with_context(|| "failed to read session id")
             .map_err(SessionError::Err)?;
         let start_timestamp_ms = reader
-            .read_to_string("session/meta/start")
+            .read_string("session/meta/start")
             .with_context(|| "failed to read session start timestamp")
             .map_err(SessionError::Err)?
             .parse::<u128>()
             .with_context(|| "failed to parse session start timestamp")
             .map_err(SessionError::Err)?;
         let last_timestamp_ms = reader
-            .read_to_string("session/meta/last")
+            .read_string("session/meta/last")
             .with_context(|| "failed to read session last timestamp")
             .map_err(SessionError::Err)?
             .parse::<u128>()
             .with_context(|| "failed to parse session last timestamp")
             .map_err(SessionError::Err)?;
-        let branch = reader.read_to_string("session/meta/branch");
-        let commit = reader.read_to_string("session/meta/commit");
+        let branch = reader.read_string("session/meta/branch");
+        let commit = reader.read_string("session/meta/commit");
 
         Ok(Self {
             id,

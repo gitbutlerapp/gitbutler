@@ -18,10 +18,7 @@ impl<'reader> BookmarksReader<'reader> {
     }
 
     pub fn read(&self) -> Result<Vec<Bookmark>> {
-        match self
-            .session_reader
-            .read_to_string("session/bookmarks.jsonl")
-        {
+        match self.session_reader.read_string("session/bookmarks.jsonl") {
             Ok(content) => {
                 let iter = JsonLinesReader::new(content.as_bytes()).read_all();
                 let mut bookmarks = vec![];

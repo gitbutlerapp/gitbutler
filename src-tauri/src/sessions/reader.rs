@@ -38,7 +38,7 @@ impl<'reader> SessionReader<'reader> {
     pub fn open(repository: &'reader gb_repository::Repository, session: &Session) -> Result<Self> {
         let wd_reader = reader::DirReader::open(repository.root());
 
-        let current_session_id = wd_reader.read_to_string(
+        let current_session_id = wd_reader.read_string(
             repository
                 .session_path()
                 .join("meta")

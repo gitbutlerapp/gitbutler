@@ -439,10 +439,6 @@ impl Repository {
         self.root().join("session")
     }
 
-    pub(crate) fn deltas_path(&self) -> std::path::PathBuf {
-        self.session_path().join("deltas")
-    }
-
     pub(crate) fn session_wd_path(&self) -> std::path::PathBuf {
         self.session_path().join("wd")
     }
@@ -584,7 +580,7 @@ fn build_wd_tree(
                 let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
                 let file_content = match session_wd_reader
-                    .read_to_string(&file_path)
+                    .read_string(&file_path)
                     .context("failed to read file")
                 {
                     Result::Ok(content) => content,

@@ -30,10 +30,8 @@ impl<'writer> DeltasWriter<'writer> {
         let path = path.as_ref();
         let raw_deltas = serde_json::to_string(&deltas)?;
 
-        self.writer.write_string(
-            self.repository.deltas_path().join(path).to_str().unwrap(),
-            &raw_deltas,
-        )?;
+        self.writer
+            .write_string(&format!("session/deltas/{}", path.display()), &raw_deltas)?;
 
         log::info!(
             "{}: wrote deltas for {}",
@@ -51,14 +49,8 @@ impl<'writer> DeltasWriter<'writer> {
         }
 
         let path = path.as_ref();
-        self.writer.write_string(
-            self.repository
-                .session_wd_path()
-                .join(path)
-                .to_str()
-                .unwrap(),
-            contents,
-        )?;
+        self.writer
+            .write_string(&format!("session/wd/{}", path.display()), contents)?;
 
         log::info!(
             "{}: wrote session wd file {}",

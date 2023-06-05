@@ -33,14 +33,7 @@ impl<'writer> SessionWriter<'writer> {
 
         let reader = reader::DirReader::open(self.repository.root());
 
-        let current_session_id = reader.read_to_string(
-            self.repository
-                .session_path()
-                .join("meta")
-                .join("id")
-                .to_str()
-                .unwrap(),
-        );
+        let current_session_id = reader.read_string("session/meta/id");
 
         if current_session_id.is_ok() && !current_session_id.as_ref().unwrap().eq(&session.id) {
             return Err(anyhow!(
@@ -53,12 +46,7 @@ impl<'writer> SessionWriter<'writer> {
 
         self.writer
             .write_string(
-                self.repository
-                    .session_path()
-                    .join("meta")
-                    .join("last")
-                    .to_str()
-                    .unwrap(),
+                "session/meta/last",
                 time::SystemTime::now()
                     .duration_since(time::SystemTime::UNIX_EPOCH)
                     .unwrap()
@@ -66,7 +54,7 @@ impl<'writer> SessionWriter<'writer> {
                     .to_string()
                     .as_str(),
             )
-            .with_context(|| "failed to write last timestamp")?;
+            .context("failed to write last timestamp")?;
 
         if current_session_id.is_ok() && current_session_id.as_ref().unwrap().eq(&session.id) {
             return Ok(());
@@ -82,46 +70,25 @@ impl<'writer> SessionWriter<'writer> {
                     .unwrap(),
                 session.id.as_str(),
             )
-            .with_context(|| "failed to write id")?;
+            .context("failed to write id")?;
 
         self.writer
             .write_string(
-                self.repository
-                    .session_path()
-                    .join("meta")
-                    .join("start")
-                    .to_str()
-                    .unwrap(),
+                "session/meta/start",
                 session.meta.start_timestamp_ms.to_string().as_str(),
             )
-            .with_context(|| "failed to write start timestamp")?;
+            .context("failed to write start timestamp")?;
 
         if let Some(branch) = session.meta.branch.as_ref() {
             self.writer
-                .write_string(
-                    self.repository
-                        .session_path()
-                        .join("meta")
-                        .join("branch")
-                        .to_str()
-                        .unwrap(),
-                    branch,
-                )
-                .with_context(|| "failed to write branch")?;
+                .write_string("session/meta/branch", branch)
+                .context("failed to write branch")?;
         }
 
         if let Some(commit) = session.meta.commit.as_ref() {
             self.writer
-                .write_string(
-                    self.repository
-                        .session_path()
-                        .join("meta")
-                        .join("commit")
-                        .to_str()
-                        .unwrap(),
-                    commit,
-                )
-                .with_context(|| "failed to write commit")?;
+                .write_string("session/meta/commit", commit)
+                .context("failed to write commit")?;
         }
 
         Ok(())
