@@ -43,4 +43,29 @@ impl<'writer> DeltasWriter<'writer> {
 
         Ok(())
     }
+
+    pub fn write_wd_file<P: AsRef<std::path::Path>>(&self, path: P, contents: &str) -> Result<()> {
+        self.repository.lock()?;
+        defer! {
+            self.repository.unlock().expect("failed to unlock");
+        }
+
+        let path = path.as_ref();
+        self.writer.write_string(
+            self.repository
+                .session_wd_path()
+                .join(path)
+                .to_str()
+                .unwrap(),
+            contents,
+        )?;
+
+        log::info!(
+            "{}: wrote session wd file {}",
+            self.repository.project_id,
+            path.display()
+        );
+
+        Ok(())
+    }
 }

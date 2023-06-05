@@ -280,7 +280,7 @@ impl Repository {
         };
 
         // write session to disk
-        sessions::Writer::open(self, &session)?;
+        sessions::Writer::new(self).write(&session)?;
 
         Ok(session)
     }
@@ -363,8 +363,8 @@ impl Repository {
             return Err(anyhow!("nothing to flush"));
         }
 
-        // touch session writer to update last timestamp
-        sessions::Writer::open(self, session)?;
+        // update last timestamp
+        sessions::Writer::new(self).write(session)?;
 
         self.lock()?;
         defer! {

@@ -16,20 +16,25 @@ pub struct SessionWriter<'writer> {
 }
 
 impl<'writer> SessionWriter<'writer> {
-    pub fn open(repository: &'writer gb_repository::Repository, session: &Session) -> Result<Self> {
+    pub fn new(repository: &'writer gb_repository::Repository) -> Self {
+        let writer = writer::DirWriter::open(repository.root());
+        SessionWriter { repository, writer }
+    }
+
+    pub fn write(&self, session: &Session) -> Result<()> {
         if session.hash.is_some() {
             return Err(anyhow!("can not open writer for a session with a hash"));
         }
 
-        repository.lock()?;
+        self.repository.lock()?;
         defer! {
-            repository.unlock().expect("failed to unlock");
+            self.repository.unlock().expect("failed to unlock");
         }
 
-        let reader = reader::DirReader::open(repository.root());
+        let reader = reader::DirReader::open(self.repository.root());
 
         let current_session_id = reader.read_to_string(
-            repository
+            self.repository
                 .session_path()
                 .join("meta")
                 .join("id")
@@ -40,17 +45,15 @@ impl<'writer> SessionWriter<'writer> {
         if current_session_id.is_ok() && !current_session_id.as_ref().unwrap().eq(&session.id) {
             return Err(anyhow!(
                 "{}: can not open writer for {} because a writer for {} is still open",
-                repository.project_id,
+                self.repository.project_id,
                 session.id,
                 current_session_id.unwrap()
             ));
         }
 
-        let writer = writer::DirWriter::open(repository.root());
-
-        writer
+        self.writer
             .write_string(
-                repository
+                self.repository
                     .session_path()
                     .join("meta")
                     .join("last")
@@ -66,13 +69,12 @@ impl<'writer> SessionWriter<'writer> {
             .with_context(|| "failed to write last timestamp")?;
 
         if current_session_id.is_ok() && current_session_id.as_ref().unwrap().eq(&session.id) {
-            let writer = SessionWriter { repository, writer };
-            return Ok(writer);
+            return Ok(());
         }
 
-        writer
+        self.writer
             .write_string(
-                repository
+                self.repository
                     .session_path()
                     .join("meta")
                     .join("id")
@@ -82,9 +84,9 @@ impl<'writer> SessionWriter<'writer> {
             )
             .with_context(|| "failed to write id")?;
 
-        writer
+        self.writer
             .write_string(
-                repository
+                self.repository
                     .session_path()
                     .join("meta")
                     .join("start")
@@ -95,9 +97,9 @@ impl<'writer> SessionWriter<'writer> {
             .with_context(|| "failed to write start timestamp")?;
 
         if let Some(branch) = session.meta.branch.as_ref() {
-            writer
+            self.writer
                 .write_string(
-                    repository
+                    self.repository
                         .session_path()
                         .join("meta")
                         .join("branch")
@@ -109,9 +111,9 @@ impl<'writer> SessionWriter<'writer> {
         }
 
         if let Some(commit) = session.meta.commit.as_ref() {
-            writer
+            self.writer
                 .write_string(
-                    repository
+                    self.repository
                         .session_path()
                         .join("meta")
                         .join("commit")
@@ -121,37 +123,6 @@ impl<'writer> SessionWriter<'writer> {
                 )
                 .with_context(|| "failed to write commit")?;
         }
-
-        let writer = SessionWriter { repository, writer };
-
-        Ok(writer)
-    }
-
-    pub fn write_session_wd_file<P: AsRef<std::path::Path>>(
-        &self,
-        path: P,
-        contents: &str,
-    ) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("failed to unlock");
-        }
-
-        let path = path.as_ref();
-        self.writer.write_string(
-            self.repository
-                .session_wd_path()
-                .join(path)
-                .to_str()
-                .unwrap(),
-            contents,
-        )?;
-
-        log::info!(
-            "{}: wrote session wd file {}",
-            self.repository.project_id,
-            path.display()
-        );
 
         Ok(())
     }
