@@ -3,7 +3,7 @@ use std::time;
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    bookmarks, deltas, gb_repository, pty,
+    bookmarks, gb_repository, pty,
     reader::{self, Reader},
     writer::{self, Writer},
 };
@@ -190,34 +190,6 @@ impl<'writer> SessionWriter<'writer> {
             "{}: wrote bookmark {}",
             self.repository.project_id,
             bookmark.timestamp_ms
-        );
-
-        Ok(())
-    }
-
-    pub fn write_deltas<P: AsRef<std::path::Path>>(
-        &self,
-        path: P,
-        deltas: &Vec<deltas::Delta>,
-    ) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("failed to unlock");
-        }
-
-        let path = path.as_ref();
-
-        let raw_deltas = serde_json::to_string(&deltas)?;
-
-        self.writer.write_string(
-            self.repository.deltas_path().join(path).to_str().unwrap(),
-            &raw_deltas,
-        )?;
-
-        log::info!(
-            "{}: wrote deltas for {}",
-            self.repository.project_id,
-            path.display()
         );
 
         Ok(())

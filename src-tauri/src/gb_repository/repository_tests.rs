@@ -1,9 +1,8 @@
 use std::{thread, time};
 
+use crate::{deltas, gb_repository, projects, sessions, storage, users};
 use anyhow::Result;
 use tempfile::tempdir;
-
-use crate::{deltas, gb_repository, projects, sessions, storage, users};
 
 fn remote_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -200,8 +199,8 @@ fn test_list_deltas_from_current_session() -> Result<()> {
         gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &current_session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         "test.txt",
         &vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
@@ -235,9 +234,8 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
-    let current_session = gb_repo.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo, &current_session)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo)?;
+    writer.write(
         "test.txt",
         &vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
@@ -362,9 +360,8 @@ fn test_remote_syncronization() -> Result<()> {
         project_store.clone(),
         user_store.clone(),
     )?;
-    let session_one = gb_repo_one.get_or_create_current_session()?;
-    let writer = sessions::Writer::open(&gb_repo_one, &session_one)?;
-    writer.write_deltas(
+    let writer = deltas::Writer::new(&gb_repo_one)?;
+    writer.write(
         "test.txt",
         &vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
