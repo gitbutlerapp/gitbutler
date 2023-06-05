@@ -3,7 +3,7 @@ use std::time;
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    bookmarks, gb_repository, pty,
+    bookmarks, gb_repository,
     reader::{self, Reader},
     writer::{self, Writer},
 };
@@ -125,25 +125,6 @@ impl<'writer> SessionWriter<'writer> {
         let writer = SessionWriter { repository, writer };
 
         Ok(writer)
-    }
-
-    pub fn append_pty(&self, record: &pty::Record) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("failed to unlock");
-        }
-
-        serde_jsonlines::append_json_lines(
-            self.repository.session_path().join("pty.jsonl"),
-            [record],
-        )?;
-
-        log::info!(
-            "{}: appended pty record to session",
-            self.repository.project_id
-        );
-
-        Ok(())
     }
 
     pub fn write_session_wd_file<P: AsRef<std::path::Path>>(
