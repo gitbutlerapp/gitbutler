@@ -1,5 +1,6 @@
 mod database;
 mod reader;
+mod writer;
 
 use serde::{Deserialize, Serialize};
 
@@ -16,3 +17,4 @@ pub struct Bookmark {
 
 pub use database::Database;
 pub use reader::BookmarksReader as Reader;
+pub use writer::BookmarksWriter as Writer;

@@ -3,7 +3,7 @@ use std::time;
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    bookmarks, gb_repository,
+    gb_repository,
     reader::{self, Reader},
     writer::{self, Writer},
 };
@@ -151,26 +151,6 @@ impl<'writer> SessionWriter<'writer> {
             "{}: wrote session wd file {}",
             self.repository.project_id,
             path.display()
-        );
-
-        Ok(())
-    }
-
-    pub fn write_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("failed to unlock");
-        }
-
-        serde_jsonlines::append_json_lines(
-            self.repository.session_path().join("bookmarks.jsonl"),
-            [bookmark],
-        )?;
-
-        log::info!(
-            "{}: wrote bookmark {}",
-            self.repository.project_id,
-            bookmark.timestamp_ms
         );
 
         Ok(())

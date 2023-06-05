@@ -287,17 +287,9 @@ impl App {
         )
         .context("failed to open repository")?;
 
-        let session = gb_repository
-            .get_or_create_current_session()
-            .context("failed to get or create current session")?;
-        let writer = sessions::Writer::open(&gb_repository, &session)
-            .context("failed to open session writer")?;
-        writer
-            .write_bookmark(bookmark)
-            .context("failed to write bookmark")?;
-        // let updated = self.bookmarks_database.upsert(bookmark).context("failed to upsert bookmark")?;
+        let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
+        writer.write(bookmark).context("failed to write bookmark")?;
 
-        // if let Some(updated) = updated.as_ref() {
         if let Err(e) = self
             .proxy_watchers
             .lock()
@@ -309,9 +301,6 @@ impl App {
             log::error!("failed to send session event: {:#}", e);
         }
         Ok(())
-        // }
-
-        // Ok(updated)
     }
 
     pub fn list_bookmarks(
