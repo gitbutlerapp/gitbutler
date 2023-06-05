@@ -496,10 +496,7 @@ impl App {
         )
         .context("failed to open repository")?;
 
-        let session = gb_repository
-            .get_or_create_current_session()
-            .context("failed to get session")?;
-        let writer = sessions::Writer::open(&gb_repository, &session)?;
+        let pty_writer = pty::Writer::new(&gb_repository)?;
 
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -512,7 +509,7 @@ impl App {
             bytes: bytes.to_vec(),
         };
 
-        writer.append_pty(&record).context("failed to append pty")?;
+        pty_writer.write(&record).context("failed to append pty")?;
 
         Ok(())
     }
