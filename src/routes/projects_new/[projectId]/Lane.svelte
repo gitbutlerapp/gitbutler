@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
-	import type { Hunk } from './board';
+	import type { FileCard } from './board';
 	const flipDurationMs = 150;
 	export let name: string;
-	export let hunks: Hunk[];
-	export let onDrop: (items: Hunk[]) => void;
+	export let items: FileCard[];
+	export let onDrop: (items: FileCard[]) => void;
 
-	function handleDndConsiderCards(e: { detail: { items: Hunk[] } }) {
+	function handleDndConsiderCards(e: { detail: { items: FileCard[] } }) {
 		console.warn('got consider', name);
-		hunks = e.detail.items;
+		items = e.detail.items;
 	}
-	function handleDndFinalizeCards(e: { detail: { items: Hunk[] } }) {
+	function handleDndFinalizeCards(e: { detail: { items: FileCard[] } }) {
 		onDrop(e.detail.items);
 	}
 </script>
@@ -23,16 +23,16 @@
 	<div
 		class="overflow-y-scroll"
 		style="height: calc(100% - 2.5em);"
-		use:dndzone={{ items: hunks, flipDurationMs, zoneTabIndex: -1 }}
+		use:dndzone={{ items, flipDurationMs, zoneTabIndex: -1 }}
 		on:consider={handleDndConsiderCards}
 		on:finalize={handleDndFinalizeCards}
 	>
-		{#each hunks as hunk (hunk.id)}
+		{#each items as item (item.id)}
 			<div
 				animate:flip={{ duration: flipDurationMs }}
 				class="my-2 flex h-14 w-full items-center justify-center rounded border border-zinc-600 bg-zinc-700"
 			>
-				{hunk.description}
+				{item.name}
 			</div>
 		{/each}
 	</div>
