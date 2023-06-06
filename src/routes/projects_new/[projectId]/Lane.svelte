@@ -30,6 +30,7 @@
 		{#each items as item (item.id)}
 			<div
 				class="my-2 flex h-14 w-full items-center justify-center rounded border border-zinc-600 bg-zinc-700"
+				animate:flip={{ duration: flipDurationMs }}
 			>
 				{item.name}
 			</div>
