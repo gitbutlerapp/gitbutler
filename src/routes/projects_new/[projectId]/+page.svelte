@@ -5,31 +5,75 @@
 	let columnsData: BranchLane[] = [
 		{
 			id: 'c1',
-			name: 'TODO',
-			items: [
-				{ id: 1, name: 'item41' },
-				{ id: 2, name: 'item42' },
-				{ id: 3, name: 'item43' },
-				{ id: 4, name: 'item44' },
-				{ id: 5, name: 'item45' },
-				{ id: 6, name: 'item46' },
-				{ id: 7, name: 'item47' },
-				{ id: 8, name: 'item48' },
-				{ id: 9, name: 'item49' }
+			name: 'new user api',
+			hunks: [
+				{
+					id: 'h1',
+					filePath: 'src/foo.py',
+					description: 'add new user api',
+					diff: '...',
+					modified: new Date('2011-04-11T10:20:30Z'),
+					commitId: null
+				},
+				{
+					id: 'h2',
+					filePath: 'src/foo.py',
+					description: 'refactor things',
+					diff: '...',
+					modified: new Date('2011-04-11T10:22:30Z'),
+					commitId: null
+				},
+				{
+					id: 'h3',
+					filePath: 'src/foo.py',
+					description: 'fix bug',
+					diff: '...',
+					modified: new Date('2011-04-11T10:29:30Z'),
+					commitId: null
+				},
+				{
+					id: 'h4',
+					filePath: 'src/bar.py',
+					description: 'something else',
+					diff: '...',
+					modified: new Date('2011-04-11T10:27:30Z'),
+					commitId: null
+				},
+				{
+					id: 'h5',
+					filePath: 'src/bar.py',
+					description: 'database migration',
+					diff: '...',
+					modified: new Date('2011-04-11T10:28:30Z'),
+					commitId: null
+				},
+				{
+					id: 'h6',
+					filePath: 'src/baz.py',
+					description: 'messing around',
+					diff: '...',
+					modified: new Date('2011-04-11T10:20:30Z'),
+					commitId: null
+				},
+				{
+					id: 'h7',
+					filePath: '.env',
+					description: 'development api keys',
+					diff: '...',
+					modified: new Date('2011-04-11T10:28:30Z'),
+					commitId: null
+				}
 			]
 		},
 		{
 			id: 'c2',
-			name: 'DOING',
-			items: [
-				{ id: 10, name: 'item50' },
-				{ id: 11, name: 'item51' }
-			]
+			name: 'fix random bug',
+			hunks: []
 		},
 		{
 			id: 'c3',
-			name: 'DONE',
-			items: [{ id: 13, name: 'item52' }]
+			name: 'stuff for later',
+			hunks: []
 		}
 	];
 	function handleBoardUpdated(newColumnsData: BranchLane[]) {
