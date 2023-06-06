@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
-	import type { Hunk, BranchLane } from './board';
+	import type { FileCard, BranchLane } from './board';
 	import Lane from './Lane.svelte';
 	const flipDurationMs = 300;
 
@@ -14,8 +14,8 @@
 	function handleDndFinalizeColumns(e: { detail: { items: BranchLane[] } }) {
 		onFinalUpdate(e.detail.items);
 	}
-	function handleItemFinalize(columnIdx: number, newHunks: Hunk[]) {
-		columns[columnIdx].hunks = newHunks;
+	function handleItemFinalize(columnIdx: number, newItems: FileCard[]) {
+		columns[columnIdx].items = newItems;
 		onFinalUpdate([...columns]);
 	}
 </script>
@@ -27,12 +27,12 @@
 	on:consider={handleDndConsiderColumns}
 	on:finalize={handleDndFinalizeColumns}
 >
-	{#each columns as { id, name, items, hunks }, idx (id)}
+	{#each columns as { id, name, items }, idx (id)}
 		<div
 			class="float-left m-2 flex h-full w-64 border border-zinc-700 bg-zinc-900/50 p-2"
 			animate:flip={{ duration: flipDurationMs }}
 		>
-			<Lane {name} {hunks} onDrop={(newHunks) => handleItemFinalize(idx, newHunks)} />
+			<Lane {name} {items} onDrop={(newItems) => handleItemFinalize(idx, newItems)} />
 		</div>
 	{/each}
 </section>
