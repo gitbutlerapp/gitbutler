@@ -27,7 +27,7 @@
 	on:consider={handleDndConsiderColumns}
 	on:finalize={handleDndFinalizeColumns}
 >
-	{#each columns as { id, name, hunks }, idx (id)}
+	{#each columns as { id, name, items, hunks }, idx (id)}
 		<div
 			class="float-left m-2 flex h-full w-64 border border-zinc-700 bg-zinc-900/50 p-2"
 			animate:flip={{ duration: flipDurationMs }}
