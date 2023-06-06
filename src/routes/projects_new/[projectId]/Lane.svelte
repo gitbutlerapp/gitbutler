@@ -14,7 +14,6 @@
 	function handleDndFinalizeCards(e: { detail: { items: Hunk[] } }) {
 		onDrop(e.detail.items);
 	}
-	$: filePaths = [...new Set(hunks.map((hunk) => hunk.filePath))];
 </script>
 
 <div class="h-full w-full overflow-y-hidden">
@@ -28,20 +27,12 @@
 		on:consider={handleDndConsiderCards}
 		on:finalize={handleDndFinalizeCards}
 	>
-		{#each filePaths as filePath}
-			<div class="font-bold">
-				{filePath}
-			</div>
-
-			<div>
-				{#each hunks.filter((hunk) => hunk.filePath === filePath) as hunk (hunk.id)}
-					<div
-						animate:flip={{ duration: flipDurationMs }}
-						class="my-2 flex h-14 w-full items-center justify-center rounded border border-zinc-600 bg-zinc-700"
-					>
-						{hunk.description}
-					</div>
-				{/each}
+		{#each hunks as hunk (hunk.id)}
+			<div
+				animate:flip={{ duration: flipDurationMs }}
+				class="my-2 flex h-14 w-full items-center justify-center rounded border border-zinc-600 bg-zinc-700"
+			>
+				{hunk.description}
 			</div>
 		{/each}
 	</div>
