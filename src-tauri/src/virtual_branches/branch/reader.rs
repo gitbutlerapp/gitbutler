@@ -3,7 +3,7 @@ use crate::{
     sessions,
 };
 
-use super::{Branch, Target};
+use super::{super::Target, Branch};
 
 pub struct BranchReader<'reader> {
     sessions_reader: &'reader sessions::Reader<'reader>,
@@ -33,30 +33,6 @@ impl<'reader> BranchReader<'reader> {
                 .sessions_reader
                 .read_string(&format!("branches/{}/meta/name", id))
                 .map_err(|e| BranchReadError::ReadError("name".to_string(), e))?,
-            target: Target {
-                name: self
-                    .sessions_reader
-                    .read_string(&format!("branches/{}/target/name", id))
-                    .map_err(|e| BranchReadError::ReadError("target.name".to_string(), e))?,
-                remote: self
-                    .sessions_reader
-                    .read_string(&format!("branches/{}/target/remote", id))
-                    .map_err(|e| BranchReadError::ReadError("target.remote".to_string(), e))?,
-                sha: self
-                    .sessions_reader
-                    .read_string(&format!("branches/{}/target/sha", id))
-                    .map_err(|e| BranchReadError::ReadError("target.sha".to_string(), e))?
-                    .parse()
-                    .map_err(|e| {
-                        BranchReadError::ReadError(
-                            "target.sha".to_string(),
-                            reader::Error::IOError(std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                e,
-                            )),
-                        )
-                    })?,
-            },
             applied: self
                 .sessions_reader
                 .read_bool(&format!("branches/{}/meta/applied", id))
@@ -85,10 +61,7 @@ mod tests {
 
     use crate::{gb_repository, projects, storage, users};
 
-    use super::{
-        super::{Target, Writer},
-        *,
-    };
+    use super::{super::Writer, *};
 
     fn test_repository() -> Result<git2::Repository> {
         let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -144,7 +117,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read() -> Result<()> {
+    fn test_read_override_target() -> Result<()> {
         let repository = test_repository()?;
         let project = test_project(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -158,11 +131,6 @@ mod tests {
         let branch = Branch {
             id: "id".to_string(),
             name: "name".to_string(),
-            target: Target {
-                name: "target_name".to_string(),
-                remote: "target_remote".to_string(),
-                sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
-            },
             applied: true,
             upstream: "upstream".to_string(),
             created_timestamp_ms: 0,

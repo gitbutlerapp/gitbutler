@@ -1,15 +1,13 @@
-#[derive(Debug, PartialEq, Clone)]
-pub struct Target {
-    pub name: String,
-    pub remote: String,
-    pub sha: git2::Oid,
-}
+mod reader;
+mod writer;
+
+pub use reader::{BranchReadError as ReadError, BranchReader as Reader};
+pub use writer::BranchWriter as Writer;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Branch {
     pub id: String,
     pub name: String,
-    pub target: Target,
     pub applied: bool,
     pub upstream: String,
     pub created_timestamp_ms: u128,
