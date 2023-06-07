@@ -3,11 +3,13 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import type { File } from './board';
 	const flipDurationMs = 150;
+	import animateHeight from './animation';
 
 	export let file: File;
 </script>
 
 <div
+	use:animateHeight
 	class="w-fulljustify-center flex flex-col gap-2 rounded border border-zinc-600 bg-zinc-700 p-2"
 >
 	<div class="font-bold text-zinc-200">
