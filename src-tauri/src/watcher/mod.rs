@@ -2,27 +2,30 @@ mod dispatchers;
 mod events;
 mod handlers;
 
+use std::path;
+
 pub use events::Event;
 
 use anyhow::Result;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::{bookmarks, deltas, files, gb_repository, projects, search, sessions};
+use crate::{bookmarks, deltas, files, projects, search, sessions, users};
 
-pub struct Watcher<'watcher> {
+pub struct Watcher {
     project_id: String,
     dispatcher: dispatchers::Dispatcher,
-    handler: handlers::Handler<'watcher>,
+    handler: handlers::Handler,
     cancellation_token: CancellationToken,
 }
 
-impl<'watcher> Watcher<'watcher> {
+impl<'watcher> Watcher {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        local_data_dir: path::PathBuf,
         project: &projects::Project,
         project_store: projects::Storage,
-        gb_repository: &'watcher gb_repository::Repository,
+        user_store: users::Storage,
         deltas_searcher: search::Searcher,
         cancellation_token: CancellationToken,
         events_sender: crate::events::Sender,
@@ -35,9 +38,10 @@ impl<'watcher> Watcher<'watcher> {
             project_id: project.id.clone(),
             dispatcher: dispatchers::Dispatcher::new(project.id.clone(), project.path.clone()),
             handler: handlers::Handler::new(
+                local_data_dir,
                 project.id.clone(),
                 project_store,
-                gb_repository,
+                user_store,
                 deltas_searcher,
                 events_sender,
                 sessions_database,
@@ -67,15 +71,22 @@ impl<'watcher> Watcher<'watcher> {
                         log::error!("{}: failed to post event: {:#}", self.project_id, e);
                     }
                 },
-                Some(event) = events_rx.recv() => match self.handler.handle(event) {
-                    Err(err) => log::error!("{}: failed to handle event: {:#}", self.project_id, err),
-                    Ok(events) => {
-                        for event in events {
-                            if let Err(e) = events_tx.send(event) {
-                                log::error!("{}: failed to post event: {:#}", self.project_id, e);
-                            }
+                Some(event) = events_rx.recv() => {
+                    let project_id = self.project_id.clone();
+                    let handler = self.handler.clone();
+                    let events_tx = events_tx.clone();
+                    tauri::async_runtime::spawn(async move {
+                        match handler.handle(event).await {
+                            Ok(events) => {
+                                for event in events {
+                                    if let Err(e) = events_tx.send(event) {
+                                        log::error!("{}: failed to post event: {:#}", project_id, e);
+                                    }
+                                }
+                            },
+                            Err(err) => log::error!("{}: failed to handle event: {:#}", project_id, err),
                         }
-                    }
+                    });
                 },
                 _ = self.cancellation_token.cancelled() => {
                     if let Err(e) = self.dispatcher.stop() {

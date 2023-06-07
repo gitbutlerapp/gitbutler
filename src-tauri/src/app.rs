@@ -131,21 +131,13 @@ impl App {
             .unwrap()
             .insert(project.id.clone(), proxy_tx);
 
-        tauri::async_runtime::spawn_blocking(|| {
+        tauri::async_runtime::spawn(async move {
             let project = project;
-
-            let gb_repository = gb_repository::Repository::open(
-                local_data_dir,
-                project.id.clone(),
-                projects_storage.clone(),
-                users_storage,
-            )
-            .expect("failed to open git repository");
-
             let watcher = watcher::Watcher::new(
+                local_data_dir,
                 &project,
                 projects_storage,
-                &gb_repository,
+                users_storage,
                 deltas_searcher,
                 cancellation_token,
                 events_sender,
@@ -156,7 +148,10 @@ impl App {
             )
             .expect("failed to create watcher");
 
-            futures::executor::block_on(watcher.start(proxy_rx)).expect("failed to init watcher");
+            watcher
+                .start(proxy_rx)
+                .await
+                .expect("failed to init watcher");
         });
 
         Ok(())

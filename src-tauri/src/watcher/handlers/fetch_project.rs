@@ -1,37 +1,48 @@
-use std::time;
+use std::{path, time};
 
 use anyhow::{Context, Result};
 
-use crate::{gb_repository, projects};
+use crate::{gb_repository, projects, users};
 
 use super::events;
 
-pub struct Handler<'handler> {
+#[derive(Clone)]
+pub struct Handler {
     project_id: String,
     project_storage: projects::Storage,
-    gb_repository: &'handler gb_repository::Repository,
+    local_data_dir: path::PathBuf,
+    user_storage: users::Storage,
 }
 
-impl<'handler> Handler<'handler> {
+impl Handler {
     pub fn new(
+        local_data_dir: path::PathBuf,
         project_id: String,
         project_storage: projects::Storage,
-        gb_repository: &'handler gb_repository::Repository,
+        user_storage: users::Storage,
     ) -> Self {
         Self {
             project_id,
             project_storage,
-            gb_repository,
+            user_storage,
+            local_data_dir,
         }
     }
 
     pub fn handle(&self) -> Result<Vec<events::Event>> {
-        let sessions_before_fetch = self
-            .gb_repository
+        let gb_rep = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            self.project_id.clone(),
+            self.project_storage.clone(),
+            self.user_storage.clone(),
+        )
+        .context("failed to open repository")?;
+
+        let sessions_before_fetch = gb_rep
             .get_sessions_iterator()?
             .filter_map(|s| s.ok())
             .collect::<Vec<_>>();
-        if !self.gb_repository.fetch().context("failed to fetch")? {
+        if !gb_rep.fetch().context("failed to fetch")? {
             return Ok(vec![]);
         }
 
@@ -48,8 +59,7 @@ impl<'handler> Handler<'handler> {
             })
             .context("failed to update project")?;
 
-        let sessions_after_fetch = self
-            .gb_repository
+        let sessions_after_fetch = gb_rep
             .get_sessions_iterator()?
             .filter_map(|s| s.ok())
             .collect::<Vec<_>>();

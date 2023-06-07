@@ -12,35 +12,37 @@ mod check_current_session_tests;
 #[cfg(test)]
 mod project_file_change_tests;
 
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 
-use crate::{
-    bookmarks, deltas, events as app_events, files, gb_repository, projects, search, sessions,
-};
+use crate::{bookmarks, deltas, events as app_events, files, projects, search, sessions, users};
 
 use super::events;
 
-pub struct Handler<'handler> {
+#[derive(Clone)]
+pub struct Handler {
     project_id: String,
 
     file_change_handler: file_change::Handler,
-    project_file_handler: project_file_change::Handler<'handler>,
+    project_file_handler: project_file_change::Handler,
     git_file_change_handler: git_file_change::Handler,
-    check_current_session_handler: check_current_session::Handler<'handler>,
-    flush_session_handler: flush_session::Handler<'handler>,
-    fetch_project_handler: fetch_project::Handler<'handler>,
+    check_current_session_handler: check_current_session::Handler,
+    flush_session_handler: flush_session::Handler,
+    fetch_project_handler: fetch_project::Handler,
     chech_fetch_project_handler: check_fetch_project::Handler,
-    index_handler: index_handler::Handler<'handler>,
+    index_handler: index_handler::Handler,
 
     events_sender: app_events::Sender,
 }
 
-impl<'handler> Handler<'handler> {
+impl<'handler> Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        local_data_dir: PathBuf,
         project_id: String,
         project_store: projects::Storage,
-        gb_repository: &'handler gb_repository::Repository,
+        user_store: users::Storage,
         searcher: search::Searcher,
         events_sender: app_events::Sender,
         sessions_database: sessions::Database,
@@ -54,33 +56,43 @@ impl<'handler> Handler<'handler> {
 
             file_change_handler: file_change::Handler::new(),
             project_file_handler: project_file_change::Handler::new(
+                local_data_dir.clone(),
                 project_id.clone(),
                 project_store.clone(),
-                gb_repository,
+                user_store.clone(),
             ),
-            check_current_session_handler: check_current_session::Handler::new(gb_repository),
+            check_current_session_handler: check_current_session::Handler::new(
+                local_data_dir.clone(),
+                project_id.clone(),
+                project_store.clone(),
+                user_store.clone(),
+            ),
             git_file_change_handler: git_file_change::Handler::new(
                 project_id.clone(),
                 project_store.clone(),
             ),
             flush_session_handler: flush_session::Handler::new(
+                local_data_dir.clone(),
                 project_id.clone(),
                 project_store.clone(),
-                gb_repository,
+                user_store.clone(),
             ),
             fetch_project_handler: fetch_project::Handler::new(
+                local_data_dir.clone(),
                 project_id.clone(),
                 project_store.clone(),
-                gb_repository,
+                user_store.clone(),
             ),
             chech_fetch_project_handler: check_fetch_project::Handler::new(
                 project_id.clone(),
-                project_store,
+                project_store.clone(),
             ),
             index_handler: index_handler::Handler::new(
+                local_data_dir,
                 project_id,
+                project_store,
+                user_store,
                 searcher,
-                gb_repository,
                 files_database,
                 sessions_database,
                 deltas_database,
@@ -90,7 +102,7 @@ impl<'handler> Handler<'handler> {
         }
     }
 
-    pub fn handle(&self, event: events::Event) -> Result<Vec<events::Event>> {
+    pub async fn handle(&self, event: events::Event) -> Result<Vec<events::Event>> {
         log::info!("{}: handling event: {}", self.project_id, event);
         match event {
             events::Event::FileChange(path) => self

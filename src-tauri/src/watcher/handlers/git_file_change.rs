@@ -4,6 +4,7 @@ use crate::{project_repository, projects};
 
 use super::events;
 
+#[derive(Clone)]
 pub struct Handler {
     project_id: String,
     project_store: projects::Storage,
