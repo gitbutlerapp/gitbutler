@@ -84,7 +84,7 @@
 		</div>
 	</header>
 
-	<div class="flex-auto overflow-auto">
+	<div class="flex-grow overflow-auto">
 		<slot />
 	</div>
 

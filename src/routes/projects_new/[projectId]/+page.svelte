@@ -1,11 +1,13 @@
 <script lang="ts">
 	import Board from './Board.svelte';
+	import Tray from './Tray.svelte';
 	import type { BranchLane } from './board';
 
 	let columnsData: BranchLane[] = [
 		{
 			id: 'c1',
 			name: 'TODO',
+			active: true,
 			items: [
 				{ id: 1, name: 'item41' },
 				{ id: 2, name: 'item42' },
@@ -21,6 +23,7 @@
 		{
 			id: 'c2',
 			name: 'DOING',
+			active: true,
 			items: [
 				{ id: 10, name: 'item50' },
 				{ id: 11, name: 'item51' }
@@ -29,20 +32,14 @@
 		{
 			id: 'c3',
 			name: 'DONE',
+			active: false,
 			items: [{ id: 13, name: 'item52' }]
 		}
 	];
-	function handleBoardUpdated(newColumnsData: BranchLane[]) {
-		// TODO: API calls
-		columnsData = newColumnsData;
-	}
+	$: console.log(columnsData);
 </script>
 
-<Board columns={columnsData} onFinalUpdate={handleBoardUpdated} />
-
-<style>
-	:global(*) {
-		box-sizing: border-box;
-		margin: 0;
-	}
-</style>
+<div class="flex h-full gap-x-4 p-4">
+	<Tray bind:columns={columnsData} />
+	<Board bind:columns={columnsData} />
+</div>
