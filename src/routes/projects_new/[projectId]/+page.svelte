@@ -6,34 +6,68 @@
 	let columnsData: BranchLane[] = [
 		{
 			id: 'c1',
-			name: 'TODO',
+			name: 'feature-1',
 			active: true,
-			items: [
-				{ id: 1, name: 'item41' },
-				{ id: 2, name: 'item42' },
-				{ id: 3, name: 'item43' },
-				{ id: 4, name: 'item44' },
-				{ id: 5, name: 'item45' },
-				{ id: 6, name: 'item46' },
-				{ id: 7, name: 'item47' },
-				{ id: 8, name: 'item48' },
-				{ id: 9, name: 'item49' }
+			files: [
+				{
+					id: 'f1',
+					path: 'src/foo.py',
+					hunks: [
+						{
+							id: 'h1',
+							name: 'foo-hunk-1'
+						},
+						{
+							id: 'h2',
+							name: 'foo-hunk-2'
+						}
+					]
+				},
+				{
+					id: 'f2',
+					path: 'src/bar.py',
+					hunks: [
+						{
+							id: 'h3',
+							name: 'bar-hunk-1'
+						}
+					]
+				}
 			]
 		},
 		{
 			id: 'c2',
-			name: 'DOING',
+			name: 'bugfix',
 			active: true,
-			items: [
-				{ id: 10, name: 'item50' },
-				{ id: 11, name: 'item51' }
+			files: [
+				{
+					id: 'f3',
+					path: 'src/foo.py',
+					hunks: [
+						{
+							id: 'h-14',
+							name: 'foo-hunk-3'
+						}
+					]
+				}
 			]
 		},
 		{
 			id: 'c3',
-			name: 'DONE',
+			name: 'stashed-things',
 			active: false,
-			items: [{ id: 13, name: 'item52' }]
+			files: [
+				{
+					id: 'f4',
+					path: 'src/bar.py',
+					hunks: [
+						{
+							id: 5,
+							name: 'bar-hunk-2'
+						}
+					]
+				}
+			]
 		}
 	];
 	$: console.log(columnsData);
