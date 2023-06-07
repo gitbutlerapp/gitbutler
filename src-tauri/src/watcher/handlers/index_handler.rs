@@ -1,13 +1,21 @@
+use std::path;
+
 use anyhow::{Context, Result};
 
-use crate::{bookmarks, deltas, events as app_events, files, gb_repository, search, sessions};
+use crate::{
+    bookmarks, deltas, events as app_events, files, gb_repository, projects, search, sessions,
+    users,
+};
 
 use super::events;
 
-pub struct Handler<'handler> {
+#[derive(Clone)]
+pub struct Handler {
+    local_data_dir: path::PathBuf,
     project_id: String,
+    project_store: projects::Storage,
+    user_store: users::Storage,
     deltas_searcher: search::Searcher,
-    gb_repository: &'handler gb_repository::Repository,
     files_database: files::Database,
     sessions_database: sessions::Database,
     deltas_database: deltas::Database,
@@ -15,12 +23,14 @@ pub struct Handler<'handler> {
     events_sender: app_events::Sender,
 }
 
-impl<'handler> Handler<'handler> {
+impl Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        local_data_dir: path::PathBuf,
         project_id: String,
+        project_store: projects::Storage,
+        user_store: users::Storage,
         deltas_searcher: search::Searcher,
-        gb_repository: &'handler gb_repository::Repository,
         files_database: files::Database,
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,
@@ -28,9 +38,11 @@ impl<'handler> Handler<'handler> {
         events_sender: app_events::Sender,
     ) -> Self {
         Self {
+            local_data_dir,
             project_id,
+            project_store,
+            user_store,
             deltas_searcher,
-            gb_repository,
             files_database,
             sessions_database,
             deltas_database,
@@ -74,7 +86,15 @@ impl<'handler> Handler<'handler> {
     }
 
     pub fn reindex(&self) -> Result<Vec<events::Event>> {
-        let sessions_iter = self.gb_repository.get_sessions_iterator()?;
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            self.project_id.clone(),
+            self.project_store.clone(),
+            self.user_store.clone(),
+        )
+        .context("failed to open repository")?;
+
+        let sessions_iter = gb_repository.get_sessions_iterator()?;
         let mut events = vec![];
         for session in sessions_iter {
             events.extend(self.index_session(&session?)?);
@@ -83,16 +103,24 @@ impl<'handler> Handler<'handler> {
     }
 
     pub fn index_session(&self, session: &sessions::Session) -> Result<Vec<events::Event>> {
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            self.project_id.clone(),
+            self.project_store.clone(),
+            self.user_store.clone(),
+        )
+        .context("failed to open repository")?;
+
         // first of all, index session for searching. searhcer keeps it's own state to
         // decide if the actual indexing needed
         self.deltas_searcher
-            .index_session(self.gb_repository, session)
+            .index_session(&gb_repository, session)
             .context("failed to index session")?;
 
         // index bookmarks right away. bookmarks are stored in the session during which it was
         // created, not in the session that is actually bookmarked. so we want to make sure all of
         // them are indexed at all times
-        let session_reader = sessions::Reader::open(self.gb_repository, session)?;
+        let session_reader = sessions::Reader::open(&gb_repository, session)?;
         let bookmarks_reader = bookmarks::Reader::new(&session_reader);
         for bookmark in bookmarks_reader.read()? {
             self.index_bookmark(&bookmark)?;

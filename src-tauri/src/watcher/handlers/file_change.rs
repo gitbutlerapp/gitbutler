@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use crate::watcher::events;
 
+#[derive(Clone)]
 pub struct Handler {}
 
 impl Handler {

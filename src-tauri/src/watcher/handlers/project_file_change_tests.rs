@@ -68,12 +68,17 @@ fn test_register_existing_commited_file() -> Result<()> {
     commit_all(&repository)?;
 
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     std::fs::write(project_repo.root().join(file_path), "test2")?;
     listener.handle(file_path)?;
@@ -107,12 +112,17 @@ fn test_register_must_init_current_session() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -135,12 +145,17 @@ fn test_register_must_not_override_current_session() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -168,12 +183,17 @@ fn test_register_new_file() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -209,12 +229,17 @@ fn test_register_new_file_twice() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -269,12 +294,17 @@ fn test_register_file_delted() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -321,12 +351,17 @@ fn test_flow_with_commits() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     let size = 10;
     let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -413,12 +448,17 @@ fn test_flow_no_commits() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     let size = 10;
     let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -504,12 +544,17 @@ fn test_flow_signle_session() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
+        gb_repo_path.clone(),
         project.id.clone(),
         project_store.clone(),
-        user_store,
+        user_store.clone(),
     )?;
-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
 
     let size = 10;
     let relative_file_path = std::path::Path::new("one/two/test.txt");

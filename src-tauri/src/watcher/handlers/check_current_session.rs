@@ -1,27 +1,43 @@
-use std::{sync, time};
+use std::{path, time};
 
 use anyhow::{Context, Result};
 
-use crate::{gb_repository, sessions};
+use crate::{gb_repository, projects, sessions, users};
 
 use super::events;
 
-pub struct Handler<'handler> {
-    gb_repository: sync::Arc<sync::Mutex<&'handler gb_repository::Repository>>,
+#[derive(Clone)]
+pub struct Handler {
+    project_id: String,
+    project_store: projects::Storage,
+    local_data_dir: path::PathBuf,
+    user_store: users::Storage,
 }
 
-impl<'handler> Handler<'handler> {
-    pub fn new(gb_repository: &'handler gb_repository::Repository) -> Self {
+impl<'handler> Handler {
+    pub fn new(
+        local_data_dir: path::PathBuf,
+        project_id: String,
+        project_store: projects::Storage,
+        user_store: users::Storage,
+    ) -> Self {
         Self {
-            gb_repository: sync::Arc::new(sync::Mutex::new(gb_repository)),
+            project_id,
+            project_store,
+            local_data_dir,
+            user_store,
         }
     }
 
     pub fn handle(&self, now: time::SystemTime) -> Result<Vec<events::Event>> {
-        match self
-            .gb_repository
-            .lock()
-            .unwrap()
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            self.project_id.clone(),
+            self.project_store.clone(),
+            self.user_store.clone(),
+        )
+        .context("failed to open repository")?;
+        match gb_repo
             .get_current_session()
             .context("failed to get current session")?
         {

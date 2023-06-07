@@ -1,31 +1,35 @@
-use std::vec;
+use std::{path, vec};
 
 use anyhow::{Context, Result};
 
 use crate::{
     deltas, gb_repository, project_repository, projects,
     reader::{self, Reader},
-    sessions,
+    sessions, users,
 };
 
 use super::events;
 
-pub struct Handler<'listener> {
+#[derive(Clone)]
+pub struct Handler {
     project_id: String,
     project_store: projects::Storage,
-    gb_repository: &'listener gb_repository::Repository,
+    local_data_dir: path::PathBuf,
+    user_store: users::Storage,
 }
 
-impl<'listener> Handler<'listener> {
+impl Handler {
     pub fn new(
+        local_data_dir: path::PathBuf,
         project_id: String,
         project_store: projects::Storage,
-        gb_repository: &'listener gb_repository::Repository,
+        user_store: users::Storage,
     ) -> Self {
         Self {
             project_id,
             project_store,
-            gb_repository,
+            local_data_dir,
+            user_store,
         }
     }
 
@@ -62,12 +66,20 @@ impl<'listener> Handler<'listener> {
 
     // returns deltas for the file that are already part of the current session (if any)
     fn get_current_deltas(&self, path: &std::path::Path) -> Result<Option<Vec<deltas::Delta>>> {
-        let current_session = self.gb_repository.get_current_session()?;
+        let gb_repo = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            self.project_id.clone(),
+            self.project_store.clone(),
+            self.user_store.clone(),
+        )
+        .context("failed to open gb repository")?;
+
+        let current_session = gb_repo.get_current_session()?;
         if current_session.is_none() {
             return Ok(None);
         }
         let current_session = current_session.unwrap();
-        let session_reader = sessions::Reader::open(self.gb_repository, &current_session)
+        let session_reader = sessions::Reader::open(&gb_repo, &current_session)
             .context("failed to get session reader")?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader
@@ -86,9 +98,16 @@ impl<'listener> Handler<'listener> {
         let project_repository = project_repository::Repository::open(&project)
             .with_context(|| "failed to open project repository for project")?;
 
+        let gb_repository = gb_repository::Repository::open(
+            &self.local_data_dir,
+            self.project_id.clone(),
+            self.project_store.clone(),
+            self.user_store.clone(),
+        )
+        .context("failed to open gb repository")?;
+
         // If current session's branch is not the same as the project's head, flush it first.
-        if let Some(session) = self
-            .gb_repository
+        if let Some(session) = gb_repository
             .get_current_session()
             .context("failed to get current session")?
         {
@@ -96,7 +115,7 @@ impl<'listener> Handler<'listener> {
                 .get_head()
                 .context("failed to get head")?;
             if session.meta.branch != project_head.name().map(|s| s.to_string()) {
-                self.gb_repository
+                gb_repository
                     .flush_session(&project_repository, &session)
                     .context("failed to flush session")?;
             }
@@ -112,11 +131,10 @@ impl<'listener> Handler<'listener> {
             None => return Ok(vec![]),
         };
 
-        let current_session = self
-            .gb_repository
+        let current_session = gb_repository
             .get_or_create_current_session()
             .context("failed to get or create current session")?;
-        let reader = sessions::Reader::open(self.gb_repository, &current_session)
+        let reader = sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to get session reader")?;
 
         let latest_file_content = match reader.file(path) {
@@ -155,7 +173,7 @@ impl<'listener> Handler<'listener> {
         }
 
         let deltas = text_doc.get_deltas();
-        let writer = deltas::Writer::new(self.gb_repository)?;
+        let writer = deltas::Writer::new(&gb_repository)?;
         writer
             .write(path, &deltas)
             .with_context(|| "failed to write deltas")?;

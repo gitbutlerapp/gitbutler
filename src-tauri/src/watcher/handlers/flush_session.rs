@@ -1,25 +1,31 @@
+use std::path;
+
 use anyhow::{anyhow, Context, Result};
 
-use crate::{gb_repository, project_repository, projects, sessions};
+use crate::{gb_repository, project_repository, projects, sessions, users};
 
 use super::events;
 
-pub struct Handler<'handler> {
+#[derive(Clone)]
+pub struct Handler {
     project_id: String,
     project_store: projects::Storage,
-    gb_repository: &'handler gb_repository::Repository,
+    local_data_dir: path::PathBuf,
+    user_store: users::Storage,
 }
 
-impl<'listener> Handler<'listener> {
+impl<'listener> Handler {
     pub fn new(
+        local_data_dir: path::PathBuf,
         project_id: String,
         project_store: projects::Storage,
-        gb_repository: &'listener gb_repository::Repository,
+        user_store: users::Storage,
     ) -> Self {
         Self {
             project_id,
-            gb_repository,
             project_store,
+            local_data_dir,
+            user_store,
         }
     }
 
@@ -30,8 +36,15 @@ impl<'listener> Handler<'listener> {
             .context("failed to get project")?
             .ok_or_else(|| anyhow!("project not found"))?;
 
-        let session = self
-            .gb_repository
+        let gb_repo = gb_repository::Repository::open(
+            &self.local_data_dir,
+            self.project_id.clone(),
+            self.project_store.clone(),
+            self.user_store.clone(),
+        )
+        .context("failed to open repository")?;
+
+        let session = gb_repo
             .flush_session(&project_repository::Repository::open(&project)?, session)
             .context("failed to flush session")?;
 
