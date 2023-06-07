@@ -14,6 +14,7 @@ pub trait Writer {
         self.write(path, contents.as_bytes())
     }
     fn append_string(&self, path: &str, contents: &str) -> Result<()>;
+    fn remove(&self, path: &str) -> Result<()>;
 }
 
 pub struct DirWriter {
@@ -47,6 +48,15 @@ impl Writer for DirWriter {
         file.write_all(contents.as_bytes())?;
         Ok(())
     }
+
+    fn remove(&self, path: &str) -> Result<()> {
+        let file_path = self.root.join(path);
+        match std::fs::remove_file(file_path) {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -74,5 +84,16 @@ mod tests {
             std::fs::read_to_string(root.path().join("foo/bar")).unwrap(),
             "bazqux"
         );
+    }
+
+    #[test]
+    fn test_remove() {
+        let root = tempfile::tempdir().unwrap();
+        let writer = DirWriter::open(root.path().to_path_buf());
+        writer.remove("foo/bar").unwrap();
+        assert!(!root.path().join("foo/bar").exists());
+        writer.write("foo/bar", b"baz").unwrap();
+        writer.remove("foo/bar").unwrap();
+        assert!(!root.path().join("foo/bar").exists());
     }
 }
