@@ -45,7 +45,7 @@
 					path: 'src/foo.py',
 					hunks: [
 						{
-							id: 'h-14',
+							id: 'h4',
 							name: 'foo-hunk-3'
 						}
 					]
@@ -62,7 +62,7 @@
 					path: 'src/bar.py',
 					hunks: [
 						{
-							id: 5,
+							id: 'h5',
 							name: 'bar-hunk-2'
 						}
 					]

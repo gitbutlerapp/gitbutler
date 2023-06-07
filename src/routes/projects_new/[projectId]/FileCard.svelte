@@ -1,25 +1,31 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
-	import type { Hunk } from './board';
-	import FileCard from './FileCard.svelte';
+	import type { File } from './board';
 	const flipDurationMs = 150;
 
-	export let path: string;
-	export let hunks: Hunk[];
+	export let file: File;
 </script>
 
 <div
 	class="w-fulljustify-center flex flex-col gap-2 rounded border border-zinc-600 bg-zinc-700 p-2"
 >
 	<div class="font-bold text-zinc-200">
-		{path}
+		{file.path}
 	</div>
 
-	<div class="flex flex-col items-center gap-1">
-		{#each hunks as { id, name }, idx (id)}
-			<div class="w-full rounded border border-zinc-500 bg-zinc-600 p-1">
-				{name}
+	<div
+		class="flex flex-col items-center gap-1"
+		use:dndzone={{ items: file.hunks, flipDurationMs, zoneTabIndex: -1, type: file.path }}
+		on:consider={(e) => (file.hunks = e.detail.items)}
+		on:finalize={(e) => (file.hunks = e.detail.items)}
+	>
+		{#each file.hunks as hunk (hunk.id)}
+			<div
+				animate:flip={{ duration: flipDurationMs }}
+				class="w-full rounded border border-zinc-500 bg-zinc-600 p-1"
+			>
+				{hunk.name}
 			</div>
 		{/each}
 	</div>

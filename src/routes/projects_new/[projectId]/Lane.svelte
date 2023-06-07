@@ -20,9 +20,9 @@
 		on:consider={(e) => (files = e.detail.items)}
 		on:finalize={(e) => (files = e.detail.items)}
 	>
-		{#each files as { id, path, hunks }, idx (id)}
+		{#each files as file, idx (file.id)}
 			<div animate:flip={{ duration: flipDurationMs }}>
-				<FileCard {path} bind:hunks />
+				<FileCard bind:file />
 			</div>
 		{/each}
 	</div>
