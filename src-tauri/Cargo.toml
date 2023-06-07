@@ -23,7 +23,7 @@ log = "0.4.17"
 notify = "5.1.0"
 serde_json = {version = "1.0.92", features = [ "std", "arbitrary_precision" ] }
 uuid = "1.3.2"
-git2 = { version = "0.17.1", features = ["vendored-openssl", "vendored-libgit2"] }
+git2 = { version = "0.17.2", features = ["vendored-openssl", "vendored-libgit2"] }
 filetime = "0.2.19"
 sha2 = "0.10.6"
 sentry = {version = "0.31.0", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
