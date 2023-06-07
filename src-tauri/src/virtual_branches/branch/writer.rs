@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 
 use crate::{
-    writer::{self, Writer},
     gb_repository,
+    writer::{self, Writer},
 };
 
 use super::Branch;
@@ -18,6 +18,29 @@ impl<'writer> BranchWriter<'writer> {
             repository,
             writer: writer::DirWriter::open(repository.root()),
         }
+    }
+
+    pub fn write_selected(&self, id: Option<&str>) -> Result<()> {
+        self.repository
+            .get_or_create_current_session()
+            .context("Failed to get or create current session")?;
+
+        self.repository.lock()?;
+        defer! {
+            self.repository.unlock().expect("Failed to unlock repository");
+        }
+
+        if let Some(id) = id {
+            self.writer
+                .write_string("branches/selected", id)
+                .context("Failed to write selected branch")?;
+        } else {
+            self.writer
+                .remove("branches/selected")
+                .context("Failed to remove selected branch")?;
+        }
+
+        Ok(())
     }
 
     pub fn write(&self, branch: &Branch) -> Result<()> {
@@ -279,6 +302,44 @@ mod tests {
             .context("Failed to parse branch updated timestamp")?,
             updated_branch.updated_timestamp_ms
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_write_selected() -> Result<()> {
+        let repository = test_repository()?;
+        let project = test_project(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo =
+            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+
+        let writer = BranchWriter::new(&gb_repo);
+
+        assert!(!gb_repo.root().join("branches").join("selected").exists());
+
+        writer.write_selected(None)?;
+        assert!(!gb_repo.root().join("branches").join("selected").exists());
+
+        writer.write_selected(Some("123"))?;
+        assert_eq!(
+            fs::read_to_string(
+                gb_repo
+                    .root()
+                    .join("branches")
+                    .join("selected")
+                    .to_str()
+                    .unwrap()
+            )?,
+            "123"
+        );
+
+        writer.write_selected(None)?;
+        assert!(!gb_repo.root().join("branches").join("selected").exists());
 
         Ok(())
     }

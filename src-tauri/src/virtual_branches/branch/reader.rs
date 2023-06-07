@@ -3,7 +3,7 @@ use crate::{
     sessions,
 };
 
-use super::{super::Target, Branch};
+use super::Branch;
 
 pub struct BranchReader<'reader> {
     sessions_reader: &'reader sessions::Reader<'reader>,
@@ -20,6 +20,14 @@ pub enum BranchReadError {
 impl<'reader> BranchReader<'reader> {
     pub fn new(sessions_reader: &'reader sessions::Reader<'reader>) -> Self {
         Self { sessions_reader }
+    }
+
+    pub fn read_selected(&self) -> Result<Option<String>, BranchReadError> {
+        match self.sessions_reader.read_string("branches/selected") {
+            Ok(selected) => Ok(Some(selected)),
+            Err(reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(BranchReadError::ReadError("selected".to_string(), e)),
+        }
     }
 
     pub fn read(&self, id: &str) -> Result<Branch, BranchReadError> {
@@ -146,6 +154,34 @@ mod tests {
         let reader = BranchReader::new(&session_reader);
 
         assert_eq!(branch, reader.read(&branch.id)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_selected() -> Result<()> {
+        let repository = test_repository()?;
+        let project = test_project(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo =
+            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+
+        let session = gb_repo.get_or_create_current_session()?;
+        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let reader = BranchReader::new(&session_reader);
+        let writer = Writer::new(&gb_repo);
+
+        assert_eq!(None, reader.read_selected()?);
+
+        writer.write_selected(Some("test"))?;
+        assert_eq!(Some("test".to_string()), reader.read_selected()?);
+
+        writer.write_selected(Some("updated"))?;
+        assert_eq!(Some("updated".to_string()), reader.read_selected()?);
 
         Ok(())
     }
