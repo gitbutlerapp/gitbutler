@@ -2,12 +2,12 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
-use crate::{reader::Reader, sessions, virtual_branches};
+use crate::{reader::Reader, sessions};
 
-use super::{Branch, ReadError};
+use super::branch;
 
 pub struct BranchIterator<'iterator> {
-    virtual_branches_reader: virtual_branches::Reader<'iterator>,
+    branch_reader: branch::Reader<'iterator>,
     ids: Vec<String>,
 }
 
@@ -21,14 +21,14 @@ impl<'iterator> BranchIterator<'iterator> {
         let mut ids: Vec<String> = unique_ids.into_iter().collect();
         ids.sort();
         Ok(Self {
-            virtual_branches_reader: virtual_branches::Reader::new(sessions_reader),
+            branch_reader: branch::Reader::new(sessions_reader),
             ids,
         })
     }
 }
 
 impl<'iterator> Iterator for BranchIterator<'iterator> {
-    type Item = Result<Branch, ReadError>;
+    type Item = Result<branch::Branch, branch::ReadError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.ids.is_empty() {
@@ -36,7 +36,7 @@ impl<'iterator> Iterator for BranchIterator<'iterator> {
         }
 
         let id = self.ids.remove(0);
-        let branch = self.virtual_branches_reader.read(&id);
+        let branch = self.branch_reader.read(&id);
         Some(branch)
     }
 }
@@ -46,12 +46,9 @@ mod tests {
     use anyhow::Result;
     use tempfile::tempdir;
 
-    use crate::{gb_repository, projects, storage, users};
+    use crate::{gb_repository, projects, storage, users, virtual_branches::target};
 
-    use super::{
-        super::{Target, Writer},
-        *,
-    };
+    use super::*;
 
     fn test_repository() -> Result<git2::Repository> {
         let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -85,26 +82,31 @@ mod tests {
 
     static mut TEST_INDEX: usize = 0;
 
-    fn test_branch() -> Branch {
+    fn test_branch() -> branch::Branch {
         unsafe {
             TEST_INDEX += 1;
         }
-        Branch {
+        branch::Branch {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
-            target: Target {
-                name: format!("target_name_{}", unsafe { TEST_INDEX }),
-                remote: format!("remote_{}", unsafe { TEST_INDEX }),
-                sha: git2::Oid::from_str(&format!(
-                    "0123456789abcdef0123456789abcdef0123456{}",
-                    unsafe { TEST_INDEX }
-                ))
-                .unwrap(),
-            },
             applied: true,
             upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
+        }
+    }
+
+    static mut TEST_TARGET_INDEX: usize = 0;
+
+    fn test_target() -> target::Target {
+        target::Target {
+            name: format!("target_name_{}", unsafe { TEST_TARGET_INDEX }),
+            remote: format!("remote_{}", unsafe { TEST_TARGET_INDEX }),
+            sha: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef0123456{}",
+                unsafe { TEST_TARGET_INDEX }
+            ))
+            .unwrap(),
         }
     }
 
@@ -142,13 +144,16 @@ mod tests {
         let gb_repo =
             gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
-        let writer = Writer::new(&gb_repo);
+        let target_writer = target::Writer::new(&gb_repo);
+        target_writer.write_default(&test_target())?;
+
+        let branch_writer = branch::Writer::new(&gb_repo);
         let branch_1 = test_branch();
-        writer.write(&branch_1)?;
+        branch_writer.write(&branch_1)?;
         let branch_2 = test_branch();
-        writer.write(&branch_2)?;
+        branch_writer.write(&branch_2)?;
         let branch_3 = test_branch();
-        writer.write(&branch_3)?;
+        branch_writer.write(&branch_3)?;
 
         let session = gb_repo.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repo, &session)?;

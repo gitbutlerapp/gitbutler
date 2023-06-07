@@ -5,14 +5,14 @@ use crate::{
     writer::{self, Writer},
 };
 
-use super::Branch;
+use super::Target;
 
-pub struct BranchWriter<'writer> {
+pub struct TargetWriter<'writer> {
     repository: &'writer gb_repository::Repository,
     writer: writer::DirWriter,
 }
 
-impl<'writer> BranchWriter<'writer> {
+impl<'writer> TargetWriter<'writer> {
     pub fn new(repository: &'writer gb_repository::Repository) -> Self {
         Self {
             repository,
@@ -20,7 +20,20 @@ impl<'writer> BranchWriter<'writer> {
         }
     }
 
-    pub fn write(&self, branch: &Branch) -> Result<()> {
+    pub fn write_default(&self, target: &Target) -> Result<()> {
+        self.writer
+            .write_string("branches/target/name", &target.name)
+            .context("Failed to write default target name")?;
+        self.writer
+            .write_string("branches/target/remote", &target.remote)
+            .context("Failed to write default target remote")?;
+        self.writer
+            .write_string("branches/target/sha", &target.sha.to_string())
+            .context("Failed to write default target sha")?;
+        Ok(())
+    }
+
+    pub fn write(&self, id: &str, target: &Target) -> Result<()> {
         self.repository
             .get_or_create_current_session()
             .context("Failed to get or create current session")?;
@@ -31,51 +44,17 @@ impl<'writer> BranchWriter<'writer> {
         }
 
         self.writer
-            .write_string(&format!("branches/{}/meta/name", branch.id), &branch.name)
-            .context("Failed to write branch name")?;
-        self.writer
-            .write_string(
-                &format!("branches/{}/target/name", branch.id),
-                &branch.target.name,
-            )
+            .write_string(&format!("branches/{}/target/name", id), &target.name)
             .context("Failed to write branch target name")?;
         self.writer
-            .write_string(
-                &format!("branches/{}/target/remote", branch.id),
-                &branch.target.remote,
-            )
+            .write_string(&format!("branches/{}/target/remote", id), &target.remote)
             .context("Failed to write branch target remote")?;
         self.writer
             .write_string(
-                &format!("branches/{}/target/sha", branch.id),
-                &branch.target.sha.to_string(),
+                &format!("branches/{}/target/sha", id),
+                &target.sha.to_string(),
             )
             .context("Failed to write branch target sha")?;
-
-        self.writer
-            .write_bool(
-                &format!("branches/{}/meta/applied", branch.id),
-                &branch.applied,
-            )
-            .context("Failed to write branch applied")?;
-        self.writer
-            .write_string(
-                &format!("branches/{}/meta/upstream", branch.id),
-                &branch.upstream,
-            )
-            .context("Failed to write branch upstream")?;
-        self.writer
-            .write_u128(
-                &format!("branches/{}/meta/created_timestamp_ms", branch.id),
-                &branch.created_timestamp_ms,
-            )
-            .context("Failed to write branch created timestamp")?;
-        self.writer
-            .write_u128(
-                &format!("branches/{}/meta/updated_timestamp_ms", branch.id),
-                &branch.updated_timestamp_ms,
-            )
-            .context("Failed to write branch updated timestamp")?;
 
         Ok(())
     }
@@ -87,7 +66,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use crate::{projects, storage, users};
+    use crate::{projects, storage, users, virtual_branches::branch};
 
     use super::{super::Target, *};
 
@@ -122,7 +101,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_branch() -> Result<()> {
+    fn test_write() -> Result<()> {
         let repository = test_repository()?;
         let project = test_project(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -133,22 +112,25 @@ mod tests {
         let gb_repo =
             gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
-        let branch = Branch {
+        let branch = branch::Branch {
             id: "branch_id".to_string(),
             name: "name".to_string(),
-            target: Target {
-                name: "target_name".to_string(),
-                remote: "target_remote".to_string(),
-                sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
-            },
             applied: true,
             upstream: "upstream".to_string(),
             created_timestamp_ms: 0,
             updated_timestamp_ms: 1,
         };
+        let target = Target {
+            name: "target_name".to_string(),
+            remote: "target_remote".to_string(),
+            sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
+        };
 
-        let writer = BranchWriter::new(&gb_repo);
-        writer.write(&branch)?;
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch_writer.write(&branch)?;
+
+        let target_writer = TargetWriter::new(&gb_repo);
+        target_writer.write(&branch.id, &target)?;
 
         let root = gb_repo.root().join("branches").join(&branch.id);
 
@@ -160,17 +142,17 @@ mod tests {
         assert_eq!(
             fs::read_to_string(root.join("target").join("name").to_str().unwrap())
                 .context("Failed to read branch target name")?,
-            branch.target.name
+            target.name
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("remote").to_str().unwrap())
                 .context("Failed to read branch target remote")?,
-            branch.target.remote
+            target.remote
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("sha").to_str().unwrap())
                 .context("Failed to read branch target sha")?,
-            branch.target.sha.to_string()
+            target.sha.to_string()
         );
         assert_eq!(
             fs::read_to_string(root.join("meta").join("applied").to_str().unwrap())?
@@ -212,40 +194,6 @@ mod tests {
     }
 
     #[test]
-    fn test_should_create_session() -> Result<()> {
-        let repository = test_repository()?;
-        let project = test_project(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
-
-        let branch = Branch {
-            id: "id".to_string(),
-            name: "name".to_string(),
-            target: Target {
-                name: "target_name".to_string(),
-                remote: "target_remote".to_string(),
-                sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
-            },
-            applied: true,
-            upstream: "upstream".to_string(),
-            created_timestamp_ms: 0,
-            updated_timestamp_ms: 1,
-        };
-
-        let writer = BranchWriter::new(&gb_repo);
-        writer.write(&branch)?;
-
-        assert!(gb_repo.get_current_session()?.is_some());
-
-        Ok(())
-    }
-
-    #[test]
     fn test_should_update() -> Result<()> {
         let repository = test_repository()?;
         let project = test_project(&repository)?;
@@ -257,95 +205,49 @@ mod tests {
         let gb_repo =
             gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
-        let branch = Branch {
+        let branch = branch::Branch {
             id: "branch_id".to_string(),
             name: "name".to_string(),
-            target: Target {
-                name: "target_name".to_string(),
-                remote: "target_remote".to_string(),
-                sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
-            },
             applied: true,
             upstream: "upstream".to_string(),
             created_timestamp_ms: 0,
             updated_timestamp_ms: 1,
         };
-
-        let writer = BranchWriter::new(&gb_repo);
-        writer.write(&branch)?;
-
-        let updated_branch = Branch {
-            name: "updated_name".to_string(),
-            target: Target {
-                name: "updated_target_name".to_string(),
-                remote: "updated_target_remote".to_string(),
-                sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
-            },
-            applied: false,
-            upstream: "updated_upstream".to_string(),
-            created_timestamp_ms: 2,
-            updated_timestamp_ms: 3,
-            ..branch.clone()
+        let target = Target {
+            name: "target_name".to_string(),
+            remote: "target_remote".to_string(),
+            sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
         };
 
-        writer.write(&updated_branch)?;
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch_writer.write(&branch)?;
+        let target_writer = TargetWriter::new(&gb_repo);
+        target_writer.write(&branch.id, &target)?;
+
+        let updated_target = Target {
+            name: "updated_target_name".to_string(),
+            remote: "updated_target_remote".to_string(),
+            sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
+        };
+
+        target_writer.write(&branch.id, &updated_target)?;
 
         let root = gb_repo.root().join("branches").join(&branch.id);
 
         assert_eq!(
-            fs::read_to_string(root.join("meta").join("name").to_str().unwrap())
-                .context("Failed to read branch name")?,
-            updated_branch.name
-        );
-        assert_eq!(
             fs::read_to_string(root.join("target").join("name").to_str().unwrap())
                 .context("Failed to read branch target name")?,
-            updated_branch.target.name
+            updated_target.name
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("remote").to_str().unwrap())
                 .context("Failed to read branch target remote")?,
-            updated_branch.target.remote
+            updated_target.remote
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("sha").to_str().unwrap())
                 .context("Failed to read branch target sha")?,
-            updated_branch.target.sha.to_string()
-        );
-        assert_eq!(
-            fs::read_to_string(root.join("meta").join("applied").to_str().unwrap())?
-                .parse::<bool>()
-                .context("Failed to read branch applied")?,
-            updated_branch.applied
-        );
-        assert_eq!(
-            fs::read_to_string(root.join("meta").join("upstream").to_str().unwrap())
-                .context("Failed to read branch upstream")?,
-            updated_branch.upstream
-        );
-        assert_eq!(
-            fs::read_to_string(
-                root.join("meta")
-                    .join("created_timestamp_ms")
-                    .to_str()
-                    .unwrap()
-            )
-            .context("Failed to read branch created timestamp")?
-            .parse::<u128>()
-            .context("Failed to parse branch created timestamp")?,
-            updated_branch.created_timestamp_ms
-        );
-        assert_eq!(
-            fs::read_to_string(
-                root.join("meta")
-                    .join("updated_timestamp_ms")
-                    .to_str()
-                    .unwrap()
-            )
-            .context("Failed to read branch updated timestamp")?
-            .parse::<u128>()
-            .context("Failed to parse branch updated timestamp")?,
-            updated_branch.updated_timestamp_ms
+            updated_target.sha.to_string()
         );
 
         Ok(())
