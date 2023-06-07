@@ -1,38 +1,26 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
-	import type { FileCard, BranchLane } from './board';
+	import type { BranchLane } from './board';
 	import Lane from './Lane.svelte';
-	const flipDurationMs = 300;
 
 	export let columns: BranchLane[];
-	export let onFinalUpdate: (newColumns: BranchLane[]) => void;
 
-	function handleDndConsiderColumns(e: { detail: { items: BranchLane[] } }) {
-		columns = e.detail.items;
-	}
-	function handleDndFinalizeColumns(e: { detail: { items: BranchLane[] } }) {
-		onFinalUpdate(e.detail.items);
-	}
-	function handleItemFinalize(columnIdx: number, newItems: FileCard[]) {
-		columns[columnIdx].items = newItems;
-		onFinalUpdate([...columns]);
-	}
+	const flipDurationMs = 300;
 </script>
 
 <section
-	class="w-100"
-	style="height: 90vh;"
+	class="flex gap-x-4"
 	use:dndzone={{ items: columns, flipDurationMs, type: 'column' }}
-	on:consider={handleDndConsiderColumns}
-	on:finalize={handleDndFinalizeColumns}
+	on:consider={(e) => (columns = e.detail.items)}
+	on:finalize={(e) => (columns = e.detail.items)}
 >
-	{#each columns as { id, name, items }, idx (id)}
+	{#each columns.filter((c) => c.active) as { id, name, items }, idx (id)}
 		<div
-			class="float-left m-2 flex h-full w-64 border border-zinc-700 bg-zinc-900/50 p-2"
+			class="flex w-64 border border-zinc-700 bg-zinc-900/50 p-4"
 			animate:flip={{ duration: flipDurationMs }}
 		>
-			<Lane {name} {items} onDrop={(newItems) => handleItemFinalize(idx, newItems)} />
+			<Lane {name} bind:items />
 		</div>
 	{/each}
 </section>

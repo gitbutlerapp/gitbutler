@@ -6,5 +6,6 @@ export type FileCard = {
 export type BranchLane = {
 	id: string;
 	name: string;
+	active: boolean;
 	items: FileCard[];
 };
