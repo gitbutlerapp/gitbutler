@@ -2,6 +2,7 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
 	import type { File } from './board';
+	import FileCard from './FileCard.svelte';
 
 	export let name: string;
 	export let files: File[];
@@ -19,12 +20,9 @@
 		on:consider={(e) => (files = e.detail.items)}
 		on:finalize={(e) => (files = e.detail.items)}
 	>
-		{#each files as file (file.id)}
-			<div
-				animate:flip={{ duration: flipDurationMs }}
-				class="flex h-14 w-full items-center justify-center rounded border border-zinc-600 bg-zinc-700"
-			>
-				{file.path}
+		{#each files as { id, path, hunks }, idx (id)}
+			<div animate:flip={{ duration: flipDurationMs }}>
+				<FileCard {path} bind:hunks />
 			</div>
 		{/each}
 	</div>
