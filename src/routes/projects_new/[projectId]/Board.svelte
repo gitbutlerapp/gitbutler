@@ -15,12 +15,12 @@
 	on:consider={(e) => (columns = e.detail.items)}
 	on:finalize={(e) => (columns = e.detail.items)}
 >
-	{#each columns.filter((c) => c.active) as { id, name, items }, idx (id)}
+	{#each columns.filter((c) => c.active) as { id, name, files }, idx (id)}
 		<div
 			class="flex w-64 border border-zinc-700 bg-zinc-900/50 p-4"
 			animate:flip={{ duration: flipDurationMs }}
 		>
-			<Lane {name} bind:items />
+			<Lane {name} bind:files />
 		</div>
 	{/each}
 </section>
