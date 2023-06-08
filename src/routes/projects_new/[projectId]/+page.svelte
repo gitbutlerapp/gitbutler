@@ -75,7 +75,13 @@
 				}
 			]
 		}
-	];
+	].map((column) => ({
+		...column,
+		files: column.files.map((file) => ({
+			...file,
+			hunks: file.hunks.sort((a, b) => b.modified.getTime() - a.modified.getTime())
+		}))
+	}));
 	$: console.log(columnsData);
 </script>
 
