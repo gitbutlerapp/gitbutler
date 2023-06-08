@@ -1,12 +1,17 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
-	import type { File } from './board';
+	import type { File, Hunk } from './board';
 	const flipDurationMs = 150;
 	import animateHeight from './animation';
-	import { formatDistanceToNow } from 'date-fns';
+	import { formatDistanceToNow, compareDesc } from 'date-fns';
 
 	export let file: File;
+
+	function sortAndUpdateHunks(e: { detail: { items: Hunk[] } }) {
+		e.detail.items.sort((itemA, itemB) => compareDesc(itemA.modified, itemB.modified));
+		file.hunks = e.detail.items;
+	}
 </script>
 
 <div
@@ -19,9 +24,15 @@
 
 	<div
 		class="flex flex-col items-center gap-1"
-		use:dndzone={{ items: file.hunks, flipDurationMs, zoneTabIndex: -1, type: file.path }}
-		on:consider={(e) => (file.hunks = e.detail.items)}
-		on:finalize={(e) => (file.hunks = e.detail.items)}
+		use:dndzone={{
+			items: file.hunks,
+			flipDurationMs,
+			zoneTabIndex: -1,
+			type: file.path,
+			autoAriaDisabled: true
+		}}
+		on:consider={sortAndUpdateHunks}
+		on:finalize={sortAndUpdateHunks}
 	>
 		{#each file.hunks as hunk (hunk.id)}
 			<div
