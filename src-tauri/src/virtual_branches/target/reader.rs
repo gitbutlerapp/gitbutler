@@ -1,12 +1,9 @@
-use crate::{
-    reader::{self, Reader},
-    sessions,
-};
+use crate::reader;
 
-use super::super::Target;
+use super::Target;
 
 pub struct TargetReader<'reader> {
-    sessions_reader: &'reader sessions::Reader<'reader>,
+    reader: &'reader dyn reader::Reader,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -18,25 +15,25 @@ pub enum TargetReadError {
 }
 
 impl<'reader> TargetReader<'reader> {
-    pub fn new(sessions_reader: &'reader sessions::Reader<'reader>) -> Self {
-        Self { sessions_reader }
+    pub fn new(reader: &'reader dyn reader::Reader) -> Self {
+        Self { reader }
     }
 
     fn read_default(&self) -> Result<Target, TargetReadError> {
-        if !self.sessions_reader.exists("branches/target") {
+        if !self.reader.exists("branches/target") {
             return Err(TargetReadError::NotFound);
         }
 
         let name = self
-            .sessions_reader
+            .reader
             .read_string("branches/target/name")
             .map_err(|e| TargetReadError::ReadError("default target.name".to_string(), e))?;
         let remote = self
-            .sessions_reader
+            .reader
             .read_string("branches/target/remote")
             .map_err(|e| TargetReadError::ReadError("default target.remote".to_string(), e))?;
         let sha = self
-            .sessions_reader
+            .reader
             .read_string("branches/target/sha")
             .map_err(|e| TargetReadError::ReadError("default target.sha".to_string(), e))?
             .parse()
@@ -50,23 +47,20 @@ impl<'reader> TargetReader<'reader> {
     }
 
     pub fn read(&self, id: &str) -> Result<Target, TargetReadError> {
-        if !self
-            .sessions_reader
-            .exists(&format!("branches/{}/target", id))
-        {
+        if !self.reader.exists(&format!("branches/{}/target", id)) {
             return self.read_default();
         }
 
         let name = self
-            .sessions_reader
+            .reader
             .read_string(&format!("branches/{}/target/name", id))
             .map_err(|e| TargetReadError::ReadError("target.name".to_string(), e))?;
         let remote = self
-            .sessions_reader
+            .reader
             .read_string(&format!("branches/{}/target/remote", id))
             .map_err(|e| TargetReadError::ReadError("target.remote".to_string(), e))?;
         let sha = self
-            .sessions_reader
+            .reader
             .read_string(&format!("branches/{}/target/sha", id))
             .map_err(|e| TargetReadError::ReadError("target.sha".to_string(), e))?
             .parse()
@@ -87,7 +81,7 @@ mod tests {
 
     use crate::{
         gb_repository, projects, storage, users,
-        virtual_branches::{branch, target::writer::TargetWriter},
+        virtual_branches::{branch, target::writer::TargetWriter}, sessions,
     };
 
     use super::*;
