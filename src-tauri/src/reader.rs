@@ -1,4 +1,4 @@
-use std::str;
+use std::{path, str};
 
 use anyhow::{Context, Result};
 
@@ -200,6 +200,41 @@ impl Reader for CommitReader<'_> {
 
     fn exists(&self, file_path: &str) -> bool {
         self.tree.get_path(std::path::Path::new(file_path)).is_ok()
+    }
+}
+
+pub struct SubReader<'reader> {
+    reader: &'reader dyn Reader,
+    prefix: path::PathBuf,
+}
+
+impl<'reader> SubReader<'reader> {
+    pub fn new<P: AsRef<path::Path>>(reader: &'reader dyn Reader, prefix: P) -> SubReader<'reader> {
+        SubReader {
+            reader,
+            prefix: prefix.as_ref().to_path_buf(),
+        }
+    }
+}
+
+impl Reader for SubReader<'_> {
+    fn size(&self, file_path: &str) -> Result<usize> {
+        self.reader
+            .size(self.prefix.join(file_path).to_str().unwrap())
+    }
+
+    fn read(&self, path: &str) -> Result<Content, Error> {
+        self.reader.read(self.prefix.join(path).to_str().unwrap())
+    }
+
+    fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
+        self.reader
+            .list_files(self.prefix.join(dir_path).to_str().unwrap())
+    }
+
+    fn exists(&self, file_path: &str) -> bool {
+        self.reader
+            .exists(self.prefix.join(file_path).to_str().unwrap())
     }
 }
 

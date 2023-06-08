@@ -1,4 +1,4 @@
-use crate::reader;
+use crate::reader::{self, SubReader};
 
 use super::Target;
 
@@ -6,71 +6,28 @@ pub struct TargetReader<'reader> {
     reader: &'reader dyn reader::Reader,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum TargetReadError {
-    #[error("Target not found")]
-    NotFound,
-    #[error("Failed to read {0}: {1}")]
-    ReadError(String, reader::Error),
-}
-
 impl<'reader> TargetReader<'reader> {
     pub fn new(reader: &'reader dyn reader::Reader) -> Self {
         Self { reader }
     }
 
-    fn read_default(&self) -> Result<Target, TargetReadError> {
+    fn read_default(&self) -> Result<Target, reader::Error> {
         if !self.reader.exists("branches/target") {
-            return Err(TargetReadError::NotFound);
+            return Err(reader::Error::NotFound);
         }
 
-        let name = self
-            .reader
-            .read_string("branches/target/name")
-            .map_err(|e| TargetReadError::ReadError("default target.name".to_string(), e))?;
-        let remote = self
-            .reader
-            .read_string("branches/target/remote")
-            .map_err(|e| TargetReadError::ReadError("default target.remote".to_string(), e))?;
-        let sha = self
-            .reader
-            .read_string("branches/target/sha")
-            .map_err(|e| TargetReadError::ReadError("default target.sha".to_string(), e))?
-            .parse()
-            .map_err(|e| {
-                TargetReadError::ReadError(
-                    "default target.sha".to_string(),
-                    reader::Error::IOError(std::io::Error::new(std::io::ErrorKind::InvalidData, e)),
-                )
-            })?;
-        Ok(Target { name, remote, sha })
+        let reader: &dyn crate::reader::Reader = &SubReader::new(self.reader, "branches/target");
+        Target::try_from(reader)
     }
 
-    pub fn read(&self, id: &str) -> Result<Target, TargetReadError> {
+    pub fn read(&self, id: &str) -> Result<Target, reader::Error> {
         if !self.reader.exists(&format!("branches/{}/target", id)) {
             return self.read_default();
         }
 
-        let name = self
-            .reader
-            .read_string(&format!("branches/{}/target/name", id))
-            .map_err(|e| TargetReadError::ReadError("target.name".to_string(), e))?;
-        let remote = self
-            .reader
-            .read_string(&format!("branches/{}/target/remote", id))
-            .map_err(|e| TargetReadError::ReadError("target.remote".to_string(), e))?;
-        let sha = self
-            .reader
-            .read_string(&format!("branches/{}/target/sha", id))
-            .map_err(|e| TargetReadError::ReadError("target.sha".to_string(), e))?
-            .parse()
-            .map_err(|e| {
-                TargetReadError::ReadError(
-                    "target.sha".to_string(),
-                    reader::Error::IOError(std::io::Error::new(std::io::ErrorKind::InvalidData, e)),
-                )
-            })?;
-        Ok(Target { name, remote, sha })
+        let reader: &dyn crate::reader::Reader =
+            &SubReader::new(self.reader, &format!("branches/{}/target", id));
+        Target::try_from(reader)
     }
 }
 
@@ -80,8 +37,8 @@ mod tests {
     use tempfile::tempdir;
 
     use crate::{
-        gb_repository, projects, storage, users,
-        virtual_branches::{branch, target::writer::TargetWriter}, sessions,
+        gb_repository, projects, sessions, storage, users,
+        virtual_branches::{branch, target::writer::TargetWriter},
     };
 
     use super::*;
@@ -134,7 +91,7 @@ mod tests {
         let reader = TargetReader::new(&session_reader);
         let result = reader.read("not found");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "Target not found");
+        assert_eq!(result.unwrap_err().to_string(), "file not found");
 
         Ok(())
     }

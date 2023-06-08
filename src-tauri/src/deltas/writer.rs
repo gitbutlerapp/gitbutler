@@ -70,7 +70,7 @@ impl<'writer> DeltasWriter<'writer> {
 
         // first, read all virtual branches
         let mut virtual_branches = virtual_branches::Iterator::new(&dir_reader)?
-            .collect::<Result<Vec<branch::Branch>, branch::ReadError>>()?
+            .collect::<Result<Vec<branch::Branch>, crate::reader::Error>>()?
             .into_iter()
             .filter(|branch| branch.applied)
             .collect::<Vec<_>>();
