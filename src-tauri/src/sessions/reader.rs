@@ -32,6 +32,10 @@ impl Reader for SessionReader<'_> {
     fn size(&self, file_path: &str) -> Result<usize> {
         self.reader.size(file_path)
     }
+
+    fn is_dir(&self, file_path: &str) -> bool {
+        self.reader.is_dir(file_path)
+    }
 }
 
 impl<'reader> SessionReader<'reader> {
