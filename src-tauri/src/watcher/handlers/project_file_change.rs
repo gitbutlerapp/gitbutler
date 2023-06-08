@@ -173,7 +173,7 @@ impl Handler {
         }
 
         let deltas = text_doc.get_deltas();
-        let writer = deltas::Writer::new(&gb_repository)?;
+        let writer = deltas::Writer::new(&gb_repository);
         writer
             .write(path, &deltas)
             .with_context(|| "failed to write deltas")?;
