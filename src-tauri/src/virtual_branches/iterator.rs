@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
-use crate::{reader::Reader, sessions};
+use crate::reader;
 
 use super::branch;
 
@@ -12,7 +12,7 @@ pub struct BranchIterator<'iterator> {
 }
 
 impl<'iterator> BranchIterator<'iterator> {
-    pub fn new(sessions_reader: &'iterator sessions::Reader<'iterator>) -> Result<Self> {
+    pub fn new(sessions_reader: &'iterator dyn reader::Reader) -> Result<Self> {
         let ids_itarator = sessions_reader
             .list_files("branches")?
             .into_iter()
@@ -46,7 +46,7 @@ mod tests {
     use anyhow::Result;
     use tempfile::tempdir;
 
-    use crate::{gb_repository, projects, storage, users, virtual_branches::target};
+    use crate::{gb_repository, projects, sessions, storage, users, virtual_branches::target};
 
     use super::*;
 

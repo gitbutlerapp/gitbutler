@@ -1,12 +1,9 @@
-use crate::{
-    reader::{self, Reader},
-    sessions,
-};
+use crate::reader::{self, Reader};
 
 use super::Branch;
 
 pub struct BranchReader<'reader> {
-    sessions_reader: &'reader sessions::Reader<'reader>,
+    reader: &'reader dyn reader::Reader,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -18,12 +15,12 @@ pub enum BranchReadError {
 }
 
 impl<'reader> BranchReader<'reader> {
-    pub fn new(sessions_reader: &'reader sessions::Reader<'reader>) -> Self {
-        Self { sessions_reader }
+    pub fn new(reader: &'reader dyn Reader) -> Self {
+        Self { reader }
     }
 
     pub fn read_selected(&self) -> Result<Option<String>, BranchReadError> {
-        match self.sessions_reader.read_string("branches/selected") {
+        match self.reader.read_string("branches/selected") {
             Ok(selected) => Ok(Some(selected)),
             Err(reader::Error::NotFound) => Ok(None),
             Err(e) => Err(BranchReadError::ReadError("selected".to_string(), e)),
@@ -31,30 +28,30 @@ impl<'reader> BranchReader<'reader> {
     }
 
     pub fn read(&self, id: &str) -> Result<Branch, BranchReadError> {
-        if !self.sessions_reader.exists(&format!("branches/{}", id)) {
+        if !self.reader.exists(&format!("branches/{}", id)) {
             return Err(BranchReadError::NotFound);
         }
 
         let branch = Branch {
             id: id.to_string(),
             name: self
-                .sessions_reader
+                .reader
                 .read_string(&format!("branches/{}/meta/name", id))
                 .map_err(|e| BranchReadError::ReadError("name".to_string(), e))?,
             applied: self
-                .sessions_reader
+                .reader
                 .read_bool(&format!("branches/{}/meta/applied", id))
                 .map_err(|e| BranchReadError::ReadError("applied".to_string(), e))?,
             upstream: self
-                .sessions_reader
+                .reader
                 .read_string(&format!("branches/{}/meta/upstream", id))
                 .map_err(|e| BranchReadError::ReadError("upstream".to_string(), e))?,
             created_timestamp_ms: self
-                .sessions_reader
+                .reader
                 .read_u128(&format!("branches/{}/meta/created_timestamp_ms", id))
                 .map_err(|e| BranchReadError::ReadError("created_timestamp_ms".to_string(), e))?,
             updated_timestamp_ms: self
-                .sessions_reader
+                .reader
                 .read_u128(&format!("branches/{}/meta/updated_timestamp_ms", id))
                 .map_err(|e| BranchReadError::ReadError("updated_timestamp_ms".to_string(), e))?,
         };
@@ -67,7 +64,7 @@ mod tests {
     use anyhow::Result;
     use tempfile::tempdir;
 
-    use crate::{gb_repository, projects, storage, users};
+    use crate::{gb_repository, projects, sessions, storage, users};
 
     use super::{super::Writer, *};
 
