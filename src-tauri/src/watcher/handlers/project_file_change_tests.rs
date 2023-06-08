@@ -39,23 +39,10 @@ fn test_repository() -> Result<git2::Repository> {
     Ok(repository)
 }
 
-fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
-    let project = projects::Project::from_path(
-        repository
-            .path()
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
-    )?;
-    Ok(project)
-}
-
 #[test]
 fn test_register_existing_commited_file() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
@@ -104,7 +91,7 @@ fn test_register_existing_commited_file() -> Result<()> {
 #[test]
 fn test_register_must_init_current_session() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
@@ -137,7 +124,7 @@ fn test_register_must_init_current_session() -> Result<()> {
 #[test]
 fn test_register_must_not_override_current_session() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
@@ -175,7 +162,7 @@ fn test_register_must_not_override_current_session() -> Result<()> {
 #[test]
 fn test_register_new_file() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
@@ -221,7 +208,7 @@ fn test_register_new_file() -> Result<()> {
 #[test]
 fn test_register_new_file_twice() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
@@ -286,7 +273,7 @@ fn test_register_new_file_twice() -> Result<()> {
 #[test]
 fn test_register_file_delted() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let project_repo = project_repository::Repository::open(&project)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
@@ -344,7 +331,7 @@ fn test_register_file_delted() -> Result<()> {
 #[test]
 fn test_flow_with_commits() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
@@ -441,7 +428,7 @@ fn test_flow_with_commits() -> Result<()> {
 #[test]
 fn test_flow_no_commits() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
@@ -537,7 +524,7 @@ fn test_flow_no_commits() -> Result<()> {
 #[test]
 fn test_flow_signle_session() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
