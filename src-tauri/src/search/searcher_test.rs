@@ -36,7 +36,7 @@ fn test_sorted_by_timestamp() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         Path::new("test.txt"),
         &vec![
@@ -86,7 +86,7 @@ fn search_by_bookmark_note() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         Path::new("test.txt"),
         &vec![deltas::Delta {
@@ -182,7 +182,7 @@ fn search_by_full_match() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         Path::new("test.txt"),
         &vec![deltas::Delta {
@@ -223,7 +223,7 @@ fn search_by_diff() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         Path::new("test.txt"),
         &vec![
@@ -342,7 +342,7 @@ fn test_delete_all() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         Path::new("test.txt"),
         &vec![
@@ -391,7 +391,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         Path::new("test.txt"),
         &vec![deltas::Delta {
@@ -447,7 +447,7 @@ fn search_by_filename() -> Result<()> {
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         Path::new("test.txt"),
         &vec![

@@ -186,7 +186,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
         gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -221,7 +221,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
-    let writer = deltas::Writer::new(&gb_repo)?;
+    let writer = deltas::Writer::new(&gb_repo);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
@@ -347,7 +347,7 @@ fn test_remote_syncronization() -> Result<()> {
         project_store.clone(),
         user_store.clone(),
     )?;
-    let writer = deltas::Writer::new(&gb_repo_one)?;
+    let writer = deltas::Writer::new(&gb_repo_one);
     writer.write(
         "test.txt",
         &vec![deltas::Delta {
