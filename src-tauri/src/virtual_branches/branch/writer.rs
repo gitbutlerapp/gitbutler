@@ -54,6 +54,10 @@ impl<'writer> BranchWriter<'writer> {
         }
 
         self.writer
+            .write_string(&format!("branches/{}/id", branch.id), &branch.id)
+            .context("Failed to write branch id")?;
+
+        self.writer
             .write_string(&format!("branches/{}/meta/name", branch.id), &branch.name)
             .context("Failed to write branch name")?;
 

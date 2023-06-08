@@ -34,10 +34,10 @@ pub enum SessionError {
     Err(anyhow::Error),
 }
 
-impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
+impl TryFrom<&dyn reader::Reader> for Session {
     type Error = SessionError;
 
-    fn try_from(reader: Box<dyn reader::Reader + 'reader>) -> Result<Self, Self::Error> {
+    fn try_from(reader: &dyn reader::Reader) -> Result<Self, Self::Error> {
         if !reader.exists("session") {
             return Err(SessionError::NoSession);
         }
@@ -84,11 +84,11 @@ impl<'reader> TryFrom<Box<dyn reader::Reader + 'reader>> for Session {
     }
 }
 
-impl<'reader> TryFrom<reader::DirReader> for Session {
+impl TryFrom<reader::DirReader> for Session {
     type Error = SessionError;
 
     fn try_from(reader: reader::DirReader) -> Result<Self, Self::Error> {
-        let session = Session::try_from(Box::new(reader) as Box<dyn reader::Reader + 'reader>)?;
+        let session = Session::try_from(&reader as &dyn reader::Reader)?;
         Ok(session)
     }
 }
@@ -98,7 +98,7 @@ impl<'reader> TryFrom<reader::CommitReader<'reader>> for Session {
 
     fn try_from(reader: reader::CommitReader<'reader>) -> Result<Self, Self::Error> {
         let commit_oid = reader.get_commit_oid().to_string();
-        let session = Session::try_from(Box::new(reader) as Box<dyn reader::Reader + 'reader>)?;
+        let session = Session::try_from(&reader as &dyn reader::Reader)?;
         Ok(Session {
             hash: Some(commit_oid),
             ..session

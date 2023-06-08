@@ -28,7 +28,7 @@ impl<'iterator> BranchIterator<'iterator> {
 }
 
 impl<'iterator> Iterator for BranchIterator<'iterator> {
-    type Item = Result<branch::Branch, branch::ReadError>;
+    type Item = Result<branch::Branch, crate::reader::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.ids.is_empty() {

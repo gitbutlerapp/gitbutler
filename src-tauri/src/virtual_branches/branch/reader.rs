@@ -1,4 +1,4 @@
-use crate::reader::{self, Reader};
+use crate::reader::{self, Reader, SubReader};
 
 use super::Branch;
 
@@ -6,56 +6,27 @@ pub struct BranchReader<'reader> {
     reader: &'reader dyn reader::Reader,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum BranchReadError {
-    #[error("Branch not found")]
-    NotFound,
-    #[error("Failed to read {0}: {1}")]
-    ReadError(String, reader::Error),
-}
-
 impl<'reader> BranchReader<'reader> {
     pub fn new(reader: &'reader dyn Reader) -> Self {
         Self { reader }
     }
 
-    pub fn read_selected(&self) -> Result<Option<String>, BranchReadError> {
+    pub fn read_selected(&self) -> Result<Option<String>, reader::Error> {
         match self.reader.read_string("branches/selected") {
             Ok(selected) => Ok(Some(selected)),
             Err(reader::Error::NotFound) => Ok(None),
-            Err(e) => Err(BranchReadError::ReadError("selected".to_string(), e)),
+            Err(e) => Err(e),
         }
     }
 
-    pub fn read(&self, id: &str) -> Result<Branch, BranchReadError> {
+    pub fn read(&self, id: &str) -> Result<Branch, reader::Error> {
         if !self.reader.exists(&format!("branches/{}", id)) {
-            return Err(BranchReadError::NotFound);
+            return Err(reader::Error::NotFound);
         }
 
-        let branch = Branch {
-            id: id.to_string(),
-            name: self
-                .reader
-                .read_string(&format!("branches/{}/meta/name", id))
-                .map_err(|e| BranchReadError::ReadError("name".to_string(), e))?,
-            applied: self
-                .reader
-                .read_bool(&format!("branches/{}/meta/applied", id))
-                .map_err(|e| BranchReadError::ReadError("applied".to_string(), e))?,
-            upstream: self
-                .reader
-                .read_string(&format!("branches/{}/meta/upstream", id))
-                .map_err(|e| BranchReadError::ReadError("upstream".to_string(), e))?,
-            created_timestamp_ms: self
-                .reader
-                .read_u128(&format!("branches/{}/meta/created_timestamp_ms", id))
-                .map_err(|e| BranchReadError::ReadError("created_timestamp_ms".to_string(), e))?,
-            updated_timestamp_ms: self
-                .reader
-                .read_u128(&format!("branches/{}/meta/updated_timestamp_ms", id))
-                .map_err(|e| BranchReadError::ReadError("updated_timestamp_ms".to_string(), e))?,
-        };
-        Ok(branch)
+        let single_reader: &dyn crate::reader::Reader =
+            &SubReader::new(self.reader, &format!("branches/{}", id));
+        Branch::try_from(single_reader)
     }
 }
 
@@ -116,13 +87,13 @@ mod tests {
         let reader = BranchReader::new(&session_reader);
         let result = reader.read("not found");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "Branch not found");
+        assert_eq!(result.unwrap_err().to_string(), "file not found");
 
         Ok(())
     }
 
     #[test]
-    fn test_read_override_target() -> Result<()> {
+    fn test_read_override() -> Result<()> {
         let repository = test_repository()?;
         let project = test_project(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -150,7 +121,7 @@ mod tests {
 
         let reader = BranchReader::new(&session_reader);
 
-        assert_eq!(branch, reader.read(&branch.id)?);
+        assert_eq!(branch, reader.read(&branch.id).unwrap());
 
         Ok(())
     }
