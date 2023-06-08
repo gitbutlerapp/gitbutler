@@ -60,23 +60,10 @@ mod tests {
         Ok(repository)
     }
 
-    fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
-        let project = projects::Project::from_path(
-            repository
-                .path()
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-        )?;
-        Ok(project)
-    }
-
     #[test]
     fn test_read_not_found() -> Result<()> {
         let repository = test_repository()?;
-        let project = test_project(&repository)?;
+        let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
         let storage = storage::Storage::from_path(tempdir()?.path());
         let user_store = users::Storage::new(storage.clone());
@@ -99,7 +86,7 @@ mod tests {
     #[test]
     fn test_read_override_target() -> Result<()> {
         let repository = test_repository()?;
-        let project = test_project(&repository)?;
+        let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
         let storage = storage::Storage::from_path(tempdir()?.path());
         let user_store = users::Storage::new(storage.clone());

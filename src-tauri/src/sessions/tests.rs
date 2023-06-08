@@ -1,7 +1,11 @@
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{gb_repository, projects, sessions, storage, users};
+use crate::{
+    gb_repository,
+    projects::{self, Project},
+    sessions, storage, users,
+};
 
 use super::Writer;
 
@@ -22,23 +26,10 @@ fn test_repository() -> Result<git2::Repository> {
     Ok(repository)
 }
 
-fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
-    let project = projects::Project::from_path(
-        repository
-            .path()
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
-    )?;
-    Ok(project)
-}
-
 #[test]
 fn test_should_not_write_session_with_hash() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
@@ -66,7 +57,7 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
 #[test]
 fn test_should_write_full_session() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());
@@ -115,7 +106,7 @@ fn test_should_write_full_session() -> Result<()> {
 #[test]
 fn test_should_write_partial_session() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let user_store = users::Storage::new(storage.clone());

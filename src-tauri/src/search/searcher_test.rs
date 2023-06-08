@@ -22,23 +22,10 @@ fn test_repository() -> Result<git2::Repository> {
     Ok(repository)
 }
 
-fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
-    let project = projects::Project::from_path(
-        repository
-            .path()
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
-    )?;
-    Ok(project)
-}
-
 #[test]
 fn test_sorted_by_timestamp() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
@@ -88,7 +75,7 @@ fn test_sorted_by_timestamp() -> Result<()> {
 #[test]
 fn search_by_bookmark_note() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
@@ -184,7 +171,7 @@ fn search_by_bookmark_note() -> Result<()> {
 #[test]
 fn search_by_full_match() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
@@ -225,7 +212,7 @@ fn search_by_full_match() -> Result<()> {
 #[test]
 fn search_by_diff() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
@@ -344,7 +331,7 @@ fn should_index_bookmark_once() -> Result<()> {
 #[test]
 fn test_delete_all() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
@@ -393,7 +380,7 @@ fn test_delete_all() -> Result<()> {
 #[test]
 fn search_bookmark_by_phrase() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());
@@ -449,7 +436,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
 #[test]
 fn search_by_filename() -> Result<()> {
     let repository = test_repository()?;
-    let project = test_project(&repository)?;
+    let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let storage = storage::Storage::from_path(tempdir()?.path());
     let project_store = projects::Storage::new(storage.clone());

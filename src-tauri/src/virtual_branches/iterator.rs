@@ -67,19 +67,6 @@ mod tests {
         Ok(repository)
     }
 
-    fn test_project(repository: &git2::Repository) -> Result<projects::Project> {
-        let project = projects::Project::from_path(
-            repository
-                .path()
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-        )?;
-        Ok(project)
-    }
-
     static mut TEST_INDEX: usize = 0;
 
     fn test_branch() -> branch::Branch {
@@ -113,7 +100,7 @@ mod tests {
     #[test]
     fn test_empty_iterator() -> Result<()> {
         let repository = test_repository()?;
-        let project = test_project(&repository)?;
+        let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
         let storage = storage::Storage::from_path(tempdir()?.path());
         let user_store = users::Storage::new(storage.clone());
@@ -135,7 +122,7 @@ mod tests {
     #[test]
     fn test_iterate_all() -> Result<()> {
         let repository = test_repository()?;
-        let project = test_project(&repository)?;
+        let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
         let storage = storage::Storage::from_path(tempdir()?.path());
         let user_store = users::Storage::new(storage.clone());

@@ -79,3 +79,19 @@ impl Project {
         Ok(project)
     }
 }
+
+impl TryFrom<&git2::Repository> for Project {
+    type Error = CreateError;
+
+    fn try_from(repository: &git2::Repository) -> std::result::Result<Self, Self::Error> {
+        Project::from_path(
+            repository
+                .path()
+                .parent()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(),
+        )
+    }
+}
