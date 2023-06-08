@@ -1,6 +1,7 @@
 export type Hunk = {
 	id: string;
 	name: string;
+	modified: Date;
 };
 
 export type File = {

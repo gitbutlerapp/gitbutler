@@ -4,6 +4,7 @@
 	import type { File } from './board';
 	const flipDurationMs = 150;
 	import animateHeight from './animation';
+	import { formatDistanceToNow } from 'date-fns';
 
 	export let file: File;
 </script>
@@ -27,7 +28,12 @@
 				animate:flip={{ duration: flipDurationMs }}
 				class="w-full rounded border border-zinc-500 bg-zinc-600 p-1"
 			>
-				{hunk.name}
+				<div>
+					{hunk.name}
+				</div>
+				<div class="text-right">
+					{formatDistanceToNow(hunk.modified, { addSuffix: true })}
+				</div>
 			</div>
 		{/each}
 	</div>

@@ -2,6 +2,7 @@
 	import Board from './Board.svelte';
 	import Tray from './Tray.svelte';
 	import type { BranchLane } from './board';
+	import { subSeconds, subMinutes, subHours } from 'date-fns';
 
 	let columnsData: BranchLane[] = [
 		{
@@ -15,11 +16,13 @@
 					hunks: [
 						{
 							id: 'h1',
-							name: 'foo-hunk-1'
+							name: 'foo-hunk-1',
+							modified: subMinutes(new Date(), 5)
 						},
 						{
 							id: 'h2',
-							name: 'foo-hunk-2'
+							name: 'foo-hunk-2',
+							modified: subSeconds(new Date(), 15)
 						}
 					]
 				},
@@ -29,7 +32,8 @@
 					hunks: [
 						{
 							id: 'h3',
-							name: 'bar-hunk-1'
+							name: 'bar-hunk-1',
+							modified: subHours(new Date(), 2)
 						}
 					]
 				}
@@ -46,7 +50,8 @@
 					hunks: [
 						{
 							id: 'h4',
-							name: 'foo-hunk-3'
+							name: 'foo-hunk-3',
+							modified: subMinutes(new Date(), 32)
 						}
 					]
 				}
@@ -63,7 +68,8 @@
 					hunks: [
 						{
 							id: 'h5',
-							name: 'bar-hunk-2'
+							name: 'bar-hunk-2',
+							modified: subHours(new Date(), 1)
 						}
 					]
 				}
