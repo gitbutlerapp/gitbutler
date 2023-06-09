@@ -10,7 +10,7 @@
 </script>
 
 <section
-	class="flex gap-x-4"
+	class="flex gap-x-4 p-4"
 	use:dndzone={{ items: columns, flipDurationMs, type: 'column' }}
 	on:consider={(e) => (columns = e.detail.items)}
 	on:finalize={(e) => (columns = e.detail.items)}

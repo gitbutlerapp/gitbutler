@@ -9,7 +9,7 @@
 	$: console.log(columnsData);
 </script>
 
-<div class="flex h-full gap-x-4 p-4">
+<div class="flex h-full">
 	<Tray bind:columns={columnsData} />
 	<Board bind:columns={columnsData} />
 </div>
