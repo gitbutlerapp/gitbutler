@@ -7,7 +7,7 @@
 </script>
 
 <section
-	class="flex h-full w-64 flex-col gap-y-4 rounded border border-zinc-700 bg-zinc-900/50 p-4"
+	class="flex h-full w-64 flex-col gap-y-4 border-r border-zinc-700 bg-[#2F2F33] p-4"
 >
 	{#each columns as column (column.id)}
 		<div animate:flip={{ duration: 150 }} class="rounded border border-zinc-600 bg-zinc-700 p-2">
