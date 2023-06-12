@@ -9,7 +9,7 @@ export const load: PageLoad = async () => {
 			id: 'c1',
 			name: 'feature-1',
 			active: true,
-			kind: 'lane',
+			kind: 'branch',
 			commits: [
 				{
 					id: 'c1',
@@ -60,7 +60,7 @@ export const load: PageLoad = async () => {
 			id: 'b2',
 			name: 'bugfix',
 			active: true,
-			kind: 'lane',
+			kind: 'branch',
 			commits: [
 				{
 					id: 'c2',
@@ -90,7 +90,7 @@ export const load: PageLoad = async () => {
 			id: 'b3',
 			name: 'stashed-things',
 			active: false,
-			kind: 'lane',
+			kind: 'branch',
 			commits: [
 				{
 					id: 'c2',
