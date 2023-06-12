@@ -12,7 +12,7 @@
 	function handleDndEvent(
 		e: CustomEvent<DndEvent<Branch | File | Hunk>> & { target: HTMLElement }
 	) {
-		branches = e.detail.items.filter((item) => item.kind == 'lane') as Branch[];
+		branches = e.detail.items.filter((item) => item.kind == 'branch') as Branch[];
 		// TODO: Create lanes out of dropped files/hunks
 	}
 </script>
@@ -22,8 +22,8 @@
 	use:dndzone={{
 		items: branches,
 		flipDurationMs,
-		types: ['lane'],
-		receives: ['lane', 'file', 'hunk']
+		types: ['branch'],
+		receives: ['branch', 'file', 'hunk']
 	}}
 	on:consider={handleDndEvent}
 	on:finalize={handleDndEvent}
