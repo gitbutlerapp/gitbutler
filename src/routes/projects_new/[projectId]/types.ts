@@ -15,7 +15,7 @@ export type File = {
 	isDndShadowItem?: boolean;
 };
 
-export type BranchLane = {
+export type Branch = {
 	id: string;
 	name: string;
 	active: boolean;

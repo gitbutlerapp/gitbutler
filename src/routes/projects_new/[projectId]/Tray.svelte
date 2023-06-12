@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { Checkbox } from '$lib/components';
-	import type { BranchLane } from './board';
+	import type { Branch } from './types';
 
-	export let columns: BranchLane[];
+	export let columns: Branch[];
 </script>
 
 <section class="flex h-full w-64 flex-col gap-y-4 border-r border-zinc-700 bg-[#2F2F33] p-4">
