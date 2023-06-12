@@ -17,7 +17,7 @@
 			dispatch('empty');
 			return;
 		}
-		e.detail.items.sort((itemA, itemB) => compareDesc(itemA.modified, itemB.modified));
+		e.detail.items.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
 		file.hunks = e.detail.items;
 	}
 </script>
@@ -52,7 +52,7 @@
 					{hunk.name}
 				</div>
 				<div class="text-right">
-					{formatDistanceToNow(hunk.modified, { addSuffix: true })}
+					{formatDistanceToNow(hunk.modifiedAt, { addSuffix: true })}
 				</div>
 			</div>
 		{/each}

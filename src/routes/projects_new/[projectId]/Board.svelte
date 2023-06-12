@@ -5,14 +5,14 @@
 	import type { Branch, File, Hunk } from './types';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 
-	export let columns: Branch[];
+	export let branches: Branch[];
 
 	const flipDurationMs = 300;
 
 	function handleDndEvent(
 		e: CustomEvent<DndEvent<Branch | File | Hunk>> & { target: HTMLElement }
 	) {
-		columns = e.detail.items.filter((item) => item.kind == 'lane') as Branch[];
+		branches = e.detail.items.filter((item) => item.kind == 'lane') as Branch[];
 		// TODO: Create lanes out of dropped files/hunks
 	}
 </script>
@@ -20,7 +20,7 @@
 <section
 	class="flex gap-x-4 p-4"
 	use:dndzone={{
-		items: columns,
+		items: branches,
 		flipDurationMs,
 		types: ['lane'],
 		receives: ['lane', 'file', 'hunk']
@@ -28,12 +28,12 @@
 	on:consider={handleDndEvent}
 	on:finalize={handleDndEvent}
 >
-	{#each columns.filter((c) => c.active) as { id, name, files }, idx (id)}
+	{#each branches.filter((c) => c.active) as { id, name, commits }, idx (id)}
 		<div
 			class="flex w-64 border border-zinc-700 bg-zinc-900/50 p-4"
 			animate:flip={{ duration: flipDurationMs }}
 		>
-			<Lane {name} bind:files />
+			<Lane {name} bind:commits />
 		</div>
 	{/each}
 </section>
