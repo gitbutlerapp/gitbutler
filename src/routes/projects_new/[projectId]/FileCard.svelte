@@ -5,7 +5,7 @@
 	import { formatDistanceToNow, compareDesc } from 'date-fns';
 	import animateHeight from './animation';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import type { File, Hunk } from './board';
+	import type { File, Hunk } from './types';
 
 	export let file: File;
 

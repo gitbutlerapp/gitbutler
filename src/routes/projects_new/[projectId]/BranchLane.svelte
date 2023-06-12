@@ -2,7 +2,7 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import type { File, Hunk } from './board';
+	import type { File, Hunk } from './types';
 	import FileCard from './FileCard.svelte';
 
 	export let name: string;

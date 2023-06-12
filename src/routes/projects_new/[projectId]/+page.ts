@@ -1,10 +1,10 @@
 import type { PageLoad } from './$types';
 import { wrapLoadWithSentry } from '@sentry/sveltekit';
-import type { BranchLane } from './board';
+import type { Branch } from './types';
 import { subSeconds, subMinutes, subHours } from 'date-fns';
 
-export const load: PageLoad = wrapLoadWithSentry(async () => {
-	const columnsData: BranchLane[] = [
+export const load: PageLoad = async () => {
+	const branches: Branch[] = [
 		{
 			id: 'c1',
 			name: 'feature-1',
@@ -101,6 +101,6 @@ export const load: PageLoad = wrapLoadWithSentry(async () => {
 	}));
 
 	return {
-		columnsData: columnsData
+		branchData: branches
 	};
-});
+};
