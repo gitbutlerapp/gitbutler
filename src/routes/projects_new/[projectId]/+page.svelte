@@ -5,8 +5,6 @@
 
 	export let data: PageData;
 	let columnsData = data.columnsData;
-
-	$: console.log(columnsData);
 </script>
 
 <div class="flex h-full">

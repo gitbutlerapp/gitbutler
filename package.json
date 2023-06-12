@@ -72,7 +72,7 @@
 		"prettier-plugin-tailwindcss": "^0.3.0",
 		"svelte": "~3.55.1",
 		"svelte-check": "^3.0.1",
-		"svelte-dnd-action": "^0.9.22",
+		"svelte-dnd-action": "github:gitbutlerapp/svelte-dnd-action#fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9",
 		"svelte-floating-ui": "^1.5.2",
 		"svelte-french-toast": "^1.0.3",
 		"svelte-loadable-store": "^1.2.3",
