@@ -170,8 +170,8 @@ devDependencies:
     specifier: ^3.0.1
     version: 3.0.3(postcss-load-config@4.0.1)(postcss@8.4.21)(svelte@3.55.1)
   svelte-dnd-action:
-    specifier: ^0.9.22
-    version: 0.9.22(svelte@3.55.1)
+    specifier: github:gitbutlerapp/svelte-dnd-action#fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9
+    version: github.com/gitbutlerapp/svelte-dnd-action/fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9(svelte@3.55.1)
   svelte-floating-ui:
     specifier: ^1.5.2
     version: 1.5.2
@@ -3686,14 +3686,6 @@ packages:
       - sugarss
     dev: true
 
-  /svelte-dnd-action@0.9.22(svelte@3.55.1):
-    resolution: {integrity: sha512-lOQJsNLM1QWv5mdxIkCVtk6k4lHCtLgfE59y8rs7iOM6erchbLC9hMEFYSveZz7biJV0mpg7yDSs4bj/RT/YkA==}
-    peerDependencies:
-      svelte: '>=3.23.0'
-    dependencies:
-      svelte: 3.55.1
-    dev: true
-
   /svelte-eslint-parser@0.29.0(svelte@3.55.1):
     resolution: {integrity: sha512-2uzOw9vRpSO3fo6NkbH7UynfCopQbMz/7LO9KT05YPvkB0uuFvFHex8+Ccv3gSrxHRvKS7FwJmV4H8WNWIzgWQ==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
@@ -4272,6 +4264,17 @@ packages:
   /yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+    dev: true
+
+  github.com/gitbutlerapp/svelte-dnd-action/fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9(svelte@3.55.1):
+    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-dnd-action/tar.gz/fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9}
+    id: github.com/gitbutlerapp/svelte-dnd-action/fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9
+    name: svelte-dnd-action
+    version: 0.9.22
+    peerDependencies:
+      svelte: '>=3.23.0'
+    dependencies:
+      svelte: 3.55.1
     dev: true
 
   github.com/tauri-apps/tauri-plugin-log/5e14c2cad7335a4284a6caad81d8cf37dd675a27:

@@ -1,14 +1,22 @@
 <script lang="ts">
-	import { flip } from 'svelte/animate';
+	import { createEventDispatcher } from 'svelte';
 	import { dndzone } from 'svelte-dnd-action';
-	import type { File, Hunk } from './board';
-	const flipDurationMs = 150;
-	import animateHeight from './animation';
+	import { flip } from 'svelte/animate';
 	import { formatDistanceToNow, compareDesc } from 'date-fns';
+	import animateHeight from './animation';
+	import type { DndEvent } from 'svelte-dnd-action/typings';
+	import type { File, Hunk } from './board';
 
 	export let file: File;
 
-	function sortAndUpdateHunks(e: { detail: { items: Hunk[] } }) {
+	const dispatch = createEventDispatcher();
+	const flipDurationMs = 150;
+
+	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
+		if (!file.hunks || file.hunks.length == 0) {
+			dispatch('empty');
+			return;
+		}
 		e.detail.items.sort((itemA, itemB) => compareDesc(itemA.modified, itemB.modified));
 		file.hunks = e.detail.items;
 	}
@@ -28,13 +36,14 @@
 			items: file.hunks,
 			flipDurationMs,
 			zoneTabIndex: -1,
-			type: file.path,
-			autoAriaDisabled: true
+			autoAriaDisabled: true,
+			types: ['hunk', file.path],
+			receives: [file.path]
 		}}
-		on:consider={sortAndUpdateHunks}
-		on:finalize={sortAndUpdateHunks}
+		on:consider={handleDndEvent}
+		on:finalize={handleDndEvent}
 	>
-		{#each file.hunks as hunk (hunk.id)}
+		{#each file.hunks || [] as hunk (hunk.id)}
 			<div
 				animate:flip={{ duration: flipDurationMs }}
 				class="w-full rounded border border-zinc-500 bg-zinc-600 p-1"

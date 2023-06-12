@@ -9,31 +9,40 @@ export const load: PageLoad = wrapLoadWithSentry(async () => {
 			id: 'c1',
 			name: 'feature-1',
 			active: true,
+			kind: 'lane',
 			files: [
 				{
 					id: 'f1',
 					path: 'src/foo.py',
+					kind: 'file',
 					hunks: [
 						{
 							id: 'h1',
 							name: 'foo-hunk-1',
-							modified: subMinutes(new Date(), 5)
+							kind: 'hunk',
+							modified: subMinutes(new Date(), 5),
+							filePath: 'src/foo.py'
 						},
 						{
 							id: 'h2',
 							name: 'foo-hunk-2',
-							modified: subSeconds(new Date(), 15)
+							kind: 'hunk',
+							modified: subSeconds(new Date(), 15),
+							filePath: 'src/foo.py'
 						}
 					]
 				},
 				{
 					id: 'f2',
 					path: 'src/bar.py',
+					kind: 'file',
 					hunks: [
 						{
 							id: 'h3',
 							name: 'bar-hunk-1',
-							modified: subHours(new Date(), 2)
+							kind: 'hunk',
+							modified: subHours(new Date(), 2),
+							filePath: 'src/bar.py'
 						}
 					]
 				}
@@ -43,15 +52,19 @@ export const load: PageLoad = wrapLoadWithSentry(async () => {
 			id: 'c2',
 			name: 'bugfix',
 			active: true,
+			kind: 'lane',
 			files: [
 				{
 					id: 'f3',
 					path: 'src/foo.py',
+					kind: 'file',
 					hunks: [
 						{
 							id: 'h4',
 							name: 'foo-hunk-3',
-							modified: subMinutes(new Date(), 32)
+							kind: 'hunk',
+							modified: subMinutes(new Date(), 32),
+							filePath: 'src/foo.py'
 						}
 					]
 				}
@@ -61,15 +74,19 @@ export const load: PageLoad = wrapLoadWithSentry(async () => {
 			id: 'c3',
 			name: 'stashed-things',
 			active: false,
+			kind: 'lane',
 			files: [
 				{
 					id: 'f4',
 					path: 'src/bar.py',
+					kind: 'file',
 					hunks: [
 						{
 							id: 'h5',
 							name: 'bar-hunk-2',
-							modified: subHours(new Date(), 1)
+							kind: 'hunk',
+							modified: subHours(new Date(), 1),
+							filePath: 'src/bar.py'
 						}
 					]
 				}

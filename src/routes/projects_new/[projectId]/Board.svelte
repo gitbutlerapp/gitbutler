@@ -1,19 +1,32 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
-	import type { BranchLane } from './board';
 	import Lane from './Lane.svelte';
+	import type { BranchLane, File, Hunk } from './board';
+	import type { DndEvent } from 'svelte-dnd-action/typings';
 
 	export let columns: BranchLane[];
 
 	const flipDurationMs = 300;
+
+	function handleDndEvent(
+		e: CustomEvent<DndEvent<BranchLane | File | Hunk>> & { target: HTMLElement }
+	) {
+		columns = e.detail.items.filter((item) => item.kind == 'lane') as BranchLane[];
+		// TODO: Create lanes out of dropped files/hunks
+	}
 </script>
 
 <section
 	class="flex gap-x-4 p-4"
-	use:dndzone={{ items: columns, flipDurationMs, type: 'column' }}
-	on:consider={(e) => (columns = e.detail.items)}
-	on:finalize={(e) => (columns = e.detail.items)}
+	use:dndzone={{
+		items: columns,
+		flipDurationMs,
+		types: ['lane'],
+		receives: ['lane', 'file', 'hunk']
+	}}
+	on:consider={handleDndEvent}
+	on:finalize={handleDndEvent}
 >
 	{#each columns.filter((c) => c.active) as { id, name, files }, idx (id)}
 		<div
