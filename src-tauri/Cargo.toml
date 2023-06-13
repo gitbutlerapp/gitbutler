@@ -14,6 +14,7 @@ rust-version = "1.57"
 tauri-build = { version = "1.2", features = [] }
 
 [dependencies]
+clap = { version = "4.0", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.2", features = ["dialog-open", "fs-read-file", "path-all", "protocol-asset", "shell-open", "system-tray", "window-start-dragging"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
@@ -53,6 +54,7 @@ rusqlite = { version = "0.28.0", features = [ "bundled", "blob" ] }
 refinery = { version = "0.8", features = [ "rusqlite" ] }
 sha1 = "0.10.5"
 tokio-util = "0.7.8"
+colored = "2.0.0"
 
 [features]
 # by default Tauri runs in production mode
