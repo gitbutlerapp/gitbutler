@@ -2,6 +2,7 @@ export type Hunk = {
 	id: string;
 	name: string;
 	modifiedAt: Date;
+	diff: string;
 	kind: string;
 	filePath: string;
 	isDndShadowItem?: boolean;
