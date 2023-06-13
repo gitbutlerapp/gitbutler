@@ -5,6 +5,7 @@
 	import type { File, Hunk } from './types';
 	import FileCard from './FileCard.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { createFile } from './helpers';
 
 	export let description: string;
 	export let id: string;
@@ -23,12 +24,13 @@
 			if (file) {
 				file.hunks.push(hunk);
 			} else {
-				fileItems.push({
-					id: `${Date.now()}-${hunk.id}`,
-					path: hunk.filePath,
-					kind: 'file',
-					hunks: [{ ...hunk, isDndShadowItem: !isFinal }]
-				});
+				fileItems.push(
+					createFile({
+						filePath: hunk.filePath,
+						hunks: [{ ...hunk, isDndShadowItem: !isFinal }],
+						isShadow: false
+					})
+				);
 			}
 		}
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);

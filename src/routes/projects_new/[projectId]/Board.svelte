@@ -4,6 +4,7 @@
 	import Lane from './BranchLane.svelte';
 	import type { Branch, Commit, File, Hunk } from './types';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
+	import { createBranch, createCommit, createFile } from './helpers';
 
 	export let branches: Branch[];
 
@@ -19,56 +20,41 @@
 		const hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];
 
 		for (const hunk of hunkItems) {
-			branchItems.push({
-				id: `${Date.now()}-${hunk.id}-branch`,
-				name: 'new branch',
-				active: true,
-				kind: 'branch',
-				commits: [
-					{
-						id: `${Date.now()}-${hunk.id}-commit`,
-						description: 'New commit',
-						kind: 'commit',
-						files: [
-							{
-								id: `${Date.now()}-${hunk.id}-hunk`,
-								path: hunk.filePath,
-								kind: 'file',
-								hunks: [{ ...hunk, isDndShadowItem: !isFinal }]
-							}
-						]
-					}
-				]
-			});
+			branchItems.push(
+				createBranch({
+					commits: [
+						createCommit({
+							files: [
+								createFile({
+									hunks: [{ ...hunk, isDndShadowItem: !isFinal }],
+									isShadow: false,
+									filePath: hunk.filePath
+								})
+							],
+							isShadow: false
+						})
+					]
+				})
+			);
 		}
 		for (const file of fileItems) {
-			branchItems.push({
-				id: `${Date.now()}-${file.id}-branch`,
-				name: 'new branch',
-				active: true,
-				kind: 'branch',
-				commits: [
-					{
-						id: `${Date.now()}-${file.id}-commit`,
-						description: '',
-						kind: 'commit',
-						files: [{ ...file, isDndShadowItem: false }],
-						isDndShadowItem: !isFinal
-					}
-				]
-			});
+			branchItems.push(
+				createBranch({
+					commits: [
+						createCommit({ files: [{ ...file, isDndShadowItem: !isFinal }], isShadow: false })
+					]
+				})
+			);
 		}
 		for (const commit of commitItems) {
-			branchItems.push({
-				id: `${Date.now()}-${commit.id}-branch`,
-				name: 'new branch',
-				kind: 'branch',
-				active: true,
-				commits: [commit],
-				isDndShadowItem: !isFinal
-			});
+			branchItems.push(
+				createBranch({
+					commits: [commit]
+				})
+			);
 		}
 		branches = branchItems.filter((commit) => commit.active);
+		console.log(branches);
 	}
 
 	function handleEmpty() {
