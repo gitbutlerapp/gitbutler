@@ -5,6 +5,7 @@
 	import type { Commit, File, Hunk } from './types';
 	import CommitGroup from './CommitGroup.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { createCommit, createFile } from './helpers';
 
 	export let name: string;
 	export let commits: Commit[];
@@ -19,28 +20,23 @@
 
 		// Merge hunks into existing files, or create new where none exist
 		for (const hunk of hunkItems) {
-			commitItems.push({
-				id: `${Date.now()}-${hunk.id}-commit`,
-				description: 'New commit',
-				kind: 'commit',
-				files: [
-					{
-						id: `${Date.now()}-${hunk.id}-hunk`,
-						path: hunk.filePath,
-						kind: 'file',
-						hunks: [{ ...hunk, isDndShadowItem: !isFinal }]
-					}
-				]
-			});
+			commitItems.push(
+				createCommit({
+					files: [
+						createFile({
+							hunks: [{ ...hunk, isDndShadowItem: !isFinal }],
+							isShadow: false,
+							filePath: hunk.filePath
+						})
+					],
+					isShadow: false
+				})
+			);
 		}
 		for (const file of fileItems) {
-			commitItems.push({
-				id: `${Date.now()}-${file.id}`,
-				description: 'New commit',
-				kind: 'commit',
-				files: [{ ...file, isDndShadowItem: false }],
-				isDndShadowItem: !isFinal
-			});
+			commitItems.push(
+				createCommit({ files: [{ ...file, isDndShadowItem: true }], isShadow: false })
+			);
 		}
 		commits = commitItems.filter((commit) => commit.files && commit.files.length > 0);
 
