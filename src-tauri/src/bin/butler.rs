@@ -1,7 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
 use git2::Repository;
-use std::path::PathBuf;
+use dirs;
 
 use git_butler_tauri::{
     projects, storage, project_repository, gb_repository,
@@ -58,10 +58,10 @@ impl ButlerCli {
 
 fn main() {
     // setup project repository and gb_repository
-    let local_data_dir = "/Users/scottchacon/Library/Application Support/com.gitbutler.app.dev";
+    let local_data_dir = find_local_data_dir().unwrap();
     let path = find_git_directory().unwrap();
 
-    let butler = ButlerCli::from(&path, local_data_dir);
+    let butler = ButlerCli::from(&path, &local_data_dir);
 
     let args = Cli::parse();
     match args.command.as_str() {
@@ -128,4 +128,10 @@ fn find_git_directory() -> Option<String> {
         },
         Err(_) => None,
     }
+}
+
+fn find_local_data_dir() -> Option<String> {
+    let mut path = dirs::config_dir().unwrap();
+    path.push("com.gitbutler.app.dev");
+    Some(path.to_string_lossy().to_string())
 }
