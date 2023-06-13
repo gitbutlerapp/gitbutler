@@ -1,5 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
+use git2::Repository;
+use std::path::PathBuf;
 
 use git_butler_tauri::{
     projects, storage, project_repository, gb_repository,
@@ -56,10 +58,10 @@ impl ButlerCli {
 
 fn main() {
     // setup project repository and gb_repository
-    let path = "/Users/scottchacon/projects/gitbutler-client";
     let local_data_dir = "/Users/scottchacon/Library/Application Support/com.gitbutler.app.dev";
+    let path = find_git_directory().unwrap();
 
-    let butler = ButlerCli::from(path, local_data_dir);
+    let butler = ButlerCli::from(&path, local_data_dir);
 
     let args = Cli::parse();
     match args.command.as_str() {
@@ -104,7 +106,6 @@ fn run_status(butler: ButlerCli) {
     }
 
     // gitbutler repo stuff
-    println!("{}", "gb repo:".to_string().red());
     if let Ok(Some(session)) = butler.gb_repository.get_current_session() {
         let session_reader = sessions::Reader::open(&butler.gb_repository, &session).unwrap();
 
@@ -115,5 +116,16 @@ fn run_status(butler: ButlerCli) {
                 println!("{:?}", item);
             }
         }
+    }
+}
+
+fn find_git_directory() -> Option<String> {
+    match Repository::discover("./") {
+        Ok(repo) => {
+            let mut path = repo.workdir().map(|path| path.to_string_lossy().to_string()).unwrap();
+            path = path.trim_end_matches('/').to_string();
+            Some(path)
+        },
+        Err(_) => None,
     }
 }
