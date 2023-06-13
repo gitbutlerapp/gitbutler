@@ -52,7 +52,7 @@
 						id: `${Date.now()}-${file.id}-commit`,
 						description: '',
 						kind: 'commit',
-						files: [file],
+						files: [{ ...file, isDndShadowItem: false }],
 						isDndShadowItem: !isFinal
 					}
 				]

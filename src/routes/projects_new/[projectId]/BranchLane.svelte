@@ -36,9 +36,9 @@
 		for (const file of fileItems) {
 			commitItems.push({
 				id: `${Date.now()}-${file.id}`,
-				description: '',
+				description: 'New commit',
 				kind: 'commit',
-				files: [file],
+				files: [{ ...file, isDndShadowItem: false }],
 				isDndShadowItem: !isFinal
 			});
 		}

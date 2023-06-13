@@ -50,24 +50,26 @@
 	}
 </script>
 
-<div
-	id="commit-{id}"
-	class="flex flex-grow flex-col gap-y-2 border border-zinc-700 bg-zinc-900/70 p-2"
-	use:dndzone={{
-		items: files,
-		flipDurationMs,
-		zoneTabIndex: -1,
-		types: ['file'],
-		receives: ['file', 'hunk']
-	}}
-	on:consider={(e) => handleDndEvent(e, false)}
-	on:finalize={(e) => handleDndEvent(e, true)}
->
-	{#each files.filter((x) => x.hunks) as file, idx (file.id)}
-		<div animate:flip={{ duration: flipDurationMs }}>
-			<FileCard bind:file on:empty={handleEmpty} />
-		</div>
-	{/each}
+<div class="flex flex-col gap-y-2 border border-zinc-700 bg-zinc-900/70 p-2">
+	<div
+		class="flex flex-col gap-y-2"
+		id="commit-{id}"
+		use:dndzone={{
+			items: files,
+			flipDurationMs,
+			zoneTabIndex: -1,
+			types: ['file'],
+			receives: ['file', 'hunk']
+		}}
+		on:consider={(e) => handleDndEvent(e, false)}
+		on:finalize={(e) => handleDndEvent(e, true)}
+	>
+		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
+			<div animate:flip={{ duration: flipDurationMs }}>
+				<FileCard bind:file on:empty={handleEmpty} />
+			</div>
+		{/each}
+	</div>
 	<div>
 		{description}
 	</div>
