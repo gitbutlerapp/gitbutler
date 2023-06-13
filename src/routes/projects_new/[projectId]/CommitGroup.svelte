@@ -2,14 +2,16 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import type { Commit, File, Hunk } from './types';
+	import type { File, Hunk } from './types';
 	import FileCard from './FileCard.svelte';
+	import { createEventDispatcher } from 'svelte';
 
 	export let description: string;
 	export let id: string;
 	export let files: File[];
 
 	const flipDurationMs = 150;
+	const dispatch = createEventDispatcher();
 
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>, isFinal: boolean) {
 		const fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];
@@ -25,26 +27,25 @@
 					id: `${Date.now()}-${hunk.id}`,
 					path: hunk.filePath,
 					kind: 'file',
-					hunks: [
-						{
-							id: hunk.id,
-							filePath: hunk.filePath,
-							kind: hunk.kind,
-							modifiedAt: hunk.modifiedAt,
-							name: hunk.name,
-							isDndShadowItem: !isFinal
-						}
-					]
+					hunks: [{ ...hunk, isDndShadowItem: !isFinal }]
 				});
 			}
 		}
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
+
+		if (e.type == 'finalize' && (!files || files.length == 0)) {
+			dispatch('empty');
+			return;
+		}
 	}
 
-	function handleEmptyFile() {
+	function handleEmpty() {
 		const emptyIndex = files.findIndex((item) => !item.hunks || item.hunks.length == 0);
 		if (emptyIndex != -1) {
 			files.splice(emptyIndex, 1);
+		}
+		if (files.length == 0) {
+			dispatch('empty');
 		}
 	}
 </script>
@@ -64,7 +65,7 @@
 >
 	{#each files.filter((x) => x.hunks) as file, idx (file.id)}
 		<div animate:flip={{ duration: flipDurationMs }}>
-			<FileCard bind:file on:empty={handleEmptyFile} />
+			<FileCard bind:file on:empty={handleEmpty} />
 		</div>
 	{/each}
 	<div>

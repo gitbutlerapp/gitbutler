@@ -18,9 +18,10 @@ export type File = {
 export type Commit = {
 	id: string;
 	description: string;
-	committedAt: Date;
+	committedAt?: Date;
 	files: File[];
 	kind: string;
+	isDndShadowItem?: boolean;
 };
 
 export type Branch = {
@@ -29,4 +30,5 @@ export type Branch = {
 	active: boolean;
 	commits: Commit[];
 	kind: string;
+	isDndShadowItem?: boolean;
 };
