@@ -6,7 +6,7 @@ import { subSeconds, subMinutes, subHours } from 'date-fns';
 export const load: PageLoad = async () => {
 	const branches: Branch[] = [
 		{
-			id: 'c1',
+			id: 'b1',
 			name: 'feature-1',
 			active: true,
 			kind: 'branch',
@@ -93,8 +93,8 @@ export const load: PageLoad = async () => {
 			kind: 'branch',
 			commits: [
 				{
-					id: 'c2',
-					description: 'Second commit',
+					id: 'c3',
+					description: 'Third commit',
 					committedAt: subMinutes(new Date(), 50),
 					kind: 'commit',
 					files: [
