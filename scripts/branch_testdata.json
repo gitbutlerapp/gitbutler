@@ -1,0 +1,203 @@
+[
+	{
+		"id": "animate-tray:426",
+		"name": "animate-tray",
+		"active": true,
+		"kind": "branch",
+		"commits": [
+			{
+				"id": "Commit:animate-tray:426",
+				"description": "make an animation for the tray branch groupings of active/inactive vbranches",
+				"committedAt": "2023-06-13T09:39:19Z",
+				"kind": "commit",
+				"files": [
+					{
+						"id": "animate-tray:src/routes/projects_new/[projectId]/Tray.svelte",
+						"path": "src/routes/projects_new/[projectId]/Tray.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "animate-tray:src/routes/projects_new/[projectId]/Tray.svelte:1",
+								"name": "<Hunk: @@ 1,16 1,65 @@ >",
+								"diff": "@@ -1,16 +1,65 @@\n <script lang=\"ts\">\n \timport { flip } from 'svelte/animate';\n+\timport { quintOut } from 'svelte/easing';\n+\timport { crossfade } from 'svelte/transition';\n \timport { Checkbox } from '$lib/components';\n \timport type { Branch } from './types';\n+\timport animateHeight from './animation';\n \n \texport let columns: Branch[];\n+\n+\tconst [send, receive] = crossfade({\n+\t\tduration: (d) => {\n+\t\t\treturn Math.sqrt(d * 500);\n+\t\t},\n+\n+\t\tfallback(node, params) {\n+\t\t\tconst style = getComputedStyle(node);\n+\t\t\tconst transform = style.transform === 'none' ? '' : style.transform;\n+\n+\t\t\treturn {\n+\t\t\t\tduration: 600,\n+\t\t\t\teasing: quintOut,\n+\t\t\t\tcss: (t) => `\n+\t\t\t\t\ttransform: ${transform} scale(${t});\n+\t\t\t\t\topacity: ${t}\n+\t\t\t\t`\n+\t\t\t};\n+\t\t}\n+\t});\n </script>\n \n-<section class=\"flex h-full w-64 flex-col gap-y-4 border-r border-zinc-700 bg-[#2F2F33] p-4\">\n-\t{#each columns as column (column.id)}\n-\t\t<div animate:flip={{ duration: 150 }} class=\"rounded border border-zinc-600 bg-zinc-700 p-2\">\n-\t\t\t<Checkbox bind:checked={column.active} />\n-\t\t\t<span class=\"ml-2\">{column.name}</span>\n+<section class=\"flex h-full w-64 flex-col gap-y-2 border-r border-zinc-700 bg-[#2F2F33] p-4\">\n+\t<div>\n+\t\t<div use:animateHeight class=\"flex flex-col gap-y-2 py-2\">\n+\t\t\t<p>In the working directory:</p>\n+\t\t\t{#each columns.filter((c) => c.active) as column (column.id)}\n+\t\t\t\t<div\n+\t\t\t\t\tin:receive={{ key: column.id }}\n+\t\t\t\t\tout:send={{ key: column.id }}\n+\t\t\t\t\tanimate:flip={{ duration: 300 }}\n+\t\t\t\t\tclass=\"rounded border border-zinc-600 bg-zinc-700 p-2\"\n+\t\t\t\t>\n+\t\t\t\t\t<Checkbox bind:checked={column.active} />\n+\t\t\t\t\t<span class=\"ml-2\">{column.name}</span>\n+\t\t\t\t</div>\n+\t\t\t{/each}\n+\t\t</div>\n+\t</div>\n+\t<div>\n+\t\t<div use:animateHeight class=\"flex flex-col gap-y-2 py-2\">\n+\t\t\t<p>Inactive:</p>\n+\t\t\t{#each columns.filter((c) => !c.active) as column (column.id)}\n+\t\t\t\t<div\n+\t\t\t\t\tin:receive={{ key: column.id }}\n+\t\t\t\t\tout:send={{ key: column.id }}\n+\t\t\t\t\tanimate:flip={{ duration: 300 }}\n+\t\t\t\t\tclass=\"rounded border border-zinc-600 bg-zinc-700 p-2\"\n+\t\t\t\t>\n+\t\t\t\t\t<Checkbox bind:checked={column.active} />\n+\t\t\t\t\t<span class=\"ml-2\">{column.name}</span>\n+\t\t\t\t</div>\n+\t\t\t{/each}\n \t\t</div>\n-\t{/each}\n+\t</div>\n </section>\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:39:19Z",
+								"filePath": "src/routes/projects_new/[projectId]/Tray.svelte"
+							}
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"id": "mbg-dnd-misc:427",
+		"name": "mbg-dnd-misc",
+		"active": true,
+		"kind": "branch",
+		"commits": [
+			{
+				"id": "Commit:mbg-dnd-misc:427",
+				"description": "Improve nested drag & drop functionality",
+				"committedAt": "2023-06-13T09:42:43Z",
+				"kind": "commit",
+				"files": [
+					{
+						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/+page.ts",
+						"path": "src/routes/projects_new/[projectId]/+page.ts",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/+page.ts:6",
+								"name": "<Hunk: @@ 6,10 6,10 @@ import { subSeconds, subMinutes, subHours } from 'date-fns';>",
+								"diff": "@@ -6,10 +6,10 @@ import { subSeconds, subMinutes, subHours } from 'date-fns';\n export const load: PageLoad = async () => {\n \tconst branches: Branch[] = [\n \t\t{\n-\t\t\tid: 'c1',\n+\t\t\tid: 'b1',\n \t\t\tname: 'feature-1',\n \t\t\tactive: true,\n-\t\t\tkind: 'lane',\n+\t\t\tkind: 'branch',\n \t\t\tcommits: [\n \t\t\t\t{\n \t\t\t\t\tid: 'c1',\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/+page.ts"
+							},
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/+page.ts:60",
+								"name": "<Hunk: @@ 60,7 60,7 @@ export const load: PageLoad = async () => {>",
+								"diff": "@@ -60,7 +60,7 @@ export const load: PageLoad = async () => {\n \t\t\tid: 'b2',\n \t\t\tname: 'bugfix',\n \t\t\tactive: true,\n-\t\t\tkind: 'lane',\n+\t\t\tkind: 'branch',\n \t\t\tcommits: [\n \t\t\t\t{\n \t\t\t\t\tid: 'c2',\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/+page.ts"
+							},
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/+page.ts:90",
+								"name": "<Hunk: @@ 90,11 90,11 @@ export const load: PageLoad = async () => {>",
+								"diff": "@@ -90,11 +90,11 @@ export const load: PageLoad = async () => {\n \t\t\tid: 'b3',\n \t\t\tname: 'stashed-things',\n \t\t\tactive: false,\n-\t\t\tkind: 'lane',\n+\t\t\tkind: 'branch',\n \t\t\tcommits: [\n \t\t\t\t{\n-\t\t\t\t\tid: 'c2',\n-\t\t\t\t\tdescription: 'Second commit',\n+\t\t\t\t\tid: 'c3',\n+\t\t\t\t\tdescription: 'Third commit',\n \t\t\t\t\tcommittedAt: subMinutes(new Date(), 50),\n \t\t\t\t\tkind: 'commit',\n \t\t\t\t\tfiles: [\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/+page.ts"
+							}
+						]
+					},
+					{
+						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/Board.svelte",
+						"path": "src/routes/projects_new/[projectId]/Board.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/Board.svelte:2",
+								"name": "<Hunk: @@ 2,7 2,7 @@ >",
+								"diff": "@@ -2,7 +2,7 @@\n \timport { flip } from 'svelte/animate';\n \timport { dndzone } from 'svelte-dnd-action';\n \timport Lane from './BranchLane.svelte';\n-\timport type { Branch, File, Hunk } from './types';\n+\timport type { Branch, Commit, File, Hunk } from './types';\n \timport type { DndEvent } from 'svelte-dnd-action/typings';\n \n \texport let branches: Branch[];\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/Board.svelte"
+							},
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/Board.svelte:10",
+								"name": "<Hunk: @@ 10,30 10,92 @@ >",
+								"diff": "@@ -10,30 +10,92 @@\n \tconst flipDurationMs = 300;\n \n \tfunction handleDndEvent(\n-\t\te: CustomEvent<DndEvent<Branch | File | Hunk>> & { target: HTMLElement }\n+\t\te: CustomEvent<DndEvent<Branch | Commit | File | Hunk>>,\n+\t\tisFinal: boolean\n \t) {\n-\t\tbranches = e.detail.items.filter((item) => item.kind == 'lane') as Branch[];\n-\t\t// TODO: Create lanes out of dropped files/hunks\n+\t\tconst branchItems = e.detail.items.filter((item) => item.kind == 'branch') as Branch[];\n+\t\tconst commitItems = e.detail.items.filter((item) => item.kind == 'commit') as Commit[];\n+\t\tconst fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];\n+\t\tconst hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];\n+\n+\t\tfor (const hunk of hunkItems) {\n+\t\t\tbranchItems.push({\n+\t\t\t\tid: `${Date.now()}-${hunk.id}-branch`,\n+\t\t\t\tname: 'new branch',\n+\t\t\t\tactive: true,\n+\t\t\t\tkind: 'branch',\n+\t\t\t\tcommits: [\n+\t\t\t\t\t{\n+\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-commit`,\n+\t\t\t\t\t\tdescription: 'New commit',\n+\t\t\t\t\t\tkind: 'commit',\n+\t\t\t\t\t\tfiles: [\n+\t\t\t\t\t\t\t{\n+\t\t\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-hunk`,\n+\t\t\t\t\t\t\t\tpath: hunk.filePath,\n+\t\t\t\t\t\t\t\tkind: 'file',\n+\t\t\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n+\t\t\t\t\t\t\t}\n+\t\t\t\t\t\t]\n+\t\t\t\t\t}\n+\t\t\t\t]\n+\t\t\t});\n+\t\t}\n+\t\tfor (const file of fileItems) {\n+\t\t\tbranchItems.push({\n+\t\t\t\tid: `${Date.now()}-${file.id}-branch`,\n+\t\t\t\tname: 'new branch',\n+\t\t\t\tactive: true,\n+\t\t\t\tkind: 'branch',\n+\t\t\t\tcommits: [\n+\t\t\t\t\t{\n+\t\t\t\t\t\tid: `${Date.now()}-${file.id}-commit`,\n+\t\t\t\t\t\tdescription: '',\n+\t\t\t\t\t\tkind: 'commit',\n+\t\t\t\t\t\tfiles: [file],\n+\t\t\t\t\t\tisDndShadowItem: !isFinal\n+\t\t\t\t\t}\n+\t\t\t\t]\n+\t\t\t});\n+\t\t}\n+\t\tfor (const commit of commitItems) {\n+\t\t\tbranchItems.push({\n+\t\t\t\tid: `${Date.now()}-${commit.id}-branch`,\n+\t\t\t\tname: 'new branch',\n+\t\t\t\tkind: 'branch',\n+\t\t\t\tactive: true,\n+\t\t\t\tcommits: [commit],\n+\t\t\t\tisDndShadowItem: !isFinal\n+\t\t\t});\n+\t\t}\n+\t\tbranches = branchItems.filter((commit) => commit.active);\n+\t}\n+\n+\tfunction handleEmpty() {\n+\t\tconst emptyIndex = branches.findIndex((item) => !item.commits || item.commits.length == 0);\n+\t\tif (emptyIndex != -1) {\n+\t\t\t// TODO: Figure out what to do when a branch is empty. Just removing it is a bit jarring.\n+\t\t}\n \t}\n </script>\n \n <section\n-\tclass=\"flex gap-x-4 p-4\"\n+\tclass=\"flex w-full gap-x-8 p-8\"\n \tuse:dndzone={{\n \t\titems: branches,\n \t\tflipDurationMs,\n-\t\ttypes: ['lane'],\n-\t\treceives: ['lane', 'file', 'hunk']\n+\t\ttypes: ['branch'],\n+\t\treceives: ['branch', 'commit', 'file', 'hunk']\n \t}}\n-\ton:consider={handleDndEvent}\n-\ton:finalize={handleDndEvent}\n+\ton:consider={(e) => handleDndEvent(e, false)}\n+\ton:finalize={(e) => handleDndEvent(e, true)}\n >\n \t{#each branches.filter((c) => c.active) as { id, name, commits }, idx (id)}\n \t\t<div\n \t\t\tclass=\"flex w-64 border border-zinc-700 bg-zinc-900/50 p-4\"\n \t\t\tanimate:flip={{ duration: flipDurationMs }}\n \t\t>\n-\t\t\t<Lane {name} bind:commits />\n+\t\t\t<Lane {name} bind:commits on:empty={handleEmpty} />\n \t\t</div>\n \t{/each}\n </section>\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/Board.svelte"
+							}
+						]
+					},
+					{
+						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/BranchLane.svelte",
+						"path": "src/routes/projects_new/[projectId]/BranchLane.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/BranchLane.svelte:4",
+								"name": "<Hunk: @@ 4,17 4,49 @@ >",
+								"diff": "@@ -4,17 +4,49 @@\n \timport type { DndEvent } from 'svelte-dnd-action/typings';\n \timport type { Commit, File, Hunk } from './types';\n \timport CommitGroup from './CommitGroup.svelte';\n+\timport { createEventDispatcher } from 'svelte';\n \n \texport let name: string;\n \texport let commits: Commit[];\n \n \tconst flipDurationMs = 150;\n+\tconst dispatch = createEventDispatcher();\n \n-\tfunction handleDndEvent(\n-\t\te: CustomEvent<DndEvent<Commit | File | Hunk>> & { target: HTMLElement }\n-\t) {\n-\t\tcommits = e.detail.items.filter((item) => item.kind == 'commit') as Commit[];\n-\t\t// TODO: Create lanes out of dropped files/hunks\n+\tfunction handleDndEvent(e: CustomEvent<DndEvent<Commit | File | Hunk>>, isFinal: boolean) {\n+\t\tconst commitItems = e.detail.items.filter((item) => item.kind == 'commit') as Commit[];\n+\t\tconst fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];\n+\t\tconst hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];\n+\n+\t\t// Merge hunks into existing files, or create new where none exist\n+\t\tfor (const hunk of hunkItems) {\n+\t\t\tcommitItems.push({\n+\t\t\t\tid: `${Date.now()}-${hunk.id}-commit`,\n+\t\t\t\tdescription: 'New commit',\n+\t\t\t\tkind: 'commit',\n+\t\t\t\tfiles: [\n+\t\t\t\t\t{\n+\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-hunk`,\n+\t\t\t\t\t\tpath: hunk.filePath,\n+\t\t\t\t\t\tkind: 'file',\n+\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n+\t\t\t\t\t}\n+\t\t\t\t]\n+\t\t\t});\n+\t\t}\n+\t\tfor (const file of fileItems) {\n+\t\t\tcommitItems.push({\n+\t\t\t\tid: `${Date.now()}-${file.id}`,\n+\t\t\t\tdescription: '',\n+\t\t\t\tkind: 'commit',\n+\t\t\t\tfiles: [file],\n+\t\t\t\tisDndShadowItem: !isFinal\n+\t\t\t});\n+\t\t}\n+\t\tcommits = commitItems.filter((commit) => commit.files && commit.files.length > 0);\n+\n+\t\tif (e.type == 'finalize' && (!commits || commits.length == 0)) {\n+\t\t\tdispatch('empty');\n+\t\t}\n \t}\n \n \tfunction handleEmpty() {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/BranchLane.svelte"
+							},
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/BranchLane.svelte:54",
+								"name": "<Hunk: @@ 22,6 54,9 @@ >",
+								"diff": "@@ -22,6 +54,9 @@\n \t\tif (emptyIndex != -1) {\n \t\t\tcommits.splice(emptyIndex, 1);\n \t\t}\n+\t\tif (commits.length == 0) {\n+\t\t\tdispatch('empty');\n+\t\t}\n \t}\n </script>\n \n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/BranchLane.svelte"
+							},
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/BranchLane.svelte:71",
+								"name": "<Hunk: @@ 36,10 71,10 @@ >",
+								"diff": "@@ -36,10 +71,10 @@\n \t\t\tflipDurationMs,\n \t\t\tzoneTabIndex: -1,\n \t\t\ttypes: ['commit'],\n-\t\t\treceives: ['commit']\n+\t\t\treceives: ['commit', 'file', 'hunk']\n \t\t}}\n-\t\ton:consider={(e) => handleDndEvent(e)}\n-\t\ton:finalize={(e) => handleDndEvent(e)}\n+\t\ton:consider={(e) => handleDndEvent(e, false)}\n+\t\ton:finalize={(e) => handleDndEvent(e, true)}\n \t>\n \t\t{#each commits.filter((x) => x.files) as { id, description, files }, idx (id)}\n \t\t\t<div animate:flip={{ duration: flipDurationMs }}>\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/BranchLane.svelte"
+							}
+						]
+					},
+					{
+						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/CommitGroup.svelte",
+						"path": "src/routes/projects_new/[projectId]/CommitGroup.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/CommitGroup.svelte:2",
+								"name": "<Hunk: @@ 2,14 2,16 @@ >",
+								"diff": "@@ -2,14 +2,16 @@\n \timport { flip } from 'svelte/animate';\n \timport { dndzone } from 'svelte-dnd-action';\n \timport type { DndEvent } from 'svelte-dnd-action/typings';\n-\timport type { Commit, File, Hunk } from './types';\n+\timport type { File, Hunk } from './types';\n \timport FileCard from './FileCard.svelte';\n+\timport { createEventDispatcher } from 'svelte';\n \n \texport let description: string;\n \texport let id: string;\n \texport let files: File[];\n \n \tconst flipDurationMs = 150;\n+\tconst dispatch = createEventDispatcher();\n \n \tfunction handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>, isFinal: boolean) {\n \t\tconst fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/CommitGroup.svelte"
+							},
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/CommitGroup.svelte:27",
+								"name": "<Hunk: @@ 25,27 27,26 @@ >",
+								"diff": "@@ -25,27 +27,26 @@\n \t\t\t\t\tid: `${Date.now()}-${hunk.id}`,\n \t\t\t\t\tpath: hunk.filePath,\n \t\t\t\t\tkind: 'file',\n-\t\t\t\t\thunks: [\n-\t\t\t\t\t\t{\n-\t\t\t\t\t\t\tid: hunk.id,\n-\t\t\t\t\t\t\tfilePath: hunk.filePath,\n-\t\t\t\t\t\t\tkind: hunk.kind,\n-\t\t\t\t\t\t\tmodifiedAt: hunk.modifiedAt,\n-\t\t\t\t\t\t\tname: hunk.name,\n-\t\t\t\t\t\t\tisDndShadowItem: !isFinal\n-\t\t\t\t\t\t}\n-\t\t\t\t\t]\n+\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n \t\t\t\t});\n \t\t\t}\n \t\t}\n \t\tfiles = fileItems.filter((file) => file.hunks && file.hunks.length > 0);\n+\n+\t\tif (e.type == 'finalize' && (!files || files.length == 0)) {\n+\t\t\tdispatch('empty');\n+\t\t\treturn;\n+\t\t}\n \t}\n \n-\tfunction handleEmptyFile() {\n+\tfunction handleEmpty() {\n \t\tconst emptyIndex = files.findIndex((item) => !item.hunks || item.hunks.length == 0);\n \t\tif (emptyIndex != -1) {\n \t\t\tfiles.splice(emptyIndex, 1);\n \t\t}\n+\t\tif (files.length == 0) {\n+\t\t\tdispatch('empty');\n+\t\t}\n \t}\n </script>\n \n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/CommitGroup.svelte"
+							},
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/CommitGroup.svelte:65",
+								"name": "<Hunk: @@ 64,7 65,7 @@ >",
+								"diff": "@@ -64,7 +65,7 @@\n >\n \t{#each files.filter((x) => x.hunks) as file, idx (file.id)}\n \t\t<div animate:flip={{ duration: flipDurationMs }}>\n-\t\t\t<FileCard bind:file on:empty={handleEmptyFile} />\n+\t\t\t<FileCard bind:file on:empty={handleEmpty} />\n \t\t</div>\n \t{/each}\n \t<div>\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/CommitGroup.svelte"
+							}
+						]
+					},
+					{
+						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/FileCard.svelte",
+						"path": "src/routes/projects_new/[projectId]/FileCard.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/FileCard.svelte:13",
+								"name": "<Hunk: @@ 13,12 13,12 @@ >",
+								"diff": "@@ -13,12 +13,12 @@\n \tconst flipDurationMs = 150;\n \n \tfunction handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {\n-\t\tif (!file.hunks || file.hunks.length == 0) {\n-\t\t\tdispatch('empty');\n-\t\t\treturn;\n-\t\t}\n \t\te.detail.items.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));\n \t\tfile.hunks = e.detail.items;\n+\n+\t\tif (e.type == 'finalize' && (!file.hunks || file.hunks.length == 0)) {\n+\t\t\tdispatch('empty');\n+\t\t}\n \t}\n </script>\n \n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/FileCard.svelte"
+							}
+						]
+					},
+					{
+						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/types.ts",
+						"path": "src/routes/projects_new/[projectId]/types.ts",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/types.ts:18",
+								"name": "<Hunk: @@ 18,9 18,10 @@ export type File = {>",
+								"diff": "@@ -18,9 +18,10 @@ export type File = {\n export type Commit = {\n \tid: string;\n \tdescription: string;\n-\tcommittedAt: Date;\n+\tcommittedAt?: Date;\n \tfiles: File[];\n \tkind: string;\n+\tisDndShadowItem?: boolean;\n };\n \n export type Branch = {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/types.ts"
+							},
+							{
+								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/types.ts:30",
+								"name": "<Hunk: @@ 29,4 30,5 @@ export type Branch = {>",
+								"diff": "@@ -29,4 +30,5 @@ export type Branch = {\n \tactive: boolean;\n \tcommits: Commit[];\n \tkind: string;\n+\tisDndShadowItem?: boolean;\n };\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T09:42:43Z",
+								"filePath": "src/routes/projects_new/[projectId]/types.ts"
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+]
