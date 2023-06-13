@@ -83,7 +83,7 @@ def process_pr(pr_number):
 
 
 # prs = get_last_n_pr_nums(4)
-prs = ["426", "427"]  # feel free to paste some some specific PRs
+prs = ["429", "420", "414", "409", "407"]  # feel free to paste some some specific PRs
 
 branches = [process_pr(pr) for pr in prs]
 

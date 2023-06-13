@@ -1,27 +1,157 @@
 [
 	{
-		"id": "animate-tray:426",
-		"name": "animate-tray",
+		"id": "mbg-more-dry:429",
+		"name": "mbg-more-dry",
 		"active": true,
 		"kind": "branch",
 		"commits": [
 			{
-				"id": "Commit:animate-tray:426",
-				"description": "make an animation for the tray branch groupings of active/inactive vbranches",
-				"committedAt": "2023-06-13T09:39:19Z",
+				"id": "Commit:mbg-more-dry:429",
+				"description": "Make drag & drop code a bit more dry",
+				"committedAt": "2023-06-13T15:44:07Z",
 				"kind": "commit",
 				"files": [
 					{
-						"id": "animate-tray:src/routes/projects_new/[projectId]/Tray.svelte",
+						"id": "mbg-more-dry:src/routes/projects_new/[projectId]/Board.svelte",
+						"path": "src/routes/projects_new/[projectId]/Board.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-more-dry:src/routes/projects_new/[projectId]/Board.svelte:4",
+								"name": "<Hunk: @@ 4,6 4,7 @@ >",
+								"diff": "@@ -4,6 +4,7 @@\n \timport Lane from './BranchLane.svelte';\n \timport type { Branch, Commit, File, Hunk } from './types';\n \timport type { DndEvent } from 'svelte-dnd-action/typings';\n+\timport { createBranch, createCommit, createFile } from './helpers';\n \n \texport let branches: Branch[];\n \n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T15:44:07Z",
+								"filePath": "src/routes/projects_new/[projectId]/Board.svelte"
+							},
+							{
+								"id": "mbg-more-dry:src/routes/projects_new/[projectId]/Board.svelte:20",
+								"name": "<Hunk: @@ 19,56 20,41 @@ >",
+								"diff": "@@ -19,56 +20,41 @@\n \t\tconst hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];\n \n \t\tfor (const hunk of hunkItems) {\n-\t\t\tbranchItems.push({\n-\t\t\t\tid: `${Date.now()}-${hunk.id}-branch`,\n-\t\t\t\tname: 'new branch',\n-\t\t\t\tactive: true,\n-\t\t\t\tkind: 'branch',\n-\t\t\t\tcommits: [\n-\t\t\t\t\t{\n-\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-commit`,\n-\t\t\t\t\t\tdescription: 'New commit',\n-\t\t\t\t\t\tkind: 'commit',\n-\t\t\t\t\t\tfiles: [\n-\t\t\t\t\t\t\t{\n-\t\t\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-hunk`,\n-\t\t\t\t\t\t\t\tpath: hunk.filePath,\n-\t\t\t\t\t\t\t\tkind: 'file',\n-\t\t\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n-\t\t\t\t\t\t\t}\n-\t\t\t\t\t\t]\n-\t\t\t\t\t}\n-\t\t\t\t]\n-\t\t\t});\n+\t\t\tbranchItems.push(\n+\t\t\t\tcreateBranch({\n+\t\t\t\t\tcommits: [\n+\t\t\t\t\t\tcreateCommit({\n+\t\t\t\t\t\t\tfiles: [\n+\t\t\t\t\t\t\t\tcreateFile({\n+\t\t\t\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }],\n+\t\t\t\t\t\t\t\t\tisShadow: false,\n+\t\t\t\t\t\t\t\t\tfilePath: hunk.filePath\n+\t\t\t\t\t\t\t\t})\n+\t\t\t\t\t\t\t],\n+\t\t\t\t\t\t\tisShadow: false\n+\t\t\t\t\t\t})\n+\t\t\t\t\t]\n+\t\t\t\t})\n+\t\t\t);\n \t\t}\n \t\tfor (const file of fileItems) {\n-\t\t\tbranchItems.push({\n-\t\t\t\tid: `${Date.now()}-${file.id}-branch`,\n-\t\t\t\tname: 'new branch',\n-\t\t\t\tactive: true,\n-\t\t\t\tkind: 'branch',\n-\t\t\t\tcommits: [\n-\t\t\t\t\t{\n-\t\t\t\t\t\tid: `${Date.now()}-${file.id}-commit`,\n-\t\t\t\t\t\tdescription: '',\n-\t\t\t\t\t\tkind: 'commit',\n-\t\t\t\t\t\tfiles: [{ ...file, isDndShadowItem: false }],\n-\t\t\t\t\t\tisDndShadowItem: !isFinal\n-\t\t\t\t\t}\n-\t\t\t\t]\n-\t\t\t});\n+\t\t\tbranchItems.push(\n+\t\t\t\tcreateBranch({\n+\t\t\t\t\tcommits: [\n+\t\t\t\t\t\tcreateCommit({ files: [{ ...file, isDndShadowItem: !isFinal }], isShadow: false })\n+\t\t\t\t\t]\n+\t\t\t\t})\n+\t\t\t);\n \t\t}\n \t\tfor (const commit of commitItems) {\n-\t\t\tbranchItems.push({\n-\t\t\t\tid: `${Date.now()}-${commit.id}-branch`,\n-\t\t\t\tname: 'new branch',\n-\t\t\t\tkind: 'branch',\n-\t\t\t\tactive: true,\n-\t\t\t\tcommits: [commit],\n-\t\t\t\tisDndShadowItem: !isFinal\n-\t\t\t});\n+\t\t\tbranchItems.push(\n+\t\t\t\tcreateBranch({\n+\t\t\t\t\tcommits: [commit]\n+\t\t\t\t})\n+\t\t\t);\n \t\t}\n \t\tbranches = branchItems.filter((commit) => commit.active);\n+\t\tconsole.log(branches);\n \t}\n \n \tfunction handleEmpty() {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T15:44:07Z",
+								"filePath": "src/routes/projects_new/[projectId]/Board.svelte"
+							}
+						]
+					},
+					{
+						"id": "mbg-more-dry:src/routes/projects_new/[projectId]/BranchLane.svelte",
+						"path": "src/routes/projects_new/[projectId]/BranchLane.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-more-dry:src/routes/projects_new/[projectId]/BranchLane.svelte:5",
+								"name": "<Hunk: @@ 5,6 5,7 @@ >",
+								"diff": "@@ -5,6 +5,7 @@\n \timport type { Commit, File, Hunk } from './types';\n \timport CommitGroup from './CommitGroup.svelte';\n \timport { createEventDispatcher } from 'svelte';\n+\timport { createCommit, createFile } from './helpers';\n \n \texport let name: string;\n \texport let commits: Commit[];\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T15:44:07Z",
+								"filePath": "src/routes/projects_new/[projectId]/BranchLane.svelte"
+							},
+							{
+								"id": "mbg-more-dry:src/routes/projects_new/[projectId]/BranchLane.svelte:20",
+								"name": "<Hunk: @@ 19,28 20,23 @@ >",
+								"diff": "@@ -19,28 +20,23 @@\n \n \t\t// Merge hunks into existing files, or create new where none exist\n \t\tfor (const hunk of hunkItems) {\n-\t\t\tcommitItems.push({\n-\t\t\t\tid: `${Date.now()}-${hunk.id}-commit`,\n-\t\t\t\tdescription: 'New commit',\n-\t\t\t\tkind: 'commit',\n-\t\t\t\tfiles: [\n-\t\t\t\t\t{\n-\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-hunk`,\n-\t\t\t\t\t\tpath: hunk.filePath,\n-\t\t\t\t\t\tkind: 'file',\n-\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n-\t\t\t\t\t}\n-\t\t\t\t]\n-\t\t\t});\n+\t\t\tcommitItems.push(\n+\t\t\t\tcreateCommit({\n+\t\t\t\t\tfiles: [\n+\t\t\t\t\t\tcreateFile({\n+\t\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }],\n+\t\t\t\t\t\t\tisShadow: false,\n+\t\t\t\t\t\t\tfilePath: hunk.filePath\n+\t\t\t\t\t\t})\n+\t\t\t\t\t],\n+\t\t\t\t\tisShadow: false\n+\t\t\t\t})\n+\t\t\t);\n \t\t}\n \t\tfor (const file of fileItems) {\n-\t\t\tcommitItems.push({\n-\t\t\t\tid: `${Date.now()}-${file.id}`,\n-\t\t\t\tdescription: 'New commit',\n-\t\t\t\tkind: 'commit',\n-\t\t\t\tfiles: [{ ...file, isDndShadowItem: false }],\n-\t\t\t\tisDndShadowItem: !isFinal\n-\t\t\t});\n+\t\t\tcommitItems.push(\n+\t\t\t\tcreateCommit({ files: [{ ...file, isDndShadowItem: true }], isShadow: false })\n+\t\t\t);\n \t\t}\n \t\tcommits = commitItems.filter((commit) => commit.files && commit.files.length > 0);\n \n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T15:44:07Z",
+								"filePath": "src/routes/projects_new/[projectId]/BranchLane.svelte"
+							}
+						]
+					},
+					{
+						"id": "mbg-more-dry:src/routes/projects_new/[projectId]/CommitGroup.svelte",
+						"path": "src/routes/projects_new/[projectId]/CommitGroup.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-more-dry:src/routes/projects_new/[projectId]/CommitGroup.svelte:5",
+								"name": "<Hunk: @@ 5,6 5,7 @@ >",
+								"diff": "@@ -5,6 +5,7 @@\n \timport type { File, Hunk } from './types';\n \timport FileCard from './FileCard.svelte';\n \timport { createEventDispatcher } from 'svelte';\n+\timport { createFile } from './helpers';\n \n \texport let description: string;\n \texport let id: string;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T15:44:07Z",
+								"filePath": "src/routes/projects_new/[projectId]/CommitGroup.svelte"
+							},
+							{
+								"id": "mbg-more-dry:src/routes/projects_new/[projectId]/CommitGroup.svelte:24",
+								"name": "<Hunk: @@ 23,12 24,13 @@ >",
+								"diff": "@@ -23,12 +24,13 @@\n \t\t\tif (file) {\n \t\t\t\tfile.hunks.push(hunk);\n \t\t\t} else {\n-\t\t\t\tfileItems.push({\n-\t\t\t\t\tid: `${Date.now()}-${hunk.id}`,\n-\t\t\t\t\tpath: hunk.filePath,\n-\t\t\t\t\tkind: 'file',\n-\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n-\t\t\t\t});\n+\t\t\t\tfileItems.push(\n+\t\t\t\t\tcreateFile({\n+\t\t\t\t\t\tfilePath: hunk.filePath,\n+\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }],\n+\t\t\t\t\t\tisShadow: false\n+\t\t\t\t\t})\n+\t\t\t\t);\n \t\t\t}\n \t\t}\n \t\tfiles = fileItems.filter((file) => file.hunks && file.hunks.length > 0);\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T15:44:07Z",
+								"filePath": "src/routes/projects_new/[projectId]/CommitGroup.svelte"
+							}
+						]
+					},
+					{
+						"id": "mbg-more-dry:src/routes/projects_new/[projectId]/helpers.ts",
+						"path": "src/routes/projects_new/[projectId]/helpers.ts",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "mbg-more-dry:src/routes/projects_new/[projectId]/helpers.ts:1",
+								"name": "<Hunk: @@ 1,11 1,38 @@ >",
+								"diff": "@@ -1,11 +1,38 @@\n-import type { Commit, File } from './types';\n+import type { Branch, Commit, File, Hunk } from './types';\n \n-export function createCommit(files: File[], isShadow: boolean): Commit {\n+let fileCounter = 0;\n+let commitCounter = 0;\n+let branchCounter = 0;\n+\n+export function createFile(args: { hunks: [Hunk]; filePath: string; isShadow: boolean }): File {\n+\tfileCounter++;\n+\treturn {\n+\t\tid: `file-${fileCounter}`,\n+\t\tpath: args.filePath,\n+\t\tkind: 'file',\n+\t\thunks: args.hunks,\n+\t\tisDndShadowItem: args.isShadow\n+\t};\n+}\n+\n+export function createCommit(args: { files: File[]; isShadow: boolean }): Commit {\n+\tcommitCounter++;\n \treturn {\n-\t\tid: `commit-${Date.now()}`,\n-\t\tdescription: '',\n+\t\tid: `commit-${commitCounter}`,\n+\t\tdescription: `New commit # ${commitCounter}`,\n \t\tkind: 'commit',\n-\t\tfiles: files,\n-\t\tisDndShadowItem: isShadow\n+\t\tfiles: args.files,\n+\t\tisDndShadowItem: args.isShadow\n+\t};\n+}\n+\n+export function createBranch(args: { commits: Commit[] }): Branch {\n+\tbranchCounter++;\n+\treturn {\n+\t\tid: `branch-${branchCounter}`,\n+\t\tname: `new branch ${branchCounter}`,\n+\t\tactive: true,\n+\t\tkind: 'branch',\n+\t\tcommits: args.commits\n \t};\n }\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-13T15:44:07Z",
+								"filePath": "src/routes/projects_new/[projectId]/helpers.ts"
+							}
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"id": "Branch-sidebar-is-stuck-to-side-of-the-window:420",
+		"name": "Branch-sidebar-is-stuck-to-side-of-the-window",
+		"active": true,
+		"kind": "branch",
+		"commits": [
+			{
+				"id": "Commit:Branch-sidebar-is-stuck-to-side-of-the-window:420",
+				"description": "Branch sidebar is stuck to side of the window",
+				"committedAt": "2023-06-09T15:18:26Z",
+				"kind": "commit",
+				"files": [
+					{
+						"id": "Branch-sidebar-is-stuck-to-side-of-the-window:src/routes/projects_new/[projectId]/+page.svelte",
+						"path": "src/routes/projects_new/[projectId]/+page.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "Branch-sidebar-is-stuck-to-side-of-the-window:src/routes/projects_new/[projectId]/+page.svelte:9",
+								"name": "<Hunk: @@ 9,7 9,7 @@ >",
+								"diff": "@@ -9,7 +9,7 @@\n \t$: console.log(columnsData);\n </script>\n \n-<div class=\"flex h-full gap-x-4 p-4\">\n+<div class=\"flex h-full\">\n \t<Tray bind:columns={columnsData} />\n \t<Board bind:columns={columnsData} />\n </div>\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-09T15:18:26Z",
+								"filePath": "src/routes/projects_new/[projectId]/+page.svelte"
+							}
+						]
+					},
+					{
+						"id": "Branch-sidebar-is-stuck-to-side-of-the-window:src/routes/projects_new/[projectId]/Board.svelte",
+						"path": "src/routes/projects_new/[projectId]/Board.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "Branch-sidebar-is-stuck-to-side-of-the-window:src/routes/projects_new/[projectId]/Board.svelte:10",
+								"name": "<Hunk: @@ 10,7 10,7 @@ >",
+								"diff": "@@ -10,7 +10,7 @@\n </script>\n \n <section\n-\tclass=\"flex gap-x-4\"\n+\tclass=\"flex gap-x-4 p-4\"\n \tuse:dndzone={{ items: columns, flipDurationMs, type: 'column' }}\n \ton:consider={(e) => (columns = e.detail.items)}\n \ton:finalize={(e) => (columns = e.detail.items)}\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-09T15:18:26Z",
+								"filePath": "src/routes/projects_new/[projectId]/Board.svelte"
+							}
+						]
+					},
+					{
+						"id": "Branch-sidebar-is-stuck-to-side-of-the-window:src/routes/projects_new/[projectId]/Tray.svelte",
 						"path": "src/routes/projects_new/[projectId]/Tray.svelte",
 						"kind": "file",
 						"hunks": [
 							{
-								"id": "animate-tray:src/routes/projects_new/[projectId]/Tray.svelte:1",
-								"name": "<Hunk: @@ 1,16 1,65 @@ >",
-								"diff": "@@ -1,16 +1,65 @@\n <script lang=\"ts\">\n \timport { flip } from 'svelte/animate';\n+\timport { quintOut } from 'svelte/easing';\n+\timport { crossfade } from 'svelte/transition';\n \timport { Checkbox } from '$lib/components';\n \timport type { Branch } from './types';\n+\timport animateHeight from './animation';\n \n \texport let columns: Branch[];\n+\n+\tconst [send, receive] = crossfade({\n+\t\tduration: (d) => {\n+\t\t\treturn Math.sqrt(d * 500);\n+\t\t},\n+\n+\t\tfallback(node, params) {\n+\t\t\tconst style = getComputedStyle(node);\n+\t\t\tconst transform = style.transform === 'none' ? '' : style.transform;\n+\n+\t\t\treturn {\n+\t\t\t\tduration: 600,\n+\t\t\t\teasing: quintOut,\n+\t\t\t\tcss: (t) => `\n+\t\t\t\t\ttransform: ${transform} scale(${t});\n+\t\t\t\t\topacity: ${t}\n+\t\t\t\t`\n+\t\t\t};\n+\t\t}\n+\t});\n </script>\n \n-<section class=\"flex h-full w-64 flex-col gap-y-4 border-r border-zinc-700 bg-[#2F2F33] p-4\">\n-\t{#each columns as column (column.id)}\n-\t\t<div animate:flip={{ duration: 150 }} class=\"rounded border border-zinc-600 bg-zinc-700 p-2\">\n-\t\t\t<Checkbox bind:checked={column.active} />\n-\t\t\t<span class=\"ml-2\">{column.name}</span>\n+<section class=\"flex h-full w-64 flex-col gap-y-2 border-r border-zinc-700 bg-[#2F2F33] p-4\">\n+\t<div>\n+\t\t<div use:animateHeight class=\"flex flex-col gap-y-2 py-2\">\n+\t\t\t<p>In the working directory:</p>\n+\t\t\t{#each columns.filter((c) => c.active) as column (column.id)}\n+\t\t\t\t<div\n+\t\t\t\t\tin:receive={{ key: column.id }}\n+\t\t\t\t\tout:send={{ key: column.id }}\n+\t\t\t\t\tanimate:flip={{ duration: 300 }}\n+\t\t\t\t\tclass=\"rounded border border-zinc-600 bg-zinc-700 p-2\"\n+\t\t\t\t>\n+\t\t\t\t\t<Checkbox bind:checked={column.active} />\n+\t\t\t\t\t<span class=\"ml-2\">{column.name}</span>\n+\t\t\t\t</div>\n+\t\t\t{/each}\n+\t\t</div>\n+\t</div>\n+\t<div>\n+\t\t<div use:animateHeight class=\"flex flex-col gap-y-2 py-2\">\n+\t\t\t<p>Inactive:</p>\n+\t\t\t{#each columns.filter((c) => !c.active) as column (column.id)}\n+\t\t\t\t<div\n+\t\t\t\t\tin:receive={{ key: column.id }}\n+\t\t\t\t\tout:send={{ key: column.id }}\n+\t\t\t\t\tanimate:flip={{ duration: 300 }}\n+\t\t\t\t\tclass=\"rounded border border-zinc-600 bg-zinc-700 p-2\"\n+\t\t\t\t>\n+\t\t\t\t\t<Checkbox bind:checked={column.active} />\n+\t\t\t\t\t<span class=\"ml-2\">{column.name}</span>\n+\t\t\t\t</div>\n+\t\t\t{/each}\n \t\t</div>\n-\t{/each}\n+\t</div>\n </section>\n",
+								"id": "Branch-sidebar-is-stuck-to-side-of-the-window:src/routes/projects_new/[projectId]/Tray.svelte:6",
+								"name": "<Hunk: @@ 6,9 6,7 @@ >",
+								"diff": "@@ -6,9 +6,7 @@\n \texport let columns: BranchLane[];\n </script>\n \n-<section\n-\tclass=\"flex h-full w-64 flex-col gap-y-4 rounded border border-zinc-700 bg-zinc-900/50 p-4\"\n->\n+<section class=\"flex h-full w-64 flex-col gap-y-4 border-r border-zinc-700 bg-[#2F2F33] p-4\">\n \t{#each columns as column (column.id)}\n \t\t<div animate:flip={{ duration: 150 }} class=\"rounded border border-zinc-600 bg-zinc-700 p-2\">\n \t\t\t<Checkbox bind:checked={column.active} />\n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:39:19Z",
+								"modifiedAt": "2023-06-09T15:18:26Z",
 								"filePath": "src/routes/projects_new/[projectId]/Tray.svelte"
 							}
 						]
@@ -31,168 +161,820 @@
 		]
 	},
 	{
-		"id": "mbg-dnd-misc:427",
-		"name": "mbg-dnd-misc",
+		"id": "watcher-work-w:414",
+		"name": "watcher-work-w",
 		"active": true,
 		"kind": "branch",
 		"commits": [
 			{
-				"id": "Commit:mbg-dnd-misc:427",
-				"description": "Improve nested drag & drop functionality",
-				"committedAt": "2023-06-13T09:42:43Z",
+				"id": "Commit:watcher-work-w:414",
+				"description": "watcher handler run async",
+				"committedAt": "2023-06-07T11:58:51Z",
 				"kind": "commit",
 				"files": [
 					{
-						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/+page.ts",
-						"path": "src/routes/projects_new/[projectId]/+page.ts",
+						"id": "watcher-work-w:src-tauri/src/app.rs",
+						"path": "src-tauri/src/app.rs",
 						"kind": "file",
 						"hunks": [
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/+page.ts:6",
-								"name": "<Hunk: @@ 6,10 6,10 @@ import { subSeconds, subMinutes, subHours } from 'date-fns';>",
-								"diff": "@@ -6,10 +6,10 @@ import { subSeconds, subMinutes, subHours } from 'date-fns';\n export const load: PageLoad = async () => {\n \tconst branches: Branch[] = [\n \t\t{\n-\t\t\tid: 'c1',\n+\t\t\tid: 'b1',\n \t\t\tname: 'feature-1',\n \t\t\tactive: true,\n-\t\t\tkind: 'lane',\n+\t\t\tkind: 'branch',\n \t\t\tcommits: [\n \t\t\t\t{\n \t\t\t\t\tid: 'c1',\n",
+								"id": "watcher-work-w:src-tauri/src/app.rs:131",
+								"name": "<Hunk: @@ 131,21 131,13 @@ impl App {>",
+								"diff": "@@ -131,21 +131,13 @@ impl App {\n             .unwrap()\n             .insert(project.id.clone(), proxy_tx);\n \n-        tauri::async_runtime::spawn_blocking(|| {\n+        tauri::async_runtime::spawn(async move {\n             let project = project;\n-\n-            let gb_repository = gb_repository::Repository::open(\n-                local_data_dir,\n-                project.id.clone(),\n-                projects_storage.clone(),\n-                users_storage,\n-            )\n-            .expect(\"failed to open git repository\");\n-\n             let watcher = watcher::Watcher::new(\n+                local_data_dir,\n                 &project,\n                 projects_storage,\n-                &gb_repository,\n+                users_storage,\n                 deltas_searcher,\n                 cancellation_token,\n                 events_sender,\n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/+page.ts"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/app.rs"
 							},
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/+page.ts:60",
-								"name": "<Hunk: @@ 60,7 60,7 @@ export const load: PageLoad = async () => {>",
-								"diff": "@@ -60,7 +60,7 @@ export const load: PageLoad = async () => {\n \t\t\tid: 'b2',\n \t\t\tname: 'bugfix',\n \t\t\tactive: true,\n-\t\t\tkind: 'lane',\n+\t\t\tkind: 'branch',\n \t\t\tcommits: [\n \t\t\t\t{\n \t\t\t\t\tid: 'c2',\n",
+								"id": "watcher-work-w:src-tauri/src/app.rs:148",
+								"name": "<Hunk: @@ 156,7 148,10 @@ impl App {>",
+								"diff": "@@ -156,7 +148,10 @@ impl App {\n             )\n             .expect(\"failed to create watcher\");\n \n-            futures::executor::block_on(watcher.start(proxy_rx)).expect(\"failed to init watcher\");\n+            watcher\n+                .start(proxy_rx)\n+                .await\n+                .expect(\"failed to init watcher\");\n         });\n \n         Ok(())\n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/+page.ts"
-							},
-							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/+page.ts:90",
-								"name": "<Hunk: @@ 90,11 90,11 @@ export const load: PageLoad = async () => {>",
-								"diff": "@@ -90,11 +90,11 @@ export const load: PageLoad = async () => {\n \t\t\tid: 'b3',\n \t\t\tname: 'stashed-things',\n \t\t\tactive: false,\n-\t\t\tkind: 'lane',\n+\t\t\tkind: 'branch',\n \t\t\tcommits: [\n \t\t\t\t{\n-\t\t\t\t\tid: 'c2',\n-\t\t\t\t\tdescription: 'Second commit',\n+\t\t\t\t\tid: 'c3',\n+\t\t\t\t\tdescription: 'Third commit',\n \t\t\t\t\tcommittedAt: subMinutes(new Date(), 50),\n \t\t\t\t\tkind: 'commit',\n \t\t\t\t\tfiles: [\n",
-								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/+page.ts"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/app.rs"
 							}
 						]
 					},
 					{
-						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/Board.svelte",
-						"path": "src/routes/projects_new/[projectId]/Board.svelte",
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/check_current_session.rs",
+						"path": "src-tauri/src/watcher/handlers/check_current_session.rs",
 						"kind": "file",
 						"hunks": [
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/Board.svelte:2",
-								"name": "<Hunk: @@ 2,7 2,7 @@ >",
-								"diff": "@@ -2,7 +2,7 @@\n \timport { flip } from 'svelte/animate';\n \timport { dndzone } from 'svelte-dnd-action';\n \timport Lane from './BranchLane.svelte';\n-\timport type { Branch, File, Hunk } from './types';\n+\timport type { Branch, Commit, File, Hunk } from './types';\n \timport type { DndEvent } from 'svelte-dnd-action/typings';\n \n \texport let branches: Branch[];\n",
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/check_current_session.rs:1",
+								"name": "<Hunk: @@ 1,27 1,43 @@ >",
+								"diff": "@@ -1,27 +1,43 @@\n-use std::{sync, time};\n+use std::{path, time};\n \n use anyhow::{Context, Result};\n \n-use crate::{gb_repository, sessions};\n+use crate::{gb_repository, projects, sessions, users};\n \n use super::events;\n \n-pub struct Handler<'handler> {\n-    gb_repository: sync::Arc<sync::Mutex<&'handler gb_repository::Repository>>,\n+#[derive(Clone)]\n+pub struct Handler {\n+    project_id: String,\n+    project_store: projects::Storage,\n+    local_data_dir: path::PathBuf,\n+    user_store: users::Storage,\n }\n \n-impl<'handler> Handler<'handler> {\n-    pub fn new(gb_repository: &'handler gb_repository::Repository) -> Self {\n+impl<'handler> Handler {\n+    pub fn new(\n+        local_data_dir: path::PathBuf,\n+        project_id: String,\n+        project_store: projects::Storage,\n+        user_store: users::Storage,\n+    ) -> Self {\n         Self {\n-            gb_repository: sync::Arc::new(sync::Mutex::new(gb_repository)),\n+            project_id,\n+            project_store,\n+            local_data_dir,\n+            user_store,\n         }\n     }\n \n     pub fn handle(&self, now: time::SystemTime) -> Result<Vec<events::Event>> {\n-        match self\n-            .gb_repository\n-            .lock()\n-            .unwrap()\n+        let gb_repo = gb_repository::Repository::open(\n+            &self.local_data_dir,\n+            self.project_id.clone(),\n+            self.project_store.clone(),\n+            self.user_store.clone(),\n+        )\n+        .context(\"failed to open repository\")?;\n+        match gb_repo\n             .get_current_session()\n             .context(\"failed to get current session\")?\n         {\n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/Board.svelte"
-							},
-							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/Board.svelte:10",
-								"name": "<Hunk: @@ 10,30 10,92 @@ >",
-								"diff": "@@ -10,30 +10,92 @@\n \tconst flipDurationMs = 300;\n \n \tfunction handleDndEvent(\n-\t\te: CustomEvent<DndEvent<Branch | File | Hunk>> & { target: HTMLElement }\n+\t\te: CustomEvent<DndEvent<Branch | Commit | File | Hunk>>,\n+\t\tisFinal: boolean\n \t) {\n-\t\tbranches = e.detail.items.filter((item) => item.kind == 'lane') as Branch[];\n-\t\t// TODO: Create lanes out of dropped files/hunks\n+\t\tconst branchItems = e.detail.items.filter((item) => item.kind == 'branch') as Branch[];\n+\t\tconst commitItems = e.detail.items.filter((item) => item.kind == 'commit') as Commit[];\n+\t\tconst fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];\n+\t\tconst hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];\n+\n+\t\tfor (const hunk of hunkItems) {\n+\t\t\tbranchItems.push({\n+\t\t\t\tid: `${Date.now()}-${hunk.id}-branch`,\n+\t\t\t\tname: 'new branch',\n+\t\t\t\tactive: true,\n+\t\t\t\tkind: 'branch',\n+\t\t\t\tcommits: [\n+\t\t\t\t\t{\n+\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-commit`,\n+\t\t\t\t\t\tdescription: 'New commit',\n+\t\t\t\t\t\tkind: 'commit',\n+\t\t\t\t\t\tfiles: [\n+\t\t\t\t\t\t\t{\n+\t\t\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-hunk`,\n+\t\t\t\t\t\t\t\tpath: hunk.filePath,\n+\t\t\t\t\t\t\t\tkind: 'file',\n+\t\t\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n+\t\t\t\t\t\t\t}\n+\t\t\t\t\t\t]\n+\t\t\t\t\t}\n+\t\t\t\t]\n+\t\t\t});\n+\t\t}\n+\t\tfor (const file of fileItems) {\n+\t\t\tbranchItems.push({\n+\t\t\t\tid: `${Date.now()}-${file.id}-branch`,\n+\t\t\t\tname: 'new branch',\n+\t\t\t\tactive: true,\n+\t\t\t\tkind: 'branch',\n+\t\t\t\tcommits: [\n+\t\t\t\t\t{\n+\t\t\t\t\t\tid: `${Date.now()}-${file.id}-commit`,\n+\t\t\t\t\t\tdescription: '',\n+\t\t\t\t\t\tkind: 'commit',\n+\t\t\t\t\t\tfiles: [file],\n+\t\t\t\t\t\tisDndShadowItem: !isFinal\n+\t\t\t\t\t}\n+\t\t\t\t]\n+\t\t\t});\n+\t\t}\n+\t\tfor (const commit of commitItems) {\n+\t\t\tbranchItems.push({\n+\t\t\t\tid: `${Date.now()}-${commit.id}-branch`,\n+\t\t\t\tname: 'new branch',\n+\t\t\t\tkind: 'branch',\n+\t\t\t\tactive: true,\n+\t\t\t\tcommits: [commit],\n+\t\t\t\tisDndShadowItem: !isFinal\n+\t\t\t});\n+\t\t}\n+\t\tbranches = branchItems.filter((commit) => commit.active);\n+\t}\n+\n+\tfunction handleEmpty() {\n+\t\tconst emptyIndex = branches.findIndex((item) => !item.commits || item.commits.length == 0);\n+\t\tif (emptyIndex != -1) {\n+\t\t\t// TODO: Figure out what to do when a branch is empty. Just removing it is a bit jarring.\n+\t\t}\n \t}\n </script>\n \n <section\n-\tclass=\"flex gap-x-4 p-4\"\n+\tclass=\"flex w-full gap-x-8 p-8\"\n \tuse:dndzone={{\n \t\titems: branches,\n \t\tflipDurationMs,\n-\t\ttypes: ['lane'],\n-\t\treceives: ['lane', 'file', 'hunk']\n+\t\ttypes: ['branch'],\n+\t\treceives: ['branch', 'commit', 'file', 'hunk']\n \t}}\n-\ton:consider={handleDndEvent}\n-\ton:finalize={handleDndEvent}\n+\ton:consider={(e) => handleDndEvent(e, false)}\n+\ton:finalize={(e) => handleDndEvent(e, true)}\n >\n \t{#each branches.filter((c) => c.active) as { id, name, commits }, idx (id)}\n \t\t<div\n \t\t\tclass=\"flex w-64 border border-zinc-700 bg-zinc-900/50 p-4\"\n \t\t\tanimate:flip={{ duration: flipDurationMs }}\n \t\t>\n-\t\t\t<Lane {name} bind:commits />\n+\t\t\t<Lane {name} bind:commits on:empty={handleEmpty} />\n \t\t</div>\n \t{/each}\n </section>\n",
-								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/Board.svelte"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/check_current_session.rs"
 							}
 						]
 					},
 					{
-						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/BranchLane.svelte",
-						"path": "src/routes/projects_new/[projectId]/BranchLane.svelte",
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/check_fetch_project.rs",
+						"path": "src-tauri/src/watcher/handlers/check_fetch_project.rs",
 						"kind": "file",
 						"hunks": [
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/BranchLane.svelte:4",
-								"name": "<Hunk: @@ 4,17 4,49 @@ >",
-								"diff": "@@ -4,17 +4,49 @@\n \timport type { DndEvent } from 'svelte-dnd-action/typings';\n \timport type { Commit, File, Hunk } from './types';\n \timport CommitGroup from './CommitGroup.svelte';\n+\timport { createEventDispatcher } from 'svelte';\n \n \texport let name: string;\n \texport let commits: Commit[];\n \n \tconst flipDurationMs = 150;\n+\tconst dispatch = createEventDispatcher();\n \n-\tfunction handleDndEvent(\n-\t\te: CustomEvent<DndEvent<Commit | File | Hunk>> & { target: HTMLElement }\n-\t) {\n-\t\tcommits = e.detail.items.filter((item) => item.kind == 'commit') as Commit[];\n-\t\t// TODO: Create lanes out of dropped files/hunks\n+\tfunction handleDndEvent(e: CustomEvent<DndEvent<Commit | File | Hunk>>, isFinal: boolean) {\n+\t\tconst commitItems = e.detail.items.filter((item) => item.kind == 'commit') as Commit[];\n+\t\tconst fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];\n+\t\tconst hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];\n+\n+\t\t// Merge hunks into existing files, or create new where none exist\n+\t\tfor (const hunk of hunkItems) {\n+\t\t\tcommitItems.push({\n+\t\t\t\tid: `${Date.now()}-${hunk.id}-commit`,\n+\t\t\t\tdescription: 'New commit',\n+\t\t\t\tkind: 'commit',\n+\t\t\t\tfiles: [\n+\t\t\t\t\t{\n+\t\t\t\t\t\tid: `${Date.now()}-${hunk.id}-hunk`,\n+\t\t\t\t\t\tpath: hunk.filePath,\n+\t\t\t\t\t\tkind: 'file',\n+\t\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n+\t\t\t\t\t}\n+\t\t\t\t]\n+\t\t\t});\n+\t\t}\n+\t\tfor (const file of fileItems) {\n+\t\t\tcommitItems.push({\n+\t\t\t\tid: `${Date.now()}-${file.id}`,\n+\t\t\t\tdescription: '',\n+\t\t\t\tkind: 'commit',\n+\t\t\t\tfiles: [file],\n+\t\t\t\tisDndShadowItem: !isFinal\n+\t\t\t});\n+\t\t}\n+\t\tcommits = commitItems.filter((commit) => commit.files && commit.files.length > 0);\n+\n+\t\tif (e.type == 'finalize' && (!commits || commits.length == 0)) {\n+\t\t\tdispatch('empty');\n+\t\t}\n \t}\n \n \tfunction handleEmpty() {\n",
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/check_fetch_project.rs:6",
+								"name": "<Hunk: @@ 6,6 6,7 @@ use crate::projects;>",
+								"diff": "@@ -6,6 +6,7 @@ use crate::projects;\n \n use super::events;\n \n+#[derive(Clone)]\n pub struct Handler {\n     project_id: String,\n     project_storage: projects::Storage,\n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/BranchLane.svelte"
-							},
-							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/BranchLane.svelte:54",
-								"name": "<Hunk: @@ 22,6 54,9 @@ >",
-								"diff": "@@ -22,6 +54,9 @@\n \t\tif (emptyIndex != -1) {\n \t\t\tcommits.splice(emptyIndex, 1);\n \t\t}\n+\t\tif (commits.length == 0) {\n+\t\t\tdispatch('empty');\n+\t\t}\n \t}\n </script>\n \n",
-								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/BranchLane.svelte"
-							},
-							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/BranchLane.svelte:71",
-								"name": "<Hunk: @@ 36,10 71,10 @@ >",
-								"diff": "@@ -36,10 +71,10 @@\n \t\t\tflipDurationMs,\n \t\t\tzoneTabIndex: -1,\n \t\t\ttypes: ['commit'],\n-\t\t\treceives: ['commit']\n+\t\t\treceives: ['commit', 'file', 'hunk']\n \t\t}}\n-\t\ton:consider={(e) => handleDndEvent(e)}\n-\t\ton:finalize={(e) => handleDndEvent(e)}\n+\t\ton:consider={(e) => handleDndEvent(e, false)}\n+\t\ton:finalize={(e) => handleDndEvent(e, true)}\n \t>\n \t\t{#each commits.filter((x) => x.files) as { id, description, files }, idx (id)}\n \t\t\t<div animate:flip={{ duration: flipDurationMs }}>\n",
-								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/BranchLane.svelte"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/check_fetch_project.rs"
 							}
 						]
 					},
 					{
-						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/CommitGroup.svelte",
-						"path": "src/routes/projects_new/[projectId]/CommitGroup.svelte",
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/fetch_project.rs",
+						"path": "src-tauri/src/watcher/handlers/fetch_project.rs",
 						"kind": "file",
 						"hunks": [
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/CommitGroup.svelte:2",
-								"name": "<Hunk: @@ 2,14 2,16 @@ >",
-								"diff": "@@ -2,14 +2,16 @@\n \timport { flip } from 'svelte/animate';\n \timport { dndzone } from 'svelte-dnd-action';\n \timport type { DndEvent } from 'svelte-dnd-action/typings';\n-\timport type { Commit, File, Hunk } from './types';\n+\timport type { File, Hunk } from './types';\n \timport FileCard from './FileCard.svelte';\n+\timport { createEventDispatcher } from 'svelte';\n \n \texport let description: string;\n \texport let id: string;\n \texport let files: File[];\n \n \tconst flipDurationMs = 150;\n+\tconst dispatch = createEventDispatcher();\n \n \tfunction handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>, isFinal: boolean) {\n \t\tconst fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];\n",
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/fetch_project.rs:1",
+								"name": "<Hunk: @@ 1,37 1,48 @@ >",
+								"diff": "@@ -1,37 +1,48 @@\n-use std::time;\n+use std::{path, time};\n \n use anyhow::{Context, Result};\n \n-use crate::{gb_repository, projects};\n+use crate::{gb_repository, projects, users};\n \n use super::events;\n \n-pub struct Handler<'handler> {\n+#[derive(Clone)]\n+pub struct Handler {\n     project_id: String,\n     project_storage: projects::Storage,\n-    gb_repository: &'handler gb_repository::Repository,\n+    local_data_dir: path::PathBuf,\n+    user_storage: users::Storage,\n }\n \n-impl<'handler> Handler<'handler> {\n+impl Handler {\n     pub fn new(\n+        local_data_dir: path::PathBuf,\n         project_id: String,\n         project_storage: projects::Storage,\n-        gb_repository: &'handler gb_repository::Repository,\n+        user_storage: users::Storage,\n     ) -> Self {\n         Self {\n             project_id,\n             project_storage,\n-            gb_repository,\n+            user_storage,\n+            local_data_dir,\n         }\n     }\n \n     pub fn handle(&self) -> Result<Vec<events::Event>> {\n-        let sessions_before_fetch = self\n-            .gb_repository\n+        let gb_rep = gb_repository::Repository::open(\n+            self.local_data_dir.clone(),\n+            self.project_id.clone(),\n+            self.project_storage.clone(),\n+            self.user_storage.clone(),\n+        )\n+        .context(\"failed to open repository\")?;\n+\n+        let sessions_before_fetch = gb_rep\n             .get_sessions_iterator()?\n             .filter_map(|s| s.ok())\n             .collect::<Vec<_>>();\n-        if !self.gb_repository.fetch().context(\"failed to fetch\")? {\n+        if !gb_rep.fetch().context(\"failed to fetch\")? {\n             return Ok(vec![]);\n         }\n \n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/CommitGroup.svelte"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/fetch_project.rs"
 							},
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/CommitGroup.svelte:27",
-								"name": "<Hunk: @@ 25,27 27,26 @@ >",
-								"diff": "@@ -25,27 +27,26 @@\n \t\t\t\t\tid: `${Date.now()}-${hunk.id}`,\n \t\t\t\t\tpath: hunk.filePath,\n \t\t\t\t\tkind: 'file',\n-\t\t\t\t\thunks: [\n-\t\t\t\t\t\t{\n-\t\t\t\t\t\t\tid: hunk.id,\n-\t\t\t\t\t\t\tfilePath: hunk.filePath,\n-\t\t\t\t\t\t\tkind: hunk.kind,\n-\t\t\t\t\t\t\tmodifiedAt: hunk.modifiedAt,\n-\t\t\t\t\t\t\tname: hunk.name,\n-\t\t\t\t\t\t\tisDndShadowItem: !isFinal\n-\t\t\t\t\t\t}\n-\t\t\t\t\t]\n+\t\t\t\t\thunks: [{ ...hunk, isDndShadowItem: !isFinal }]\n \t\t\t\t});\n \t\t\t}\n \t\t}\n \t\tfiles = fileItems.filter((file) => file.hunks && file.hunks.length > 0);\n+\n+\t\tif (e.type == 'finalize' && (!files || files.length == 0)) {\n+\t\t\tdispatch('empty');\n+\t\t\treturn;\n+\t\t}\n \t}\n \n-\tfunction handleEmptyFile() {\n+\tfunction handleEmpty() {\n \t\tconst emptyIndex = files.findIndex((item) => !item.hunks || item.hunks.length == 0);\n \t\tif (emptyIndex != -1) {\n \t\t\tfiles.splice(emptyIndex, 1);\n \t\t}\n+\t\tif (files.length == 0) {\n+\t\t\tdispatch('empty');\n+\t\t}\n \t}\n </script>\n \n",
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/fetch_project.rs:59",
+								"name": "<Hunk: @@ 48,8 59,7 @@ impl<'handler> Handler<'handler> {>",
+								"diff": "@@ -48,8 +59,7 @@ impl<'handler> Handler<'handler> {\n             })\n             .context(\"failed to update project\")?;\n \n-        let sessions_after_fetch = self\n-            .gb_repository\n+        let sessions_after_fetch = gb_rep\n             .get_sessions_iterator()?\n             .filter_map(|s| s.ok())\n             .collect::<Vec<_>>();\n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/CommitGroup.svelte"
-							},
-							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/CommitGroup.svelte:65",
-								"name": "<Hunk: @@ 64,7 65,7 @@ >",
-								"diff": "@@ -64,7 +65,7 @@\n >\n \t{#each files.filter((x) => x.hunks) as file, idx (file.id)}\n \t\t<div animate:flip={{ duration: flipDurationMs }}>\n-\t\t\t<FileCard bind:file on:empty={handleEmptyFile} />\n+\t\t\t<FileCard bind:file on:empty={handleEmpty} />\n \t\t</div>\n \t{/each}\n \t<div>\n",
-								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/CommitGroup.svelte"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/fetch_project.rs"
 							}
 						]
 					},
 					{
-						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/FileCard.svelte",
-						"path": "src/routes/projects_new/[projectId]/FileCard.svelte",
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/file_change.rs",
+						"path": "src-tauri/src/watcher/handlers/file_change.rs",
 						"kind": "file",
 						"hunks": [
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/FileCard.svelte:13",
-								"name": "<Hunk: @@ 13,12 13,12 @@ >",
-								"diff": "@@ -13,12 +13,12 @@\n \tconst flipDurationMs = 150;\n \n \tfunction handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {\n-\t\tif (!file.hunks || file.hunks.length == 0) {\n-\t\t\tdispatch('empty');\n-\t\t\treturn;\n-\t\t}\n \t\te.detail.items.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));\n \t\tfile.hunks = e.detail.items;\n+\n+\t\tif (e.type == 'finalize' && (!file.hunks || file.hunks.length == 0)) {\n+\t\t\tdispatch('empty');\n+\t\t}\n \t}\n </script>\n \n",
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/file_change.rs:2",
+								"name": "<Hunk: @@ 2,6 2,7 @@ use anyhow::Result;>",
+								"diff": "@@ -2,6 +2,7 @@ use anyhow::Result;\n \n use crate::watcher::events;\n \n+#[derive(Clone)]\n pub struct Handler {}\n \n impl Handler {\n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/FileCard.svelte"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/file_change.rs"
 							}
 						]
 					},
 					{
-						"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/types.ts",
-						"path": "src/routes/projects_new/[projectId]/types.ts",
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/flush_session.rs",
+						"path": "src-tauri/src/watcher/handlers/flush_session.rs",
 						"kind": "file",
 						"hunks": [
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/types.ts:18",
-								"name": "<Hunk: @@ 18,9 18,10 @@ export type File = {>",
-								"diff": "@@ -18,9 +18,10 @@ export type File = {\n export type Commit = {\n \tid: string;\n \tdescription: string;\n-\tcommittedAt: Date;\n+\tcommittedAt?: Date;\n \tfiles: File[];\n \tkind: string;\n+\tisDndShadowItem?: boolean;\n };\n \n export type Branch = {\n",
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/flush_session.rs:1",
+								"name": "<Hunk: @@ 1,25 1,31 @@ >",
+								"diff": "@@ -1,25 +1,31 @@\n+use std::path;\n+\n use anyhow::{anyhow, Context, Result};\n \n-use crate::{gb_repository, project_repository, projects, sessions};\n+use crate::{gb_repository, project_repository, projects, sessions, users};\n \n use super::events;\n \n-pub struct Handler<'handler> {\n+#[derive(Clone)]\n+pub struct Handler {\n     project_id: String,\n     project_store: projects::Storage,\n-    gb_repository: &'handler gb_repository::Repository,\n+    local_data_dir: path::PathBuf,\n+    user_store: users::Storage,\n }\n \n-impl<'listener> Handler<'listener> {\n+impl<'listener> Handler {\n     pub fn new(\n+        local_data_dir: path::PathBuf,\n         project_id: String,\n         project_store: projects::Storage,\n-        gb_repository: &'listener gb_repository::Repository,\n+        user_store: users::Storage,\n     ) -> Self {\n         Self {\n             project_id,\n-            gb_repository,\n             project_store,\n+            local_data_dir,\n+            user_store,\n         }\n     }\n \n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/types.ts"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/flush_session.rs"
 							},
 							{
-								"id": "mbg-dnd-misc:src/routes/projects_new/[projectId]/types.ts:30",
-								"name": "<Hunk: @@ 29,4 30,5 @@ export type Branch = {>",
-								"diff": "@@ -29,4 +30,5 @@ export type Branch = {\n \tactive: boolean;\n \tcommits: Commit[];\n \tkind: string;\n+\tisDndShadowItem?: boolean;\n };\n",
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/flush_session.rs:36",
+								"name": "<Hunk: @@ 30,8 36,15 @@ impl<'listener> Handler<'listener> {>",
+								"diff": "@@ -30,8 +36,15 @@ impl<'listener> Handler<'listener> {\n             .context(\"failed to get project\")?\n             .ok_or_else(|| anyhow!(\"project not found\"))?;\n \n-        let session = self\n-            .gb_repository\n+        let gb_repo = gb_repository::Repository::open(\n+            &self.local_data_dir,\n+            self.project_id.clone(),\n+            self.project_store.clone(),\n+            self.user_store.clone(),\n+        )\n+        .context(\"failed to open repository\")?;\n+\n+        let session = gb_repo\n             .flush_session(&project_repository::Repository::open(&project)?, session)\n             .context(\"failed to flush session\")?;\n \n",
 								"kind": "hunk",
-								"modifiedAt": "2023-06-13T09:42:43Z",
-								"filePath": "src/routes/projects_new/[projectId]/types.ts"
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/flush_session.rs"
+							}
+						]
+					},
+					{
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/git_file_change.rs",
+						"path": "src-tauri/src/watcher/handlers/git_file_change.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/git_file_change.rs:4",
+								"name": "<Hunk: @@ 4,6 4,7 @@ use crate::{project_repository, projects};>",
+								"diff": "@@ -4,6 +4,7 @@ use crate::{project_repository, projects};\n \n use super::events;\n \n+#[derive(Clone)]\n pub struct Handler {\n     project_id: String,\n     project_store: projects::Storage,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/git_file_change.rs"
+							}
+						]
+					},
+					{
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/index_handler.rs",
+						"path": "src-tauri/src/watcher/handlers/index_handler.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/index_handler.rs:1",
+								"name": "<Hunk: @@ 1,13 1,21 @@ >",
+								"diff": "@@ -1,13 +1,21 @@\n+use std::path;\n+\n use anyhow::{Context, Result};\n \n-use crate::{bookmarks, deltas, events as app_events, files, gb_repository, search, sessions};\n+use crate::{\n+    bookmarks, deltas, events as app_events, files, gb_repository, projects, search, sessions,\n+    users,\n+};\n \n use super::events;\n \n-pub struct Handler<'handler> {\n+#[derive(Clone)]\n+pub struct Handler {\n+    local_data_dir: path::PathBuf,\n     project_id: String,\n+    project_store: projects::Storage,\n+    user_store: users::Storage,\n     deltas_searcher: search::Searcher,\n-    gb_repository: &'handler gb_repository::Repository,\n     files_database: files::Database,\n     sessions_database: sessions::Database,\n     deltas_database: deltas::Database,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/index_handler.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/index_handler.rs:23",
+								"name": "<Hunk: @@ 15,12 23,14 @@ pub struct Handler<'handler> {>",
+								"diff": "@@ -15,12 +23,14 @@ pub struct Handler<'handler> {\n     events_sender: app_events::Sender,\n }\n \n-impl<'handler> Handler<'handler> {\n+impl Handler {\n     #[allow(clippy::too_many_arguments)]\n     pub fn new(\n+        local_data_dir: path::PathBuf,\n         project_id: String,\n+        project_store: projects::Storage,\n+        user_store: users::Storage,\n         deltas_searcher: search::Searcher,\n-        gb_repository: &'handler gb_repository::Repository,\n         files_database: files::Database,\n         sessions_database: sessions::Database,\n         deltas_database: deltas::Database,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/index_handler.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/index_handler.rs:38",
+								"name": "<Hunk: @@ 28,9 38,11 @@ impl<'handler> Handler<'handler> {>",
+								"diff": "@@ -28,9 +38,11 @@ impl<'handler> Handler<'handler> {\n         events_sender: app_events::Sender,\n     ) -> Self {\n         Self {\n+            local_data_dir,\n             project_id,\n+            project_store,\n+            user_store,\n             deltas_searcher,\n-            gb_repository,\n             files_database,\n             sessions_database,\n             deltas_database,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/index_handler.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/index_handler.rs:86",
+								"name": "<Hunk: @@ 74,7 86,15 @@ impl<'handler> Handler<'handler> {>",
+								"diff": "@@ -74,7 +86,15 @@ impl<'handler> Handler<'handler> {\n     }\n \n     pub fn reindex(&self) -> Result<Vec<events::Event>> {\n-        let sessions_iter = self.gb_repository.get_sessions_iterator()?;\n+        let gb_repository = gb_repository::Repository::open(\n+            self.local_data_dir.clone(),\n+            self.project_id.clone(),\n+            self.project_store.clone(),\n+            self.user_store.clone(),\n+        )\n+        .context(\"failed to open repository\")?;\n+\n+        let sessions_iter = gb_repository.get_sessions_iterator()?;\n         let mut events = vec![];\n         for session in sessions_iter {\n             events.extend(self.index_session(&session?)?);\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/index_handler.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/index_handler.rs:103",
+								"name": "<Hunk: @@ 83,16 103,24 @@ impl<'handler> Handler<'handler> {>",
+								"diff": "@@ -83,16 +103,24 @@ impl<'handler> Handler<'handler> {\n     }\n \n     pub fn index_session(&self, session: &sessions::Session) -> Result<Vec<events::Event>> {\n+        let gb_repository = gb_repository::Repository::open(\n+            self.local_data_dir.clone(),\n+            self.project_id.clone(),\n+            self.project_store.clone(),\n+            self.user_store.clone(),\n+        )\n+        .context(\"failed to open repository\")?;\n+\n         // first of all, index session for searching. searhcer keeps it's own state to\n         // decide if the actual indexing needed\n         self.deltas_searcher\n-            .index_session(self.gb_repository, session)\n+            .index_session(&gb_repository, session)\n             .context(\"failed to index session\")?;\n \n         // index bookmarks right away. bookmarks are stored in the session during which it was\n         // created, not in the session that is actually bookmarked. so we want to make sure all of\n         // them are indexed at all times\n-        let session_reader = sessions::Reader::open(self.gb_repository, session)?;\n+        let session_reader = sessions::Reader::open(&gb_repository, session)?;\n         let bookmarks_reader = bookmarks::Reader::new(&session_reader);\n         for bookmark in bookmarks_reader.read()? {\n             self.index_bookmark(&bookmark)?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/index_handler.rs"
+							}
+						]
+					},
+					{
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/mod.rs",
+						"path": "src-tauri/src/watcher/handlers/mod.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/mod.rs:12",
+								"name": "<Hunk: @@ 12,35 12,37 @@ mod check_current_session_tests;>",
+								"diff": "@@ -12,35 +12,37 @@ mod check_current_session_tests;\n #[cfg(test)]\n mod project_file_change_tests;\n \n+use std::path::PathBuf;\n+\n use anyhow::{Context, Result};\n \n-use crate::{\n-    bookmarks, deltas, events as app_events, files, gb_repository, projects, search, sessions,\n-};\n+use crate::{bookmarks, deltas, events as app_events, files, projects, search, sessions, users};\n \n use super::events;\n \n-pub struct Handler<'handler> {\n+#[derive(Clone)]\n+pub struct Handler {\n     project_id: String,\n \n     file_change_handler: file_change::Handler,\n-    project_file_handler: project_file_change::Handler<'handler>,\n+    project_file_handler: project_file_change::Handler,\n     git_file_change_handler: git_file_change::Handler,\n-    check_current_session_handler: check_current_session::Handler<'handler>,\n-    flush_session_handler: flush_session::Handler<'handler>,\n-    fetch_project_handler: fetch_project::Handler<'handler>,\n+    check_current_session_handler: check_current_session::Handler,\n+    flush_session_handler: flush_session::Handler,\n+    fetch_project_handler: fetch_project::Handler,\n     chech_fetch_project_handler: check_fetch_project::Handler,\n-    index_handler: index_handler::Handler<'handler>,\n+    index_handler: index_handler::Handler,\n \n     events_sender: app_events::Sender,\n }\n \n-impl<'handler> Handler<'handler> {\n+impl<'handler> Handler {\n     #[allow(clippy::too_many_arguments)]\n     pub fn new(\n+        local_data_dir: PathBuf,\n         project_id: String,\n         project_store: projects::Storage,\n-        gb_repository: &'handler gb_repository::Repository,\n+        user_store: users::Storage,\n         searcher: search::Searcher,\n         events_sender: app_events::Sender,\n         sessions_database: sessions::Database,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/mod.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/mod.rs:56",
+								"name": "<Hunk: @@ 54,33 56,43 @@ impl<'handler> Handler<'handler> {>",
+								"diff": "@@ -54,33 +56,43 @@ impl<'handler> Handler<'handler> {\n \n             file_change_handler: file_change::Handler::new(),\n             project_file_handler: project_file_change::Handler::new(\n+                local_data_dir.clone(),\n+                project_id.clone(),\n+                project_store.clone(),\n+                user_store.clone(),\n+            ),\n+            check_current_session_handler: check_current_session::Handler::new(\n+                local_data_dir.clone(),\n                 project_id.clone(),\n                 project_store.clone(),\n-                gb_repository,\n+                user_store.clone(),\n             ),\n-            check_current_session_handler: check_current_session::Handler::new(gb_repository),\n             git_file_change_handler: git_file_change::Handler::new(\n                 project_id.clone(),\n                 project_store.clone(),\n             ),\n             flush_session_handler: flush_session::Handler::new(\n+                local_data_dir.clone(),\n                 project_id.clone(),\n                 project_store.clone(),\n-                gb_repository,\n+                user_store.clone(),\n             ),\n             fetch_project_handler: fetch_project::Handler::new(\n+                local_data_dir.clone(),\n                 project_id.clone(),\n                 project_store.clone(),\n-                gb_repository,\n+                user_store.clone(),\n             ),\n             chech_fetch_project_handler: check_fetch_project::Handler::new(\n                 project_id.clone(),\n-                project_store,\n+                project_store.clone(),\n             ),\n             index_handler: index_handler::Handler::new(\n+                local_data_dir,\n                 project_id,\n+                project_store,\n+                user_store,\n                 searcher,\n-                gb_repository,\n                 files_database,\n                 sessions_database,\n                 deltas_database,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/mod.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/mod.rs:102",
+								"name": "<Hunk: @@ 90,7 102,7 @@ impl<'handler> Handler<'handler> {>",
+								"diff": "@@ -90,7 +102,7 @@ impl<'handler> Handler<'handler> {\n         }\n     }\n \n-    pub fn handle(&self, event: events::Event) -> Result<Vec<events::Event>> {\n+    pub async fn handle(&self, event: events::Event) -> Result<Vec<events::Event>> {\n         log::info!(\"{}: handling event: {}\", self.project_id, event);\n         match event {\n             events::Event::FileChange(path) => self\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/mod.rs"
+							}
+						]
+					},
+					{
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change.rs",
+						"path": "src-tauri/src/watcher/handlers/project_file_change.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change.rs:1",
+								"name": "<Hunk: @@ 1,31 1,35 @@ >",
+								"diff": "@@ -1,31 +1,35 @@\n-use std::vec;\n+use std::{path, vec};\n \n use anyhow::{Context, Result};\n \n use crate::{\n     deltas, gb_repository, project_repository, projects,\n     reader::{self, Reader},\n-    sessions,\n+    sessions, users,\n };\n \n use super::events;\n \n-pub struct Handler<'listener> {\n+#[derive(Clone)]\n+pub struct Handler {\n     project_id: String,\n     project_store: projects::Storage,\n-    gb_repository: &'listener gb_repository::Repository,\n+    local_data_dir: path::PathBuf,\n+    user_store: users::Storage,\n }\n \n-impl<'listener> Handler<'listener> {\n+impl Handler {\n     pub fn new(\n+        local_data_dir: path::PathBuf,\n         project_id: String,\n         project_store: projects::Storage,\n-        gb_repository: &'listener gb_repository::Repository,\n+        user_store: users::Storage,\n     ) -> Self {\n         Self {\n             project_id,\n             project_store,\n-            gb_repository,\n+            local_data_dir,\n+            user_store,\n         }\n     }\n \n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change.rs:66",
+								"name": "<Hunk: @@ 62,12 66,20 @@ impl<'listener> Handler<'listener> {>",
+								"diff": "@@ -62,12 +66,20 @@ impl<'listener> Handler<'listener> {\n \n     // returns deltas for the file that are already part of the current session (if any)\n     fn get_current_deltas(&self, path: &std::path::Path) -> Result<Option<Vec<deltas::Delta>>> {\n-        let current_session = self.gb_repository.get_current_session()?;\n+        let gb_repo = gb_repository::Repository::open(\n+            self.local_data_dir.clone(),\n+            self.project_id.clone(),\n+            self.project_store.clone(),\n+            self.user_store.clone(),\n+        )\n+        .context(\"failed to open gb repository\")?;\n+\n+        let current_session = gb_repo.get_current_session()?;\n         if current_session.is_none() {\n             return Ok(None);\n         }\n         let current_session = current_session.unwrap();\n-        let session_reader = sessions::Reader::open(self.gb_repository, &current_session)\n+        let session_reader = sessions::Reader::open(&gb_repo, &current_session)\n             .context(\"failed to get session reader\")?;\n         let deltas_reader = deltas::Reader::new(&session_reader);\n         let deltas = deltas_reader\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change.rs:98",
+								"name": "<Hunk: @@ 86,9 98,16 @@ impl<'listener> Handler<'listener> {>",
+								"diff": "@@ -86,9 +98,16 @@ impl<'listener> Handler<'listener> {\n         let project_repository = project_repository::Repository::open(&project)\n             .with_context(|| \"failed to open project repository for project\")?;\n \n+        let gb_repository = gb_repository::Repository::open(\n+            &self.local_data_dir,\n+            self.project_id.clone(),\n+            self.project_store.clone(),\n+            self.user_store.clone(),\n+        )\n+        .context(\"failed to open gb repository\")?;\n+\n         // If current session's branch is not the same as the project's head, flush it first.\n-        if let Some(session) = self\n-            .gb_repository\n+        if let Some(session) = gb_repository\n             .get_current_session()\n             .context(\"failed to get current session\")?\n         {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change.rs:115",
+								"name": "<Hunk: @@ 96,7 115,7 @@ impl<'listener> Handler<'listener> {>",
+								"diff": "@@ -96,7 +115,7 @@ impl<'listener> Handler<'listener> {\n                 .get_head()\n                 .context(\"failed to get head\")?;\n             if session.meta.branch != project_head.name().map(|s| s.to_string()) {\n-                self.gb_repository\n+                gb_repository\n                     .flush_session(&project_repository, &session)\n                     .context(\"failed to flush session\")?;\n             }\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change.rs:131",
+								"name": "<Hunk: @@ 112,11 131,10 @@ impl<'listener> Handler<'listener> {>",
+								"diff": "@@ -112,11 +131,10 @@ impl<'listener> Handler<'listener> {\n             None => return Ok(vec![]),\n         };\n \n-        let current_session = self\n-            .gb_repository\n+        let current_session = gb_repository\n             .get_or_create_current_session()\n             .context(\"failed to get or create current session\")?;\n-        let reader = sessions::Reader::open(self.gb_repository, &current_session)\n+        let reader = sessions::Reader::open(&gb_repository, &current_session)\n             .context(\"failed to get session reader\")?;\n \n         let latest_file_content = match reader.file(path) {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change.rs:173",
+								"name": "<Hunk: @@ 155,7 173,7 @@ impl<'listener> Handler<'listener> {>",
+								"diff": "@@ -155,7 +173,7 @@ impl<'listener> Handler<'listener> {\n         }\n \n         let deltas = text_doc.get_deltas();\n-        let writer = deltas::Writer::new(self.gb_repository)?;\n+        let writer = deltas::Writer::new(&gb_repository)?;\n         writer\n             .write(path, &deltas)\n             .with_context(|| \"failed to write deltas\")?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change.rs"
+							}
+						]
+					},
+					{
+						"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs",
+						"path": "src-tauri/src/watcher/handlers/project_file_change_tests.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:68",
+								"name": "<Hunk: @@ 68,12 68,17 @@ fn test_register_existing_commited_file() -> Result<()> {>",
+								"diff": "@@ -68,12 +68,17 @@ fn test_register_existing_commited_file() -> Result<()> {\n     commit_all(&repository)?;\n \n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     std::fs::write(project_repo.root().join(file_path), \"test2\")?;\n     listener.handle(file_path)?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:112",
+								"name": "<Hunk: @@ 107,12 112,17 @@ fn test_register_must_init_current_session() -> Result<()> {>",
+								"diff": "@@ -107,12 +112,17 @@ fn test_register_must_init_current_session() -> Result<()> {\n     let project_store = projects::Storage::new(storage);\n     project_store.add_project(&project)?;\n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     let file_path = std::path::Path::new(\"test.txt\");\n     std::fs::write(project_repo.root().join(file_path), \"test\")?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:145",
+								"name": "<Hunk: @@ 135,12 145,17 @@ fn test_register_must_not_override_current_session() -> Result<()> {>",
+								"diff": "@@ -135,12 +145,17 @@ fn test_register_must_not_override_current_session() -> Result<()> {\n     let project_store = projects::Storage::new(storage);\n     project_store.add_project(&project)?;\n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     let file_path = std::path::Path::new(\"test.txt\");\n     std::fs::write(project_repo.root().join(file_path), \"test\")?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:183",
+								"name": "<Hunk: @@ 168,12 183,17 @@ fn test_register_new_file() -> Result<()> {>",
+								"diff": "@@ -168,12 +183,17 @@ fn test_register_new_file() -> Result<()> {\n     let project_store = projects::Storage::new(storage);\n     project_store.add_project(&project)?;\n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     let file_path = std::path::Path::new(\"test.txt\");\n     std::fs::write(project_repo.root().join(file_path), \"test\")?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:229",
+								"name": "<Hunk: @@ 209,12 229,17 @@ fn test_register_new_file_twice() -> Result<()> {>",
+								"diff": "@@ -209,12 +229,17 @@ fn test_register_new_file_twice() -> Result<()> {\n     let project_store = projects::Storage::new(storage);\n     project_store.add_project(&project)?;\n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     let file_path = std::path::Path::new(\"test.txt\");\n     std::fs::write(project_repo.root().join(file_path), \"test\")?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:294",
+								"name": "<Hunk: @@ 269,12 294,17 @@ fn test_register_file_delted() -> Result<()> {>",
+								"diff": "@@ -269,12 +294,17 @@ fn test_register_file_delted() -> Result<()> {\n     let project_store = projects::Storage::new(storage);\n     project_store.add_project(&project)?;\n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     let file_path = std::path::Path::new(\"test.txt\");\n     std::fs::write(project_repo.root().join(file_path), \"test\")?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:351",
+								"name": "<Hunk: @@ 321,12 351,17 @@ fn test_flow_with_commits() -> Result<()> {>",
+								"diff": "@@ -321,12 +351,17 @@ fn test_flow_with_commits() -> Result<()> {\n     let project_store = projects::Storage::new(storage);\n     project_store.add_project(&project)?;\n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     let size = 10;\n     let relative_file_path = std::path::Path::new(\"one/two/test.txt\");\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:448",
+								"name": "<Hunk: @@ 413,12 448,17 @@ fn test_flow_no_commits() -> Result<()> {>",
+								"diff": "@@ -413,12 +448,17 @@ fn test_flow_no_commits() -> Result<()> {\n     let project_store = projects::Storage::new(storage);\n     project_store.add_project(&project)?;\n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     let size = 10;\n     let relative_file_path = std::path::Path::new(\"one/two/test.txt\");\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/handlers/project_file_change_tests.rs:544",
+								"name": "<Hunk: @@ 504,12 544,17 @@ fn test_flow_signle_session() -> Result<()> {>",
+								"diff": "@@ -504,12 +544,17 @@ fn test_flow_signle_session() -> Result<()> {\n     let project_store = projects::Storage::new(storage);\n     project_store.add_project(&project)?;\n     let gb_repo = gb_repository::Repository::open(\n-        gb_repo_path,\n+        gb_repo_path.clone(),\n         project.id.clone(),\n         project_store.clone(),\n-        user_store,\n+        user_store.clone(),\n     )?;\n-    let listener = Handler::new(project.id.clone(), project_store, &gb_repo);\n+    let listener = Handler::new(\n+        gb_repo_path.into(),\n+        project.id.clone(),\n+        project_store,\n+        user_store,\n+    );\n \n     let size = 10;\n     let relative_file_path = std::path::Path::new(\"one/two/test.txt\");\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change_tests.rs"
+							}
+						]
+					},
+					{
+						"id": "watcher-work-w:src-tauri/src/watcher/mod.rs",
+						"path": "src-tauri/src/watcher/mod.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/mod.rs:2",
+								"name": "<Hunk: @@ 2,27 2,30 @@ mod dispatchers;>",
+								"diff": "@@ -2,27 +2,30 @@ mod dispatchers;\n mod events;\n mod handlers;\n \n+use std::path;\n+\n pub use events::Event;\n \n use anyhow::Result;\n use tokio::sync::mpsc;\n use tokio_util::sync::CancellationToken;\n \n-use crate::{bookmarks, deltas, files, gb_repository, projects, search, sessions};\n+use crate::{bookmarks, deltas, files, projects, search, sessions, users};\n \n-pub struct Watcher<'watcher> {\n+pub struct Watcher {\n     project_id: String,\n     dispatcher: dispatchers::Dispatcher,\n-    handler: handlers::Handler<'watcher>,\n+    handler: handlers::Handler,\n     cancellation_token: CancellationToken,\n }\n \n-impl<'watcher> Watcher<'watcher> {\n+impl<'watcher> Watcher {\n     #[allow(clippy::too_many_arguments)]\n     pub fn new(\n+        local_data_dir: path::PathBuf,\n         project: &projects::Project,\n         project_store: projects::Storage,\n-        gb_repository: &'watcher gb_repository::Repository,\n+        user_store: users::Storage,\n         deltas_searcher: search::Searcher,\n         cancellation_token: CancellationToken,\n         events_sender: crate::events::Sender,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/mod.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/mod.rs:38",
+								"name": "<Hunk: @@ 35,9 38,10 @@ impl<'watcher> Watcher<'watcher> {>",
+								"diff": "@@ -35,9 +38,10 @@ impl<'watcher> Watcher<'watcher> {\n             project_id: project.id.clone(),\n             dispatcher: dispatchers::Dispatcher::new(project.id.clone(), project.path.clone()),\n             handler: handlers::Handler::new(\n+                local_data_dir,\n                 project.id.clone(),\n                 project_store,\n-                gb_repository,\n+                user_store,\n                 deltas_searcher,\n                 events_sender,\n                 sessions_database,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/mod.rs"
+							},
+							{
+								"id": "watcher-work-w:src-tauri/src/watcher/mod.rs:71",
+								"name": "<Hunk: @@ 67,15 71,22 @@ impl<'watcher> Watcher<'watcher> {>",
+								"diff": "@@ -67,15 +71,22 @@ impl<'watcher> Watcher<'watcher> {\n                         log::error!(\"{}: failed to post event: {:#}\", self.project_id, e);\n                     }\n                 },\n-                Some(event) = events_rx.recv() => match self.handler.handle(event) {\n-                    Err(err) => log::error!(\"{}: failed to handle event: {:#}\", self.project_id, err),\n-                    Ok(events) => {\n-                        for event in events {\n-                            if let Err(e) = events_tx.send(event) {\n-                                log::error!(\"{}: failed to post event: {:#}\", self.project_id, e);\n-                            }\n+                Some(event) = events_rx.recv() => {\n+                    let project_id = self.project_id.clone();\n+                    let handler = self.handler.clone();\n+                    let events_tx = events_tx.clone();\n+                    tauri::async_runtime::spawn(async move {\n+                        match handler.handle(event).await {\n+                            Ok(events) => {\n+                                for event in events {\n+                                    if let Err(e) = events_tx.send(event) {\n+                                        log::error!(\"{}: failed to post event: {:#}\", project_id, e);\n+                                    }\n+                                }\n+                            },\n+                            Err(err) => log::error!(\"{}: failed to handle event: {:#}\", project_id, err),\n                         }\n-                    }\n+                    });\n                 },\n                 _ = self.cancellation_token.cancelled() => {\n                     if let Err(e) = self.dispatcher.stop() {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-07T11:58:51Z",
+								"filePath": "src-tauri/src/watcher/mod.rs"
+							}
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"id": "ian/cursor-for-select-text-from-diff:409",
+		"name": "ian/cursor-for-select-text-from-diff",
+		"active": true,
+		"kind": "branch",
+		"commits": [
+			{
+				"id": "Commit:ian/cursor-for-select-text-from-diff:409",
+				"description": "Ian/cursor for select text from diff",
+				"committedAt": "2023-06-06T12:42:02Z",
+				"kind": "commit",
+				"files": [
+					{
+						"id": "ian/cursor-for-select-text-from-diff:src/lib/components/Differ/Differ.svelte",
+						"path": "src/lib/components/Differ/Differ.svelte",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "ian/cursor-for-select-text-from-diff:src/lib/components/Differ/Differ.svelte:236",
+								"name": "<Hunk: @@ 236,7 236,7 @@ >",
+								"diff": "@@ -236,7 +236,7 @@\n \t\t</span>\n \n \t\t<span\n-\t\t\tclass=\"diff-line-{row.type} overflow-hidden whitespace-pre-wrap\"\n+\t\t\tclass=\"diff-line-{row.type} cursor-text overflow-hidden whitespace-pre-wrap\"\n \t\t\tclass:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}\n \t\t>\n \t\t\t{#each row.render.html as content}\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-06T12:42:02Z",
+								"filePath": "src/lib/components/Differ/Differ.svelte"
+							}
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"id": "writers:407",
+		"name": "writers",
+		"active": true,
+		"kind": "branch",
+		"commits": [
+			{
+				"id": "Commit:writers:407",
+				"description": "Writers",
+				"committedAt": "2023-06-05T08:43:58Z",
+				"kind": "commit",
+				"files": [
+					{
+						"id": "writers:src-tauri/src/app.rs",
+						"path": "src-tauri/src/app.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/app.rs:287",
+								"name": "<Hunk: @@ 287,17 287,9 @@ impl App {>",
+								"diff": "@@ -287,17 +287,9 @@ impl App {\n         )\n         .context(\"failed to open repository\")?;\n \n-        let session = gb_repository\n-            .get_or_create_current_session()\n-            .context(\"failed to get or create current session\")?;\n-        let writer = sessions::Writer::open(&gb_repository, &session)\n-            .context(\"failed to open session writer\")?;\n-        writer\n-            .write_bookmark(bookmark)\n-            .context(\"failed to write bookmark\")?;\n-        // let updated = self.bookmarks_database.upsert(bookmark).context(\"failed to upsert bookmark\")?;\n-\n-        // if let Some(updated) = updated.as_ref() {\n+        let writer = bookmarks::Writer::new(&gb_repository).context(\"failed to open writer\")?;\n+        writer.write(bookmark).context(\"failed to write bookmark\")?;\n+\n         if let Err(e) = self\n             .proxy_watchers\n             .lock()\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/app.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/app.rs:301",
+								"name": "<Hunk: @@ 309,9 301,6 @@ impl App {>",
+								"diff": "@@ -309,9 +301,6 @@ impl App {\n             log::error!(\"failed to send session event: {:#}\", e);\n         }\n         Ok(())\n-        // }\n-\n-        // Ok(updated)\n     }\n \n     pub fn list_bookmarks(\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/app.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/app.rs:485",
+								"name": "<Hunk: @@ 496,10 485,7 @@ impl App {>",
+								"diff": "@@ -496,10 +485,7 @@ impl App {\n         )\n         .context(\"failed to open repository\")?;\n \n-        let session = gb_repository\n-            .get_or_create_current_session()\n-            .context(\"failed to get session\")?;\n-        let writer = sessions::Writer::open(&gb_repository, &session)?;\n+        let pty_writer = pty::Writer::new(&gb_repository)?;\n \n         let timestamp = std::time::SystemTime::now()\n             .duration_since(std::time::UNIX_EPOCH)\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/app.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/app.rs:498",
+								"name": "<Hunk: @@ 512,7 498,7 @@ impl App {>",
+								"diff": "@@ -512,7 +498,7 @@ impl App {\n             bytes: bytes.to_vec(),\n         };\n \n-        writer.append_pty(&record).context(\"failed to append pty\")?;\n+        pty_writer.write(&record).context(\"failed to append pty\")?;\n \n         Ok(())\n     }\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/app.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/bookmarks/mod.rs",
+						"path": "src-tauri/src/bookmarks/mod.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/bookmarks/mod.rs:1",
+								"name": "<Hunk: @@ 1,5 1,6 @@ >",
+								"diff": "@@ -1,5 +1,6 @@\n mod database;\n mod reader;\n+mod writer;\n \n use serde::{Deserialize, Serialize};\n \n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/bookmarks/mod.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/bookmarks/mod.rs:17",
+								"name": "<Hunk: @@ 16,3 17,4 @@ pub struct Bookmark {>",
+								"diff": "@@ -16,3 +17,4 @@ pub struct Bookmark {\n \n pub use database::Database;\n pub use reader::BookmarksReader as Reader;\n+pub use writer::BookmarksWriter as Writer;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/bookmarks/mod.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/bookmarks/writer.rs",
+						"path": "src-tauri/src/bookmarks/writer.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/bookmarks/writer.rs:1",
+								"name": "<Hunk: @@ 0,0 1,38 @@ >",
+								"diff": "@@ -0,0 +1,38 @@\n+use anyhow::{Context, Result};\n+\n+use crate::gb_repository;\n+\n+use super::Bookmark;\n+\n+pub struct BookmarksWriter<'writer> {\n+    repository: &'writer gb_repository::Repository,\n+}\n+\n+impl<'writer> BookmarksWriter<'writer> {\n+    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self> {\n+        repository\n+            .get_or_create_current_session()\n+            .context(\"failed to create session\")?;\n+        Ok(Self { repository })\n+    }\n+\n+    pub fn write(&self, bookmark: &Bookmark) -> Result<()> {\n+        self.repository.lock()?;\n+        defer! {\n+            self.repository.unlock().expect(\"failed to unlock\");\n+        }\n+\n+        serde_jsonlines::append_json_lines(\n+            self.repository.session_path().join(\"bookmarks.jsonl\"),\n+            [bookmark],\n+        )?;\n+\n+        log::info!(\n+            \"{}: wrote bookmark {}\",\n+            self.repository.project_id,\n+            bookmark.timestamp_ms\n+        );\n+\n+        Ok(())\n+    }\n+}\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/bookmarks/writer.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/deltas/mod.rs",
+						"path": "src-tauri/src/deltas/mod.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/deltas/mod.rs:3",
+								"name": "<Hunk: @@ 3,9 3,11 @@ mod delta;>",
+								"diff": "@@ -3,9 +3,11 @@ mod delta;\n mod document;\n mod operations;\n mod reader;\n+mod writer;\n \n pub use database::Database;\n pub use delta::Delta;\n pub use document::Document;\n pub use operations::Operation;\n pub use reader::DeltasReader as Reader;\n+pub use writer::DeltasWriter as Writer;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/deltas/mod.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/deltas/writer.rs",
+						"path": "src-tauri/src/deltas/writer.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/deltas/writer.rs:1",
+								"name": "<Hunk: @@ 0,0 1,71 @@ >",
+								"diff": "@@ -0,0 +1,71 @@\n+use anyhow::{Context, Result};\n+\n+use crate::{\n+    gb_repository,\n+    writer::{self, Writer},\n+};\n+\n+use super::Delta;\n+\n+pub struct DeltasWriter<'writer> {\n+    repository: &'writer gb_repository::Repository,\n+    writer: writer::DirWriter,\n+}\n+\n+impl<'writer> DeltasWriter<'writer> {\n+    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self> {\n+        let writer = writer::DirWriter::open(repository.root());\n+        repository\n+            .get_or_create_current_session()\n+            .context(\"failed to create session\")?;\n+        Ok(Self { writer, repository })\n+    }\n+\n+    pub fn write<P: AsRef<std::path::Path>>(&self, path: P, deltas: &Vec<Delta>) -> Result<()> {\n+        self.repository.lock()?;\n+        defer! {\n+            self.repository.unlock().unwrap();\n+        }\n+\n+        let path = path.as_ref();\n+        let raw_deltas = serde_json::to_string(&deltas)?;\n+\n+        self.writer.write_string(\n+            self.repository.deltas_path().join(path).to_str().unwrap(),\n+            &raw_deltas,\n+        )?;\n+\n+        log::info!(\n+            \"{}: wrote deltas for {}\",\n+            self.repository.project_id,\n+            path.display()\n+        );\n+\n+        Ok(())\n+    }\n+\n+    pub fn write_wd_file<P: AsRef<std::path::Path>>(&self, path: P, contents: &str) -> Result<()> {\n+        self.repository.lock()?;\n+        defer! {\n+            self.repository.unlock().expect(\"failed to unlock\");\n+        }\n+\n+        let path = path.as_ref();\n+        self.writer.write_string(\n+            self.repository\n+                .session_wd_path()\n+                .join(path)\n+                .to_str()\n+                .unwrap(),\n+            contents,\n+        )?;\n+\n+        log::info!(\n+            \"{}: wrote session wd file {}\",\n+            self.repository.project_id,\n+            path.display()\n+        );\n+\n+        Ok(())\n+    }\n+}\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/deltas/writer.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/gb_repository/repository.rs",
+						"path": "src-tauri/src/gb_repository/repository.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/gb_repository/repository.rs:280",
+								"name": "<Hunk: @@ 280,7 280,7 @@ impl Repository {>",
+								"diff": "@@ -280,7 +280,7 @@ impl Repository {\n         };\n \n         // write session to disk\n-        sessions::Writer::open(self, &session)?;\n+        sessions::Writer::new(self).write(&session)?;\n \n         Ok(session)\n     }\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/gb_repository/repository.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/gb_repository/repository.rs:363",
+								"name": "<Hunk: @@ 363,8 363,8 @@ impl Repository {>",
+								"diff": "@@ -363,8 +363,8 @@ impl Repository {\n             return Err(anyhow!(\"nothing to flush\"));\n         }\n \n-        // touch session writer to update last timestamp\n-        sessions::Writer::open(self, session)?;\n+        // update last timestamp\n+        sessions::Writer::new(self).write(session)?;\n \n         self.lock()?;\n         defer! {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/gb_repository/repository.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/gb_repository/repository_tests.rs",
+						"path": "src-tauri/src/gb_repository/repository_tests.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/gb_repository/repository_tests.rs:1",
+								"name": "<Hunk: @@ 1,10 1,9 @@ >",
+								"diff": "@@ -1,10 +1,9 @@\n use std::{thread, time};\n \n+use crate::{deltas, gb_repository, projects, sessions, storage, users};\n use anyhow::Result;\n use tempfile::tempdir;\n \n-use crate::{deltas, gb_repository, projects, sessions, storage, users};\n-\n fn remote_repository() -> Result<git2::Repository> {\n     let path = tempdir()?.path().to_str().unwrap().to_string();\n     let repository = git2::Repository::init_bare(path)?;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/gb_repository/repository_tests.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/gb_repository/repository_tests.rs:199",
+								"name": "<Hunk: @@ 200,8 199,8 @@ fn test_list_deltas_from_current_session() -> Result<()> {>",
+								"diff": "@@ -200,8 +199,8 @@ fn test_list_deltas_from_current_session() -> Result<()> {\n         gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;\n \n     let current_session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &current_session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         \"test.txt\",\n         &vec![deltas::Delta {\n             operations: vec![deltas::Operation::Insert((0, \"Hello World\".to_string()))],\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/gb_repository/repository_tests.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/gb_repository/repository_tests.rs:234",
+								"name": "<Hunk: @@ 235,9 234,8 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {>",
+								"diff": "@@ -235,9 +234,8 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {\n     let gb_repo =\n         gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;\n \n-    let current_session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &current_session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         \"test.txt\",\n         &vec![deltas::Delta {\n             operations: vec![deltas::Operation::Insert((0, \"Hello World\".to_string()))],\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/gb_repository/repository_tests.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/gb_repository/repository_tests.rs:360",
+								"name": "<Hunk: @@ 362,9 360,8 @@ fn test_remote_syncronization() -> Result<()> {>",
+								"diff": "@@ -362,9 +360,8 @@ fn test_remote_syncronization() -> Result<()> {\n         project_store.clone(),\n         user_store.clone(),\n     )?;\n-    let session_one = gb_repo_one.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo_one, &session_one)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo_one)?;\n+    writer.write(\n         \"test.txt\",\n         &vec![deltas::Delta {\n             operations: vec![deltas::Operation::Insert((0, \"Hello World\".to_string()))],\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/gb_repository/repository_tests.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/pty/mod.rs",
+						"path": "src-tauri/src/pty/mod.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/pty/mod.rs:1",
+								"name": "<Hunk: @@ 1,6 1,8 @@ >",
+								"diff": "@@ -1,6 +1,8 @@\n mod connection;\n mod recorder;\n mod server;\n+mod writer;\n \n pub use recorder::{Record, Type};\n pub use server::start_server;\n+pub use writer::PtyWriter as Writer;\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/pty/mod.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/pty/writer.rs",
+						"path": "src-tauri/src/pty/writer.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/pty/writer.rs:1",
+								"name": "<Hunk: @@ 0,0 1,37 @@ >",
+								"diff": "@@ -0,0 +1,37 @@\n+use anyhow::{Context, Result};\n+\n+use crate::gb_repository;\n+\n+use super::Record;\n+\n+pub struct PtyWriter<'writer> {\n+    repository: &'writer gb_repository::Repository,\n+}\n+\n+impl<'writer> PtyWriter<'writer> {\n+    pub fn new(repository: &'writer gb_repository::Repository) -> Result<Self> {\n+        repository\n+            .get_or_create_current_session()\n+            .context(\"failed to create session\")?;\n+        Ok(Self { repository })\n+    }\n+\n+    pub fn write(&self, record: &Record) -> Result<()> {\n+        self.repository.lock()?;\n+        defer! {\n+            self.repository.unlock().expect(\"failed to unlock\");\n+        }\n+\n+        serde_jsonlines::append_json_lines(\n+            self.repository.session_path().join(\"pty.jsonl\"),\n+            [record],\n+        )?;\n+\n+        log::info!(\n+            \"{}: appended pty record to session\",\n+            self.repository.project_id\n+        );\n+\n+        Ok(())\n+    }\n+}\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/pty/writer.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/search/searcher_test.rs",
+						"path": "src-tauri/src/search/searcher_test.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/search/searcher_test.rs:3",
+								"name": "<Hunk: @@ 3,7 3,7 @@ use std::{path::Path, time};>",
+								"diff": "@@ -3,7 +3,7 @@ use std::{path::Path, time};\n use anyhow::Result;\n use tempfile::tempdir;\n \n-use crate::{bookmarks, deltas, gb_repository, projects, sessions, storage, users};\n+use crate::{bookmarks, deltas, gb_repository, projects, storage, users};\n \n fn test_repository() -> Result<git2::Repository> {\n     let path = tempdir()?.path().to_str().unwrap().to_string();\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/search/searcher_test.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/search/searcher_test.rs:49",
+								"name": "<Hunk: @@ 49,9 49,8 @@ fn test_sorted_by_timestamp() -> Result<()> {>",
+								"diff": "@@ -49,9 +49,8 @@ fn test_sorted_by_timestamp() -> Result<()> {\n \n     let index_path = tempdir()?.path().to_str().unwrap().to_string();\n \n-    let session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         Path::new(\"test.txt\"),\n         &vec![\n             deltas::Delta {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/search/searcher_test.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/search/searcher_test.rs:99",
+								"name": "<Hunk: @@ 100,9 99,8 @@ fn search_by_bookmark_note() -> Result<()> {>",
+								"diff": "@@ -100,9 +99,8 @@ fn search_by_bookmark_note() -> Result<()> {\n \n     let index_path = tempdir()?.path().to_str().unwrap().to_string();\n \n-    let session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         Path::new(\"test.txt\"),\n         &vec![deltas::Delta {\n             operations: vec![deltas::Operation::Insert((0, \"Hello\".to_string()))],\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/search/searcher_test.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/search/searcher_test.rs:195",
+								"name": "<Hunk: @@ 197,9 195,8 @@ fn search_by_full_match() -> Result<()> {>",
+								"diff": "@@ -197,9 +195,8 @@ fn search_by_full_match() -> Result<()> {\n \n     let index_path = tempdir()?.path().to_str().unwrap().to_string();\n \n-    let session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         Path::new(\"test.txt\"),\n         &vec![deltas::Delta {\n             operations: vec![deltas::Operation::Insert((0, \"hello\".to_string()))],\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/search/searcher_test.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/search/searcher_test.rs:236",
+								"name": "<Hunk: @@ 239,9 236,8 @@ fn search_by_diff() -> Result<()> {>",
+								"diff": "@@ -239,9 +236,8 @@ fn search_by_diff() -> Result<()> {\n \n     let index_path = tempdir()?.path().to_str().unwrap().to_string();\n \n-    let session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         Path::new(\"test.txt\"),\n         &vec![\n             deltas::Delta {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/search/searcher_test.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/search/searcher_test.rs:355",
+								"name": "<Hunk: @@ 359,9 355,8 @@ fn test_delete_all() -> Result<()> {>",
+								"diff": "@@ -359,9 +355,8 @@ fn test_delete_all() -> Result<()> {\n \n     let index_path = tempdir()?.path().to_str().unwrap().to_string();\n \n-    let session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         Path::new(\"test.txt\"),\n         &vec![\n             deltas::Delta {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/search/searcher_test.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/search/searcher_test.rs:404",
+								"name": "<Hunk: @@ 409,9 404,8 @@ fn search_bookmark_by_phrase() -> Result<()> {>",
+								"diff": "@@ -409,9 +404,8 @@ fn search_bookmark_by_phrase() -> Result<()> {\n \n     let index_path = tempdir()?.path().to_str().unwrap().to_string();\n \n-    let session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         Path::new(\"test.txt\"),\n         &vec![deltas::Delta {\n             operations: vec![deltas::Operation::Insert((0, \"Hello\".to_string()))],\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/search/searcher_test.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/search/searcher_test.rs:460",
+								"name": "<Hunk: @@ 466,9 460,8 @@ fn search_by_filename() -> Result<()> {>",
+								"diff": "@@ -466,9 +460,8 @@ fn search_by_filename() -> Result<()> {\n \n     let index_path = tempdir()?.path().to_str().unwrap().to_string();\n \n-    let session = gb_repo.get_or_create_current_session()?;\n-    let writer = sessions::Writer::open(&gb_repo, &session)?;\n-    writer.write_deltas(\n+    let writer = deltas::Writer::new(&gb_repo)?;\n+    writer.write(\n         Path::new(\"test.txt\"),\n         &vec![\n             deltas::Delta {\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/search/searcher_test.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/sessions/tests.rs",
+						"path": "src-tauri/src/sessions/tests.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/sessions/tests.rs:58",
+								"name": "<Hunk: @@ 58,7 58,7 @@ fn test_should_not_write_session_with_hash() -> Result<()> {>",
+								"diff": "@@ -58,7 +58,7 @@ fn test_should_not_write_session_with_hash() -> Result<()> {\n         },\n     };\n \n-    assert!(Writer::open(&gb_repo, &session).is_err());\n+    assert!(Writer::new(&gb_repo).write(&session).is_err());\n \n     Ok(())\n }\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/tests.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/tests.rs:86",
+								"name": "<Hunk: @@ 86,7 86,7 @@ fn test_should_write_full_session() -> Result<()> {>",
+								"diff": "@@ -86,7 +86,7 @@ fn test_should_write_full_session() -> Result<()> {\n         },\n     };\n \n-    Writer::open(&gb_repo, &session)?;\n+    Writer::new(&gb_repo).write(&session)?;\n \n     assert_eq!(\n         std::fs::read_to_string(gb_repo.session_path().join(\"meta/id\"))?,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/tests.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/tests.rs:135",
+								"name": "<Hunk: @@ 135,7 135,7 @@ fn test_should_write_partial_session() -> Result<()> {>",
+								"diff": "@@ -135,7 +135,7 @@ fn test_should_write_partial_session() -> Result<()> {\n         },\n     };\n \n-    Writer::open(&gb_repo, &session)?;\n+    Writer::new(&gb_repo).write(&session)?;\n \n     assert_eq!(\n         std::fs::read_to_string(gb_repo.session_path().join(\"meta/id\"))?,\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/tests.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/sessions/writer.rs",
+						"path": "src-tauri/src/sessions/writer.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/sessions/writer.rs:3",
+								"name": "<Hunk: @@ 3,7 3,7 @@ use std::time;>",
+								"diff": "@@ -3,7 +3,7 @@ use std::time;\n use anyhow::{anyhow, Context, Result};\n \n use crate::{\n-    bookmarks, deltas, gb_repository, pty,\n+    gb_repository,\n     reader::{self, Reader},\n     writer::{self, Writer},\n };\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/writer.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/writer.rs:16",
+								"name": "<Hunk: @@ 16,20 16,25 @@ pub struct SessionWriter<'writer> {>",
+								"diff": "@@ -16,20 +16,25 @@ pub struct SessionWriter<'writer> {\n }\n \n impl<'writer> SessionWriter<'writer> {\n-    pub fn open(repository: &'writer gb_repository::Repository, session: &Session) -> Result<Self> {\n+    pub fn new(repository: &'writer gb_repository::Repository) -> Self {\n+        let writer = writer::DirWriter::open(repository.root());\n+        SessionWriter { repository, writer }\n+    }\n+\n+    pub fn write(&self, session: &Session) -> Result<()> {\n         if session.hash.is_some() {\n             return Err(anyhow!(\"can not open writer for a session with a hash\"));\n         }\n \n-        repository.lock()?;\n+        self.repository.lock()?;\n         defer! {\n-            repository.unlock().expect(\"failed to unlock\");\n+            self.repository.unlock().expect(\"failed to unlock\");\n         }\n \n-        let reader = reader::DirReader::open(repository.root());\n+        let reader = reader::DirReader::open(self.repository.root());\n \n         let current_session_id = reader.read_to_string(\n-            repository\n+            self.repository\n                 .session_path()\n                 .join(\"meta\")\n                 .join(\"id\")\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/writer.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/writer.rs:45",
+								"name": "<Hunk: @@ 40,17 45,15 @@ impl<'writer> SessionWriter<'writer> {>",
+								"diff": "@@ -40,17 +45,15 @@ impl<'writer> SessionWriter<'writer> {\n         if current_session_id.is_ok() && !current_session_id.as_ref().unwrap().eq(&session.id) {\n             return Err(anyhow!(\n                 \"{}: can not open writer for {} because a writer for {} is still open\",\n-                repository.project_id,\n+                self.repository.project_id,\n                 session.id,\n                 current_session_id.unwrap()\n             ));\n         }\n \n-        let writer = writer::DirWriter::open(repository.root());\n-\n-        writer\n+        self.writer\n             .write_string(\n-                repository\n+                self.repository\n                     .session_path()\n                     .join(\"meta\")\n                     .join(\"last\")\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/writer.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/writer.rs:69",
+								"name": "<Hunk: @@ 66,13 69,12 @@ impl<'writer> SessionWriter<'writer> {>",
+								"diff": "@@ -66,13 +69,12 @@ impl<'writer> SessionWriter<'writer> {\n             .with_context(|| \"failed to write last timestamp\")?;\n \n         if current_session_id.is_ok() && current_session_id.as_ref().unwrap().eq(&session.id) {\n-            let writer = SessionWriter { repository, writer };\n-            return Ok(writer);\n+            return Ok(());\n         }\n \n-        writer\n+        self.writer\n             .write_string(\n-                repository\n+                self.repository\n                     .session_path()\n                     .join(\"meta\")\n                     .join(\"id\")\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/writer.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/writer.rs:84",
+								"name": "<Hunk: @@ 82,9 84,9 @@ impl<'writer> SessionWriter<'writer> {>",
+								"diff": "@@ -82,9 +84,9 @@ impl<'writer> SessionWriter<'writer> {\n             )\n             .with_context(|| \"failed to write id\")?;\n \n-        writer\n+        self.writer\n             .write_string(\n-                repository\n+                self.repository\n                     .session_path()\n                     .join(\"meta\")\n                     .join(\"start\")\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/writer.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/writer.rs:97",
+								"name": "<Hunk: @@ 95,9 97,9 @@ impl<'writer> SessionWriter<'writer> {>",
+								"diff": "@@ -95,9 +97,9 @@ impl<'writer> SessionWriter<'writer> {\n             .with_context(|| \"failed to write start timestamp\")?;\n \n         if let Some(branch) = session.meta.branch.as_ref() {\n-            writer\n+            self.writer\n                 .write_string(\n-                    repository\n+                    self.repository\n                         .session_path()\n                         .join(\"meta\")\n                         .join(\"branch\")\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/writer.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/writer.rs:111",
+								"name": "<Hunk: @@ 109,9 111,9 @@ impl<'writer> SessionWriter<'writer> {>",
+								"diff": "@@ -109,9 +111,9 @@ impl<'writer> SessionWriter<'writer> {\n         }\n \n         if let Some(commit) = session.meta.commit.as_ref() {\n-            writer\n+            self.writer\n                 .write_string(\n-                    repository\n+                    self.repository\n                         .session_path()\n                         .join(\"meta\")\n                         .join(\"commit\")\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/writer.rs"
+							},
+							{
+								"id": "writers:src-tauri/src/sessions/writer.rs:124",
+								"name": "<Hunk: @@ 122,104 124,6 @@ impl<'writer> SessionWriter<'writer> {>",
+								"diff": "@@ -122,104 +124,6 @@ impl<'writer> SessionWriter<'writer> {\n                 .with_context(|| \"failed to write commit\")?;\n         }\n \n-        let writer = SessionWriter { repository, writer };\n-\n-        Ok(writer)\n-    }\n-\n-    pub fn append_pty(&self, record: &pty::Record) -> Result<()> {\n-        self.repository.lock()?;\n-        defer! {\n-            self.repository.unlock().expect(\"failed to unlock\");\n-        }\n-\n-        serde_jsonlines::append_json_lines(\n-            self.repository.session_path().join(\"pty.jsonl\"),\n-            [record],\n-        )?;\n-\n-        log::info!(\n-            \"{}: appended pty record to session\",\n-            self.repository.project_id\n-        );\n-\n-        Ok(())\n-    }\n-\n-    pub fn write_session_wd_file<P: AsRef<std::path::Path>>(\n-        &self,\n-        path: P,\n-        contents: &str,\n-    ) -> Result<()> {\n-        self.repository.lock()?;\n-        defer! {\n-            self.repository.unlock().expect(\"failed to unlock\");\n-        }\n-\n-        let path = path.as_ref();\n-        self.writer.write_string(\n-            self.repository\n-                .session_wd_path()\n-                .join(path)\n-                .to_str()\n-                .unwrap(),\n-            contents,\n-        )?;\n-\n-        log::info!(\n-            \"{}: wrote session wd file {}\",\n-            self.repository.project_id,\n-            path.display()\n-        );\n-\n-        Ok(())\n-    }\n-\n-    pub fn write_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {\n-        self.repository.lock()?;\n-        defer! {\n-            self.repository.unlock().expect(\"failed to unlock\");\n-        }\n-\n-        serde_jsonlines::append_json_lines(\n-            self.repository.session_path().join(\"bookmarks.jsonl\"),\n-            [bookmark],\n-        )?;\n-\n-        log::info!(\n-            \"{}: wrote bookmark {}\",\n-            self.repository.project_id,\n-            bookmark.timestamp_ms\n-        );\n-\n-        Ok(())\n-    }\n-\n-    pub fn write_deltas<P: AsRef<std::path::Path>>(\n-        &self,\n-        path: P,\n-        deltas: &Vec<deltas::Delta>,\n-    ) -> Result<()> {\n-        self.repository.lock()?;\n-        defer! {\n-            self.repository.unlock().expect(\"failed to unlock\");\n-        }\n-\n-        let path = path.as_ref();\n-\n-        let raw_deltas = serde_json::to_string(&deltas)?;\n-\n-        self.writer.write_string(\n-            self.repository.deltas_path().join(path).to_str().unwrap(),\n-            &raw_deltas,\n-        )?;\n-\n-        log::info!(\n-            \"{}: wrote deltas for {}\",\n-            self.repository.project_id,\n-            path.display()\n-        );\n-\n         Ok(())\n     }\n }\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/sessions/writer.rs"
+							}
+						]
+					},
+					{
+						"id": "writers:src-tauri/src/watcher/handlers/project_file_change.rs",
+						"path": "src-tauri/src/watcher/handlers/project_file_change.rs",
+						"kind": "file",
+						"hunks": [
+							{
+								"id": "writers:src-tauri/src/watcher/handlers/project_file_change.rs:154",
+								"name": "<Hunk: @@ 154,15 154,13 @@ impl<'listener> Handler<'listener> {>",
+								"diff": "@@ -154,15 +154,13 @@ impl<'listener> Handler<'listener> {\n             return Ok(vec![]);\n         }\n \n-        let writer = sessions::Writer::open(self.gb_repository, &current_session)?;\n-\n         let deltas = text_doc.get_deltas();\n-\n+        let writer = deltas::Writer::new(self.gb_repository)?;\n         writer\n-            .write_deltas(path, &deltas)\n+            .write(path, &deltas)\n             .with_context(|| \"failed to write deltas\")?;\n         writer\n-            .write_session_wd_file(path, &current_file_content)\n+            .write_wd_file(path, &current_file_content)\n             .with_context(|| \"failed to write file\")?;\n \n         Ok(vec![\n",
+								"kind": "hunk",
+								"modifiedAt": "2023-06-05T08:43:58Z",
+								"filePath": "src-tauri/src/watcher/handlers/project_file_change.rs"
 							}
 						]
 					}
