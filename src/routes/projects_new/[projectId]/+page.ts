@@ -2,12 +2,14 @@ import type { PageLoad } from './$types';
 import { wrapLoadWithSentry } from '@sentry/sveltekit';
 import type { Branch, File } from './types';
 import { subSeconds, subMinutes, subHours } from 'date-fns';
-import { resolveResource } from '@tauri-apps/api/path';
-import { readTextFile } from '@tauri-apps/api/fs';
 
 export const load: PageLoad = async () => {
-	const testdata = await resolveResource('../scripts/branch_testdata.json');
-	const test_branches = JSON.parse(await readTextFile(testdata));
+	const testdata_file = await (
+		await import('@tauri-apps/api/path')
+	).resolveResource('../scripts/branch_testdata.json');
+	const test_branches = JSON.parse(
+		await (await import('@tauri-apps/api/fs')).readTextFile(testdata_file)
+	);
 
 	// fix dates from the test data
 	test_branches.map((branch: Branch) =>
