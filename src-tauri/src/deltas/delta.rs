@@ -9,24 +9,39 @@ pub struct Delta {
 }
 
 impl Delta {
-    // take parts of another delta that are covered by this delta and return the rest
+    fn apply_offset(operation: operations::Operation, offset: i64) -> operations::Operation {
+        match operation {
+            operations::Operation::Insert((index, chunk)) => {
+                operations::Operation::Insert(((index as i64 - offset) as usize, chunk))
+            }
+            operations::Operation::Delete((index, len)) => {
+                operations::Operation::Delete(((index as i64 - offset) as usize, len))
+            }
+        }
+    }
+
+    // take parts of another delta that are covered by this delta and return the rest with adjusted indices
     // (taken, rest)
     pub fn take(&self, another: &Delta) -> (Option<Delta>, Option<Delta>) {
         let mut taken_ops = Vec::new();
         let mut rest_ops = Vec::new();
-
-        for op in &another.operations {
+        let mut rest_offset = 0;
+        let mut taken_offset = 0;
+        for operation in &another.operations {
             let mut taken = false;
             for self_op in &self.operations {
-                if self_op.overlaps(op) {
-                    taken_ops.push(op.clone());
+                if self_op.overlaps(operation) {
                     taken = true;
                     break;
                 }
             }
 
             if !taken {
-                rest_ops.push(op.clone());
+                rest_ops.push(Self::apply_offset(operation.clone(), taken_offset));
+                rest_offset += operation.len_diff();
+            } else {
+                taken_ops.push(Self::apply_offset(operation.clone(), rest_offset));
+                taken_offset += operation.len_diff();
             }
         }
 
@@ -88,7 +103,7 @@ mod tests {
             timestamp_ms: 0,
         };
         let right = Delta {
-            operations: vec![operations::Operation::Insert((4, "two".to_string()))],
+            operations: vec![operations::Operation::Insert((5, "two".to_string()))],
             timestamp_ms: 1,
         };
 
@@ -98,7 +113,7 @@ mod tests {
         assert_eq!(
             result.1,
             Some(Delta {
-                operations: vec![operations::Operation::Insert((4, "two".to_string()))],
+                operations: vec![operations::Operation::Insert((5, "two".to_string()))],
                 timestamp_ms: 1,
             })
         );
@@ -130,7 +145,7 @@ mod tests {
         assert_eq!(
             result.1,
             Some(Delta {
-                operations: vec![operations::Operation::Insert((7, "four".to_string()))],
+                operations: vec![operations::Operation::Insert((4, "four".to_string()))],
                 timestamp_ms: 1,
             })
         );
