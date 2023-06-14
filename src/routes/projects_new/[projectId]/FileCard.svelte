@@ -22,7 +22,7 @@
 
 <div
 	use:animateHeight
-	class="flex w-full flex-col justify-center gap-2 overflow-hidden rounded border border-dotted border-zinc-600 p-2"
+	class="flex w-full flex-col justify-center gap-2 overflow-hidden rounded border border-dotted border-zinc-600 bg-zinc-900 p-2"
 >
 	<button
 		class="flex items-center gap-2 font-bold text-zinc-200"
