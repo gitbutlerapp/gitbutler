@@ -13,12 +13,9 @@
 	const flipDurationMs = 150;
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
-		e.detail.items.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
 		file.hunks = e.detail.items;
-
-		if (e.type == 'finalize' && (!file.hunks || file.hunks.length == 0)) {
-			dispatch('empty');
-		}
+		file.hunks.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
+		if (e.type == 'finalize' && file.hunks.length == 0) dispatch('empty');
 	}
 </script>
 
