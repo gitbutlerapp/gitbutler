@@ -57,7 +57,7 @@
 			{#each file.hunks || [] as hunk (hunk.id)}
 				<div
 					animate:flip={{ duration: flipDurationMs }}
-					class="changed-hunk w-full rounded border-t-[0.5px] border-t-[#4C4C4C] border-b-[0.5px] border-b-[#252525] bg-[#2C2C2C] p-1"
+					class="changed-hunk w-full rounded border-t-[0.5px] border-b-[0.5px] border-t-[#4C4C4C] border-b-[#252525] bg-[#2C2C2C] p-1"
 				>
 					<div class="w-full text-ellipsis">
 						{hunk.name}

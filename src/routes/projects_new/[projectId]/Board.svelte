@@ -42,7 +42,7 @@
 </script>
 
 <section
-	class="swimlane-container flex h-full w-full gap-x-4 overflow-x-scroll p-4 bg-zinc-900"
+	class="swimlane-container flex h-full w-full gap-x-4 overflow-x-scroll bg-zinc-900 p-4"
 	use:dndzone={{
 		items: branches,
 		flipDurationMs,
