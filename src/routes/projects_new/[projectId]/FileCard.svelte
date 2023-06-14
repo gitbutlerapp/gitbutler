@@ -24,7 +24,7 @@
 
 <div
 	use:animateHeight
-	class="w-fulljustify-center flex flex-col gap-2 rounded border border-zinc-600 bg-zinc-700 p-2"
+	class="flex w-full flex-col justify-center gap-2 overflow-hidden rounded border border-zinc-600 bg-zinc-700 p-2"
 >
 	<div class="font-bold text-zinc-200">
 		{file.path}
@@ -48,7 +48,7 @@
 				animate:flip={{ duration: flipDurationMs }}
 				class="w-full rounded border border-zinc-500 bg-zinc-600 p-1"
 			>
-				<div>
+				<div class="w-full text-ellipsis">
 					{hunk.name}
 				</div>
 				<div class="text-right">

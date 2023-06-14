@@ -2,79 +2,69 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import type { Commit, File, Hunk } from './types';
-	import CommitGroup from './CommitGroup.svelte';
+	import { File, Hunk } from './types';
 	import { createEventDispatcher } from 'svelte';
-	import { createCommit, createFile } from './helpers';
+	import { createFile } from './helpers';
+	import FileCard from './FileCard.svelte';
 
 	export let name: string;
-	export let commits: Commit[];
+	export let files: File[];
 
 	const flipDurationMs = 150;
 	const dispatch = createEventDispatcher();
 
-	function handleDndEvent(e: CustomEvent<DndEvent<Commit | File | Hunk>>, isFinal: boolean) {
-		const commitItems = e.detail.items.filter((item) => item.kind == 'commit') as Commit[];
-		const fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];
-		const hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];
+	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
+		const newItems = e.detail.items;
+		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 
-		// Merge hunks into existing files, or create new where none exist
+		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
 		for (const hunk of hunkItems) {
-			commitItems.push(
-				createCommit({
-					files: [
-						createFile({
-							hunks: [{ ...hunk, isDndShadowItem: !isFinal }],
-							isShadow: false,
-							filePath: hunk.filePath
-						})
-					],
-					isShadow: false
-				})
-			);
+			const file = fileItems.find((file) => file.path == hunk.filePath);
+			if (file) {
+				file.hunks.push(hunk);
+			} else {
+				fileItems.push(createFile(hunk.filePath, hunk));
+			}
 		}
-		for (const file of fileItems) {
-			commitItems.push(
-				createCommit({ files: [{ ...file, isDndShadowItem: true }], isShadow: false })
-			);
-		}
-		commits = commitItems.filter((commit) => commit.files && commit.files.length > 0);
 
-		if (e.type == 'finalize' && (!commits || commits.length == 0)) {
+		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
+
+		if (e.type == 'finalize' && (!files || files.length == 0)) {
 			dispatch('empty');
+			return;
 		}
 	}
 
 	function handleEmpty() {
-		const emptyIndex = commits.findIndex((item) => !item.files || item.files.length == 0);
+		const emptyIndex = files.findIndex((item) => !item.hunks || item.hunks.length == 0);
 		if (emptyIndex != -1) {
-			commits.splice(emptyIndex, 1);
+			files.splice(emptyIndex, 1);
 		}
-		if (commits.length == 0) {
+		if (files.length == 0) {
 			dispatch('empty');
 		}
 	}
 </script>
 
 <div class="flex h-full w-full flex-col">
-	<div class="flex items-center justify-center p-4 font-bold">
+	<div class="flex items-center justify-center overflow-hidden p-4 font-bold">
 		{name}
 	</div>
 	<div
-		class="flex flex-grow flex-col gap-y-4"
+		class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll"
 		use:dndzone={{
-			items: commits,
+			items: files,
 			flipDurationMs,
 			zoneTabIndex: -1,
-			types: ['commit'],
-			receives: ['commit', 'file', 'hunk']
+			types: ['file'],
+			receives: ['file', 'hunk']
 		}}
-		on:consider={(e) => handleDndEvent(e, false)}
-		on:finalize={(e) => handleDndEvent(e, true)}
+		on:consider={handleDndEvent}
+		on:finalize={handleDndEvent}
 	>
-		{#each commits.filter((x) => x.files) as { id, description, files }, idx (id)}
-			<div animate:flip={{ duration: flipDurationMs }}>
-				<CommitGroup {id} bind:description bind:files on:empty={handleEmpty} />
+		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
+			<div class="w-full" animate:flip={{ duration: flipDurationMs }}>
+				<FileCard bind:file on:empty={handleEmpty} />
 			</div>
 		{/each}
 	</div>

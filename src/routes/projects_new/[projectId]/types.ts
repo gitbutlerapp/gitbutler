@@ -1,34 +1,28 @@
-export type Hunk = {
-	id: string;
-	name: string;
-	modifiedAt: Date;
-	kind: string;
-	filePath: string;
-	isDndShadowItem?: boolean;
-};
+import { Type } from 'class-transformer';
+import 'reflect-metadata';
 
-export type File = {
-	id: string;
-	path: string;
-	hunks: Hunk[];
-	kind: string;
+class DndItem {
+	id!: string;
+	kind!: string;
 	isDndShadowItem?: boolean;
-};
+}
 
-export type Commit = {
-	id: string;
-	description: string;
-	committedAt?: Date;
-	files: File[];
-	kind: string;
-	isDndShadowItem?: boolean;
-};
+export class Hunk extends DndItem {
+	name!: string;
+	diff!: string;
+	modifiedAt!: Date;
+	filePath!: string;
+}
 
-export type Branch = {
-	id: string;
-	name: string;
-	active: boolean;
-	commits: Commit[];
-	kind: string;
-	isDndShadowItem?: boolean;
-};
+export class File extends DndItem {
+	path!: string;
+	@Type(() => Hunk)
+	hunks!: Hunk[];
+}
+
+export class Branch extends DndItem {
+	name!: string;
+	active!: boolean;
+	@Type(() => File)
+	files!: File[];
+}

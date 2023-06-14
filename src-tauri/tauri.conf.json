@@ -15,7 +15,7 @@
             "fs": {
                 "all": false,
                 "readFile": true,
-                "scope": ["$APPCACHE/archives/*"]
+                "scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
             },
             "shell": {
                 "all": false,
@@ -52,7 +52,10 @@
                 "icons/icon.icns",
                 "icons/icon.ico"
             ],
-            "targets": ["dmg", "updater"]
+            "targets": ["dmg", "updater"],
+            "resources": [
+                "../scripts/branch_testdata.json"
+            ]
         },
         "systemTray": {
             "iconPath": "icons/tray.png",
