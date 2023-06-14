@@ -22,7 +22,7 @@ jobs:
 
             - name: Lint frontend
               run: |
-                pnpm lint
+                pnpm lint-ci
 
     check-frontend:
         runs-on: ubuntu-latest

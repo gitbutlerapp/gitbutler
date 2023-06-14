@@ -10,6 +10,7 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
 		"lint": "prettier --plugin-search-dir . --check . && eslint .",
+		"lint-ci": "prettier --check $(git diff --name-only HEAD^..HEAD) && eslint $(git diff --name-only HEAD^..HEAD)",
 		"format": "prettier --plugin-search-dir . --write .",
 		"tauri": "tauri",
 		"story:dev": "histoire dev --open",
