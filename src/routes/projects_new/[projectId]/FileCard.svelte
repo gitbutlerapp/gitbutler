@@ -22,7 +22,7 @@
 
 <div
 	use:animateHeight
-	class="changed-file flex w-full flex-col justify-center gap-2 overflow-hidden rounded border-t-[0.5px] border-b-[0.5px] border-t-[#4C4C4C] border-b-[#252525] bg-[#2C2C2C]  p-2"
+	class="changed-file flex w-full flex-col justify-center gap-2 overflow-hidden bg-[#2C2C2C] p-2"
 >
 	<button
 		class="flex items-center gap-2 font-bold text-zinc-200"
