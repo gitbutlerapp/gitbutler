@@ -5,10 +5,12 @@
 	import { Branch, File, Hunk } from './types';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import { createBranch, createFile } from './helpers';
+	import { createEventDispatcher } from 'svelte';
 
 	export let branches: Branch[];
 
 	const flipDurationMs = 300;
+	const dispatch = createEventDispatcher();
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {
 		const newItems = e.detail.items;
@@ -25,7 +27,10 @@
 		}
 
 		branches = branchItems.filter((commit) => commit.active);
-		console.log(branches);
+
+		if (e.type == 'finalize') {
+			dispatch('finalize', branches);
+		}
 	}
 
 	function handleEmpty() {
