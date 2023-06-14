@@ -54,7 +54,7 @@
 >
 	{#each branches.filter((c) => c.active) as { id, name, files } (id)}
 		<div
-			class="swimlane flex h-full w-96 rounded-lg border border-zinc-700 bg-zinc-900"
+			class="swimlane flex h-full w-96 rounded-lg bg-zinc-900"
 			animate:flip={{ duration: flipDurationMs }}
 		>
 			<Lane {name} bind:files on:empty={handleEmpty} />
