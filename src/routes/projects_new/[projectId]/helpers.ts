@@ -1,38 +1,37 @@
-import type { Branch, Commit, File, Hunk } from './types';
+import { Branch, Commit, File, type Hunk } from './types';
+import { plainToInstance } from 'class-transformer';
 
 let fileCounter = 0;
 let commitCounter = 0;
 let branchCounter = 0;
 
-export function createFile(args: { hunks: [Hunk]; filePath: string; isShadow: boolean }): File {
+export function createFile(path: string, hunk: Hunk): File {
 	fileCounter++;
-	return {
+	return plainToInstance(File, {
 		id: `file-${fileCounter}`,
-		path: args.filePath,
+		path: path,
 		kind: 'file',
-		hunks: args.hunks,
-		isDndShadowItem: args.isShadow
-	};
+		hunks: [hunk]
+	});
 }
 
-export function createCommit(args: { files: File[]; isShadow: boolean }): Commit {
+export function createCommit(file: File): Commit {
 	commitCounter++;
-	return {
+	return plainToInstance(Commit, {
 		id: `commit-${commitCounter}`,
 		description: `New commit # ${commitCounter}`,
 		kind: 'commit',
-		files: args.files,
-		isDndShadowItem: args.isShadow
-	};
+		files: [file]
+	});
 }
 
-export function createBranch(args: { commits: Commit[] }): Branch {
+export function createBranch(commit: Commit): Branch {
 	branchCounter++;
-	return {
+	return plainToInstance(Branch, {
 		id: `branch-${branchCounter}`,
 		name: `new branch ${branchCounter}`,
 		active: true,
 		kind: 'branch',
-		commits: args.commits
-	};
+		commits: [commit]
+	});
 }

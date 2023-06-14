@@ -2,7 +2,7 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import type { Commit, File, Hunk } from './types';
+	import { Commit, File, Hunk } from './types';
 	import CommitGroup from './CommitGroup.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { createCommit, createFile } from './helpers';
@@ -13,31 +13,20 @@
 	const flipDurationMs = 150;
 	const dispatch = createEventDispatcher();
 
-	function handleDndEvent(e: CustomEvent<DndEvent<Commit | File | Hunk>>, isFinal: boolean) {
-		const commitItems = e.detail.items.filter((item) => item.kind == 'commit') as Commit[];
-		const fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];
-		const hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];
+	function handleDndEvent(e: CustomEvent<DndEvent<Commit | File | Hunk>>) {
+		const newItems = e.detail.items;
+		const commitItems = newItems.filter((item) => item instanceof Commit) as Commit[];
 
-		// Merge hunks into existing files, or create new where none exist
+		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
 		for (const hunk of hunkItems) {
-			commitItems.push(
-				createCommit({
-					files: [
-						createFile({
-							hunks: [{ ...hunk, isDndShadowItem: !isFinal }],
-							isShadow: false,
-							filePath: hunk.filePath
-						})
-					],
-					isShadow: false
-				})
-			);
+			commitItems.push(createCommit(createFile(hunk.filePath, hunk)));
 		}
+
+		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 		for (const file of fileItems) {
-			commitItems.push(
-				createCommit({ files: [{ ...file, isDndShadowItem: true }], isShadow: false })
-			);
+			commitItems.push(createCommit(file));
 		}
+
 		commits = commitItems.filter((commit) => commit.files && commit.files.length > 0);
 
 		if (e.type == 'finalize' && (!commits || commits.length == 0)) {
@@ -69,8 +58,8 @@
 			types: ['commit'],
 			receives: ['commit', 'file', 'hunk']
 		}}
-		on:consider={(e) => handleDndEvent(e, false)}
-		on:finalize={(e) => handleDndEvent(e, true)}
+		on:consider={handleDndEvent}
+		on:finalize={handleDndEvent}
 	>
 		{#each commits.filter((x) => x.files) as { id, description, files }, idx (id)}
 			<div class="w-full" animate:flip={{ duration: flipDurationMs }}>

@@ -2,37 +2,32 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import type { File, Hunk } from './types';
+	import { File, Hunk } from './types';
 	import FileCard from './FileCard.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { createFile } from './helpers';
 
-	export let description: string;
+	export let description: string | undefined;
 	export let id: string;
 	export let files: File[];
 
 	const flipDurationMs = 150;
 	const dispatch = createEventDispatcher();
 
-	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>, isFinal: boolean) {
-		const fileItems = e.detail.items.filter((item) => item.kind == 'file') as File[];
-		const hunkItems = e.detail.items.filter((item) => item.kind == 'hunk') as Hunk[];
+	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
+		const newItems = e.detail.items;
+		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 
-		// Merge hunks into existing files, or create new where none exist
+		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
 		for (const hunk of hunkItems) {
 			const file = fileItems.find((file) => file.path == hunk.filePath);
 			if (file) {
 				file.hunks.push(hunk);
 			} else {
-				fileItems.push(
-					createFile({
-						filePath: hunk.filePath,
-						hunks: [{ ...hunk, isDndShadowItem: !isFinal }],
-						isShadow: false
-					})
-				);
+				fileItems.push(createFile(hunk.filePath, hunk));
 			}
 		}
+
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
 
 		if (e.type == 'finalize' && (!files || files.length == 0)) {
@@ -63,8 +58,8 @@
 			types: ['file'],
 			receives: ['file', 'hunk']
 		}}
-		on:consider={(e) => handleDndEvent(e, false)}
-		on:finalize={(e) => handleDndEvent(e, true)}
+		on:consider={handleDndEvent}
+		on:finalize={handleDndEvent}
 	>
 		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
 			<div class="w-full" animate:flip={{ duration: flipDurationMs }}>

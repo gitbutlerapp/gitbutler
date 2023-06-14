@@ -106,6 +106,9 @@ devDependencies:
   autoprefixer:
     specifier: ^10.4.7
     version: 10.4.13(postcss@8.4.21)
+  class-transformer:
+    specifier: ^0.5.1
+    version: 0.5.1
   date-fns:
     specifier: ^2.29.3
     version: 2.29.3
@@ -163,6 +166,9 @@ devDependencies:
   prettier-plugin-tailwindcss:
     specifier: ^0.3.0
     version: 0.3.0(prettier-plugin-svelte@2.9.0)(prettier@2.8.4)
+  reflect-metadata:
+    specifier: ^0.1.13
+    version: 0.1.13
   svelte:
     specifier: ~3.55.1
     version: 3.55.1
@@ -170,8 +176,8 @@ devDependencies:
     specifier: ^3.0.1
     version: 3.0.3(postcss-load-config@4.0.1)(postcss@8.4.21)(svelte@3.55.1)
   svelte-dnd-action:
-    specifier: github:gitbutlerapp/svelte-dnd-action#fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9
-    version: github.com/gitbutlerapp/svelte-dnd-action/fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9(svelte@3.55.1)
+    specifier: github:gitbutlerapp/svelte-dnd-action#8acea8787f2172dd89ff0118bbb40bfcd5e7bf00
+    version: github.com/gitbutlerapp/svelte-dnd-action/8acea8787f2172dd89ff0118bbb40bfcd5e7bf00(svelte@3.55.1)
   svelte-floating-ui:
     specifier: ^1.5.2
     version: 1.5.2
@@ -192,10 +198,10 @@ devDependencies:
     version: 3.2.4(postcss@8.4.21)
   tauri-plugin-log-api:
     specifier: github:tauri-apps/tauri-plugin-log
-    version: github.com/tauri-apps/tauri-plugin-log/5e14c2cad7335a4284a6caad81d8cf37dd675a27
+    version: github.com/tauri-apps/tauri-plugin-log/21921031d74f871180381317a338559f588ad8e9
   tauri-plugin-websocket-api:
     specifier: github:tauri-apps/tauri-plugin-websocket
-    version: github.com/tauri-apps/tauri-plugin-websocket/c77fa23243388bdeff6ca1b09f78b71b62ef01da
+    version: github.com/tauri-apps/tauri-plugin-websocket/9633f601a828600bcf11208daaf2003b38350eaa
   tinykeys:
     specifier: ^1.4.0
     version: 1.4.0
@@ -1705,6 +1711,10 @@ packages:
       readdirp: 3.6.0
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
+
+  /class-transformer@0.5.1:
+    resolution: {integrity: sha512-SQa1Ws6hUbfC98vKGxZH3KFY0Y1lm5Zm0SY8XX9zbK7FJCyVEac3ATW0RIpwzW+oOfmHE5PMPufDG9hCfoEOMw==}
     dev: true
 
   /color-convert@2.0.1:
@@ -3405,6 +3415,10 @@ packages:
       picomatch: 2.3.1
     dev: true
 
+  /reflect-metadata@0.1.13:
+    resolution: {integrity: sha512-Ts1Y/anZELhSsjMcU605fU9RE4Oi3p5ORujwbIKXfWa+0Zxs510Qrmrce5/Jowq3cHSZSJqBjypxmHarc+vEWg==}
+    dev: true
+
   /requires-port@1.0.0:
     resolution: {integrity: sha512-KigOCHcocU3XODJxsu8i/j8T9tzT4adHiecwORRQ0ZZFcp7ahwXuRU1m+yuO90C5ZUyGeGfocHDI14M3L3yDAQ==}
     dev: true
@@ -4266,9 +4280,9 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  github.com/gitbutlerapp/svelte-dnd-action/fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9(svelte@3.55.1):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-dnd-action/tar.gz/fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9}
-    id: github.com/gitbutlerapp/svelte-dnd-action/fbe6a192bc99dd69d2d1946fefb2df9cea7b2de9
+  github.com/gitbutlerapp/svelte-dnd-action/8acea8787f2172dd89ff0118bbb40bfcd5e7bf00(svelte@3.55.1):
+    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-dnd-action/tar.gz/8acea8787f2172dd89ff0118bbb40bfcd5e7bf00}
+    id: github.com/gitbutlerapp/svelte-dnd-action/8acea8787f2172dd89ff0118bbb40bfcd5e7bf00
     name: svelte-dnd-action
     version: 0.9.22
     peerDependencies:
@@ -4277,16 +4291,16 @@ packages:
       svelte: 3.55.1
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-log/5e14c2cad7335a4284a6caad81d8cf37dd675a27:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/5e14c2cad7335a4284a6caad81d8cf37dd675a27}
+  github.com/tauri-apps/tauri-plugin-log/21921031d74f871180381317a338559f588ad8e9:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/21921031d74f871180381317a338559f588ad8e9}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
       '@tauri-apps/api': 1.3.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/c77fa23243388bdeff6ca1b09f78b71b62ef01da:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/c77fa23243388bdeff6ca1b09f78b71b62ef01da}
+  github.com/tauri-apps/tauri-plugin-websocket/9633f601a828600bcf11208daaf2003b38350eaa:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/9633f601a828600bcf11208daaf2003b38350eaa}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:

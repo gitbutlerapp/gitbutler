@@ -1,5 +1,6 @@
 import type { PageLoad } from './$types';
-import type { Branch, File } from './types';
+import { plainToInstance } from 'class-transformer';
+import { Branch, File } from './types';
 
 export const load: PageLoad = async () => {
 	const testdata_file = await (
@@ -26,16 +27,19 @@ export const load: PageLoad = async () => {
 	);
 	let branches = test_branches as Branch[];
 
-	branches = branches.map((column) => ({
-		...column,
-		commits: column.commits.map((commit) => ({
-			...commit,
-			files: commit.files.map((file) => ({
-				...file,
-				hunks: file.hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime())
+	branches = plainToInstance(
+		Branch,
+		branches.map((column) => ({
+			...column,
+			commits: column.commits.map((commit) => ({
+				...commit,
+				files: commit.files.map((file) => ({
+					...file,
+					hunks: file.hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime())
+				}))
 			}))
 		}))
-	}));
+	);
 
 	return {
 		branchData: branches
