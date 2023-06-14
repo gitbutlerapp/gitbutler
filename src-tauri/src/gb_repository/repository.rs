@@ -16,7 +16,7 @@ use crate::{fs, projects, users};
 use crate::{
     project_repository,
     reader::{self, Reader},
-    writer::{self, Writer},
+    writer::{self},
     sessions,
 };
 

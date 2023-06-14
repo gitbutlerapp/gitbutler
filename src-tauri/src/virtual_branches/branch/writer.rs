@@ -92,6 +92,21 @@ impl<'writer> BranchWriter<'writer> {
             )
             .context("Failed to write branch updated timestamp")?;
 
+        // convert ownership to string by joining Vec<String> with newlines
+        let ownership = branch
+            .ownership
+            .iter()
+            .map(|user| user.to_string())
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        self.writer
+            .write_string(
+                &format!("branches/{}/meta/ownership", branch.id),
+                &ownership,
+            )
+            .context("Failed to write branch upstream")?;
+
         Ok(())
     }
 }
