@@ -36,7 +36,7 @@
 	function handleEmpty() {
 		const emptyIndex = branches.findIndex((item) => !item.files || item.files.length == 0);
 		if (emptyIndex != -1) {
-			// TODO: Figure out what to do when a branch is empty. Just removing it is a bit jarring.
+			branches.splice(emptyIndex, 1);
 		}
 	}
 </script>

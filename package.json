@@ -74,7 +74,7 @@
 		"reflect-metadata": "^0.1.13",
 		"svelte": "~3.55.1",
 		"svelte-check": "^3.0.1",
-		"svelte-dnd-action": "github:gitbutlerapp/svelte-dnd-action#8acea8787f2172dd89ff0118bbb40bfcd5e7bf00",
+		"svelte-dnd-action": "github:gitbutlerapp/svelte-dnd-action#0d9263ffd8bfb2fb11877ba91732a80070848505",
 		"svelte-floating-ui": "^1.5.2",
 		"svelte-french-toast": "^1.0.3",
 		"svelte-loadable-store": "^1.2.3",
