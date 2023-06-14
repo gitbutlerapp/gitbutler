@@ -431,8 +431,17 @@ impl Repository {
         }
     }
 
+    pub fn get_branch_reader(&self) -> Result<reader::DirReader, anyhow::Error> {
+        let reader = reader::DirReader::open(self.root());
+        Ok(reader)
+    }
+
     pub(crate) fn root(&self) -> std::path::PathBuf {
         self.git_repository.path().join("gitbutler")
+    }
+
+    pub(crate) fn branch_root(&self) -> std::path::PathBuf {
+        self.git_repository.path().join("gitbutler-branch")
     }
 
     pub(crate) fn session_path(&self) -> std::path::PathBuf {

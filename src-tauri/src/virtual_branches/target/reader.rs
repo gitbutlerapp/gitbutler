@@ -4,19 +4,20 @@ use super::Target;
 
 pub struct TargetReader<'reader> {
     reader: &'reader dyn reader::Reader,
+    branch_reader: &'reader dyn reader::Reader,
 }
 
 impl<'reader> TargetReader<'reader> {
-    pub fn new(reader: &'reader dyn reader::Reader) -> Self {
-        Self { reader }
+    pub fn new(reader: &'reader dyn reader::Reader, branch_reader: &'reader dyn reader::Reader) -> Self {
+        Self { reader, branch_reader }
     }
 
     pub fn read_default(&self) -> Result<Target, reader::Error> {
-        if !self.reader.exists("branches/target") {
+        if !self.branch_reader.exists("branches/target") {
             return Err(reader::Error::NotFound);
         }
 
-        let reader: &dyn crate::reader::Reader = &SubReader::new(self.reader, "branches/target");
+        let reader: &dyn crate::reader::Reader = &SubReader::new(self.branch_reader, "branches/target");
         Target::try_from(reader)
     }
 

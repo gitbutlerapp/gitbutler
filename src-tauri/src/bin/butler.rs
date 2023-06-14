@@ -6,8 +6,9 @@ use dialoguer::{console::Term, theme::ColorfulTheme, Select};
 
 use git_butler_tauri::{
     projects, storage, project_repository, gb_repository,
-    users, database, sessions, virtual_branches
+    users, database, sessions, virtual_branches, reader
 };
+use git_butler_tauri::reader::Reader;
 
 #[derive(Parser)]
 struct Cli {
@@ -70,11 +71,14 @@ fn main() {
 
     let args = Cli::parse();
     match args.command.as_str() {
+        "info" => {
+            run_info(butler);   // shows internal data states for the project
+        },
         "status" => {
-            run_status(butler);
+            run_status(butler); // shows virtual branch status
         },
         "setup" => {
-            run_setup(butler);
+            run_setup(butler);  // sets target sha from remote branch
         },
         _ => println!("Unknown command: {}", args.command)
     }
@@ -115,8 +119,35 @@ fn run_setup(butler: ButlerCli) {
     }
 }
 
-// just print status information for the project
+// list the virtual branches and their file statuses (statusi?)
 fn run_status(butler: ButlerCli) {
+    println!("{}", "virtual branches:".to_string().red());
+    if let Some(sha) = get_base_sha(&butler) {
+        println!("  base sha: {}", sha.blue());
+        let repo = butler.git_repository();
+        let oid = git2::Oid::from_str(&sha).unwrap();
+        let commit = repo.find_commit(oid).unwrap();
+        let tree = commit.tree().unwrap();
+
+        // list the files that are different between the wd and the base sha
+        let mut diff_options = git2::DiffOptions::new();
+        let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut diff_options)).unwrap();
+
+        let deltas = diff.deltas();
+
+        for delta in deltas {
+            let old_file = delta.old_file();
+            let new_file = delta.new_file();
+
+            if let Some(path) = old_file.path() {
+                println!("{:?}", path);
+            }
+        }
+    }
+}
+
+// just print information for the project
+fn run_info(butler: ButlerCli) {
     println!("path: {}", butler.path.yellow());
     println!("data_dir: {}", butler.local_data_dir.yellow());
 
@@ -153,11 +184,11 @@ fn run_status(butler: ButlerCli) {
     println!("{}", "default target:".to_string().red());
     if let Ok(Some(session)) = butler.gb_repository.get_current_session() {
         let session_reader = sessions::Reader::open(&butler.gb_repository, &session).unwrap();
+        let branch_reader = butler.gb_repository.get_branch_reader().unwrap();
 
-        let branch_reader = virtual_branches::target::Reader::new(&session_reader);
-        if let Ok(target) = branch_reader.read_default() {
+        let target_reader = virtual_branches::target::Reader::new(&session_reader, &branch_reader);
+        if let Ok(target) = target_reader.read_default() {
             println!("  name: {}", target.name.blue());
-            println!("  remote: {}", target.remote.blue());
             println!("  sha: {}", target.sha.to_string().blue());
         }
 
@@ -168,6 +199,20 @@ fn run_status(butler: ButlerCli) {
                 println!("{:?}", item);
             }
         }
+    } else {
+        println!("  no current session");
+        if let Some(sha) = get_base_sha(&butler) {
+            println!("  base sha: {}", sha.blue());
+        }
+    }
+}
+
+fn get_base_sha(butler: &ButlerCli) -> Option<String> {
+    let branch_reader = butler.gb_repository.get_branch_reader().unwrap();
+    if let Ok(reader::Content::UTF8(sha)) = branch_reader.read("branches/target/sha") {
+        Some(sha)
+    } else {
+        None
     }
 }
 
