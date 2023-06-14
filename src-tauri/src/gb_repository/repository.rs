@@ -16,6 +16,7 @@ use crate::{fs, projects, users};
 use crate::{
     project_repository,
     reader::{self, Reader},
+    writer::{self, Writer},
     sessions,
 };
 
@@ -374,8 +375,13 @@ impl Repository {
         let wd_tree_oid = build_wd_tree(self, project_repository)
             .context("failed to build working directory tree")?;
         let session_tree_oid = build_session_tree(self).context("failed to build session tree")?;
+
         let log_tree_oid =
             build_log_tree(self, project_repository).context("failed to build logs tree")?;
+
+        // get the branch_root content and write the tree into the branches tree
+        let vbranches_tree_oid = build_vbranches_tree(self)
+            .context("failed to build vbranches tree")?;
 
         let mut tree_builder = self
             .git_repository
@@ -390,6 +396,9 @@ impl Repository {
         tree_builder
             .insert("logs", log_tree_oid, 0o040000)
             .context("failed to insert logs tree")?;
+        tree_builder
+            .insert("branches", vbranches_tree_oid, 0o040000)
+            .context("failed to insert vbranches tree")?;
 
         let tree = tree_builder.write().context("failed to write tree")?;
 
@@ -432,7 +441,12 @@ impl Repository {
     }
 
     pub fn get_branch_reader(&self) -> Result<reader::DirReader, anyhow::Error> {
-        let reader = reader::DirReader::open(self.root());
+        let reader = reader::DirReader::open(self.branch_root());
+        Ok(reader)
+    }
+
+    pub fn get_branch_writer(&self) -> Result<writer::DirWriter, anyhow::Error> {
+        let reader = writer::DirWriter::open(self.branch_root());
         Ok(reader)
     }
 
@@ -440,7 +454,7 @@ impl Repository {
         self.git_repository.path().join("gitbutler")
     }
 
-    pub(crate) fn branch_root(&self) -> std::path::PathBuf {
+    pub fn branch_root(&self) -> std::path::PathBuf {
         self.git_repository.path().join("gitbutler-branch")
     }
 
@@ -932,6 +946,25 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     let tree_oid = index
         .write_tree_to(&gb_repository.git_repository)
         .context("failed to write index to tree")?;
+
+    Ok(tree_oid)
+}
+
+fn build_vbranches_tree(gb_repository: &Repository) -> Result<git2::Oid> {
+    let mut index = git2::Index::new()?;
+
+    // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
+    for file_path in
+        fs::list_files(&gb_repository.branch_root()).context("failed to list vbranches files")?
+    {
+        let file_path = std::path::Path::new(&file_path);
+        add_session_path(gb_repository, &mut index, file_path)
+            .with_context(|| format!("failed to add vbranches file: {}", file_path.display()))?;
+    }
+
+    let tree_oid = index
+        .write_tree_to(&gb_repository.git_repository)
+        .context("failed to write vbranches index to tree")?;
 
     Ok(tree_oid)
 }

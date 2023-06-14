@@ -8,8 +8,8 @@ use crate::{
 use super::Branch;
 
 pub struct BranchWriter<'writer> {
-    repository: &'writer gb_repository::Repository,
-    writer: writer::DirWriter,
+    pub repository: &'writer gb_repository::Repository,
+    pub writer: writer::DirWriter,
 }
 
 impl<'writer> BranchWriter<'writer> {
@@ -71,6 +71,12 @@ impl<'writer> BranchWriter<'writer> {
             .write_string(
                 &format!("branches/{}/meta/upstream", branch.id),
                 &branch.upstream,
+            )
+            .context("Failed to write branch upstream")?;
+        self.writer
+            .write_string(
+                &format!("branches/{}/meta/tree", branch.id),
+                &branch.tree.to_string(),
             )
             .context("Failed to write branch upstream")?;
         self.writer
