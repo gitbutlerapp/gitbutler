@@ -52,9 +52,9 @@
 	}
 </script>
 
-<div class="flex flex-col gap-y-2 border border-zinc-700 bg-zinc-900/70 p-2">
+<div class="flex w-full flex-col gap-y-2 border border-zinc-700 bg-zinc-900/70 p-2">
 	<div
-		class="flex flex-col gap-y-2"
+		class="flex w-full flex-col gap-y-2"
 		id="commit-{id}"
 		use:dndzone={{
 			items: files,
@@ -67,7 +67,7 @@
 		on:finalize={(e) => handleDndEvent(e, true)}
 	>
 		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
-			<div animate:flip={{ duration: flipDurationMs }}>
+			<div class="w-full" animate:flip={{ duration: flipDurationMs }}>
 				<FileCard bind:file on:empty={handleEmpty} />
 			</div>
 		{/each}

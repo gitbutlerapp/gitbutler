@@ -62,7 +62,8 @@
 <div class="flex h-full max-h-full min-h-full flex-col">
 	<header
 		data-tauri-drag-region
-		class="z-1 flex flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
+		class="flex h-11 flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
+		style="z-index: 9999;"
 	>
 		<div class="breadcrumb-project-container ml-24">
 			<Breadcrumbs project={$project} />
