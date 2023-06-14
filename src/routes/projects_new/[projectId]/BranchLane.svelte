@@ -42,14 +42,14 @@
 	}
 </script>
 
-<div class="swimlane flex h-full w-full flex-col bg-[#2C2C2C] rounded-lg p-2">
+<div class="swimlane flex h-full w-full flex-col rounded-lg bg-[#2C2C2C] p-2">
 	<div class="swimlane-header py-4 px-2 font-bold">
 		{name}
 	</div>
-	<div class="commit-container bg-[#212121] border-[0.5px] border-[#393939] p-2 rounded-lg overflow-auto">
-		<div class="commit-message text-lg font-bold py-2">
-			Commit message
-		</div>
+	<div
+		class="commit-container overflow-auto rounded-lg border-[0.5px] border-[#393939] bg-[#212121] p-2"
+	>
+		<div class="commit-message py-2 text-lg font-bold">Commit message</div>
 		<div
 			class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll "
 			use:dndzone={{

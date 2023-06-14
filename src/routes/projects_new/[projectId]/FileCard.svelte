@@ -22,7 +22,7 @@
 
 <div
 	use:animateHeight
-	class="changed-file flex w-full flex-col justify-center gap-2 overflow-hidden rounded border-t-[0.5px] border-t-[#4C4C4C] border-b-[0.5px] border-b-[#252525] bg-[#2C2C2C]  p-2"
+	class="changed-file flex w-full flex-col justify-center gap-2 overflow-hidden rounded border-t-[0.5px] border-b-[0.5px] border-t-[#4C4C4C] border-b-[#252525] bg-[#2C2C2C]  p-2"
 >
 	<button
 		class="flex items-center gap-2 font-bold text-zinc-200"
@@ -57,7 +57,7 @@
 			{#each file.hunks || [] as hunk (hunk.id)}
 				<div
 					animate:flip={{ duration: flipDurationMs }}
-					class="changed-hunk w-full rounded p-2 bg-[#212121] flex flex-col gap-1"
+					class="changed-hunk flex w-full flex-col gap-1 rounded bg-[#212121] p-2"
 				>
 					<div class="w-full text-ellipsis">
 						{hunk.name}
