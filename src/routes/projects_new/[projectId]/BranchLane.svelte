@@ -42,7 +42,7 @@
 	}
 </script>
 
-<div class="flex h-full w-full flex-col">
+<div class="flex h-full w-full flex-col bg-[#2C2C2C]">
 	<div class="mb-4 flex items-center justify-center border-b  border-zinc-700 py-4 font-bold">
 		{name}
 	</div>
