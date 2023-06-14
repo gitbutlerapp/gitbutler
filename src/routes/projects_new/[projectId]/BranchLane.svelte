@@ -42,31 +42,37 @@
 	}
 </script>
 
-<div class="swimlane flex h-full w-full flex-col rounded-lg bg-[#2C2C2C] p-2">
-	<div class="swimlane-header py-4 px-2 font-bold">
-		{name}
+<div class="swimlane flex h-full w-full flex-col rounded-lg bg-[#2C2C2C]">
+	<div class="flex flex-col gap-1 border-b border-zinc-700 py-4 px-2">
+		<div class="font-bold">{name}</div>
+		<textarea
+			class="h-14 w-full resize-none
+		rounded border-0 p-2 text-zinc-400 focus-within:h-32">markdown description of things</textarea
+		>
 	</div>
 	<div
-		class="commit-container overflow-auto rounded-lg border-[0.5px] border-[#393939] bg-[#212121] p-2"
+		class="flex flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll "
+		use:dndzone={{
+			items: files,
+			flipDurationMs,
+			zoneTabIndex: -1,
+			types: ['file'],
+			receives: ['file', 'hunk']
+		}}
+		on:consider={handleDndEvent}
+		on:finalize={handleDndEvent}
 	>
-		<div class="commit-message py-2 text-lg font-bold">Commit message</div>
-		<div
-			class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll "
-			use:dndzone={{
-				items: files,
-				flipDurationMs,
-				zoneTabIndex: -1,
-				types: ['file'],
-				receives: ['file', 'hunk']
-			}}
-			on:consider={handleDndEvent}
-			on:finalize={handleDndEvent}
-		>
-			{#each files.filter((x) => x.hunks) as file, idx (file.id)}
-				<div class="changed-hunk w-full" animate:flip={{ duration: flipDurationMs }}>
-					<FileCard bind:file on:empty={handleEmpty} />
-				</div>
-			{/each}
+		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
+			<div class=" w-full" animate:flip={{ duration: flipDurationMs }}>
+				<FileCard bind:file on:empty={handleEmpty} />
+			</div>
+		{/each}
+		<div class="flex h-full w-full flex-col border-t border-zinc-700 p-2">
+			<div class="font-bold">Commits</div>
+			<div>Commit 1</div>
+			<div>Commit 2</div>
+			<div>Commit 3</div>
+			<div>Commit 1</div>
 		</div>
 	</div>
 </div>
