@@ -42,26 +42,31 @@
 	}
 </script>
 
-<div class="flex h-full w-full flex-col">
-	<div class="mb-4 flex items-center justify-center border-b  border-zinc-700 py-4 font-bold">
+<div class="swimlane flex h-full w-full flex-col rounded-lg bg-[#2C2C2C] p-2">
+	<div class="swimlane-header py-4 px-2 font-bold">
 		{name}
 	</div>
 	<div
-		class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll px-2"
-		use:dndzone={{
-			items: files,
-			flipDurationMs,
-			zoneTabIndex: -1,
-			types: ['file'],
-			receives: ['file', 'hunk']
-		}}
-		on:consider={handleDndEvent}
-		on:finalize={handleDndEvent}
+		class="commit-container overflow-auto rounded-lg border-[0.5px] border-[#393939] bg-[#212121] p-2"
 	>
-		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
-			<div class="w-full" animate:flip={{ duration: flipDurationMs }}>
-				<FileCard bind:file on:empty={handleEmpty} />
-			</div>
-		{/each}
+		<div class="commit-message py-2 text-lg font-bold">Commit message</div>
+		<div
+			class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll "
+			use:dndzone={{
+				items: files,
+				flipDurationMs,
+				zoneTabIndex: -1,
+				types: ['file'],
+				receives: ['file', 'hunk']
+			}}
+			on:consider={handleDndEvent}
+			on:finalize={handleDndEvent}
+		>
+			{#each files.filter((x) => x.hunks) as file, idx (file.id)}
+				<div class="changed-hunk w-full" animate:flip={{ duration: flipDurationMs }}>
+					<FileCard bind:file on:empty={handleEmpty} />
+				</div>
+			{/each}
+		</div>
 	</div>
 </div>
