@@ -4,12 +4,10 @@
 	import type { PageData } from './$types';
 
 	export let data: PageData;
-	let columnsData = data.columnsData;
-
-	$: console.log(columnsData);
+	let branches = data.branchData;
 </script>
 
 <div class="flex h-full">
-	<Tray bind:columns={columnsData} />
-	<Board bind:columns={columnsData} />
+	<Tray bind:columns={branches} />
+	<Board bind:branches />
 </div>
