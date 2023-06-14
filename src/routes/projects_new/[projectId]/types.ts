@@ -20,16 +20,9 @@ export class File extends DndItem {
 	hunks!: Hunk[];
 }
 
-export class Commit extends DndItem {
-	description?: string;
-	committedAt?: Date;
-	@Type(() => File)
-	files!: File[];
-}
-
 export class Branch extends DndItem {
 	name!: string;
 	active!: boolean;
-	@Type(() => Commit)
-	commits!: Commit[];
+	@Type(() => File)
+	files!: File[];
 }
