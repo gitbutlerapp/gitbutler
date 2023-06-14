@@ -1,6 +1,10 @@
 #!/usr/bin/env /usr/bin/python3
 import subprocess
 import json
+import openai
+import os
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 try:
     from unidiff import PatchSet
@@ -25,6 +29,24 @@ def get_last_n_pr_nums(n_prs):
         text=True,
     )
     return list_prs.splitlines()
+
+
+def summarize_hunk(hunk):
+    prompt = """
+    Summarize the following git diff hunk in less than 80 characters:
+
+    ```
+    {hunk}
+    ```
+    """.format(
+        hunk=hunk[0:1000]
+    )
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=32,
+    )
+    return response.choices[0].message.content.strip()
 
 
 def process_pr(pr_number):
@@ -56,7 +78,7 @@ def process_pr(pr_number):
         for hunk in file:
             hunk_out = {
                 "id": branch_name + ":" + file.path + ":" + str(hunk.target_start),
-                "name": repr(hunk),
+                "name": summarize_hunk(str(hunk)),
                 "diff": str(hunk),
                 "kind": "hunk",
                 "modifiedAt": updated_at,
