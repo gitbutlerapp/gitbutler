@@ -43,6 +43,11 @@ def process_pr(pr_number):
         shell=True,
         text=True,
     ).splitlines()[0]
+    body = subprocess.check_output(
+        "gh pr view %s --json body -q '.body'" % pr_number,
+        shell=True,
+        text=True,
+    ).splitlines()[0]
     diff = subprocess.check_output("gh pr diff %s" % pr_number, shell=True, text=True)
     patch = PatchSet(diff)
     files = []
@@ -65,19 +70,13 @@ def process_pr(pr_number):
             "hunks": hunks,
         }
         files.append(file_out)
-    # commit = {
-    #     "id": "Commit:" + branch_name + ":" + pr_number,
-    #     "description": title,
-    #     "committedAt": updated_at,
-    #     "kind": "commit",
-    #     "files": files,
-    # }
     branch = {
         "id": branch_name + ":" + pr_number,
         "name": branch_name,
         "active": True,
         "kind": "branch",
         "files": files,
+        "description": title + "\n" + body,
     }
     return branch
 
@@ -86,8 +85,6 @@ def process_pr(pr_number):
 prs = ["429", "420", "414", "409", "407"]  # feel free to paste some some specific PRs
 
 branches = [process_pr(pr) for pr in prs]
-
-print(branches)
 
 with open("scripts/branch_testdata.json", "w") as json_file:
     json.dump(branches, json_file, indent=4)

@@ -52,12 +52,12 @@
 	on:consider={handleDndEvent}
 	on:finalize={handleDndEvent}
 >
-	{#each branches.filter((c) => c.active) as { id, name, files } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, description } (id)}
 		<div
 			class="swimlane flex h-full w-96 snap-start scroll-ml-4 rounded-lg bg-zinc-900"
 			animate:flip={{ duration: flipDurationMs }}
 		>
-			<Lane {name} bind:files on:empty={handleEmpty} />
+			<Lane {name} {description} bind:files on:empty={handleEmpty} />
 		</div>
 	{/each}
 </section>

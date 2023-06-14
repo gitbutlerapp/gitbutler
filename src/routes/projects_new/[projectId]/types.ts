@@ -23,4 +23,5 @@ export class Branch extends DndItem {
 	active!: boolean;
 	@Type(() => File)
 	files!: File[];
+	description!: string;
 }

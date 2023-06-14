@@ -8,6 +8,7 @@
 	import FileCard from './FileCard.svelte';
 
 	export let name: string;
+	export let description: string;
 	export let files: File[];
 
 	const flipDurationMs = 150;
@@ -47,7 +48,7 @@
 		<div class="font-bold">{name}</div>
 		<textarea
 			class="h-14 w-full resize-none
-		rounded border-0 p-2 text-zinc-400 focus-within:h-32">markdown description of things</textarea
+		rounded border-0 p-2 text-zinc-400 focus-within:h-32">{description}</textarea
 		>
 	</div>
 	<div
