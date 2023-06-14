@@ -66,7 +66,7 @@
 </script>
 
 <section
-	class="flex w-full gap-x-8 p-8"
+	class="flex h-full w-full gap-x-8 overflow-x-scroll p-2"
 	use:dndzone={{
 		items: branches,
 		flipDurationMs,
@@ -78,7 +78,7 @@
 >
 	{#each branches.filter((c) => c.active) as { id, name, commits }, idx (id)}
 		<div
-			class="flex w-64 border border-zinc-700 bg-zinc-900/50 p-4"
+			class="flex h-full w-96 border border-zinc-700 bg-zinc-900/50 p-4"
 			animate:flip={{ duration: flipDurationMs }}
 		>
 			<Lane {name} bind:commits on:empty={handleEmpty} />

@@ -57,11 +57,11 @@
 </script>
 
 <div class="flex h-full w-full flex-col">
-	<div class="flex items-center justify-center p-4 font-bold">
+	<div class="flex items-center justify-center overflow-hidden p-4 font-bold">
 		{name}
 	</div>
 	<div
-		class="flex flex-grow flex-col gap-y-4"
+		class="flex flex-grow flex-col gap-y-4 overflow-x-hidden overflow-y-scroll"
 		use:dndzone={{
 			items: commits,
 			flipDurationMs,
@@ -73,7 +73,7 @@
 		on:finalize={(e) => handleDndEvent(e, true)}
 	>
 		{#each commits.filter((x) => x.files) as { id, description, files }, idx (id)}
-			<div animate:flip={{ duration: flipDurationMs }}>
+			<div class="w-full" animate:flip={{ duration: flipDurationMs }}>
 				<CommitGroup {id} bind:description bind:files on:empty={handleEmpty} />
 			</div>
 		{/each}
