@@ -43,11 +43,11 @@
 </script>
 
 <div class="flex h-full w-full flex-col">
-	<div class="flex items-center justify-center overflow-hidden p-4 font-bold">
+	<div class="mb-4 flex items-center justify-center border-b  border-zinc-700 py-4 font-bold">
 		{name}
 	</div>
 	<div
-		class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll"
+		class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll px-2"
 		use:dndzone={{
 			items: files,
 			flipDurationMs,
