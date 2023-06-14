@@ -2,44 +2,45 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { Commit, File, Hunk } from './types';
-	import CommitGroup from './CommitGroup.svelte';
+	import { File, Hunk } from './types';
 	import { createEventDispatcher } from 'svelte';
-	import { createCommit, createFile } from './helpers';
+	import { createFile } from './helpers';
+	import FileCard from './FileCard.svelte';
 
 	export let name: string;
-	export let commits: Commit[];
+	export let files: File[];
 
 	const flipDurationMs = 150;
 	const dispatch = createEventDispatcher();
 
-	function handleDndEvent(e: CustomEvent<DndEvent<Commit | File | Hunk>>) {
+	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
 		const newItems = e.detail.items;
-		const commitItems = newItems.filter((item) => item instanceof Commit) as Commit[];
+		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 
 		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
 		for (const hunk of hunkItems) {
-			commitItems.push(createCommit(createFile(hunk.filePath, hunk)));
+			const file = fileItems.find((file) => file.path == hunk.filePath);
+			if (file) {
+				file.hunks.push(hunk);
+			} else {
+				fileItems.push(createFile(hunk.filePath, hunk));
+			}
 		}
 
-		const fileItems = newItems.filter((item) => item instanceof File) as File[];
-		for (const file of fileItems) {
-			commitItems.push(createCommit(file));
-		}
+		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
 
-		commits = commitItems.filter((commit) => commit.files && commit.files.length > 0);
-
-		if (e.type == 'finalize' && (!commits || commits.length == 0)) {
+		if (e.type == 'finalize' && (!files || files.length == 0)) {
 			dispatch('empty');
+			return;
 		}
 	}
 
 	function handleEmpty() {
-		const emptyIndex = commits.findIndex((item) => !item.files || item.files.length == 0);
+		const emptyIndex = files.findIndex((item) => !item.hunks || item.hunks.length == 0);
 		if (emptyIndex != -1) {
-			commits.splice(emptyIndex, 1);
+			files.splice(emptyIndex, 1);
 		}
-		if (commits.length == 0) {
+		if (files.length == 0) {
 			dispatch('empty');
 		}
 	}
@@ -50,20 +51,20 @@
 		{name}
 	</div>
 	<div
-		class="flex flex-grow flex-col gap-y-4 overflow-x-hidden overflow-y-scroll"
+		class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll"
 		use:dndzone={{
-			items: commits,
+			items: files,
 			flipDurationMs,
 			zoneTabIndex: -1,
-			types: ['commit'],
-			receives: ['commit', 'file', 'hunk']
+			types: ['file'],
+			receives: ['file', 'hunk']
 		}}
 		on:consider={handleDndEvent}
 		on:finalize={handleDndEvent}
 	>
-		{#each commits.filter((x) => x.files) as { id, description, files }, idx (id)}
+		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
 			<div class="w-full" animate:flip={{ duration: flipDurationMs }}>
-				<CommitGroup {id} bind:description bind:files on:empty={handleEmpty} />
+				<FileCard bind:file on:empty={handleEmpty} />
 			</div>
 		{/each}
 	</div>

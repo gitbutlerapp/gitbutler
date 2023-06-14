@@ -65,19 +65,19 @@ def process_pr(pr_number):
             "hunks": hunks,
         }
         files.append(file_out)
-    commit = {
-        "id": "Commit:" + branch_name + ":" + pr_number,
-        "description": title,
-        "committedAt": updated_at,
-        "kind": "commit",
-        "files": files,
-    }
+    # commit = {
+    #     "id": "Commit:" + branch_name + ":" + pr_number,
+    #     "description": title,
+    #     "committedAt": updated_at,
+    #     "kind": "commit",
+    #     "files": files,
+    # }
     branch = {
         "id": branch_name + ":" + pr_number,
         "name": branch_name,
         "active": True,
         "kind": "branch",
-        "commits": [commit],
+        "files": files,
     }
     return branch
 
