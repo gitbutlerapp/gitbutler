@@ -1,7 +1,5 @@
 import type { PageLoad } from './$types';
-import { wrapLoadWithSentry } from '@sentry/sveltekit';
 import type { Branch, File } from './types';
-import { subSeconds, subMinutes, subHours } from 'date-fns';
 
 export const load: PageLoad = async () => {
 	const testdata_file = await (
