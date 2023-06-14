@@ -37,7 +37,7 @@
 </script>
 
 <section
-	class="flex h-full w-full gap-x-8 overflow-x-scroll p-2"
+	class="flex h-full w-full gap-x-4 overflow-x-scroll p-2"
 	use:dndzone={{
 		items: branches,
 		flipDurationMs,
@@ -49,7 +49,7 @@
 >
 	{#each branches.filter((c) => c.active) as { id, name, files } (id)}
 		<div
-			class="flex h-full w-96 border border-zinc-700 bg-zinc-900/50 p-4"
+			class="flex h-full w-96 rounded-lg border border-zinc-700 bg-zinc-900"
 			animate:flip={{ duration: flipDurationMs }}
 		>
 			<Lane {name} bind:files on:empty={handleEmpty} />
