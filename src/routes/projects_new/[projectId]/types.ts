@@ -3,8 +3,6 @@ import 'reflect-metadata';
 
 class DndItem {
 	id!: string;
-	kind!: string;
-	isDndShadowItem?: boolean;
 }
 
 export class Hunk extends DndItem {

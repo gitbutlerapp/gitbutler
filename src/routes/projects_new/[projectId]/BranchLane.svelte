@@ -28,11 +28,7 @@
 		}
 
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
-
-		if (e.type == 'finalize' && (!files || files.length == 0)) {
-			dispatch('empty');
-			return;
-		}
+		if (e.type == 'finalize' && files.length == 0) dispatch('empty');
 	}
 
 	function handleEmpty() {
