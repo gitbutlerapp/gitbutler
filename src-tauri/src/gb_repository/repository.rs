@@ -11,7 +11,7 @@ use filetime::FileTime;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::{fs, projects, users};
+use crate::{fs, projects, users, virtual_branches};
 
 use crate::{
     project_repository,
@@ -247,6 +247,79 @@ impl Repository {
         Ok(())
     }
 
+    // take branches from the last session and put them into the current session
+    fn copy_branches(&self) -> Result<()> {
+        let last_session = self
+            .get_sessions_iterator()
+            .context("failed to get sessions iterator")?
+            .next();
+        if last_session.is_none() {
+            return Ok(());
+        }
+        let last_session = last_session
+            .unwrap()
+            .context("failed to read last session")?;
+        let last_session_reader = sessions::Reader::open(self, &last_session)
+            .context("failed to open last session reader")?;
+
+        let branches = virtual_branches::Iterator::new(&last_session_reader)
+            .context("failed to read virtual branches")?
+            .collect::<Result<Vec<_>, reader::Error>>()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        let src_target_reader = virtual_branches::target::Reader::new(&last_session_reader);
+        let dst_target_writer = virtual_branches::target::Writer::new(self);
+
+        // copy default target
+        let default_target = match src_target_reader.read_default() {
+            Result::Ok(target) => Ok(Some(target)),
+            Err(reader::Error::NotFound) => Ok(None),
+            Err(err) => Err(err).context("failed to read default target"),
+        }?;
+        if let Some(default_target) = default_target.as_ref() {
+            dst_target_writer
+                .write_default(default_target)
+                .context("failed to write default target")?;
+        }
+
+        // copy branch targets
+        for branch in &branches {
+            let target = src_target_reader
+                .read(&branch.id)
+                .with_context(|| format!("{}: failed to read target", branch.id))?;
+            if let Some(default_target) = default_target.as_ref() {
+                if *default_target == target {
+                    continue;
+                }
+            }
+            dst_target_writer
+                .write(&branch.id, &target)
+                .with_context(|| format!("{}: failed to write target", branch.id))?;
+        }
+
+        let src_branch_reader = virtual_branches::branch::Reader::new(&last_session_reader);
+        let dst_branch_writer = virtual_branches::branch::Writer::new(self);
+
+        // copy selected branch
+        let selected_branch = src_branch_reader
+            .read_selected()
+            .context("failed to read selected branch")?;
+        dst_branch_writer
+            .write_selected(&selected_branch)
+            .context("failed to write selected branch")?;
+
+        // copy branches
+        for branch in &branches {
+            dst_branch_writer
+                .write(branch)
+                .with_context(|| format!("{}: failed to write branch", branch.id))?;
+        }
+
+        Ok(())
+    }
+
     fn create_current_session(
         &self,
         project_repository: &project_repository::Repository,
@@ -280,7 +353,11 @@ impl Repository {
         };
 
         // write session to disk
-        sessions::Writer::new(self).write(&session)?;
+        sessions::Writer::new(self)
+            .write(&session)
+            .context("failed to write session")?;
+
+        self.copy_branches().context("failed to unpack branches")?;
 
         Ok(session)
     }
@@ -371,25 +448,39 @@ impl Repository {
             self.unlock().expect("failed to unlock");
         }
 
-        let wd_tree_oid = build_wd_tree(self, project_repository)
-            .context("failed to build working directory tree")?;
-        let session_tree_oid = build_session_tree(self).context("failed to build session tree")?;
-        let log_tree_oid =
-            build_log_tree(self, project_repository).context("failed to build logs tree")?;
-
         let mut tree_builder = self
             .git_repository
             .treebuilder(None)
             .context("failed to create tree builder")?;
         tree_builder
-            .insert("session", session_tree_oid, 0o040000)
+            .insert(
+                "session",
+                build_session_tree(self).context("failed to build session tree")?,
+                0o040000,
+            )
             .context("failed to insert session tree")?;
         tree_builder
-            .insert("wd", wd_tree_oid, 0o040000)
+            .insert(
+                "wd",
+                build_wd_tree(self, project_repository)
+                    .context("failed to build working directory tree")?,
+                0o040000,
+            )
             .context("failed to insert wd tree")?;
         tree_builder
-            .insert("logs", log_tree_oid, 0o040000)
+            .insert(
+                "logs",
+                build_log_tree(self, project_repository).context("failed to build logs tree")?,
+                0o040000,
+            )
             .context("failed to insert logs tree")?;
+        tree_builder
+            .insert(
+                "branches",
+                build_branches_tree(self).context("failed to build branches tree")?,
+                0o040000,
+            )
+            .context("failed to insert branches tree")?;
 
         let tree = tree_builder.write().context("failed to write tree")?;
 
@@ -404,7 +495,8 @@ impl Repository {
             commit_oid,
         );
 
-        std::fs::remove_dir_all(self.root()).context("failed to remove session directory")?;
+        std::fs::remove_dir_all(self.session_path())
+            .context("failed to remove session directory")?;
 
         if let Err(e) = self.push() {
             log::error!("{}: failed to push to remote: {:#}", self.project_id, e);
@@ -849,6 +941,28 @@ fn sha256_digest(path: &std::path::Path) -> Result<String> {
     Ok(format!("{:X}", digest))
 }
 
+fn build_branches_tree(gb_repository: &Repository) -> Result<git2::Oid> {
+    let mut index = git2::Index::new()?;
+
+    let branches_dir = gb_repository.root().join("branches");
+    for file_path in fs::list_files(&branches_dir).context("failed to find branches directory")? {
+        let file_path = std::path::Path::new(&file_path);
+        add_file_to_index(
+            gb_repository,
+            &mut index,
+            file_path,
+            &branches_dir.join(file_path),
+        )
+        .context("failed to add branch file to index")?;
+    }
+
+    let tree_oid = index
+        .write_tree_to(&gb_repository.git_repository)
+        .context("failed to write index to tree")?;
+
+    Ok(tree_oid)
+}
+
 fn build_log_tree(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
@@ -916,8 +1030,13 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
         fs::list_files(&gb_repository.session_path()).context("failed to list session files")?
     {
         let file_path = std::path::Path::new(&file_path);
-        add_session_path(gb_repository, &mut index, file_path)
-            .with_context(|| format!("failed to add session file: {}", file_path.display()))?;
+        add_file_to_index(
+            gb_repository,
+            &mut index,
+            file_path,
+            &gb_repository.session_path().join(file_path),
+        )
+        .with_context(|| format!("failed to add session file: {}", file_path.display()))?;
     }
 
     let tree_oid = index
@@ -928,15 +1047,14 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
 }
 
 // this is a helper function for build_gb_tree that takes paths under .git/gb/session and adds them to the in-memory index
-fn add_session_path(
+fn add_file_to_index(
     gb_repository: &Repository,
     index: &mut git2::Index,
     rel_file_path: &std::path::Path,
+    abs_file_path: &std::path::Path,
 ) -> Result<()> {
-    let file_path = gb_repository.session_path().join(rel_file_path);
-
-    let blob = gb_repository.git_repository.blob_path(&file_path)?;
-    let metadata = file_path.metadata()?;
+    let blob = gb_repository.git_repository.blob_path(abs_file_path)?;
+    let metadata = abs_file_path.metadata()?;
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
@@ -956,14 +1074,9 @@ fn add_session_path(
             path: rel_file_path.to_str().unwrap().into(),
             id: blob,
         })
-        .with_context(|| {
-            format!(
-                "Failed to add session file to index: {}",
-                file_path.display()
-            )
-        })?;
+        .with_context(|| format!("Failed to add file to index: {}", abs_file_path.display()))?;
 
-    log::debug!("added session path: {}", file_path.display());
+    log::debug!("added path: {}", abs_file_path.display());
 
     Ok(())
 }

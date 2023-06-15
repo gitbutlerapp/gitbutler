@@ -22,7 +22,7 @@ impl<'writer> BranchWriter<'writer> {
         }
     }
 
-    pub fn write_selected(&self, id: Option<&str>) -> Result<()> {
+    pub fn write_selected(&self, id: &Option<String>) -> Result<()> {
         self.repository
             .get_or_create_current_session()
             .context("Failed to get or create current session")?;
@@ -379,10 +379,10 @@ mod tests {
 
         assert!(!gb_repo.root().join("branches").join("selected").exists());
 
-        writer.write_selected(None)?;
+        writer.write_selected(&None)?;
         assert!(!gb_repo.root().join("branches").join("selected").exists());
 
-        writer.write_selected(Some("123"))?;
+        writer.write_selected(&Some("123".to_string()))?;
         assert_eq!(
             fs::read_to_string(
                 gb_repo
@@ -395,7 +395,7 @@ mod tests {
             "123"
         );
 
-        writer.write_selected(None)?;
+        writer.write_selected(&None)?;
         assert!(!gb_repo.root().join("branches").join("selected").exists());
 
         Ok(())

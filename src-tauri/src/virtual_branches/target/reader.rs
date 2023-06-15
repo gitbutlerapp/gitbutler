@@ -11,7 +11,7 @@ impl<'reader> TargetReader<'reader> {
         Self { reader }
     }
 
-    fn read_default(&self) -> Result<Target, reader::Error> {
+    pub fn read_default(&self) -> Result<Target, reader::Error> {
         if !self.reader.exists("branches/target") {
             return Err(reader::Error::NotFound);
         }

@@ -171,10 +171,10 @@ mod tests {
 
         assert_eq!(None, reader.read_selected()?);
 
-        writer.write_selected(Some("test"))?;
+        writer.write_selected(&Some("test".to_string()))?;
         assert_eq!(Some("test".to_string()), reader.read_selected()?);
 
-        writer.write_selected(Some("updated"))?;
+        writer.write_selected(&Some("updated".to_string()))?;
         assert_eq!(Some("updated".to_string()), reader.read_selected()?);
 
         Ok(())

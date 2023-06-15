@@ -4,6 +4,9 @@ use anyhow::{Context, Result};
 
 pub trait Writer {
     fn write(&self, path: &str, contents: &[u8]) -> Result<()>;
+    fn append_string(&self, path: &str, contents: &str) -> Result<()>;
+    fn remove(&self, path: &str) -> Result<()>;
+
     fn write_u128(&self, path: &str, contents: &u128) -> Result<()> {
         self.write_string(path, &contents.to_string())
     }
@@ -13,8 +16,6 @@ pub trait Writer {
     fn write_string(&self, path: &str, contents: &str) -> Result<()> {
         self.write(path, contents.as_bytes())
     }
-    fn append_string(&self, path: &str, contents: &str) -> Result<()>;
-    fn remove(&self, path: &str) -> Result<()>;
 }
 
 pub struct DirWriter {
