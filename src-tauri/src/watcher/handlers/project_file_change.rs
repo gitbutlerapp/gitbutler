@@ -220,27 +220,6 @@ impl Handler {
             }
         }
 
-        // write initial state for virtual branches that don't have it yet
-        let vbranch_writer = virtual_branches::branch::Writer::new(&gb_repository);
-        let init_vbranch_state = deltas::Document::new(
-            Some(&latest_file_content),
-            current_deltas.unwrap_or_default(),
-        )?
-        .to_string();
-        for branch in &virtual_branches {
-            match vbranch_reader.read_wd_file(&branch.id, path) {
-                Ok(_) => {}
-                Err(reader::Error::NotFound) => {
-                    vbranch_writer
-                        .write_wd_file(&branch.id, path, &init_vbranch_state)
-                        .with_context(|| "failed to write virtual branch wd file")?;
-                }
-                Err(err) => {
-                    return Err(err).context("failed to read virtual branch wd file");
-                }
-            }
-        }
-
         // choose fallback virtual branch. it's either the selected one or just the first one
         let vbranch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
         let fallback_branch_id = if let Some(id) = vbranch_reader
@@ -252,6 +231,7 @@ impl Handler {
             virtual_branches[0].id.clone()
         };
 
+        // split up incoming delta into virtual branch deltas
         let mut new_deltas_by_vbranch: HashMap<String, Vec<deltas::Delta>> = HashMap::new();
         let mut remaining = new_delta;
         for vbranch in &virtual_branches {
@@ -288,7 +268,32 @@ impl Handler {
             new_deltas.push(deltas);
         }
 
+        // calculate initial branch file state as the latest file content + the current deltas, aka
+        // the working directory state without the latest change.
+        let init_vbranch_state = deltas::Document::new(
+            Some(&latest_file_content),
+            current_deltas.unwrap_or_default(),
+        )?
+        .to_string();
+
+        // time to write virtual branch states
+        let vbranch_writer = virtual_branches::branch::Writer::new(&gb_repository);
         for (branch_id, deltas) in new_deltas_by_vbranch {
+            // write initial state if it doesn't exist
+            match vbranch_reader.read_wd_file(&branch_id, path) {
+                Ok(_) => { /* already exists, noop */ }
+                Err(reader::Error::NotFound) => {
+                    // doesn't exist, write it
+                    vbranch_writer
+                        .write_wd_file(&branch_id, path, &init_vbranch_state)
+                        .with_context(|| "failed to write virtual branch wd file")?;
+                }
+                Err(err) => {
+                    return Err(err).context("failed to read virtual branch wd file");
+                }
+            }
+
+            // write deltas
             vbranch_writer
                 .write_deltas(&branch_id, path, &deltas)
                 .with_context(|| {
