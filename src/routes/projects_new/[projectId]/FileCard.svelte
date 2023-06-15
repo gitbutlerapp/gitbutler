@@ -3,7 +3,6 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import { formatDistanceToNow, compareDesc } from 'date-fns';
-	import animateHeight from './animation';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import type { File, Hunk } from './types';
 
@@ -21,7 +20,6 @@
 </script>
 
 <div
-	use:animateHeight
 	class="changed-file flex w-full flex-col justify-center gap-2 overflow-hidden bg-[#2C2C2C] p-2"
 >
 	<button
