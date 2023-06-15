@@ -170,9 +170,36 @@ fn run_move(butler: ButlerCli) {
 // TODO: vbranches: split function that identifies part of a file and moves that hunk to another branch
 // - writes the ownership simply as: path/to/file:line_number-line_number
 
+// WIP, trying to do something like this: https://github.com/gitbutlerapp/butler-cli/blob/master/lib/butler/status.rb#L517-L540
 fn run_flush(_butler: ButlerCli) {
     println!("{}", "flush session:".to_string().red());
+    /* 
+    // WIP
     // for all active virtual branches, determine new base trees and write them, then clear the session deltas
+    let branch_writer = butler.gb_repository.get_branch_writer().unwrap();
+    let writer = virtual_branches::branch::Writer {
+        repository: &butler.gb_repository,
+        writer: branch_writer,
+    };
+
+    let branch_reader = butler.gb_repository.get_branch_reader().unwrap();
+    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+    while let Some(item) = iter.next() {
+        if let Ok(item) = item {
+            // figure out the new tree by applying new file contents to the base tree
+            let mut branch = item;
+            let mut tree = branch.tree;
+            for file in &branch.ownership {
+                // get index based on tree
+
+                let mut index_builder = git2::IndexBuilder::new();
+                index_builder.add_path(Path::new(&delta.path));
+                index.read(&mut index_builder).unwrap();
+                let tree_id = index
+            }
+        }
+    }
+    */
 }
 
 fn run_setup(butler: ButlerCli) {
