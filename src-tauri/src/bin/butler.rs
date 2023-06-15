@@ -73,24 +73,12 @@ fn main() {
 
     let args = Cli::parse();
     match args.command.as_str() {
-        "info" => {
-            run_info(butler);   // shows internal data states for the project
-        },
-        "status" => {
-            run_status(butler); // shows virtual branch status
-        },
-        "new" => {
-            run_new(butler);   // create new empty virtual branch
-        },
-        "move" => {
-            run_move(butler);   // move file ownership from one branch to another
-        },
-        "flush" => {
-            run_flush(butler); // manually flushes an active session
-        },
-        "setup" => {
-            run_setup(butler);  // sets target sha from remote branch
-        },
+        "info"   => run_info(butler),   // shows internal data states for the project
+        "status" => run_status(butler), // shows virtual branch status
+        "new"    => run_new(butler),    // create new empty virtual branch
+        "move"   => run_move(butler),   // move file ownership from one branch to another
+        "flush"  => run_flush(butler),  // manually flushes an active session
+        "setup"  => run_setup(butler),  // sets target sha from remote branch
         _ => println!("Unknown command: {}", args.command)
     }
 }
@@ -178,6 +166,9 @@ fn run_move(butler: ButlerCli) {
         }
     }
 }
+
+// TODO: vbranches: split function that identifies part of a file and moves that hunk to another branch
+// - writes the ownership simply as: path/to/file:line_number-line_number
 
 fn run_flush(_butler: ButlerCli) {
     println!("{}", "flush session:".to_string().red());
