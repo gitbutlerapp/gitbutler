@@ -55,7 +55,6 @@
 		class="flex flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll "
 		use:dndzone={{
 			items: files,
-			flipDurationMs,
 			zoneTabIndex: -1,
 			types: ['file'],
 			receives: ['file', 'hunk']
@@ -64,7 +63,7 @@
 		on:finalize={handleDndEvent}
 	>
 		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
-			<div class=" w-full" animate:flip={{ duration: flipDurationMs }}>
+			<div class=" w-full">
 				<FileCard bind:file on:empty={handleEmpty} />
 			</div>
 		{/each}

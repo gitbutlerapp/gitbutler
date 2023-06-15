@@ -44,7 +44,6 @@
 		class="hunk-change-container flex flex-col gap-2 rounded"
 		use:dndzone={{
 			items: file.hunks,
-			flipDurationMs,
 			zoneTabIndex: -1,
 			autoAriaDisabled: true,
 			types: ['hunk', file.path],
@@ -55,10 +54,7 @@
 	>
 		{#if expanded}
 			{#each file.hunks || [] as hunk (hunk.id)}
-				<div
-					animate:flip={{ duration: flipDurationMs }}
-					class="changed-hunk flex w-full flex-col gap-1 rounded bg-[#212121] p-2"
-				>
+				<div class="changed-hunk flex w-full flex-col gap-1 rounded bg-[#212121] p-2">
 					<div class="w-full text-ellipsis">
 						{hunk.name}
 					</div>
