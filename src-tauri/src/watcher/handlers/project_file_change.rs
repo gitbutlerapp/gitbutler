@@ -171,6 +171,7 @@ impl Handler {
             );
             return Ok(vec![]);
         }
+        let new_delta = new_delta.as_ref().unwrap();
 
         let deltas = text_doc.get_deltas();
         let writer = deltas::Writer::new(&gb_repository);
@@ -182,13 +183,17 @@ impl Handler {
             .with_context(|| "failed to write file")?;
 
         let events = vec![
-            events::Event::File((
+            events::Event::SessionFile((
                 current_session.id.clone(),
                 path.to_path_buf(),
                 latest_file_content.clone(),
             )),
             events::Event::Session(current_session.clone()),
-            events::Event::Deltas((current_session.id.clone(), path.to_path_buf(), deltas)),
+            events::Event::SessionDelta((
+                current_session.id.clone(),
+                path.to_path_buf(),
+                new_delta.clone(),
+            )),
         ];
 
         // read virtual branches
@@ -253,7 +258,7 @@ impl Handler {
         };
 
         let mut new_deltas_by_vbranch: HashMap<String, Vec<deltas::Delta>> = HashMap::new();
-        let mut remaining = new_delta;
+        let mut remaining = Some(new_delta.clone());
         for vbranch in &virtual_branches {
             let vb_deltas = if let Some(deltas) = vbranch_deltas.get(&vbranch.id) {
                 deltas

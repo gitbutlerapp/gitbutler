@@ -14,7 +14,7 @@ pub struct Handler {
     user_store: users::Storage,
 }
 
-impl<'listener> Handler {
+impl Handler {
     pub fn new(
         local_data_dir: path::PathBuf,
         project_id: String,
@@ -48,9 +48,6 @@ impl<'listener> Handler {
             .flush_session(&project_repository::Repository::open(&project)?, session)
             .context("failed to flush session")?;
 
-        Ok(vec![
-            events::Event::Session(session.clone()),
-            events::Event::SessionFlushed(session),
-        ])
+        Ok(vec![events::Event::Session(session)])
     }
 }
