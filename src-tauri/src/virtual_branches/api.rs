@@ -1,4 +1,4 @@
-use std::{ops::Range, vec};
+use std::ops::Range;
 
 use anyhow::{Context, Result};
 
@@ -63,9 +63,9 @@ fn move_lines(
     let dst_content = read_virtual_file(&vbranch_reader, file_path, dst_vbranch_id)
         .context("failed to read destination file")?;
 
-    let line_number = find_range(&src_content, &wd_content, &dst_content, &line_range);
+    let position = find_insert_position(&src_content, &wd_content, &dst_content, &line_range);
 
-    println!("line number: {:?}", line_number);
+    println!("line number: {:?}", position);
 
     Ok(())
 }
@@ -74,9 +74,25 @@ fn move_lines(
 // and a merge result of both source and destination files,
 // returns a position in the destination file to where the range of chars should be inserted.
 // returns None if the source range can't be moved to the destination file.
-fn find_range(src: &str, middle: &str, dst: &str, src_range: &Range<usize>) -> Option<usize> {
+fn find_insert_position(
+    src: &str,
+    middle: &str,
+    dst: &str,
+    src_range: &Range<usize>,
+) -> Option<usize> {
     let middle_range = map_range(src, src_range, middle)?;
-    // TODO...
+    let middle_prefix = middle.get(..middle_range.start)?;
+
+    let mut middle_prefix_lines = middle_prefix.lines().collect::<Vec<_>>();
+    middle_prefix_lines.reverse();
+    // itarate over middle prefix lines in reverse order to find it's position in the destination file.
+    for line in middle_prefix_lines {
+        if let Some(dst_pos) = dst.rfind(line) {
+            return Some(dst_pos + line.len());
+        }
+    }
+
+    None
 }
 
 // given chars range of a source file, returns chars range of the same chars in a destination file.
@@ -89,4 +105,28 @@ fn map_range(src: &str, range: &Range<usize>, dst: &str) -> Option<Range<usize>>
 }
 
 #[cfg(test)]
-mod test {}
+mod test {
+    use super::*;
+
+    #[test]
+    fn move_line_from_middle_to_middle() {
+        let lft = vec!["b", "c", "d"].join("\n");
+        let mid = vec!["a", "b", "c", "d", "e"].join("\n");
+        let rgt = vec!["a", "e"].join("\n");
+
+        let pos = find_insert_position(&lft, &mid, &rgt, &Range { start: 1, end: 2 });
+        assert_eq!(pos, Some(1));
+    }
+
+    #[test]
+    fn move_line_from_end_to_middle() {
+        let lft = vec!["b", "c", "d"].join("\n");
+        let mid = vec!["a", "b", "c", "d", "e"].join("\n");
+        let rgt = vec!["a", "e"].join("\n");
+
+        let pos = find_insert_position(&lft, &mid, &rgt, &Range { start: 2, end: 3 });
+        assert_eq!(pos, Some(1));
+    }
+    
+    // TODO: more tests
+}
