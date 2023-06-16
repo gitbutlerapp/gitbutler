@@ -27,16 +27,8 @@ impl Document {
 
     // returns a text document where internal state is seeded with value, and deltas are applied.
     pub fn new(value: Option<&str>, deltas: Vec<delta::Delta>) -> Result<Document> {
-        let mut all_deltas = vec![];
-        if let Some(value) = value {
-            all_deltas.push(delta::Delta {
-                operations: operations::get_delta_operations("", value),
-                timestamp_ms: 0,
-            });
-        }
-        all_deltas.append(&mut deltas.clone());
-        let mut doc = vec![];
-        apply_deltas(&mut doc, &all_deltas)?;
+        let mut doc = value.unwrap_or("").chars().collect::<Vec<char>>();
+        apply_deltas(&mut doc, &deltas)?;
         Ok(Document { doc, deltas })
     }
 
