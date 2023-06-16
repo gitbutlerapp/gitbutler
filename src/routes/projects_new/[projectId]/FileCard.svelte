@@ -5,6 +5,9 @@
 	import { formatDistanceToNow, compareDesc } from 'date-fns';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import type { File, Hunk } from './types';
+	import { Differ } from '$lib/components';
+	import { line, type DiffArray } from '$lib/diff';
+	import { diff } from '$lib';
 
 	export let file: File;
 
@@ -16,6 +19,30 @@
 		file.hunks = e.detail.items;
 		file.hunks.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
 		if (e.type == 'finalize' && file.hunks.length == 0) dispatch('empty');
+	}
+
+	function diffStringToDiffArray(diffStr: string): DiffArray {
+		let lines = diffStr.split('\n');
+		let header = lines.shift();
+		const before = lines.filter((line) => line.startsWith('-')).map((line) => line.slice(1));
+		const after = lines.filter((line) => line.startsWith('+')).map((line) => line.slice(1));
+		return line(before.slice(0, 2), after.slice(0, 2));
+	}
+
+	function diffLineNumberOffset(diffStr: string): number[] {
+		let lines = diffStr.split('\n');
+		let header = lines.shift();
+		const lr = header?.split('@@')[1].trim().split(' ');
+		if (!lr) return [0, 0];
+		const before = lr[0].split(',')[0].slice(1);
+		const after = lr[1].split(',')[0].slice(1);
+		return [parseInt(before) + 2, parseInt(after) + 2];
+	}
+
+	function hunkSize(hunk: string): number[] {
+		const linesAdded = hunk.split('\n').filter((line) => line.startsWith('+')).length;
+		const linesRemoved = hunk.split('\n').filter((line) => line.startsWith('-')).length;
+		return [linesAdded, linesRemoved];
 	}
 </script>
 
@@ -55,11 +82,26 @@
 		{#if expanded}
 			{#each file.hunks || [] as hunk (hunk.id)}
 				<div class="changed-hunk flex w-full flex-col gap-1 rounded bg-[#212121] p-2">
-					<div class="w-full text-ellipsis">
+					<div class="w-full text-ellipsis text-sm">
 						{hunk.name}
 					</div>
-					<div class="text-right">
-						{formatDistanceToNow(hunk.modifiedAt, { addSuffix: true })}
+					<div class="cursor-pointer rounded border border-zinc-700 p-0.5 text-sm">
+						<Differ
+							diff={diffStringToDiffArray(hunk.diff)}
+							lineNumberOffset={diffLineNumberOffset(hunk.diff)}
+							filepath={hunk.filePath}
+						/>
+					</div>
+					<div class="flex text-sm font-bold">
+						<div class="flex flex-grow gap-1">
+							<div class="text-green-600">+{hunkSize(hunk.diff)[0]}</div>
+							{#if hunkSize(hunk.diff)[1] > 0}
+								<div class="text-red-600">-{hunkSize(hunk.diff)[1]}</div>
+							{/if}
+						</div>
+						<div class="text-right text-zinc-400">
+							{formatDistanceToNow(hunk.modifiedAt, { addSuffix: true })}
+						</div>
 					</div>
 				</div>
 			{/each}
