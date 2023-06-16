@@ -11,11 +11,11 @@ rust-version = "1.57"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1.2", features = [] }
+tauri-build = { version = "1.4", features = [] }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.2", features = ["dialog-open", "fs-read-file", "path-all", "protocol-asset", "shell-open", "system-tray", "window-start-dragging"] }
+tauri = { version = "1.4", features = ["dialog-open", "fs-read-file", "path-all", "protocol-asset", "shell-open", "system-tray", "window-start-dragging"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-websocket = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1", features = ["colored"]  }
