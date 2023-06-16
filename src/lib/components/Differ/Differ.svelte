@@ -10,6 +10,7 @@
 	export let highlight: string[] = [];
 	export let paddingLines = 10000;
 	export let diff: DiffArray;
+	export let lineNumberOffset = [0, 0];
 
 	const sanitize = (text: string) => {
 		var element = document.createElement('div');
@@ -217,11 +218,11 @@
 	{#each rows as row}
 		{@const baseNumber =
 			row.type === RowType.Equal || row.type === RowType.Deletion
-				? String(row.originalLineNumber)
+				? String(row.originalLineNumber + lineNumberOffset[0])
 				: ''}
 		{@const curNumber =
 			row.type === RowType.Equal || row.type === RowType.Addition
-				? String(row.currentLineNumber)
+				? String(row.currentLineNumber + lineNumberOffset[1])
 				: ''}
 		<span class="select-none border-r  border-zinc-800 bg-zinc-900 text-zinc-500/70">
 			<div class="mx-1.5 text-right">
