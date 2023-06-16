@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{ops::Range, vec};
 
 use anyhow::{Context, Result};
 
@@ -42,32 +42,6 @@ fn read_real_file(session_reader: &sessions::Reader, file_path: &str) -> Result<
     Ok(doc.to_string())
 }
 
-//
-// consider the following scenario:
-//
-//  previous session |  head session
-//                   |
-//                 o-|-o-o-o-o   <- src vbranch
-//                /  |
-//  -o-o-o-o-o-o-o-o-|-o-o-o-o-o-o-o-o-o  <- current working directory
-//                   |  \_
-//                   |    \
-//                   |     o-o-o-o   <- dst vbranch
-//                   |
-//
-// we want to move lines 2-4 from src vbranch to dst vbranch
-//
-// we achieve it by applying a delete operation to src branch and an insert operation
-// to dst branch
-//
-// to correctly apply an insert operation, we need to know common root for all of:
-// * src vbranch
-// * dst vbranch
-// * current working directory.
-//
-// using common root files and operation history for all, we use that information to calculate
-// the correct offset for the insert operation.
-//
 fn move_lines(
     gb_repo: &gb_repository::Repository,
     file_path: &str,
@@ -82,84 +56,37 @@ fn move_lines(
         .context("failed to open current session")?;
     let vbranch_reader = branch::Reader::new(&current_session_reader);
 
-    let src_vbranch = vbranch_reader
-        .read(src_vbranch_id)
-        .context("failed to read src vbranch")?;
-    let dst_vbranch = vbranch_reader
-        .read(dst_vbranch_id)
-        .context("failed to read dst vbranch")?;
-    let earliest_vbranch_created_timestamp_ms = src_vbranch
-        .created_timestamp_ms
-        .min(dst_vbranch.created_timestamp_ms);
+    let src_content = read_virtual_file(&vbranch_reader, file_path, src_vbranch_id)
+        .context("failed to read source file")?;
+    let wd_content =
+        read_real_file(&current_session_reader, file_path).context("failed to read real file")?;
+    let dst_content = read_virtual_file(&vbranch_reader, file_path, dst_vbranch_id)
+        .context("failed to read destination file")?;
 
-    // find first session during which the earliest vbranch was created
-    // and read all deltas from that session to now
-    let mut earliest_session: sessions::Session = current_session;
-    let mut wd_deltas: Vec<deltas::Delta> = vec![];
-    let sessions_iterator = gb_repo
-        .get_sessions_iterator()
-        .context("failed to get sessions")?;
-    for session in sessions_iterator {
-        let session = session.context("failed to read session")?;
-        if session.meta.last_timestamp_ms < earliest_vbranch_created_timestamp_ms {
-            break;
-        }
+    let line_number = find_range(&src_content, &wd_content, &dst_content, &line_range);
 
-        earliest_session = session.clone();
-        deltas::Reader::new(&current_session_reader)
-            .read_file(file_path)
-            .context("failed to read deltas")?
-            .unwrap_or_default()
-            .iter()
-            .for_each(|delta| {
-                wd_deltas.push(delta.clone());
-            });
-    }
-
-    // read vbranch deltas
-    let src_vbranch_deltas = vbranch_reader
-        .read_deltas(src_vbranch_id, file_path)
-        .context("failed to read src vbranch deltas")?;
-    let dst_vbranch_deltas = vbranch_reader
-        .read_deltas(dst_vbranch_id, file_path)
-        .context("failed to read dst vbranch deltas")?;
-
-    let earliest_vbranch_delta_timestamp = src_vbranch_deltas[0]
-        .timestamp_ms
-        .min(dst_vbranch_deltas[0].timestamp_ms);
-
-    // read common root file
-    let earlieat_session_init_file = match sessions::Reader::open(gb_repo, &earliest_session)
-        .context(format!("failed to open session {}", earliest_session.id))?
-        .file(file_path)
-        .context(format!(
-            "failed to read file from session {}",
-            earliest_session.id
-        ))? {
-        reader::Content::UTF8(content) => content,
-        reader::Content::Binary(_) => {
-            return Err(anyhow::anyhow!("file is binary"));
-        }
-    };
-
-    let root_doc = Document::new(
-        Some(&earlieat_session_init_file),
-        // filter out deltas that are recorded into vbranches
-        wd_deltas
-            .iter()
-            .cloned()
-            .filter(|delta| delta.timestamp_ms < earliest_vbranch_delta_timestamp)
-            .collect(),
-    )
-    .context("failed to create document")?;
-
-    // filter out deltas that are not recorded into vbranches
-    let wd_deltas = wd_deltas
-        .iter()
-        .filter(|delta| delta.timestamp_ms >= earliest_vbranch_delta_timestamp)
-        .collect::<Vec<_>>();
-
-    // TODO: now when all the data is read and prepared, time to calcualte the offset
+    println!("line number: {:?}", line_number);
 
     Ok(())
 }
+
+// given a range of chars in the source file,
+// and a merge result of both source and destination files,
+// returns a position in the destination file to where the range of chars should be inserted.
+// returns None if the source range can't be moved to the destination file.
+fn find_range(src: &str, middle: &str, dst: &str, src_range: &Range<usize>) -> Option<usize> {
+    let middle_range = map_range(src, src_range, middle)?;
+    // TODO...
+}
+
+// given chars range of a source file, returns chars range of the same chars in a destination file.
+// returns None if the source range is not found in the destination file.
+fn map_range(src: &str, range: &Range<usize>, dst: &str) -> Option<Range<usize>> {
+    let src_range = src.get(range.clone())?;
+    let start = dst.find(src_range)?;
+    let end = start + src_range.len();
+    Some(start..end)
+}
+
+#[cfg(test)]
+mod test {}
