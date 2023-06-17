@@ -535,6 +535,10 @@ impl Repository {
         self.session_path().join("wd")
     }
 
+    pub fn get_branch_reader(&self) -> reader::DirReader {
+        reader::DirReader::open(self.root())
+    }
+
     // migrate old data to the new format.
     // TODO: remove once we think everyone has migrated
     fn migrate(&self, project: &projects::Project) -> Result<bool> {
