@@ -232,11 +232,18 @@ fn run_status(butler: ButlerCli) {
 
         println!("{}", "virtual branches:".to_string().red());
         let branch_reader = butler.gb_repository.get_branch_reader();
+        let vbranch_reader = virtual_branches::branch::Reader::new(&branch_reader);
         let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-        // for each file, determine which branch it belongs to and write out 
         while let Some(item) = iter.next() {
             if let Ok(branch) = item {
                 println!("  {}", branch.name.blue());
+                // TODO: show the files that are owned by this branch
+                let files = vbranch_reader.files(&branch.id).unwrap();
+                for file in files {
+                    if all_files.contains(&file) {
+                        println!("    {}", file);
+                    }
+                }
             }
         }
     } else {

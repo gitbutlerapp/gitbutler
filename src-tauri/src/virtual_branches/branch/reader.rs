@@ -58,6 +58,16 @@ impl<'reader> BranchReader<'reader> {
         Ok(deltas)
     }
 
+    pub fn files(&self, id: &str) -> Result<Vec<String>, reader::Error> {
+        if !self.reader.exists(&format!("branches/{}", id)) {
+            return Err(reader::Error::NotFound);
+        }
+        let single_reader: &dyn crate::reader::Reader =
+            &SubReader::new(self.reader, &format!("branches/{}", id));
+        let files = single_reader.list_files("wd").unwrap();
+        Ok(files)
+    }
+
     pub fn read(&self, id: &str) -> Result<Branch, reader::Error> {
         if !self.reader.exists(&format!("branches/{}", id)) {
             return Err(reader::Error::NotFound);
