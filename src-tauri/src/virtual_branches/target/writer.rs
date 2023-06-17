@@ -10,7 +10,6 @@ use super::Target;
 pub struct TargetWriter<'writer> {
     repository: &'writer gb_repository::Repository,
     writer: writer::DirWriter,
-    branch_writer: writer::DirWriter,
 }
 
 impl<'writer> TargetWriter<'writer> {
@@ -18,7 +17,6 @@ impl<'writer> TargetWriter<'writer> {
         Self {
             repository,
             writer: writer::DirWriter::open(repository.root()),
-            branch_writer: writer::DirWriter::open(repository.branch_root()),
         }
     }
 
@@ -28,7 +26,6 @@ impl<'writer> TargetWriter<'writer> {
             self.repository.unlock().expect("Failed to unlock repository");
         }
 
-        // write to the session data
         self.writer
             .write_string("branches/target/name", &target.name)
             .context("Failed to write default target name")?;
@@ -36,17 +33,6 @@ impl<'writer> TargetWriter<'writer> {
             .write_string("branches/target/remote", &target.remote)
             .context("Failed to write default target remote")?;
         self.writer
-            .write_string("branches/target/sha", &target.sha.to_string())
-            .context("Failed to write default target sha")?;
-
-        // write to the persisted data
-        self.branch_writer
-            .write_string("branches/target/name", &target.name)
-            .context("Failed to write default target name")?;
-        self.branch_writer
-            .write_string("branches/target/remote", &target.remote)
-            .context("Failed to write default target remote")?;
-        self.branch_writer
             .write_string("branches/target/sha", &target.sha.to_string())
             .context("Failed to write default target sha")?;
         Ok(())

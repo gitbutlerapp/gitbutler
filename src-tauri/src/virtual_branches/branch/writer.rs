@@ -10,8 +10,8 @@ use crate::{
 use super::Branch;
 
 pub struct BranchWriter<'writer> {
-    pub repository: &'writer gb_repository::Repository,
-    pub writer: writer::DirWriter,
+    repository: &'writer gb_repository::Repository,
+    writer: writer::DirWriter,
 }
 
 impl<'writer> BranchWriter<'writer> {
@@ -76,12 +76,6 @@ impl<'writer> BranchWriter<'writer> {
             )
             .context("Failed to write branch upstream")?;
         self.writer
-            .write_string(
-                &format!("branches/{}/meta/tree", branch.id),
-                &branch.tree.to_string(),
-            )
-            .context("Failed to write branch upstream")?;
-        self.writer
             .write_u128(
                 &format!("branches/{}/meta/created_timestamp_ms", branch.id),
                 &branch.created_timestamp_ms,
@@ -93,21 +87,6 @@ impl<'writer> BranchWriter<'writer> {
                 &branch.updated_timestamp_ms,
             )
             .context("Failed to write branch updated timestamp")?;
-
-        // convert ownership to string by joining Vec<String> with newlines
-        let ownership = branch
-            .ownership
-            .iter()
-            .map(|user| user.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        self.writer
-            .write_string(
-                &format!("branches/{}/meta/ownership", branch.id),
-                &ownership,
-            )
-            .context("Failed to write branch upstream")?;
 
         Ok(())
     }
