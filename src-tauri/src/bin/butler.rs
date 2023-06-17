@@ -8,9 +8,8 @@ use uuid::Uuid;
 
 use git_butler_tauri::{
     projects, storage, project_repository, gb_repository,
-    users, database, sessions, virtual_branches, reader
+    users, database, sessions, virtual_branches
 };
-use git_butler_tauri::reader::Reader;
 
 #[derive(Parser)]
 struct Cli {
@@ -231,17 +230,15 @@ fn run_status(butler: ButlerCli) {
             all_files.push(file_path.clone());
         }
 
-        /* 
         println!("{}", "virtual branches:".to_string().red());
+        let branch_reader = butler.gb_repository.get_branch_reader();
         let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
         // for each file, determine which branch it belongs to and write out 
         while let Some(item) = iter.next() {
             if let Ok(branch) = item {
                 println!("  {}", branch.name.blue());
-                println!("    tree: {}", branch.tree.to_string().green());
             }
         }
-        */
     } else {
         println!("  no base sha set, run butler setup");
     }
