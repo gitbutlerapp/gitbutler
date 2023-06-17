@@ -108,7 +108,6 @@ fn run_new(butler: ButlerCli) {
 }
 
 fn run_move(butler: ButlerCli) {
-    /* 
     // get the files to move
     let files = get_status_files(&butler);
     let selections = MultiSelect::with_theme(&ColorfulTheme::default())
@@ -123,7 +122,7 @@ fn run_move(butler: ButlerCli) {
 
     // get the branch to move to
     let mut branches = vec![]; 
-    let branch_reader = butler.gb_repository.get_branch_reader().unwrap();
+    let branch_reader = butler.gb_repository.get_branch_reader();
     let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
     while let Some(item) = iter.next() {
         if let Ok(item) = item {
@@ -137,26 +136,7 @@ fn run_move(butler: ButlerCli) {
     let new_branch = branches[selection.unwrap()].clone();
 
     println!("Moving {} files to {}", selections.len(), new_branch.red());
-
-    // rewrite ownership of both branches
-    let branch_writer = butler.gb_repository.get_branch_writer().unwrap();
-    let writer = virtual_branches::branch::Writer {
-        repository: &butler.gb_repository,
-        writer: branch_writer,
-    };
-    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    while let Some(item) = iter.next() {
-        if let Ok(item) = item {
-            let mut branch = item;
-            if branch.name == new_branch {
-                branch.ownership.extend(selected_files.iter().map(|f| f.to_string()));
-            } else {
-                branch.ownership.retain(|f| !selected_files.contains(f));
-            }
-            writer.write(&branch).unwrap();
-        }
-    }
-    */
+    // TODO: move the files, BUT HOW?
 }
 
 fn run_setup(butler: ButlerCli) {
