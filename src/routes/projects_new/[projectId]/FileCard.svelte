@@ -22,21 +22,23 @@
 <div
 	class="changed-file flex w-full flex-col justify-center gap-2 overflow-hidden bg-[#2C2C2C] p-2"
 >
-	<button
-		class="flex items-center gap-2 font-bold text-zinc-200"
-		aria-expanded={expanded}
-		on:click={() => (expanded = !expanded)}
-	>
-		<div>
-			<svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-				<path class="vert" d="M10 1V19" stroke="currentColor" stroke-width="2" />
-				<path d="M1 10L19 10" stroke="currentColor" stroke-width="2" />
-			</svg>
-		</div>
+	<div class="flex items-center gap-2 font-bold text-zinc-200">
+		<button
+			class="cursor-pointer p-1"
+			aria-expanded={expanded}
+			on:click={() => (expanded = !expanded)}
+		>
+			<div>
+				<svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+					<path class="vert" d="M10 1V19" stroke="currentColor" stroke-width="2" />
+					<path d="M1 10L19 10" stroke="currentColor" stroke-width="2" />
+				</svg>
+			</div>
+		</button>
 		<div class="overflow-hidden text-ellipsis whitespace-nowrap">
 			{file.path}
 		</div>
-	</button>
+	</div>
 
 	<div
 		class="hunk-change-container flex flex-col gap-2 rounded"
