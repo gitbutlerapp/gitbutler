@@ -10,7 +10,6 @@
 	<div class="flex flex-col gap-y-2 py-2">
 		{#each branches as branch (branch.id)}
 			<div
-				animate:flip={{ duration: 300 }}
 				class="rounded border-t-[0.5px] border-b-[0.5px] border-t-[#4C4C4C] border-b-[#252525] bg-[#212121] p-2"
 			>
 				<Checkbox bind:checked={branch.active} />
