@@ -17,7 +17,7 @@
 	<div class="fixed inset-y-0 z-20 flex w-64 flex-col pt-11">
 		<Tray bind:branches />
 	</div>
-	<div class="h-full w-full pl-64">
+	<div class="h-full pl-64">
 		<Board {branches} on:finalize={onFinalize} />
 	</div>
 </div>
