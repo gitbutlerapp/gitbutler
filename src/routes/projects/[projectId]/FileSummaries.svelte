@@ -76,7 +76,7 @@
 				</header>
 				<ul class="all-files-changed flex flex-col rounded pl-3">
 					{#each Object.entries(fileDeltas) as [filepath, deltas]}
-						<li class="changed-file flex items-center justify-between gap-4  ">
+						<li class="changed-file flex items-center justify-between gap-4 bg-[#212121]  ">
 							<a
 								class="file-name max-w- flex w-full max-w-[360px] overflow-auto py-2 font-mono hover:underline"
 								href="/projects/{$page.params.projectId}/player/{format(

@@ -1,9 +1,41 @@
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{deltas, gb_repository, project_repository, projects, sessions, storage, users};
+use crate::{
+    deltas, gb_repository, project_repository, projects, sessions, storage, users, virtual_branches,
+};
 
 use super::project_file_change::Handler;
+
+static mut TEST_TARGET_INDEX: usize = 0;
+
+fn test_target() -> virtual_branches::target::Target {
+    virtual_branches::target::Target {
+        name: format!("target_name_{}", unsafe { TEST_TARGET_INDEX }),
+        remote: format!("remote_{}", unsafe { TEST_TARGET_INDEX }),
+        sha: git2::Oid::from_str(&format!(
+            "0123456789abcdef0123456789abcdef0123456{}",
+            unsafe { TEST_TARGET_INDEX }
+        ))
+        .unwrap(),
+    }
+}
+
+static mut TEST_INDEX: usize = 0;
+
+fn test_branch() -> virtual_branches::branch::Branch {
+    unsafe {
+        TEST_INDEX += 1;
+    }
+    virtual_branches::branch::Branch {
+        id: format!("branch_{}", unsafe { TEST_INDEX }),
+        name: format!("branch_name_{}", unsafe { TEST_INDEX }),
+        applied: true,
+        upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
+        created_timestamp_ms: unsafe { TEST_INDEX } as u128,
+        updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
+    }
+}
 
 fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
     let mut index = repository.index()?;
@@ -584,5 +616,326 @@ fn test_flow_signle_session() -> Result<()> {
     }
 
     assert_eq!(text.iter().collect::<String>(), size.to_string());
+    Ok(())
+}
+
+#[test]
+fn write_single_vbranch() -> Result<()> {
+    let repository = test_repository()?;
+    let project = projects::Project::try_from(&repository)?;
+    let project_repo = project_repository::Repository::open(&project)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(project_repo.root().join(file_path), "test")?;
+    commit_all(&repository)?;
+
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path.clone(),
+        project.id.clone(),
+        project_store.clone(),
+        user_store.clone(),
+    )?;
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
+
+    // register some changes
+    std::fs::write(project_repo.root().join(file_path), "test2")?;
+    listener.handle(file_path)?;
+
+    // create a virtual branch
+    let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
+    let vbranch0 = test_branch();
+    branch_writer.write(&vbranch0)?;
+
+    // register some more changes
+    std::fs::write(project_repo.root().join(file_path), "test3")?;
+    listener.handle(file_path)?;
+
+    // only the latest changes should be visible in the virtual branch
+    let session = gb_repo.get_or_create_current_session()?;
+    let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+    let vbranch_reader = virtual_branches::branch::Reader::new(&session_reader);
+
+    let vbranch_deltas = vbranch_reader.read_deltas(&vbranch0.id, file_path)?;
+    assert_eq!(vbranch_deltas.len(), 1);
+    assert_eq!(vbranch_deltas[0].operations.len(), 2);
+    assert_eq!(
+        vbranch_deltas[0].operations[0],
+        deltas::Operation::Delete((4, 1))
+    );
+    assert_eq!(
+        vbranch_deltas[0].operations[1],
+        deltas::Operation::Insert((4, "3".to_string()))
+    );
+
+    // more changes should also be written into the virtual branch
+    std::fs::write(project_repo.root().join(file_path), "test4")?;
+    listener.handle(file_path)?;
+
+    let vbranch_deltas = vbranch_reader.read_deltas(&vbranch0.id, file_path)?;
+    assert_eq!(vbranch_deltas.len(), 2);
+    assert_eq!(vbranch_deltas[0].operations.len(), 2);
+    assert_eq!(
+        vbranch_deltas[0].operations[0],
+        deltas::Operation::Delete((4, 1))
+    );
+    assert_eq!(
+        vbranch_deltas[0].operations[1],
+        deltas::Operation::Insert((4, "3".to_string()))
+    );
+    assert_eq!(vbranch_deltas[1].operations.len(), 2);
+    assert_eq!(
+        vbranch_deltas[1].operations[0],
+        deltas::Operation::Delete((4, 1))
+    );
+    assert_eq!(
+        vbranch_deltas[1].operations[1],
+        deltas::Operation::Insert((4, "4".to_string()))
+    );
+
+    // and init file should contain the first change only, before the virtual branch was created
+    let vbranch_file = vbranch_reader.read_wd_file(&vbranch0.id, file_path)?;
+    assert_eq!(vbranch_file, "test2");
+
+    Ok(())
+}
+
+#[test]
+fn write_distribute_into_multiple_vbranches() -> Result<()> {
+    let repository = test_repository()?;
+    let project = projects::Project::try_from(&repository)?;
+    let project_repo = project_repository::Repository::open(&project)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(project_repo.root().join(file_path), "hello world")?;
+    commit_all(&repository)?;
+
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path.clone(),
+        project.id.clone(),
+        project_store.clone(),
+        user_store.clone(),
+    )?;
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
+
+    // create a virtual branches
+    let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
+    let vbranch0 = test_branch();
+    branch_writer.write(&vbranch0)?;
+    let vbranch1 = test_branch();
+    branch_writer.write(&vbranch1)?;
+
+    // set default virtual branch
+    branch_writer.write_selected(&Some(vbranch1.id.clone()))?;
+
+    // register some changes at the end of the "file"
+    std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
+    listener.handle(file_path)?;
+
+    // change default virtual branch
+    branch_writer
+        .write_selected(&Some(vbranch0.id.clone()))
+        .unwrap();
+
+    // register some more changes, this time at the beginning of the "file"
+    std::fs::write(project_repo.root().join(file_path), "bye world").unwrap();
+    listener.handle(file_path)?;
+
+    // only the latest changes should be visible in the virtual branch
+    let session = gb_repo.get_or_create_current_session()?;
+    let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+    let vbranch_reader = virtual_branches::branch::Reader::new(&session_reader);
+
+    // check that the first change was written into the first virtual branch
+    let vbranch0_deltas = vbranch_reader.read_deltas(&vbranch0.id, file_path).unwrap();
+    let vbranch0_file = vbranch_reader.read_wd_file(&vbranch0.id, file_path)?;
+    assert_eq!(
+        deltas::Document::new(Some(&vbranch0_file), vbranch0_deltas)
+            .unwrap()
+            .to_string(),
+        "bye world"
+    );
+
+    let vbranch1_deltas = vbranch_reader.read_deltas(&vbranch1.id, file_path).unwrap();
+    let vbranch1_file = vbranch_reader.read_wd_file(&vbranch0.id, file_path)?;
+    assert_eq!(
+        deltas::Document::new(Some(&vbranch1_file), vbranch1_deltas)
+            .unwrap()
+            .to_string(),
+        "hello world"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
+    let repository = test_repository()?;
+    let project = projects::Project::try_from(&repository)?;
+    let project_repo = project_repository::Repository::open(&project)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(project_repo.root().join(file_path), "hello world")?;
+    commit_all(&repository)?;
+
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path.clone(),
+        project.id.clone(),
+        project_store.clone(),
+        user_store.clone(),
+    )?;
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
+
+    let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
+    let target_writer = virtual_branches::target::Writer::new(&gb_repo);
+    let default_target = test_target();
+    target_writer.write_default(&default_target)?;
+    let vbranch0 = test_branch();
+    branch_writer.write(&vbranch0)?;
+    branch_writer.write_selected(&Some(vbranch0.id.clone()))?;
+    let vbranch1 = test_branch();
+    let vbranch1_target = test_target();
+    branch_writer.write(&vbranch1)?;
+    target_writer.write(&vbranch1.id, &vbranch1_target)?;
+
+    std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
+    listener.handle(file_path)?;
+
+    let flushed_session = gb_repo.flush().unwrap();
+
+    // create a new session
+    let session = gb_repo.get_or_create_current_session().unwrap();
+    assert_ne!(session.id, flushed_session.unwrap().id);
+
+    // ensure that the virtual branch is still there and selected
+    let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+
+    let branches = virtual_branches::Iterator::new(&session_reader)
+        .unwrap()
+        .collect::<Result<Vec<virtual_branches::Branch>, crate::reader::Error>>()
+        .unwrap()
+        .into_iter()
+        .collect::<Vec<virtual_branches::Branch>>();
+    assert_eq!(branches.len(), 2);
+    assert_eq!(branches[0].id, vbranch0.id);
+    assert_eq!(branches[1].id, vbranch1.id);
+
+    let vbranch_reader = virtual_branches::branch::Reader::new(&session_reader);
+    let selected = vbranch_reader.read_selected().unwrap().unwrap();
+    assert_eq!(selected, vbranch0.id);
+
+    let target_reader = virtual_branches::target::Reader::new(&session_reader);
+    assert_eq!(target_reader.read_default().unwrap(), default_target);
+    assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
+    assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);
+
+    Ok(())
+}
+
+#[test]
+fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
+    let repository = test_repository()?;
+    let project = projects::Project::try_from(&repository)?;
+    let project_repo = project_repository::Repository::open(&project)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+
+    println!("{}", gb_repo_path);
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(project_repo.root().join(file_path), "hello world")?;
+    commit_all(&repository)?;
+
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path.clone(),
+        project.id.clone(),
+        project_store.clone(),
+        user_store.clone(),
+    )?;
+    let listener = Handler::new(
+        gb_repo_path.into(),
+        project.id.clone(),
+        project_store,
+        user_store,
+    );
+
+    let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
+    let target_writer = virtual_branches::target::Writer::new(&gb_repo);
+    let default_target = test_target();
+    target_writer.write_default(&default_target)?;
+    let vbranch0 = test_branch();
+    branch_writer.write(&vbranch0)?;
+    branch_writer.write_selected(&Some(vbranch0.id.clone()))?;
+    let vbranch1 = test_branch();
+    let vbranch1_target = test_target();
+    branch_writer.write(&vbranch1)?;
+    target_writer.write(&vbranch1.id, &vbranch1_target)?;
+
+    std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
+    listener.handle(file_path).unwrap();
+
+    let flushed_session = gb_repo.flush().unwrap();
+
+    // hard delete branches state from disk
+    std::fs::remove_dir_all(gb_repo.root()).unwrap();
+
+    // create a new session
+    let session = gb_repo.get_or_create_current_session().unwrap();
+    assert_ne!(session.id, flushed_session.unwrap().id);
+
+    // ensure that the virtual branch is still there and selected
+    let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+
+    let branches = virtual_branches::Iterator::new(&session_reader)
+        .unwrap()
+        .collect::<Result<Vec<virtual_branches::Branch>, crate::reader::Error>>()
+        .unwrap()
+        .into_iter()
+        .collect::<Vec<virtual_branches::Branch>>();
+    assert_eq!(branches.len(), 2);
+    assert_eq!(branches[0].id, vbranch0.id);
+    assert_eq!(branches[1].id, vbranch1.id);
+
+    let vbranch_reader = virtual_branches::branch::Reader::new(&session_reader);
+    let selected = vbranch_reader.read_selected().unwrap().unwrap();
+    assert_eq!(selected, vbranch0.id);
+
+    let target_reader = virtual_branches::target::Reader::new(&session_reader);
+    assert_eq!(target_reader.read_default().unwrap(), default_target);
+    assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
+    assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);
+
     Ok(())
 }

@@ -8,6 +8,7 @@
 	import FileCard from './FileCard.svelte';
 
 	export let name: string;
+	export let description: string;
 	export let files: File[];
 
 	const flipDurationMs = 150;
@@ -28,11 +29,7 @@
 		}
 
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
-
-		if (e.type == 'finalize' && (!files || files.length == 0)) {
-			dispatch('empty');
-			return;
-		}
+		if (e.type == 'finalize' && files.length == 0) dispatch('empty');
 	}
 
 	function handleEmpty() {
@@ -46,15 +43,18 @@
 	}
 </script>
 
-<div class="flex h-full w-full flex-col">
-	<div class="flex items-center justify-center overflow-hidden p-4 font-bold">
-		{name}
+<div class="swimlane flex h-full w-full flex-col rounded-lg bg-[#2C2C2C]">
+	<div class="flex flex-col gap-1 border-b border-zinc-700 py-4 px-2">
+		<div class="font-bold">{name}</div>
+		<textarea
+			class="h-14 w-full resize-none
+		rounded border-0 p-2 text-zinc-400 focus-within:h-32">{description}</textarea
+		>
 	</div>
 	<div
-		class="flex w-full flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll"
+		class="flex flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll "
 		use:dndzone={{
 			items: files,
-			flipDurationMs,
 			zoneTabIndex: -1,
 			types: ['file'],
 			receives: ['file', 'hunk']
@@ -63,9 +63,16 @@
 		on:finalize={handleDndEvent}
 	>
 		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
-			<div class="w-full" animate:flip={{ duration: flipDurationMs }}>
+			<div class=" w-full">
 				<FileCard bind:file on:empty={handleEmpty} />
 			</div>
 		{/each}
+		<div class="flex h-full w-full flex-col border-t border-zinc-700 p-2">
+			<div class="font-bold">Commits</div>
+			<div>Commit 1</div>
+			<div>Commit 2</div>
+			<div>Commit 3</div>
+			<div>Commit 1</div>
+		</div>
 	</div>
 </div>

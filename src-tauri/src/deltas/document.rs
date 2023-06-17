@@ -40,21 +40,21 @@ impl Document {
         Ok(Document { doc, deltas })
     }
 
-    pub fn update(&mut self, value: &str) -> Result<bool> {
-        let diffs = operations::get_delta_operations(&self.to_string(), value);
-        let event = delta::Delta {
-            operations: diffs,
+    pub fn update(&mut self, value: &str) -> Result<Option<delta::Delta>> {
+        let operations = operations::get_delta_operations(&self.to_string(), value);
+        if operations.is_empty() {
+            return Ok(None);
+        }
+        let delta = delta::Delta {
+            operations,
             timestamp_ms: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_millis(),
         };
-        if event.operations.is_empty() {
-            return Ok(false);
-        }
-        apply_deltas(&mut self.doc, &vec![event.clone()])?;
-        self.deltas.push(event);
-        Ok(true)
+        apply_deltas(&mut self.doc, &vec![delta.clone()])?;
+        self.deltas.push(delta.clone());
+        Ok(Some(delta))
     }
 }
 

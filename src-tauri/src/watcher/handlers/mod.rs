@@ -150,10 +150,9 @@ impl<'handler> Handler {
                 .flush_session_handler
                 .handle(&session)
                 .context("failed to handle flush session event"),
-            events::Event::SessionFlushed(session) => self.index_handler.index_session(&session),
             events::Event::Fetch => self.fetch_project_handler.handle(),
 
-            events::Event::File((session_id, file_path, contents)) => {
+            events::Event::SessionFile((session_id, file_path, contents)) => {
                 let file_events = self
                     .index_handler
                     .index_file(&session_id, file_path.to_str().unwrap(), &contents)
@@ -178,7 +177,8 @@ impl<'handler> Handler {
                     .context("failed to send session event")?;
                 Ok(session_events)
             }
-            events::Event::Deltas((session_id, path, deltas)) => {
+            events::Event::SessionDelta((session_id, path, delta)) => {
+                let deltas = vec![delta];
                 let delta_events = self
                     .index_handler
                     .index_deltas(&session_id, path.to_str().unwrap(), &deltas)
@@ -203,7 +203,8 @@ impl<'handler> Handler {
                     .context("failed to send bookmark event")?;
                 Ok(bookmark_events)
             }
-            events::Event::Reindex => self.index_handler.reindex(),
+
+            events::Event::IndexAll => self.index_handler.reindex(),
         }
     }
 }

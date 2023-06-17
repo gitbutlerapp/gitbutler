@@ -12,17 +12,18 @@ pub struct BranchIterator<'iterator> {
 }
 
 impl<'iterator> BranchIterator<'iterator> {
-    pub fn new(sessions_reader: &'iterator dyn reader::Reader) -> Result<Self> {
-        let ids_itarator = sessions_reader
+    pub fn new(reader: &'iterator dyn reader::Reader) -> Result<Self> {
+        let ids_itarator = reader
             .list_files("branches")?
             .into_iter()
             .map(|file_path| file_path.split('/').next().unwrap().to_string())
-            .filter(|file_path| sessions_reader.is_dir(&format!("branches/{}", file_path)));
+            .filter(|file_path| file_path != "selected")
+            .filter(|file_path| file_path != "target");
         let unique_ids: HashSet<String> = ids_itarator.collect();
         let mut ids: Vec<String> = unique_ids.into_iter().collect();
         ids.sort();
         Ok(Self {
-            branch_reader: branch::Reader::new(sessions_reader),
+            branch_reader: branch::Reader::new(reader),
             ids,
         })
     }
@@ -142,7 +143,7 @@ mod tests {
         branch_writer.write(&branch_2)?;
         let branch_3 = test_branch();
         branch_writer.write(&branch_3)?;
-        branch_writer.write_selected(Some(&branch_2.id))?;
+        branch_writer.write_selected(&Some(branch_2.id.clone()))?;
 
         let session = gb_repo.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repo, &session)?;

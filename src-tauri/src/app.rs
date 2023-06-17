@@ -99,7 +99,7 @@ impl App {
                 .unwrap()
                 .get(&project.id)
                 .unwrap()
-                .send(watcher::Event::Reindex)
+                .send(watcher::Event::IndexAll)
             {
                 log::error!("failed to send session event: {:#}", e);
             }

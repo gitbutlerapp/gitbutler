@@ -1,4 +1,9 @@
-use crate::reader::{self, Reader, SubReader};
+use std::path;
+
+use crate::{
+    deltas,
+    reader::{self, Reader, SubReader},
+};
 
 use super::Branch;
 
@@ -17,6 +22,40 @@ impl<'reader> BranchReader<'reader> {
             Err(reader::Error::NotFound) => Ok(None),
             Err(e) => Err(e),
         }
+    }
+
+    pub fn read_wd_file<P: AsRef<path::Path>>(
+        &self,
+        id: &str,
+        path: P,
+    ) -> Result<String, reader::Error> {
+        if !self.reader.exists(&format!("branches/{}", id)) {
+            return Err(reader::Error::NotFound);
+        }
+        let single_reader: &dyn crate::reader::Reader =
+            &SubReader::new(self.reader, &format!("branches/{}", id));
+        single_reader.read_string(&format!("wd/{}", path.as_ref().display()))
+    }
+
+    pub fn read_deltas<P: AsRef<path::Path>>(
+        &self,
+        id: &str,
+        path: P,
+    ) -> Result<Vec<deltas::Delta>, reader::Error> {
+        if !self.reader.exists(&format!("branches/{}", id)) {
+            return Err(reader::Error::NotFound);
+        }
+        let single_reader: &dyn crate::reader::Reader =
+            &SubReader::new(self.reader, &format!("branches/{}", id));
+        let raw_deltas =
+            single_reader.read_string(&format!("deltas/{}", path.as_ref().display()))?;
+        let deltas = serde_json::from_str(&raw_deltas).map_err(|e| {
+            reader::Error::IOError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("failed to parse deltas: {}", e),
+            ))
+        })?;
+        Ok(deltas)
     }
 
     pub fn read(&self, id: &str) -> Result<Branch, reader::Error> {
@@ -132,10 +171,10 @@ mod tests {
 
         assert_eq!(None, reader.read_selected()?);
 
-        writer.write_selected(Some("test"))?;
+        writer.write_selected(&Some("test".to_string()))?;
         assert_eq!(Some("test".to_string()), reader.read_selected()?);
 
-        writer.write_selected(Some("updated"))?;
+        writer.write_selected(&Some("updated".to_string()))?;
         assert_eq!(Some("updated".to_string()), reader.read_selected()?);
 
         Ok(())

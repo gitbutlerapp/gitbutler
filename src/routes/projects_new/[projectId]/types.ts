@@ -3,8 +3,6 @@ import 'reflect-metadata';
 
 class DndItem {
 	id!: string;
-	kind!: string;
-	isDndShadowItem?: boolean;
 }
 
 export class Hunk extends DndItem {
@@ -25,4 +23,5 @@ export class Branch extends DndItem {
 	active!: boolean;
 	@Type(() => File)
 	files!: File[];
+	description!: string;
 }

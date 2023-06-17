@@ -1,11 +1,11 @@
-use std::{path, vec};
+use std::{collections::HashMap, path, vec};
 
 use anyhow::{Context, Result};
 
 use crate::{
     deltas, gb_repository, project_repository, projects,
     reader::{self, Reader},
-    sessions, users,
+    sessions, users, virtual_branches,
 };
 
 use super::events;
@@ -123,7 +123,7 @@ impl Handler {
 
         let path = path.as_ref();
 
-        let current_file_content = match self
+        let current_wd_file_content = match self
             .get_current_file_content(&project_repository, path)
             .context("failed to get current file content")?
         {
@@ -134,10 +134,10 @@ impl Handler {
         let current_session = gb_repository
             .get_or_create_current_session()
             .context("failed to get or create current session")?;
-        let reader = sessions::Reader::open(&gb_repository, &current_session)
+        let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to get session reader")?;
 
-        let latest_file_content = match reader.file(path) {
+        let latest_file_content = match current_session_reader.file(path) {
             Ok(reader::Content::UTF8(content)) => content,
             Ok(reader::Content::Binary(_)) => {
                 log::warn!(
@@ -157,13 +157,13 @@ impl Handler {
 
         let mut text_doc = deltas::Document::new(
             Some(&latest_file_content),
-            current_deltas.unwrap_or_default(),
+            current_deltas.clone().unwrap_or_default(),
         )?;
 
-        if !text_doc
-            .update(&current_file_content)
-            .context("failed to calculate new deltas")?
-        {
+        let new_delta = text_doc
+            .update(&current_wd_file_content)
+            .context("failed to calculate new deltas")?;
+        if new_delta.is_none() {
             log::debug!(
                 "{}: {} no new deltas, ignoring",
                 self.project_id,
@@ -171,6 +171,7 @@ impl Handler {
             );
             return Ok(vec![]);
         }
+        let new_delta = new_delta.as_ref().unwrap();
 
         let deltas = text_doc.get_deltas();
         let writer = deltas::Writer::new(&gb_repository);
@@ -178,17 +179,132 @@ impl Handler {
             .write(path, &deltas)
             .with_context(|| "failed to write deltas")?;
         writer
-            .write_wd_file(path, &current_file_content)
+            .write_wd_file(path, &current_wd_file_content)
             .with_context(|| "failed to write file")?;
 
-        Ok(vec![
-            events::Event::File((
+        let events = vec![
+            events::Event::SessionFile((
                 current_session.id.clone(),
                 path.to_path_buf(),
-                latest_file_content,
+                latest_file_content.clone(),
             )),
             events::Event::Session(current_session.clone()),
-            events::Event::Deltas((current_session.id, path.to_path_buf(), deltas)),
-        ])
+            events::Event::SessionDelta((
+                current_session.id.clone(),
+                path.to_path_buf(),
+                new_delta.clone(),
+            )),
+        ];
+
+        // read virtual branches
+        let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
+            .context("failed to read virtual branches")?
+            .collect::<Result<Vec<virtual_branches::Branch>, crate::reader::Error>>()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|branch| branch.applied)
+            .collect::<Vec<_>>();
+
+        // if no virtual branches, we're done
+        if virtual_branches.is_empty() {
+            return Ok(events);
+        }
+
+        // read deltas for all virtual branches
+        let mut vbranch_deltas: HashMap<String, Vec<deltas::Delta>> = HashMap::new();
+        let vbranch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
+        for branch in &virtual_branches {
+            match vbranch_reader.read_deltas(&branch.id, path) {
+                Ok(deltas) => {
+                    vbranch_deltas.insert(branch.id.clone(), deltas);
+                }
+                Err(reader::Error::NotFound) => {}
+                Err(err) => {
+                    return Err(err).context("failed to read virtual branch deltas");
+                }
+            }
+        }
+
+        // write initial state for virtual branches that don't have it yet
+        let vbranch_writer = virtual_branches::branch::Writer::new(&gb_repository);
+        let init_vbranch_state = deltas::Document::new(
+            Some(&latest_file_content),
+            current_deltas.unwrap_or_default(),
+        )?
+        .to_string();
+        for branch in &virtual_branches {
+            match vbranch_reader.read_wd_file(&branch.id, path) {
+                Ok(_) => {}
+                Err(reader::Error::NotFound) => {
+                    vbranch_writer
+                        .write_wd_file(&branch.id, path, &init_vbranch_state)
+                        .with_context(|| "failed to write virtual branch wd file")?;
+                }
+                Err(err) => {
+                    return Err(err).context("failed to read virtual branch wd file");
+                }
+            }
+        }
+
+        // choose fallback virtual branch. it's either the selected one or just the first one
+        let vbranch_reader = virtual_branches::branch::Reader::new(&current_session_reader);
+        let fallback_branch_id = if let Some(id) = vbranch_reader
+            .read_selected()
+            .context("failed to read selected branch id")?
+        {
+            id
+        } else {
+            virtual_branches[0].id.clone()
+        };
+
+        let mut new_deltas_by_vbranch: HashMap<String, Vec<deltas::Delta>> = HashMap::new();
+        let mut remaining = Some(new_delta.clone());
+        for vbranch in &virtual_branches {
+            let vb_deltas = if let Some(deltas) = vbranch_deltas.get(&vbranch.id) {
+                deltas
+            } else {
+                continue;
+            };
+
+            for vb_delta in vb_deltas {
+                if remaining.is_none() {
+                    break;
+                }
+
+                let taken_remaining = vb_delta.take(&remaining.unwrap());
+
+                // if delta was taken by an existing virtual delta, add it to the result
+                if let Some(taken) = taken_remaining.0 {
+                    let new_deltas = new_deltas_by_vbranch
+                        .entry(vbranch.id.clone())
+                        .or_insert_with(|| vb_deltas.clone()); // initialize with existing deltas
+                    new_deltas.push(taken);
+                }
+
+                remaining = taken_remaining.1;
+            }
+        }
+
+        // add the remaining delta to the fallback branch
+        if let Some(deltas) = remaining {
+            let new_deltas = new_deltas_by_vbranch
+                .entry(fallback_branch_id)
+                .or_insert_with(Vec::new);
+            new_deltas.push(deltas);
+        }
+
+        for (branch_id, deltas) in new_deltas_by_vbranch {
+            vbranch_writer
+                .write_deltas(&branch_id, path, &deltas)
+                .with_context(|| {
+                    format!(
+                        "{}: failed to write {} virtual deltas to",
+                        branch_id,
+                        deltas.len()
+                    )
+                })?;
+        }
+
+        Ok(events)
     }
 }

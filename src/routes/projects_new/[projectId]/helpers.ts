@@ -9,7 +9,6 @@ export function createFile(path: string, hunk: Hunk): File {
 	return plainToInstance(File, {
 		id: `file-${fileCounter}`,
 		path: path,
-		kind: 'file',
 		hunks: [hunk]
 	});
 }
@@ -20,7 +19,6 @@ export function createBranch(file: File): Branch {
 		id: `branch-${branchCounter}`,
 		name: `new branch ${branchCounter}`,
 		active: true,
-		kind: 'branch',
 		files: [file]
 	});
 }

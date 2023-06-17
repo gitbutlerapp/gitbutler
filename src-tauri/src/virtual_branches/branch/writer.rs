@@ -1,7 +1,9 @@
+use std::path;
+
 use anyhow::{Context, Result};
 
 use crate::{
-    gb_repository,
+    deltas, gb_repository,
     writer::{self, Writer},
 };
 
@@ -20,7 +22,7 @@ impl<'writer> BranchWriter<'writer> {
         }
     }
 
-    pub fn write_selected(&self, id: Option<&str>) -> Result<()> {
+    pub fn write_selected(&self, id: &Option<String>) -> Result<()> {
         self.repository
             .get_or_create_current_session()
             .context("Failed to get or create current session")?;
@@ -106,6 +108,70 @@ impl<'writer> BranchWriter<'writer> {
                 &ownership,
             )
             .context("Failed to write branch upstream")?;
+
+        Ok(())
+    }
+
+    pub fn write_wd_file<P: AsRef<path::Path>>(
+        &self,
+        id: &str,
+        path: P,
+        contents: &str,
+    ) -> Result<()> {
+        self.repository
+            .get_or_create_current_session()
+            .context("Failed to get or create current session")?;
+
+        self.repository.lock()?;
+        defer! {
+            self.repository.unlock().expect("Failed to unlock repository");
+        }
+
+        let path = path.as_ref();
+
+        self.writer
+            .write_string(&format!("branches/{}/wd/{}", id, path.display()), contents)
+            .context("Failed to write branch wd file")?;
+
+        log::info!(
+            "{}: wrote session wd file {}",
+            self.repository.project_id,
+            path.display()
+        );
+
+        Ok(())
+    }
+
+    pub fn write_deltas<P: AsRef<path::Path>>(
+        &self,
+        id: &str,
+        path: P,
+        deltas: &Vec<deltas::Delta>,
+    ) -> Result<()> {
+        self.repository
+            .get_or_create_current_session()
+            .context("Failed to get or create current session")?;
+
+        self.repository.lock()?;
+        defer! {
+            self.repository.unlock().expect("Failed to unlock repository");
+        }
+
+        let path = path.as_ref();
+
+        self.writer
+            .write_string(
+                &format!("branches/{}/deltas/{}", id, path.display()),
+                &serde_json::to_string(deltas)?,
+            )
+            .context("Failed to write branch deltas")?;
+
+        log::info!(
+            "{}: wrote virtual branch {} deltas for {}",
+            self.repository.project_id,
+            id,
+            path.display(),
+        );
 
         Ok(())
     }
@@ -334,10 +400,10 @@ mod tests {
 
         assert!(!gb_repo.root().join("branches").join("selected").exists());
 
-        writer.write_selected(None)?;
+        writer.write_selected(&None)?;
         assert!(!gb_repo.root().join("branches").join("selected").exists());
 
-        writer.write_selected(Some("123"))?;
+        writer.write_selected(&Some("123".to_string()))?;
         assert_eq!(
             fs::read_to_string(
                 gb_repo
@@ -350,7 +416,7 @@ mod tests {
             "123"
         );
 
-        writer.write_selected(None)?;
+        writer.write_selected(&None)?;
         assert!(!gb_repo.root().join("branches").join("selected").exists());
 
         Ok(())
