@@ -535,7 +535,7 @@ impl Repository {
         self.session_path().join("wd")
     }
 
-    pub fn get_branch_reader(&self) -> reader::DirReader {
+    pub fn get_branch_dir_reader(&self) -> reader::DirReader {
         reader::DirReader::open(self.root())
     }
 
