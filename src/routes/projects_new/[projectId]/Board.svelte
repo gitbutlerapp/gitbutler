@@ -1,36 +1,18 @@
 <script lang="ts">
 	import { dndzone } from 'svelte-dnd-action';
 	import Lane from './BranchLane.svelte';
-	import { Branch, File, Hunk } from './types';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { createBranch, createFile } from './helpers';
 	import { createEventDispatcher } from 'svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
+	import type { Branch } from './types';
 
 	export let branches: Branch[];
 
 	const dispatch = createEventDispatcher();
 	const newBranchClass = 'new-branch-active';
 
-	function handleDndEvent(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {
-		if (e.type == 'consider' && !e.detail.info.types?.includes('branch')) {
-			return; // No shadow element while considering drop.
-		}
-		const newItems = e.detail.items;
-		const branchItems = newItems.filter((item) => item instanceof Branch) as Branch[];
-
-		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
-		for (const hunk of hunkItems) {
-			branchItems.push(createBranch(createFile(hunk.filePath, hunk)));
-		}
-
-		const fileItems = newItems.filter((item) => item instanceof File) as File[];
-		for (const file of fileItems) {
-			branchItems.push(createBranch(file));
-		}
-
-		branches = branchItems.filter((commit) => commit.active);
-
+	function handleDndEvent(e: CustomEvent<DndEvent<Branch>>) {
+		branches = e.detail.items.filter((branch) => branch.active);
 		if (e.type == 'finalize') {
 			dispatch('finalize', branches);
 		}
@@ -54,7 +36,7 @@
 	use:dndzone={{
 		items: branches,
 		types: ['branch'],
-		receives: ['branch', 'file', 'hunk'],
+		receives: ['branch'],
 		dropTargetClassMap: {
 			file: [newBranchClass],
 			hunk: [newBranchClass]
