@@ -555,6 +555,16 @@ impl Repository {
         Ok(branch)
     }
 
+    pub fn git_signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
+        let user = self.users_store.get().context("failed to get user")?;
+        let committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
+        let author = match user {
+            None => committer.clone(),
+            Some(user) => git2::Signature::now(user.name.as_str(), user.email.as_str())?,
+        };
+        Ok((author, committer))
+    }
+
     // migrate old data to the new format.
     // TODO: remove once we think everyone has migrated
     fn migrate(&self, project: &projects::Project) -> Result<bool> {

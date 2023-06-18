@@ -80,7 +80,13 @@ impl<'writer> BranchWriter<'writer> {
                 &format!("branches/{}/meta/tree", branch.id),
                 &branch.tree.to_string(),
             )
-            .context("Failed to write branch upstream")?;
+            .context("Failed to write branch tree")?;
+        self.writer
+            .write_string(
+                &format!("branches/{}/meta/head", branch.id),
+                &branch.head.to_string(),
+            )
+            .context("Failed to write branch head")?;
         self.writer
             .write_u128(
                 &format!("branches/{}/meta/created_timestamp_ms", branch.id),
@@ -106,7 +112,7 @@ impl<'writer> BranchWriter<'writer> {
                 &format!("branches/{}/meta/ownership", branch.id),
                 &ownership,
             )
-            .context("Failed to write branch upstream")?;
+            .context("Failed to write branch ownership")?;
 
         Ok(())
     }
