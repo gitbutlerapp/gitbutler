@@ -77,41 +77,78 @@ fn main() {
         "new"    => run_new(butler),    // create new empty virtual branch
         "move"   => run_move(butler),   // move file ownership from one branch to another
         "setup"  => run_setup(butler),  // sets target sha from remote branch
+        "commit" => run_commit(butler), // creates trees from the virtual branch content and creates a commit
         _ => println!("Unknown command: {}", args.command)
     }
 }
 
-fn run_new(butler: ButlerCli) {
-    println!("{}", "target:".to_string().red());
+fn run_commit(butler: ButlerCli) {
+    // get the branch to commit
+    let mut branches = vec![]; 
+    let branch_reader = butler.gb_repository.get_branch_dir_reader();
+    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+    while let Some(item) = iter.next() {
+        if let Ok(item) = item {
+            branches.push(item.name);
+        }
+    }
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .items(&branches)
+        .default(0)
+        .interact_on_opt(&Term::stderr()).unwrap();
+    let new_branch = branches[selection.unwrap()].clone();
+    println!("Committing virtual branch {}", new_branch.red());
 
-    let input: String = Input::with_theme(&ColorfulTheme::default())
-        .with_prompt("New branch name")
+    // get the commit message
+    let message: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("Commit message")
         .interact_text()
         .unwrap();
 
-    let now = time::UNIX_EPOCH
-        .elapsed()
-        .unwrap()
-        .as_millis();
+    // get the files to commit
 
-    let branch = virtual_branches::Branch {
-        id: Uuid::new_v4().to_string(),
-        name: input,
-        applied: true,
-        upstream: "".to_string(),
-        created_timestamp_ms: now,
-        updated_timestamp_ms: now,
-    };
+    // create the tree
 
-    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-    writer.write(&branch).unwrap();
+    // create the commit
+
+}
+
+fn run_new(butler: ButlerCli) {
+    if let Some(sha) = get_base_sha(&butler) {
+        println!("  base sha: {}", sha.blue());
+        let oid = git2::Oid::from_str(&sha).unwrap();
+
+        let input: String = Input::with_theme(&ColorfulTheme::default())
+            .with_prompt("New branch name")
+            .interact_text()
+            .unwrap();
+
+        let now = time::UNIX_EPOCH
+            .elapsed()
+            .unwrap()
+            .as_millis();
+
+        let branch = virtual_branches::Branch {
+            id: Uuid::new_v4().to_string(),
+            name: input,
+            applied: true,
+            upstream: "".to_string(),
+            tree: oid,
+            created_timestamp_ms: now,
+            updated_timestamp_ms: now,
+            ownership: vec![],
+        };
+
+        let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
+        writer.write(&branch).unwrap();
+    }
 }
 
 fn run_move(butler: ButlerCli) {
     // get the files to move
     let files = get_status_files(&butler);
     let selections = MultiSelect::with_theme(&ColorfulTheme::default())
-        .with_prompt("Pick your food")
+        .with_prompt("Which files do you want to move?")
         .items(&files[..])
         .interact()
         .unwrap();
@@ -122,7 +159,7 @@ fn run_move(butler: ButlerCli) {
 
     // get the branch to move to
     let mut branches = vec![]; 
-    let branch_reader = butler.gb_repository.get_branch_reader();
+    let branch_reader = butler.gb_repository.get_branch_dir_reader();
     let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
     while let Some(item) = iter.next() {
         if let Ok(item) = item {
@@ -136,8 +173,25 @@ fn run_move(butler: ButlerCli) {
     let new_branch = branches[selection.unwrap()].clone();
 
     println!("Moving {} files to {}", selections.len(), new_branch.red());
-    // TODO: move the files, BUT HOW?
+
+    // rewrite ownership of both branches
+    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
+    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+    while let Some(item) = iter.next() {
+        if let Ok(item) = item {
+            let mut branch = item;
+            if branch.name == new_branch {
+                branch.ownership.extend(selected_files.iter().map(|f| f.to_string()));
+            } else {
+                branch.ownership.retain(|f| !selected_files.contains(f));
+            }
+            writer.write(&branch).unwrap();
+        }
+    }
 }
+
+// TODO: vbranches: split function that identifies part of a file and moves that hunk to another branch
+// - writes the ownership simply as: path/to/file:line_number-line_number
 
 fn run_setup(butler: ButlerCli) {
     println!("  HEAD: {}", butler.project_repository().get_head().unwrap().name().unwrap().blue());
@@ -171,16 +225,50 @@ fn run_setup(butler: ButlerCli) {
 
             let target_writer = virtual_branches::target::Writer::new(&butler.gb_repository);
             target_writer.write_default(&target).unwrap();
+
+            let now = time::UNIX_EPOCH
+                .elapsed()
+                .unwrap()
+                .as_millis();
+            let writer = butler.gb_repository.get_branch_writer();
+            let branch = virtual_branches::branch::Branch {
+                id: Uuid::new_v4().to_string(),
+                name: "default branch".to_string(),
+                applied: true,
+                upstream: "".to_string(),
+                created_timestamp_ms: now,
+                updated_timestamp_ms: now,
+                tree: branch.get().peel_to_commit().unwrap().id(),
+                ownership: vec![],
+            };
+            writer.write(&branch).unwrap();
         }
         None => println!("User did not select anything")
     }
 }
 
 
-// list the virtual branches and their file statuses (statusi?)
 fn run_status(butler: ButlerCli) {
+    let statuses = get_status_by_branch(&butler);
+    for (branch_id, files) in statuses {
+        let branch = butler.gb_repository.get_virtual_branch(&branch_id).unwrap();
+        println!("branch: {}", branch.name.blue());
+        println!("    id: {}", branch.id.green());
+        println!(" files:");
+        for file in files {
+            println!("        {}", file);
+        }
+        println!("");
+    }
+}
+
+// list the virtual branches and their file statuses (statusi?)
+fn get_status_by_branch(butler: &ButlerCli) -> Vec<(String, Vec<String>)> {
+    let mut statuses = vec![];
+
     if let Some(sha) = get_base_sha(&butler) {
-        println!("  base sha: {}", sha.blue());
+        //println!("  base sha: {}", sha.blue());
+        let branch_reader = butler.gb_repository.get_branch_dir_reader();
 
         let repo = butler.git_repository();
         let oid = git2::Oid::from_str(&sha).unwrap();
@@ -195,6 +283,7 @@ fn run_status(butler: ButlerCli) {
         let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts)).unwrap();
 
         let mut all_files = vec![];
+        let mut new_ownership = vec![];
 
         let deltas = diff.deltas();
         for delta in deltas {
@@ -208,27 +297,61 @@ fn run_status(butler: ButlerCli) {
                 file_path = path.to_str().unwrap().to_string();
             }
             all_files.push(file_path.clone());
+
+            let mut branch_iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+            let mut file_found = false;
+            while let Some(item) = branch_iter.next() {
+                if let Ok(item) = item {
+                    for file in item.ownership {
+                        if file == file_path {
+                            file_found = true;
+                        }
+                    }
+                }
+            }
+            if !file_found {
+                new_ownership.push(file_path.clone());
+            }
         }
 
-        println!("{}", "virtual branches:".to_string().red());
-        let branch_reader = butler.gb_repository.get_branch_reader();
-        let vbranch_reader = virtual_branches::branch::Reader::new(&branch_reader);
+        //println!("new ownership: {:?}", new_ownership);
+
+        let _vbranch_reader = virtual_branches::branch::Reader::new(&branch_reader);
         let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
         while let Some(item) = iter.next() {
             if let Ok(branch) = item {
-                println!("  {}", branch.name.blue());
-                // TODO: show the files that are owned by this branch
-                let files = vbranch_reader.files(&branch.id).unwrap();
-                for file in files {
-                    if all_files.contains(&file) {
-                        println!("    {}", file);
+                let mut files = vec![];
+                if !new_ownership.is_empty() {
+                    // in this case, lets add any newly changed files to the first branch we see and persist it
+                    let mut branch = branch.clone();
+                    branch.ownership.extend(new_ownership.clone());
+                    new_ownership.clear();
+
+                    // ok, write the updated data back
+                    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
+                    writer.write(&branch).unwrap();
+
+                    for file in branch.ownership {
+                        if all_files.contains(&file) {
+                            // push the file to the status list
+                            files.push(file.clone());
+                        }
+                    }
+                } else {
+                    for file in branch.ownership {
+                        if all_files.contains(&file) {
+                            files.push(file.clone());
+                        }
                     }
                 }
+                statuses.push((branch.id.clone(), files.clone()));
             }
         }
     } else {
         println!("  no base sha set, run butler setup");
     }
+
+    statuses
 }
 
 fn get_status_files(butler: &ButlerCli) -> Vec<String> {
@@ -308,10 +431,23 @@ fn run_info(butler: ButlerCli) {
     if let Some(sha) = get_base_sha(&butler) {
         println!("  base sha: {}", sha.blue());
     }
+
+    println!("{}", "virtual branches:".to_string().red());
+    // sort of abusing the iterator here, but it works
+    let branch_reader = butler.gb_repository.get_branch_dir_reader();
+    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+    while let Some(item) = iter.next() {
+        if let Ok(item) = item {
+            println!("  {}", item.name);
+            for file in item.ownership {
+                println!("    {}", file);
+            }
+        }
+    }
 }
 
 fn get_base_sha(butler: &ButlerCli) -> Option<String> {
-    let reader = butler.gb_repository.get_branch_reader();
+    let reader = butler.gb_repository.get_branch_dir_reader();
     let target_reader = virtual_branches::target::Reader::new(&reader);
     if let Ok(target) = target_reader.read_default() {
         Some(target.sha.to_string())

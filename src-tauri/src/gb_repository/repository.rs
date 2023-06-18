@@ -16,7 +16,8 @@ use crate::{fs, projects, users, virtual_branches};
 use crate::{
     project_repository,
     reader::{self, Reader},
-    sessions,
+    writer::{self},
+    sessions
 };
 
 pub struct Repository {
@@ -537,6 +538,21 @@ impl Repository {
 
     pub fn get_branch_dir_reader(&self) -> reader::DirReader {
         reader::DirReader::open(self.root())
+    }
+
+    pub fn get_branch_dir_writer(&self) -> writer::DirWriter {
+        writer::DirWriter::open(self.root())
+    }
+
+    pub fn get_branch_writer(&self) -> virtual_branches::branch::Writer {
+        virtual_branches::branch::Writer::new(self)
+    }
+
+    pub fn get_virtual_branch(&self, id: &str) -> Result<virtual_branches::branch::Branch> {
+        let reader = self.get_branch_dir_reader();
+        let branch_reader = virtual_branches::branch::Reader::new(&reader);
+        let branch = branch_reader.read(id)?;
+        Ok(branch)
     }
 
     // migrate old data to the new format.
