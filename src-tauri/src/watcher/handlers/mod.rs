@@ -5,12 +5,12 @@ mod file_change;
 mod flush_session;
 mod git_file_change;
 mod index_handler;
-mod project_file_change;
+mod record_deltas;
 
 #[cfg(test)]
 mod check_current_session_tests;
 #[cfg(test)]
-mod project_file_change_tests;
+mod record_deltas_tests;
 
 use std::path::PathBuf;
 
@@ -25,7 +25,7 @@ pub struct Handler {
     project_id: String,
 
     file_change_handler: file_change::Handler,
-    project_file_handler: project_file_change::Handler,
+    record_deltas_handler: record_deltas::Handler,
     git_file_change_handler: git_file_change::Handler,
     check_current_session_handler: check_current_session::Handler,
     flush_session_handler: flush_session::Handler,
@@ -55,7 +55,7 @@ impl<'handler> Handler {
             events_sender: events_sender.clone(),
 
             file_change_handler: file_change::Handler::new(),
-            project_file_handler: project_file_change::Handler::new(
+            record_deltas_handler: record_deltas::Handler::new(
                 local_data_dir.clone(),
                 project_id.clone(),
                 project_store.clone(),
@@ -110,7 +110,7 @@ impl<'handler> Handler {
                 .handle(path.clone())
                 .with_context(|| format!("failed to handle file change event: {:?}", path)),
             events::Event::ProjectFileChange(path) => self
-                .project_file_handler
+                .record_deltas_handler
                 .handle(path.clone())
                 .with_context(|| format!("failed to handle project file change event: {:?}", path)),
             events::Event::GitFileChange(path) => self

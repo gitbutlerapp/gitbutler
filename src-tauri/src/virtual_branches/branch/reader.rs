@@ -1,11 +1,8 @@
 use std::path;
 
-use crate::{
-    deltas,
-    reader::{self, Reader, SubReader},
-};
+use crate::reader::{self, Reader, SubReader};
 
-use super::Branch;
+use super::{super::file_diff::FileDiff, Branch};
 
 pub struct BranchReader<'reader> {
     reader: &'reader dyn reader::Reader,
@@ -24,38 +21,24 @@ impl<'reader> BranchReader<'reader> {
         }
     }
 
-    pub fn read_wd_file<P: AsRef<path::Path>>(
+    pub fn read_diff<P: AsRef<path::Path>>(
         &self,
         id: &str,
         path: P,
-    ) -> Result<String, reader::Error> {
+    ) -> Result<FileDiff, reader::Error> {
         if !self.reader.exists(&format!("branches/{}", id)) {
             return Err(reader::Error::NotFound);
         }
         let single_reader: &dyn crate::reader::Reader =
             &SubReader::new(self.reader, &format!("branches/{}", id));
-        single_reader.read_string(&format!("wd/{}", path.as_ref().display()))
-    }
-
-    pub fn read_deltas<P: AsRef<path::Path>>(
-        &self,
-        id: &str,
-        path: P,
-    ) -> Result<Vec<deltas::Delta>, reader::Error> {
-        if !self.reader.exists(&format!("branches/{}", id)) {
-            return Err(reader::Error::NotFound);
-        }
-        let single_reader: &dyn crate::reader::Reader =
-            &SubReader::new(self.reader, &format!("branches/{}", id));
-        let raw_deltas =
-            single_reader.read_string(&format!("deltas/{}", path.as_ref().display()))?;
-        let deltas = serde_json::from_str(&raw_deltas).map_err(|e| {
+        let patch = single_reader.read_string(&format!("patches/{}", path.as_ref().display()))?;
+        let file_diff = FileDiff::from_patch(&patch).map_err(|e| {
             reader::Error::IOError(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("failed to parse deltas: {}", e),
+                std::io::ErrorKind::Other,
+                format!("deltas/{}: {}", path.as_ref().display(), e),
             ))
         })?;
-        Ok(deltas)
+        Ok(file_diff)
     }
 
     pub fn read(&self, id: &str) -> Result<Branch, reader::Error> {

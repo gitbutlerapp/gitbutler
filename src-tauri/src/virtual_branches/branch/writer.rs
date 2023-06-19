@@ -3,11 +3,11 @@ use std::path;
 use anyhow::{Context, Result};
 
 use crate::{
-    deltas, gb_repository,
+    gb_repository,
     writer::{self, Writer},
 };
 
-use super::Branch;
+use super::{super::file_diff::FileDiff, Branch};
 
 pub struct BranchWriter<'writer> {
     repository: &'writer gb_repository::Repository,
@@ -91,67 +91,19 @@ impl<'writer> BranchWriter<'writer> {
         Ok(())
     }
 
-    pub fn write_wd_file<P: AsRef<path::Path>>(
+    pub fn writer_diff<P: AsRef<path::Path>>(
         &self,
         id: &str,
         path: P,
-        contents: &str,
+        file_diff: FileDiff,
     ) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("Failed to get or create current session")?;
-
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("Failed to unlock repository");
-        }
-
-        let path = path.as_ref();
-
-        self.writer
-            .write_string(&format!("branches/{}/wd/{}", id, path.display()), contents)
-            .context("Failed to write branch wd file")?;
-
-        log::info!(
-            "{}: wrote session wd file {}",
-            self.repository.project_id,
-            path.display()
-        );
-
-        Ok(())
-    }
-
-    pub fn write_deltas<P: AsRef<path::Path>>(
-        &self,
-        id: &str,
-        path: P,
-        deltas: &Vec<deltas::Delta>,
-    ) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("Failed to get or create current session")?;
-
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("Failed to unlock repository");
-        }
-
-        let path = path.as_ref();
-
+        let patch = file_diff.to_patch();
         self.writer
             .write_string(
-                &format!("branches/{}/deltas/{}", id, path.display()),
-                &serde_json::to_string(deltas)?,
+                &format!("branches/{}/patches/{}", id, path.as_ref().display()),
+                &patch,
             )
-            .context("Failed to write branch deltas")?;
-
-        log::info!(
-            "{}: wrote virtual branch {} deltas for {}",
-            self.repository.project_id,
-            id,
-            path.display(),
-        );
-
+            .context("Failed to write diff")?;
         Ok(())
     }
 }

@@ -1,10 +1,10 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, path};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{project_repository::activity, projects, reader};
+use crate::{project_repository::activity, projects, reader, virtual_branches};
 
 pub struct Repository<'repository> {
     pub(crate) git_repository: git2::Repository,
@@ -147,6 +147,89 @@ impl<'repository> Repository<'repository> {
             });
 
         Ok(statuses)
+    }
+
+    pub fn git_wd_diff_file<P: AsRef<path::Path>>(
+        &self,
+        context_lines: usize,
+        path: P,
+    ) -> Result<virtual_branches::file_diff::FileDiff> {
+        let head = self.git_repository.head()?;
+        let tree = head.peel_to_tree()?;
+
+        // Prepare our diff options based on the arguments given
+        let mut opts = git2::DiffOptions::new();
+        opts.recurse_untracked_dirs(true)
+            .include_untracked(true)
+            .pathspec(path.as_ref())
+            .show_untracked_content(true)
+            .context_lines(if context_lines == 0 {
+                3
+            } else {
+                context_lines.try_into()?
+            });
+
+        let diff = self
+            .git_repository
+            .diff_tree_to_workdir(Some(&tree), Some(&mut opts))?;
+
+        let mut hunks: Vec<virtual_branches::file_diff::Hunk> = Vec::new();
+        let mut old_file_path = None;
+        let mut new_file_path = None;
+        diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
+            if let Some(file_path) = delta.old_file().path() {
+                old_file_path.replace(file_path.to_path_buf());
+            }
+
+            if let Some(file_path) = delta.new_file().path() {
+                new_file_path.replace(file_path.to_path_buf());
+            }
+
+            if let Some(hunk) = hunk {
+                let diff: Vec<virtual_branches::file_diff::DiffLine> = vec![];
+                hunks.push(virtual_branches::file_diff::Hunk {
+                    description: hunk.header().iter().map(|s| s.to_string()).collect(),
+                    diff,
+                });
+            }
+
+            match line.origin() {
+                '+' => hunks
+                    .last_mut()
+                    .unwrap()
+                    .diff
+                    .push(virtual_branches::file_diff::DiffLine {
+                        line_number: line.new_lineno().unwrap_or(0) as usize,
+                        diff: virtual_branches::file_diff::DiffLine::Insert(
+                            line.content().iter().map(|s| s.to_string()).collect(),
+                        ),
+                    }),
+                '-' => hunks
+                    .last_mut()
+                    .unwrap()
+                    .diff
+                    .push(virtual_branches::file_diff::DiffLine {
+                        line_number: line.new_lineno().unwrap_or(0) as usize,
+                        diff: virtual_branches::file_diff::DiffLine::Insert(
+                            line.content().iter().map(|s| s.to_string()).collect(),
+                        ),
+                    }),
+                _ => {}
+            };
+
+            true
+        })?;
+
+        if new_file_path.is_none() {
+            return Err(anyhow!("failed to get new file path"));
+        }
+        let new_file_path = new_file_path.unwrap();
+        let old_file_path = old_file_path.unwrap_or(new_file_path.clone());
+        Ok(virtual_branches::file_diff::FileDiff {
+            old_file_path,
+            new_file_path,
+            hunks,
+        })
     }
 
     pub fn git_wd_diff(&self, context_lines: usize) -> Result<HashMap<String, String>> {

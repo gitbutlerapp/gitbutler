@@ -1,4 +1,4 @@
-mod api;
+pub mod file_diff;
 pub mod branch;
 mod iterator;
 pub mod target;
