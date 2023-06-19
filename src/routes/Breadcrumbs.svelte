@@ -7,13 +7,19 @@
 	export let project: Project | undefined;
 </script>
 
-<div class="flex flex-row items-center gap-1 text-zinc-400">
+<div class="flex flex-row items-stretch gap-1 font-bold text-dark-300 dark:text-light-300">
 	<Button icon={IconHome} kind="plain" on:click={() => goto('/')} />
 	{#if project}
-		<Tooltip label="{project.title} home">
-			<Button kind="plain" on:click={() => project && goto(`/projects/${project.id}`)}>
-				{project.title}
-			</Button>
-		</Tooltip>
+		<a
+			class="button flex items-center bg-light-700 px-3 dark:bg-dark-500"
+			class:active={window.location.pathname.includes(`/projects/${project.id}`)}
+			href="/projects/{project.id}"
+			title="{project.title} home"
+		>
+			{project.title}
+		</a>
 	{/if}
 </div>
+
+<style lang="postcss">
+</style>

@@ -20,6 +20,7 @@
 	{disabled}
 	bind:checked
 	bind:indeterminate
+	class="cursor-pointer"
 />
 
 <style>

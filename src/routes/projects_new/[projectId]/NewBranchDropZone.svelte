@@ -32,9 +32,9 @@
 	}
 </script>
 
-<section
+<div
 	id="new-branch-dz"
-	class="invisible flex h-full items-center bg-zinc-900"
+	class="invisible flex h-full items-center"
 	use:dndzone={{
 		items: items,
 		types: ['new-branch'],
@@ -47,11 +47,11 @@
 	on:finalize={handleDndFinalize}
 >
 	<div
-		class="h-full w-64 items-center rounded-lg border border-dashed bg-zinc-800 p-8 text-center text-xl font-bold"
+		class="flex h-full w-64 items-center self-center rounded-lg border border-dashed border-dark-100 bg-light-300 p-8 text-center text-xl font-bold dark:bg-dark-400"
 	>
 		drop here to create a new branch
 	</div>
-</section>
+</div>
 
 <style lang="postcss">
 	:global(#new-branch-dz.new-branch-active) {

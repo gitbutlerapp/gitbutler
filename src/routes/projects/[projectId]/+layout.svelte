@@ -45,13 +45,14 @@
 <div class="flex h-full w-full flex-col">
 	{#if selection !== 'player'}
 		<nav
-			class="flex flex-none select-none items-center justify-between space-x-3 border-b border-zinc-700 py-1 px-2 text-zinc-300"
+			class="flex flex-none select-none items-center justify-between space-x-3 border-b border-light-100 py-1 px-2 text-dark-300 dark:border-dark-700 dark:text-light-300"
 		>
 			<div class="flex flex-row items-center space-x-2">
 				<form action="/projects/{$project?.id}/search" method="GET">
 					<label
 						for="default-search"
-						class="text-gray-900 sr-only mb-2 text-sm font-medium dark:text-white">Search</label
+						class="dark:text-light-900 texxt-dark-900 sr-only mb-2 text-sm font-medium"
+						>Search</label
 					>
 					<div class="relative">
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -72,7 +73,7 @@
 								placeholder="Search history"
 								bind:value={query}
 								aria-label="Search input"
-								class="block w-full min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-800  p-[3px] px-2 pl-10 text-zinc-200 placeholder:text-zinc-500 sm:leading-6"
+								class="block w-full min-w-0 flex-1 rounded border border-light-600 bg-light-800 p-[3px] px-2  pl-10 text-dark-200 placeholder:text-dark-300 dark:border-dark-600 dark:bg-dark-800 dark:text-light-200 dark:placeholder:text-light-300 sm:leading-6"
 							/>
 						</form>
 					</div>
@@ -121,7 +122,9 @@
 	</div>
 
 	<footer class="w-full text-sm font-medium">
-		<div class="flex h-8 flex-shrink-0 select-none items-center border-t border-zinc-700">
+		<div
+			class="flex h-8 flex-shrink-0 select-none items-center border-t border-light-200 dark:border-dark-700"
+		>
 			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
 				<Link href="/projects/{$project?.id}/settings">
 					{#if $project?.api?.sync}
