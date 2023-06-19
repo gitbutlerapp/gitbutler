@@ -6,24 +6,24 @@ import { CloudApi } from '$lib/api';
 
 export const load: PageLoad = async ({ params }) => {
 	const branch_data = (params: { projectId: string }) =>
-	invoke<Array<Branch>>('list_virtual_branches', { projectId: params.projectId });
+		invoke<Array<Branch>>('list_virtual_branches', { projectId: params.projectId });
 
-	const test_branches = await (
-		branch_data({ projectId: params.projectId })
-	)
+	const test_branches = await branch_data({ projectId: params.projectId });
 
 	//const cloud = CloudApi();
 
 	// fix dates from the test data
 	test_branches.map((branch: Branch) => {
 		branch.files = branch.files.map((file: File) => {
-			file.hunks = file.hunks.map((hunk: any) => {
-				hunk.modifiedAt = new Date(hunk.modifiedAt);
-				return hunk;
-			}).filter((hunk: any) => {
-				// only accept the hunk if hunk.diff does not contain the string '@@'
-				return hunk.diff.includes('@@');
-			});
+			file.hunks = file.hunks
+				.map((hunk: any) => {
+					hunk.modifiedAt = new Date(hunk.modifiedAt);
+					return hunk;
+				})
+				.filter((hunk: any) => {
+					// only accept the hunk if hunk.diff does not contain the string '@@'
+					return hunk.diff.includes('@@');
+				});
 			return file;
 		});
 
