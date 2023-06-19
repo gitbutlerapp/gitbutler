@@ -563,7 +563,7 @@ async fn get_target_data(
 ) -> Result<virtual_branches::target::Target, Error> {
     let app = handle.state::<app::App>();
     let target = app
-        .get_target_data(project_id)
+        .get_target_data(project_id)?
         .context("failed to get target data")?;
     Ok(target)
 }
@@ -574,10 +574,10 @@ async fn set_target_branch(
     handle: tauri::AppHandle,
     project_id: &str,
     branch: &str,
-) -> Result<(), Error> {
+) -> Result<virtual_branches::target::Target, Error> {
     let app = handle.state::<app::App>();
     let target = app
-        .set_target_branch(project_id, branch)
+        .set_target_branch(project_id, branch)?
         .context("failed to get target data")?;
     Ok(target)
 }

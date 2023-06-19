@@ -1,6 +1,8 @@
 mod reader;
 mod writer;
 
+use serde::{Serialize, Serializer, ser::SerializeStruct};
+
 pub use reader::TargetReader as Reader;
 pub use writer::TargetWriter as Writer;
 
@@ -9,6 +11,19 @@ pub struct Target {
     pub name: String,
     pub remote: String,
     pub sha: git2::Oid,
+}
+
+impl Serialize for Target {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Target", 3)?;
+        state.serialize_field("name", &self.name)?;
+        state.serialize_field("remote", &self.remote)?;
+        state.serialize_field("sha", &self.sha.to_string())?;
+        state.end()
+    }
 }
 
 impl TryFrom<&dyn crate::reader::Reader> for Target {
