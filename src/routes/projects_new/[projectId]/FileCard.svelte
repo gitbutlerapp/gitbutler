@@ -4,8 +4,7 @@
 	import { formatDistanceToNow, compareDesc } from 'date-fns';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import type { Hunk } from './types';
-	import { Differ } from '$lib/components';
-	import { line, type DiffArray } from '$lib/diff';
+	import HunkDiffViewer from './HunkDiffViewer.svelte';
 
 	export let filepath: string;
 	export let hunks: Hunk[];
@@ -18,24 +17,6 @@
 		hunks = e.detail.items;
 		hunks.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
 		if (e.type == 'finalize' && hunks.length == 0) dispatch('empty');
-	}
-
-	function diffStringToDiffArray(diffStr: string): DiffArray {
-		let lines = diffStr.split('\n');
-		let header = lines.shift();
-		const before = lines.filter((line) => line.startsWith('-')).map((line) => line.slice(1));
-		const after = lines.filter((line) => line.startsWith('+')).map((line) => line.slice(1));
-		return line(before.slice(0, 2), after.slice(0, 2));
-	}
-
-	function diffLineNumberOffset(diffStr: string): number[] {
-		let lines = diffStr.split('\n');
-		let header = lines.shift();
-		const lr = header?.split('@@')[1].trim().split(' ');
-		if (!lr) return [0, 0];
-		const before = lr[0].split(',')[0].slice(1);
-		const after = lr[1].split(',')[0].slice(1);
-		return [parseInt(before) + 2, parseInt(after) + 2];
 	}
 
 	function hunkSize(hunk: string): number[] {
@@ -110,11 +91,8 @@
 					<div
 						class="cursor-pointer border-t border-b border-light-700 text-sm dark:border-dark-800"
 					>
-						<Differ
-							diff={diffStringToDiffArray(hunk.diff)}
-							lineNumberOffset={diffLineNumberOffset(hunk.diff)}
-							filepath={hunk.filePath}
-						/>
+						<!-- Disabling syntax highlighting for perormance reasons -->
+						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={2} />
 					</div>
 					<div class="flex p-2 text-sm">
 						<div class="flex flex-grow gap-1">
