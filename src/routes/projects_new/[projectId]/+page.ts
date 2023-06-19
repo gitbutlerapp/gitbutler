@@ -2,12 +2,12 @@ import type { PageLoad } from './$types';
 import { plainToInstance } from 'class-transformer';
 import { Branch, File } from './types';
 import { invoke } from '@tauri-apps/api';
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ params }) => {
 	const branch_data = (params: { projectId: string }) =>
 	invoke<Array<Branch>>('list_virtual_branches', { projectId: params.projectId });
 
 	const test_branches = await (
-		branch_data({ projectId: "d9b70acd-ccd9-44ae-9560-e5a5210eff48" })
+		branch_data({ projectId: params.projectId })
 	);
 
 	// fix dates from the test data
