@@ -69,6 +69,7 @@
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
+		<ThemeSelector />
 		<div class="mr-6">
 			<Link href="/users/">
 				{#await user.load() then}
