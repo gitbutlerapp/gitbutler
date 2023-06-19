@@ -18,10 +18,6 @@
 		}
 	}
 
-	function handleNewBranch(e: CustomEvent<Branch[]>) {
-		branches.push(...e.detail);
-	}
-
 	function handleEmpty() {
 		const emptyIndex = branches.findIndex((item) => !item.files || item.files.length == 0);
 		if (emptyIndex != -1) {
@@ -32,7 +28,7 @@
 
 <div
 	id="branch-lanes"
-	class="flex max-w-full flex-shrink flex-grow snap-x items-start gap-x-4 overflow-x-auto overflow-y-hidden bg-light-800 p-4 dark:bg-dark-700"
+	class="flex max-w-full flex-shrink flex-grow items-start gap-x-4 overflow-x-auto overflow-y-hidden bg-light-800 p-4 dark:bg-dark-700"
 	use:dndzone={{
 		items: branches,
 		types: ['branch'],
@@ -46,9 +42,9 @@
 	on:finalize={handleDndEvent}
 >
 	{#each branches.filter((c) => c.active) as { id, name, files, description } (id)}
-		<Lane {name} {description} bind:files on:empty={handleEmpty} />
+		<Lane {name} {description} {files} on:empty={handleEmpty} />
 	{/each}
-	<NewBranchDropZone on:finalize={handleNewBranch} />
+	<NewBranchDropZone on:newBranch />
 </div>
 
 <style lang="postcss">

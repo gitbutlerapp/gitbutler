@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { flip } from 'svelte/animate';
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import { File, Hunk } from './types';
@@ -41,6 +40,7 @@
 		if (files.length == 0) {
 			dispatch('empty');
 		}
+		files = files;
 	}
 
 	function updateTextArea(): void {
@@ -79,7 +79,7 @@
 		on:finalize={handleDndEvent}
 	>
 		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
-			<FileCard bind:file on:empty={handleEmpty} />
+			<FileCard filepath={file.path} bind:hunks={file.hunks} on:empty={handleEmpty} />
 		{/each}
 		<div
 			data-dnd-ignore
