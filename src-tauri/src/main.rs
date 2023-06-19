@@ -542,6 +542,19 @@ async fn list_bookmarks(
     Ok(bookmarks)
 }
 
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn list_virtual_branches(
+    handle: tauri::AppHandle,
+    project_id: &str
+) -> Result<Vec<virtual_branches::VirtualBranch>, Error> {
+    let app = handle.state::<app::App>();
+    let branches = app
+        .list_virtual_branches(project_id)
+        .context("failed to list virtual branches")?;
+    Ok(branches)
+}
+
 fn main() {
     let tauri_context = generate_context!();
 
@@ -679,6 +692,7 @@ fn main() {
             get_project_data_archive_path,
             upsert_bookmark,
             list_bookmarks,
+            list_virtual_branches,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")

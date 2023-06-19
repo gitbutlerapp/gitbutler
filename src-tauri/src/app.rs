@@ -8,6 +8,7 @@ use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
     project_repository::{self, activity},
     projects, pty, search, sessions, storage, users, watcher,
+    virtual_branches
 };
 
 #[derive(Clone)]
@@ -271,6 +272,27 @@ impl App {
     ) -> Result<HashMap<String, String>> {
         self.files_database
             .list_by_project_id_session_id(project_id, session_id, paths)
+    }
+
+    pub fn list_virtual_branches(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<virtual_branches::VirtualBranch>> {
+        let gb_repository = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string().clone(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")?;
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        Ok(virtual_branches::list_virtual_branches(&gb_repository, &project_repository))
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {

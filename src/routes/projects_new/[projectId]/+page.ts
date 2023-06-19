@@ -1,13 +1,13 @@
 import type { PageLoad } from './$types';
 import { plainToInstance } from 'class-transformer';
 import { Branch, File } from './types';
-
+import { invoke } from '@tauri-apps/api';
 export const load: PageLoad = async () => {
-	const testdata_file = await (
-		await import('@tauri-apps/api/path')
-	).resolveResource('../scripts/branch_testdata.json');
-	const test_branches = JSON.parse(
-		await (await import('@tauri-apps/api/fs')).readTextFile(testdata_file)
+	const branch_data = (params: { projectId: string }) =>
+	invoke<Array<Branch>>('list_virtual_branches', { projectId: params.projectId });
+
+	const test_branches = await (
+		branch_data({ projectId: "d9b70acd-ccd9-44ae-9560-e5a5210eff48" })
 	);
 
 	// fix dates from the test data
@@ -16,6 +16,9 @@ export const load: PageLoad = async () => {
 			file.hunks = file.hunks.map((hunk: any) => {
 				hunk.modifiedAt = new Date(hunk.modifiedAt);
 				return hunk;
+			}).filter((hunk: any) => {
+				// only accept the hunk if hunk.diff does not contain the string '@@'
+				return hunk.diff.includes('@@');
 			});
 			return file;
 		});

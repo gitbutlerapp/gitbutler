@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use git_butler_tauri::{
     projects, storage, project_repository, gb_repository,
-    users, database, sessions, virtual_branches
+    users, database, sessions, virtual_branches::{self, list_virtual_branches}
 };
 
 #[derive(Parser)]
@@ -78,7 +78,19 @@ fn main() {
         "move"   => run_move(butler),   // move file ownership from one branch to another
         "setup"  => run_setup(butler),  // sets target sha from remote branch
         "commit" => run_commit(butler), // creates trees from the virtual branch content and creates a commit
+        "branches" => run_branches(butler), // creates trees from the virtual branch content and creates a commit
         _ => println!("Unknown command: {}", args.command)
+    }
+}
+
+fn run_branches(butler: ButlerCli) {
+    let branches = list_virtual_branches(&butler.gb_repository, &butler.project_repository());
+    for branch in branches {
+        println!("{}", branch.id);
+        println!("{}", branch.name);
+        for file in branch.files {
+            println!("  {}", file.path);
+        }
     }
 }
 
@@ -106,8 +118,8 @@ fn run_commit(butler: ButlerCli) {
         .unwrap();
 
     // get the files to commit
-    if let Some(sha) = get_base_sha(&butler) {
-        let statuses = get_status_by_branch(&butler);
+    if let Some(sha) = virtual_branches::get_base_sha(&butler.gb_repository) {
+        let statuses = virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository());
         for (branch_id, files) in statuses {
             let mut branch = butler.gb_repository.get_virtual_branch(&branch_id).unwrap();
             if branch.name == commit_branch {
@@ -125,9 +137,9 @@ fn run_commit(butler: ButlerCli) {
 
                 // now update the index with content in the working directory for each file
                 for file in files {
-                    println!("{}", file);
+                    println!("{}", file.path);
                     // convert this string to a Path
-                    let file = std::path::Path::new(&file);
+                    let file = std::path::Path::new(&file.path);
 
                     // TODO: deal with removals too
                     index.add_path(&file).unwrap();
@@ -169,7 +181,7 @@ fn run_commit(butler: ButlerCli) {
 }
 
 fn run_new(butler: ButlerCli) {
-    if let Some(sha) = get_base_sha(&butler) {
+    if let Some(sha) = virtual_branches::get_base_sha(&butler.gb_repository) {
         println!("  base sha: {}", sha.blue());
         let oid = git2::Oid::from_str(&sha).unwrap();
         // lookup tree for this sha
@@ -206,7 +218,7 @@ fn run_new(butler: ButlerCli) {
 
 fn run_move(butler: ButlerCli) {
     // get the files to move
-    let files = get_status_files(&butler);
+    let files = virtual_branches::get_status_files(&butler.gb_repository, &butler.project_repository());
     let selections = MultiSelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Which files do you want to move?")
         .items(&files[..])
@@ -311,7 +323,7 @@ fn run_setup(butler: ButlerCli) {
 
 
 fn run_status(butler: ButlerCli) {
-    let statuses = get_status_by_branch(&butler);
+    let statuses = virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository());
     for (branch_id, files) in statuses {
         let branch = butler.gb_repository.get_virtual_branch(&branch_id).unwrap();
         println!("branch: {}", branch.name.blue());
@@ -320,138 +332,12 @@ fn run_status(butler: ButlerCli) {
         println!("    id: {}", branch.id.green());
         println!(" files:");
         for file in files {
-            println!("        {}", file);
+            println!("        {}", file.path);
         }
         println!("");
     }
 }
 
-// list the virtual branches and their file statuses (statusi?)
-fn get_status_by_branch(butler: &ButlerCli) -> Vec<(String, Vec<String>)> {
-    let mut statuses = vec![];
-
-    if let Some(sha) = get_base_sha(&butler) {
-        //println!("  base sha: {}", sha.blue());
-        let branch_reader = butler.gb_repository.get_branch_dir_reader();
-
-        let repo = butler.git_repository();
-        let oid = git2::Oid::from_str(&sha).unwrap();
-        let commit = repo.find_commit(oid).unwrap();
-        let tree = commit.tree().unwrap();
-
-        // list the files that are different between the wd and the base sha
-        let mut opts = git2::DiffOptions::new();
-        opts.recurse_untracked_dirs(true)
-            .include_untracked(true)
-            .show_untracked_content(true);
-        let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts)).unwrap();
-
-        let mut all_files = vec![];
-        let mut new_ownership = vec![];
-
-        let deltas = diff.deltas();
-        for delta in deltas {
-            let mut file_path = "".to_string();
-            let old_file = delta.old_file();
-            let new_file = delta.new_file();
-
-            if let Some(path) = new_file.path() {
-                file_path = path.to_str().unwrap().to_string();
-            } else if let Some(path) = old_file.path() {
-                file_path = path.to_str().unwrap().to_string();
-            }
-            all_files.push(file_path.clone());
-
-            let mut branch_iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-            let mut file_found = false;
-            while let Some(item) = branch_iter.next() {
-                if let Ok(item) = item {
-                    for file in item.ownership {
-                        if file == file_path {
-                            file_found = true;
-                        }
-                    }
-                }
-            }
-            if !file_found {
-                new_ownership.push(file_path.clone());
-            }
-        }
-
-        //println!("new ownership: {:?}", new_ownership);
-
-        let _vbranch_reader = virtual_branches::branch::Reader::new(&branch_reader);
-        let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-        while let Some(item) = iter.next() {
-            if let Ok(branch) = item {
-                let mut files = vec![];
-                if !new_ownership.is_empty() {
-                    // in this case, lets add any newly changed files to the first branch we see and persist it
-                    let mut branch = branch.clone();
-                    branch.ownership.extend(new_ownership.clone());
-                    new_ownership.clear();
-
-                    // ok, write the updated data back
-                    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-                    writer.write(&branch).unwrap();
-
-                    for file in branch.ownership {
-                        if all_files.contains(&file) {
-                            // push the file to the status list
-                            files.push(file.clone());
-                        }
-                    }
-                } else {
-                    for file in branch.ownership {
-                        if all_files.contains(&file) {
-                            files.push(file.clone());
-                        }
-                    }
-                }
-                statuses.push((branch.id.clone(), files.clone()));
-            }
-        }
-    } else {
-        println!("  no base sha set, run butler setup");
-    }
-
-    statuses
-}
-
-fn get_status_files(butler: &ButlerCli) -> Vec<String> {
-    if let Some(sha) = get_base_sha(&butler) {
-        let repo = butler.git_repository();
-        let oid = git2::Oid::from_str(&sha).unwrap();
-        let commit = repo.find_commit(oid).unwrap();
-        let tree = commit.tree().unwrap();
-
-        // list the files that are different between the wd and the base sha
-        let mut opts = git2::DiffOptions::new();
-        opts.recurse_untracked_dirs(true)
-            .include_untracked(true)
-            .show_untracked_content(true);
-        let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts)).unwrap();
-
-        let mut all_files = vec![];
-
-        let deltas = diff.deltas();
-        for delta in deltas {
-            let mut file_path = "".to_string();
-            let old_file = delta.old_file();
-            let new_file = delta.new_file();
-
-            if let Some(path) = new_file.path() {
-                file_path = path.to_str().unwrap().to_string();
-            } else if let Some(path) = old_file.path() {
-                file_path = path.to_str().unwrap().to_string();
-            }
-            all_files.push(file_path.clone());
-        }
-        all_files
-    } else {
-        vec![]
-    }
-}
 // notes:
             //let head = self.git_repository.head()?;
             //let tree = head.peel_to_tree()?;
@@ -492,7 +378,7 @@ fn run_info(butler: ButlerCli) {
     // gitbutler repo stuff
     // read default target
     println!("{}", "target:".to_string().red());
-    if let Some(sha) = get_base_sha(&butler) {
+    if let Some(sha) = virtual_branches::get_base_sha(&butler.gb_repository) {
         println!("  base sha: {}", sha.blue());
     }
 
@@ -507,16 +393,6 @@ fn run_info(butler: ButlerCli) {
                 println!("    {}", file);
             }
         }
-    }
-}
-
-fn get_base_sha(butler: &ButlerCli) -> Option<String> {
-    let reader = butler.gb_repository.get_branch_dir_reader();
-    let target_reader = virtual_branches::target::Reader::new(&reader);
-    if let Ok(target) = target_reader.read_default() {
-        Some(target.sha.to_string())
-    } else {
-        None
     }
 }
 
