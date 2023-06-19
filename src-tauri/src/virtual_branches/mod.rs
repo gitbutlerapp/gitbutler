@@ -44,7 +44,7 @@ pub fn list_virtual_branches(
 ) -> Vec<VirtualBranch> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
-    let statuses = get_status_by_branch(&gb_repository, &project_repository);
+    let statuses = get_status_by_branch(gb_repository, project_repository);
     for (branch_id, files) in statuses {
         let branch = gb_repository.get_virtual_branch(&branch_id).unwrap();
         let mut vfiles = vec![];
@@ -165,7 +165,7 @@ pub fn get_status_by_branch<'a>(
                 .to_string();
 
             let mut hunk_id = new_path.clone();
-            hunk_id.push_str(":");
+            hunk_id.push(':');
             hunk_id.push_str(&hunk_numbers);
 
             if hunk_id != last_hunk_id {
@@ -211,9 +211,9 @@ pub fn get_status_by_branch<'a>(
             }
             all_files.push(file_path.clone());
 
-            let mut branch_iter = Iterator::new(&branch_reader).unwrap();
+            let branch_iter = Iterator::new(&branch_reader).unwrap();
             let mut file_found = false;
-            while let Some(item) = branch_iter.next() {
+            for item in branch_iter {
                 if let Ok(item) = item {
                     for file in item.ownership {
                         if file == file_path {
@@ -232,8 +232,8 @@ pub fn get_status_by_branch<'a>(
         //println!("all files: {:?}", all_files);
 
         let _vbranch_reader = branch::Reader::new(&branch_reader);
-        let mut iter = Iterator::new(&branch_reader).unwrap();
-        while let Some(item) = iter.next() {
+        let iter = Iterator::new(&branch_reader).unwrap();
+        for item in iter {
             if let Ok(branch) = item {
                 let mut files = vec![];
                 if !new_ownership.is_empty() {

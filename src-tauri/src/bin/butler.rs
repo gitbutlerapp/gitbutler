@@ -1,7 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Input, MultiSelect, Select};
-use dirs;
+
 use git2::Repository;
 use std::time;
 use uuid::Uuid;
@@ -29,12 +29,12 @@ impl ButlerCli {
         let storage = storage::Storage::from_path(local_data_dir);
         let users_storage = users::Storage::new(storage.clone());
 
-        let projects_storage = projects::Storage::new(storage.clone());
+        let projects_storage = projects::Storage::new(storage);
         let projects = projects_storage.list_projects().unwrap();
         let project = projects.into_iter().find(|p| p.path == path).unwrap();
 
         let gb_repository = gb_repository::Repository::open(
-            local_data_dir.to_string(),
+            local_data_dir,
             project.id.clone(),
             projects_storage,
             users_storage,
@@ -42,13 +42,13 @@ impl ButlerCli {
         .expect("failed to open repository");
 
         let db_path = std::path::Path::new(&local_data_dir).join("database.sqlite3");
-        let database = database::Database::open(&db_path).unwrap();
-        let sessions_db = sessions::Database::new(database.clone());
+        let database = database::Database::open(db_path).unwrap();
+        let sessions_db = sessions::Database::new(database);
 
         Self {
             path: path.to_string(),
             local_data_dir: local_data_dir.to_string(),
-            project: project.clone(),
+            project,
             gb_repository,
             sessions_db,
         }
@@ -104,8 +104,8 @@ fn run_commit(butler: ButlerCli) {
     // get the branch to commit
     let mut branches = vec![];
     let branch_reader = butler.gb_repository.get_branch_dir_reader();
-    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    while let Some(item) = iter.next() {
+    let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+    for item in iter {
         if let Ok(item) = item {
             branches.push(item.name);
         }
@@ -152,7 +152,7 @@ fn run_commit(butler: ButlerCli) {
                     let file = std::path::Path::new(&file.path);
 
                     // TODO: deal with removals too
-                    index.add_path(&file).unwrap();
+                    index.add_path(file).unwrap();
                 }
 
                 // now write out the tree
@@ -241,8 +241,8 @@ fn run_move(butler: ButlerCli) {
     // get the branch to move to
     let mut branches = vec![];
     let branch_reader = butler.gb_repository.get_branch_dir_reader();
-    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    while let Some(item) = iter.next() {
+    let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+    for item in iter {
         if let Ok(item) = item {
             branches.push(item.name);
         }
@@ -258,8 +258,8 @@ fn run_move(butler: ButlerCli) {
 
     // rewrite ownership of both branches
     let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    while let Some(item) = iter.next() {
+    let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+    for item in iter {
         if let Ok(item) = item {
             let mut branch = item;
             if branch.name == new_branch {
@@ -307,7 +307,7 @@ fn run_setup(butler: ButlerCli) {
                 .unwrap();
 
             let remote = repo
-                .branch_remote_name(&branch.get().name().unwrap())
+                .branch_remote_name(branch.get().name().unwrap())
                 .unwrap();
             let remote_url = repo.find_remote(remote.as_str().unwrap()).unwrap();
             let remote_url_str = remote_url.url().unwrap();
@@ -361,7 +361,7 @@ fn run_status(butler: ButlerCli) {
         for file in files {
             println!("        {}", file.path);
         }
-        println!("");
+        println!();
     }
 }
 
@@ -435,8 +435,8 @@ fn run_info(butler: ButlerCli) {
     println!("{}", "virtual branches:".to_string().red());
     // sort of abusing the iterator here, but it works
     let branch_reader = butler.gb_repository.get_branch_dir_reader();
-    let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    while let Some(item) = iter.next() {
+    let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+    for item in iter {
         if let Ok(item) = item {
             println!("  {}", item.name);
             for file in item.ownership {

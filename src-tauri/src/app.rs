@@ -279,7 +279,7 @@ impl App {
     ) -> Result<Vec<virtual_branches::VirtualBranch>> {
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            project_id.to_string().clone(),
+            project_id.to_string(),
             self.projects_storage.clone(),
             self.users_storage.clone(),
         )
