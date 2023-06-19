@@ -1,8 +1,15 @@
 import type { PageLoad } from './$types';
 import { plainToInstance } from 'class-transformer';
 import { Branch, File } from './types';
+import { CloudApi } from '$lib/api';
 
 export const load: PageLoad = async () => {
+	const cloud = CloudApi();
+	const testSummary = cloud.summarize.hunk({
+		hunk: "@@ -1,4 +1,8 @@\n-lockfileVersion: '6.0'\n+lockfileVersion: '6.1'\n+\n+settings:\n+  autoInstallPeers: true\n+  excludeLinksFromLockfile: false\n \n devDependencies:\n   '@codemirror/autocomplete':\n"
+	});
+	console.log('HERE', testSummary);
+
 	const testdata_file = await (
 		await import('@tauri-apps/api/path')
 	).resolveResource('../scripts/branch_testdata.json');
