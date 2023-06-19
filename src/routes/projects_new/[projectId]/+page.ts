@@ -6,14 +6,27 @@ import { CloudApi } from '$lib/api';
 
 export const load: PageLoad = async ({ params }) => {
 	const branch_data = (params: { projectId: string }) =>
-		invoke<Array<Branch>>('list_virtual_branches', { projectId: params.projectId });
+		invoke<Array<Branch>>('list_virtual_branches', params);
 
-	const test_branches = await branch_data({ projectId: params.projectId });
+	const get_target = async (params: { projectId: string; }) =>
+		invoke<object>('get_target_data', params);
+
+	const get_branches = async (params: { projectId: string; }) =>
+		invoke<Array<string>>('git_remote_branches', params);
+	
+	const vbranches = await branch_data({ projectId: params.projectId });
+	console.log(vbranches);
+
+	const target = await get_target({ projectId: params.projectId });
+	console.log(target);
+
+	const remote_branches = await get_branches({ projectId: params.projectId });
+	console.log(remote_branches);
 
 	//const cloud = CloudApi();
 
 	// fix dates from the test data
-	test_branches.map((branch: Branch) => {
+	vbranches.map((branch: Branch) => {
 		branch.files = branch.files.map((file: File) => {
 			file.hunks = file.hunks
 				.map((hunk: any) => {
@@ -29,7 +42,7 @@ export const load: PageLoad = async ({ params }) => {
 
 		return branch;
 	});
-	let branches = test_branches as Branch[];
+	let branches = vbranches as Branch[];
 
 	branches = plainToInstance(
 		Branch,
@@ -43,6 +56,9 @@ export const load: PageLoad = async ({ params }) => {
 	);
 
 	return {
-		branchData: branches
+		branchData: branches,
+		projectId: params.projectId,
+		target,
+		remote_branches
 	};
 };

@@ -328,7 +328,7 @@ impl Repository {
             }
 
             let mut branch_copy = branch.clone();
-            branch_copy.applied = false;
+            //branch_copy.applied = false;
             dst_branch_writer
                 .write(&branch_copy)
                 .with_context(|| format!("{}: failed to write branch", branch.id))?;
@@ -599,12 +599,12 @@ impl Repository {
             sha: commit.id(),
         };
 
+        let target_writer = virtual_branches::target::Writer::new(self);
+        target_writer.write_default(&target).unwrap();
+
         let branch_reader = self.get_branch_dir_reader();
         let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
         if iter.count() == 0 {
-            let target_writer = virtual_branches::target::Writer::new(self);
-            target_writer.write_default(&target).unwrap();
-
             let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
             let writer = self.get_branch_writer();
             let branch = virtual_branches::branch::Branch {
