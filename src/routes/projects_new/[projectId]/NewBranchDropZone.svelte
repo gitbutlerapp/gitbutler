@@ -9,7 +9,6 @@
 	let items: Branch[] = [];
 
 	function handleDndFinalize(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {
-		console.log(e);
 		const newItems = e.detail.items;
 		const branchItems = newItems.filter((item) => item instanceof Branch) as Branch[];
 
@@ -24,7 +23,7 @@
 		}
 
 		if (e.type == 'finalize') {
-			dispatch('finalize', branchItems);
+			dispatch('newBranch', branchItems);
 			items = [];
 			return;
 		}

@@ -7,13 +7,13 @@
 	export let data: PageData;
 	let branches = data.branchData;
 
-	// We only want the tray to update on finalized changes.
-	function onFinalize(e: CustomEvent<Branch[]>) {
-		branches = e.detail;
+	function handleNewBranch(e: CustomEvent<Branch[]>) {
+		branches.push(...e.detail);
+		branches = branches;
 	}
 </script>
 
-<div class="flex max-w-full">
+<div class="flex w-full max-w-full">
 	<Tray bind:branches />
-	<Board {branches} on:finalize={onFinalize} />
+	<Board {branches} on:newBranch={handleNewBranch} />
 </div>
