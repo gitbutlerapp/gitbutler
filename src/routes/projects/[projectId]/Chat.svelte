@@ -49,16 +49,10 @@
 	}
 </script>
 
-<div class="GitBTLR-container h-full p-4">
-	<div class="card relative flex h-full flex-col">
+<div class="h-full p-4">
+	<div class="relative flex h-full flex-col">
 		<div
-			class="content-header border-opacity-2 absolute top-0 left-0 right-0 z-10 flex justify-between gap-2 rounded-tr rounded-tl border-b border-zinc-700 bg-card-active py-3 px-4"
-			style="
-				-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
-				backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
-				background: rgba(59, 59, 63, 0.600;
-
-			"
+			class="content-header border-opacity-2 absolute top-0 left-0 right-0 z-10 flex justify-between gap-2 rounded-tr rounded-tl border-b border-light-100 bg-light-300 py-3 px-4 dark:border-dark-300 dark:bg-dark-300"
 		>
 			<div class="flex gap-2 text-lg font-bold">Ask GitButler Chat</div>
 		</div>
@@ -156,14 +150,7 @@
 		</div>
 
 		<div
-			class="absolute bottom-0 flex w-full flex-col gap-2 rounded-br rounded-bl border-t border-zinc-700 p-4"
-			style="                
-				border-width: 0.5px; 
-				-webkit-backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
-				backdrop-filter: blur(20px) saturate(190%) contrast(70%) brightness(80%);
-				background-color: rgba(24, 24, 27, 0.60);
-				border: 0.5px solid rgba(63, 63, 70, 0.50);
-			"
+			class="absolute bottom-0 flex w-full flex-col gap-2 rounded-br rounded-bl border-t border-light-300 p-4 dark:border-dark-300"
 		>
 			<div class="flex gap-2 pt-2">
 				<input
@@ -173,7 +160,7 @@
 					spellcheck="true"
 					bind:value={chatInput}
 					placeholder="Send a message..."
-					class="chat-input-text w-full"
+					class="w-full"
 					disabled={waitingForResponse}
 				/>
 				<Button

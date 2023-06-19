@@ -6,21 +6,18 @@
 /* BOILERPLATE CSS */
 a,
 button {
-	@apply cursor-default;
 	-webkit-user-select: none;
 	-webkit-user-drag: none;
 	-webkit-app-region: no-drag;
-	cursor: default;
 }
 
 input,
 textarea,
-textarea:focus {
+textarea {
 	outline: none;
-	@apply rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300;
+	@apply rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300 dark:bg-zinc-700;
 	@apply hover:border-zinc-500/80;
-	@apply focus:ring-2 focus:ring-blue-600/30;
-	@apply focus:border-[1px] focus:focus:border-blue-600;
+	@apply focus:ring-2 focus:ring-blue-600;
 }
 
 /* OUTLINE REMOVAL  */
@@ -61,13 +58,13 @@ textarea:focus {
 /* Handle */
 ::-webkit-scrollbar-thumb {
 	/* background: #44444A;  */
-	background: rgba(255, 255, 255, 0.1);
+	background: rgba(128, 128, 128, 0.3);
 	border-radius: 10px;
 }
 
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
-	background: rgba(255, 255, 255, 0.3);
+	background: rgba(128, 128, 128, 0.3);
 }
 .scrollbar-hidden::-webkit-scrollbar {
 	-webkit-appearance: none;
@@ -78,11 +75,6 @@ textarea:focus {
 	-webkit-appearance: none;
 	width: 0;
 	height: 0;
-}
-
-/* SIDE BAR */
-.side-panel {
-	@apply h-full w-[424px] border-r  border-zinc-700;
 }
 
 /* MAIN CONTENT CONTAINER */
@@ -104,4 +96,44 @@ textarea:focus {
 	backdrop-filter: blur(10px);
 	background-color: rgb(36 36 41 / 0.8);
 	/* Note: backdrop-filter has minimal browser support */
+}
+
+/* link */
+.link {
+	@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium transition transition duration-150 ease-in-out ease-out hover:underline hover:ease-in;
+	text-underline-offset: 3px;
+}
+
+.link:focus {
+	@apply outline-none;
+}
+
+.link.basic {
+	@apply text-dark-300 dark:text-light-300;
+}
+
+button.basic,
+button.primary,
+button.destructive {
+	line-height: 20px;
+}
+
+button.primary {
+	@apply text-blue-500;
+}
+
+button.destructive {
+	@apply text-red-600;
+}
+
+button.disabled {
+	@apply pointer-events-none text-zinc-500;
+}
+
+button.active {
+	@apply bg-light-300 dark:bg-dark-300;
+}
+
+.button.active {
+	@apply bg-light-300 dark:bg-dark-300;
 }

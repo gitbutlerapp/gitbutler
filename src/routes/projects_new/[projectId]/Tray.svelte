@@ -6,15 +6,16 @@
 	export let branches: Branch[];
 </script>
 
-<section class="flex h-full w-64 flex-col gap-y-2 border-r border-zinc-700 bg-[#2C2C2C] p-4">
-	<div class="flex flex-col gap-y-2 py-2">
+<div class="w-80 shrink-0 bg-dark-300 px-2 text-light-800">
+	<div class="py-4">Your Branches</div>
+	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
-			<div
-				class="rounded border-t-[0.5px] border-b-[0.5px] border-t-[#4C4C4C] border-b-[#252525] bg-[#212121] p-2"
-			>
+			<div class="rounded-lg p-2" title={branch.name}>
 				<Checkbox bind:checked={branch.active} />
-				<span class="ml-2">{branch.name}</span>
+				<span class="ml-2 cursor-pointer">
+					{branch.name}
+				</span>
 			</div>
 		{/each}
 	</div>
-</section>
+</div>

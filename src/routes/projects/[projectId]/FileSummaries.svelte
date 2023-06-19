@@ -95,10 +95,12 @@
 			</li>
 		{:else}
 			<div
-				class="replay-no-changes text-center space-y-4 border border-zinc-700 px-10 py-12 mb-6 rounded-lg h-full flex justify-around items-center text-zinc-400"
+				class="replay-no-changes text-center space-y-4 border dark:border-dark-300 px-10 py-12 mb-6 rounded-lg h-full flex justify-around items-center dark:text-light-400 border-light-200 text-dark-300"
 			>
 				<div class="max-w-[360px] m-auto">
-					<h3 class="mb-6 text-3xl font-semibold text-zinc-300">Waiting for file changes...</h3>
+					<h3 class="mb-6 text-3xl font-semibold dark:text-light-200 text-dark-400">
+						Waiting for file changes...
+					</h3>
 					<p class="mt-1">
 						GitButler is now watching your project directory for file changes. As long as GitButler
 						is running, changes to any text files in this directory will automatically be recorded.
