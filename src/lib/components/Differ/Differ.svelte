@@ -12,6 +12,8 @@
 	export let diff: DiffArray;
 	export let lineNumberOffset = [0, 0];
 
+	let container: HTMLElement;
+
 	const sanitize = (text: string) => {
 		var element = document.createElement('div');
 		element.innerText = text;
@@ -202,16 +204,19 @@
 	$: rows = highlight.length > 0 ? padHighlighted(renderedRows) : renderedRows;
 
 	const scrollToChangedLine = () => {
-		const changedLines = document.getElementsByClassName('line-changed');
+		if (!container) {
+			return;
+		}
+		const changedLines = container.getElementsByClassName('line-changed');
 		if (changedLines.length > 0) {
 			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
 	};
-	$: diff && scrollToChangedLine();
 </script>
 
 <div
 	id="content"
+	bind:this={container}
 	class="grid h-full w-full flex-auto select-text whitespace-pre font-mono"
 	style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
 >
