@@ -174,6 +174,27 @@ impl App {
         Ok(())
     }
 
+    fn gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository> {
+        gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            project_id.to_string().clone(),
+            self.projects_storage.clone(),
+            self.users_storage.clone(),
+        )
+        .context("failed to open repository")
+    }
+
+    fn gb_project(&self, project_id: &str) -> projects::Project {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")
+            .unwrap()
+            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))
+            .unwrap();
+        project
+    }
+
     pub fn get_user(&self) -> Result<Option<users::User>> {
         self.users_storage.get()
     }
@@ -273,22 +294,40 @@ impl App {
             .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
+    pub fn get_target_data(
+        &self,
+        project_id: &str,
+    ) -> Result<Option<virtual_branches::target::Target>> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let reader = gb_repository.get_branch_dir_reader();
+        let target_reader = virtual_branches::target::Reader::new(&reader);
+        if let Ok(target) = target_reader.read_default() {
+            Ok(Some(target))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn set_target_branch(
+        &self,
+        project_id: &str,
+        target_branch: &str,
+    ) -> Result<Option<virtual_branches::target::Target>> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id);
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        let target =
+            gb_repository.set_target_branch(&project_repository, target_branch.to_string())?;
+        Ok(Some(target))
+    }
+
     pub fn list_virtual_branches(
         &self,
         project_id: &str,
     ) -> Result<Vec<virtual_branches::VirtualBranch>> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         Ok(virtual_branches::list_virtual_branches(
@@ -298,14 +337,7 @@ impl App {
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            bookmark.project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
-
+        let gb_repository = self.gb_repository(&bookmark.project_id)?;
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
         writer.write(bookmark).context("failed to write bookmark")?;
 
@@ -346,11 +378,7 @@ impl App {
         project_id: &str,
         start_time_ms: Option<u128>,
     ) -> Result<Vec<activity::Activity>> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_activity(start_time_ms)
@@ -360,11 +388,7 @@ impl App {
         &self,
         project_id: &str,
     ) -> Result<HashMap<String, project_repository::FileStatus>> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_status()
@@ -375,44 +399,28 @@ impl App {
         project_id: &str,
         context_lines: usize,
     ) -> Result<HashMap<String, String>> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project wd not found"))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_wd_diff(context_lines)
     }
 
     pub fn git_match_paths(&self, project_id: &str, pattern: &str) -> Result<Vec<String>> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project wd not found"))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_match_paths(pattern)
     }
 
     pub fn git_branches(&self, project_id: &str) -> Result<Vec<String>> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project wd not found"))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_branches()
     }
 
     pub fn git_head(&self, project_id: &str) -> Result<String> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project wd not found"))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let head = project_repository.get_head()?;
@@ -420,33 +428,16 @@ impl App {
     }
 
     pub fn git_switch_branch(&self, project_id: &str, branch: &str) -> Result<()> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project wd not found"))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
-
+        let gb_repository = self.gb_repository(project_id)?;
         gb_repository.flush().context("failed to flush session")?;
         project_repository.git_switch_branch(branch)
     }
 
     pub fn git_gb_push(&self, project_id: &str) -> Result<()> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
+        let gb_repository = self.gb_repository(project_id)?;
         gb_repository.push()
     }
 
@@ -455,11 +446,7 @@ impl App {
         project_id: &str,
         paths: Vec<P>,
     ) -> Result<()> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_stage_files(paths)
@@ -470,22 +457,14 @@ impl App {
         project_id: &str,
         paths: Vec<P>,
     ) -> Result<()> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_unstage_files(paths)
     }
 
     pub fn git_commit(&self, project_id: &str, message: &str, push: bool) -> Result<()> {
-        let project = self
-            .projects_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+        let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_commit(message, push)
@@ -496,14 +475,7 @@ impl App {
     }
 
     pub fn record_pty(&self, project_id: &str, typ: pty::Type, bytes: &[u8]) -> Result<()> {
-        let gb_repository = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            project_id.to_string(),
-            self.projects_storage.clone(),
-            self.users_storage.clone(),
-        )
-        .context("failed to open repository")?;
-
+        let gb_repository = self.gb_repository(project_id)?;
         let pty_writer = pty::Writer::new(&gb_repository)?;
 
         let timestamp = std::time::SystemTime::now()

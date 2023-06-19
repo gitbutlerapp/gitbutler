@@ -571,6 +571,58 @@ impl Repository {
         Ok(branch)
     }
 
+    pub fn set_target_branch(
+        &self,
+        project_repository: &project_repository::Repository,
+        target_branch: String,
+    ) -> Result<virtual_branches::target::Target> {
+        let repo = &project_repository.git_repository;
+
+        // lookup a branch by name
+        let branch = repo
+            .find_branch(&target_branch, git2::BranchType::Remote)
+            .unwrap();
+
+        let remote = repo
+            .branch_remote_name(&branch.get().name().unwrap())
+            .unwrap();
+        let remote_url = repo.find_remote(remote.as_str().unwrap()).unwrap();
+        let remote_url_str = remote_url.url().unwrap();
+        println!("remote: {}", remote_url_str);
+
+        // TODO: if there are no virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
+
+        let commit = branch.get().peel_to_commit().unwrap();
+        let target = virtual_branches::target::Target {
+            name: branch.name().unwrap().unwrap().to_string(),
+            remote: remote_url_str.to_string(),
+            sha: commit.id(),
+        };
+
+        let branch_reader = self.get_branch_dir_reader();
+        let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+        if iter.count() == 0 {
+            let target_writer = virtual_branches::target::Writer::new(self);
+            target_writer.write_default(&target).unwrap();
+
+            let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
+            let writer = self.get_branch_writer();
+            let branch = virtual_branches::branch::Branch {
+                id: Uuid::new_v4().to_string(),
+                name: "default branch".to_string(),
+                applied: true,
+                upstream: "".to_string(),
+                created_timestamp_ms: now,
+                updated_timestamp_ms: now,
+                tree: commit.tree().unwrap().id(),
+                head: commit.id(),
+                ownership: vec![],
+            };
+            writer.write(&branch).unwrap();
+        }
+        Ok(target)
+    }
+
     pub fn git_signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
         let user = self.users_store.get().context("failed to get user")?;
         let committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;

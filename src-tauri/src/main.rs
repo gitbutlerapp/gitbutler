@@ -555,6 +555,33 @@ async fn list_virtual_branches(
     Ok(branches)
 }
 
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn get_target_data(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<virtual_branches::target::Target, Error> {
+    let app = handle.state::<app::App>();
+    let target = app
+        .get_target_data(project_id)
+        .context("failed to get target data")?;
+    Ok(target)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn set_target_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    let target = app
+        .set_target_branch(project_id, branch)
+        .context("failed to get target data")?;
+    Ok(target)
+}
+
 fn main() {
     let tauri_context = generate_context!();
 
@@ -693,6 +720,8 @@ fn main() {
             upsert_bookmark,
             list_bookmarks,
             list_virtual_branches,
+            get_target_data,
+            set_target_branch,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")

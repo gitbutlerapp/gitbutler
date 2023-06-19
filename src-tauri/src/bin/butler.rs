@@ -300,49 +300,10 @@ fn run_setup(butler: ButlerCli) {
     match selection {
         Some(index) => {
             println!("Setting target to: {}", items[index].red());
-
-            // lookup a branch by name
-            let branch = repo
-                .find_branch(&items[index], git2::BranchType::Remote)
+            butler
+                .gb_repository
+                .set_target_branch(&butler.project_repository(), items[index].clone())
                 .unwrap();
-
-            let remote = repo
-                .branch_remote_name(branch.get().name().unwrap())
-                .unwrap();
-            let remote_url = repo.find_remote(remote.as_str().unwrap()).unwrap();
-            let remote_url_str = remote_url.url().unwrap();
-            println!("remote: {}", remote_url_str);
-
-            // TODO: if there are no virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
-
-            let commit = branch.get().peel_to_commit().unwrap();
-            let target = virtual_branches::target::Target {
-                name: branch.name().unwrap().unwrap().to_string(),
-                remote: remote_url_str.to_string(),
-                sha: commit.id(),
-            };
-
-            let branch_reader = butler.gb_repository.get_branch_dir_reader();
-            let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-            if iter.count() == 0 {
-                let target_writer = virtual_branches::target::Writer::new(&butler.gb_repository);
-                target_writer.write_default(&target).unwrap();
-
-                let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
-                let writer = butler.gb_repository.get_branch_writer();
-                let branch = virtual_branches::branch::Branch {
-                    id: Uuid::new_v4().to_string(),
-                    name: "default branch".to_string(),
-                    applied: true,
-                    upstream: "".to_string(),
-                    created_timestamp_ms: now,
-                    updated_timestamp_ms: now,
-                    tree: commit.tree().unwrap().id(),
-                    head: commit.id(),
-                    ownership: vec![],
-                };
-                writer.write(&branch).unwrap();
-            }
         }
         None => println!("User did not select anything"),
     }
