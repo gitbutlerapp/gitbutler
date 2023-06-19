@@ -51,6 +51,7 @@ const config = {
 				selected: '#2563EB'
 			},
 			white: '#FFFFFF',
+			black: '#000000',
 			transparent: 'transparent',
 			gray: {
 				400: '#9ca3af',
@@ -73,8 +74,9 @@ const config = {
 				400: '#D8D8D5',
 				500: '#DADADA',
 				600: '#DEDEDE',
-				700: '#E1E1E1',
-				800: '#F1F1F1'
+				700: '#E4E4E7',
+				800: '#F9FAFB',
+				900: '#F1F1F1'
 			},
 			blue: {
 				200: '#bfdbfe',

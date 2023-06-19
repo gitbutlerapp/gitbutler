@@ -23,6 +23,7 @@
 		if (emptyIndex != -1) {
 			branches.splice(emptyIndex, 1);
 		}
+		branches = branches;
 	}
 </script>
 

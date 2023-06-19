@@ -51,7 +51,7 @@
 				<form action="/projects/{$project?.id}/search" method="GET">
 					<label
 						for="default-search"
-						class="dark:text-light-900 texxt-dark-900 sr-only mb-2 text-sm font-medium"
+						class="texxt-dark-900 sr-only mb-2 text-sm font-medium dark:text-light-900"
 						>Search</label
 					>
 					<div class="relative">
