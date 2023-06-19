@@ -180,6 +180,15 @@ export default (
 						'X-Auth-Token': token
 					},
 					body: JSON.stringify(params)
+				}).then(parseResponseJSON),
+			hunk: (params: { hunk: string }): Promise<{ message: string }> =>
+				fetch(getUrl('summarize_hunk/hunk.json'), {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+						// 'X-Auth-Token': token
+					},
+					body: JSON.stringify(params)
 				}).then(parseResponseJSON)
 		},
 		chat: {
