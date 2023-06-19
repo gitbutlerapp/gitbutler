@@ -88,6 +88,33 @@ mod tests {
 
     use super::{super::Writer, *};
 
+    static mut TEST_INDEX: usize = 0;
+
+    fn test_branch() -> Branch {
+        unsafe {
+            TEST_INDEX += 1;
+        }
+        Branch {
+            id: format!("branch_{}", unsafe { TEST_INDEX }),
+            name: format!("branch_name_{}", unsafe { TEST_INDEX }),
+            applied: true,
+            upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
+            created_timestamp_ms: unsafe { TEST_INDEX } as u128,
+            updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
+            head: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef0123456{}",
+                unsafe { TEST_INDEX }
+            ))
+            .unwrap(),
+            tree: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef012345{}",
+                unsafe { TEST_INDEX + 10 }
+            ))
+            .unwrap(),
+            ownership: vec![format!("file/{}", unsafe { TEST_INDEX })],
+        }
+    }
+
     fn test_repository() -> Result<git2::Repository> {
         let path = tempdir()?.path().to_str().unwrap().to_string();
         let repository = git2::Repository::init(path)?;
@@ -140,14 +167,7 @@ mod tests {
         let gb_repo =
             gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
-        let branch = Branch {
-            id: "id".to_string(),
-            name: "name".to_string(),
-            applied: true,
-            upstream: "upstream".to_string(),
-            created_timestamp_ms: 0,
-            updated_timestamp_ms: 1,
-        };
+        let branch = test_branch();
 
         let writer = Writer::new(&gb_repo);
         writer.write(&branch)?;

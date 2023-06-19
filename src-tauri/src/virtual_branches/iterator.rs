@@ -82,6 +82,17 @@ mod tests {
             upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
+            head: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef0123456{}",
+                unsafe { TEST_INDEX }
+            ))
+            .unwrap(),
+            tree: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef012345{}",
+                unsafe { TEST_INDEX + 10 }
+            ))
+            .unwrap(),
+            ownership: vec![format!("file/{}", unsafe { TEST_INDEX })],
         }
     }
 
