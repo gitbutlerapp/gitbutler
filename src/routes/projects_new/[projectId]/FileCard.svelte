@@ -18,7 +18,6 @@
 		hunks = e.detail.items;
 		hunks.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
 		if (e.type == 'finalize' && hunks.length == 0) dispatch('empty');
-		hunks = hunks;
 	}
 
 	function diffStringToDiffArray(diffStr: string): DiffArray {
@@ -44,17 +43,25 @@
 		const linesRemoved = hunk.split('\n').filter((line) => line.startsWith('-')).length;
 		return [linesAdded, linesRemoved];
 	}
+
+	function boldenFilename(filepath: string): string {
+		const parts = filepath.split('/');
+		if (parts.length == 0) return '';
+		return (
+			parts.slice(0, -2).join('/') +
+			'/<span class="font-bold">' +
+			parts[parts.length - 1] +
+			'</span>'
+		);
+	}
 </script>
 
 <div
-	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg bg-light-100 p-2 text-dark-600 dark:bg-dark-700 dark:text-light-300"
+	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg border border-light-700 bg-white p-2 text-dark-600 dark:border-dark-700 dark:bg-black dark:text-light-300"
 >
 	<div class="flex items-center gap-2">
-		<div
-			class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap font-bold"
-			title={filepath}
-		>
-			{filepath}
+		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap" title={filepath}>
+			{@html boldenFilename(filepath)}
 		</div>
 		<div
 			on:click={() => (expanded = !expanded)}
@@ -95,19 +102,21 @@
 		{#if expanded}
 			{#each hunks || [] as hunk (hunk.id)}
 				<div
-					class="changed-hunk flex w-full flex-col gap-1 rounded bg-light-700 p-2 text-dark-100 dark:bg-dark-600 dark:text-light-400"
+					class="changed-hunk flex w-full flex-col gap-1 rounded-sm border border-light-500 dark:border-dark-500"
 				>
-					<div class="w-full text-ellipsis">
+					<div class="w-full text-ellipsis p-2">
 						{hunk.name}
 					</div>
-					<div class="cursor-pointer rounded text-sm">
+					<div
+						class="cursor-pointer border-t border-b border-light-700 text-sm dark:border-dark-800"
+					>
 						<Differ
 							diff={diffStringToDiffArray(hunk.diff)}
 							lineNumberOffset={diffLineNumberOffset(hunk.diff)}
 							filepath={hunk.filePath}
 						/>
 					</div>
-					<div class="flex text-sm font-bold">
+					<div class="flex p-2 text-sm">
 						<div class="flex flex-grow gap-1">
 							<div class="text-green-600">+{hunkSize(hunk.diff)[0]}</div>
 							{#if hunkSize(hunk.diff)[1] > 0}
