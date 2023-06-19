@@ -220,6 +220,8 @@ pub fn get_status_by_branch<'a>(
       }
 
       //println!("new ownership: {:?}", new_ownership);
+      //println!("sha: {}", sha);
+      //println!("all files: {:?}", all_files);
 
       let _vbranch_reader = branch::Reader::new(&branch_reader);
       let mut iter = Iterator::new(&branch_reader).unwrap();

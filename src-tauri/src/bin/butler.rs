@@ -78,9 +78,15 @@ fn main() {
         "move"   => run_move(butler),   // move file ownership from one branch to another
         "setup"  => run_setup(butler),  // sets target sha from remote branch
         "commit" => run_commit(butler), // creates trees from the virtual branch content and creates a commit
-        "branches" => run_branches(butler), // creates trees from the virtual branch content and creates a commit
+        "branches" => run_branches(butler), 
+        "flush" => run_flush(butler),   // artificially forces a session flush
         _ => println!("Unknown command: {}", args.command)
     }
+}
+
+fn run_flush(butler: ButlerCli) {
+    println!("Flushing sessions");
+    butler.gb_repository.flush().unwrap();
 }
 
 fn run_branches(butler: ButlerCli) {
@@ -296,26 +302,30 @@ fn run_setup(butler: ButlerCli) {
                 sha: commit.id(),
             };
 
-            let target_writer = virtual_branches::target::Writer::new(&butler.gb_repository);
-            target_writer.write_default(&target).unwrap();
+            let branch_reader = butler.gb_repository.get_branch_dir_reader();
+            let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+            if iter.count() == 0 {
+                let target_writer = virtual_branches::target::Writer::new(&butler.gb_repository);
+                target_writer.write_default(&target).unwrap();
 
-            let now = time::UNIX_EPOCH
-                .elapsed()
-                .unwrap()
-                .as_millis();
-            let writer = butler.gb_repository.get_branch_writer();
-            let branch = virtual_branches::branch::Branch {
-                id: Uuid::new_v4().to_string(),
-                name: "default branch".to_string(),
-                applied: true,
-                upstream: "".to_string(),
-                created_timestamp_ms: now,
-                updated_timestamp_ms: now,
-                tree: commit.tree().unwrap().id(),
-                head: commit.id(),
-                ownership: vec![],
-            };
-            writer.write(&branch).unwrap();
+                let now = time::UNIX_EPOCH
+                    .elapsed()
+                    .unwrap()
+                    .as_millis();
+                let writer = butler.gb_repository.get_branch_writer();
+                let branch = virtual_branches::branch::Branch {
+                    id: Uuid::new_v4().to_string(),
+                    name: "default branch".to_string(),
+                    applied: true,
+                    upstream: "".to_string(),
+                    created_timestamp_ms: now,
+                    updated_timestamp_ms: now,
+                    tree: commit.tree().unwrap().id(),
+                    head: commit.id(),
+                    ownership: vec![],
+                };
+                writer.write(&branch).unwrap();
+            }
         }
         None => println!("User did not select anything")
     }

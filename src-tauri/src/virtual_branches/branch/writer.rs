@@ -23,10 +23,6 @@ impl<'writer> BranchWriter<'writer> {
     }
 
     pub fn write_selected(&self, id: &Option<String>) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("Failed to get or create current session")?;
-
         self.repository.lock()?;
         defer! {
             self.repository.unlock().expect("Failed to unlock repository");
@@ -123,10 +119,6 @@ impl<'writer> BranchWriter<'writer> {
         path: P,
         contents: &str,
     ) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("Failed to get or create current session")?;
-
         self.repository.lock()?;
         defer! {
             self.repository.unlock().expect("Failed to unlock repository");
@@ -153,10 +145,6 @@ impl<'writer> BranchWriter<'writer> {
         path: P,
         deltas: &Vec<deltas::Delta>,
     ) -> Result<()> {
-        self.repository
-            .get_or_create_current_session()
-            .context("Failed to get or create current session")?;
-
         self.repository.lock()?;
         defer! {
             self.repository.unlock().expect("Failed to unlock repository");
