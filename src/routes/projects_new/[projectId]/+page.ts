@@ -1,7 +1,7 @@
 import type { PageLoad } from './$types';
 import { plainToInstance } from 'class-transformer';
 import { Branch, File } from './types';
-import { invoke } from '@tauri-apps/api';
+import { invoke } from '$lib/ipc';
 import { CloudApi } from '$lib/api';
 
 export const load: PageLoad = async ({ params }) => {
