@@ -1,23 +1,24 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { dndzone } from 'svelte-dnd-action';
-	import { flip } from 'svelte/animate';
 	import { formatDistanceToNow, compareDesc } from 'date-fns';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import type { File, Hunk } from './types';
+	import type { Hunk } from './types';
 	import { Differ } from '$lib/components';
 	import { line, type DiffArray } from '$lib/diff';
-	import { diff } from '$lib';
 
-	export let file: File;
+	export let filepath: string;
+	export let hunks: Hunk[];
+	let zoneEl: HTMLElement;
 
 	const dispatch = createEventDispatcher();
 	let expanded = true;
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
-		file.hunks = e.detail.items;
-		file.hunks.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
-		if (e.type == 'finalize' && file.hunks.length == 0) dispatch('empty');
+		hunks = e.detail.items;
+		hunks.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
+		if (e.type == 'finalize' && hunks.length == 0) dispatch('empty');
+		hunks = hunks;
 	}
 
 	function diffStringToDiffArray(diffStr: string): DiffArray {
@@ -51,9 +52,9 @@
 	<div class="flex items-center gap-2">
 		<div
 			class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap font-bold"
-			title={file.path}
+			title={filepath}
 		>
-			{file.path}
+			{filepath}
 		</div>
 		<div
 			on:click={() => (expanded = !expanded)}
@@ -80,18 +81,19 @@
 
 	<div
 		class="hunk-change-container flex flex-col gap-2 rounded"
+		bind:this={zoneEl}
 		use:dndzone={{
-			items: file.hunks,
+			items: hunks,
 			zoneTabIndex: -1,
 			autoAriaDisabled: true,
-			types: ['hunk', file.path],
-			receives: [file.path]
+			types: ['hunk', filepath],
+			receives: [filepath]
 		}}
 		on:consider={handleDndEvent}
 		on:finalize={handleDndEvent}
 	>
 		{#if expanded}
-			{#each file.hunks || [] as hunk (hunk.id)}
+			{#each hunks || [] as hunk (hunk.id)}
 				<div
 					class="changed-hunk flex w-full flex-col gap-1 rounded bg-light-700 p-2 text-dark-100 dark:bg-dark-600 dark:text-light-400"
 				>
