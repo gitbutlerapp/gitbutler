@@ -1,19 +1,19 @@
-use std::time;
 use clap::Parser;
 use colored::Colorize;
-use git2::Repository;
+use dialoguer::{console::Term, theme::ColorfulTheme, Input, MultiSelect, Select};
 use dirs;
-use dialoguer::{console::Term, theme::ColorfulTheme, MultiSelect, Select, Input};
+use git2::Repository;
+use std::time;
 use uuid::Uuid;
 
 use git_butler_tauri::{
-    projects, storage, project_repository, gb_repository,
-    users, database, sessions, virtual_branches::{self, list_virtual_branches}
+    database, gb_repository, project_repository, projects, sessions, storage, users,
+    virtual_branches::{self, list_virtual_branches},
 };
 
 #[derive(Parser)]
 struct Cli {
-    command: String
+    command: String,
 }
 
 struct ButlerCli {
@@ -72,15 +72,15 @@ fn main() {
 
     let args = Cli::parse();
     match args.command.as_str() {
-        "info"   => run_info(butler),   // shows internal data states for the project
+        "info" => run_info(butler), // shows internal data states for the project
         "status" => run_status(butler), // shows virtual branch status
-        "new"    => run_new(butler),    // create new empty virtual branch
-        "move"   => run_move(butler),   // move file ownership from one branch to another
-        "setup"  => run_setup(butler),  // sets target sha from remote branch
+        "new" => run_new(butler),   // create new empty virtual branch
+        "move" => run_move(butler), // move file ownership from one branch to another
+        "setup" => run_setup(butler), // sets target sha from remote branch
         "commit" => run_commit(butler), // creates trees from the virtual branch content and creates a commit
-        "branches" => run_branches(butler), 
-        "flush" => run_flush(butler),   // artificially forces a session flush
-        _ => println!("Unknown command: {}", args.command)
+        "branches" => run_branches(butler),
+        "flush" => run_flush(butler), // artificially forces a session flush
+        _ => println!("Unknown command: {}", args.command),
     }
 }
 
@@ -102,7 +102,7 @@ fn run_branches(butler: ButlerCli) {
 
 fn run_commit(butler: ButlerCli) {
     // get the branch to commit
-    let mut branches = vec![]; 
+    let mut branches = vec![];
     let branch_reader = butler.gb_repository.get_branch_dir_reader();
     let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
     while let Some(item) = iter.next() {
@@ -113,7 +113,8 @@ fn run_commit(butler: ButlerCli) {
     let selection = Select::with_theme(&ColorfulTheme::default())
         .items(&branches)
         .default(0)
-        .interact_on_opt(&Term::stderr()).unwrap();
+        .interact_on_opt(&Term::stderr())
+        .unwrap();
     let commit_branch = branches[selection.unwrap()].clone();
     println!("Committing virtual branch {}", commit_branch.red());
 
@@ -125,7 +126,10 @@ fn run_commit(butler: ButlerCli) {
 
     // get the files to commit
     if let Some(sha) = virtual_branches::get_base_sha(&butler.gb_repository) {
-        let statuses = virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository());
+        let statuses = virtual_branches::get_status_by_branch(
+            &butler.gb_repository,
+            &butler.project_repository(),
+        );
         for (branch_id, files) in statuses {
             let mut branch = butler.gb_repository.get_virtual_branch(&branch_id).unwrap();
             if branch.name == commit_branch {
@@ -159,14 +163,16 @@ fn run_commit(butler: ButlerCli) {
                     let tree = git_repository.find_tree(tree_oid).unwrap();
                     // now write a commit
                     let (author, committer) = butler.gb_repository.git_signatures().unwrap();
-                    let commit_oid = git_repository.commit(
-                        None,
-                        &author,
-                        &committer,
-                        &message,
-                        &tree,
-                        &[&parent_commit],
-                    ).unwrap();
+                    let commit_oid = git_repository
+                        .commit(
+                            None,
+                            &author,
+                            &committer,
+                            &message,
+                            &tree,
+                            &[&parent_commit],
+                        )
+                        .unwrap();
                     // write this new commit to the virtual branch
                     println!("    commit: {}", commit_oid.to_string().blue());
 
@@ -183,7 +189,6 @@ fn run_commit(butler: ButlerCli) {
     // create the tree
 
     // create the commit
-
 }
 
 fn run_new(butler: ButlerCli) {
@@ -200,10 +205,7 @@ fn run_new(butler: ButlerCli) {
             .interact_text()
             .unwrap();
 
-        let now = time::UNIX_EPOCH
-            .elapsed()
-            .unwrap()
-            .as_millis();
+        let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
 
         let branch = virtual_branches::Branch {
             id: Uuid::new_v4().to_string(),
@@ -224,7 +226,8 @@ fn run_new(butler: ButlerCli) {
 
 fn run_move(butler: ButlerCli) {
     // get the files to move
-    let files = virtual_branches::get_status_files(&butler.gb_repository, &butler.project_repository());
+    let files =
+        virtual_branches::get_status_files(&butler.gb_repository, &butler.project_repository());
     let selections = MultiSelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Which files do you want to move?")
         .items(&files[..])
@@ -236,7 +239,7 @@ fn run_move(butler: ButlerCli) {
     }
 
     // get the branch to move to
-    let mut branches = vec![]; 
+    let mut branches = vec![];
     let branch_reader = butler.gb_repository.get_branch_dir_reader();
     let mut iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
     while let Some(item) = iter.next() {
@@ -247,7 +250,8 @@ fn run_move(butler: ButlerCli) {
     let selection = Select::with_theme(&ColorfulTheme::default())
         .items(&branches)
         .default(0)
-        .interact_on_opt(&Term::stderr()).unwrap();
+        .interact_on_opt(&Term::stderr())
+        .unwrap();
     let new_branch = branches[selection.unwrap()].clone();
 
     println!("Moving {} files to {}", selections.len(), new_branch.red());
@@ -259,7 +263,9 @@ fn run_move(butler: ButlerCli) {
         if let Ok(item) = item {
             let mut branch = item;
             if branch.name == new_branch {
-                branch.ownership.extend(selected_files.iter().map(|f| f.to_string()));
+                branch
+                    .ownership
+                    .extend(selected_files.iter().map(|f| f.to_string()));
             } else {
                 branch.ownership.retain(|f| !selected_files.contains(f));
             }
@@ -272,23 +278,37 @@ fn run_move(butler: ButlerCli) {
 // - writes the ownership simply as: path/to/file:line_number-line_number
 
 fn run_setup(butler: ButlerCli) {
-    println!("  HEAD: {}", butler.project_repository().get_head().unwrap().name().unwrap().blue());
+    println!(
+        "  HEAD: {}",
+        butler
+            .project_repository()
+            .get_head()
+            .unwrap()
+            .name()
+            .unwrap()
+            .blue()
+    );
     let repo = butler.git_repository();
     let items = butler.project_repository().git_remote_branches().unwrap();
 
     let selection = Select::with_theme(&ColorfulTheme::default())
         .items(&items)
         .default(0)
-        .interact_on_opt(&Term::stderr()).unwrap();
+        .interact_on_opt(&Term::stderr())
+        .unwrap();
 
     match selection {
         Some(index) => {
             println!("Setting target to: {}", items[index].red());
 
             // lookup a branch by name
-            let branch = repo.find_branch(&items[index], git2::BranchType::Remote).unwrap();
+            let branch = repo
+                .find_branch(&items[index], git2::BranchType::Remote)
+                .unwrap();
 
-            let remote = repo.branch_remote_name(&branch.get().name().unwrap()).unwrap();
+            let remote = repo
+                .branch_remote_name(&branch.get().name().unwrap())
+                .unwrap();
             let remote_url = repo.find_remote(remote.as_str().unwrap()).unwrap();
             let remote_url_str = remote_url.url().unwrap();
             println!("remote: {}", remote_url_str);
@@ -308,10 +328,7 @@ fn run_setup(butler: ButlerCli) {
                 let target_writer = virtual_branches::target::Writer::new(&butler.gb_repository);
                 target_writer.write_default(&target).unwrap();
 
-                let now = time::UNIX_EPOCH
-                    .elapsed()
-                    .unwrap()
-                    .as_millis();
+                let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
                 let writer = butler.gb_repository.get_branch_writer();
                 let branch = virtual_branches::branch::Branch {
                     id: Uuid::new_v4().to_string(),
@@ -327,13 +344,13 @@ fn run_setup(butler: ButlerCli) {
                 writer.write(&branch).unwrap();
             }
         }
-        None => println!("User did not select anything")
+        None => println!("User did not select anything"),
     }
 }
 
-
 fn run_status(butler: ButlerCli) {
-    let statuses = virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository());
+    let statuses =
+        virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository());
     for (branch_id, files) in statuses {
         let branch = butler.gb_repository.get_virtual_branch(&branch_id).unwrap();
         println!("branch: {}", branch.name.blue());
@@ -349,8 +366,8 @@ fn run_status(butler: ButlerCli) {
 }
 
 // notes:
-            //let head = self.git_repository.head()?;
-            //let tree = head.peel_to_tree()?;
+//let head = self.git_repository.head()?;
+//let tree = head.peel_to_tree()?;
 
 // just print information for the project
 fn run_info(butler: ButlerCli) {
@@ -361,25 +378,48 @@ fn run_info(butler: ButlerCli) {
     println!("{}", "project:".to_string().red());
     println!("  id: {}", butler.project.id.blue());
     println!("  title: {}", butler.project.title.blue());
-    println!("  description: {}", butler.project.description.clone().unwrap_or("none".to_string()).blue());
+    println!(
+        "  description: {}",
+        butler
+            .project
+            .description
+            .clone()
+            .unwrap_or("none".to_string())
+            .blue()
+    );
     println!("  last_fetched_ts: {:?}", butler.project.last_fetched_ts);
     println!("  path: {}", butler.project.path.blue());
 
     let api = butler.project.api.as_ref().unwrap();
     println!("  {}:", "api".to_string().red());
     println!("   api name: {}", api.name.blue());
-    println!("   api description: {}", api.description.clone().unwrap().blue());
+    println!(
+        "   api description: {}",
+        api.description.clone().unwrap().blue()
+    );
     println!("   repo id: {}", api.repository_id.blue());
     println!("   git url: {}", api.git_url.blue());
     println!("   created: {}", api.created_at.blue());
     println!("   updated: {}", api.updated_at.blue());
 
     println!("{}", "project repo:".to_string().red());
-    println!("  HEAD: {}", butler.project_repository().get_head().unwrap().name().unwrap().blue());
+    println!(
+        "  HEAD: {}",
+        butler
+            .project_repository()
+            .get_head()
+            .unwrap()
+            .name()
+            .unwrap()
+            .blue()
+    );
 
     println!("{}", "sessions:".to_string().red());
     // sessions storage
-    let sessions = butler.sessions_db.list_by_project_id(&butler.project.id, butler.project.last_fetched_ts).unwrap();
+    let sessions = butler
+        .sessions_db
+        .list_by_project_id(&butler.project.id, butler.project.last_fetched_ts)
+        .unwrap();
     //list the sessions
     for session in &sessions {
         println!("  id: {}", session.id.blue());
@@ -409,10 +449,13 @@ fn run_info(butler: ButlerCli) {
 fn find_git_directory() -> Option<String> {
     match Repository::discover("./") {
         Ok(repo) => {
-            let mut path = repo.workdir().map(|path| path.to_string_lossy().to_string()).unwrap();
+            let mut path = repo
+                .workdir()
+                .map(|path| path.to_string_lossy().to_string())
+                .unwrap();
             path = path.trim_end_matches('/').to_string();
             Some(path)
-        },
+        }
         Err(_) => None,
     }
 }

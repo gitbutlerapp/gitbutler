@@ -13,7 +13,7 @@ pub struct Branch {
     pub created_timestamp_ms: u128,
     pub updated_timestamp_ms: u128,
     pub tree: git2::Oid, // last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-    pub head: git2::Oid, 
+    pub head: git2::Oid,
     pub ownership: Vec<String>,
 }
 

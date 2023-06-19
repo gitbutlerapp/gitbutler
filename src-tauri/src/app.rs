@@ -7,8 +7,7 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
     project_repository::{self, activity},
-    projects, pty, search, sessions, storage, users, watcher,
-    virtual_branches
+    projects, pty, search, sessions, storage, users, virtual_branches, watcher,
 };
 
 #[derive(Clone)]
@@ -292,7 +291,10 @@ impl App {
             .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        Ok(virtual_branches::list_virtual_branches(&gb_repository, &project_repository))
+        Ok(virtual_branches::list_virtual_branches(
+            &gb_repository,
+            &project_repository,
+        ))
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {

@@ -16,8 +16,8 @@ use crate::{fs, projects, users, virtual_branches};
 use crate::{
     project_repository,
     reader::{self, Reader},
+    sessions,
     writer::{self},
-    sessions
 };
 
 pub struct Repository {
@@ -307,7 +307,7 @@ impl Repository {
         let dst_branch_writer = virtual_branches::branch::Writer::new(self);
 
         // copy selected branch
-        /* 
+        /*
         let selected_branch = src_branch_reader
             .read_selected()
             .context("failed to read selected branch")?;

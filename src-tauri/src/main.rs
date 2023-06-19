@@ -546,7 +546,7 @@ async fn list_bookmarks(
 #[tauri::command(async)]
 async fn list_virtual_branches(
     handle: tauri::AppHandle,
-    project_id: &str
+    project_id: &str,
 ) -> Result<Vec<virtual_branches::VirtualBranch>, Error> {
     let app = handle.state::<app::App>();
     let branches = app
