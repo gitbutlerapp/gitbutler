@@ -12,7 +12,6 @@
 	export let file: File;
 
 	const dispatch = createEventDispatcher();
-	const flipDurationMs = 150;
 	let expanded = true;
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
@@ -47,23 +46,35 @@
 </script>
 
 <div
-	class="changed-file flex w-full flex-col justify-center gap-2 overflow-hidden bg-[#2C2C2C] p-2"
+	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg bg-light-100 p-2 text-dark-600 dark:bg-dark-700 dark:text-light-300"
 >
-	<div class="flex items-center gap-2 font-bold text-zinc-200">
-		<button
-			class="cursor-pointer p-1"
-			aria-expanded={expanded}
-			on:click={() => (expanded = !expanded)}
+	<div class="flex items-center gap-2">
+		<div
+			class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap font-bold"
+			title={file.path}
 		>
-			<div>
-				<svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-					<path class="vert" d="M10 1V19" stroke="currentColor" stroke-width="2" />
-					<path d="M1 10L19 10" stroke="currentColor" stroke-width="2" />
-				</svg>
-			</div>
-		</button>
-		<div class="overflow-hidden text-ellipsis whitespace-nowrap">
 			{file.path}
+		</div>
+		<div
+			on:click={() => (expanded = !expanded)}
+			on:keypress={() => (expanded = !expanded)}
+			class="cursor-pointer p-2"
+		>
+			{#if expanded}
+				<svg width="9" height="5" viewBox="0 0 9 5" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<path
+						d="M1.31965 5H7.51628C8.26728 5 8.68796 4.24649 8.22398 3.7324L5.12566 0.299447C4.76532 -0.0998156 4.07062 -0.0998156 3.71027 0.299447L0.611959 3.7324C0.147977 4.24649 0.568658 5 1.31965 5Z"
+						fill="currentColor"
+					/>
+				</svg>
+			{:else}
+				<svg width="9" height="5" viewBox="0 0 9 5" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<path
+						d="M7.51628 3.98009e-07L1.31965 -1.43717e-07C0.568658 -2.09371e-07 0.147978 0.75351 0.611959 1.2676L3.71027 4.70055C4.07062 5.09982 4.76532 5.09982 5.12566 4.70055L8.22398 1.2676C8.68796 0.753511 8.26728 4.63664e-07 7.51628 3.98009e-07Z"
+						fill="currentColor"
+					/>
+				</svg>
+			{/if}
 		</div>
 	</div>
 
@@ -81,11 +92,13 @@
 	>
 		{#if expanded}
 			{#each file.hunks || [] as hunk (hunk.id)}
-				<div class="changed-hunk flex w-full flex-col gap-1 rounded bg-[#212121] p-2">
-					<div class="w-full text-ellipsis text-sm">
+				<div
+					class="changed-hunk flex w-full flex-col gap-1 rounded bg-light-700 p-2 text-dark-100 dark:bg-dark-600 dark:text-light-400"
+				>
+					<div class="w-full text-ellipsis">
 						{hunk.name}
 					</div>
-					<div class="cursor-pointer rounded border border-zinc-700 p-0.5 text-sm">
+					<div class="cursor-pointer rounded text-sm">
 						<Differ
 							diff={diffStringToDiffArray(hunk.diff)}
 							lineNumberOffset={diffLineNumberOffset(hunk.diff)}
@@ -108,9 +121,3 @@
 		{/if}
 	</div>
 </div>
-
-<style>
-	button[aria-expanded='true'] .vert {
-		display: none;
-	}
-</style>

@@ -2,6 +2,9 @@ const plugin = require('tailwindcss/plugin');
 const config = {
 	content: ['./src/**/*.{html,js,svelte,ts}'],
 	darkMode: 'class',
+	corePlugins: {
+		backgroundOpacity: false
+	},
 	theme: {
 		fontFamily: {
 			sans: ['Inter', 'SF Pro', '-apple-system', 'system-ui'],
@@ -52,6 +55,26 @@ const config = {
 			gray: {
 				400: '#9ca3af',
 				500: '#6B7280'
+			},
+			dark: {
+				100: '#4C4C4C',
+				200: '#3C3C3C',
+				300: '#2C2C2C',
+				400: '#27272A',
+				500: '#252525',
+				600: '#212121',
+				700: '#1E1E1E',
+				800: '#1F1F1F'
+			},
+			light: {
+				100: '#B3B3B3',
+				200: '#C3C3C3',
+				300: '#D3D3D3',
+				400: '#D8D8D5',
+				500: '#DADADA',
+				600: '#DEDEDE',
+				700: '#E1E1E1',
+				800: '#F1F1F1'
 			},
 			blue: {
 				200: '#bfdbfe',

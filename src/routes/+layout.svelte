@@ -13,6 +13,7 @@
 	import LinkProjectModal from './LinkProjectModal.svelte';
 	import Breadcrumbs from './Breadcrumbs.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
+	import ThemeSelector from './ThemeSelector.svelte';
 
 	export let data: LayoutData;
 	const { posthog, projects, sentry, cloud } = data;
@@ -59,16 +60,17 @@
 	);
 </script>
 
-<div class="flex h-full max-h-full min-h-full flex-col">
+<div class="flex h-full flex-col">
 	<header
 		data-tauri-drag-region
-		class="flex h-11 flex-row items-center border-b border-zinc-700 pt-1 pb-1 text-zinc-400"
+		class="flex h-11 flex-row items-center gap-x-4 bg-light-400 pt-1 text-dark-400 dark:bg-dark-600 dark:text-light-400"
 		style="z-index: 9999;"
 	>
 		<div class="breadcrumb-project-container ml-24">
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
+		<ThemeSelector />
 		<div class="mr-6">
 			<Link href="/users/">
 				{#await user.load() then}
@@ -85,7 +87,7 @@
 		</div>
 	</header>
 
-	<div class="flex-grow overflow-auto">
+	<div class="flex flex-grow overflow-y-hidden">
 		<slot />
 	</div>
 

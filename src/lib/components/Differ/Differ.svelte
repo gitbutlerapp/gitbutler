@@ -212,7 +212,7 @@
 
 <div
 	id="content"
-	class="grid h-full w-full flex-auto select-text whitespace-pre border-b border-zinc-800 font-mono"
+	class="grid h-full w-full flex-auto select-text whitespace-pre font-mono"
 	style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
 >
 	{#each rows as row}
@@ -224,13 +224,17 @@
 			row.type === RowType.Equal || row.type === RowType.Addition
 				? String(row.currentLineNumber + lineNumberOffset[1])
 				: ''}
-		<span class="select-none border-r  border-zinc-800 bg-zinc-900 text-zinc-500/70">
+		<span
+			class="select-none border-r border-light-200  bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
+		>
 			<div class="mx-1.5 text-right">
 				{baseNumber}
 			</div>
 		</span>
 
-		<span class="mr-1 select-none border-r border-zinc-800 bg-zinc-900 text-zinc-500/70">
+		<span
+			class="mr-1 select-none border-r border-light-200 bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
+		>
 			<div class="mx-1.5 text-right">
 				{curNumber}
 			</div>

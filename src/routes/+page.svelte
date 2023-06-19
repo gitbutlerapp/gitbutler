@@ -17,9 +17,9 @@
 				<div class="h-fill grid h-full grid-cols-2 items-center gap-4">
 					<!-- right box, welcome text -->
 					<div class="flex flex-col content-center space-y-4 p-4">
-						<div class="m-0 p-0 text-2xl text-zinc-300">
+						<div class="m-0 p-0 text-2xl ">
 							<div class="font-bold">Welcome to GitButler.</div>
-							<div class="mb-1 text-lg text-zinc-300">More than just version control.</div>
+							<div class="mb-1 text-lg ">More than just version control.</div>
 						</div>
 						<div class="">
 							GitButler is a tool to help you manage all the local work you do on your code
@@ -29,7 +29,7 @@
 							Think of us as a <strong>code concierge</strong>, a smart assistant for all the coding
 							related tasks you need to do every day.
 						</div>
-						<ul class="space-y-4 pt-2 pb-4 text-zinc-400">
+						<ul class="space-y-4 pt-2 pb-4">
 							<li class="flex flex-row space-x-3">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -153,17 +153,17 @@
 							<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 ">
 								{#each $projects as project}
 									<a
-										class="project-card-container  text-lg text-zinc-300 hover:text-zinc-200 "
+										class="project-card-container  text-lg text-dark-300 dark:text-light-300"
 										href="/projects/{project.id}/"
 									>
 										<div
-											class="project-card group flex h-full min-h-[125px] flex-col justify-between space-y-1 rounded-lg border border-zinc-700 border-t-zinc-600 border-t-[1] bg-[#2F2F33] shadow transition duration-150 ease-out hover:bg-[#3B3B3F] hover:ease-in"
+											class="project-card group flex h-full min-h-[125px] flex-col justify-between space-y-1 rounded-lg border border-light-200 bg-light-400 shadow transition duration-150 ease-out hover:bg-light-500 hover:ease-in dark:border-dark-700 dark:bg-dark-300 dark:hover:bg-dark-200"
 										>
 											<div class="flex-grow-0 px-4 py-4">
-												<div class="text-lg text-zinc-300 hover:text-zinc-200">
+												<div class="text-lg text-dark-300 dark:text-light-300">
 													{project.title}
 												</div>
-												<div class="break-words text-base text-zinc-500">
+												<div class="break-words text-base text-dark-100 dark:text-light-100">
 													{project.path}
 												</div>
 											</div>
@@ -178,7 +178,7 @@
 													</div>
 												{:else}
 													<div class="flex flex-row items-center space-x-2 ">
-														<div class="h-2 w-2 rounded-full bg-zinc-800" />
+														<div class="h-2 w-2 rounded-full bg-light-100 dark:bg-dark-800" />
 														<div class="text-zinc-300">Offline</div>
 													</div>
 												{/if}

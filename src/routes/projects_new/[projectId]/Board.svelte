@@ -30,9 +30,9 @@
 	}
 </script>
 
-<section
+<div
 	id="branch-lanes"
-	class="flex h-full snap-x gap-x-4 overflow-x-scroll bg-zinc-900 p-4"
+	class="flex max-w-full flex-shrink flex-grow snap-x items-start gap-x-4 overflow-x-auto overflow-y-hidden bg-light-800 p-4 dark:bg-dark-700"
 	use:dndzone={{
 		items: branches,
 		types: ['branch'],
@@ -46,15 +46,10 @@
 	on:finalize={handleDndEvent}
 >
 	{#each branches.filter((c) => c.active) as { id, name, files, description } (id)}
-		<div
-			id="branch-{id}"
-			class="branch flex h-full w-96 snap-start scroll-ml-4 rounded-lg bg-zinc-900"
-		>
-			<Lane {name} {description} bind:files on:empty={handleEmpty} />
-		</div>
+		<Lane {name} {description} bind:files on:empty={handleEmpty} />
 	{/each}
 	<NewBranchDropZone on:finalize={handleNewBranch} />
-</section>
+</div>
 
 <style lang="postcss">
 	:global(#branch-lanes.new-branch-active [data-dnd-ignore]) {

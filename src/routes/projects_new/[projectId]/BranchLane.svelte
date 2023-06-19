@@ -3,7 +3,7 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import { File, Hunk } from './types';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { createFile } from './helpers';
 	import FileCard from './FileCard.svelte';
 
@@ -11,7 +11,8 @@
 	export let description: string;
 	export let files: File[];
 
-	const flipDurationMs = 150;
+	let descriptionHeight = 0;
+	let textArea: HTMLTextAreaElement;
 	const dispatch = createEventDispatcher();
 
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
@@ -41,18 +42,33 @@
 			dispatch('empty');
 		}
 	}
+
+	function updateTextArea(): void {
+		descriptionHeight = textArea.scrollHeight;
+	}
+
+	onMount(() => {
+		updateTextArea();
+	});
 </script>
 
-<div class="swimlane flex h-full w-full flex-col rounded-lg bg-[#2C2C2C]">
-	<div class="flex flex-col gap-1 border-b border-zinc-700 py-4 px-2">
-		<div class="font-bold">{name}</div>
-		<textarea
-			class="h-14 w-full resize-none
-		rounded border-0 p-2 text-zinc-400 focus-within:h-32">{description}</textarea
-		>
+<div
+	class="flex max-h-full w-96 shrink-0 flex-col overflow-y-hidden rounded-xl bg-light-700 px-1 dark:bg-dark-300"
+>
+	<div class="flex h-16 shrink-0 items-center px-3 text-lg font-bold">
+		{name}
 	</div>
+
+	<div />
+	<textarea
+		bind:this={textArea}
+		class="mx-1 mb-5 h-14 shrink-0 resize-none rounded border-0 bg-light-700 py-0 text-dark-400 focus-within:h-36 dark:bg-dark-300 dark:text-light-400"
+		style="height: {descriptionHeight}px"
+		value={description}
+		on:change={updateTextArea}
+	/>
 	<div
-		class="flex flex-grow flex-col gap-y-2 overflow-x-hidden overflow-y-scroll "
+		class="flex flex-shrink flex-col gap-y-2 overflow-y-auto rounded-lg px-1"
 		use:dndzone={{
 			items: files,
 			zoneTabIndex: -1,
@@ -63,11 +79,12 @@
 		on:finalize={handleDndEvent}
 	>
 		{#each files.filter((x) => x.hunks) as file, idx (file.id)}
-			<div class=" w-full">
-				<FileCard bind:file on:empty={handleEmpty} />
-			</div>
+			<FileCard bind:file on:empty={handleEmpty} />
 		{/each}
-		<div class="flex h-full w-full flex-col border-t border-zinc-700 p-2">
+		<div
+			data-dnd-ignore
+			class="flex h-full w-full flex-col border-t border-light-200 p-2 dark:border-dark-200"
+		>
 			<div class="font-bold">Commits</div>
 			<div>Commit 1</div>
 			<div>Commit 2</div>
