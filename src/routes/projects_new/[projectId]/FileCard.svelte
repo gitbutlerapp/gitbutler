@@ -20,7 +20,6 @@
 		if (e.type == 'finalize' && hunks.length == 0) dispatch('empty');
 	}
 
-
 	function hunkSize(hunk: string): number[] {
 		const linesAdded = hunk.split('\n').filter((line) => line.startsWith('+')).length;
 		const linesRemoved = hunk.split('\n').filter((line) => line.startsWith('-')).length;
