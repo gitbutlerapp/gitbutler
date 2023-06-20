@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    bookmarks, database, deltas, events, files, gb_repository,
+    bookmarks, database, deltas, events, files, gb_repository,reader,
     project_repository::{self, activity},
     projects, pty, search, sessions, storage, users, virtual_branches, watcher,
 };
@@ -177,22 +177,19 @@ impl App {
     fn gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            project_id.to_string().clone(),
+            project_id.to_string(),
             self.projects_storage.clone(),
             self.users_storage.clone(),
         )
         .context("failed to open repository")
     }
 
-    fn gb_project(&self, project_id: &str) -> projects::Project {
-        let project = self
+    fn gb_project(&self, project_id: &str) -> Result<projects::Project> {
+        self
             .projects_storage
             .get_project(project_id)
-            .context("failed to get project")
-            .unwrap()
+            .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))
-            .unwrap();
-        project
     }
 
     pub fn get_user(&self) -> Result<Option<users::User>> {
@@ -299,12 +296,13 @@ impl App {
         project_id: &str,
     ) -> Result<Option<virtual_branches::target::Target>> {
         let gb_repository = self.gb_repository(project_id)?;
-        let reader = gb_repository.get_branch_dir_reader();
-        let target_reader = virtual_branches::target::Reader::new(&reader);
-        if let Ok(target) = target_reader.read_default() {
-            Ok(Some(target))
-        } else {
-            Ok(None)
+        let current_session = gb_repository.get_or_create_current_session()?;
+        let curret_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
+        let target_reader = virtual_branches::target::Reader::new(&curret_session_reader);
+        match target_reader.read_default() {
+            Ok(target) => Ok(Some(target)),
+            Err(reader::Error::NotFound) =>Ok (None),
+            Err(e) => Err(e.into())
         }
     }
 
@@ -314,7 +312,7 @@ impl App {
         target_branch: &str,
     ) -> Result<Option<virtual_branches::target::Target>> {
         let gb_repository = self.gb_repository(project_id)?;
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let target =
@@ -327,13 +325,13 @@ impl App {
         project_id: &str,
     ) -> Result<Vec<virtual_branches::VirtualBranch>> {
         let gb_repository = self.gb_repository(project_id)?;
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        Ok(virtual_branches::list_virtual_branches(
+        virtual_branches::list_virtual_branches(
             &gb_repository,
             &project_repository,
-        ))
+        )
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
@@ -378,7 +376,7 @@ impl App {
         project_id: &str,
         start_time_ms: Option<u128>,
     ) -> Result<Vec<activity::Activity>> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_activity(start_time_ms)
@@ -388,7 +386,7 @@ impl App {
         &self,
         project_id: &str,
     ) -> Result<HashMap<String, project_repository::FileStatus>> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_status()
@@ -399,35 +397,35 @@ impl App {
         project_id: &str,
         context_lines: usize,
     ) -> Result<HashMap<String, String>> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_wd_diff(context_lines)
     }
 
     pub fn git_match_paths(&self, project_id: &str, pattern: &str) -> Result<Vec<String>> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_match_paths(pattern)
     }
 
     pub fn git_branches(&self, project_id: &str) -> Result<Vec<String>> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_branches()
     }
 
     pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<String>> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_remote_branches()
     }
 
     pub fn git_head(&self, project_id: &str) -> Result<String> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let head = project_repository.get_head()?;
@@ -435,7 +433,7 @@ impl App {
     }
 
     pub fn git_switch_branch(&self, project_id: &str, branch: &str) -> Result<()> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         let gb_repository = self.gb_repository(project_id)?;
@@ -453,7 +451,7 @@ impl App {
         project_id: &str,
         paths: Vec<P>,
     ) -> Result<()> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_stage_files(paths)
@@ -464,14 +462,14 @@ impl App {
         project_id: &str,
         paths: Vec<P>,
     ) -> Result<()> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_unstage_files(paths)
     }
 
     pub fn git_commit(&self, project_id: &str, message: &str, push: bool) -> Result<()> {
-        let project = self.gb_project(project_id);
+        let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_commit(message, push)
