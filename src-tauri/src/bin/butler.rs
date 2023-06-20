@@ -383,17 +383,18 @@ fn run_info(butler: ButlerCli) {
     println!("  last_fetched_ts: {:?}", butler.project.last_fetched_ts);
     println!("  path: {}", butler.project.path.blue());
 
-    let api = butler.project.api.as_ref().unwrap();
-    println!("  {}:", "api".to_string().red());
-    println!("   api name: {}", api.name.blue());
-    println!(
-        "   api description: {}",
-        api.description.clone().unwrap().blue()
-    );
-    println!("   repo id: {}", api.repository_id.blue());
-    println!("   git url: {}", api.git_url.blue());
-    println!("   created: {}", api.created_at.blue());
-    println!("   updated: {}", api.updated_at.blue());
+    if let Some(api) = butler.project.api.as_ref() {
+        println!("  {}:", "api".to_string().red());
+        println!("   api name: {}", api.name.blue());
+        println!(
+            "   api description: {}",
+            api.description.clone().unwrap().blue()
+        );
+        println!("   repo id: {}", api.repository_id.blue());
+        println!("   git url: {}", api.git_url.blue());
+        println!("   created: {}", api.created_at.blue());
+        println!("   updated: {}", api.updated_at.blue());
+    }
 
     println!("{}", "project repo:".to_string().red());
     println!(
