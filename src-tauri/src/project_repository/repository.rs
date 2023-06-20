@@ -258,6 +258,19 @@ impl<'repository> Repository<'repository> {
         Ok(branches)
     }
 
+    pub fn git_remote_branches(&self) -> Result<Vec<String>> {
+        let mut branches = vec![];
+        for branch in self
+            .git_repository
+            .branches(Some(git2::BranchType::Remote))?
+        {
+            let (branch, _) = branch?;
+            let name = branch.name()?.unwrap().to_string();
+            branches.push(name);
+        }
+        Ok(branches)
+    }
+
     pub fn git_switch_branch(&self, branch: &str) -> Result<()> {
         let branch = self
             .git_repository

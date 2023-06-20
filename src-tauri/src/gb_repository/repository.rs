@@ -310,10 +310,12 @@ impl Repository {
             .write_selected(&selected_branch)
             .context("failed to write selected branch")?;
 
-        // copy branches
+        // copy branches that we don't already have
         for branch in &branches {
+            let branch_copy = branch.clone();
+            //branch_copy.applied = false;
             dst_branch_writer
-                .write(branch)
+                .write(&branch_copy)
                 .with_context(|| format!("{}: failed to write branch", branch.id))?;
         }
 
@@ -533,6 +535,69 @@ impl Repository {
 
     pub(crate) fn session_wd_path(&self) -> std::path::PathBuf {
         self.session_path().join("wd")
+    }
+
+    pub fn set_target_branch(
+        &self,
+        project_repository: &project_repository::Repository,
+        target_branch: String,
+    ) -> Result<virtual_branches::target::Target> {
+        let repo = &project_repository.git_repository;
+
+        // lookup a branch by name
+        let branch = repo.find_branch(&target_branch, git2::BranchType::Remote)?;
+
+        let remote = repo.branch_remote_name(&branch.get().name().unwrap())?;
+        let remote_url = repo.find_remote(remote.as_str().unwrap())?;
+        let remote_url_str = remote_url.url().unwrap();
+        println!("remote: {}", remote_url_str);
+
+        // TODO: if there are no virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
+
+        let commit = branch.get().peel_to_commit()?;
+        let target = virtual_branches::target::Target {
+            name: branch.name().unwrap().unwrap().to_string(),
+            remote: remote_url_str.to_string(),
+            sha: commit.id(),
+        };
+
+        let target_writer = virtual_branches::target::Writer::new(self);
+        target_writer.write_default(&target)?;
+
+        let current_session = self
+            .get_or_create_current_session()
+            .context("failed to get current session")?;
+        let current_session_reader = sessions::Reader::open(self, &current_session)
+            .context("failed to open current session for reading")?;
+
+        let branch_writer = virtual_branches::branch::Writer::new(self);
+        let iter = virtual_branches::Iterator::new(&current_session_reader)?;
+        if iter.count() == 0 {
+            let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
+            let branch = virtual_branches::branch::Branch {
+                id: Uuid::new_v4().to_string(),
+                name: "default branch".to_string(),
+                applied: true,
+                upstream: "".to_string(),
+                created_timestamp_ms: now,
+                updated_timestamp_ms: now,
+                tree: commit.tree().unwrap().id(),
+                head: commit.id(),
+                ownership: vec![],
+            };
+            branch_writer.write(&branch)?;
+        }
+        Ok(target)
+    }
+
+    pub fn git_signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
+        let user = self.users_store.get().context("failed to get user")?;
+        let committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
+        let author = match user {
+            None => committer.clone(),
+            Some(user) => git2::Signature::now(user.name.as_str(), user.email.as_str())?,
+        };
+        Ok((author, committer))
     }
 
     // migrate old data to the new format.

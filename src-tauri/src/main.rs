@@ -430,6 +430,19 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn git_remote_branches(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Vec<String>, Error> {
+    let app = handle.state::<app::App>();
+    let branches = app
+        .git_remote_branches(project_id)
+        .with_context(|| format!("failed to get git branches for project {}", project_id))?;
+    Ok(branches)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let head = app
@@ -540,6 +553,60 @@ async fn list_bookmarks(
         .list_bookmarks(project_id, range)
         .context("failed to list bookmarks")?;
     Ok(bookmarks)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn list_virtual_branches(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Vec<virtual_branches::VirtualBranch>, Error> {
+    let app = handle.state::<app::App>();
+    let branches = app
+        .list_virtual_branches(project_id)
+        .context("failed to list virtual branches")?;
+    Ok(branches)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn create_virtual_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    name: &str,
+    path: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    let target = app.create_virtual_branch(project_id, name, path)?;
+    Ok(target)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn get_target_data(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Option<virtual_branches::target::Target>, Error> {
+    let app = handle.state::<app::App>();
+    let target = app.get_target_data(project_id);
+    match target {
+        Ok(target) => Ok(target),
+        Err(e) => Ok(None),
+    }
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn set_target_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<virtual_branches::target::Target, Error> {
+    let app = handle.state::<app::App>();
+    let target = app
+        .set_target_branch(project_id, branch)?
+        .context("failed to get target data")?;
+    Ok(target)
 }
 
 fn main() {
@@ -667,6 +734,7 @@ fn main() {
             git_activity,
             git_match_paths,
             git_branches,
+            git_remote_branches,
             git_head,
             git_switch_branch,
             git_commit,
@@ -679,6 +747,10 @@ fn main() {
             get_project_data_archive_path,
             upsert_bookmark,
             list_bookmarks,
+            list_virtual_branches,
+            create_virtual_branch,
+            get_target_data,
+            set_target_branch,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")

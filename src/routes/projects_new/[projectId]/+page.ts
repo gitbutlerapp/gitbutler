@@ -1,35 +1,48 @@
 import type { PageLoad } from './$types';
 import { plainToInstance } from 'class-transformer';
 import { Branch, File } from './types';
+import { invoke } from '$lib/ipc';
 import { CloudApi } from '$lib/api';
 
-export const load: PageLoad = async () => {
-	const cloud = CloudApi();
-	const testSummary = cloud.summarize.hunk({
-		hunk: "@@ -1,4 +1,8 @@\n-lockfileVersion: '6.0'\n+lockfileVersion: '6.1'\n+\n+settings:\n+  autoInstallPeers: true\n+  excludeLinksFromLockfile: false\n \n devDependencies:\n   '@codemirror/autocomplete':\n"
-	});
-	console.log('HERE', testSummary);
+export const load: PageLoad = async ({ params }) => {
+	const branch_data = (params: { projectId: string }) =>
+		invoke<Array<Branch>>('list_virtual_branches', params);
 
-	const testdata_file = await (
-		await import('@tauri-apps/api/path')
-	).resolveResource('../scripts/branch_testdata.json');
-	const test_branches = JSON.parse(
-		await (await import('@tauri-apps/api/fs')).readTextFile(testdata_file)
-	);
+	const get_target = async (params: { projectId: string }) =>
+		invoke<object>('get_target_data', params);
+
+	const get_branches = async (params: { projectId: string }) =>
+		invoke<Array<string>>('git_remote_branches', params);
+
+	const vbranches = await branch_data({ projectId: params.projectId });
+	console.log(vbranches);
+
+	const target = await get_target({ projectId: params.projectId });
+	console.log(target);
+
+	const remote_branches = await get_branches({ projectId: params.projectId });
+	console.log(remote_branches);
+
+	//const cloud = CloudApi();
 
 	// fix dates from the test data
-	test_branches.map((branch: Branch) => {
+	vbranches.map((branch: Branch) => {
 		branch.files = branch.files.map((file: File) => {
-			file.hunks = file.hunks.map((hunk: any) => {
-				hunk.modifiedAt = new Date(hunk.modifiedAt);
-				return hunk;
-			});
+			file.hunks = file.hunks
+				.map((hunk: any) => {
+					hunk.modifiedAt = new Date(hunk.modifiedAt);
+					return hunk;
+				})
+				.filter((hunk: any) => {
+					// only accept the hunk if hunk.diff contains the string '@@'
+					return hunk.diff.includes(' @@ ');
+				});
 			return file;
 		});
 
 		return branch;
 	});
-	let branches = test_branches as Branch[];
+	let branches = vbranches as Branch[];
 
 	branches = plainToInstance(
 		Branch,
@@ -43,6 +56,9 @@ export const load: PageLoad = async () => {
 	);
 
 	return {
-		branchData: branches
+		branchData: branches,
+		projectId: params.projectId,
+		target,
+		remote_branches
 	};
 };

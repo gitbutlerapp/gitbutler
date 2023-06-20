@@ -5,7 +5,7 @@
 	export let branches: Branch[];
 </script>
 
-<div class="w-80 shrink-0 bg-dark-300 px-2 text-light-800">
+<div class="w-80 shrink-0 px-2 dark:bg-dark-300 dark:text-light-800">
 	<div class="py-4">Your Branches</div>
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
