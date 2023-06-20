@@ -29,7 +29,7 @@
 
 <div
 	id="branch-lanes"
-	class="flex max-w-full flex-shrink flex-grow items-start gap-x-4 overflow-x-auto overflow-y-hidden bg-light-800 p-4 dark:bg-dark-700"
+	class="gb-bg-2 flex max-w-full flex-shrink flex-grow items-start gap-x-4 overflow-x-auto overflow-y-hidden p-4"
 	use:dndzone={{
 		items: branches,
 		types: ['branch'],

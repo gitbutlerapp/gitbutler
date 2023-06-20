@@ -11,7 +11,7 @@
 	<Button icon={IconHome} kind="plain" on:click={() => goto('/')} />
 	{#if project}
 		<a
-			class="button flex items-center bg-light-700 px-3 dark:bg-dark-500"
+			class="button gb-bg-2 flex items-center px-2"
 			class:active={window.location.pathname.includes(`/projects/${project.id}`)}
 			href="/projects/{project.id}"
 			title="{project.title} home"
