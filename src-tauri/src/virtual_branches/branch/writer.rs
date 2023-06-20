@@ -1,9 +1,7 @@
-use std::path;
-
 use anyhow::{Context, Result};
 
 use crate::{
-    deltas, gb_repository,
+    gb_repository,
     writer::{self, Writer},
 };
 
@@ -109,62 +107,6 @@ impl<'writer> BranchWriter<'writer> {
                 &ownership,
             )
             .context("Failed to write branch ownership")?;
-
-        Ok(())
-    }
-
-    pub fn write_wd_file<P: AsRef<path::Path>>(
-        &self,
-        id: &str,
-        path: P,
-        contents: &str,
-    ) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("Failed to unlock repository");
-        }
-
-        let path = path.as_ref();
-
-        self.writer
-            .write_string(&format!("branches/{}/wd/{}", id, path.display()), contents)
-            .context("Failed to write branch wd file")?;
-
-        log::info!(
-            "{}: wrote session wd file {}",
-            self.repository.project_id,
-            path.display()
-        );
-
-        Ok(())
-    }
-
-    pub fn write_deltas<P: AsRef<path::Path>>(
-        &self,
-        id: &str,
-        path: P,
-        deltas: &Vec<deltas::Delta>,
-    ) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("Failed to unlock repository");
-        }
-
-        let path = path.as_ref();
-
-        self.writer
-            .write_string(
-                &format!("branches/{}/deltas/{}", id, path.display()),
-                &serde_json::to_string(deltas)?,
-            )
-            .context("Failed to write branch deltas")?;
-
-        log::info!(
-            "{}: wrote virtual branch {} deltas for {}",
-            self.repository.project_id,
-            id,
-            path.display(),
-        );
 
         Ok(())
     }

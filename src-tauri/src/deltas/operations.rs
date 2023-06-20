@@ -14,40 +14,6 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn len_diff(&self) -> i64 {
-        match self {
-            Operation::Insert((_, chunk)) => chunk.chars().count() as i64,
-            Operation::Delete((_, length)) => -(*length as i64),
-        }
-    }
-
-    pub fn from(&self) -> usize {
-        match self {
-            Operation::Insert((index, _)) => *index,
-            Operation::Delete((index, _)) => *index,
-        }
-    }
-
-    pub fn to(&self) -> usize {
-        match self {
-            Operation::Insert((index, chunk)) => index + chunk.chars().count(),
-            Operation::Delete((index, len)) => index + len,
-        }
-    }
-
-    fn includes(&self, index: usize) -> bool {
-        self.from() <= index && index <= self.to()
-    }
-
-    pub fn overlaps(&self, another: &Operation) -> bool {
-        self.includes(another.from())
-            || self.includes(another.to())
-            || another.includes(self.from())
-            || another.includes(self.to())
-            || self.to() + 1 == another.from()
-            || another.to() + 1 == self.from()
-    }
-
     pub fn apply(&self, text: &mut Vec<char>) -> Result<()> {
         match self {
             Operation::Insert((index, chunk)) => match index.cmp(&text.len()) {
@@ -205,54 +171,5 @@ mod tests {
         let operations = get_delta_operations(initial_text, final_text);
         assert_eq!(operations.len(), 1);
         assert_eq!(operations[0], Operation::Delete((0, 6)));
-    }
-
-    #[test]
-    fn test_overlaps() {
-        let test_cases = vec![
-            (
-                Operation::Insert((11, "1".to_string())),
-                Operation::Delete((9, 1)),
-                true,
-            ),
-            (
-                Operation::Insert((0, "hello".to_string())),
-                Operation::Insert((0, "world".to_string())),
-                true,
-            ),
-            (
-                Operation::Insert((0, "hello".to_string())),
-                Operation::Insert((5, "world".to_string())),
-                true,
-            ),
-            (
-                Operation::Insert((0, "hello".to_string())),
-                Operation::Insert((7, "world".to_string())),
-                false,
-            ),
-            (
-                Operation::Insert((0, "hello".to_string())),
-                Operation::Delete((0, 5)),
-                true,
-            ),
-            (
-                Operation::Insert((0, "hello".to_string())),
-                Operation::Delete((5, 1)),
-                true,
-            ),
-            (
-                Operation::Insert((0, "hello".to_string())),
-                Operation::Delete((7, 1)),
-                false,
-            ),
-            (Operation::Delete((0, 5)), Operation::Delete((0, 5)), true),
-            (Operation::Delete((0, 5)), Operation::Delete((3, 5)), true),
-            (Operation::Delete((0, 5)), Operation::Delete((7, 5)), false),
-        ];
-
-        for (op1, op2, expected) in test_cases {
-            assert_eq!(op1.overlaps(&op2), expected, "{:?} overlaps {:?}", op1, op2);
-            assert_eq!(op2.overlaps(&op1), expected, "{:?} overlaps {:?}", op2, op1);
-        }
     }
 }
