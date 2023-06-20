@@ -80,7 +80,7 @@ pub fn create_virtual_branch(
     let target_reader = target::Reader::new(&current_session_reader);
     let default_target = match target_reader.read_default() {
         Ok(target) => Ok(target),
-        Err(reader::Error::NotFound) => return Ok(("".to_string())),
+        Err(reader::Error::NotFound) => return Ok("".to_string()),
         Err(e) => Err(e),
     }
     .context("failed to read default target")?;
@@ -93,7 +93,7 @@ pub fn create_virtual_branch(
 
     let branch = Branch {
         id: Uuid::new_v4().to_string(),
-        name: name,
+        name,
         applied: true,
         upstream: "".to_string(),
         tree: tree.id(),
@@ -105,7 +105,7 @@ pub fn create_virtual_branch(
 
     let writer = branch::Writer::new(gb_repository);
     writer.write(&branch).unwrap();
-    Ok(branch.id.to_string())
+    Ok(branch.id)
 }
 
 pub fn move_files(
@@ -116,7 +116,7 @@ pub fn move_files(
     let current_session = gb_repository
         .get_or_create_current_session()
         .expect("failed to get or create currnt session");
-    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .expect("failed to open current session reader");
 
     let virtual_branches = Iterator::new(&current_session_reader)
@@ -127,7 +127,7 @@ pub fn move_files(
         .collect::<Vec<_>>();
 
     // rewrite ownership of both branches
-    let writer = branch::Writer::new(&gb_repository);
+    let writer = branch::Writer::new(gb_repository);
     for mut branch in virtual_branches {
         if branch.id == branch_id {
             branch.ownership.extend(paths.iter().map(|f| f.to_string()));
