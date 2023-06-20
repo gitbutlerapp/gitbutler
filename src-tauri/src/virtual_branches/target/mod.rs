@@ -1,7 +1,7 @@
 mod reader;
 mod writer;
 
-use serde::{Serialize, Serializer, ser::SerializeStruct};
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 pub use reader::TargetReader as Reader;
 pub use writer::TargetWriter as Writer;

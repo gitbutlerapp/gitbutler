@@ -5,9 +5,9 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    bookmarks, database, deltas, events, files, gb_repository,reader,
+    bookmarks, database, deltas, events, files, gb_repository,
     project_repository::{self, activity},
-    projects, pty, search, sessions, storage, users, virtual_branches, watcher,
+    projects, pty, reader, search, sessions, storage, users, virtual_branches, watcher,
 };
 
 #[derive(Clone)]
@@ -185,8 +185,7 @@ impl App {
     }
 
     fn gb_project(&self, project_id: &str) -> Result<projects::Project> {
-        self
-            .projects_storage
+        self.projects_storage
             .get_project(project_id)
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project {} not found", project_id))
@@ -301,8 +300,8 @@ impl App {
         let target_reader = virtual_branches::target::Reader::new(&curret_session_reader);
         match target_reader.read_default() {
             Ok(target) => Ok(Some(target)),
-            Err(reader::Error::NotFound) =>Ok (None),
-            Err(e) => Err(e.into())
+            Err(reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -328,10 +327,7 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        virtual_branches::list_virtual_branches(
-            &gb_repository,
-            &project_repository,
-        )
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {

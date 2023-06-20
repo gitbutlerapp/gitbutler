@@ -430,7 +430,10 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_remote_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_remote_branches(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Vec<String>, Error> {
     let app = handle.state::<app::App>();
     let branches = app
         .git_remote_branches(project_id)
@@ -572,13 +575,10 @@ async fn get_target_data(
     project_id: &str,
 ) -> Result<Option<virtual_branches::target::Target>, Error> {
     let app = handle.state::<app::App>();
-    let target = app
-        .get_target_data(project_id);
+    let target = app.get_target_data(project_id);
     match target {
         Ok(target) => Ok(target),
-        Err(e) => {
-            Ok(None)
-        }
+        Err(e) => Ok(None),
     }
 }
 
