@@ -17,7 +17,6 @@ use crate::{
     project_repository,
     reader::{self, Reader},
     sessions,
-    writer::{self},
 };
 
 pub struct Repository {
@@ -327,7 +326,7 @@ impl Repository {
                 continue;
             }
 
-            let mut branch_copy = branch.clone();
+            let branch_copy = branch.clone();
             //branch_copy.applied = false;
             dst_branch_writer
                 .write(&branch_copy)
@@ -552,25 +551,6 @@ impl Repository {
         self.session_path().join("wd")
     }
 
-    pub fn get_branch_dir_reader(&self) -> reader::DirReader {
-        reader::DirReader::open(self.root())
-    }
-
-    pub fn get_branch_dir_writer(&self) -> writer::DirWriter {
-        writer::DirWriter::open(self.root())
-    }
-
-    pub fn get_branch_writer(&self) -> virtual_branches::branch::Writer {
-        virtual_branches::branch::Writer::new(self)
-    }
-
-    pub fn get_virtual_branch(&self, id: &str) -> Result<virtual_branches::branch::Branch> {
-        let reader = self.get_branch_dir_reader();
-        let branch_reader = virtual_branches::branch::Reader::new(&reader);
-        let branch = branch_reader.read(id)?;
-        Ok(branch)
-    }
-
     pub fn set_target_branch(
         &self,
         project_repository: &project_repository::Repository,
@@ -579,20 +559,16 @@ impl Repository {
         let repo = &project_repository.git_repository;
 
         // lookup a branch by name
-        let branch = repo
-            .find_branch(&target_branch, git2::BranchType::Remote)
-            .unwrap();
+        let branch = repo.find_branch(&target_branch, git2::BranchType::Remote)?;
 
-        let remote = repo
-            .branch_remote_name(&branch.get().name().unwrap())
-            .unwrap();
-        let remote_url = repo.find_remote(remote.as_str().unwrap()).unwrap();
+        let remote = repo.branch_remote_name(&branch.get().name().unwrap())?;
+        let remote_url = repo.find_remote(remote.as_str().unwrap())?;
         let remote_url_str = remote_url.url().unwrap();
         println!("remote: {}", remote_url_str);
 
         // TODO: if there are no virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
 
-        let commit = branch.get().peel_to_commit().unwrap();
+        let commit = branch.get().peel_to_commit()?;
         let target = virtual_branches::target::Target {
             name: branch.name().unwrap().unwrap().to_string(),
             remote: remote_url_str.to_string(),
@@ -600,13 +576,18 @@ impl Repository {
         };
 
         let target_writer = virtual_branches::target::Writer::new(self);
-        target_writer.write_default(&target).unwrap();
+        target_writer.write_default(&target)?;
 
-        let branch_reader = self.get_branch_dir_reader();
-        let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
+        let current_session = self
+            .get_or_create_current_session()
+            .context("failed to get current session")?;
+        let current_session_reader = sessions::Reader::open(self, &current_session)
+            .context("failed to open current session for reading")?;
+
+        let branch_writer = virtual_branches::branch::Writer::new(self);
+        let iter = virtual_branches::Iterator::new(&current_session_reader)?;
         if iter.count() == 0 {
             let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
-            let writer = self.get_branch_writer();
             let branch = virtual_branches::branch::Branch {
                 id: Uuid::new_v4().to_string(),
                 name: "default branch".to_string(),
@@ -618,7 +599,7 @@ impl Repository {
                 head: commit.id(),
                 ownership: vec![],
             };
-            writer.write(&branch).unwrap();
+            branch_writer.write(&branch)?;
         }
         Ok(target)
     }
