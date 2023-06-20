@@ -85,7 +85,7 @@
 			on:consider={handleDndEvent}
 			on:finalize={handleDndEvent}
 		>
-			{#each files.filter((x) => x.hunks) as file, idx (file.id)}
+			{#each files.filter((x) => x.hunks) as file (file.id)}
 				<FileCard filepath={file.path} bind:hunks={file.hunks} on:empty={handleEmpty} />
 			{/each}
 			<div

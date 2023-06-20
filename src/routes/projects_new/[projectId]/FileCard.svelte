@@ -4,8 +4,8 @@
 	import { formatDistanceToNow, compareDesc } from 'date-fns';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import type { Hunk } from './types';
-	import { Differ } from '$lib/components';
-	import { line, type DiffArray } from '$lib/diff';
+	import HunkDiffViewer from './HunkDiffViewer.svelte';
+	import { summarizeHunk } from '$lib/summaries';
 
 	export let filepath: string;
 	export let hunks: Hunk[];
@@ -106,16 +106,15 @@
 					class="changed-hunk flex w-full flex-col gap-1 rounded-sm border border-light-500 dark:border-dark-500"
 				>
 					<div class="w-full text-ellipsis p-2">
-						{hunk.name}
+						{#await summarizeHunk(hunk.diff) then description}
+							{description}
+						{/await}
 					</div>
 					<div
 						class="cursor-pointer border-t border-b border-light-700 text-sm dark:border-dark-800"
 					>
-						<Differ
-							diff={diffStringToDiffArray(hunk.diff)}
-							lineNumberOffset={diffLineNumberOffset(hunk.diff)}
-							filepath={hunk.filePath}
-						/>
+						<!-- Disabling syntax highlighting for perormance reasons -->
+						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={2} />
 					</div>
 					<div class="flex p-2 text-sm">
 						<div class="flex flex-grow gap-1">

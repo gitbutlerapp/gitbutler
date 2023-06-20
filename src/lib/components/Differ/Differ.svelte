@@ -10,9 +10,6 @@
 	export let highlight: string[] = [];
 	export let paddingLines = 10000;
 	export let diff: DiffArray;
-	export let lineNumberOffset = [0, 0];
-
-	let container: HTMLElement;
 
 	const sanitize = (text: string) => {
 		var element = document.createElement('div');
@@ -204,30 +201,27 @@
 	$: rows = highlight.length > 0 ? padHighlighted(renderedRows) : renderedRows;
 
 	const scrollToChangedLine = () => {
-		if (!container) {
-			return;
-		}
-		const changedLines = container.getElementsByClassName('line-changed');
+		const changedLines = document.getElementsByClassName('line-changed');
 		if (changedLines.length > 0) {
 			changedLines[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
 	};
+	$: diff && scrollToChangedLine();
 </script>
 
 <div
 	id="content"
-	bind:this={container}
 	class="grid h-full w-full flex-auto select-text whitespace-pre font-mono"
 	style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
 >
 	{#each rows as row}
 		{@const baseNumber =
 			row.type === RowType.Equal || row.type === RowType.Deletion
-				? String(row.originalLineNumber + lineNumberOffset[0])
+				? String(row.originalLineNumber)
 				: ''}
 		{@const curNumber =
 			row.type === RowType.Equal || row.type === RowType.Addition
-				? String(row.currentLineNumber + lineNumberOffset[1])
+				? String(row.currentLineNumber)
 				: ''}
 		<span
 			class="select-none border-r border-light-200  bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"

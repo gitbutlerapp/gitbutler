@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { flip } from 'svelte/animate';
 	import { Checkbox } from '$lib/components';
 	import type { Branch } from './types';
 
