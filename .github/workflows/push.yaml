@@ -16,7 +16,7 @@ jobs:
             - name: Setup pnpm
               uses: pnpm/action-setup@v2
               with:
-                  version: 8.x.x
+                  version: 7.x.x
                   run_install: |
                       args: ["--frozen-lockfile"]
 
@@ -38,7 +38,7 @@ jobs:
             - name: Setup pnpm
               uses: pnpm/action-setup@v2
               with:
-                  version: 8.x.x
+                  version: 7.x.x
                   run_install: |
                       args: ["--frozen-lockfile"]
 
@@ -76,7 +76,7 @@ jobs:
             - name: Install pnpm
               uses: pnpm/action-setup@v2
               with:
-                  version: 8.x.x
+                  version: 7.x.x
                   run_install: false
             
             - name: Get pnpm store directory
@@ -113,7 +113,7 @@ jobs:
             - name: Install pnpm
               uses: pnpm/action-setup@v2
               with:
-                  version: 8.x.x
+                  version: 7.x.x
                   run_install: false
 
             - name: Get pnpm store directory
