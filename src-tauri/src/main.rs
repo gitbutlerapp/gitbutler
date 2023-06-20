@@ -577,8 +577,8 @@ async fn create_virtual_branch(
     path: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let target = app.create_virtual_branch(project_id, name, path)?;
-    Ok(target)
+    app.create_virtual_branch(project_id, name, path)?;
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -588,11 +588,8 @@ async fn get_target_data(
     project_id: &str,
 ) -> Result<Option<virtual_branches::target::Target>, Error> {
     let app = handle.state::<app::App>();
-    let target = app.get_target_data(project_id);
-    match target {
-        Ok(target) => Ok(target),
-        Err(e) => Ok(None),
-    }
+    let target = app.get_target_data(project_id)?;
+    Ok(target)
 }
 
 #[timed(duration(printer = "debug!"))]
