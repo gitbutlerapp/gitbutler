@@ -103,17 +103,13 @@
 			row.type === RowType.Equal || row.type === RowType.Addition
 				? String(row.currentLineNumber + currentLineNumber - 1)
 				: ''}
-		<span
-			class="select-none border-r border-light-200  bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
-		>
+		<span class="gb-bg-3 gb-border-3 gb-text-3 select-none border-r">
 			<div class="mx-0.5 text-right">
 				{baseNumber}
 			</div>
 		</span>
 
-		<span
-			class="mr-1 select-none border-r border-light-200 bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
-		>
+		<span class="gb-bg-3 gb-border-3 gb-text-3 mr-1 select-none border-r">
 			<div class="mx-0.5 text-right">
 				{curNumber}
 			</div>
