@@ -21,6 +21,10 @@ impl<'writer> TargetWriter<'writer> {
     }
 
     pub fn write_default(&self, target: &Target) -> Result<()> {
+        self.repository
+            .get_or_create_current_session()
+            .context("Failed to get or create current session")?;
+
         self.repository.lock()?;
         defer! {
             self.repository.unlock().expect("Failed to unlock repository");
@@ -39,6 +43,10 @@ impl<'writer> TargetWriter<'writer> {
     }
 
     pub fn write(&self, id: &str, target: &Target) -> Result<()> {
+        self.repository
+            .get_or_create_current_session()
+            .context("Failed to get or create current session")?;
+
         self.repository.lock()?;
         defer! {
             self.repository.unlock().expect("Failed to unlock repository");

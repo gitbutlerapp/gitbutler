@@ -269,8 +269,6 @@ impl Repository {
             .into_iter()
             .collect::<Vec<_>>();
 
-        /*
-        // this overwrites out current target, do we want this?
         let src_target_reader = virtual_branches::target::Reader::new(&last_session_reader);
         let dst_target_writer = virtual_branches::target::Writer::new(self);
 
@@ -300,32 +298,20 @@ impl Repository {
                 .write(&branch.id, &target)
                 .with_context(|| format!("{}: failed to write target", branch.id))?;
         }
-        */
 
         let src_branch_reader = virtual_branches::branch::Reader::new(&last_session_reader);
         let dst_branch_writer = virtual_branches::branch::Writer::new(self);
 
         // copy selected branch
-        /*
         let selected_branch = src_branch_reader
             .read_selected()
             .context("failed to read selected branch")?;
         dst_branch_writer
             .write_selected(&selected_branch)
             .context("failed to write selected branch")?;
-        */
 
         // copy branches that we don't already have
         for branch in &branches {
-            // if branch does not exist
-            if src_branch_reader
-                .read(&branch.id)
-                .with_context(|| format!("{}: failed to read branch", branch.id))
-                .is_err()
-            {
-                continue;
-            }
-
             let branch_copy = branch.clone();
             //branch_copy.applied = false;
             dst_branch_writer
