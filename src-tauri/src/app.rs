@@ -330,10 +330,10 @@ impl App {
         let project = self.gb_project(project_id);
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        Ok(virtual_branches::list_virtual_branches(
+        virtual_branches::list_virtual_branches(
             &gb_repository,
             &project_repository,
-        ))
+        )
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
