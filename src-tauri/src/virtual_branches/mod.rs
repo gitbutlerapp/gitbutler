@@ -2,13 +2,14 @@ pub mod branch;
 mod iterator;
 pub mod target;
 
-use std::{collections::HashMap, vec};
+use std::{collections::HashMap, time, vec};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
 
 pub use branch::Branch;
 pub use iterator::BranchIterator as Iterator;
+use uuid::Uuid;
 
 use crate::{gb_repository, project_repository, reader, sessions};
 
@@ -64,6 +65,78 @@ pub fn list_virtual_branches(
         branches.push(branch);
     }
     Ok(branches)
+}
+
+pub fn create_virtual_branch(
+    gb_repository: &gb_repository::Repository,
+    name: String,
+) -> Result<String> {
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => Ok(target),
+        Err(reader::Error::NotFound) => return Ok(("".to_string())),
+        Err(e) => Err(e),
+    }
+    .context("failed to read default target")?;
+
+    let repo = &gb_repository.git_repository;
+    let commit = repo.find_commit(default_target.sha).unwrap();
+    let tree = commit.tree().unwrap();
+
+    let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
+
+    let branch = Branch {
+        id: Uuid::new_v4().to_string(),
+        name: name,
+        applied: true,
+        upstream: "".to_string(),
+        tree: tree.id(),
+        head: default_target.sha,
+        created_timestamp_ms: now,
+        updated_timestamp_ms: now,
+        ownership: vec![],
+    };
+
+    let writer = branch::Writer::new(gb_repository);
+    writer.write(&branch).unwrap();
+    Ok(branch.id.to_string())
+}
+
+pub fn move_files(
+    gb_repository: &gb_repository::Repository,
+    branch_id: String,
+    paths: Vec<String>,
+) -> Result<()> {
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
+        .expect("failed to open current session reader");
+
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .expect("failed to read virtual branches")
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .expect("failed to read virtual branches")
+        .into_iter()
+        .collect::<Vec<_>>();
+
+    // rewrite ownership of both branches
+    let writer = branch::Writer::new(&gb_repository);
+    for mut branch in virtual_branches {
+        if branch.id == branch_id {
+            branch.ownership.extend(paths.iter().map(|f| f.to_string()));
+        } else {
+            branch.ownership.retain(|f| !paths.contains(f));
+        }
+        writer.write(&branch).unwrap();
+    }
+    Ok(())
 }
 
 pub fn get_status_files(

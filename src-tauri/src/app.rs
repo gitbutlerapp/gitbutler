@@ -330,6 +330,13 @@ impl App {
         virtual_branches::list_virtual_branches(&gb_repository, &project_repository)
     }
 
+    pub fn create_virtual_branch(&self, project_id: &str, name: &str, path: &str) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name.to_string())?;
+        virtual_branches::move_files(&gb_repository, branch_id, vec![path.to_string()])?;
+        Ok(())
+    }
+
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
         let gb_repository = self.gb_repository(&bookmark.project_id)?;
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;

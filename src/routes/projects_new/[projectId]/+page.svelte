@@ -8,6 +8,9 @@
 	const set_target = async (params: { projectId: string; branch: string }) =>
 		invoke<object>('set_target_branch', params);
 
+	const create_branch = async (params: { projectId: string; name: string; path: string }) =>
+		invoke<object>('create_virtual_branch', params);
+
 	export let data: PageData;
 	let branches = data.branchData;
 	let target = data.target;
@@ -21,6 +24,11 @@
 	}
 
 	function handleNewBranch(e: CustomEvent<Branch[]>) {
+		console.log(e.detail);
+		let name = e.detail[0].name;
+		let path = e.detail[0].files[0].path;
+		create_branch({ projectId: projectId, name: name, path: path });
+
 		branches.push(...e.detail);
 		branches = branches;
 	}
