@@ -43,7 +43,7 @@
 	on:finalize={handleDndEvent}
 >
 	{#each branches.filter((c) => c.active) as { id, name, files, description } (id)}
-		<Lane {name} {description} {files} on:empty={handleEmpty} />
+		<Lane bind:name bind:description bind:files on:empty={handleEmpty} />
 	{/each}
 	<NewBranchDropZone on:newBranch />
 </div>
