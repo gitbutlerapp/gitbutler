@@ -34,8 +34,8 @@ export const load: PageLoad = async ({ params }) => {
 					return hunk;
 				})
 				.filter((hunk: any) => {
-					// only accept the hunk if hunk.diff does not contain the string '@@'
-					return hunk.diff.includes('@@');
+					// only accept the hunk if hunk.diff contains the string '@@'
+					return hunk.diff.includes(' @@ ');
 				});
 			return file;
 		});

@@ -20,24 +20,6 @@
 		if (e.type == 'finalize' && hunks.length == 0) dispatch('empty');
 	}
 
-	function diffStringToDiffArray(diffStr: string): DiffArray {
-		let lines = diffStr.split('\n');
-		let header = lines.shift();
-		const before = lines.filter((line) => line.startsWith('-')).map((line) => line.slice(1));
-		const after = lines.filter((line) => line.startsWith('+')).map((line) => line.slice(1));
-		return line(before.slice(0, 2), after.slice(0, 2));
-	}
-
-	function diffLineNumberOffset(diffStr: string): number[] {
-		let lines = diffStr.split('\n');
-		let header = lines.shift();
-		let lr = header?.split('@@');
-		if (!lr || !lr[1]) return [0, 0];
-		let lr2 = lr[1].trim().split(' ');
-		const before = lr2[0].split(',')[0].slice(1);
-		const after = lr2[1].split(',')[0].slice(1);
-		return [parseInt(before) + 2, parseInt(after) + 2];
-	}
 
 	function hunkSize(hunk: string): number[] {
 		const linesAdded = hunk.split('\n').filter((line) => line.startsWith('+')).length;
