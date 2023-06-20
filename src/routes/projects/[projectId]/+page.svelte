@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getTime, subDays } from 'date-fns';
 	import type { PageData } from './$types';
-	import { IconGitBranch, IconLoading } from '$lib/icons';
+	import { IconGitBranch } from '$lib/icons';
 	import { derived } from '@square/svelte-store';
 	import FileSummaries from './FileSummaries.svelte';
 	import { Button, Statuses, Tooltip } from '$lib/components';
@@ -9,7 +9,6 @@
 	import Chat from './Chat.svelte';
 
 	export let data: PageData;
-	$: activity = derived(data.activity, (activity) => activity);
 	$: project = derived(data.project, (project) => project);
 	$: statuses = derived(data.statuses, (statuses) => statuses);
 	$: sessions = derived(data.sessions, (sessions) => sessions);
@@ -26,18 +25,6 @@
 				?.slice(0, 4)
 				.sort((a, b) => b.meta.startTimestampMs - a.meta.startTimestampMs);
 		},
-		[]
-	);
-
-	$: recentActivity = derived(
-		[activity, recentSessions],
-		([activity, recentSessions]) =>
-			recentSessions?.length
-				? activity
-						?.filter((a) => a.timestampMs >= (recentSessions?.at(-1)?.meta.startTimestampMs ?? 0))
-						.sort((a, b) => b.timestampMs - a.timestampMs)
-						.slice(0, 100)
-				: [],
 		[]
 	);
 </script>
