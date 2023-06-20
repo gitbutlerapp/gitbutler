@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Link } from '$lib/components';
+	import { Button } from '$lib/components';
 	import { CloudApi, type Project } from '$lib/api';
 	import { stores } from '$lib';
 	import { marked } from 'marked';
