@@ -7,7 +7,7 @@ use std::time;
 use uuid::Uuid;
 
 use git_butler_tauri::{
-    database, gb_repository, project_repository, projects, sessions, storage, users,
+    database, gb_repository, project_repository, projects, reader, sessions, storage, users,
     virtual_branches::{self, list_virtual_branches},
 };
 
@@ -90,7 +90,8 @@ fn run_flush(butler: ButlerCli) {
 }
 
 fn run_branches(butler: ButlerCli) {
-    let branches = list_virtual_branches(&butler.gb_repository, &butler.project_repository());
+    let branches = list_virtual_branches(&butler.gb_repository, &butler.project_repository())
+        .expect("failed to list branches");
     for branch in branches {
         println!("{}", branch.id);
         println!("{}", branch.name);
@@ -102,20 +103,32 @@ fn run_branches(butler: ButlerCli) {
 
 fn run_commit(butler: ButlerCli) {
     // get the branch to commit
-    let mut branches = vec![];
-    let branch_reader = butler.gb_repository.get_branch_dir_reader();
-    let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    for item in iter {
-        if let Ok(item) = item {
-            branches.push(item.name);
-        }
-    }
+
+    let current_session = butler
+        .gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let current_session_reader = sessions::Reader::open(&butler.gb_repository, &current_session)
+        .expect("failed to open current session reader");
+
+    let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
+        .expect("failed to read virtual branches")
+        .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
+        .expect("failed to read virtual branches")
+        .into_iter()
+        .collect::<Vec<_>>();
+
+    let branch_names = virtual_branches
+        .iter()
+        .map(|b| b.name.clone())
+        .collect::<Vec<_>>();
+
     let selection = Select::with_theme(&ColorfulTheme::default())
-        .items(&branches)
+        .items(&branch_names)
         .default(0)
         .interact_on_opt(&Term::stderr())
         .unwrap();
-    let commit_branch = branches[selection.unwrap()].clone();
+    let commit_branch = branch_names[selection.unwrap()].clone();
     println!("Committing virtual branch {}", commit_branch.red());
 
     // get the commit message
@@ -124,64 +137,67 @@ fn run_commit(butler: ButlerCli) {
         .interact_text()
         .unwrap();
 
+    let target_reader = virtual_branches::target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => target,
+        Err(reader::Error::NotFound) => return,
+        Err(e) => panic!("failed to read default target: {}", e),
+    };
+
     // get the files to commit
-    if let Some(sha) = virtual_branches::get_base_sha(&butler.gb_repository) {
-        let statuses = virtual_branches::get_status_by_branch(
-            &butler.gb_repository,
-            &butler.project_repository(),
-        );
-        for (branch_id, files) in statuses {
-            let mut branch = butler.gb_repository.get_virtual_branch(&branch_id).unwrap();
-            if branch.name == commit_branch {
-                println!("  branch: {}", branch_id.blue());
-                println!("    base: {}", sha.blue());
+    let statuses =
+        virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository())
+            .expect("failed to get status by branch");
+    for (branch, files) in statuses {
+        let mut branch = butler.gb_repository.get_virtual_branch(&branch.id).unwrap();
+        if branch.name == commit_branch {
+            println!("  branch: {}", branch.id.blue());
+            println!("    base: {}", default_target.sha.to_string().blue());
 
-                // read the base sha into an index
-                let git_repository = butler.git_repository();
-                let base_oid = git2::Oid::from_str(&sha).unwrap();
-                let base_commit = git_repository.find_commit(base_oid).unwrap();
-                let base_tree = base_commit.tree().unwrap();
-                let parent_commit = git_repository.find_commit(branch.head).unwrap();
-                let mut index = git_repository.index().unwrap();
-                index.read_tree(&base_tree).unwrap();
+            // read the base sha into an index
+            let git_repository = butler.git_repository();
+            let base_commit = git_repository.find_commit(default_target.sha).unwrap();
+            let base_tree = base_commit.tree().unwrap();
+            let parent_commit = git_repository.find_commit(branch.head).unwrap();
+            let mut index = git_repository.index().unwrap();
+            index.read_tree(&base_tree).unwrap();
 
-                // now update the index with content in the working directory for each file
-                for file in files {
-                    println!("{}", file.path);
-                    // convert this string to a Path
-                    let file = std::path::Path::new(&file.path);
+            // now update the index with content in the working directory for each file
+            for file in files {
+                println!("{}", file.path);
+                // convert this string to a Path
+                let file = std::path::Path::new(&file.path);
 
-                    // TODO: deal with removals too
-                    index.add_path(file).unwrap();
-                }
+                // TODO: deal with removals too
+                index.add_path(file).unwrap();
+            }
 
-                // now write out the tree
-                let tree_oid = index.write_tree().unwrap();
+            // now write out the tree
+            let tree_oid = index.write_tree().unwrap();
 
-                // only commit if it's a new tree
-                if tree_oid != branch.tree {
-                    let tree = git_repository.find_tree(tree_oid).unwrap();
-                    // now write a commit
-                    let (author, committer) = butler.gb_repository.git_signatures().unwrap();
-                    let commit_oid = git_repository
-                        .commit(
-                            None,
-                            &author,
-                            &committer,
-                            &message,
-                            &tree,
-                            &[&parent_commit],
-                        )
-                        .unwrap();
-                    // write this new commit to the virtual branch
-                    println!("    commit: {}", commit_oid.to_string().blue());
+            // only commit if it's a new tree
+            if tree_oid != branch.tree {
+                let tree = git_repository.find_tree(tree_oid).unwrap();
+                // now write a commit
+                let (author, committer) = butler.gb_repository.git_signatures().unwrap();
+                let commit_oid = git_repository
+                    .commit(
+                        None,
+                        &author,
+                        &committer,
+                        &message,
+                        &tree,
+                        &[&parent_commit],
+                    )
+                    .unwrap();
+                // write this new commit to the virtual branch
+                println!("    commit: {}", commit_oid.to_string().blue());
 
-                    // update the virtual branch head
-                    branch.tree = tree_oid;
-                    branch.head = commit_oid;
-                    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-                    writer.write(&branch).unwrap();
-                }
+                // update the virtual branch head
+                branch.tree = tree_oid;
+                branch.head = commit_oid;
+                let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
+                writer.write(&branch).unwrap();
             }
         }
     }
@@ -192,42 +208,54 @@ fn run_commit(butler: ButlerCli) {
 }
 
 fn run_new(butler: ButlerCli) {
-    if let Some(sha) = virtual_branches::get_base_sha(&butler.gb_repository) {
-        println!("  base sha: {}", sha.blue());
-        let oid = git2::Oid::from_str(&sha).unwrap();
-        // lookup tree for this sha
-        let git_repository = butler.git_repository();
-        let commit = git_repository.find_commit(oid).unwrap();
-        let tree = commit.tree().unwrap();
+    let current_session = butler
+        .gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let current_session_reader = sessions::Reader::open(&butler.gb_repository, &current_session)
+        .expect("failed to open current session reader");
 
-        let input: String = Input::with_theme(&ColorfulTheme::default())
-            .with_prompt("New branch name")
-            .interact_text()
-            .unwrap();
+    let target_reader = virtual_branches::target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => target,
+        Err(reader::Error::NotFound) => return,
+        Err(e) => panic!("failed to read default target: {}", e),
+    };
 
-        let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
+    println!("  base sha: {}", default_target.sha.to_string().blue());
+    // lookup tree for this sha
+    let git_repository = butler.git_repository();
+    let commit = git_repository.find_commit(default_target.sha).unwrap();
+    let tree = commit.tree().unwrap();
 
-        let branch = virtual_branches::Branch {
-            id: Uuid::new_v4().to_string(),
-            name: input,
-            applied: true,
-            upstream: "".to_string(),
-            tree: tree.id(),
-            head: oid,
-            created_timestamp_ms: now,
-            updated_timestamp_ms: now,
-            ownership: vec![],
-        };
+    let input: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("New branch name")
+        .interact_text()
+        .unwrap();
 
-        let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-        writer.write(&branch).unwrap();
-    }
+    let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
+
+    let branch = virtual_branches::Branch {
+        id: Uuid::new_v4().to_string(),
+        name: input,
+        applied: true,
+        upstream: "".to_string(),
+        tree: tree.id(),
+        head: default_target.sha,
+        created_timestamp_ms: now,
+        updated_timestamp_ms: now,
+        ownership: vec![],
+    };
+
+    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
+    writer.write(&branch).unwrap();
 }
 
 fn run_move(butler: ButlerCli) {
     // get the files to move
     let files =
-        virtual_branches::get_status_files(&butler.gb_repository, &butler.project_repository());
+        virtual_branches::get_status_files(&butler.gb_repository, &butler.project_repository())
+            .expect("failed to get status files");
     let selections = MultiSelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Which files do you want to move?")
         .items(&files[..])
@@ -238,39 +266,45 @@ fn run_move(butler: ButlerCli) {
         selected_files.push(files[*selection].clone());
     }
 
+    let current_session = butler
+        .gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let current_session_reader = sessions::Reader::open(&butler.gb_repository, &current_session)
+        .expect("failed to open current session reader");
+
+    let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
+        .expect("failed to read virtual branches")
+        .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
+        .expect("failed to read virtual branches")
+        .into_iter()
+        .collect::<Vec<_>>();
+
     // get the branch to move to
-    let mut branches = vec![];
-    let branch_reader = butler.gb_repository.get_branch_dir_reader();
-    let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    for item in iter {
-        if let Ok(item) = item {
-            branches.push(item.name);
-        }
-    }
+    let branch_names = virtual_branches
+        .iter()
+        .map(|b| b.name.clone())
+        .collect::<Vec<_>>();
     let selection = Select::with_theme(&ColorfulTheme::default())
-        .items(&branches)
+        .items(&branch_names)
         .default(0)
         .interact_on_opt(&Term::stderr())
         .unwrap();
-    let new_branch = branches[selection.unwrap()].clone();
+    let new_branch = branch_names[selection.unwrap()].clone();
 
     println!("Moving {} files to {}", selections.len(), new_branch.red());
 
     // rewrite ownership of both branches
     let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-    let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    for item in iter {
-        if let Ok(item) = item {
-            let mut branch = item;
-            if branch.name == new_branch {
-                branch
-                    .ownership
-                    .extend(selected_files.iter().map(|f| f.to_string()));
-            } else {
-                branch.ownership.retain(|f| !selected_files.contains(f));
-            }
-            writer.write(&branch).unwrap();
+    for mut branch in virtual_branches {
+        if branch.name == new_branch {
+            branch
+                .ownership
+                .extend(selected_files.iter().map(|f| f.to_string()));
+        } else {
+            branch.ownership.retain(|f| !selected_files.contains(f));
         }
+        writer.write(&branch).unwrap();
     }
 }
 
@@ -288,7 +322,6 @@ fn run_setup(butler: ButlerCli) {
             .unwrap()
             .blue()
     );
-    let repo = butler.git_repository();
     let items = butler.project_repository().git_remote_branches().unwrap();
 
     let selection = Select::with_theme(&ColorfulTheme::default())
@@ -311,9 +344,9 @@ fn run_setup(butler: ButlerCli) {
 
 fn run_status(butler: ButlerCli) {
     let statuses =
-        virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository());
-    for (branch_id, files) in statuses {
-        let branch = butler.gb_repository.get_virtual_branch(&branch_id).unwrap();
+        virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository())
+            .expect("failed to get status by branch");
+    for (branch, files) in statuses {
         println!("branch: {}", branch.name.blue());
         println!("  head: {}", branch.head.to_string().green());
         println!("  tree: {}", branch.tree.to_string().green());
@@ -388,23 +421,36 @@ fn run_info(butler: ButlerCli) {
 
     // gitbutler repo stuff
     // read default target
-    println!("{}", "target:".to_string().red());
-    if let Some(sha) = virtual_branches::get_base_sha(&butler.gb_repository) {
-        println!("  base sha: {}", sha.blue());
-    }
+
+    let current_session = butler
+        .gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let current_session_reader = sessions::Reader::open(&butler.gb_repository, &current_session)
+        .expect("failed to open current session reader");
+
+    let target_reader = virtual_branches::target::Reader::new(&current_session_reader);
+    match target_reader.read_default() {
+        Ok(target) => {
+            println!("{}", "target:".to_string().red());
+            println!("  base sha: {}", target.sha.to_string().blue());
+        }
+        Err(reader::Error::NotFound) => {}
+        Err(e) => panic!("failed to read default target: {}", e),
+    };
 
     println!("{}", "virtual branches:".to_string().red());
-    // sort of abusing the iterator here, but it works
-    let branch_reader = butler.gb_repository.get_branch_dir_reader();
-    let iter = virtual_branches::Iterator::new(&branch_reader).unwrap();
-    for item in iter {
-        if let Ok(item) = item {
-            println!("  {}", item.name);
-            for file in item.ownership {
+    virtual_branches::Iterator::new(&current_session_reader)
+        .expect("failed to read virtual branches")
+        .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
+        .expect("failed to read virtual branches")
+        .into_iter()
+        .for_each(|branch| {
+            println!("  {}", branch.name);
+            for file in &branch.ownership {
                 println!("    {}", file);
             }
-        }
-    }
+        });
 }
 
 fn find_git_directory() -> Option<String> {
