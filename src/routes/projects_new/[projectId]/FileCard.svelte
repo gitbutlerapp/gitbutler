@@ -31,7 +31,7 @@
 	function diffLineNumberOffset(diffStr: string): number[] {
 		let lines = diffStr.split('\n');
 		let header = lines.shift();
-		let lr = header?.split('@@')
+		let lr = header?.split('@@');
 		if (!lr[1]) return [0, 0];
 		lr = lr[1].trim().split(' ');
 		const before = lr[0].split(',')[0].slice(1);
