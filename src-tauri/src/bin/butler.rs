@@ -148,8 +148,7 @@ fn run_commit(butler: ButlerCli) {
     let statuses =
         virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository())
             .expect("failed to get status by branch");
-    for (branch, files) in statuses {
-        let mut branch = butler.gb_repository.get_virtual_branch(&branch.id).unwrap();
+    for (mut branch, files) in statuses {
         if branch.name == commit_branch {
             println!("  branch: {}", branch.id.blue());
             println!("    base: {}", default_target.sha.to_string().blue());
