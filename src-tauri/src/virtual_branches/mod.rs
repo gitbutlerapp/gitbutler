@@ -109,7 +109,7 @@ pub fn create_virtual_branch(
 
 pub fn move_files(
     gb_repository: &gb_repository::Repository,
-    branch_id: &str,
+    dst_branch_id: &str,
     to_move: &Vec<branch::Ownership>,
 ) -> Result<()> {
     let current_session = gb_repository
@@ -130,7 +130,7 @@ pub fn move_files(
 
     let mut target_branch = virtual_branches
         .iter()
-        .find(|b| b.id == branch_id)
+        .find(|b| b.id == dst_branch_id)
         .context("failed to find target branch")?
         .clone();
 
@@ -274,7 +274,6 @@ pub fn get_status_by_branch(
                     .workdir()
                     .unwrap()
                     .join(file_path);
-
                 let metadata = file_path.metadata().unwrap();
                 let mtime = FileTime::from_last_modification_time(&metadata);
                 // convert seconds and nanoseconds to milliseconds
