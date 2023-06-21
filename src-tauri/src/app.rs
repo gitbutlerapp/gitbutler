@@ -344,8 +344,8 @@ impl App {
         paths: Vec<&str>,
     ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
-        let paths = paths.iter().map(|p| p.to_string()).collect();
-        virtual_branches::move_files(&gb_repository, branch.to_string(), paths)?;
+        let paths: Vec<String> = paths.iter().map(|p| p.to_string()).collect();
+        virtual_branches::move_files(&gb_repository, branch, &paths)?;
         Ok(())
     }
 
