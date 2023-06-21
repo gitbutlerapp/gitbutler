@@ -158,35 +158,23 @@ pub fn get_status_files(
     }
     .context("failed to read default target")?;
 
-    let repo = &project_repository.git_repository;
-    let commit = repo.find_commit(default_target.sha).unwrap();
-    let tree = commit.tree().unwrap();
+    let diff = project_repository
+        .workdir_diff(&default_target.sha)
+        .context(format!(
+            "failed to get diff workdir with {}",
+            default_target.sha
+        ))?;
 
-    // list the files that are different between the wd and the base sha
-    let mut opts = git2::DiffOptions::new();
-    opts.recurse_untracked_dirs(true)
-        .include_untracked(true)
-        .show_untracked_content(true);
-    let diff = repo
-        .diff_tree_to_workdir(Some(&tree), Some(&mut opts))
-        .unwrap();
+    let all_files = filenames_from_diff(&diff);
 
-    let mut all_files = vec![];
-
-    let deltas = diff.deltas();
-    for delta in deltas {
-        let mut file_path = "".to_string();
-        let old_file = delta.old_file();
-        let new_file = delta.new_file();
-
-        if let Some(path) = new_file.path() {
-            file_path = path.to_str().unwrap().to_string();
-        } else if let Some(path) = old_file.path() {
-            file_path = path.to_str().unwrap().to_string();
-        }
-        all_files.push(file_path.clone());
-    }
     Ok(all_files)
+}
+
+fn filenames_from_diff(diff: &git2::Diff) -> Vec<String> {
+    diff.deltas()
+        .filter_map(|diff| diff.old_file().path().or_else(|| diff.new_file().path()))
+        .map(|path| path.to_str().unwrap().to_string())
+        .collect()
 }
 
 // list the virtual branches and their file statuses (statusi?)
@@ -211,32 +199,22 @@ pub fn get_status_by_branch(
     }
     .context("failed to read default target")?;
 
+    let diff = project_repository
+        .workdir_diff(&default_target.sha)
+        .context(format!(
+            "failed to get diff workdir with {}",
+            default_target.sha
+        ))?;
+
     let mut statuses = vec![];
 
-    //println!("  base sha: {}", sha.blue());
-
-    let repo = &project_repository.git_repository;
-    let commit = repo.find_commit(default_target.sha).unwrap();
-    let tree = commit.tree().unwrap();
-
-    // list the files that are different between the wd and the base sha
-    let mut opts = git2::DiffOptions::new();
-    opts.recurse_untracked_dirs(true)
-        .include_untracked(true)
-        .show_untracked_content(true);
-    let diff = repo
-        .diff_tree_to_workdir(Some(&tree), Some(&mut opts))
-        .unwrap();
-
     // find all the hunks
-    let mut all_files = vec![];
     let mut new_ownership = vec![];
 
     let mut result = HashMap::new();
     let mut results = String::new();
     let mut hunks = Vec::new();
 
-    let mut current_line_count = 0;
     let mut last_path = String::new();
     let mut last_hunk_id = String::new();
     let mut hunk_numbers = String::new();
@@ -254,10 +232,7 @@ pub fn get_status_by_branch(
             .unwrap()
             .to_string();
 
-        let mut hunk_id = new_path.clone();
-        hunk_id.push(':');
-        hunk_id.push_str(&hunk_numbers);
-
+        let hunk_id = format!("{}:{}", new_path, hunk_numbers);
         if hunk_id != last_hunk_id {
             let hunk = VirtualBranchHunk {
                 id: last_hunk_id.clone(),
@@ -269,7 +244,6 @@ pub fn get_status_by_branch(
             hunks.push(hunk);
             result.insert(last_path.clone(), hunks.clone());
             results = String::new();
-            current_line_count = 0;
             last_hunk_id = hunk_id;
         }
         if last_path != new_path {
@@ -282,7 +256,6 @@ pub fn get_status_by_branch(
             _ => {}
         }
         results.push_str(std::str::from_utf8(line.content()).unwrap());
-        current_line_count += 1;
         true
     })
     .context("failed to print diff")?;
@@ -294,23 +267,13 @@ pub fn get_status_by_branch(
         .into_iter()
         .collect::<Vec<_>>();
 
-    let deltas = diff.deltas();
-    for delta in deltas {
-        let mut file_path = "".to_string();
-        let old_file = delta.old_file();
-        let new_file = delta.new_file();
+    let all_files = filenames_from_diff(&diff);
 
-        if let Some(path) = new_file.path() {
-            file_path = path.to_str().unwrap().to_string();
-        } else if let Some(path) = old_file.path() {
-            file_path = path.to_str().unwrap().to_string();
-        }
-        all_files.push(file_path.clone());
-
+    for file_path in &all_files {
         let mut file_found = false;
         for branch in &virtual_branches {
             for file in &branch.ownership {
-                if *file == file_path {
+                if file.eq(file_path) {
                     file_found = true;
                 }
             }
@@ -319,10 +282,6 @@ pub fn get_status_by_branch(
             new_ownership.push(file_path.clone());
         }
     }
-
-    //println!("new ownership: {:?}", new_ownership);
-    //println!("sha: {}", sha);
-    //println!("all files: {:?}", all_files);
 
     for branch in &virtual_branches {
         let mut files = vec![];
