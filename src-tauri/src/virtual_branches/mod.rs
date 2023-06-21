@@ -560,6 +560,140 @@ mod tests {
         Ok(())
     }
 
+    fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
+        let mut index = repository.index()?;
+        index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
+        index.write()?;
+        let oid = index.write_tree()?;
+        let signature = git2::Signature::now("test", "test@email.com").unwrap();
+        let commit_oid = repository.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            "some commit",
+            &repository.find_tree(oid)?,
+            &[&repository.find_commit(repository.refname_to_id("HEAD")?)?],
+        )?;
+        Ok(commit_oid)
+    }
+
+    #[test]
+    fn test_get_correct_diff_displayed() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+
+        let file_path = std::path::Path::new("test.txt");
+        let file_content_before = r#"
+            line1
+            line2
+            line3
+            line4
+            line5
+            line6
+            line7
+            line8
+            line9
+            line10 
+        "#;
+        std::fs::write(
+            repository.path().parent().unwrap().join("test.txt"),
+            // std::path::Path::new(&project.path).join(file_path),
+            file_content_before,
+        )?;
+
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "foo".to_string(),
+            remote: "foo".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+        })?;
+
+        let commit_id = commit_all(&repository)?;
+        assert!(repository.find_commit(commit_id).is_ok());
+
+
+        // Update target???????
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "foo".to_string(),
+            remote: "foo".to_string(),
+            sha: commit_id,
+        })?;
+
+
+        let file_content_after = r#"
+            line1-changed
+            line2
+            line3
+            line4
+            line5
+            line6
+            line7
+            line8
+            line9
+            line10-changed
+        "#;
+
+        std::fs::write(
+            // file_path,
+            repository.path().parent().unwrap().join("test.txt"),
+            file_content_after,
+        )?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+            .expect("failed to create virtual branch");
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        let files_by_branch_id = statuses
+            .iter()
+            .map(|(branch, files)| (branch.id.clone(), files))
+            .collect::<HashMap<_, _>>();
+        let all_files = files_by_branch_id
+            .values()
+            .flat_map(|files| files.iter())
+            .map(|file| file.path.clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(files_by_branch_id.len(), 2);
+        assert!(files_by_branch_id.contains_key(&branch1_id));
+        assert!(files_by_branch_id.contains_key(&branch2_id));
+        assert_eq!(all_files.len(), 1);
+        assert!(all_files.contains(&file_path.to_str().unwrap().to_string()));
+
+        // Iterate over hunks of files_by_branch_id
+        let hunks = files_by_branch_id
+            .get(&branch1_id)
+            .unwrap()
+            .iter()
+            .flat_map(|file| file.hunks.iter())
+            .collect::<Vec<_>>();
+
+        // assert the nuber of hunks is 2
+        // assert_eq!(hunks.len(), 1);
+
+        for hunk in hunks {
+            print!("{}", hunk.diff);
+        }
+
+        Ok(())
+    }
+
     #[test]
     fn test_move_files() -> Result<()> {
         let repository = test_repository()?;
