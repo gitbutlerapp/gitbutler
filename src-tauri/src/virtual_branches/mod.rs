@@ -413,7 +413,6 @@ pub fn get_status_by_branch(
                     }
                     // push the file to the status list
                     None => {
-                        println!("  no hunks for {}", file);
                         continue;
                     }
                 }
@@ -432,50 +431,6 @@ mod tests {
     use crate::{projects, storage, users};
 
     use super::*;
-
-    static mut TEST_TARGET_INDEX: usize = 0;
-
-    fn test_target() -> target::Target {
-        target::Target {
-            name: format!("target_name_{}", unsafe { TEST_TARGET_INDEX }),
-            remote: format!("remote_{}", unsafe { TEST_TARGET_INDEX }),
-            sha: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef0123456{}",
-                unsafe { TEST_TARGET_INDEX }
-            ))
-            .unwrap(),
-        }
-    }
-
-    static mut TEST_INDEX: usize = 0;
-
-    fn test_branch() -> branch::Branch {
-        unsafe {
-            TEST_INDEX += 1;
-        }
-        branch::Branch {
-            id: format!("branch_{}", unsafe { TEST_INDEX }),
-            name: format!("branch_name_{}", unsafe { TEST_INDEX }),
-            applied: true,
-            upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
-            created_timestamp_ms: unsafe { TEST_INDEX } as u128,
-            updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
-            head: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef0123456{}",
-                unsafe { TEST_INDEX }
-            ))
-            .unwrap(),
-            tree: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef012345{}",
-                unsafe { TEST_INDEX + 10 }
-            ))
-            .unwrap(),
-            ownership: vec![branch::Ownership {
-                file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
-                ranges: vec![],
-            }],
-        }
-    }
 
     fn test_repository() -> Result<git2::Repository> {
         let path = tempdir()?.path().to_str().unwrap().to_string();
