@@ -111,8 +111,8 @@ pub fn create_virtual_branch(
 
 pub fn move_files(
     gb_repository: &gb_repository::Repository,
-    branch_id: String,
-    paths: Vec<String>,
+    branch_id: &str,
+    paths: &Vec<String>,
 ) -> Result<()> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -136,7 +136,7 @@ pub fn move_files(
         .context("failed to find target branch")?
         .clone();
 
-    for path in &paths {
+    for path in paths {
         let mut source_branch = virtual_branches
             .iter()
             .find(|b| b.ownership.contains(path))

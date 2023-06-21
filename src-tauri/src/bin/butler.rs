@@ -291,20 +291,16 @@ fn run_move(butler: ButlerCli) {
         .unwrap();
     let new_branch = branch_names[selection.unwrap()].clone();
 
-    println!("Moving {} files to {}", selections.len(), new_branch.red());
+    let target_branch_id = virtual_branches
+        .iter()
+        .find(|b| b.name == new_branch)
+        .unwrap()
+        .id
+        .clone();
 
-    // rewrite ownership of both branches
-    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-    for mut branch in virtual_branches {
-        if branch.name == new_branch {
-            branch
-                .ownership
-                .extend(selected_files.iter().map(|f| f.to_string()));
-        } else {
-            branch.ownership.retain(|f| !selected_files.contains(f));
-        }
-        writer.write(&branch).unwrap();
-    }
+    println!("Moving {} files to {}", selections.len(), new_branch.red());
+    virtual_branches::move_files(&butler.gb_repository, &target_branch_id, &selected_files)
+        .expect("failed to move files");
 }
 
 // TODO: vbranches: split function that identifies part of a file and moves that hunk to another branch

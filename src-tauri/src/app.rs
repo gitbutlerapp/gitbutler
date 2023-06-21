@@ -333,7 +333,7 @@ impl App {
     pub fn create_virtual_branch(&self, project_id: &str, name: &str, path: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name.to_string())?;
-        virtual_branches::move_files(&gb_repository, branch_id, vec![path.to_string()])?;
+        virtual_branches::move_files(&gb_repository, &branch_id, &vec![path.to_string()])?;
         Ok(())
     }
 
