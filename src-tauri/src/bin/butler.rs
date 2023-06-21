@@ -215,6 +215,7 @@ fn run_move(butler: ButlerCli) {
     for selection in &selections {
         selected_files.push(files[*selection].clone());
     }
+    println!("Selected files: {:?}", selected_files);
 
     let current_session = butler
         .gb_repository
@@ -230,26 +231,20 @@ fn run_move(butler: ButlerCli) {
         .into_iter()
         .collect::<Vec<_>>();
 
-    // get the branch to move to
-    let branch_names = virtual_branches
-        .iter()
-        .map(|b| b.name.clone())
-        .collect::<Vec<_>>();
+    let mut ids = Vec::new();
+    let mut names = Vec::new();
+    for branch in virtual_branches {
+        ids.push(branch.id);
+        names.push(branch.name);
+    }
     let selection = Select::with_theme(&ColorfulTheme::default())
-        .items(&branch_names)
+        .items(&names)
         .default(0)
         .interact_on_opt(&Term::stderr())
         .unwrap();
-    let new_branch = branch_names[selection.unwrap()].clone();
+    let target_branch_id = ids[selection.unwrap()].clone();
 
-    let target_branch_id = virtual_branches
-        .iter()
-        .find(|b| b.name == new_branch)
-        .unwrap()
-        .id
-        .clone();
-
-    println!("Moving {} files to {}", selections.len(), new_branch.red());
+    println!("Moving {} files", selections.len());
     virtual_branches::move_files(&butler.gb_repository, &target_branch_id, &selected_files)
         .expect("failed to move files");
 }

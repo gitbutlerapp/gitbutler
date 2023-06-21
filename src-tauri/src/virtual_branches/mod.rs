@@ -296,6 +296,8 @@ pub fn move_files(
             .context(format!("failed to find source branch for {}", path))?
             .clone();
 
+        println!("before: {:?}", source_branch.ownership);
+
         source_branch
             .ownership
             .retain(|f| !f.file_path.display().to_string().eq(path));
@@ -305,6 +307,8 @@ pub fn move_files(
         writer
             .write(&source_branch)
             .context(format!("failed to write source branch for {}", path))?;
+
+        println!("after: {:?}", source_branch.ownership);
 
         target_branch.ownership.push(path.into());
         target_branch.ownership.sort();
@@ -807,6 +811,62 @@ mod tests {
         assert!(branch_ids.contains(&branch2_id));
         assert_eq!(all_files.len(), 1);
         assert_eq!(all_files[0], file_path.to_str().unwrap());
+
+        Ok(())
+    }
+
+
+    #[test]
+    fn test_move_files() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+        })?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\n",
+        )?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+            .expect("failed to create virtual branch");
+
+        // this should automatically move the file to branch2
+        let status =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+
+        let session = gb_repo.get_or_create_current_session().unwrap();
+        let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+        let vbranch_reader = branch::Reader::new(&session_reader);
+
+        let branch1 = vbranch_reader.read(&branch1_id).unwrap();
+        println!("branch1: {:?}", branch1);
+        let branch2 = vbranch_reader.read(&branch2_id).unwrap();
+        println!("branch2: {:?}", branch2);
+
+        move_files(&gb_repo, &branch1_id, &vec!["text.txt".to_string()]).unwrap();
+
+        let branch1 = vbranch_reader.read(&branch1_id).unwrap();
+        println!("selected: {:?}", branch2);
 
         Ok(())
     }

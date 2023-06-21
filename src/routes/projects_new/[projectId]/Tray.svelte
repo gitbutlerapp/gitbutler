@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components';
-	import type { Branch } from './types';
+	import type { Branch, BranchData } from './types';
 	import { formatDistanceToNow } from 'date-fns';
 
 	export let branches: Branch[];
-	export let remoteBranches: string[];
+	export let remoteBranches: BranchData[];
 </script>
 
 <div class="gb-text-2 w-80 shrink-0 px-2">
