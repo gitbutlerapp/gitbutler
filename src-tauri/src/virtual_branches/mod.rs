@@ -255,6 +255,7 @@ pub fn get_status_by_branch(
     let mut last_hunk_id = String::new();
     let mut hunk_numbers = String::new();
     let mut mtimes = HashMap::new();
+    let mut mtime = 0;
 
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
         if let Some(hunk) = hunk {
@@ -268,7 +269,7 @@ pub fn get_status_by_branch(
                 .unwrap()
                 .to_string();
 
-            let mtime = match mtimes.get(&new_path) {
+            mtime = match mtimes.get(&new_path) {
                 Some(mtime) => *mtime,
                 None => {
                     let file_path = project_repository
@@ -288,16 +289,18 @@ pub fn get_status_by_branch(
 
             let hunk_id = format!("{}:{}", new_path, hunk_numbers);
             if hunk_id != last_hunk_id {
-                let hunk = VirtualBranchHunk {
-                    id: last_hunk_id.clone(),
-                    name: "".to_string(),
-                    diff: results.clone(),
-                    modified_at: mtime,
-                    file_path: last_path.clone(),
-                };
-                hunks.push(hunk);
-                result.insert(last_path.clone(), hunks.clone());
-                results = String::new();
+                if last_hunk_id != "" {
+                    let hunk = VirtualBranchHunk {
+                        id: last_hunk_id.clone(),
+                        name: "".to_string(),
+                        diff: results.clone(),
+                        modified_at: mtime,
+                        file_path: last_path.clone(),
+                    };
+                    hunks.push(hunk);
+                    result.insert(last_path.clone(), hunks.clone());
+                    results = String::new();
+                }
                 last_hunk_id = hunk_id;
             }
             if last_path != new_path {
@@ -314,6 +317,19 @@ pub fn get_status_by_branch(
         true
     })
     .context("failed to print diff")?;
+
+    if last_hunk_id != "" {
+        // last one
+        let hunk = VirtualBranchHunk {
+            id: last_hunk_id.clone(),
+            name: "".to_string(),
+            diff: results.clone(),
+            modified_at: mtime,
+            file_path: last_path.clone(),
+        };
+        hunks.push(hunk);
+        result.insert(last_path.clone(), hunks.clone());
+    }
 
     let virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to read virtual branches")?
@@ -340,9 +356,10 @@ pub fn get_status_by_branch(
 
     for branch in &virtual_branches {
         let mut files = vec![];
+        let mut branch = branch.clone();
+
         if !new_ownership.is_empty() {
             // in this case, lets add any newly changed files to the first branch we see and persist it
-            let mut branch = branch.clone();
             branch
                 .ownership
                 .extend(new_ownership.iter().map(|file| branch::Ownership {
@@ -354,38 +371,24 @@ pub fn get_status_by_branch(
             // ok, write the updated data back
             let writer = branch::Writer::new(gb_repository);
             writer.write(&branch).context("failed to write branch")?;
+        }
 
-            for file in branch.ownership {
-                let file = file.file_path.display().to_string();
-                if all_files.contains(&file) {
-                    let filehunks = result.get(&file).unwrap();
-                    let vfile = VirtualBranchFile {
-                        id: file.clone(),
-                        path: file.clone(),
-                        hunks: filehunks.clone(),
-                    };
-                    // push the file to the status list
-                    files.push(vfile);
-                }
-            }
-        } else {
-            for file in &branch.ownership {
-                let file = file.file_path.display().to_string();
-                if all_files.contains(&file) {
-                    match result.get(&file) {
-                        Some(filehunks) => {
-                            let vfile = VirtualBranchFile {
-                                id: file.clone(),
-                                path: file.clone(),
-                                hunks: filehunks.clone(),
-                            };
-                            files.push(vfile);
-                        }
+        for file in &branch.ownership {
+            let file = file.file_path.display().to_string();
+            if all_files.contains(&file) {
+                match result.get(&file) {
+                    Some(filehunks) => {
+                        let vfile = VirtualBranchFile {
+                            id: file.clone(),
+                            path: file.clone(),
+                            hunks: filehunks.clone(),
+                        };
                         // push the file to the status list
-                        None => {
-                            println!("  no hunks for {}", file);
-                            continue;
-                        }
+                        files.push(vfile);
+                    }
+                    // push the file to the status list
+                    None => {
+                        continue;
                     }
                 }
             }
