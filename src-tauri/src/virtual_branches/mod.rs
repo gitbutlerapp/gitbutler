@@ -5,6 +5,7 @@ pub mod target;
 use std::{collections::HashMap, time, vec};
 
 use anyhow::{Context, Result};
+use filetime::FileTime;
 use serde::Serialize;
 
 pub use branch::Branch;
@@ -248,6 +249,7 @@ pub fn get_status_by_branch(
     let mut last_path = String::new();
     let mut last_hunk_id = String::new();
     let mut hunk_numbers = String::new();
+    let mut mtimes = HashMap::new();
 
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
         if let Some(hunk) = hunk {
@@ -261,13 +263,33 @@ pub fn get_status_by_branch(
                 .unwrap()
                 .to_string();
 
+            let mtime = match mtimes.get(&new_path) {
+                Some(mtime) => *mtime,
+                None => {
+                    let file_path = project_repository
+                        .git_repository
+                        .workdir()
+                        .unwrap()
+                        .join(new_path.clone());
+
+                    let metadata = file_path.metadata().unwrap();
+                    let mtime = FileTime::from_last_modification_time(&metadata);
+                    println!("mtime: {:?}", mtime);
+                    // convert seconds and nanoseconds to milliseconds
+                    let mtime = (mtime.seconds() as u128 * 1000) as u128;
+                    println!("mtime: {:?}", mtime);
+                    mtimes.insert(new_path.clone(), mtime);
+                    mtime
+                }
+            };
+                
             let hunk_id = format!("{}:{}", new_path, hunk_numbers);
             if hunk_id != last_hunk_id {
                 let hunk = VirtualBranchHunk {
                     id: last_hunk_id.clone(),
                     name: "".to_string(),
                     diff: results.clone(),
-                    modified_at: 0,
+                    modified_at: mtime,
                     file_path: last_path.clone(),
                 };
                 hunks.push(hunk);
