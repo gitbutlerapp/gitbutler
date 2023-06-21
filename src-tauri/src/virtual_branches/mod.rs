@@ -283,19 +283,19 @@ pub fn get_status_by_branch(
             }
         };
 
-        let path_changed = if current_file_path.is_none() {
+        let is_path_changed = if current_file_path.is_none() {
             false
         } else {
             !file_path.eq(current_file_path.as_ref().unwrap())
         };
 
-        let hunk_changed = if current_hunk_id.is_none() {
+        let is_hunk_changed = if current_hunk_id.is_none() {
             false
         } else {
             !hunk_id.eq(current_hunk_id.as_ref().unwrap())
         };
 
-        if hunk_changed {
+        if is_hunk_changed {
             let file_path = file_path.to_str().unwrap().to_string();
             hunks_by_filepath
                 .entry(file_path.clone())
@@ -309,7 +309,7 @@ pub fn get_status_by_branch(
                 });
         }
 
-        if path_changed {
+        if is_path_changed {
             current_diff = String::new();
         }
 
