@@ -8,10 +8,11 @@
 	import { invoke } from '@tauri-apps/api';
 	import { IconBranch } from '$lib/icons';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
+	import { Button } from '$lib/components';
 
 	export let branchId: string;
 	export let name: string;
-	export let description: string;
+	export let commitMessage: string;
 	export let files: File[];
 	export let projectId: string;
 
@@ -82,13 +83,27 @@
 		{name}
 	</div>
 	<div class="gb-bg-2 gb-border-3 flex flex-col overflow-y-hidden rounded-lg border p-2">
-		<textarea
-			bind:this={textArea}
-			class="gb-bg-2 gb-text-2 mb-5 h-14 w-full shrink-0 resize-none rounded border-0 py-0 focus-within:h-36"
-			style="height: {descriptionHeight}px"
-			value={description ? description.trim() : ''}
-			on:change={updateTextArea}
-		/>
+		<div>
+			<textarea
+				bind:this={textArea}
+				class="gb-bg-2 gb-text-2 mb-5 h-14 w-full shrink-0 resize-none rounded border-0 py-0 focus-within:h-36"
+				style="height: {descriptionHeight}px"
+				value={commitMessage ? commitMessage.trim() : ''}
+				placeholder="Your commit message here..."
+				on:input={updateTextArea}
+			/>
+			<div class="flex justify-center gap-2">
+				<Button disabled={true} width="full-width">Pull</Button>
+				<Button disabled={true} width="full-width">Push</Button>
+				<Button
+					width="full-width"
+					color="purple"
+					on:click={() => {
+						console.log("i'd like to commit some day but im not sure i'm ready for it");
+					}}>Commit</Button
+				>
+			</div>
+		</div>
 		<div class="flex justify-end">
 			<button
 				class="flex h-6 w-6 items-center justify-center"
