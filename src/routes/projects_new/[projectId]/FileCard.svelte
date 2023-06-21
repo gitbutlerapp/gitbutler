@@ -6,13 +6,14 @@
 	import type { Hunk } from './types';
 	import HunkDiffViewer from './HunkDiffViewer.svelte';
 	import { summarizeHunk } from '$lib/summaries';
+	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 
 	export let filepath: string;
 	export let hunks: Hunk[];
 	let zoneEl: HTMLElement;
 
 	const dispatch = createEventDispatcher();
-	let expanded = true;
+	export let expanded = true;
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
 		hunks = e.detail.items;
@@ -51,19 +52,9 @@
 			class="cursor-pointer p-2"
 		>
 			{#if expanded}
-				<svg width="9" height="5" viewBox="0 0 9 5" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<path
-						d="M1.31965 5H7.51628C8.26728 5 8.68796 4.24649 8.22398 3.7324L5.12566 0.299447C4.76532 -0.0998156 4.07062 -0.0998156 3.71027 0.299447L0.611959 3.7324C0.147977 4.24649 0.568658 5 1.31965 5Z"
-						fill="currentColor"
-					/>
-				</svg>
+				<IconTriangleUp />
 			{:else}
-				<svg width="9" height="5" viewBox="0 0 9 5" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<path
-						d="M7.51628 3.98009e-07L1.31965 -1.43717e-07C0.568658 -2.09371e-07 0.147978 0.75351 0.611959 1.2676L3.71027 4.70055C4.07062 5.09982 4.76532 5.09982 5.12566 4.70055L8.22398 1.2676C8.68796 0.753511 8.26728 4.63664e-07 7.51628 3.98009e-07Z"
-						fill="currentColor"
-					/>
-				</svg>
+				<IconTriangleDown />
 			{/if}
 		</div>
 	</div>
