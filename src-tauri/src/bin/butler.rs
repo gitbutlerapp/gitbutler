@@ -260,15 +260,14 @@ fn run_move(butler: ButlerCli) {
     let files =
         virtual_branches::get_status_files(&butler.gb_repository, &butler.project_repository())
             .expect("failed to get status files");
-    let selections = MultiSelect::with_theme(&ColorfulTheme::default())
+    let selected_files = MultiSelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Which files do you want to move?")
         .items(&files[..])
         .interact()
-        .unwrap();
-    let mut selected_files = vec![];
-    for selection in &selections {
-        selected_files.push(files[*selection].clone());
-    }
+        .expect("failed to get selections")
+        .iter()
+        .map(|i| files[*i].clone().into())
+        .collect::<Vec<_>>();
 
     let current_session = butler
         .gb_repository
@@ -303,7 +302,7 @@ fn run_move(butler: ButlerCli) {
         .id
         .clone();
 
-    println!("Moving {} files to {}", selections.len(), new_branch.red());
+    println!("Moving {} files to {}", selected_files.len(), new_branch.red());
     virtual_branches::move_files(&butler.gb_repository, &target_branch_id, &selected_files)
         .expect("failed to move files");
 }

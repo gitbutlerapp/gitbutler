@@ -110,7 +110,7 @@ pub fn create_virtual_branch(
 pub fn move_files(
     gb_repository: &gb_repository::Repository,
     branch_id: &str,
-    paths: &Vec<String>,
+    to_move: &Vec<branch::Ownership>,
 ) -> Result<()> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -134,41 +134,33 @@ pub fn move_files(
         .context("failed to find target branch")?
         .clone();
 
-    for path in paths {
+    for ownership in to_move {
         let mut source_branch = virtual_branches
             .iter()
-            .find(|b| {
-                b.ownership
-                    .iter()
-                    .map(|o| o.file_path.display().to_string())
-                    .collect::<Vec<_>>()
-                    .contains(path)
-            })
-            .context(format!("failed to find source branch for {}", path))?
+            .find(|b| b.ownership.contains(ownership))
+            .context(format!("failed to find source branch for {}", ownership))?
             .clone();
 
-        source_branch
-            .ownership
-            .retain(|f| !f.file_path.display().to_string().eq(path));
+        source_branch.ownership.retain(|o| !o.eq(ownership));
         source_branch.ownership.sort();
         source_branch.ownership.dedup();
 
         writer
             .write(&source_branch)
-            .context(format!("failed to write source branch for {}", path))?;
+            .context(format!("failed to write source branch for {}", ownership))?;
 
-        target_branch.ownership.push(path.into());
+        target_branch.ownership.push(ownership.clone());
         target_branch.ownership.sort();
         target_branch.ownership.dedup();
 
         writer
             .write(&target_branch)
-            .context(format!("failed to write target branch for {}", path))?;
+            .context(format!("failed to write target branch for {}", ownership))?;
 
         log::info!(
             "{}: moved file {} to branch {}",
             gb_repository.project_id,
-            path,
+            ownership,
             target_branch.name
         );
     }
