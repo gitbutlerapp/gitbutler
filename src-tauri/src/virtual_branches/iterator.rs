@@ -92,7 +92,10 @@ mod tests {
                 unsafe { TEST_INDEX + 10 }
             ))
             .unwrap(),
-            ownership: vec![format!("file/{}", unsafe { TEST_INDEX })],
+            ownership: vec![branch::Ownership {
+                file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
+                ranges: vec![],
+            }],
         }
     }
 

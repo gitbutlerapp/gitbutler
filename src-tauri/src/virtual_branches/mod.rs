@@ -139,11 +139,19 @@ pub fn move_files(
     for path in paths {
         let mut source_branch = virtual_branches
             .iter()
-            .find(|b| b.ownership.contains(path))
+            .find(|b| {
+                b.ownership
+                    .iter()
+                    .map(|o| o.file_path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .contains(path)
+            })
             .context(format!("failed to find source branch for {}", path))?
             .clone();
 
-        source_branch.ownership.retain(|f| f != path);
+        source_branch
+            .ownership
+            .retain(|f| !f.file_path.display().to_string().eq(path));
         source_branch.ownership.sort();
         source_branch.ownership.dedup();
 
@@ -151,7 +159,7 @@ pub fn move_files(
             .write(&source_branch)
             .context(format!("failed to write source branch for {}", path))?;
 
-        target_branch.ownership.push(path.to_string());
+        target_branch.ownership.push(path.into());
         target_branch.ownership.sort();
         target_branch.ownership.dedup();
 
@@ -302,8 +310,8 @@ pub fn get_status_by_branch(
     for file_path in &all_files {
         let mut file_found = false;
         for branch in &virtual_branches {
-            for file in &branch.ownership {
-                if file.eq(file_path) {
+            for ownership in &branch.ownership {
+                if ownership.file_path.display().to_string().eq(file_path) {
                     file_found = true;
                 }
             }
@@ -318,7 +326,12 @@ pub fn get_status_by_branch(
         if !new_ownership.is_empty() {
             // in this case, lets add any newly changed files to the first branch we see and persist it
             let mut branch = branch.clone();
-            branch.ownership.extend(new_ownership.clone());
+            branch
+                .ownership
+                .extend(new_ownership.iter().map(|file| branch::Ownership {
+                    file_path: file.into(),
+                    ranges: vec![],
+                }));
             new_ownership.clear();
 
             // ok, write the updated data back
@@ -326,6 +339,7 @@ pub fn get_status_by_branch(
             writer.write(&branch).context("failed to write branch")?;
 
             for file in branch.ownership {
+                let file = file.file_path.display().to_string();
                 if all_files.contains(&file) {
                     let filehunks = result.get(&file).unwrap();
                     let vfile = VirtualBranchFile {
@@ -339,9 +353,9 @@ pub fn get_status_by_branch(
             }
         } else {
             for file in &branch.ownership {
-                if all_files.contains(file) {
-                    match result.get(file)
-                    {
+                let file = file.file_path.display().to_string();
+                if all_files.contains(&file) {
+                    match result.get(&file) {
                         Some(filehunks) => {
                             let vfile = VirtualBranchFile {
                                 id: file.clone(),
@@ -350,7 +364,7 @@ pub fn get_status_by_branch(
                             };
                             files.push(vfile);
                         }
-                    // push the file to the status list
+                        // push the file to the status list
                         None => {
                             println!("  no hunks for {}", file);
                             continue;

@@ -2,7 +2,8 @@ use anyhow::Result;
 use tempfile::tempdir;
 
 use crate::{
-    deltas, gb_repository, project_repository, projects, sessions, storage, users, virtual_branches,
+    deltas, gb_repository, project_repository, projects, sessions, storage, users,
+    virtual_branches::{self, branch},
 };
 
 use super::project_file_change::Handler;
@@ -44,7 +45,10 @@ fn test_branch() -> virtual_branches::branch::Branch {
             unsafe { TEST_INDEX + 10 }
         ))
         .unwrap(),
-        ownership: vec![format!("file/{}", unsafe { TEST_INDEX })],
+        ownership: vec![branch::Ownership {
+            file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
+            ranges: vec![],
+        }],
     }
 }
 
