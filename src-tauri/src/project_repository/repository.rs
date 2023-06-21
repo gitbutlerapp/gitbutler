@@ -1,6 +1,7 @@
 use std::{collections::HashMap, env};
 
 use anyhow::{Context, Result};
+use git2::Diff;
 use serde::Serialize;
 use walkdir::WalkDir;
 
@@ -147,6 +148,23 @@ impl<'repository> Repository<'repository> {
             });
 
         Ok(statuses)
+    }
+
+    pub fn workdir_diff(&self, commit_oid: &git2::Oid) -> Result<Diff> {
+        let commit = self
+            .git_repository
+            .find_commit(*commit_oid)
+            .context("failed to find commit")?;
+        let tree = commit.tree().context("failed to find tree")?;
+
+        let mut opts = git2::DiffOptions::new();
+        opts.recurse_untracked_dirs(true)
+            .include_untracked(true)
+            .show_untracked_content(true);
+        let diff = self
+            .git_repository
+            .diff_tree_to_workdir(Some(&tree), Some(&mut opts))?;
+        Ok(diff)
     }
 
     pub fn git_wd_diff(&self, context_lines: usize) -> Result<HashMap<String, String>> {
