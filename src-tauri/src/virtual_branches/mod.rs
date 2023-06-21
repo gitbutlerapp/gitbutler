@@ -259,7 +259,7 @@ pub fn get_status_by_branch(
                 "{}:{}-{}",
                 file_path.display(),
                 hunk.new_start(),
-                hunk.new_lines()
+                hunk.new_start() + hunk.new_lines()
             )
         } else {
             // no hunk, so we're in the header, skip it
