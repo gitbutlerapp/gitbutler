@@ -35,7 +35,9 @@ mod tests {
     use anyhow::Result;
     use tempfile::tempdir;
 
-    use crate::{gb_repository, projects, sessions, storage, users};
+    use crate::{
+        gb_repository, projects, sessions, storage, users, virtual_branches::branch::Ownership,
+    };
 
     use super::{super::Writer, *};
 
@@ -62,7 +64,10 @@ mod tests {
                 unsafe { TEST_INDEX + 10 }
             ))
             .unwrap(),
-            ownership: vec![format!("file/{}", unsafe { TEST_INDEX })],
+            ownership: vec![Ownership {
+                file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
+                ranges: vec![],
+            }],
         }
     }
 

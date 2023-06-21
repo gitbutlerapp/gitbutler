@@ -97,7 +97,7 @@ impl<'writer> BranchWriter<'writer> {
         let ownership = branch
             .ownership
             .iter()
-            .map(|user| user.to_string())
+            .map(|ownership| ownership.to_string())
             .collect::<Vec<String>>()
             .join("\n");
 
@@ -118,7 +118,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use crate::{projects, storage, users};
+    use crate::{projects, storage, users, virtual_branches::branch};
 
     use super::*;
 
@@ -145,7 +145,10 @@ mod tests {
                 unsafe { TEST_INDEX + 10 }
             ))
             .unwrap(),
-            ownership: vec![format!("file/{}", unsafe { TEST_INDEX })],
+            ownership: vec![branch::Ownership {
+                file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
+                ranges: vec![],
+            }],
         }
     }
 

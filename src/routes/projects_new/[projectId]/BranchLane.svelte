@@ -7,6 +7,7 @@
 	import FileCard from './FileCard.svelte';
 	import { invoke } from '@tauri-apps/api';
 	import { IconBranch } from '$lib/icons';
+	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 
 	export let branchId: string;
 	export let name: string;
@@ -14,6 +15,7 @@
 	export let files: File[];
 	export let projectId: string;
 
+	let allExpanded = true;
 	let descriptionHeight = 0;
 	let textArea: HTMLTextAreaElement;
 	const dispatch = createEventDispatcher();
@@ -87,6 +89,18 @@
 			value={description ? description.trim() : ''}
 			on:change={updateTextArea}
 		/>
+		<div class="flex justify-end">
+			<button
+				class="flex h-6 w-6 items-center justify-center"
+				on:click={() => (allExpanded = !allExpanded)}
+			>
+				{#if allExpanded}
+					<IconTriangleUp />
+				{:else}
+					<IconTriangleDown />
+				{/if}
+			</button>
+		</div>
 		<div
 			class="flex flex-shrink flex-col gap-y-2 overflow-y-auto rounded-lg"
 			use:dndzone={{
@@ -99,7 +113,12 @@
 			on:finalize={handleDndEvent}
 		>
 			{#each files.filter((x) => x.hunks) as file (file.id)}
-				<FileCard filepath={file.path} bind:hunks={file.hunks} on:empty={handleEmpty} />
+				<FileCard
+					filepath={file.path}
+					expanded={allExpanded}
+					bind:hunks={file.hunks}
+					on:empty={handleEmpty}
+				/>
 			{/each}
 			<div
 				data-dnd-ignore
