@@ -282,7 +282,7 @@ pub fn get_status_by_branch(
                     mtime
                 }
             };
-                
+
             let hunk_id = format!("{}:{}", new_path, hunk_numbers);
             if hunk_id != last_hunk_id {
                 let hunk = VirtualBranchHunk {
@@ -362,8 +362,7 @@ pub fn get_status_by_branch(
         } else {
             for file in &branch.ownership {
                 if all_files.contains(file) {
-                    match result.get(file)
-                    {
+                    match result.get(file) {
                         Some(filehunks) => {
                             let vfile = VirtualBranchFile {
                                 id: file.clone(),
@@ -372,7 +371,7 @@ pub fn get_status_by_branch(
                             };
                             files.push(vfile);
                         }
-                    // push the file to the status list
+                        // push the file to the status list
                         None => {
                             println!("  no hunks for {}", file);
                             continue;
