@@ -37,7 +37,7 @@
 {#if target}
 	<div class="flex w-full max-w-full">
 		<Tray bind:branches />
-		<Board bind:branches on:newBranch={handleNewBranch} />
+		<Board {projectId} bind:branches on:newBranch={handleNewBranch} />
 	</div>
 {:else}
 	<div class="m-auto flex flex-col space-y-2">

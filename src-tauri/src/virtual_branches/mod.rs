@@ -144,11 +144,17 @@ pub fn move_files(
             .clone();
 
         source_branch.ownership.retain(|f| f != path);
+        source_branch.ownership.sort();
+        source_branch.ownership.dedup();
+
         writer
             .write(&source_branch)
             .context(format!("failed to write source branch for {}", path))?;
 
         target_branch.ownership.push(path.to_string());
+        target_branch.ownership.sort();
+        target_branch.ownership.dedup();
+
         writer
             .write(&target_branch)
             .context(format!("failed to write target branch for {}", path))?;
