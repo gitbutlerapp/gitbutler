@@ -596,6 +596,19 @@ async fn move_virtual_branch_files(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn commit_virtual_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+    message: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    let target = app.commit_virtual_branch(project_id, branch, message)?;
+    Ok(target)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn get_target_data(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -760,6 +773,7 @@ fn main() {
             list_virtual_branches,
             create_virtual_branch,
             move_virtual_branch_files,
+            commit_virtual_branch,
             get_target_data,
             set_target_branch,
         ])

@@ -434,6 +434,76 @@ pub fn get_status_by_branch(
     Ok(statuses)
 }
 
+pub fn commit(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+    message: &str,
+) -> Result<()> {
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
+        .expect("failed to open current session reader");
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => target,
+        Err(e) => panic!("failed to read default target: {}", e),
+    };
+
+    // get the files to commit
+    let statuses = get_status_by_branch(&gb_repository, &project_repository)
+        .expect("failed to get status by branch");
+    for (mut branch, files) in statuses {
+        if branch.id == branch_id {
+            // read the base sha into an index
+            let git_repository = &project_repository.git_repository;
+            let base_commit = git_repository.find_commit(default_target.sha).unwrap();
+            let base_tree = base_commit.tree().unwrap();
+            let parent_commit = git_repository.find_commit(branch.head).unwrap();
+            let mut index = git_repository.index().unwrap();
+            index.read_tree(&base_tree).unwrap();
+
+            // now update the index with content in the working directory for each file
+            for file in files {
+                // convert this string to a Path
+                let file = std::path::Path::new(&file.path);
+
+                // TODO: deal with removals too
+                index.add_path(file).unwrap();
+            }
+
+            // now write out the tree
+            let tree_oid = index.write_tree().unwrap();
+
+            // only commit if it's a new tree
+            if tree_oid != branch.tree {
+                let tree = git_repository.find_tree(tree_oid).unwrap();
+                // now write a commit
+                let (author, committer) = gb_repository.git_signatures().unwrap();
+                let commit_oid = git_repository
+                    .commit(
+                        None,
+                        &author,
+                        &committer,
+                        &message,
+                        &tree,
+                        &[&parent_commit],
+                    )
+                    .unwrap();
+
+                // update the virtual branch head
+                branch.tree = tree_oid;
+                branch.head = commit_oid;
+                let writer = branch::Writer::new(&gb_repository);
+                writer.write(&branch).unwrap();
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use tempfile::tempdir;

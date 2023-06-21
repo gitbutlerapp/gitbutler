@@ -1,9 +1,10 @@
+use anyhow::Ok;
 use clap::Parser;
 use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Input, MultiSelect, Select};
 
 use git2::Repository;
-use std::time;
+use std::{collections::HashMap, time};
 use uuid::Uuid;
 
 use git_butler_tauri::{
@@ -108,7 +109,6 @@ fn run_branches(butler: ButlerCli) {
 
 fn run_commit(butler: ButlerCli) {
     // get the branch to commit
-
     let current_session = butler
         .gb_repository
         .get_or_create_current_session()
@@ -123,17 +123,18 @@ fn run_commit(butler: ButlerCli) {
         .into_iter()
         .collect::<Vec<_>>();
 
-    let branch_names = virtual_branches
-        .iter()
-        .map(|b| b.name.clone())
-        .collect::<Vec<_>>();
-
+    let mut ids = Vec::new();
+    let mut names = Vec::new();
+    for branch in virtual_branches {
+        ids.push(branch.id);
+        names.push(branch.name);
+    }
     let selection = Select::with_theme(&ColorfulTheme::default())
-        .items(&branch_names)
+        .items(&names)
         .default(0)
         .interact_on_opt(&Term::stderr())
         .unwrap();
-    let commit_branch = branch_names[selection.unwrap()].clone();
+    let commit_branch = ids[selection.unwrap()].clone();
     println!("Committing virtual branch {}", commit_branch.red());
 
     // get the commit message
@@ -141,74 +142,12 @@ fn run_commit(butler: ButlerCli) {
         .with_prompt("Commit message")
         .interact_text()
         .unwrap();
-
-    let target_reader = virtual_branches::target::Reader::new(&current_session_reader);
-    let default_target = match target_reader.read_default() {
-        Ok(target) => target,
-        Err(reader::Error::NotFound) => return,
-        Err(e) => panic!("failed to read default target: {}", e),
-    };
-
-    // get the files to commit
-    let statuses =
-        virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository())
-            .expect("failed to get status by branch");
-    for (mut branch, files) in statuses {
-        if branch.name == commit_branch {
-            println!("  branch: {}", branch.id.blue());
-            println!("    base: {}", default_target.sha.to_string().blue());
-
-            // read the base sha into an index
-            let git_repository = butler.git_repository();
-            let base_commit = git_repository.find_commit(default_target.sha).unwrap();
-            let base_tree = base_commit.tree().unwrap();
-            let parent_commit = git_repository.find_commit(branch.head).unwrap();
-            let mut index = git_repository.index().unwrap();
-            index.read_tree(&base_tree).unwrap();
-
-            // now update the index with content in the working directory for each file
-            for file in files {
-                println!("{}", file.path);
-                // convert this string to a Path
-                let file = std::path::Path::new(&file.path);
-
-                // TODO: deal with removals too
-                index.add_path(file).unwrap();
-            }
-
-            // now write out the tree
-            let tree_oid = index.write_tree().unwrap();
-
-            // only commit if it's a new tree
-            if tree_oid != branch.tree {
-                let tree = git_repository.find_tree(tree_oid).unwrap();
-                // now write a commit
-                let (author, committer) = butler.gb_repository.git_signatures().unwrap();
-                let commit_oid = git_repository
-                    .commit(
-                        None,
-                        &author,
-                        &committer,
-                        &message,
-                        &tree,
-                        &[&parent_commit],
-                    )
-                    .unwrap();
-                // write this new commit to the virtual branch
-                println!("    commit: {}", commit_oid.to_string().blue());
-
-                // update the virtual branch head
-                branch.tree = tree_oid;
-                branch.head = commit_oid;
-                let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-                writer.write(&branch).unwrap();
-            }
-        }
-    }
-
-    // create the tree
-
-    // create the commit
+    virtual_branches::commit(
+        &butler.gb_repository,
+        &butler.project_repository(),
+        &commit_branch,
+        &message,
+    );
 }
 
 fn run_new(butler: ButlerCli) {
