@@ -28,3 +28,4 @@ export { default as IconFolderPlus } from './IconFolderPlus.svelte';
 export { default as IconEmail } from './IconEmail.svelte';
 export { default as IconBookmarkFilled } from './IconBookmarkFilled.svelte';
 export { default as IconAISparkles } from './IconAISparkles.svelte';
+export { default as IconBranch } from './IconBranch.svelte';
