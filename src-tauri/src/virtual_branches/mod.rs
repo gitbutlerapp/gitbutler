@@ -2,7 +2,7 @@ pub mod branch;
 mod iterator;
 pub mod target;
 
-use std::{collections::HashMap, path, time, vec};
+use std::{collections::{HashMap, HashSet}, path, time, vec};
 
 use anyhow::{Context, Result};
 use filetime::FileTime;
@@ -44,7 +44,7 @@ pub struct VirtualBranchHunk {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
-    head: String,
+    sha: String,
     branch: String,
     name: String,
     description: String,
@@ -77,26 +77,25 @@ pub fn remote_branches(
 
     let main_oid = default_target.sha;
 
-    let current_time = SystemTime::now();
-    let too_old = Duration::from_secs(86_400 * 180); // 180 days (6 months) is too old
+    let current_time = time::SystemTime::now();
+    let too_old = time::Duration::from_secs(86_400 * 180); // 180 days (6 months) is too old
 
-    let mut branches: Vec<Branch> = Vec::new();
-    for branch in project_repository.git_repository.branches(None)? {
+    let repo = &project_repository.git_repository;
+    let mut branches: Vec<RemoteBranch> = Vec::new();
+    for branch in repo.branches(Some(git2::BranchType::Remote))? {
         let (branch, _) = branch?;
         let branch_name = branch.get().name().unwrap();
-        println!("branch: {}", branch_name);
         let upstream_branch = branch.upstream();
         match branch.get().target() {
             Some(branch_oid) => {
                 // get the branch ref
-                let branch_ref = repo.find_reference(&branch_name).unwrap();
                 let branch_commit = repo.find_commit(branch_oid).ok().unwrap();
 
                 // figure out if the last commit on this branch is too old to consider
                 let branch_time = branch_commit.time();
                 // convert git::Time to SystemTime
                 let branch_time =
-                    UNIX_EPOCH + Duration::from_secs(branch_time.seconds().try_into().unwrap());
+                    time::UNIX_EPOCH + time::Duration::from_secs(branch_time.seconds().try_into().unwrap());
                 let duration = current_time.duration_since(branch_time).unwrap();
                 if duration > too_old {
                     continue;
@@ -113,7 +112,7 @@ pub fn remote_branches(
                         break;
                     }
                     count_behind += 1;
-                    if count_behind > 200 {
+                    if count_behind > 100 {
                         break;
                     }
                 }
@@ -158,8 +157,8 @@ pub fn remote_branches(
                     Err(e) => "".to_string(),
                 };
 
-                branches.push(Branch {
-                    oid: branch_oid.to_string(),
+                branches.push(RemoteBranch {
+                    sha: branch_oid.to_string(),
                     branch: branch_name.to_string(),
                     name: branch_name.to_string(),
                     description: "".to_string(),
@@ -173,8 +172,8 @@ pub fn remote_branches(
             }
             None => {
                 // this is a detached head
-                branches.push(Branch {
-                    oid: "".to_string(),
+                branches.push(RemoteBranch {
+                    sha: "".to_string(),
                     branch: branch_name.to_string(),
                     name: branch_name.to_string(),
                     description: "".to_string(),

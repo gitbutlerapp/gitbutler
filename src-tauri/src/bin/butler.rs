@@ -1,4 +1,3 @@
-use anyhow::Ok;
 use clap::Parser;
 use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Input, MultiSelect, Select};
@@ -80,8 +79,16 @@ fn main() {
         "setup" => run_setup(butler), // sets target sha from remote branch
         "commit" => run_commit(butler), // creates trees from the virtual branch content and creates a commit
         "branches" => run_branches(butler),
+        "remotes" => run_remotes(butler),
         "flush" => run_flush(butler), // artificially forces a session flush
         _ => println!("Unknown command: {}", args.command),
+    }
+}
+
+fn run_remotes(butler: ButlerCli) {
+    let branches = virtual_branches::remote_branches(&butler.gb_repository, &butler.project_repository()).unwrap();
+    for branch in branches {
+        println!("{:?}", branch);
     }
 }
 
