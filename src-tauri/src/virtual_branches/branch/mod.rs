@@ -23,6 +23,15 @@ impl From<&String> for Ownership {
     }
 }
 
+impl From<&str> for Ownership {
+    fn from(value: &str) -> Self {
+        Self {
+            file_path: value.into(),
+            ranges: vec![],
+        }
+    }
+}
+
 impl From<String> for Ownership {
     fn from(value: String) -> Self {
         Self {
