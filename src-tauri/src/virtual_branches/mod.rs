@@ -358,7 +358,7 @@ pub fn get_status_by_branch(
             for file in branch.ownership {
                 let file = file.file_path.display().to_string();
                 if all_files.contains(&file) {
-                    let filehunks = result.get(&file).unwrap();
+                    let filehunks = result.get(&file).cloned().unwrap_or(Vec::new());
                     let vfile = VirtualBranchFile {
                         id: file.clone(),
                         path: file.clone(),
