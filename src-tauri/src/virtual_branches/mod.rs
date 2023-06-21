@@ -19,7 +19,6 @@ pub struct VirtualBranch {
     pub id: String,
     pub name: String,
     pub active: bool,
-    pub kind: String,
     pub files: Vec<VirtualBranchFile>,
 }
 
@@ -28,7 +27,6 @@ pub struct VirtualBranch {
 pub struct VirtualBranchFile {
     pub id: String,
     pub path: String,
-    pub kind: String,
     pub hunks: Vec<VirtualBranchHunk>,
 }
 
@@ -38,7 +36,6 @@ pub struct VirtualBranchHunk {
     pub id: String,
     pub name: String,
     pub diff: String,
-    pub kind: String,
     pub modified_at: u128,
     pub file_path: String,
 }
@@ -59,7 +56,6 @@ pub fn list_virtual_branches(
             id: branch.id.to_string(),
             name: branch.name.to_string(),
             active: branch.applied,
-            kind: "branch".to_string(),
             files: vfiles,
         };
         branches.push(branch);
@@ -262,7 +258,6 @@ pub fn get_status_by_branch(
                 id: last_hunk_id.clone(),
                 name: "".to_string(),
                 diff: results.clone(),
-                kind: "hunk".to_string(),
                 modified_at: 0,
                 file_path: last_path.clone(),
             };
@@ -342,7 +337,6 @@ pub fn get_status_by_branch(
                     let vfile = VirtualBranchFile {
                         id: file.clone(),
                         path: file.clone(),
-                        kind: "file".to_string(),
                         hunks: filehunks.clone(),
                     };
                     // push the file to the status list
@@ -356,7 +350,6 @@ pub fn get_status_by_branch(
                     let vfile = VirtualBranchFile {
                         id: file.clone(),
                         path: file.clone(),
-                        kind: "file".to_string(),
                         hunks: filehunks.clone(),
                     };
                     // push the file to the status list
