@@ -6,18 +6,20 @@
 
 	let open = false;
 
-	export const show = () => {
+	export function show() {
 		if (open) return;
 		dialog.showModal();
 		open = true;
-	};
-	export const isOpen = () => open;
+	}
+	export function isOpen() {
+		open;
+	}
 
-	export const close = () => {
+	export function close() {
 		if (!open) return;
 		dialog.close();
 		open = false;
-	};
+	}
 </script>
 
 <dialog

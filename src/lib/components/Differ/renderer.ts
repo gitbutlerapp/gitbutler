@@ -20,14 +20,14 @@ export const enum RowType {
 	Spacer = 'spacer'
 }
 
-export const buildDiffRows = (
+export function buildDiffRows(
 	diffs: diff.DiffArray,
 	opts = { paddingLines: 10000 }
 ): {
 	originalLines: readonly string[];
 	currentLines: readonly string[];
 	rows: readonly Row[];
-} => {
+} {
 	const { paddingLines } = opts;
 
 	let currentLineNumber = 0;
@@ -153,13 +153,13 @@ export const buildDiffRows = (
 			size
 		};
 	}
-};
+}
 
-export const documentMap = (lines: readonly string[]): Map<number, number> => {
+export function documentMap(lines: readonly string[]): Map<number, number> {
 	const map = new Map<number, number>();
 	for (let pos = 0, lineNo = 0; lineNo < lines.length; lineNo++) {
 		map.set(lineNo + 1, pos);
 		pos += lines[lineNo].length + 1;
 	}
 	return map;
-};
+}

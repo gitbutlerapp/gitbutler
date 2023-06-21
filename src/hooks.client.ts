@@ -12,8 +12,10 @@ init({
 
 log.info(`sentry init`);
 
-const myErrorHandler = ({ error, event }: { error: any; event: NavigationEvent }) => {
+function myErrorHandler({ error, event }: { error: any; event: NavigationEvent }) {
 	console.error('An error occurred on the client side:', error, event);
-};
+}
 
-export const handleError = handleErrorWithSentry(myErrorHandler);
+export function handleError() {
+	return handleErrorWithSentry(myErrorHandler);
+}

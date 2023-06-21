@@ -1,16 +1,19 @@
-export const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
+export function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
 	let timeout: ReturnType<typeof setTimeout>;
 	return (...args: any[]) => {
 		clearTimeout(timeout);
 		timeout = setTimeout(() => fn(...args), delay);
 	};
-};
+}
 
-export const clone = <T>(obj: T): T => structuredClone(obj);
+export function clone<T>(obj: T): T {
+	return structuredClone(obj);
+}
 
 type MaybePromise<T> = T | Promise<T>;
 
-export const unsubscribe =
-	(...unsubscribers: MaybePromise<() => void>[]) =>
-	() =>
+export function unsubscribe(...unsubscribers: MaybePromise<() => void>[]) {
+	return () => {
 		unsubscribers.forEach((unsubscriber) => Promise.resolve(unsubscriber).then((fn) => fn()));
+	};
+}

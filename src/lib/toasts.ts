@@ -6,17 +6,21 @@ const defaultOptions = {
 	style: 'border-radius: 8px; background: black; color: #fff;'
 };
 
-export const error = (msg: string, options: ToastOptions = {}) =>
-	toast.error(msg, { ...defaultOptions, ...options });
+export function error(msg: string, options: ToastOptions = {}) {
+	return toast.error(msg, { ...defaultOptions, ...options });
+}
 
-export const success = (msg: string, options: ToastOptions = {}) =>
-	toast.success(msg, { ...defaultOptions, ...options });
+export function success(msg: string, options: ToastOptions = {}) {
+	return toast.success(msg, { ...defaultOptions, ...options });
+}
 
-export const promise = (
+export function promise(
 	promise: Promise<any>,
 	opts: { loading: string; success: string; error: string } = {
 		loading: 'Loading...',
 		success: 'Success!',
 		error: 'Error!'
 	}
-) => toast.promise(promise, opts, defaultOptions);
+) {
+	return toast.promise(promise, opts, defaultOptions);
+}

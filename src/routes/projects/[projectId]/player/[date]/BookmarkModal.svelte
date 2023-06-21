@@ -13,7 +13,7 @@
 		timestampMs = undefined;
 	};
 
-	export const show = async (ts: number) => {
+	export async function show(ts: number) {
 		reset();
 		timestampMs = ts;
 		const existing = await api.bookmarks.list({
@@ -26,7 +26,7 @@
 		if (existing.length === 1) note = existing[0].note;
 
 		modal.show();
-	};
+	}
 
 	let modal: Modal;
 	let note: string;

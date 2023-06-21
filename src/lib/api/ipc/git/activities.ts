@@ -7,17 +7,20 @@ export type Activity = {
 	message: string;
 };
 
-export const list = (params: { projectId: string; startTimeMs?: number }) =>
-	invoke<Activity[]>('git_activity', params);
+export function list(params: { projectId: string; startTimeMs?: number }) {
+	return invoke<Activity[]>('git_activity', params);
+}
 
-export const subscribe = (
+export function subscribe(
 	params: { projectId: string },
 	callback: (params: { projectId: string }) => Promise<void> | void
-) => listen(`project://${params.projectId}/git/activity`, () => callback(params));
+) {
+	return listen(`project://${params.projectId}/git/activity`, () => callback(params));
+}
 
 const stores: Record<string, WritableLoadable<Activity[]>> = {};
 
-export const Activities = (params: { projectId: string }) => {
+export function Activities(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 
 	const store = asyncWritable([], () => list(params));
@@ -29,4 +32,4 @@ export const Activities = (params: { projectId: string }) => {
 	});
 	stores[params.projectId] = store;
 	return store;
-};
+}

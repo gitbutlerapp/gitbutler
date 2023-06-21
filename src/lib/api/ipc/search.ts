@@ -8,9 +8,11 @@ export type SearchResult = {
 	index: number;
 };
 
-export const list = (params: {
+export function list(params: {
 	projectId: string;
 	query: string;
 	limit?: number;
 	offset?: number;
-}) => invoke<{ total: number; page: SearchResult[] }>('search', params);
+}) {
+	return invoke<{ total: number; page: SearchResult[] }>('search', params);
+}

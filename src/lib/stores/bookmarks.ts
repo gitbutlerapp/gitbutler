@@ -4,7 +4,7 @@ import { get as getValue, type Readable } from '@square/svelte-store';
 
 const stores: Record<string, Readable<Loadable<Bookmark[]>>> = {};
 
-export const list = (params: { projectId: string }) => {
+export function list(params: { projectId: string }) {
 	if (params.projectId in stores) return stores[params.projectId];
 
 	const store = writable(bookmarks.list(params), (set) => {
@@ -24,9 +24,10 @@ export const list = (params: { projectId: string }) => {
 	});
 	stores[params.projectId] = store;
 	return store as Readable<Loadable<Bookmark[]>>;
-};
+}
 
-export const get = (params: { projectId: string; timestampMs: number }) =>
-	derived(list({ projectId: params.projectId }), (bookmarks) =>
+export function get(params: { projectId: string; timestampMs: number }) {
+	return derived(list({ projectId: params.projectId }), (bookmarks) =>
 		bookmarks.find((b) => b.timestampMs === params.timestampMs)
 	);
+}

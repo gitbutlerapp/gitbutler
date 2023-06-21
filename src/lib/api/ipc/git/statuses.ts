@@ -12,18 +12,21 @@ export type Status =
 	| { staged: FileStatus; unstaged: FileStatus };
 
 export namespace Status {
-	export const isStaged = (status: Status): status is { staged: FileStatus } =>
-		'staged' in status && status.staged !== null;
-	export const isUnstaged = (status: Status): status is { unstaged: FileStatus } =>
-		'unstaged' in status && status.unstaged !== null;
+	export function isStaged(status: Status): status is { staged: FileStatus } {
+		return 'staged' in status && status.staged !== null;
+	}
+	export function isUnstaged(status: Status): status is { unstaged: FileStatus } {
+		return 'unstaged' in status && status.unstaged !== null;
+	}
 }
 
-export const list = (params: { projectId: string }) =>
-	invoke<Record<string, Status>>('git_status', params);
+export function list(params: { projectId: string }) {
+	return invoke<Record<string, Status>>('git_status', params);
+}
 
 const stores: Record<string, WritableLoadable<Record<string, Status>>> = {};
 
-export const Statuses = (params: { projectId: string }) => {
+export function Statuses(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));
 	sessions.subscribe(params, () => list(params).then(store.set));
@@ -31,4 +34,4 @@ export const Statuses = (params: { projectId: string }) => {
 	indexes.subscribe(params, () => list(params).then(store.set));
 	stores[params.projectId] = store;
 	return store;
-};
+}

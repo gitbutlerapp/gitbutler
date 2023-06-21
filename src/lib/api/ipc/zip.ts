@@ -1,9 +1,13 @@
 import { invoke } from '$lib/ipc';
 
-export const logs = () => invoke<string>('get_logs_archive_path');
+export function logs() {
+	return invoke<string>('get_logs_archive_path');
+}
 
-export const gitbutlerData = (params: { projectId: string }) =>
-	invoke<string>('get_project_data_archive_path', params);
+export function gitbutlerData(params: { projectId: string }) {
+	return invoke<string>('get_project_data_archive_path', params);
+}
 
-export const projectData = (params: { projectId: string }) =>
-	invoke<string>('get_project_archive_path', params);
+export function projectData(params: { projectId: string }) {
+	return invoke<string>('get_project_archive_path', params);
+}

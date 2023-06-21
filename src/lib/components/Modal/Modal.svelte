@@ -4,8 +4,12 @@
 	import { IconClose } from '$lib/icons';
 	import type { ComponentType } from 'svelte';
 
-	export const show = () => modal.show();
-	export const close = () => modal.close();
+	export function show() {
+		modal.show();
+	}
+	export function close() {
+		modal.close();
+	}
 
 	export let width: 'default' | 'small' | 'large' = 'default';
 	export let title: string | undefined = 'Title';

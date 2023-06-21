@@ -16,4 +16,6 @@ export type { Bookmark } from './bookmarks';
 
 import { invoke } from '$lib/ipc';
 
-export const deleteAllData = () => invoke<void>('delete_all_data');
+export function deleteAllData() {
+	invoke<void>('delete_all_data');
+}

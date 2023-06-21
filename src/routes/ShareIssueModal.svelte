@@ -7,7 +7,9 @@
 	export let user: User | null;
 	export let cloud: ReturnType<typeof api.CloudApi>;
 
-	export const show = () => modal.show();
+	export function show() {
+		modal.show();
+	}
 
 	let modal: Modal;
 

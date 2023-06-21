@@ -1,4 +1,4 @@
-export const collapse = (path: string, max = 3, maxLen = 30) => {
+export function collapse(path: string, max = 3, maxLen = 30) {
 	if (path.length < maxLen) {
 		return path;
 	}
@@ -9,4 +9,4 @@ export const collapse = (path: string, max = 3, maxLen = 30) => {
 		return `${pp}/${file}`;
 	}
 	return file;
-};
+}
