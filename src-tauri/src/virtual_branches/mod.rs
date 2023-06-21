@@ -279,10 +279,8 @@ pub fn get_status_by_branch(
 
                     let metadata = file_path.metadata().unwrap();
                     let mtime = FileTime::from_last_modification_time(&metadata);
-                    println!("mtime: {:?}", mtime);
                     // convert seconds and nanoseconds to milliseconds
                     let mtime = (mtime.seconds() as u128 * 1000) as u128;
-                    println!("mtime: {:?}", mtime);
                     mtimes.insert(new_path.clone(), mtime);
                     mtime
                 }
@@ -313,39 +311,6 @@ pub fn get_status_by_branch(
             }
             results.push_str(std::str::from_utf8(line.content()).unwrap());
         }
-
-        let new_path = delta
-            .new_file()
-            .path()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-
-        let hunk_id = format!("{}:{}", new_path, hunk_numbers);
-        if hunk_id != last_hunk_id {
-            let hunk = VirtualBranchHunk {
-                id: last_hunk_id.clone(),
-                name: "".to_string(),
-                diff: results.clone(),
-                modified_at: 0,
-                file_path: last_path.clone(),
-            };
-            hunks.push(hunk);
-            result.insert(last_path.clone(), hunks.clone());
-            results = String::new();
-            last_hunk_id = hunk_id;
-        }
-        if last_path != new_path {
-            hunks = Vec::new();
-            last_path = new_path;
-        }
-
-        match line.origin() {
-            '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
-            _ => {}
-        }
-        results.push_str(std::str::from_utf8(line.content()).unwrap());
         true
     })
     .context("failed to print diff")?;
