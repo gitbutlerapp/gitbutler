@@ -32,10 +32,6 @@ export const load: PageLoad = async ({ params }) => {
 				.map((hunk: any) => {
 					hunk.modifiedAt = new Date(hunk.modifiedAt);
 					return hunk;
-				})
-				.filter((hunk: any) => {
-					// only accept the hunk if hunk.diff contains the string '@@'
-					return hunk.diff.includes(' @@ ');
 				});
 			return file;
 		});

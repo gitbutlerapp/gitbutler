@@ -252,40 +252,40 @@ pub fn get_status_by_branch(
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
         if let Some(hunk) = hunk {
             hunk_numbers = format!("{}-{}", hunk.old_start(), hunk.new_start());
-        }
 
-        let new_path = delta
-            .new_file()
-            .path()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
+            let new_path = delta
+                .new_file()
+                .path()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
 
-        let hunk_id = format!("{}:{}", new_path, hunk_numbers);
-        if hunk_id != last_hunk_id {
-            let hunk = VirtualBranchHunk {
-                id: last_hunk_id.clone(),
-                name: "".to_string(),
-                diff: results.clone(),
-                modified_at: 0,
-                file_path: last_path.clone(),
-            };
-            hunks.push(hunk);
-            result.insert(last_path.clone(), hunks.clone());
-            results = String::new();
-            last_hunk_id = hunk_id;
-        }
-        if last_path != new_path {
-            hunks = Vec::new();
-            last_path = new_path;
-        }
+            let hunk_id = format!("{}:{}", new_path, hunk_numbers);
+            if hunk_id != last_hunk_id {
+                let hunk = VirtualBranchHunk {
+                    id: last_hunk_id.clone(),
+                    name: "".to_string(),
+                    diff: results.clone(),
+                    modified_at: 0,
+                    file_path: last_path.clone(),
+                };
+                hunks.push(hunk);
+                result.insert(last_path.clone(), hunks.clone());
+                results = String::new();
+                last_hunk_id = hunk_id;
+            }
+            if last_path != new_path {
+                hunks = Vec::new();
+                last_path = new_path;
+            }
 
-        match line.origin() {
-            '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
-            _ => {}
+            match line.origin() {
+                '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
+                _ => {}
+            }
+            results.push_str(std::str::from_utf8(line.content()).unwrap());
         }
-        results.push_str(std::str::from_utf8(line.content()).unwrap());
         true
     })
     .context("failed to print diff")?;
@@ -340,14 +340,22 @@ pub fn get_status_by_branch(
         } else {
             for file in &branch.ownership {
                 if all_files.contains(file) {
-                    let filehunks = result.get(file).unwrap();
-                    let vfile = VirtualBranchFile {
-                        id: file.clone(),
-                        path: file.clone(),
-                        hunks: filehunks.clone(),
-                    };
+                    match result.get(file)
+                    {
+                        Some(filehunks) => {
+                            let vfile = VirtualBranchFile {
+                                id: file.clone(),
+                                path: file.clone(),
+                                hunks: filehunks.clone(),
+                            };
+                            files.push(vfile);
+                        }
                     // push the file to the status list
-                    files.push(vfile);
+                        None => {
+                            println!("  no hunks for {}", file);
+                            continue;
+                        }
+                    }
                 }
             }
         }

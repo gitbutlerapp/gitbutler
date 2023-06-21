@@ -93,10 +93,15 @@ fn run_branches(butler: ButlerCli) {
     let branches = list_virtual_branches(&butler.gb_repository, &butler.project_repository())
         .expect("failed to list branches");
     for branch in branches {
-        println!("{}", branch.id);
-        println!("{}", branch.name);
+        println!("{}", branch.id.red());
+        println!("{}", branch.name.red());
         for file in branch.files {
-            println!("  {}", file.path);
+            println!("  {}", file.path.blue());
+            for hunk in file.hunks {
+                println!("--");
+                println!("    {}", hunk.diff.green());
+                println!("--");
+            }
         }
     }
 }
