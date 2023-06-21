@@ -9,26 +9,30 @@ export type Bookmark = {
 	createdTimestampMs: number;
 };
 
-export const upsert = (params: {
+export function upsert(params: {
 	projectId: string;
 	note: string;
 	timestampMs: number;
 	deleted: boolean;
-}) => invoke<void>('upsert_bookmark', params);
+}) {
+	return invoke<void>('upsert_bookmark', params);
+}
 
-export const list = (params: {
+export function list(params: {
 	projectId: string;
 	range?: {
 		start: number;
 		end: number;
 	};
-}) => invoke<Bookmark[]>('list_bookmarks', params);
+}) {
+	return invoke<Bookmark[]>('list_bookmarks', params);
+}
 
-export const subscribe = (
+export function subscribe(
 	params: { projectId: string; range?: { start: number; end: number } },
 	callback: (bookmark: Bookmark) => Promise<void> | void
-) =>
-	listen<Bookmark>(`project://${params.projectId}/bookmarks`, (event) => {
+) {
+	return listen<Bookmark>(`project://${params.projectId}/bookmarks`, (event) => {
 		if (
 			params.range &&
 			(event.payload.timestampMs < params.range.start ||
@@ -37,3 +41,4 @@ export const subscribe = (
 			return;
 		callback({ ...params, ...event.payload });
 	});
+}

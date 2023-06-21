@@ -5,7 +5,9 @@
 	import { IconGitBranch, IconSparkle } from '$lib/icons';
 	import { Stats } from '$lib/components';
 
-	export const show = () => modal.show();
+	export function show() {
+		modal.show();
+	}
 
 	export let project: Project;
 	export let head: string;

@@ -1,10 +1,10 @@
 import { building } from '$app/environment';
 
-export const setup = async () => {
+export async function setup() {
 	if (!building) {
 		await (await import('tauri-plugin-log-api')).attachConsole();
 	}
-};
+}
 
 const logger = async () =>
 	building
@@ -29,8 +29,14 @@ const toString = (value: any) => {
 	}
 };
 
-export const debug = async (...args: any[]) => (await logger()).debug(args.map(toString).join(' '));
+export async function debug(...args: any[]) {
+	return (await logger()).debug(args.map(toString).join(' '));
+}
 
-export const info = async (...args: any[]) => (await logger()).info(args.map(toString).join(' '));
+export async function info(...args: any[]) {
+	return (await logger()).info(args.map(toString).join(' '));
+}
 
-export const error = async (...args: any[]) => (await logger()).error(args.map(toString).join(' '));
+export async function error(...args: any[]) {
+	(await logger()).error(args.map(toString).join(' '));
+}

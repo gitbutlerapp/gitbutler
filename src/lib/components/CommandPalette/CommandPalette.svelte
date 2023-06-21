@@ -127,12 +127,14 @@
 		$selection = [0, 0];
 	};
 
-	export const show = () => {
+	export function show() {
 		reset();
 		modal?.show();
-	};
+	}
 
-	export const close = () => modal?.close();
+	export function close() {
+		modal?.close();
+	}
 
 	onMount(() =>
 		tinykeys(window, {

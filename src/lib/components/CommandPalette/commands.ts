@@ -29,11 +29,18 @@ interface Newable<ReturnType> {
 export type Action = ActionLink | Group | ActionRun;
 
 export namespace Action {
-	export const isLink = (action: Action): action is ActionLink => 'href' in action;
-	export const isExternalLink = (action: Action): action is ActionLink =>
-		isLink(action) && (action.href.startsWith('http') || action.href.startsWith('mailto'));
-	export const isGroup = (action: Action): action is Group => 'commands' in action;
-	export const isRun = (action: Action): action is ActionRun => typeof action === 'function';
+	export function isLink(action: Action): action is ActionLink {
+		return 'href' in action;
+	}
+	export function isExternalLink(action: Action): action is ActionLink {
+		return isLink(action) && (action.href.startsWith('http') || action.href.startsWith('mailto'));
+	}
+	export function isGroup(action: Action): action is Group {
+		return 'commands' in action;
+	}
+	export function isRun(action: Action): action is ActionRun {
+		return typeof action === 'function';
+	}
 }
 
 export type Command = {

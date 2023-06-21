@@ -1,20 +1,16 @@
 import { CharacterIdMap } from './characterIdMap';
 import { diff_match_patch } from 'diff-match-patch';
 
-export const char = (
-	text1: string,
-	text2: string,
-	cleanup?: boolean
-): { 0: number; 1: string }[] => {
+export function char(text1: string, text2: string, cleanup?: boolean): { 0: number; 1: string }[] {
 	const differ = new diff_match_patch();
 	const diff = differ.diff_main(text1, text2);
 	if (cleanup) {
 		differ.diff_cleanupSemantic(diff);
 	}
 	return diff;
-};
+}
 
-export const line = (lines1: string[], lines2: string[]): DiffArray => {
+export function line(lines1: string[], lines2: string[]): DiffArray {
 	const idMap = new CharacterIdMap<string>();
 	const text1 = lines1.map((line) => idMap.toChar(line)).join('');
 	const text2 = lines2.map((line) => idMap.toChar(line)).join('');
@@ -30,9 +26,9 @@ export const line = (lines1: string[], lines2: string[]): DiffArray => {
 		lineDiff.push({ 0: diff[i][0], 1: lines });
 	}
 	return lineDiff;
-};
+}
 
-export const parse = (raw: string): DiffArray => {
+export function parse(raw: string): DiffArray {
 	const lines = raw.split('\n');
 
 	// skip header lines
@@ -91,7 +87,7 @@ export const parse = (raw: string): DiffArray => {
 		}
 		return false;
 	}
-};
+}
 
 export enum Operation {
 	Equal = 0,

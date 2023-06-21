@@ -2,11 +2,11 @@ import { invoke, listen } from '$lib/ipc';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 
 export namespace Session {
-	export const within = (session: Session | undefined, timestampMs: number) => {
+	export function within(session: Session | undefined, timestampMs: number) {
 		if (!session) return false;
 		const { startTimestampMs, lastTimestampMs } = session.meta;
 		return startTimestampMs <= timestampMs && timestampMs <= lastTimestampMs;
-	};
+	}
 }
 
 export type Session = {
@@ -21,25 +21,28 @@ export type Session = {
 	};
 };
 
-export const list = async (params: { projectId: string; earliestTimestampMs?: number }) =>
-	invoke<Omit<Session, 'projectId'>[]>('list_sessions', params).then((sessions) =>
+export async function list(params: { projectId: string; earliestTimestampMs?: number }) {
+	return invoke<Omit<Session, 'projectId'>[]>('list_sessions', params).then((sessions) =>
 		sessions.map((s) => ({ ...s, projectId: params.projectId }))
 	);
+}
 
-export const subscribe = (
+export function subscribe(
 	params: { projectId: string },
 	callback: (params: {
 		projectId: string;
 		session: Omit<Session, 'projectId'>;
 	}) => Promise<void> | void
-) =>
-	listen<Omit<Session, 'projectId'>>(`project://${params.projectId}/sessions`, async (event) =>
-		callback({ ...params, session: event.payload })
+) {
+	return listen<Omit<Session, 'projectId'>>(
+		`project://${params.projectId}/sessions`,
+		async (event) => callback({ ...params, session: event.payload })
 	);
+}
 
 const stores: Record<string, WritableLoadable<Session[]>> = {};
 
-export const Sessions = (params: { projectId: string }) => {
+export function Sessions(params: { projectId: string }) {
 	if (params.projectId in stores) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));
 
@@ -53,4 +56,4 @@ export const Sessions = (params: { projectId: string }) => {
 	});
 	stores[params.projectId] = store;
 	return store;
-};
+}

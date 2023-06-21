@@ -1,7 +1,7 @@
 import { building } from '$app/environment';
 import { events } from '$lib';
 
-export const on = async (combo: string, callback: (event: KeyboardEvent) => void) => {
+export async function on(combo: string, callback: (event: KeyboardEvent) => void) {
 	if (building) return () => {};
 
 	const comboContainsControlKeys =
@@ -22,4 +22,4 @@ export const on = async (combo: string, callback: (event: KeyboardEvent) => void
 			}
 		})
 	);
-};
+}

@@ -10,11 +10,11 @@ const list = (params: { projectId: string; contextLines?: number }) =>
 
 const stores: Record<string, WritableLoadable<Record<string, string>>> = {};
 
-export const Diffs = (params: { projectId: string }) => {
+export function Diffs(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));
 	git.activities.subscribe(params, ({ projectId }) => list({ projectId }).then(store.set));
 	sessions.subscribe(params, () => list(params).then(store.set));
 	stores[params.projectId] = store;
 	return store;
-};
+}
