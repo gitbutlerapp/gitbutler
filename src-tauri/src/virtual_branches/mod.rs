@@ -41,6 +41,156 @@ pub struct VirtualBranchHunk {
     pub file_path: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteBranch {
+    head: String,
+    branch: String,
+    name: String,
+    description: String,
+    last_commit_ts: u128,
+    first_commit_ts: u128,
+    ahead: u32,
+    behind: u32,
+    upstream: String,
+    authors: Vec<String>,
+}
+
+pub fn remote_branches(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<Vec<RemoteBranch>> {
+    // get the current target
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => Ok(target),
+        Err(reader::Error::NotFound) => return Ok(vec![]),
+        Err(e) => Err(e),
+    }
+    .context("failed to read default target")?;
+
+    let main_oid = default_target.sha;
+
+    let current_time = SystemTime::now();
+    let too_old = Duration::from_secs(86_400 * 180); // 180 days (6 months) is too old
+
+    let mut branches: Vec<Branch> = Vec::new();
+    for branch in project_repository.git_repository.branches(None)? {
+        let (branch, _) = branch?;
+        let branch_name = branch.get().name().unwrap();
+        println!("branch: {}", branch_name);
+        let upstream_branch = branch.upstream();
+        match branch.get().target() {
+            Some(branch_oid) => {
+                // get the branch ref
+                let branch_ref = repo.find_reference(&branch_name).unwrap();
+                let branch_commit = repo.find_commit(branch_oid).ok().unwrap();
+
+                // figure out if the last commit on this branch is too old to consider
+                let branch_time = branch_commit.time();
+                // convert git::Time to SystemTime
+                let branch_time =
+                    UNIX_EPOCH + Duration::from_secs(branch_time.seconds().try_into().unwrap());
+                let duration = current_time.duration_since(branch_time).unwrap();
+                if duration > too_old {
+                    continue;
+                }
+
+                let mut revwalk = repo.revwalk().unwrap();
+                revwalk.set_sorting(git2::Sort::TOPOLOGICAL).unwrap();
+                revwalk.push(main_oid).unwrap();
+                revwalk.hide(branch_oid).unwrap();
+
+                let mut count_behind = 0;
+                for oid in revwalk {
+                    if oid.unwrap() == branch_oid {
+                        break;
+                    }
+                    count_behind += 1;
+                    if count_behind > 200 {
+                        break;
+                    }
+                }
+
+                let mut revwalk2 = repo.revwalk().unwrap();
+                revwalk2.set_sorting(git2::Sort::TOPOLOGICAL).unwrap();
+                revwalk2.push(branch_oid).unwrap();
+                revwalk2.hide(main_oid).unwrap();
+
+                let mut min_time = None;
+                let mut max_time = None;
+                let mut count_ahead = 0;
+                let mut authors = HashSet::new();
+                for oid in revwalk2 {
+                    let oid = oid.unwrap();
+                    if oid == main_oid {
+                        break;
+                    }
+                    let commit = repo.find_commit(oid).ok().unwrap();
+                    let timestamp = commit.time().seconds() as u128;
+
+                    if min_time.is_none() || timestamp < min_time.unwrap() {
+                        min_time = Some(timestamp);
+                    }
+
+                    if max_time.is_none() || timestamp > max_time.unwrap() {
+                        max_time = Some(timestamp);
+                    }
+
+                    // find the signature for this commit
+                    let commit = repo.find_commit(oid).ok().unwrap();
+                    let signature = commit.author();
+                    authors.insert(signature.email().unwrap().to_string());
+
+                    count_ahead += 1;
+                }
+
+                let upstream_branch_name = match upstream_branch {
+                    Ok(upstream_branch) => {
+                        upstream_branch.get().name().unwrap_or("").to_string()
+                    }
+                    Err(e) => "".to_string(),
+                };
+
+                branches.push(Branch {
+                    oid: branch_oid.to_string(),
+                    branch: branch_name.to_string(),
+                    name: branch_name.to_string(),
+                    description: "".to_string(),
+                    last_commit_ts: max_time.unwrap_or(0),
+                    first_commit_ts: min_time.unwrap_or(0),
+                    ahead: count_ahead,
+                    behind: count_behind,
+                    upstream: upstream_branch_name,
+                    authors: authors.into_iter().collect(),
+                });
+            }
+            None => {
+                // this is a detached head
+                branches.push(Branch {
+                    oid: "".to_string(),
+                    branch: branch_name.to_string(),
+                    name: branch_name.to_string(),
+                    description: "".to_string(),
+                    last_commit_ts: 0,
+                    first_commit_ts: 0,
+                    ahead: 0,
+                    behind: 0,
+                    upstream: "".to_string(),
+                    authors: vec![],
+                });
+            }
+        }
+    }
+    Ok(branches)
+}
+
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,

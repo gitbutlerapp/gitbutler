@@ -446,11 +446,12 @@ impl App {
         project_repository.git_branches()
     }
 
-    pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<String>> {
+    pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<virtual_branches::RemoteBranch>> {
+        let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        project_repository.git_remote_branches()
+        virtual_branches::git_remote_branches(&gb_repository, &project_repository)
     }
 
     pub fn git_head(&self, project_id: &str) -> Result<String> {

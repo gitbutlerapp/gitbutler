@@ -433,7 +433,7 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<Vec<String>, Error> {
+) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
     let app = handle.state::<app::App>();
     let branches = app
         .git_remote_branches(project_id)
