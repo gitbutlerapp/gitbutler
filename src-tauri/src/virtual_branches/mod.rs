@@ -82,10 +82,15 @@ pub fn create_virtual_branch(
     .context("failed to read default target")?;
 
     let repo = &gb_repository.git_repository;
-    let commit = repo.find_commit(default_target.sha).unwrap();
-    let tree = commit.tree().unwrap();
+    let commit = repo
+        .find_commit(default_target.sha)
+        .context("failed to find commit")?;
+    let tree = commit.tree().context("failed to find tree")?;
 
-    let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
+    let now = time::UNIX_EPOCH
+        .elapsed()
+        .context("failed to get elapsed time")?
+        .as_millis();
 
     let branch = Branch {
         id: Uuid::new_v4().to_string(),
@@ -100,7 +105,7 @@ pub fn create_virtual_branch(
     };
 
     let writer = branch::Writer::new(gb_repository);
-    writer.write(&branch).unwrap();
+    writer.write(&branch).context("failed to write branch")?;
     Ok(branch.id)
 }
 
@@ -111,14 +116,14 @@ pub fn move_files(
 ) -> Result<()> {
     let current_session = gb_repository
         .get_or_create_current_session()
-        .expect("failed to get or create currnt session");
+        .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .expect("failed to open current session reader");
+        .context("failed to open current session")?;
 
     let virtual_branches = Iterator::new(&current_session_reader)
-        .expect("failed to read virtual branches")
+        .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .expect("failed to read virtual branches")
+        .context("failed to read virtual branches")?
         .into_iter()
         .collect::<Vec<_>>();
 
@@ -130,7 +135,7 @@ pub fn move_files(
         } else {
             branch.ownership.retain(|f| !paths.contains(f));
         }
-        writer.write(&branch).unwrap();
+        writer.write(&branch).context("failed to write branch")?;
     }
     Ok(())
 }
@@ -280,7 +285,7 @@ pub fn get_status_by_branch(
         current_line_count += 1;
         true
     })
-    .unwrap();
+    .context("failed to print diff")?;
 
     let virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to read virtual branches")?
@@ -329,7 +334,7 @@ pub fn get_status_by_branch(
 
             // ok, write the updated data back
             let writer = branch::Writer::new(gb_repository);
-            writer.write(&branch).unwrap();
+            writer.write(&branch).context("failed to write branch")?;
 
             for file in branch.ownership {
                 if all_files.contains(&file) {
