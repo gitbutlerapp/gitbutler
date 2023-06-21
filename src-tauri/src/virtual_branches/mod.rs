@@ -284,31 +284,28 @@ pub fn move_files(
         .clone();
 
     for path in paths {
-        let mut source_branch = virtual_branches
+        // take the file out of all branches (in case of accidental duplication)
+        let source_branches = virtual_branches
             .iter()
-            .find(|b| {
+            .filter(|b| {
                 b.ownership
                     .iter()
                     .map(|o| o.file_path.display().to_string())
                     .collect::<Vec<_>>()
                     .contains(path)
-            })
-            .context(format!("failed to find source branch for {}", path))?
-            .clone();
+            });
 
-        println!("before: {:?}", source_branch.ownership);
-
-        source_branch
-            .ownership
-            .retain(|f| !f.file_path.display().to_string().eq(path));
-        source_branch.ownership.sort();
-        source_branch.ownership.dedup();
-
-        writer
-            .write(&source_branch)
-            .context(format!("failed to write source branch for {}", path))?;
-
-        println!("after: {:?}", source_branch.ownership);
+        for source_branch in source_branches {
+            let mut source_branch = source_branch.clone();
+            source_branch
+                .ownership
+                .retain(|f| !f.file_path.display().to_string().eq(path));
+            source_branch.ownership.sort();
+            source_branch.ownership.dedup();
+            writer
+                .write(&source_branch)
+                .context(format!("failed to write source branch for {}", path))?;
+        }
 
         target_branch.ownership.push(path.into());
         target_branch.ownership.sort();
@@ -575,7 +572,6 @@ pub fn get_status_by_branch(
                     }
                     // push the file to the status list
                     None => {
-                        println!("  no hunks for {}", file);
                         continue;
                     }
                 }
@@ -845,28 +841,34 @@ mod tests {
             "line1\nline2\n",
         )?;
 
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line1\nline2\n",
+        )?;
+
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
             .expect("failed to create virtual branch");
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
             .expect("failed to create virtual branch");
 
+        let session = gb_repo.get_or_create_current_session().unwrap();
+        let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
+
         // this should automatically move the file to branch2
         let status =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
 
-        let session = gb_repo.get_or_create_current_session().unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &session).unwrap();
         let vbranch_reader = branch::Reader::new(&session_reader);
 
+        move_files(&gb_repo, &branch1_id, &vec!["test.txt".to_string()]).unwrap();
+        move_files(&gb_repo, &branch2_id, &vec!["test2.txt".to_string()]).unwrap();
+
         let branch1 = vbranch_reader.read(&branch1_id).unwrap();
-        println!("branch1: {:?}", branch1);
         let branch2 = vbranch_reader.read(&branch2_id).unwrap();
-        println!("branch2: {:?}", branch2);
-
-        move_files(&gb_repo, &branch1_id, &vec!["text.txt".to_string()]).unwrap();
-
-        let branch1 = vbranch_reader.read(&branch1_id).unwrap();
-        println!("selected: {:?}", branch2);
+        
+        assert_eq!(branch1.ownership.len(), 1);
+        assert_eq!(branch2.ownership.first().unwrap().file_path.to_str().unwrap(), "test2.txt");
 
         Ok(())
     }
