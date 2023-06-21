@@ -66,7 +66,7 @@ pub fn list_virtual_branches(
 
 pub fn create_virtual_branch(
     gb_repository: &gb_repository::Repository,
-    name: String,
+    name: &str,
 ) -> Result<String> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -75,12 +75,9 @@ pub fn create_virtual_branch(
         .context("failed to open current session")?;
 
     let target_reader = target::Reader::new(&current_session_reader);
-    let default_target = match target_reader.read_default() {
-        Ok(target) => Ok(target),
-        Err(reader::Error::NotFound) => return Ok("".to_string()),
-        Err(e) => Err(e),
-    }
-    .context("failed to read default target")?;
+    let default_target = target_reader
+        .read_default()
+        .context("failed to read default")?;
 
     let repo = &gb_repository.git_repository;
     let commit = repo
@@ -95,7 +92,7 @@ pub fn create_virtual_branch(
 
     let branch = Branch {
         id: Uuid::new_v4().to_string(),
-        name,
+        name: name.to_string(),
         applied: true,
         upstream: "".to_string(),
         tree: tree.id(),
@@ -316,6 +313,39 @@ pub fn get_status_by_branch(
             }
             results.push_str(std::str::from_utf8(line.content()).unwrap());
         }
+
+        let new_path = delta
+            .new_file()
+            .path()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let hunk_id = format!("{}:{}", new_path, hunk_numbers);
+        if hunk_id != last_hunk_id {
+            let hunk = VirtualBranchHunk {
+                id: last_hunk_id.clone(),
+                name: "".to_string(),
+                diff: results.clone(),
+                modified_at: 0,
+                file_path: last_path.clone(),
+            };
+            hunks.push(hunk);
+            result.insert(last_path.clone(), hunks.clone());
+            results = String::new();
+            last_hunk_id = hunk_id;
+        }
+        if last_path != new_path {
+            hunks = Vec::new();
+            last_path = new_path;
+        }
+
+        match line.origin() {
+            '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
+            _ => {}
+        }
+        results.push_str(std::str::from_utf8(line.content()).unwrap());
         true
     })
     .context("failed to print diff")?;
@@ -399,4 +429,160 @@ pub fn get_status_by_branch(
     }
 
     Ok(statuses)
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use crate::{projects, storage, users};
+
+    use super::*;
+
+    static mut TEST_TARGET_INDEX: usize = 0;
+
+    fn test_target() -> target::Target {
+        target::Target {
+            name: format!("target_name_{}", unsafe { TEST_TARGET_INDEX }),
+            remote: format!("remote_{}", unsafe { TEST_TARGET_INDEX }),
+            sha: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef0123456{}",
+                unsafe { TEST_TARGET_INDEX }
+            ))
+            .unwrap(),
+        }
+    }
+
+    static mut TEST_INDEX: usize = 0;
+
+    fn test_branch() -> branch::Branch {
+        unsafe {
+            TEST_INDEX += 1;
+        }
+        branch::Branch {
+            id: format!("branch_{}", unsafe { TEST_INDEX }),
+            name: format!("branch_name_{}", unsafe { TEST_INDEX }),
+            applied: true,
+            upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
+            created_timestamp_ms: unsafe { TEST_INDEX } as u128,
+            updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
+            head: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef0123456{}",
+                unsafe { TEST_INDEX }
+            ))
+            .unwrap(),
+            tree: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef012345{}",
+                unsafe { TEST_INDEX + 10 }
+            ))
+            .unwrap(),
+            ownership: vec![branch::Ownership {
+                file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
+                ranges: vec![],
+            }],
+        }
+    }
+
+    fn test_repository() -> Result<git2::Repository> {
+        let path = tempdir()?.path().to_str().unwrap().to_string();
+        let repository = git2::Repository::init(path)?;
+        repository.remote_add_fetch("origin/master", "master")?;
+        let mut index = repository.index()?;
+        let oid = index.write_tree()?;
+        let signature = git2::Signature::now("test", "test@email.com").unwrap();
+        repository.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            "Initial commit",
+            &repository.find_tree(oid)?,
+            &[],
+        )?;
+        Ok(repository)
+    }
+
+    #[test]
+    fn create_branch() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo =
+            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+        })?;
+
+        create_virtual_branch(&gb_repo, "test_branch").expect("failed to create virtual branch");
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+
+        let branches = iterator::BranchIterator::new(&current_session_reader)?
+            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+            .expect("failed to read branches");
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].name, "test_branch");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_status_files_by_branch() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+        })?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(std::path::Path::new(&project.path).join(file_path), "test")?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+            .expect("failed to create virtual branch");
+
+        let status =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+
+        let branch_ids = status
+            .iter()
+            .map(|(branch, _)| branch.id.clone())
+            .collect::<Vec<_>>();
+        let all_files = status
+            .iter()
+            .flat_map(|(_, files)| files.iter().map(|f| f.path.clone()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(status.len(), 2);
+        assert_eq!(branch_ids.len(), 2);
+        assert!(branch_ids.contains(&branch1_id));
+        assert!(branch_ids.contains(&branch2_id));
+        assert_eq!(all_files.len(), 1);
+        assert_eq!(all_files[0], file_path.to_str().unwrap());
+
+        Ok(())
+    }
 }
