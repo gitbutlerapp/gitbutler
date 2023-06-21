@@ -2,7 +2,7 @@ pub mod branch;
 mod iterator;
 pub mod target;
 
-use std::{collections::HashMap, time, vec};
+use std::{collections::HashMap, path, time, vec};
 
 use anyhow::{Context, Result};
 use filetime::FileTime;
@@ -247,73 +247,125 @@ pub fn get_status_by_branch(
     // find all the hunks
     let mut new_ownership = vec![];
 
-    let mut result = HashMap::new();
-    let mut results = String::new();
-    let mut hunks = Vec::new();
+    let mut hunks_by_filepath: HashMap<String, Vec<VirtualBranchHunk>> = HashMap::new();
+    let mut current_diff = String::new();
 
-    let mut last_path = String::new();
-    let mut last_hunk_id = String::new();
-    let mut hunk_numbers = String::new();
+    let mut current_file_path: Option<path::PathBuf> = None;
+    let mut current_hunk_id: Option<String> = None;
     let mut mtimes = HashMap::new();
 
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
-        if let Some(hunk) = hunk {
-            hunk_numbers = format!("{}-{}", hunk.old_start(), hunk.new_start());
-
-            let new_path = delta
-                .new_file()
+        let file_path = delta.new_file().path().unwrap_or_else(|| {
+            delta
+                .old_file()
                 .path()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string();
+                .expect("failed to get file name from diff")
+        });
 
-            let mtime = match mtimes.get(&new_path) {
-                Some(mtime) => *mtime,
-                None => {
-                    let file_path = project_repository
-                        .git_repository
-                        .workdir()
-                        .unwrap()
-                        .join(new_path.clone());
+        let hunk_id = if let Some(hunk) = hunk {
+            format!(
+                "{}:{}-{}",
+                file_path.display(),
+                hunk.new_start(),
+                hunk.new_lines()
+            )
+        } else {
+            // no hunk, so we're in the header, skip it
+            return true;
+        };
 
-                    let metadata = file_path.metadata().unwrap();
-                    let mtime = FileTime::from_last_modification_time(&metadata);
-                    // convert seconds and nanoseconds to milliseconds
-                    let mtime = (mtime.seconds() as u128 * 1000) as u128;
-                    mtimes.insert(new_path.clone(), mtime);
-                    mtime
-                }
-            };
+        let mtime = match mtimes.get(file_path) {
+            Some(mtime) => *mtime,
+            None => {
+                let file_path = project_repository
+                    .git_repository
+                    .workdir()
+                    .unwrap()
+                    .join(file_path);
 
-            let hunk_id = format!("{}:{}", new_path, hunk_numbers);
-            if hunk_id != last_hunk_id {
-                let hunk = VirtualBranchHunk {
-                    id: last_hunk_id.clone(),
+                let metadata = file_path.metadata().unwrap();
+                let mtime = FileTime::from_last_modification_time(&metadata);
+                // convert seconds and nanoseconds to milliseconds
+                let mtime = mtime.seconds() as u128 * 1000;
+                mtimes.insert(file_path, mtime);
+                mtime
+            }
+        };
+
+        let path_changed = if current_file_path.is_none() {
+            false
+        } else {
+            !file_path.eq(current_file_path.as_ref().unwrap())
+        };
+
+        let hunk_changed = if current_hunk_id.is_none() {
+            false
+        } else {
+            !hunk_id.eq(current_hunk_id.as_ref().unwrap())
+        };
+
+        if hunk_changed {
+            let file_path = file_path.to_str().unwrap().to_string();
+            hunks_by_filepath
+                .entry(file_path.clone())
+                .or_default()
+                .push(VirtualBranchHunk {
+                    id: current_hunk_id.as_ref().unwrap().to_string(),
                     name: "".to_string(),
-                    diff: results.clone(),
+                    diff: current_diff.clone(),
                     modified_at: mtime,
-                    file_path: last_path.clone(),
-                };
-                hunks.push(hunk);
-                result.insert(last_path.clone(), hunks.clone());
-                results = String::new();
-                last_hunk_id = hunk_id;
-            }
-            if last_path != new_path {
-                hunks = Vec::new();
-                last_path = new_path;
-            }
-
-            match line.origin() {
-                '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
-                _ => {}
-            }
-            results.push_str(std::str::from_utf8(line.content()).unwrap());
+                    file_path,
+                });
         }
+
+        if path_changed {
+            current_diff = String::new();
+        }
+
+        match line.origin() {
+            '+' | '-' | ' ' => current_diff.push_str(&format!("{}", line.origin())),
+            _ => {}
+        }
+
+        current_diff.push_str(std::str::from_utf8(line.content()).unwrap());
+        current_file_path = Some(file_path.to_path_buf());
+        current_hunk_id = Some(hunk_id);
+
         true
     })
     .context("failed to print diff")?;
+
+    if let Some(file_path) = current_file_path {
+        let mtime = match mtimes.get(&file_path) {
+            Some(mtime) => *mtime,
+            None => {
+                let file_path = project_repository
+                    .git_repository
+                    .workdir()
+                    .unwrap()
+                    .join(&file_path);
+
+                let metadata = file_path.metadata().unwrap();
+                let mtime = FileTime::from_last_modification_time(&metadata);
+                // convert seconds and nanoseconds to milliseconds
+                let mtime = mtime.seconds() as u128 * 1000;
+                mtimes.insert(file_path, mtime);
+                mtime
+            }
+        };
+
+        let file_path = file_path.to_str().unwrap().to_string();
+        hunks_by_filepath
+            .entry(file_path.clone())
+            .or_default()
+            .push(VirtualBranchHunk {
+                id: current_hunk_id.as_ref().unwrap().to_string(),
+                name: "".to_string(),
+                diff: current_diff,
+                modified_at: mtime,
+                file_path,
+            });
+    }
 
     let virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to read virtual branches")?
@@ -358,7 +410,7 @@ pub fn get_status_by_branch(
             for file in branch.ownership {
                 let file = file.file_path.display().to_string();
                 if all_files.contains(&file) {
-                    let filehunks = result.get(&file).cloned().unwrap_or(Vec::new());
+                    let filehunks = hunks_by_filepath.get(&file).unwrap();
                     let vfile = VirtualBranchFile {
                         id: file.clone(),
                         path: file.clone(),
@@ -372,7 +424,7 @@ pub fn get_status_by_branch(
             for file in &branch.ownership {
                 let file = file.file_path.display().to_string();
                 if all_files.contains(&file) {
-                    match result.get(&file) {
+                    match hunks_by_filepath.get(&file) {
                         Some(filehunks) => {
                             let vfile = VirtualBranchFile {
                                 id: file.clone(),
@@ -522,7 +574,10 @@ mod tests {
         })?;
 
         let file_path = std::path::Path::new("test.txt");
-        std::fs::write(std::path::Path::new(&project.path).join(file_path), "test")?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\n",
+        )?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
             .expect("failed to create virtual branch");
