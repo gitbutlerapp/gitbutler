@@ -38,7 +38,10 @@ mod tests {
 
     use crate::{
         gb_repository, projects, sessions, storage, users,
-        virtual_branches::{branch, target::writer::TargetWriter},
+        virtual_branches::{
+            branch,
+            target::{self, writer::TargetWriter},
+        },
     };
 
     use super::*;
@@ -88,6 +91,20 @@ mod tests {
             &[],
         )?;
         Ok(repository)
+    }
+
+    static mut TEST_TARGET_INDEX: usize = 0;
+
+    fn test_target() -> Target {
+        Target {
+            name: format!("target_name_{}", unsafe { TEST_TARGET_INDEX }),
+            remote: format!("remote_{}", unsafe { TEST_TARGET_INDEX }),
+            sha: git2::Oid::from_str(&format!(
+                "0123456789abcdef0123456789abcdef0123456{}",
+                unsafe { TEST_TARGET_INDEX }
+            ))
+            .unwrap(),
+        }
     }
 
     #[test]
