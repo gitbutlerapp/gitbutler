@@ -302,7 +302,11 @@ fn run_move(butler: ButlerCli) {
         .id
         .clone();
 
-    println!("Moving {} files to {}", selected_files.len(), new_branch.red());
+    println!(
+        "Moving {} files to {}",
+        selected_files.len(),
+        new_branch.red()
+    );
     virtual_branches::move_files(&butler.gb_repository, &target_branch_id, &selected_files)
         .expect("failed to move files");
 }
