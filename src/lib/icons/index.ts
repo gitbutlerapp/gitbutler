@@ -29,3 +29,5 @@ export { default as IconEmail } from './IconEmail.svelte';
 export { default as IconBookmarkFilled } from './IconBookmarkFilled.svelte';
 export { default as IconAISparkles } from './IconAISparkles.svelte';
 export { default as IconBranch } from './IconBranch.svelte';
+export { default as IconTriangleUp } from './IconTriangleUp.svelte';
+export { default as IconTriangleDown } from './IconTriangleDown.svelte';
