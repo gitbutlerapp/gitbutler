@@ -5,18 +5,37 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { createFile } from './helpers';
 	import FileCard from './FileCard.svelte';
+	import { invoke } from '@tauri-apps/api';
 
+	export let branchId: string;
 	export let name: string;
 	export let description: string;
 	export let files: File[];
+	export let projectId: string;
 
 	let descriptionHeight = 0;
 	let textArea: HTMLTextAreaElement;
 	const dispatch = createEventDispatcher();
 
+	const move_files = async (params: { projectId: string; branch: string; paths: Array<string> }) =>
+		invoke<object>('move_virtual_branch_files', params);
+
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
 		const newItems = e.detail.items;
 		const fileItems = newItems.filter((item) => item instanceof File) as File[];
+
+		if (e.type == 'finalize') {
+			console.log({
+				projectId: projectId,
+				branch: branchId,
+				paths: fileItems.map((item) => item.path)
+			});
+			move_files({
+				projectId: projectId,
+				branch: branchId,
+				paths: fileItems.map((item) => item.path)
+			});
+		}
 
 		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
 		for (const hunk of hunkItems) {
