@@ -125,18 +125,42 @@ pub fn move_files(
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
         .into_iter()
+        .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    // rewrite ownership of both branches
     let writer = branch::Writer::new(gb_repository);
-    for mut branch in virtual_branches {
-        if branch.id == branch_id {
-            branch.ownership.extend(paths.iter().map(|f| f.to_string()));
-        } else {
-            branch.ownership.retain(|f| !paths.contains(f));
-        }
-        writer.write(&branch).context("failed to write branch")?;
+
+    let mut target_branch = virtual_branches
+        .iter()
+        .find(|b| b.id == branch_id)
+        .context("failed to find target branch")?
+        .clone();
+
+    for path in &paths {
+        let mut source_branch = virtual_branches
+            .iter()
+            .find(|b| b.ownership.contains(path))
+            .context(format!("failed to find source branch for {}", path))?
+            .clone();
+
+        source_branch.ownership.retain(|f| f != path);
+        writer
+            .write(&source_branch)
+            .context(format!("failed to write source branch for {}", path))?;
+
+        target_branch.ownership.push(path.to_string());
+        writer
+            .write(&target_branch)
+            .context(format!("failed to write target branch for {}", path))?;
+
+        log::info!(
+            "{}: moved file {} to branch {}",
+            gb_repository.project_id,
+            path,
+            target_branch.name
+        );
     }
+
     Ok(())
 }
 
