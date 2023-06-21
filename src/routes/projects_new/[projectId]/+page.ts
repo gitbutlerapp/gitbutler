@@ -28,11 +28,10 @@ export const load: PageLoad = async ({ params }) => {
 	// fix dates from the test data
 	vbranches.map((branch: Branch) => {
 		branch.files = branch.files.map((file: File) => {
-			file.hunks = file.hunks
-				.map((hunk: any) => {
-					hunk.modifiedAt = new Date(hunk.modifiedAt);
-					return hunk;
-				});
+			file.hunks = file.hunks.map((hunk: any) => {
+				hunk.modifiedAt = new Date(hunk.modifiedAt);
+				return hunk;
+			});
 			return file;
 		});
 
