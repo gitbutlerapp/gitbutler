@@ -25,3 +25,16 @@ export class Branch extends DndItem {
 	files!: File[];
 	description!: string;
 }
+
+export type BranchData = {
+	sha: string;
+	branch: string;
+	name: string;
+	description: string;
+	lastCommitTs: number;
+	firstCommitTs: number;
+	ahead: number;
+	behind: number;
+	upstream: string;
+	authors: string[];
+};

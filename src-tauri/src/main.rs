@@ -433,10 +433,23 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
+) -> Result<Vec<String>, Error> {
     let app = handle.state::<app::App>();
     let branches = app
         .git_remote_branches(project_id)
+        .with_context(|| format!("failed to get git branches for project {}", project_id))?;
+    Ok(branches)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn git_remote_branches_data(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
+    let app = handle.state::<app::App>();
+    let branches = app
+        .git_remote_branches_data(project_id)
         .with_context(|| format!("failed to get git branches for project {}", project_id))?;
     Ok(branches)
 }
@@ -758,6 +771,7 @@ fn main() {
             git_match_paths,
             git_branches,
             git_remote_branches,
+            git_remote_branches_data,
             git_head,
             git_switch_branch,
             git_commit,

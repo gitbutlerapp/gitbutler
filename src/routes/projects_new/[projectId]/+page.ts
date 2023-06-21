@@ -1,8 +1,7 @@
 import type { PageLoad } from './$types';
 import { plainToInstance } from 'class-transformer';
-import { Branch, File } from './types';
+import { Branch, File, type BranchData } from './types';
 import { invoke } from '$lib/ipc';
-import { CloudApi } from '$lib/api';
 
 export const load: PageLoad = async ({ params }) => {
 	const branch_data = (params: { projectId: string }) =>
@@ -14,6 +13,9 @@ export const load: PageLoad = async ({ params }) => {
 	const get_branches = async (params: { projectId: string }) =>
 		invoke<Array<string>>('git_remote_branches', params);
 
+	const get_branches_data = async (params: { projectId: string }) =>
+		invoke<Array<BranchData>>('git_remote_branches_data', params);
+
 	const vbranches = await branch_data({ projectId: params.projectId });
 	console.log(vbranches);
 
@@ -22,6 +24,10 @@ export const load: PageLoad = async ({ params }) => {
 
 	const remote_branches = await get_branches({ projectId: params.projectId });
 	console.log(remote_branches);
+
+	const remote_branches_data = await get_branches_data({ projectId: params.projectId });
+	console.log(remote_branches_data);
+
 
 	//const cloud = CloudApi();
 
@@ -50,10 +56,14 @@ export const load: PageLoad = async ({ params }) => {
 		}))
 	);
 
+	// sort remote_branches_data by date
+	remote_branches_data.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
+
 	return {
 		branchData: branches,
 		projectId: params.projectId,
 		target,
-		remote_branches
+		remote_branches,
+		remote_branches_data
 	};
 };

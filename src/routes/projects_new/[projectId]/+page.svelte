@@ -15,6 +15,7 @@
 	let branches = data.branchData;
 	let target = data.target;
 	let remoteBranches = data.remote_branches;
+	let remoteBranchesData = data.remote_branches_data;
 	let projectId = data.projectId;
 	let targetChoice = 'origin/master'; // prob should check if it exists
 
@@ -36,7 +37,7 @@
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray bind:branches remoteBranches={remoteBranches}/>
+		<Tray bind:branches remoteBranches={remoteBranchesData}/>
 		<Board {projectId} bind:branches on:newBranch={handleNewBranch} />
 	</div>
 {:else}
