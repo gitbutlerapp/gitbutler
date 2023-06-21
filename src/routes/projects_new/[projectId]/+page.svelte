@@ -14,7 +14,7 @@
 	export let data: PageData;
 	let branches = data.branchData;
 	let target = data.target;
-	let remote_branches = data.remote_branches;
+	let remoteBranches = data.remote_branches;
 	let projectId = data.projectId;
 	let targetChoice = 'origin/master'; // prob should check if it exists
 
@@ -36,7 +36,7 @@
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray bind:branches />
+		<Tray bind:branches remoteBranches={remoteBranches}/>
 		<Board {projectId} bind:branches on:newBranch={handleNewBranch} />
 	</div>
 {:else}
@@ -46,11 +46,11 @@
 			You need to set your target before you can start working on your project.
 		</p>
 		<!-- select menu of remote_branches -->
-		{#if remote_branches.length === 0}
+		{#if remoteBranches.length === 0}
 			<p class="gb-text-3">You don't have any remote branches.</p>
 		{:else}
 			<select bind:value={targetChoice}>
-				{#each remote_branches as branch}
+				{#each remoteBranches as branch}
 					{#if branch == 'origin/master' || branch == 'origin/main'}
 						<option value={branch} selected>{branch}</option>
 					{:else}
