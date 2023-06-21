@@ -392,9 +392,9 @@ pub fn get_status_by_branch(
 
     for branch in &virtual_branches {
         let mut files = vec![];
+        let mut branch = branch.clone();
         if !new_ownership.is_empty() {
             // in this case, lets add any newly changed files to the first branch we see and persist it
-            let mut branch = branch.clone();
             branch
                 .ownership
                 .extend(new_ownership.iter().map(|file| branch::Ownership {
@@ -406,38 +406,24 @@ pub fn get_status_by_branch(
             // ok, write the updated data back
             let writer = branch::Writer::new(gb_repository);
             writer.write(&branch).context("failed to write branch")?;
+        }
 
-            for file in branch.ownership {
-                let file = file.file_path.display().to_string();
-                if all_files.contains(&file) {
-                    let filehunks = hunks_by_filepath.get(&file).unwrap();
-                    let vfile = VirtualBranchFile {
-                        id: file.clone(),
-                        path: file.clone(),
-                        hunks: filehunks.clone(),
-                    };
+        for file in &branch.ownership {
+            let file = file.file_path.display().to_string();
+            if all_files.contains(&file) {
+                match hunks_by_filepath.get(&file) {
+                    Some(filehunks) => {
+                        let vfile = VirtualBranchFile {
+                            id: file.clone(),
+                            path: file.clone(),
+                            hunks: filehunks.clone(),
+                        };
+                        files.push(vfile);
+                    }
                     // push the file to the status list
-                    files.push(vfile);
-                }
-            }
-        } else {
-            for file in &branch.ownership {
-                let file = file.file_path.display().to_string();
-                if all_files.contains(&file) {
-                    match hunks_by_filepath.get(&file) {
-                        Some(filehunks) => {
-                            let vfile = VirtualBranchFile {
-                                id: file.clone(),
-                                path: file.clone(),
-                                hunks: filehunks.clone(),
-                            };
-                            files.push(vfile);
-                        }
-                        // push the file to the status list
-                        None => {
-                            println!("  no hunks for {}", file);
-                            continue;
-                        }
+                    None => {
+                        println!("  no hunks for {}", file);
+                        continue;
                     }
                 }
             }
