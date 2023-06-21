@@ -9,6 +9,7 @@
 	import { IconBranch } from '$lib/icons';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import { Button } from '$lib/components';
+	import { message } from '@tauri-apps/api/dialog';
 
 	export let branchId: string;
 	export let name: string;
@@ -23,6 +24,9 @@
 
 	const move_files = async (params: { projectId: string; branch: string; paths: Array<string> }) =>
 		invoke<object>('move_virtual_branch_files', params);
+
+	const commit_branch = async (params: { projectId: string; branch: string; message: string }) =>
+		invoke<object>('commit_virtual_branch', params);
 
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
 		const newItems = e.detail.items;
@@ -70,6 +74,17 @@
 		descriptionHeight = textArea.scrollHeight;
 	}
 
+	function commit() {
+		console.log('commit', textArea.value, projectId, branchId);
+		commit_branch({
+			projectId: projectId,
+			branch: branchId,
+			message: textArea.value
+		}).then((res) => {
+			console.log(res);
+		});
+	}
+
 	onMount(() => {
 		updateTextArea();
 	});
@@ -99,7 +114,7 @@
 					width="full-width"
 					color="purple"
 					on:click={() => {
-						console.log("i'd like to commit some day but im not sure i'm ready for it");
+						commit()
 					}}>Commit</Button
 				>
 			</div>
