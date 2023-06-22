@@ -293,8 +293,13 @@ pub fn get_status_by_branch(
             !hunk_id.eq(current_hunk_id.as_ref().unwrap())
         };
 
-        if is_hunk_changed {
-            let file_path = file_path.to_str().unwrap().to_string();
+        if is_hunk_changed || is_path_changed {
+            let file_path = current_file_path
+                .as_ref()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
             hunks_by_filepath
                 .entry(file_path.clone())
                 .or_default()
@@ -305,9 +310,6 @@ pub fn get_status_by_branch(
                     modified_at: mtime,
                     file_path,
                 });
-        }
-
-        if is_path_changed {
             current_diff = String::new();
         }
 

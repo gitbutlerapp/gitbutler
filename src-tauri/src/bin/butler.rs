@@ -357,6 +357,9 @@ fn run_status(butler: ButlerCli) {
         println!(" files:");
         for file in files {
             println!("        {}", file.path);
+            for hunk in file.hunks {
+                println!("          {}", hunk.id);
+            }
         }
         println!();
     }
