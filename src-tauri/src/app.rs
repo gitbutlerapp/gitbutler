@@ -455,7 +455,10 @@ impl App {
         project_repository.git_remote_branches()
     }
 
-    pub fn git_remote_branches_data(&self, project_id: &str) -> Result<Vec<virtual_branches::RemoteBranch>> {
+    pub fn git_remote_branches_data(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<virtual_branches::RemoteBranch>> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)

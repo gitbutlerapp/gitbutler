@@ -2,7 +2,10 @@ pub mod branch;
 mod iterator;
 pub mod target;
 
-use std::{collections::{HashMap, HashSet}, path, time, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path, time, vec,
+};
 
 use anyhow::{Context, Result};
 use filetime::FileTime;
@@ -94,8 +97,8 @@ pub fn remote_branches(
                 // figure out if the last commit on this branch is too old to consider
                 let branch_time = branch_commit.time();
                 // convert git::Time to SystemTime
-                let branch_time =
-                    time::UNIX_EPOCH + time::Duration::from_secs(branch_time.seconds().try_into().unwrap());
+                let branch_time = time::UNIX_EPOCH
+                    + time::Duration::from_secs(branch_time.seconds().try_into().unwrap());
                 let duration = current_time.duration_since(branch_time).unwrap();
                 if duration > too_old {
                     continue;
@@ -151,9 +154,7 @@ pub fn remote_branches(
                 }
 
                 let upstream_branch_name = match upstream_branch {
-                    Ok(upstream_branch) => {
-                        upstream_branch.get().name().unwrap_or("").to_string()
-                    }
+                    Ok(upstream_branch) => upstream_branch.get().name().unwrap_or("").to_string(),
                     Err(e) => "".to_string(),
                 };
 
@@ -291,9 +292,7 @@ pub fn move_files(
 
         for source_branch in source_branches {
             let mut source_branch = source_branch.clone();
-            source_branch
-                .ownership
-                .retain(|o| !o.eq(ownership));
+            source_branch.ownership.retain(|o| !o.eq(ownership));
             source_branch.ownership.sort();
             source_branch.ownership.dedup();
             writer
@@ -853,7 +852,6 @@ mod tests {
         Ok(())
     }
 
-
     #[test]
     fn test_move_files() -> Result<()> {
         let repository = test_repository()?;
@@ -908,9 +906,18 @@ mod tests {
 
         let branch1 = vbranch_reader.read(&branch1_id).unwrap();
         let branch2 = vbranch_reader.read(&branch2_id).unwrap();
-        
+
         assert_eq!(branch1.ownership.len(), 1);
-        assert_eq!(branch2.ownership.first().unwrap().file_path.to_str().unwrap(), "test2.txt");
+        assert_eq!(
+            branch2
+                .ownership
+                .first()
+                .unwrap()
+                .file_path
+                .to_str()
+                .unwrap(),
+            "test2.txt"
+        );
 
         Ok(())
     }

@@ -114,7 +114,7 @@
 					width="full-width"
 					color="purple"
 					on:click={() => {
-						commit()
+						commit();
 					}}>Commit</Button
 				>
 			</div>

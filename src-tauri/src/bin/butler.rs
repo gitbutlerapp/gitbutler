@@ -86,7 +86,9 @@ fn main() {
 }
 
 fn run_remotes(butler: ButlerCli) {
-    let branches = virtual_branches::remote_branches(&butler.gb_repository, &butler.project_repository()).unwrap();
+    let branches =
+        virtual_branches::remote_branches(&butler.gb_repository, &butler.project_repository())
+            .unwrap();
     for branch in branches {
         println!("{:?}", branch);
     }

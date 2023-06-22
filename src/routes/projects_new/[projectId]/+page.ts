@@ -37,12 +37,9 @@ export async function load(e: PageLoadEvent) {
 	const projectId = e.params.projectId;
 	const target = await getTargetData({ projectId });
 	const remoteBranches = await getRemoteBranches({ projectId });
-	const remoteBranchesData = sortBranchData(
-		await getRemoteBranchesData({ projectId })
-	);
+	const remoteBranchesData = sortBranchData(await getRemoteBranchesData({ projectId }));
 	const branches: Branch[] = sortBranchHunks(
 		plainToInstance(Branch, await getVirtualBranches({ projectId }))
 	);
 	return { projectId, target, remoteBranches, remoteBranchesData, branches };
 }
-
