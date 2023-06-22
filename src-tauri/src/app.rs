@@ -346,7 +346,9 @@ impl App {
         paths: Vec<&str>,
     ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
-        let paths: Vec<branch::Ownership> = paths.into_iter().map(|p| p.try_into())
+        let paths: Vec<branch::Ownership> = paths
+            .into_iter()
+            .map(|p| p.try_into())
             .collect::<Result<Vec<branch::Ownership>, _>>()?;
         virtual_branches::move_files(&gb_repository, branch, &paths)?;
         Ok(())
