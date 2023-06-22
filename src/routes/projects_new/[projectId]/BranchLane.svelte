@@ -91,17 +91,19 @@
 </script>
 
 <div
-	class="gb-bg-1 gb-border-1 flex max-h-full w-96 shrink-0 flex-col overflow-y-hidden rounded-xl border px-2 pb-2 shadow"
+	class="flex max-h-full w-96 shrink-0 flex-col overflow-y-hidden rounded-xl bg-white px-2 shadow dark:bg-black"
 >
 	<div class="flex h-16 shrink-0 items-center px-3 text-lg font-bold">
 		<IconBranch class="mr-3 text-[#A1A1AA]" />
 		{name}
 	</div>
-	<div class="gb-bg-2 gb-border-3 flex flex-col overflow-y-hidden rounded-lg border p-2">
+	<div
+		class="flex flex-col overflow-y-hidden rounded-lg border border-light-700 bg-light-800 p-2 dark:border-dark-700 dark:bg-dark-800"
+	>
 		<div>
 			<textarea
 				bind:this={textArea}
-				class="gb-bg-2 gb-text-2 mb-5 h-14 w-full shrink-0 resize-none rounded border-0 py-0 focus-within:h-36"
+				class="mb-5 h-14 w-full shrink-0 resize-none rounded border-0 bg-light-800 py-0 text-dark-400 focus-within:h-36 dark:bg-dark-800 dark:text-light-400"
 				style="height: {descriptionHeight}px"
 				value={commitMessage ? commitMessage.trim() : ''}
 				placeholder="Your commit message here..."

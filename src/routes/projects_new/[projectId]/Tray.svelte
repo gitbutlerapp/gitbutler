@@ -7,8 +7,8 @@
 	export let remoteBranches: BranchData[];
 </script>
 
-<div class="gb-text-2 w-80 shrink-0 px-2">
-	<div class="py-4 text-lg font-bold">Your Branches</div>
+<div class="w-80 shrink-0 px-2 dark:bg-dark-300 dark:text-light-800">
+	<div class="py-4">Your Branches</div>
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
 			<div class="rounded-lg p-2" title={branch.name}>

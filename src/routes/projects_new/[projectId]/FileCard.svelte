@@ -40,7 +40,7 @@
 </script>
 
 <div
-	class="changed-file gb-border-2 gb-bg-1 gb-text-2 flex w-full flex-col justify-center gap-2 rounded-lg border p-2"
+	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg border border-light-700 bg-white p-2 text-dark-600 dark:border-dark-700 dark:bg-black dark:text-light-300"
 >
 	<div class="flex items-center gap-2">
 		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap" title={filepath}>
@@ -74,13 +74,17 @@
 	>
 		{#if expanded}
 			{#each hunks || [] as hunk (hunk.id)}
-				<div class="changed-hunk gb-border-2 flex w-full flex-col gap-1 rounded-sm border">
+				<div
+					class="changed-hunk flex w-full flex-col gap-1 rounded-sm border border-light-500 dark:border-dark-500"
+				>
 					<div class="w-full text-ellipsis p-2">
 						{#await summarizeHunk(hunk.diff) then description}
 							{description}
 						{/await}
 					</div>
-					<div class="gb-border-2 cursor-pointer border-t border-b text-sm">
+					<div
+						class="cursor-pointer border-t border-b border-light-700 text-sm dark:border-dark-800"
+					>
 						<!-- Disabling syntax highlighting for perormance reasons -->
 						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={2} />
 					</div>
