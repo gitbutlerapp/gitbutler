@@ -30,7 +30,7 @@ function sortBranchHunks(branches: Branch[]): Branch[] {
 
 function sortBranchData(branchData: BranchData[]): BranchData[] {
 	// sort remote_branches_data by date
-	branchData.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
+	return branchData.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
 }
 
 export async function load(e: PageLoadEvent) {
