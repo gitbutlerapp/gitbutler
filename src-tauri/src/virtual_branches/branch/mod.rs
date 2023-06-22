@@ -55,29 +55,7 @@ impl cmp::Ord for Ownership {
 
 impl Ownership {
     pub fn normalize(&self) -> Ownership {
-        let mut ranges = vec![];
-        for one in &self.ranges {
-            for another in &self.ranges {
-                if one.contains(another.start()) && one.contains(another.end()) {
-                    if one.start() == another.start() && one.end() == another.end() {
-                        ranges.push(one.clone());
-                    } else if one.start() == another.start() {
-                        ranges.push(*one.start()..=*another.end());
-                    } else if one.end() == another.end() {
-                        ranges.push(*another.start()..=*one.end());
-                    } else {
-                        ranges.push(*another.start()..=*another.end());
-                    }
-                } else if one.contains(another.start()) {
-                    ranges.push(*one.start()..=*another.end());
-                } else if one.contains(another.end()) {
-                    ranges.push(*another.start()..=*one.end());
-                } else {
-                    ranges.push(one.clone());
-                    ranges.push(another.clone());
-                }
-            }
-        }
+        let mut ranges = self.ranges.clone();
         ranges.sort_by(|a, b| a.start().cmp(b.start()));
         ranges.dedup();
         Ownership {
@@ -92,60 +70,18 @@ impl Ownership {
             return self.clone();
         }
 
-        if !self.contains(another) {
-            let mut ranges = self.ranges.clone();
-            ranges.extend(another.ranges.clone());
-            return Ownership {
-                file_path: self.file_path.clone(),
-                ranges,
-            };
-        }
-
         let mut ranges = self.ranges.clone();
-        for range in &another.ranges {
-            let mut taken = false;
-            ranges = ranges
-                .iter()
-                .flat_map(
-                    |r: &ops::RangeInclusive<usize>| -> Vec<ops::RangeInclusive<usize>> {
-                        if r.contains(range.start()) && r.contains(range.end()) {
-                            if r.start() == range.start() && r.end() == range.end() {
-                                taken = true;
-                                vec![r.clone()]
-                            } else if r.start() == range.start() {
-                                taken = true;
-                                vec![*range.start()..=*r.end()]
-                            } else if r.end() == range.end() {
-                                taken = true;
-                                vec![*r.start()..=*range.end()]
-                            } else {
-                                taken = true;
-                                vec![*r.start()..=*range.end(), *range.start()..=*r.end()]
-                            }
-                        } else if r.contains(range.start()) {
-                            taken = true;
-                            vec![*r.start()..=*range.end()]
-                        } else if r.contains(range.end()) {
-                            taken = true;
-                            vec![*range.start()..=*r.end()]
-                        } else {
-                            vec![r.clone()]
-                        }
-                    },
-                )
-                .collect();
-            if !taken {
-                ranges.push(range.clone());
-            }
-        }
+        ranges.extend(another.ranges.clone());
 
         Ownership {
             file_path: self.file_path.clone(),
             ranges,
         }
+        .normalize()
     }
 
     // returns a copy of self, with another ranges removed
+    // if all of the ranges are removed, return None
     pub fn minus(&self, another: &Ownership) -> Option<Ownership> {
         if !self.contains(another) {
             return Some(self.clone());
@@ -157,20 +93,8 @@ impl Ownership {
                 .iter()
                 .flat_map(
                     |r: &ops::RangeInclusive<usize>| -> Vec<ops::RangeInclusive<usize>> {
-                        if r.contains(range.start()) && r.contains(range.end()) {
-                            if r.start() == range.start() && r.end() == range.end() {
-                                vec![]
-                            } else if r.start() == range.start() {
-                                vec![range.end() + 1..=*r.end()]
-                            } else if r.end() == range.end() {
-                                vec![*r.start()..=range.start() - 1]
-                            } else {
-                                vec![*r.start()..=range.start() - 1, range.end() + 1..=*r.end()]
-                            }
-                        } else if r.contains(range.start()) {
-                            vec![*r.start()..=range.start() - 1]
-                        } else if r.contains(range.end()) {
-                            vec![range.end() + 1..=*r.end()]
+                        if r.eq(range) {
+                            vec![]
                         } else {
                             vec![r.clone()]
                         }
@@ -320,6 +244,8 @@ mod ownership_tests {
         vec![
             ("file.txt:1-10", "file.txt:1-10"),
             ("file.txt:1-10,15-16", "file.txt:1-10,15-16"),
+            ("file.txt:1-10,10-15,15-16", "file.txt:1-10,15-16"),
+            ("file.txt:1-10,5-12", "file.txt:1-10,5-12"),
             ("file.txt:15-16,1-10", "file.txt:1-10,15-16"),
         ]
         .into_iter()
@@ -343,18 +269,18 @@ mod ownership_tests {
     fn test_plus() {
         vec![
             ("file.txt:1-10", "another.txt:1-5", "file.txt:1-10"),
-            ("file.txt:1-10", "file.txt:1-5", "file.txt:1-10"),
+            ("file.txt:1-10", "file.txt:1-5", "file.txt:1-10,1-5"),
             ("file.txt:1-10", "file.txt:12-15", "file.txt:1-10,12-15"),
             (
                 "file.txt:1-10",
                 "file.txt:8-15,20-25",
-                "file.txt:1-15,20-25",
+                "file.txt:1-10,8-15,20-25",
             ),
-            ("file.txt:1-10", "file.txt:10-15", "file.txt:1-15"),
-            ("file.txt:5-10", "file.txt:1-5", "file.txt:1-10"),
+            ("file.txt:1-10", "file.txt:10-15", "file.txt:1-10,10-15"),
+            ("file.txt:5-10", "file.txt:1-5", "file.txt:1-5,5-10"),
             ("file.txt:1-10", "file.txt:1-10", "file.txt:1-10"),
-            ("file.txt:5-10", "file.txt:2-7", "file.txt:2-10"),
-            ("file.txt:5-10", "file.txt:7-12", "file.txt:5-12"),
+            ("file.txt:5-10", "file.txt:2-7", "file.txt:2-7,5-10"),
+            ("file.txt:5-10", "file.txt:7-12", "file.txt:5-10,7-12"),
         ]
         .into_iter()
         .map(|(a, b, expected)| {
@@ -378,13 +304,19 @@ mod ownership_tests {
     fn test_minus() {
         vec![
             ("file.txt:1-10", "another.txt:1-5", Some("file.txt:1-10")),
-            ("file.txt:1-10", "file.txt:1-5", Some("file.txt:6-10")),
+            ("file.txt:1-10", "file.txt:1-5", Some("file.txt:1-10")),
             ("file.txt:1-10", "file.txt:11-15", Some("file.txt:1-10")),
             ("file.txt:1-10", "file.txt:1-10", None),
-            ("file.txt:1-10", "file.txt:1-1", Some("file.txt:2-10")),
-            ("file.txt:1-10", "file.txt:10-10", Some("file.txt:1-9")),
-            ("file.txt:1-10", "file.txt:3-7", Some("file.txt:1-2,8-10")),
-            ("file.txt:1-10", "file.txt:3-7", Some("file.txt:1-2,8-10")),
+            (
+                "file.txt:1-10,11-15",
+                "file.txt:11-15",
+                Some("file.txt:1-10"),
+            ),
+            (
+                "file.txt:1-10,11-15,15-17",
+                "file.txt:1-10,15-17",
+                Some("file.txt:11-15"),
+            ),
         ]
         .into_iter()
         .map(|(a, b, expected)| {
