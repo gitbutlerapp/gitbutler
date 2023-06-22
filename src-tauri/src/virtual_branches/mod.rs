@@ -799,6 +799,7 @@ mod tests {
             .expect("failed to create virtual branch");
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
             .expect("failed to create virtual branch");
+        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
