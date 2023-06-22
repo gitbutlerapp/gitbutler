@@ -36,12 +36,12 @@
 {:else}
 	<div class="m-auto flex flex-col space-y-2">
 		<h1 class="text-2xl font-bold">Set your target</h1>
-		<p class="gb-text-3">
+		<p class="text-gray-500">
 			You need to set your target before you can start working on your project.
 		</p>
 		<!-- select menu of remoteBranches -->
 		{#if remoteBranches.length === 0}
-			<p class="gb-text-3">You don't have any remote branches.</p>
+			<p class="text-gray-500">You don't have any remote branches.</p>
 		{:else}
 			<select bind:value={targetChoice}>
 				{#each remoteBranches as branch}

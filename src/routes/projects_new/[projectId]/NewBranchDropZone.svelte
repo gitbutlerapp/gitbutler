@@ -46,7 +46,7 @@
 	on:finalize={handleDndFinalize}
 >
 	<div
-		class="gb-border-5 gb-bg-2 gb-text-4 flex h-full w-64 items-center self-center rounded-lg border border-dashed p-8 text-center text-xl font-bold "
+		class="flex h-full w-64 items-center self-center rounded-lg border border-dashed border-dark-100 bg-light-300 p-8 text-center text-xl font-bold dark:bg-dark-400"
 	>
 		drop here to create a new branch
 	</div>
