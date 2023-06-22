@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"test": "vitest run",
 		"build": "vite build",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
@@ -87,6 +88,7 @@
 		"tslib": "^2.4.1",
 		"typescript": "^5.0.4",
 		"vite": "^4.0.0",
+		"vitest": "^0.32.2",
 		"xterm": "^5.1.0",
 		"xterm-addon-canvas": "^0.3.0",
 		"xterm-addon-fit": "^0.7.0",

@@ -43,3 +43,20 @@ export async function load(e: PageLoadEvent) {
 	);
 	return { projectId, target, remoteBranches, remoteBranchesData, branches };
 }
+
+if (import.meta.vitest) {
+	const { it, expect } = import.meta.vitest;
+	it('sorts by last commit timestamp', () => {
+		const bd: BranchData[] = [
+			{
+				sha: 'a',
+				lastCommitTs: 1
+			} as BranchData,
+			{
+				sha: 'b',
+				lastCommitTs: 2
+			} as BranchData
+		];
+		expect(sortBranchData(bd)[0].sha).toBe('b');
+	});
+}
