@@ -46,6 +46,27 @@ jobs:
               run: |
                 pnpm check
 
+    unittest-frontend:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Setup node
+              uses: actions/setup-node@v3
+              with:
+                  node-version: 18
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v2
+              with:
+                  version: 7.x.x
+                  run_install: |
+                      args: ["--frozen-lockfile"]
+
+            - name: check frontend
+              run: |
+                pnpm test
 
     lint-rust:
         runs-on: ubuntu-latest
