@@ -351,6 +351,20 @@ impl App {
         Ok(())
     }
 
+    pub fn commit_virtual_branch(
+        &self,
+        project_id: &str,
+        branch: &str,
+        message: &str,
+    ) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        virtual_branches::commit(&gb_repository, &project_repository, branch, message)?;
+        Ok(())
+    }
+
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
         let gb_repository = self.gb_repository(&bookmark.project_id)?;
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
@@ -439,6 +453,17 @@ impl App {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_remote_branches()
+    }
+
+    pub fn git_remote_branches_data(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<virtual_branches::RemoteBranch>> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        virtual_branches::remote_branches(&gb_repository, &project_repository)
     }
 
     pub fn git_head(&self, project_id: &str) -> Result<String> {

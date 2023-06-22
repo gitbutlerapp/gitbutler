@@ -6,8 +6,7 @@
 	import { invoke } from '@tauri-apps/api';
 
 	export let data: PageData;
-
-	let { projectId, target, branches, remoteBranches } = data;
+	let { projectId, target, branches, remoteBranches, remoteBranchesData } = data;
 	let targetChoice = 'origin/master'; // prob should check if it exists
 
 	async function setTarget() {
@@ -31,7 +30,7 @@
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray bind:branches />
+		<Tray bind:branches remoteBranches={remoteBranchesData} />
 		<Board {projectId} bind:branches on:newBranch={handleNewBranch} />
 	</div>
 {:else}
