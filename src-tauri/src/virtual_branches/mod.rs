@@ -905,6 +905,13 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id][0].hunks.len(), 2);
 
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        assert_eq!(branch_reader.read(&branch1_id)?.ownership, vec![]);
+        assert_eq!(
+            branch_reader.read(&branch2_id)?.ownership,
+            vec!["test.txt:1-5,8-12".try_into()?]
+        );
+
         Ok(())
     }
 
@@ -969,6 +976,16 @@ mod tests {
         assert_eq!(files_by_branch_id.len(), 2);
         assert_eq!(files_by_branch_id[&branch1_id].len(), 0);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        assert_eq!(branch_reader.read(&branch1_id)?.ownership, vec![]);
+        assert_eq!(
+            branch_reader.read(&branch2_id)?.ownership,
+            vec!["test.txt".try_into()?]
+        );
 
         Ok(())
     }
@@ -1045,6 +1062,18 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        assert_eq!(
+            branch_reader.read(&branch1_id)?.ownership,
+            vec!["test.txt:8-12".try_into()?]
+        );
+        assert_eq!(
+            branch_reader.read(&branch2_id)?.ownership,
+            vec!["test.txt:1-5".try_into()?]
+        );
 
         Ok(())
     }
@@ -1131,6 +1160,16 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
+
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        assert_eq!(
+            branch_reader.read(&branch1_id)?.ownership,
+            vec!["test.txt".try_into()?]
+        );
+        assert_eq!(
+            branch_reader.read(&branch2_id)?.ownership,
+            vec!["test.txt:1-5".try_into()?]
+        );
 
         Ok(())
     }
