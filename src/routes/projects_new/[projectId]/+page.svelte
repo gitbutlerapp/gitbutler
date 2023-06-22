@@ -5,33 +5,26 @@
 	import type { Branch } from './types';
 	import { invoke } from '@tauri-apps/api';
 
-	const set_target = async (params: { projectId: string; branch: string }) =>
-		invoke<object>('set_target_branch', params);
-
-	const create_branch = async (params: { projectId: string; name: string; path: string }) =>
-		invoke<object>('create_virtual_branch', params);
-
 	export let data: PageData;
-	let branches = data.branchData;
-	let target = data.target;
-	let remoteBranches = data.remote_branches;
-	let remoteBranchesData = data.remote_branches_data;
-	let projectId = data.projectId;
+	let { projectId, target, branches, remoteBranches, remoteBranchesData } = data;
 	let targetChoice = 'origin/master'; // prob should check if it exists
 
-	function setTarget() {
-		target = set_target({ projectId: projectId, branch: targetChoice });
-		console.log(target);
+	async function setTarget() {
+		return invoke<object>('set_target_branch', {
+			projectId: projectId,
+			branch: targetChoice
+		});
+	}
+
+	async function createBranch(params: { projectId: string; name: string; path: string }) {
+		return invoke<object>('create_virtual_branch', params);
 	}
 
 	function handleNewBranch(e: CustomEvent<Branch[]>) {
-		console.log(e.detail);
 		let name = e.detail[0].name;
 		let path = e.detail[0].files[0].path;
-		create_branch({ projectId: projectId, name: name, path: path });
-
+		createBranch({ projectId: projectId, name: name, path: path });
 		branches.push(...e.detail);
-		branches = branches;
 	}
 </script>
 
@@ -46,7 +39,7 @@
 		<p class="gb-text-3">
 			You need to set your target before you can start working on your project.
 		</p>
-		<!-- select menu of remote_branches -->
+		<!-- select menu of remoteBranches -->
 		{#if remoteBranches.length === 0}
 			<p class="gb-text-3">You don't have any remote branches.</p>
 		{:else}

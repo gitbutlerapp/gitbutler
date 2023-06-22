@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import 'reflect-metadata';
 
 class DndItem {
@@ -8,6 +8,7 @@ class DndItem {
 export class Hunk extends DndItem {
 	name!: string;
 	diff!: string;
+	@Transform((obj) => new Date(obj.value))
 	modifiedAt!: Date;
 	filePath!: string;
 }

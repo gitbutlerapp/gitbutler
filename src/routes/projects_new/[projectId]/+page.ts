@@ -1,69 +1,48 @@
-import type { PageLoad } from './$types';
 import { plainToInstance } from 'class-transformer';
-import { Branch, File, type BranchData } from './types';
+import { Branch, type BranchData } from './types';
 import { invoke } from '$lib/ipc';
+import type { PageLoadEvent } from './$types';
 
-export const load: PageLoad = async ({ params }) => {
-	const branch_data = (params: { projectId: string }) =>
-		invoke<Array<Branch>>('list_virtual_branches', params);
+async function getVirtualBranches(params: { projectId: string }) {
+	return invoke<Array<Branch>>('list_virtual_branches', params);
+}
 
-	const get_target = async (params: { projectId: string }) =>
-		invoke<object>('get_target_data', params);
+async function getRemoteBranches(params: { projectId: string }) {
+	return invoke<Array<string>>('git_remote_branches', params);
+}
 
-	const get_branches = async (params: { projectId: string }) =>
-		invoke<Array<string>>('git_remote_branches', params);
+async function getTargetData(params: { projectId: string }) {
+	return invoke<object>('get_target_data', params);
+}
 
-	const get_branches_data = async (params: { projectId: string }) =>
-		invoke<Array<BranchData>>('git_remote_branches_data', params);
+async function getRemoteBranchesData(params: { projectId: string }) {
+	return invoke<Array<BranchData>>('git_remote_branches_data', params);
+}
 
-	const vbranches = await branch_data({ projectId: params.projectId });
-	console.log(vbranches);
+function sortBranchHunks(branches: Branch[]): Branch[] {
+	for (const branch of branches) {
+		for (const file of branch.files) {
+			file.hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
+		}
+	}
+	return branches;
+}
 
-	const target = await get_target({ projectId: params.projectId });
-	console.log(target);
-
-	const remote_branches = await get_branches({ projectId: params.projectId });
-	console.log(remote_branches);
-
-	const remote_branches_data = await get_branches_data({ projectId: params.projectId });
-	console.log(remote_branches_data);
-
-
-	//const cloud = CloudApi();
-
-	// fix dates from the test data
-	vbranches.map((branch: Branch) => {
-		branch.files = branch.files.map((file: File) => {
-			file.hunks = file.hunks.map((hunk: any) => {
-				hunk.modifiedAt = new Date(hunk.modifiedAt);
-				return hunk;
-			});
-			return file;
-		});
-
-		return branch;
-	});
-	let branches = vbranches as Branch[];
-
-	branches = plainToInstance(
-		Branch,
-		branches.map((column) => ({
-			...column,
-			files: column.files.map((file) => ({
-				...file,
-				hunks: file.hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime())
-			}))
-		}))
-	);
-
+function sortBranchData(branchData: BranchData[]): BranchData[] {
 	// sort remote_branches_data by date
-	remote_branches_data.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
+	branchData.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
+}
 
-	return {
-		branchData: branches,
-		projectId: params.projectId,
-		target,
-		remote_branches,
-		remote_branches_data
-	};
-};
+export async function load(e: PageLoadEvent) {
+	const projectId = e.params.projectId;
+	const target = await getTargetData({ projectId });
+	const remoteBranches = await getRemoteBranches({ projectId });
+	const remoteBranchesData = sortBranchData(
+		await getRemoteBranchesData({ projectId })
+	);
+	const branches: Branch[] = sortBranchHunks(
+		plainToInstance(Branch, await getVirtualBranches({ projectId }))
+	);
+	return { projectId, target, remoteBranches, remoteBranchesData, branches };
+}
+

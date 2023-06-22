@@ -206,7 +206,7 @@ fn run_move(butler: ButlerCli) {
     let files =
         virtual_branches::get_status_files(&butler.gb_repository, &butler.project_repository())
             .expect("failed to get status files");
-    let selections = MultiSelect::with_theme(&ColorfulTheme::default())
+    let selected_files = MultiSelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Which files do you want to move?")
         .items(&files[..])
         .interact()
@@ -295,6 +295,9 @@ fn run_status(butler: ButlerCli) {
         println!(" files:");
         for file in files {
             println!("        {}", file.path);
+            for hunk in file.hunks {
+                println!("          {}", hunk.id);
+            }
         }
         println!();
     }

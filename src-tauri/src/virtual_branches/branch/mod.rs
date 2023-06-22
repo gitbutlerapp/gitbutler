@@ -23,6 +23,15 @@ impl From<&String> for Ownership {
     }
 }
 
+impl From<&str> for Ownership {
+    fn from(value: &str) -> Self {
+        Self {
+            file_path: value.into(),
+            ranges: vec![],
+        }
+    }
+}
+
 impl From<String> for Ownership {
     fn from(value: String) -> Self {
         Self {
@@ -45,6 +54,161 @@ impl cmp::Ord for Ownership {
 }
 
 impl Ownership {
+    pub fn normalize(&self) -> Ownership {
+        let mut ranges = vec![];
+        for one in &self.ranges {
+            for another in &self.ranges {
+                if one.contains(another.start()) && one.contains(another.end()) {
+                    if one.start() == another.start() && one.end() == another.end() {
+                        ranges.push(one.clone());
+                    } else if one.start() == another.start() {
+                        ranges.push(*one.start()..=*another.end());
+                    } else if one.end() == another.end() {
+                        ranges.push(*another.start()..=*one.end());
+                    } else {
+                        ranges.push(*another.start()..=*another.end());
+                    }
+                } else if one.contains(another.start()) {
+                    ranges.push(*one.start()..=*another.end());
+                } else if one.contains(another.end()) {
+                    ranges.push(*another.start()..=*one.end());
+                } else {
+                    ranges.push(one.clone());
+                    ranges.push(another.clone());
+                }
+            }
+        }
+        ranges.sort_by(|a, b| a.start().cmp(b.start()));
+        ranges.dedup();
+        Ownership {
+            file_path: self.file_path.clone(),
+            ranges,
+        }
+    }
+
+    // return a copy of self, with another ranges added
+    pub fn plus(&self, another: &Ownership) -> Ownership {
+        if !self.file_path.eq(&another.file_path) {
+            return self.clone();
+        }
+
+        if !self.contains(another) {
+            let mut ranges = self.ranges.clone();
+            ranges.extend(another.ranges.clone());
+            return Ownership {
+                file_path: self.file_path.clone(),
+                ranges,
+            };
+        }
+
+        let mut ranges = self.ranges.clone();
+        for range in &another.ranges {
+            let mut taken = false;
+            ranges = ranges
+                .iter()
+                .flat_map(
+                    |r: &ops::RangeInclusive<usize>| -> Vec<ops::RangeInclusive<usize>> {
+                        if r.contains(range.start()) && r.contains(range.end()) {
+                            if r.start() == range.start() && r.end() == range.end() {
+                                taken = true;
+                                vec![r.clone()]
+                            } else if r.start() == range.start() {
+                                taken = true;
+                                vec![*range.start()..=*r.end()]
+                            } else if r.end() == range.end() {
+                                taken = true;
+                                vec![*r.start()..=*range.end()]
+                            } else {
+                                taken = true;
+                                vec![*r.start()..=*range.end(), *range.start()..=*r.end()]
+                            }
+                        } else if r.contains(range.start()) {
+                            taken = true;
+                            vec![*r.start()..=*range.end()]
+                        } else if r.contains(range.end()) {
+                            taken = true;
+                            vec![*range.start()..=*r.end()]
+                        } else {
+                            vec![r.clone()]
+                        }
+                    },
+                )
+                .collect();
+            if !taken {
+                ranges.push(range.clone());
+            }
+        }
+
+        Ownership {
+            file_path: self.file_path.clone(),
+            ranges,
+        }
+    }
+
+    // returns a copy of self, with another ranges removed
+    pub fn minus(&self, another: &Ownership) -> Option<Ownership> {
+        if !self.contains(another) {
+            return Some(self.clone());
+        }
+
+        let mut ranges = self.ranges.clone();
+        for range in &another.ranges {
+            ranges = ranges
+                .iter()
+                .flat_map(
+                    |r: &ops::RangeInclusive<usize>| -> Vec<ops::RangeInclusive<usize>> {
+                        if r.contains(range.start()) && r.contains(range.end()) {
+                            if r.start() == range.start() && r.end() == range.end() {
+                                vec![]
+                            } else if r.start() == range.start() {
+                                vec![range.end() + 1..=*r.end()]
+                            } else if r.end() == range.end() {
+                                vec![*r.start()..=range.start() - 1]
+                            } else {
+                                vec![*r.start()..=range.start() - 1, range.end() + 1..=*r.end()]
+                            }
+                        } else if r.contains(range.start()) {
+                            vec![*r.start()..=range.start() - 1]
+                        } else if r.contains(range.end()) {
+                            vec![range.end() + 1..=*r.end()]
+                        } else {
+                            vec![r.clone()]
+                        }
+                    },
+                )
+                .collect();
+        }
+
+        if ranges.is_empty() {
+            None
+        } else {
+            Some(Ownership {
+                file_path: self.file_path.clone(),
+                ranges,
+            })
+        }
+    }
+
+    fn contains(&self, another: &Ownership) -> bool {
+        if self.file_path != another.file_path {
+            return false;
+        }
+
+        if self.ranges.is_empty() {
+            return true;
+        }
+
+        for range in &self.ranges {
+            for another_range in &another.ranges {
+                if range.contains(another_range.start()) || range.contains(another_range.end()) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     fn parse_range(s: &str) -> Result<ops::RangeInclusive<usize>> {
         let mut range = s.split('-');
         if range.clone().count() != 2 {
@@ -60,7 +224,11 @@ impl Ownership {
             .unwrap()
             .parse::<usize>()
             .context(format!("failed to parse end of range: {}", s))?;
-        Ok(start..=end)
+        if start > end {
+            Err(anyhow!("invalid range: {}", s))
+        } else {
+            Ok(start..=end)
+        }
     }
 
     pub fn parse_string(s: &str) -> Result<Self> {
@@ -116,6 +284,12 @@ mod ownership_tests {
     }
 
     #[test]
+    fn parse_ownership_invalid_range_2() {
+        let ownership = Ownership::parse_string("foo/bar.rs:1-2,6-5");
+        assert!(ownership.is_err());
+    }
+
+    #[test]
     fn ownership_to_from_string() {
         let ownership = Ownership {
             file_path: path::PathBuf::from("foo/bar.rs"),
@@ -139,6 +313,129 @@ mod ownership_tests {
             Ownership::parse_string(&ownership.to_string()).unwrap(),
             ownership
         );
+    }
+
+    #[test]
+    fn test_normalize() {
+        vec![
+            ("file.txt:1-10", "file.txt:1-10"),
+            ("file.txt:1-10,15-16", "file.txt:1-10,15-16"),
+            ("file.txt:15-16,1-10", "file.txt:1-10,15-16"),
+        ]
+        .into_iter()
+        .map(|(a, expected)| {
+            (
+                Ownership::parse_string(a).unwrap(),
+                Ownership::parse_string(expected).unwrap(),
+            )
+        })
+        .for_each(|(a, expected)| {
+            let got = a.normalize();
+            assert_eq!(
+                got, expected,
+                "normalize {} expected {}, got {}",
+                a, expected, got
+            );
+        });
+    }
+
+    #[test]
+    fn test_plus() {
+        vec![
+            ("file.txt:1-10", "another.txt:1-5", "file.txt:1-10"),
+            ("file.txt:1-10", "file.txt:1-5", "file.txt:1-10"),
+            ("file.txt:1-10", "file.txt:12-15", "file.txt:1-10,12-15"),
+            (
+                "file.txt:1-10",
+                "file.txt:8-15,20-25",
+                "file.txt:1-15,20-25",
+            ),
+            ("file.txt:1-10", "file.txt:10-15", "file.txt:1-15"),
+            ("file.txt:5-10", "file.txt:1-5", "file.txt:1-10"),
+            ("file.txt:1-10", "file.txt:1-10", "file.txt:1-10"),
+            ("file.txt:5-10", "file.txt:2-7", "file.txt:2-10"),
+            ("file.txt:5-10", "file.txt:7-12", "file.txt:5-12"),
+        ]
+        .into_iter()
+        .map(|(a, b, expected)| {
+            (
+                Ownership::parse_string(a).unwrap(),
+                Ownership::parse_string(b).unwrap(),
+                Ownership::parse_string(expected).unwrap(),
+            )
+        })
+        .for_each(|(a, b, expected)| {
+            let got = a.plus(&b);
+            assert_eq!(
+                got, expected,
+                "{} plus {}, expected {}, got {}",
+                a, b, expected, got
+            );
+        });
+    }
+
+    #[test]
+    fn test_minus() {
+        vec![
+            ("file.txt:1-10", "another.txt:1-5", Some("file.txt:1-10")),
+            ("file.txt:1-10", "file.txt:1-5", Some("file.txt:6-10")),
+            ("file.txt:1-10", "file.txt:11-15", Some("file.txt:1-10")),
+            ("file.txt:1-10", "file.txt:1-10", None),
+            ("file.txt:1-10", "file.txt:1-1", Some("file.txt:2-10")),
+            ("file.txt:1-10", "file.txt:10-10", Some("file.txt:1-9")),
+            ("file.txt:1-10", "file.txt:3-7", Some("file.txt:1-2,8-10")),
+            ("file.txt:1-10", "file.txt:3-7", Some("file.txt:1-2,8-10")),
+        ]
+        .into_iter()
+        .map(|(a, b, expected)| {
+            (
+                Ownership::parse_string(a).unwrap(),
+                Ownership::parse_string(b).unwrap(),
+                expected.map(|s| Ownership::parse_string(s).unwrap()),
+            )
+        })
+        .for_each(|(a, b, expected)| {
+            let got = a.minus(&b);
+            assert_eq!(
+                got, expected,
+                "{} minus {}, expected {:?}, got {:?}",
+                a, b, expected, got
+            );
+        });
+    }
+
+    #[test]
+    fn test_contains() {
+        vec![
+            ("file.txt", "another.txt", false),
+            ("file.txt", "file.txt", true),
+            ("file.txt:1-10", "file.txt:11-20", false),
+            ("file.txt:1-10", "file.txt:1-5", true),
+            ("file.txt:1-10", "file.txt:5-10", true),
+            ("file.txt:1-10", "file.txt:1-10", true),
+            ("file.txt:1-10", "file.txt:2-7", true),
+            ("file.txt:3-5", "file.txt:1-10", false),
+            ("file.txt:1-10", "another.txt:1-10", false),
+            ("file.txt:1-10", "file.txt:8-15,20-25", true),
+        ]
+        .into_iter()
+        .map(|(a, b, expected)| {
+            (
+                Ownership::parse_string(a).unwrap(),
+                Ownership::parse_string(b).unwrap(),
+                expected,
+            )
+        })
+        .for_each(|(a, b, expected)| {
+            assert_eq!(
+                a.contains(&b),
+                expected,
+                "{} contains {}, expected {}",
+                a,
+                b,
+                expected
+            );
+        });
     }
 }
 
