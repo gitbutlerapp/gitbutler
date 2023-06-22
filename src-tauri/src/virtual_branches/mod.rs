@@ -853,7 +853,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_files() -> Result<()> {
+    fn test_move_files_scott() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -901,8 +901,8 @@ mod tests {
 
         let vbranch_reader = branch::Reader::new(&session_reader);
 
-        move_files(&gb_repo, &branch1_id, &vec!["test.txt".to_string()]).unwrap();
-        move_files(&gb_repo, &branch2_id, &vec!["test2.txt".to_string()]).unwrap();
+        move_files(&gb_repo, &branch1_id, &vec!["test.txt".to_string().into()]).unwrap();
+        move_files(&gb_repo, &branch2_id, &vec!["test2.txt".to_string().into()]).unwrap();
 
         let branch1 = vbranch_reader.read(&branch1_id).unwrap();
         let branch2 = vbranch_reader.read(&branch2_id).unwrap();
