@@ -7,8 +7,10 @@
 	export let remoteBranches: BranchData[];
 </script>
 
-<div class="w-80 shrink-0 px-2 dark:bg-dark-300 dark:text-light-800">
-	<div class="py-4">Your Branches</div>
+<div
+	class="w-80 shrink-0 overflow-y-auto bg-light-100 px-2 text-light-800 dark:bg-dark-800 dark:text-dark-100"
+>
+	<div class="py-4 text-lg font-bold">Your Branches</div>
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
 			<div class="rounded-lg p-2" title={branch.name}>
@@ -20,28 +22,26 @@
 		{/each}
 	</div>
 	{#if remoteBranches}
-		<div class="flex flex-col">
-			<div class="py-4 text-lg font-bold">Remote Branches</div>
-			{#each remoteBranches as branch}
-				<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
-					<div class="flex flex-row justify-between">
-						<div class="cursor-pointer">
-							{branch.branch.replace('refs/remotes/', '')}
-						</div>
-						<div>{branch.ahead}/{branch.behind}</div>
+		<div class="py-4 text-lg font-bold">Remote Branches</div>
+		{#each remoteBranches as branch}
+			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
+				<div class="flex flex-row justify-between">
+					<div class="cursor-pointer">
+						{branch.branch.replace('refs/remotes/', '')}
 					</div>
-					{#if branch.lastCommitTs > 0}
-						<div class="flex flex-row justify-between">
-							<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
-							<div>
-								{#each branch.authors as author}
-									{author[0]}
-								{/each}
-							</div>
-						</div>
-					{/if}
+					<div>{branch.ahead}/{branch.behind}</div>
 				</div>
-			{/each}
-		</div>
+				{#if branch.lastCommitTs > 0}
+					<div class="flex flex-row justify-between">
+						<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
+						<div title={branch.authors.join('\n')}>
+							{#each branch.authors as author}
+								{author[0]}
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</div>
+		{/each}
 	{/if}
 </div>

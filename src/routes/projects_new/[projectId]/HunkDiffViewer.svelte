@@ -104,7 +104,7 @@
 				? String(row.currentLineNumber + currentLineNumber - 1)
 				: ''}
 		<span
-			class="select-none border-r border-light-200  bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
+			class="select-none border-r border-light-300  bg-light-200 text-light-800 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
 		>
 			<div class="mx-0.5 text-right">
 				{baseNumber}
@@ -112,7 +112,7 @@
 		</span>
 
 		<span
-			class="mr-1 select-none border-r border-light-200 bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
+			class="mr-1 select-none border-r border-light-300  bg-light-200 text-light-800 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
 		>
 			<div class="mx-0.5 text-right">
 				{curNumber}

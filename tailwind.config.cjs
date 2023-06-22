@@ -58,25 +58,29 @@ const config = {
 				500: '#6B7280'
 			},
 			dark: {
-				100: '#4C4C4C',
-				200: '#3C3C3C',
-				300: '#2C2C2C',
-				400: '#27272A',
-				500: '#252525',
-				600: '#212121',
-				700: '#1E1E1E',
-				800: '#1F1F1F'
+				50: '#FAFAFA', // Button text
+				100: '#D4D4D8', // Normal text
+				200: '#A1A1AA', // Commit sequence line, meatballs menu
+				300: '#71717A', // Subtle text
+				400: '#545454', // File card border
+				500: '#414141', // Commit message border
+				600: '#393939', // Commit card border
+				700: '#373737', // Commit message background
+				800: '#2C2C2C', // Tray and commit card background
+				900: '#212121', // Header background
+				1000: '#1E1E1E' // Board and inactive tab background
 			},
 			light: {
-				100: '#B3B3B3',
-				200: '#C3C3C3',
-				300: '#D3D3D3',
-				400: '#D8D8D5',
-				500: '#DADADA',
-				600: '#DEDEDE',
-				700: '#E4E4E7',
-				800: '#F9FAFB',
-				900: '#F1F1F1'
+				50: '#F6F6F7', // Active tab and file card background
+				100: '#F4F4F5', // Branch background in tray
+				200: '#E4E4E7', // Board background and commit message border
+				300: '#DDDDDE', // File card border
+				400: '#D4D4D8', // Branch lane border and disabled text
+				500: '#CDCDD0', // Scroll bar color
+				600: '#A1A1AA', // Commit sequence line, meatballs menu, icons
+				700: '#6D7175', // Subtle text
+				800: '#3F3F46', // Branch text in tray
+				900: '#202223' // Normal text
 			},
 			blue: {
 				200: '#bfdbfe',
