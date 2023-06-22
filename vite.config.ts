@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 
@@ -43,5 +43,8 @@ export default defineConfig({
 		minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
 		// ship sourcemaps for better sentry error reports
 		sourcemap: 'inline'
+	},
+	test: {
+		includeSource: ['src/**/*.{js,ts}']
 	}
 });
