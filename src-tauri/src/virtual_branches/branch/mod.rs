@@ -4,7 +4,7 @@ mod writer;
 pub use reader::BranchReader as Reader;
 pub use writer::BranchWriter as Writer;
 
-use std::{cmp, fmt, ops, path};
+use std::{fmt, ops, path};
 
 use anyhow::{anyhow, Context, Result};
 
@@ -14,42 +14,24 @@ pub struct Ownership {
     pub ranges: Vec<ops::RangeInclusive<usize>>,
 }
 
-impl From<&String> for Ownership {
-    fn from(value: &String) -> Self {
-        Self {
-            file_path: value.into(),
-            ranges: vec![],
-        }
+impl TryFrom<&String> for Ownership {
+    type Error = anyhow::Error;
+    fn try_from(value: &String) -> std::result::Result<Self, Self::Error> {
+        Self::parse_string(value)
     }
 }
 
-impl From<&str> for Ownership {
-    fn from(value: &str) -> Self {
-        Self {
-            file_path: value.into(),
-            ranges: vec![],
-        }
+impl TryFrom<&str> for Ownership {
+    type Error = anyhow::Error;
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        Self::parse_string(value)
     }
 }
 
-impl From<String> for Ownership {
-    fn from(value: String) -> Self {
-        Self {
-            file_path: value.into(),
-            ranges: vec![],
-        }
-    }
-}
-
-impl cmp::PartialOrd for Ownership {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.file_path.partial_cmp(&other.file_path)
-    }
-}
-
-impl cmp::Ord for Ownership {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.file_path.cmp(&other.file_path)
+impl TryFrom<String> for Ownership {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        Self::parse_string(&value)
     }
 }
 
@@ -83,8 +65,19 @@ impl Ownership {
     // returns a copy of self, with another ranges removed
     // if all of the ranges are removed, return None
     pub fn minus(&self, another: &Ownership) -> Option<Ownership> {
-        if !self.contains(another) {
+        if !self.file_path.eq(&another.file_path) {
             return Some(self.clone());
+        }
+
+        if self.ranges.is_empty() {
+            // full ownership - partial ownership = full ownership, since we don't know all the
+            // hunks.
+            return Some(self.clone());
+        }
+
+        if another.ranges.is_empty() {
+            // any ownership - full ownership = empty ownership
+            return None;
         }
 
         let mut ranges = self.ranges.clone();
@@ -113,24 +106,26 @@ impl Ownership {
         }
     }
 
-    fn contains(&self, another: &Ownership) -> bool {
+    pub fn contains(&self, another: &Ownership) -> bool {
         if self.file_path != another.file_path {
             return false;
         }
 
         if self.ranges.is_empty() {
+            // full ownership
             return true;
         }
 
-        for range in &self.ranges {
-            for another_range in &another.ranges {
-                if range.contains(another_range.start()) || range.contains(another_range.end()) {
-                    return true;
-                }
-            }
+        if another.ranges.is_empty() {
+            // empty ownership
+            return false;
         }
 
-        false
+        another
+            .ranges
+            .iter()
+            .map(|range| self.ranges.iter().find(|r| r.eq(&range)))
+            .all(|x| x.is_some())
     }
 
     fn parse_range(s: &str) -> Result<ops::RangeInclusive<usize>> {
@@ -244,7 +239,7 @@ mod ownership_tests {
         vec![
             ("file.txt:1-10", "file.txt:1-10"),
             ("file.txt:1-10,15-16", "file.txt:1-10,15-16"),
-            ("file.txt:1-10,10-15,15-16", "file.txt:1-10,15-16"),
+            ("file.txt:1-10,10-15,15-16", "file.txt:1-10,10-15,15-16"),
             ("file.txt:1-10,5-12", "file.txt:1-10,5-12"),
             ("file.txt:15-16,1-10", "file.txt:1-10,15-16"),
         ]
@@ -307,6 +302,8 @@ mod ownership_tests {
             ("file.txt:1-10", "file.txt:1-5", Some("file.txt:1-10")),
             ("file.txt:1-10", "file.txt:11-15", Some("file.txt:1-10")),
             ("file.txt:1-10", "file.txt:1-10", None),
+            ("file.txt:1-10", "file.txt", None),
+            ("file.txt", "file.txt:1-10", Some("file.txt")),
             (
                 "file.txt:1-10,11-15",
                 "file.txt:11-15",
@@ -341,14 +338,17 @@ mod ownership_tests {
         vec![
             ("file.txt", "another.txt", false),
             ("file.txt", "file.txt", true),
+            ("file.txt", "file.txt:1-10", true),
+            ("file.txt:1-10", "file.txt", false),
             ("file.txt:1-10", "file.txt:11-20", false),
-            ("file.txt:1-10", "file.txt:1-5", true),
-            ("file.txt:1-10", "file.txt:5-10", true),
+            ("file.txt:1-10", "file.txt:1-5", false),
+            ("file.txt:1-10", "file.txt:5-10", false),
             ("file.txt:1-10", "file.txt:1-10", true),
-            ("file.txt:1-10", "file.txt:2-7", true),
+            ("file.txt:1-10", "file.txt:2-7", false),
             ("file.txt:3-5", "file.txt:1-10", false),
             ("file.txt:1-10", "another.txt:1-10", false),
-            ("file.txt:1-10", "file.txt:8-15,20-25", true),
+            ("file.txt:1-10", "file.txt:1-10,20-25", false),
+            ("file.txt:1-10,11-15", "file.txt:11-15", true),
         ]
         .into_iter()
         .map(|(a, b, expected)| {
@@ -401,6 +401,52 @@ pub struct Branch {
     pub tree: git2::Oid, // last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
     pub head: git2::Oid,
     pub ownership: Vec<Ownership>,
+}
+
+impl Branch {
+    pub fn put(&mut self, ownership: &Ownership) {
+        let target = self
+            .ownership
+            .iter()
+            .cloned()
+            .find(|o| o.file_path == ownership.file_path);
+
+        self.ownership
+            .retain(|o| o.file_path != ownership.file_path);
+
+        if let Some(target) = target {
+            self.ownership.push(target.plus(ownership));
+        } else {
+            self.ownership.push(ownership.clone());
+        }
+
+        self.ownership.sort_by(|a, b| a.file_path.cmp(&b.file_path));
+        self.ownership.dedup();
+    }
+
+    pub fn take(&mut self, ownership: &Ownership) {
+        let target = self
+            .ownership
+            .iter()
+            .cloned()
+            .find(|o| o.file_path == ownership.file_path);
+
+        self.ownership
+            .retain(|o| o.file_path != ownership.file_path);
+
+        if let Some(target) = target.as_ref() {
+            if let Some(remaining) = target.minus(ownership) {
+                self.ownership.push(remaining);
+            }
+        }
+
+        self.ownership.sort_by(|a, b| a.file_path.cmp(&b.file_path));
+        self.ownership.dedup();
+    }
+
+    pub fn contains(&self, ownership: &Ownership) -> bool {
+        self.ownership.iter().any(|o| o.contains(ownership))
+    }
 }
 
 impl TryFrom<&dyn crate::reader::Reader> for Branch {

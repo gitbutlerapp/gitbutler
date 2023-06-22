@@ -335,7 +335,7 @@ impl App {
     pub fn create_virtual_branch(&self, project_id: &str, name: &str, path: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name)?;
-        virtual_branches::move_files(&gb_repository, &branch_id, &vec![path.into()])?;
+        virtual_branches::move_files(&gb_repository, &branch_id, &vec![path.try_into()?])?;
         Ok(())
     }
 
@@ -346,7 +346,8 @@ impl App {
         paths: Vec<&str>,
     ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
-        let paths: Vec<branch::Ownership> = paths.into_iter().map(|p| p.into()).collect();
+        let paths: Vec<branch::Ownership> = paths.into_iter().map(|p| p.try_into())
+            .collect::<Result<Vec<branch::Ownership>, _>>()?;
         virtual_branches::move_files(&gb_repository, branch, &paths)?;
         Ok(())
     }

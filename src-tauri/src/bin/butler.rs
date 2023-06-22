@@ -3,12 +3,12 @@ use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Input, MultiSelect, Select};
 
 use git2::Repository;
-use std::{collections::HashMap, time};
+use std::time;
 use uuid::Uuid;
 
 use git_butler_tauri::{
     database, gb_repository, project_repository, projects, reader, sessions, storage, users,
-    virtual_branches::{self, list_virtual_branches},
+    virtual_branches::{self, branch::Ownership, list_virtual_branches},
 };
 
 #[derive(Parser)]
@@ -156,7 +156,8 @@ fn run_commit(butler: ButlerCli) {
         &butler.project_repository(),
         &commit_branch,
         &message,
-    );
+    )
+    .expect("failed to commit");
 }
 
 fn run_new(butler: ButlerCli) {
@@ -204,19 +205,36 @@ fn run_new(butler: ButlerCli) {
 }
 
 fn run_move(butler: ButlerCli) {
-    // get the files to move
-    let files =
-        virtual_branches::get_status_files(&butler.gb_repository, &butler.project_repository())
-            .expect("failed to get status files");
+    let all_hunks =
+        virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository())
+            .expect("failed to get status files")
+            .into_iter()
+            .flat_map(|(_branch, files)| {
+                files
+                    .into_iter()
+                    .flat_map(|file| {
+                        file.hunks
+                            .into_iter()
+                            .map(|hunk| hunk.id)
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
     let selected_files = MultiSelect::with_theme(&ColorfulTheme::default())
-        .with_prompt("Which files do you want to move?")
-        .items(&files[..])
+        .with_prompt("Which hunks do you want to move?")
+        .items(&all_hunks)
         .interact()
         .expect("failed to get selections")
         .iter()
-        .map(|i| files[*i].clone().into())
+        .map(|i| {
+            all_hunks[*i]
+                .clone()
+                .try_into()
+                .expect("failed to convert hunk")
+        })
         .collect::<Vec<_>>();
-    println!("Selected files: {:?}", selected_files);
 
     let current_session = butler
         .gb_repository
@@ -232,20 +250,28 @@ fn run_move(butler: ButlerCli) {
         .into_iter()
         .collect::<Vec<_>>();
 
-    let mut ids = Vec::new();
-    let mut names = Vec::new();
-    for branch in virtual_branches {
-        ids.push(branch.id);
-        names.push(branch.name);
-    }
     let selection = Select::with_theme(&ColorfulTheme::default())
-        .items(&names)
+        .items(
+            &virtual_branches
+                .iter()
+                .map(|b| b.name.clone())
+                .collect::<Vec<_>>(),
+        )
         .default(0)
         .interact_on_opt(&Term::stderr())
         .unwrap();
-    let target_branch_id = ids[selection.unwrap()].clone();
 
-    println!("Moving {} files", selected_files.len());
+    let target_branch_id = virtual_branches[selection.unwrap()].id.clone();
+
+    println!(
+        "Moving {} hunks to {}",
+        selected_files
+            .iter()
+            .map(|f: &Ownership| f.to_string())
+            .collect::<Vec<_>>()
+            .join(", "),
+        target_branch_id
+    );
     virtual_branches::move_files(&butler.gb_repository, &target_branch_id, &selected_files)
         .expect("failed to move files");
 }
