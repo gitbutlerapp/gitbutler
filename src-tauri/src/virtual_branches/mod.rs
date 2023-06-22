@@ -916,6 +916,91 @@ mod tests {
     }
 
     #[test]
+    fn test_move_hunks_entire_file_single_source_full_file() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+        })?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\n",
+        )?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+            .expect("failed to create virtual branch");
+
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch1 = branch_reader.read(&branch1_id)?;
+        branch_writer.write(&branch::Branch {
+            ownership: vec!["test.txt".try_into()?],
+            ..branch1
+        })?;
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        let files_by_branch_id = statuses
+            .iter()
+            .map(|(branch, files)| (branch.id.clone(), files))
+            .collect::<HashMap<_, _>>();
+
+        assert_eq!(files_by_branch_id.len(), 2);
+        assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
+        assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
+
+        move_files(&gb_repo, &branch2_id, &vec!["test.txt".try_into()?])
+            .expect("failed to move hunks");
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+
+        let files_by_branch_id = statuses
+            .iter()
+            .map(|(branch, files)| (branch.id.clone(), files))
+            .collect::<HashMap<_, _>>();
+
+        assert_eq!(files_by_branch_id.len(), 2);
+        assert_eq!(files_by_branch_id[&branch1_id].len(), 0);
+        assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        assert_eq!(branch_reader.read(&branch1_id)?.ownership, vec![]);
+        assert_eq!(
+            branch_reader.read(&branch2_id)?.ownership,
+            vec!["test.txt".try_into()?]
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_move_hunks_entire_file_single_source() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
