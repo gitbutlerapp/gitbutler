@@ -85,7 +85,7 @@
 					<div
 						class="mx-2 cursor-pointer overflow-clip rounded border-t border-b border-light-200 text-sm dark:border-dark-700"
 					>
-						<!-- Disabling syntax highlighting for perormance reasons -->
+						<!-- Disabling syntax highlighting for performance reasons -->
 						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={2} />
 					</div>
 					<div class="flex p-2 text-sm">
