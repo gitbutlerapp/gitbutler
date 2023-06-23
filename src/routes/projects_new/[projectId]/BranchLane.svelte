@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { File, Hunk } from './types';
+	import { File, Hunk, VCommit } from './types';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { createFile } from './helpers';
 	import FileCard from './FileCard.svelte';
@@ -10,11 +10,13 @@
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import { Button } from '$lib/components';
 	import { message } from '@tauri-apps/api/dialog';
+	import CommitCard from '../CommitCard.svelte';
 
 	export let branchId: string;
 	export let name: string;
 	export let commitMessage: string;
 	export let files: File[];
+	export let commits: VCommit[];
 	export let projectId: string;
 
 	let allExpanded = true;
@@ -154,11 +156,20 @@
 				data-dnd-ignore
 				class="flex h-full w-full flex-col border-t border-light-200 p-2 dark:border-dark-200"
 			>
+			{#if commits.length > 0}
 				<div class="font-bold">Commits</div>
-				<div>Commit 1</div>
-				<div>Commit 2</div>
-				<div>Commit 3</div>
-				<div>Commit 1</div>
+				{#each commits as commit}
+					<CommitCard
+						commit={commit}
+						projectId={projectId}
+						branchId={branchId}
+					/>
+				{/each}
+			{:else}
+				<div>
+					no commits
+				</div>
+			{/if}
 			</div>
 		</div>
 	</div>

@@ -43,13 +43,14 @@
 	on:consider={handleDndEvent}
 	on:finalize={handleDndEvent}
 >
-	{#each branches.filter((c) => c.active) as { id, name, files, description } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, description } (id)}
 		<Lane
 			bind:name
 			bind:commitMessage={description}
 			bind:files
 			on:empty={handleEmpty}
 			{projectId}
+			{commits}
 			branchId={id}
 		/>
 	{/each}

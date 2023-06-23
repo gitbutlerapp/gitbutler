@@ -26,6 +26,16 @@ pub struct VirtualBranch {
     pub name: String,
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
+    pub commits: Vec<VirtualBranchCommit>,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize)]
+pub struct VirtualBranchCommit {
+    pub sha: String,
+    pub message: String,
+    pub timestamp: u128,
+    pub name: String,
+    pub email: String,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -199,17 +209,63 @@ pub fn list_virtual_branches(
 ) -> Result<Vec<VirtualBranch>> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => Ok(target),
+        Err(reader::Error::NotFound) => {
+            println!("  no base sha set, run butler setup");
+            return Ok(vec![]);
+        }
+        Err(e) => Err(e),
+    }
+    .context("failed to read default target")?;
+
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
     for (branch, files) in &statuses {
         let mut vfiles = vec![];
         for file in files {
             vfiles.push(file.clone());
         }
+
+        let mut commits = vec![];
+
+        // find all commits on head that are not on target.sha
+        let repo = &project_repository.git_repository;
+        let mut revwalk = repo.revwalk()?;
+        revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
+        revwalk.push(branch.head)?;
+        revwalk.hide(default_target.sha)?;
+        for oid in revwalk {
+            let oid = oid?;
+            let commit = repo.find_commit(oid)?;
+            let timestamp = commit.time().seconds() as u128;
+            let signature = commit.author();
+            let name= signature.name().unwrap().to_string();
+            let email = signature.email().unwrap().to_string();
+            let message = commit.message().unwrap().to_string();
+            let sha = oid.to_string();
+            let commit = VirtualBranchCommit {
+                sha,
+                timestamp,
+                name,
+                email,
+                message,
+            };
+            commits.push(commit);
+        }
+
         let branch = VirtualBranch {
             id: branch.id.to_string(),
             name: branch.name.to_string(),
             active: branch.applied,
             files: vfiles,
+            commits
         };
         branches.push(branch);
     }
