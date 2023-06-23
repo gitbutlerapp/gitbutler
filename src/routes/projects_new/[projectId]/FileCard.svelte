@@ -77,7 +77,7 @@
 				<div
 					class="changed-hunk flex w-full flex-col gap-1 rounded-lg border border-light-200 dark:border-dark-400"
 				>
-					<div class="w-full text-ellipsis p-2">
+					<div class="overflow-hidden p-2">
 						{#await summarizeHunk(hunk.diff) then description}
 							{description}
 						{/await}
