@@ -95,7 +95,7 @@ pub fn remote_branches(
     let main_oid = default_target.sha;
 
     let current_time = time::SystemTime::now();
-    let too_old = time::Duration::from_secs(86_400 * 180); // 180 days (6 months) is too old
+    let too_old = time::Duration::from_secs(86_400 * 90); // 90 days (3 months) is too old
 
     let repo = &project_repository.git_repository;
     let mut branches: Vec<RemoteBranch> = Vec::new();
