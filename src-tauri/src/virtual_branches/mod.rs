@@ -758,6 +758,29 @@ pub fn update_branch_target(
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
     println!("updating branch target");
+
+    let target = get_default_target(gb_repository)?;
+    let repo = &project_repository.git_repository;
+    let branch = repo
+        .find_branch(&target.name, git2::BranchType::Remote)
+        .unwrap();
+    let commit = branch.get().peel_to_commit().unwrap();
+    let oid = commit.id();
+    println!("update target from {:?} to {:?}", target.sha, oid);
+
+    let mut index = git2::Index::new()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    repo.set_index(&mut index)?;
+
+    let annotated_commit = repo.find_annotated_commit(oid)?;
+
+    let mut merge_options = git2::MergeOptions::new();
+    let mut checkout_options = git2::build::CheckoutBuilder::new();
+    checkout_options.dry_run();
+
+    repo.merge(&[&annotated_commit], Some(&mut merge_options), Some(&mut checkout_options))?;
+    repo.cleanup_state()?;
+
     Ok(())
 }
 
