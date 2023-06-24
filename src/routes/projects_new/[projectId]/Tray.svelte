@@ -14,10 +14,16 @@
 	<div class="py-4 text-lg font-bold">Your Target</div>
 	<div class="flex flex-col gap-y-2">
 		<div>{target.name}</div>
-		<div>{target.remote}</div>
+		{#if target.behind > 0}
 		<div class="flex flex-row justify-between">
 			<div>behind {target.behind}</div>
+			<div>update target</div>
 		</div>
+		{:else}
+		<div class="flex flex-row justify-between">
+			<div>up to date</div>
+		</div>
+		{/if}
 	</div>
 
 	<div class="py-4 text-lg font-bold">Your Branches</div>

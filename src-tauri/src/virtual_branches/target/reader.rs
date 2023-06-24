@@ -44,23 +44,7 @@ impl<'reader> TargetReader<'reader> {
             .unwrap();
         let commit = branch.get().peel_to_commit().unwrap();
         let oid = commit.id();
-        target.behind = project_repository.behind(target.sha, oid).unwrap();
-        Ok(target)
-    }
-
-    pub fn read_with_behind(
-        &self,
-        id: &str,
-        project_repository: &project_repository::Repository,
-    ) -> Result<Target, reader::Error> {
-        let mut target = self.read(id)?;
-        let repo = &project_repository.git_repository;
-        let branch = repo
-            .find_branch(&target.name, git2::BranchType::Remote)
-            .unwrap();
-        let commit = branch.get().peel_to_commit().unwrap();
-        let oid = commit.id();
-        target.behind = project_repository.behind(target.sha, oid).unwrap();
+        target.behind = project_repository.behind(oid, target.sha).unwrap();
         Ok(target)
     }
 }
