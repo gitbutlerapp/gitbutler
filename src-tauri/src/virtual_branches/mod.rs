@@ -206,7 +206,11 @@ pub fn remote_branches(
 // just for debugging for now
 fn print_diff(diff: git2::Diff) -> Result<()> {
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
-        println!("delta: {:?} {:?}", line.origin(), std::str::from_utf8(line.content()).unwrap());
+        println!(
+            "delta: {:?} {:?}",
+            line.origin(),
+            std::str::from_utf8(line.content()).unwrap()
+        );
         true
     })?;
     Ok(())
@@ -265,7 +269,7 @@ pub fn list_virtual_branches(
             let commit = repo.find_commit(oid)?;
             let timestamp = commit.time().seconds() as u128;
             let signature = commit.author();
-            let name= signature.name().unwrap().to_string();
+            let name = signature.name().unwrap().to_string();
             let email = signature.email().unwrap().to_string();
             let message = commit.message().unwrap().to_string();
             let sha = oid.to_string();
@@ -284,7 +288,7 @@ pub fn list_virtual_branches(
             name: branch.name.to_string(),
             active: branch.applied,
             files: vfiles,
-            commits
+            commits,
         };
         branches.push(branch);
     }
@@ -711,9 +715,7 @@ pub fn get_status_by_branch(
     Ok(statuses)
 }
 
-fn get_default_target(
-    gb_repository: &gb_repository::Repository,
-) -> Result<target::Target> {
+fn get_default_target(gb_repository: &gb_repository::Repository) -> Result<target::Target> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .expect("failed to get or create currnt session");
@@ -734,7 +736,7 @@ fn write_tree(
     files: &Vec<VirtualBranchFile>,
 ) -> Result<git2::Oid> {
     let default_target = get_default_target(gb_repository)?;
-    
+
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
     let base_commit = git_repository.find_commit(default_target.sha).unwrap();

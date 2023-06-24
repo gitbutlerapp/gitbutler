@@ -156,20 +156,14 @@
 				data-dnd-ignore
 				class="flex h-full w-full flex-col border-t border-light-200 p-2 dark:border-dark-200"
 			>
-			{#if commits.length > 0}
-				<div class="font-bold">Commits</div>
-				{#each commits as commit}
-					<CommitCard
-						commit={commit}
-						projectId={projectId}
-						branchId={branchId}
-					/>
-				{/each}
-			{:else}
-				<div>
-					no commits
-				</div>
-			{/if}
+				{#if commits.length > 0}
+					<div class="font-bold">Commits</div>
+					{#each commits as commit}
+						<CommitCard {commit} {projectId} {branchId} />
+					{/each}
+				{:else}
+					<div>no commits</div>
+				{/if}
 			</div>
 		</div>
 	</div>
