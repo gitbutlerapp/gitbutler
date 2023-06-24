@@ -40,7 +40,7 @@
 </script>
 
 <div
-	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg bg-white p-2 text-dark-600 shadow-lg dark:bg-dark-800 dark:text-light-300"
+	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg bg-white text-dark-600 shadow dark:bg-dark-800 dark:text-light-300"
 >
 	<div class="flex items-center gap-2">
 		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap" title={filepath}>
@@ -77,7 +77,7 @@
 				<div
 					class="changed-hunk flex w-full flex-col gap-1 rounded-lg border border-light-200 dark:border-dark-400"
 				>
-					<div class="overflow-hidden p-2">
+					<div class="truncate whitespace-normal p-2">
 						{#await summarizeHunk(hunk.diff) then description}
 							{description}
 						{/await}

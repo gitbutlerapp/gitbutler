@@ -48,3 +48,15 @@ export type BranchData = {
 	upstream: string;
 	authors: string[];
 };
+
+export class Commit {
+	id!: string;
+	authorEmail!: string;
+	authorName!: string;
+	description!: string;
+	@Transform((obj) => {
+		return new Date(obj.value);
+	})
+	createdAt!: Date;
+	isRemote!: boolean;
+}

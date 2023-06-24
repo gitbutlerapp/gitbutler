@@ -4,7 +4,8 @@
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import { createEventDispatcher } from 'svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import type { Branch } from './types';
+	import { Commit, type Branch } from './types';
+	import { plainToInstance } from 'class-transformer';
 
 	export let branches: Branch[];
 	export let projectId: string;
@@ -26,6 +27,49 @@
 		}
 		branches = branches;
 	}
+
+	const testCommits = plainToInstance(Commit, [
+		{
+			id: '1',
+			authorEmail: 'mtsgrd@gmail.com',
+			authorName: 'Mattias Granlund',
+			description: 'Testing something out',
+			createdAt: 1687538314,
+			isRemote: true
+		},
+		{
+			id: '2',
+			authorEmail: 'kiril@videlov.com',
+			authorName: 'Kiril Videlov',
+			description: 'Testing something else out',
+			createdAt: 1687538315,
+			isRemote: true
+		},
+		{
+			id: '3',
+			authorEmail: 'nikita@galaiko.rocks',
+			authorName: 'Nikita Galaiko',
+			description: 'Rust rust rust',
+			createdAt: 1687538316,
+			isRemote: false
+		},
+		{
+			id: '4',
+			authorEmail: 'donahue.ian@gmail.com',
+			authorName: 'Ian Donahue',
+			description: 'Updated designs',
+			createdAt: 1687538317,
+			isRemote: false
+		},
+		{
+			id: '5',
+			authorEmail: 'schacon@gmail.com',
+			authorName: 'Scott Chacon',
+			description: 'Fixing that thing',
+			createdAt: 1687538317,
+			isRemote: false
+		}
+	]);
 </script>
 
 <div
@@ -48,6 +92,7 @@
 			bind:name
 			bind:commitMessage={description}
 			bind:files
+			commits={testCommits}
 			on:empty={handleEmpty}
 			{projectId}
 			{commits}

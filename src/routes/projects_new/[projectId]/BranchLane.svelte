@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { dndzone } from 'svelte-dnd-action';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { File, Hunk, VCommit } from './types';
+	import { Commit, File, Hunk } from './types';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { createFile } from './helpers';
 	import FileCard from './FileCard.svelte';
@@ -9,17 +9,22 @@
 	import { IconBranch } from '$lib/icons';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import { Button } from '$lib/components';
-	import CommitCard from '../CommitCard.svelte';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
+	import CommitCard from './CommitCard.svelte';
+	import IconGithub from '$lib/icons/IconGithub.svelte';
 
 	export let branchId: string;
 	export let name: string;
 	export let commitMessage: string;
 	export let files: File[];
-	export let commits: VCommit[];
+	export let commits: Commit[];
 	export let projectId: string;
 
 	let allExpanded = true;
+
+	$: remoteCommits = commits.filter((c) => c.isRemote);
+	$: localCommits = commits.filter((c) => !c.isRemote);
+
 	let descriptionHeight = 0;
 	let textArea: HTMLTextAreaElement;
 	const dispatch = createEventDispatcher();
@@ -89,10 +94,14 @@
 
 	onMount(() => {
 		updateTextArea();
+		const hunkCount = files.reduce((acc, cur) => acc + cur.hunks.length, 0);
+		if (hunkCount > 10) {
+			allExpanded = false;
+		}
 	});
 </script>
 
-<div class="flex max-h-full w-96 shrink-0 flex-col overflow-y-hidden p-4  dark:text-dark-100">
+<div class="flex max-h-full w-96 shrink-0 flex-col overflow-y-auto  p-4  dark:text-dark-100">
 	<div
 		class="mb-2 flex w-full shrink-0 items-center rounded-lg bg-light-200 px-3 py-2 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
@@ -106,28 +115,17 @@
 	</div>
 
 	<div
-		class="flex flex-col overflow-y-hidden rounded-lg bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-900"
+		class="flex flex-col rounded-lg bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-900"
 	>
 		<div>
 			<textarea
 				bind:this={textArea}
-				class="mb-5 h-14 w-full shrink-0 resize-none rounded border border-light-200 bg-white p-2 text-dark-800 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+				class="h-14 w-full shrink-0 resize-none rounded border border-light-200 bg-white p-2 text-dark-800 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 				style="height: {descriptionHeight}px"
 				value={commitMessage ? commitMessage.trim() : ''}
 				placeholder="Your commit message here..."
 				on:input={updateTextArea}
 			/>
-			<div class="flex justify-center gap-2">
-				<Button disabled={true} width="full-width">Pull</Button>
-				<Button disabled={true} width="full-width">Push</Button>
-				<Button
-					width="full-width"
-					color="purple"
-					on:click={() => {
-						commit();
-					}}>Commit</Button
-				>
-			</div>
 		</div>
 		<div class="flex justify-end">
 			<button
@@ -142,7 +140,7 @@
 			</button>
 		</div>
 		<div
-			class="flex flex-shrink flex-col gap-y-2 overflow-y-auto"
+			class="flex flex-shrink flex-col gap-y-2"
 			use:dndzone={{
 				items: files,
 				zoneTabIndex: -1,
@@ -160,19 +158,67 @@
 					on:empty={handleEmpty}
 				/>
 			{/each}
-			<div
-				data-dnd-ignore
-				class="flex h-full w-full flex-col border-t border-light-200 p-2 dark:border-dark-200"
+			<Button
+				width="full-width"
+				color="purple"
+				on:click={() => {
+					commit();
+				}}>Commit</Button
 			>
-				{#if commits.length > 0}
-					<div class="font-bold">Commits</div>
-					{#each commits as commit}
-						<CommitCard {commit} {projectId} {branchId} />
-					{/each}
-				{:else}
-					<div>no commits</div>
-				{/if}
-			</div>
 		</div>
 	</div>
+	<div class="relative">
+		<!-- Commit bubble track -->
+		<div class="absolute top-0 h-full w-0.5 bg-light-400 dark:bg-dark-500" style="left: 0.925rem" />
+		<div class="flex w-full p-2">
+			<div class="z-10 w-6" />
+			<div class="flex flex-grow gap-x-4 py-2">
+				<Button color="basic" height="small">Push Commits</Button>
+				<Button color="basic" height="small">Pull Commits</Button>
+			</div>
+		</div>
+		<!-- Unpushed commits -->
+		{#each localCommits as commit (commit.id)}
+			<div class="flex w-full px-2 pb-4">
+				<div class="z-10 w-6 py-2">
+					<!-- Unpushed commit bubble -->
+					<div
+						class="h-4 w-4 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
+					/>
+				</div>
+				<div class="flex-grow">
+					<CommitCard {commit} />
+				</div>
+			</div>
+		{/each}
+	</div>
+	{#if remoteCommits.length > 0}
+	<div class="relative">
+		<!-- Commit bubble track -->
+		<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
+		<!-- Section title for remote commits -->
+		<div class="flex w-full px-2 pb-4">
+			<div class="z-10 w-6">
+				<div
+					class="h-4 w-4 rounded-full border-2 border-light-200 bg-light-200 text-white dark:border-dark-200 dark:bg-dark-200 dark:text-black"
+				>
+					<!-- Target HEAD commit bubble -->
+					<IconGithub />
+				</div>
+			</div>
+			<div class="flex-grow">Pushed to origin/master</div>
+		</div>
+		{#each remoteCommits as commit (commit.id)}
+			<div class="flex w-full px-2 pb-4">
+				<div class="z-10 w-6 py-2">
+					<!-- Pushed commit bubble -->
+					<div
+						class="rounded--b-sm h-4 w-4 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
+					/>
+				</div>
+				<CommitCard {commit} />
+			</div>
+		{/each}
+	</div>
+	{/if}
 </div>
