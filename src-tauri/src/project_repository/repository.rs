@@ -289,6 +289,13 @@ impl<'repository> Repository<'repository> {
         Ok(branches)
     }
 
+    pub fn behind(&self, sha1: git2::Oid, sha2: git2::Oid) -> Result<u32> {
+        let mut revwalk = self.git_repository.revwalk()?;
+        revwalk.push(sha1)?;
+        revwalk.hide(sha2)?;
+        Ok(revwalk.count().try_into()?)
+    }
+
     pub fn git_switch_branch(&self, branch: &str) -> Result<()> {
         let branch = self
             .git_repository

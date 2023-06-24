@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components';
-	import type { Branch, BranchData } from './types';
+	import type { Branch, BranchData, Target } from './types';
 	import { formatDistanceToNow } from 'date-fns';
 
+	export let target: Target;
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
 </script>
@@ -10,6 +11,15 @@
 <div
 	class="w-80 shrink-0 overflow-y-auto bg-light-100 px-2 text-light-800 dark:bg-dark-800 dark:text-dark-100"
 >
+	<div class="py-4 text-lg font-bold">Your Target</div>
+	<div class="flex flex-col gap-y-2">
+		<div>{target.name}</div>
+		<div>{target.remote}</div>
+		<div class="flex flex-row justify-between">
+			<div>behind {target.behind}</div>
+		</div>
+	</div>
+
 	<div class="py-4 text-lg font-bold">Your Branches</div>
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}

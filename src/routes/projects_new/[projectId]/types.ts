@@ -52,3 +52,10 @@ export class Commit {
 	createdAt!: Date;
 	isRemote!: boolean;
 }
+
+export class Target {
+	sha!: string;
+	name!: string;
+	remote!: string;
+	behind!: number;
+}

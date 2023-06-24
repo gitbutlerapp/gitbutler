@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { Branch, type BranchData } from './types';
+import { Target, Branch, type BranchData } from './types';
 import { invoke } from '$lib/ipc';
 import type { PageLoadEvent } from './$types';
 
@@ -12,7 +12,7 @@ async function getRemoteBranches(params: { projectId: string }) {
 }
 
 async function getTargetData(params: { projectId: string }) {
-	return invoke<object>('get_target_data', params);
+	return invoke<Target>('get_target_data', params);
 }
 
 async function getRemoteBranchesData(params: { projectId: string }) {

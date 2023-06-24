@@ -1,4 +1,7 @@
-use crate::reader::{self, SubReader};
+use crate::{
+    project_repository,
+    reader::{self, SubReader},
+};
 
 use super::Target;
 
@@ -28,6 +31,37 @@ impl<'reader> TargetReader<'reader> {
         let reader: &dyn crate::reader::Reader =
             &SubReader::new(self.reader, &format!("branches/{}/target", id));
         Target::try_from(reader)
+    }
+
+    pub fn read_default_with_behind(
+        &self,
+        project_repository: &project_repository::Repository,
+    ) -> Result<Target, reader::Error> {
+        let mut target = self.read_default()?;
+        let repo = &project_repository.git_repository;
+        let branch = repo
+            .find_branch(&target.name, git2::BranchType::Remote)
+            .unwrap();
+        let commit = branch.get().peel_to_commit().unwrap();
+        let oid = commit.id();
+        target.behind = project_repository.behind(target.sha, oid).unwrap();
+        Ok(target)
+    }
+
+    pub fn read_with_behind(
+        &self,
+        id: &str,
+        project_repository: &project_repository::Repository,
+    ) -> Result<Target, reader::Error> {
+        let mut target = self.read(id)?;
+        let repo = &project_repository.git_repository;
+        let branch = repo
+            .find_branch(&target.name, git2::BranchType::Remote)
+            .unwrap();
+        let commit = branch.get().peel_to_commit().unwrap();
+        let oid = commit.id();
+        target.behind = project_repository.behind(target.sha, oid).unwrap();
+        Ok(target)
     }
 }
 

@@ -297,10 +297,13 @@ impl App {
         project_id: &str,
     ) -> Result<Option<virtual_branches::target::Target>> {
         let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
         let current_session = gb_repository.get_or_create_current_session()?;
-        let curret_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
-        let target_reader = virtual_branches::target::Reader::new(&curret_session_reader);
-        match target_reader.read_default() {
+        let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
+        let target_reader = virtual_branches::target::Reader::new(&current_session_reader);
+        match target_reader.read_default_with_behind(&project_repository) {
             Ok(target) => Ok(Some(target)),
             Err(reader::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),

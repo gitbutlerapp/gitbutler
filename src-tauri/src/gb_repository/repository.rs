@@ -559,6 +559,7 @@ impl Repository {
             name: branch.name().unwrap().unwrap().to_string(),
             remote: remote_url_str.to_string(),
             sha: commit.id(),
+            behind: 0,
         };
 
         let target_writer = virtual_branches::target::Writer::new(self);
