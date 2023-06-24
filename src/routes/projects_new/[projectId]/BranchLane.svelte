@@ -12,6 +12,7 @@
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
+	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
 
 	export let branchId: string;
 	export let name: string;
@@ -20,7 +21,7 @@
 	export let commits: Commit[];
 	export let projectId: string;
 
-	let allExpanded = true;
+	let allExpanded: boolean | undefined;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
@@ -94,14 +95,31 @@
 
 	onMount(() => {
 		updateTextArea();
-		const hunkCount = files.reduce((acc, cur) => acc + cur.hunks.length, 0);
-		if (hunkCount > 10) {
-			allExpanded = false;
-		}
+		setIfAllExpanded();
 	});
+
+	function setIfAllExpanded() {
+		if (files.every((f) => getExpandedWithCacheFallback(f))) {
+			allExpanded = true;
+		} else if (files.every((f) => getExpandedWithCacheFallback(f) === false)) {
+			allExpanded = false;
+		} else {
+			allExpanded = undefined;
+		}
+	}
+	function handleToggleExpandAll() {
+		if (allExpanded == true) {
+			files.forEach((f) => setExpandedWithCache(f, false));
+			allExpanded = false;
+		} else {
+			files.forEach((f) => setExpandedWithCache(f, true));
+			allExpanded = true;
+		}
+		files = files;
+	}
 </script>
 
-<div class="flex max-h-full w-96 shrink-0 flex-col overflow-y-auto  p-4  dark:text-dark-100">
+<div class="flex max-h-full w-[22.5rem] shrink-0 flex-col overflow-y-auto  p-4  dark:text-dark-100">
 	<div
 		class="mb-2 flex w-full shrink-0 items-center rounded-lg bg-light-200 px-3 py-2 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
@@ -117,23 +135,23 @@
 	<div
 		class="flex flex-col rounded-lg bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-900"
 	>
-		<div>
+		<div class="mb-4 flex items-center">
 			<textarea
 				bind:this={textArea}
-				class="h-14 w-full shrink-0 resize-none rounded border border-light-200 bg-white p-2 text-dark-800 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+				class="h-14 shrink-0 flex-grow resize-none rounded border border-light-200 bg-white p-2 text-dark-800 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 				style="height: {descriptionHeight}px"
 				value={commitMessage ? commitMessage.trim() : ''}
 				placeholder="Your commit message here..."
 				on:input={updateTextArea}
 			/>
-		</div>
-		<div class="flex justify-end">
 			<button
-				class="flex h-6 w-6 items-center justify-center text-light-600 dark:text-dark-200"
-				on:click={() => (allExpanded = !allExpanded)}
+				class="mx-0.5 h-6 w-6 items-center justify-center text-light-600 dark:text-dark-200"
+				on:click={handleToggleExpandAll}
 			>
 				{#if allExpanded}
 					<IconTriangleUp />
+				{:else if allExpanded == undefined}
+					<IconTriangleDown />
 				{:else}
 					<IconTriangleDown />
 				{/if}
@@ -153,9 +171,13 @@
 			{#each files.filter((x) => x.hunks) as file (file.id)}
 				<FileCard
 					filepath={file.path}
-					expanded={allExpanded}
+					bind:expanded={file.expanded}
 					bind:hunks={file.hunks}
 					on:empty={handleEmpty}
+					on:expanded={(e) => {
+						setExpandedWithCache(file, e.detail);
+						setIfAllExpanded();
+					}}
 				/>
 			{/each}
 			<Button
@@ -200,7 +222,7 @@
 			<div class="flex w-full px-2 pb-4">
 				<div class="z-10 w-6">
 					<div
-						class="h-4 w-4 rounded-full border-2 border-light-200 bg-light-200 text-white dark:border-dark-200 dark:bg-dark-200 dark:text-black"
+						class="h-4 w-4 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
 					>
 						<!-- Target HEAD commit bubble -->
 						<IconGithub />

@@ -13,7 +13,7 @@
 	let zoneEl: HTMLElement;
 
 	const dispatch = createEventDispatcher();
-	export let expanded = true;
+	export let expanded: boolean | undefined;
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
 		hunks = e.detail.items;
@@ -43,11 +43,14 @@
 	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg bg-white text-dark-600 shadow dark:bg-dark-800 dark:text-light-300"
 >
 	<div class="flex items-center gap-2">
-		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap" title={filepath}>
+		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap px-2" title={filepath}>
 			{@html boldenFilename(filepath)}
 		</div>
 		<div
-			on:click={() => (expanded = !expanded)}
+			on:click={() => {
+				expanded = !expanded;
+				dispatch('expanded', expanded);
+			}}
 			on:keypress={() => (expanded = !expanded)}
 			class="cursor-pointer p-2 text-light-600 dark:text-dark-200"
 		>

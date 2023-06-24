@@ -17,6 +17,7 @@ export class File extends DndItem {
 	path!: string;
 	@Type(() => Hunk)
 	hunks!: Hunk[];
+	expanded?: boolean;
 }
 
 export class Branch extends DndItem {
