@@ -19,20 +19,12 @@ export class File extends DndItem {
 	hunks!: Hunk[];
 }
 
-export class VCommit {
-	sha!: string;
-	message!: string;
-	timestamp!: number;
-	name!: string;
-	email!: string;
-}
-
 export class Branch extends DndItem {
 	name!: string;
 	active!: boolean;
 	@Type(() => File)
 	files!: File[];
-	commits!: VCommit[];
+	commits!: Commit[];
 	description!: string;
 }
 

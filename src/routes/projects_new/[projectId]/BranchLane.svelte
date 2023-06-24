@@ -193,32 +193,32 @@
 		{/each}
 	</div>
 	{#if remoteCommits.length > 0}
-	<div class="relative">
-		<!-- Commit bubble track -->
-		<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
-		<!-- Section title for remote commits -->
-		<div class="flex w-full px-2 pb-4">
-			<div class="z-10 w-6">
-				<div
-					class="h-4 w-4 rounded-full border-2 border-light-200 bg-light-200 text-white dark:border-dark-200 dark:bg-dark-200 dark:text-black"
-				>
-					<!-- Target HEAD commit bubble -->
-					<IconGithub />
-				</div>
-			</div>
-			<div class="flex-grow">Pushed to origin/master</div>
-		</div>
-		{#each remoteCommits as commit (commit.id)}
+		<div class="relative">
+			<!-- Commit bubble track -->
+			<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
+			<!-- Section title for remote commits -->
 			<div class="flex w-full px-2 pb-4">
-				<div class="z-10 w-6 py-2">
-					<!-- Pushed commit bubble -->
+				<div class="z-10 w-6">
 					<div
-						class="rounded--b-sm h-4 w-4 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
-					/>
+						class="h-4 w-4 rounded-full border-2 border-light-200 bg-light-200 text-white dark:border-dark-200 dark:bg-dark-200 dark:text-black"
+					>
+						<!-- Target HEAD commit bubble -->
+						<IconGithub />
+					</div>
 				</div>
-				<CommitCard {commit} />
+				<div class="flex-grow">Pushed to origin/master</div>
 			</div>
-		{/each}
-	</div>
+			{#each remoteCommits as commit (commit.id)}
+				<div class="flex w-full px-2 pb-4">
+					<div class="z-10 w-6 py-2">
+						<!-- Pushed commit bubble -->
+						<div
+							class="rounded--b-sm h-4 w-4 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
+						/>
+					</div>
+					<CommitCard {commit} />
+				</div>
+			{/each}
+		</div>
 	{/if}
 </div>

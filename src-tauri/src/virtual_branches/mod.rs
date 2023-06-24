@@ -30,12 +30,14 @@ pub struct VirtualBranch {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
-    pub sha: String,
-    pub message: String,
-    pub timestamp: u128,
-    pub name: String,
-    pub email: String,
+    pub id: String,
+    pub description: String,
+    pub created_at: u128,
+    pub author_name: String,
+    pub author_email: String,
+    pub is_remote: bool,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -274,11 +276,12 @@ pub fn list_virtual_branches(
             let message = commit.message().unwrap().to_string();
             let sha = oid.to_string();
             let commit = VirtualBranchCommit {
-                sha,
-                timestamp,
-                name,
-                email,
-                message,
+                id: sha,
+                created_at: timestamp * 1000,
+                author_name: name,
+                author_email: email,
+                description: message,
+                is_remote: false,
             };
             commits.push(commit);
         }
@@ -482,11 +485,13 @@ fn diff_to_hunks_by_filepath(
                     .workdir()
                     .unwrap()
                     .join(file_path);
-                let metadata = file_path.metadata().unwrap();
-                let mtime = FileTime::from_last_modification_time(&metadata);
-                // convert seconds and nanoseconds to milliseconds
-                let mtime = mtime.seconds() as u128 * 1000;
-                mtimes.insert(file_path, mtime);
+                let mtime = 0;
+                if let Ok(metadata) = file_path.metadata() {
+                    let mtime = FileTime::from_last_modification_time(&metadata);
+                    // convert seconds and nanoseconds to milliseconds
+                    let mtime = mtime.seconds() as u128 * 1000;
+                    mtimes.insert(file_path, mtime);
+                }
                 mtime
             }
         };

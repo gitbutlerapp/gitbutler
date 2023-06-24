@@ -92,10 +92,9 @@
 			bind:name
 			bind:commitMessage={description}
 			bind:files
-			commits={testCommits}
+			{commits}
 			on:empty={handleEmpty}
 			{projectId}
-			{commits}
 			branchId={id}
 		/>
 	{/each}
