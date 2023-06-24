@@ -22,7 +22,7 @@ export class File extends DndItem {
 export class VCommit {
 	sha!: string;
 	message!: string;
-	timestamp!: Date;
+	timestamp!: number;
 	name!: string;
 	email!: string;
 }
