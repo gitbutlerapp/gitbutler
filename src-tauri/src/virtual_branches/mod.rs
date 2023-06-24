@@ -203,12 +203,15 @@ pub fn remote_branches(
     Ok(branches)
 }
 
-fn print_diff(diff: git2::Diff) {
+// just for debugging for now
+fn print_diff(diff: git2::Diff) -> Result<()> {
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
         println!("delta: {:?} {:?}", line.origin(), std::str::from_utf8(line.content()).unwrap());
         true
-    });
+    })?;
+    Ok(())
 }
+
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
