@@ -4,7 +4,7 @@
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import { createEventDispatcher } from 'svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import { type Branch, Target } from './types';
+	import type { Branch } from './types';
 
 	export let branches: Branch[];
 	export let projectId: string;
