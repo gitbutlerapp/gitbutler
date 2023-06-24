@@ -156,6 +156,7 @@ fn run_commit(butler: ButlerCli) {
         &butler.project_repository(),
         &commit_branch,
         &message,
+        None,
     )
     .expect("failed to commit");
 }

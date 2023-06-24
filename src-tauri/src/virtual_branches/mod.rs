@@ -759,30 +759,48 @@ pub fn update_branch_target(
 ) -> Result<()> {
     println!("updating branch target");
 
-    let target = get_default_target(gb_repository)?;
+    // look up the target and see if there is a new oid
+    let mut target = get_default_target(gb_repository)?;
     let repo = &project_repository.git_repository;
     let branch = repo
         .find_branch(&target.name, git2::BranchType::Remote)
         .unwrap();
-    let commit = branch.get().peel_to_commit().unwrap();
-    let oid = commit.id();
-    println!("update target from {:?} to {:?}", target.sha, oid);
+    let new_target_commit = branch.get().peel_to_commit().unwrap();
+    let new_target_oid = new_target_commit.id();
+    println!(
+        "update target from {:?} to {:?}",
+        target.sha, new_target_oid
+    );
 
+    // if the target has not changed, do nothing
+    if new_target_oid == target.sha {
+        println!("target is up to date");
+        return Ok(());
+    }
+
+    // ok, target has changed, so now we need to merge it into our current work and update our branches
+    // first, pull the current state of the working directory into the index
     let mut index = repo.index()?;
     index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
     let tree_id = index.write_tree().unwrap();
-    // get tree object from oid
+    // get tree object from our current working directory state
     let tree = repo.find_tree(tree_id).unwrap();
 
+    // write the currrent target sha to a temp branch as a parent
     let my_ref = "refs/heads/gitbutler/temp";
     repo.reference(my_ref, target.sha, true, "update target")?;
     // get commit object from target.sha
     let target_commit = repo.find_commit(target.sha)?;
 
-    // commit index to temp head
+    // get current repo head for reference
+    let head = repo.head()?;
+    let prev_head = head.name().unwrap();
+    println!("prev head: {:?}", prev_head);
+
+    // commit index to temp head for the merge
     repo.set_head(my_ref).context("failed to set head")?;
     let (author, committer) = gb_repository.git_signatures()?;
-    let message = "gitbutler temp commit";
+    let message = "gitbutler joint commit"; // TODO: message that says how to get back to where they were
     repo.commit(
         Some("HEAD"),
         &author,
@@ -792,8 +810,8 @@ pub fn update_branch_target(
         &[&target_commit],
     )?;
 
-    let annotated_commit = repo.find_annotated_commit(oid)?;
-
+    // now we can try to merge the upstream branch into our current working directory
+    let annotated_commit = repo.find_annotated_commit(new_target_oid)?;
     let mut merge_options = git2::MergeOptions::new();
     let mut checkout_options = git2::build::CheckoutBuilder::new();
     //checkout_options.dry_run();
@@ -805,8 +823,82 @@ pub fn update_branch_target(
     )?;
     repo.cleanup_state()?;
 
-    // ok, now our working directory is updated, lets rebase the commits on all our applied branches 
-    // or, if that doesn't work but the heads merge cleanly, just write the output tree into a new commit as a merge
+    // ok, if that worked, then we can try to update all our virtual branches and write out our new target
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    // get all virtual branches that are applied
+    let mut virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
+    let writer = branch::Writer::new(gb_repository);
+
+    // update the heads of all our virtual branches
+    for virtual_branch in &mut virtual_branches {
+        let mut virtual_branch = virtual_branch.clone();
+        if target.sha == virtual_branch.head {
+            // there were no commits, so just update the head
+            virtual_branch.head = new_target_oid;
+            writer.write(&virtual_branch)?;
+        } else {
+            // there are commits on this branch, so create a merge commit with the new tree
+            // get tree from virtual branch head
+            let head_commit = repo.find_commit(virtual_branch.head)?;
+            let head_tree = head_commit.tree()?;
+            // get tree from new target
+            let new_target_commit = repo.find_commit(new_target_oid)?;
+            let new_target_tree = new_target_commit.tree()?;
+            // get tree from target.sha
+            let target_commit = repo.find_commit(target.sha)?;
+            let target_tree = target_commit.tree()?;
+
+            let mut merge_index = repo
+                .merge_trees(
+                    &head_tree,
+                    &new_target_tree,
+                    &target_tree,
+                    Some(&merge_options),
+                )
+                .unwrap();
+
+            // check index for conflicts
+            if merge_index.has_conflicts() {
+                println!("conflicts");
+                // unapply branch for now
+                virtual_branch.applied = false;
+                writer.write(&virtual_branch)?;
+            } else {
+                // get the merge tree oid from writing the index out
+                let merge_tree_oid = merge_index.write_tree_to(repo).unwrap();
+                // get tree from merge_tree_oid
+                let merge_tree = repo.find_tree(merge_tree_oid).unwrap();
+
+                // commit the merge tree oid
+                let new_branch_head = repo.commit(
+                    None,
+                    &author,
+                    &committer,
+                    "merged upstream",
+                    &merge_tree,
+                    &[&head_commit, &new_target_commit],
+                )?;
+                virtual_branch.head = new_branch_head;
+                writer.write(&virtual_branch)?;
+            }
+        }
+
+        // write new target oid
+        target.sha = new_target_oid;
+        let target_writer = target::Writer::new(&gb_repository);
+        target_writer.write_default(&target)?;
+    }
 
     Ok(())
 }
@@ -844,6 +936,7 @@ pub fn commit(
     project_repository: &project_repository::Repository,
     branch_id: &str,
     message: &str,
+    merge_parent: Option<&git2::Oid>,
 ) -> Result<()> {
     // get the files to commit
     let statuses = get_status_by_branch(gb_repository, project_repository)
@@ -855,15 +948,34 @@ pub fn commit(
                 let git_repository = &project_repository.git_repository;
                 let parent_commit = git_repository.find_commit(branch.head).unwrap();
                 let tree = git_repository.find_tree(tree_oid).unwrap();
-                // now write a commit
+
+                // now write a commit, using a merge parent if it exists
                 let (author, committer) = gb_repository.git_signatures().unwrap();
-                let commit_oid = git_repository
-                    .commit(None, &author, &committer, message, &tree, &[&parent_commit])
-                    .unwrap();
+                match merge_parent {
+                    Some(merge_parent) => {
+                        let merge_parent = git_repository.find_commit(*merge_parent).unwrap();
+                        let commit_oid = git_repository
+                            .commit(
+                                None,
+                                &author,
+                                &committer,
+                                message,
+                                &tree,
+                                &[&parent_commit, &merge_parent],
+                            )
+                            .unwrap();
+                        branch.head = commit_oid;
+                    }
+                    None => {
+                        let commit_oid = git_repository
+                            .commit(None, &author, &committer, message, &tree, &[&parent_commit])
+                            .unwrap();
+                        branch.head = commit_oid;
+                    }
+                }
 
                 // update the virtual branch head
                 branch.tree = tree_oid;
-                branch.head = commit_oid;
                 let writer = branch::Writer::new(gb_repository);
                 writer.write(&branch).unwrap();
             }
@@ -989,7 +1101,13 @@ mod tests {
             "line5\nline6\nline7\nline8\nlocal\n",
         )?;
 
-        commit(&gb_repo, &project_repository, &branch1_id, "test commit")?;
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "test commit",
+            None,
+        )?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path2),
@@ -999,7 +1117,8 @@ mod tests {
         // add something to the branch
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch = &branches[0];
-        dbg!(branch);
+        assert_eq!(branch.files.len(), 1);
+        assert_eq!(branch.commits.len(), 1);
 
         let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
         println!("before contents: {:?}", String::from_utf8(contents));
@@ -1010,11 +1129,16 @@ mod tests {
         update_branch_target(&gb_repo, &project_repository)?;
 
         let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
-        println!("after contents: {:?}", String::from_utf8(contents));
+        assert_eq!(
+            String::from_utf8(contents)?,
+            "line1\nline2\nline3\nline4\nupstream\n"
+        );
 
         // assert that the vbranch target is updated
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch = &branches[0];
+        assert_eq!(branch.files.len(), 1);
+        assert_eq!(branch.commits.len(), 2); // branch commit, merge commit
         dbg!(branch);
 
         Ok(())
@@ -1073,7 +1197,13 @@ mod tests {
         assert_eq!(branch.commits.len(), 0);
 
         // commit
-        commit(&gb_repo, &project_repository, &branch1_id, "test commit")?;
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "test commit",
+            None,
+        )?;
 
         // status (no files)
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;

@@ -376,7 +376,7 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        virtual_branches::commit(&gb_repository, &project_repository, branch, message)?;
+        virtual_branches::commit(&gb_repository, &project_repository, branch, message, None)?;
         Ok(())
     }
 
