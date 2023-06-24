@@ -33,7 +33,7 @@
 
 <div
 	id="new-branch-dz"
-	class="invisible flex h-full items-center"
+	class="ml-4 mt-16 flex h-40 items-center rounded-lg border border-dashed border-light-600 px-8 py-10"
 	use:dndzone={{
 		items: items,
 		types: ['new-branch'],
@@ -46,9 +46,9 @@
 	on:finalize={handleDndFinalize}
 >
 	<div
-		class="flex h-full w-64 items-center self-center rounded-lg border border-dashed border-dark-100 bg-light-300 p-8 text-center text-xl font-bold dark:bg-dark-400"
+		class="flex w-64 items-center self-center p-8 text-center text-lg text-light-800 dark:text-dark-100"
 	>
-		drop here to create a new branch
+		Drag changes here or click button to create new virtual branch
 	</div>
 </div>
 
