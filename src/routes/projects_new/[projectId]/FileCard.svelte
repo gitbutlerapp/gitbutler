@@ -40,7 +40,7 @@
 </script>
 
 <div
-	class="changed-file gb-border-2 gb-bg-1 gb-text-2 flex w-full flex-col justify-center gap-2 rounded-lg border p-2"
+	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg bg-white p-2 text-dark-600 shadow-lg dark:bg-dark-800 dark:text-light-300"
 >
 	<div class="flex items-center gap-2">
 		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap" title={filepath}>
@@ -49,7 +49,7 @@
 		<div
 			on:click={() => (expanded = !expanded)}
 			on:keypress={() => (expanded = !expanded)}
-			class="cursor-pointer p-2"
+			class="cursor-pointer p-2 text-light-600 dark:text-dark-200"
 		>
 			{#if expanded}
 				<IconTriangleUp />
@@ -74,13 +74,17 @@
 	>
 		{#if expanded}
 			{#each hunks || [] as hunk (hunk.id)}
-				<div class="changed-hunk gb-border-2 flex w-full flex-col gap-1 rounded-sm border">
-					<div class="w-full text-ellipsis p-2">
+				<div
+					class="changed-hunk flex w-full flex-col gap-1 rounded-lg border border-light-200 dark:border-dark-400"
+				>
+					<div class="overflow-hidden p-2">
 						{#await summarizeHunk(hunk.diff) then description}
 							{description}
 						{/await}
 					</div>
-					<div class="gb-border-2 cursor-pointer border-t border-b text-sm">
+					<div
+						class="mx-2 cursor-pointer overflow-clip rounded border-t border-b border-light-200 text-sm dark:border-dark-700"
+					>
 						<!-- Disabling syntax highlighting for perormance reasons -->
 						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={2} />
 					</div>

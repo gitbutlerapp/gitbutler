@@ -9,8 +9,8 @@
 	import { IconBranch } from '$lib/icons';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import { Button } from '$lib/components';
-	import { message } from '@tauri-apps/api/dialog';
 	import CommitCard from '../CommitCard.svelte';
+	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 
 	export let branchId: string;
 	export let name: string;
@@ -73,7 +73,7 @@
 	}
 
 	function updateTextArea(): void {
-		descriptionHeight = textArea.scrollHeight;
+		descriptionHeight = textArea.scrollHeight + 2;
 	}
 
 	function commit() {
@@ -92,18 +92,26 @@
 	});
 </script>
 
-<div
-	class="gb-bg-1 gb-border-1 flex max-h-full w-96 shrink-0 flex-col overflow-y-hidden rounded-xl border px-2 pb-2 shadow"
->
-	<div class="flex h-16 shrink-0 items-center px-3 text-lg font-bold">
-		<IconBranch class="mr-3 text-[#A1A1AA]" />
-		{name}
+<div class="flex max-h-full w-96 shrink-0 flex-col overflow-y-hidden p-4  dark:text-dark-100">
+	<div
+		class="mb-2 flex w-full shrink-0 items-center rounded-lg bg-light-200 px-3 py-2 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+	>
+		<div class="mr-3 flex-grow-0 text-light-600 dark:text-dark-200">
+			<IconBranch />
+		</div>
+		<div class="flex-grow">{name}</div>
+		<div class="flex-grow-0 text-light-600 dark:text-dark-200">
+			<IconMeatballMenu />
+		</div>
 	</div>
-	<div class="gb-bg-2 gb-border-3 flex flex-col overflow-y-hidden rounded-lg border p-2">
+
+	<div
+		class="flex flex-col overflow-y-hidden rounded-lg bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-900"
+	>
 		<div>
 			<textarea
 				bind:this={textArea}
-				class="gb-bg-2 gb-text-2 mb-5 h-14 w-full shrink-0 resize-none rounded border-0 py-0 focus-within:h-36"
+				class="mb-5 h-14 w-full shrink-0 resize-none rounded border border-light-200 bg-white p-2 text-dark-800 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 				style="height: {descriptionHeight}px"
 				value={commitMessage ? commitMessage.trim() : ''}
 				placeholder="Your commit message here..."
@@ -123,7 +131,7 @@
 		</div>
 		<div class="flex justify-end">
 			<button
-				class="flex h-6 w-6 items-center justify-center"
+				class="flex h-6 w-6 items-center justify-center text-light-600 dark:text-dark-200"
 				on:click={() => (allExpanded = !allExpanded)}
 			>
 				{#if allExpanded}
@@ -134,7 +142,7 @@
 			</button>
 		</div>
 		<div
-			class="flex flex-shrink flex-col gap-y-2 overflow-y-auto rounded-lg"
+			class="flex flex-shrink flex-col gap-y-2 overflow-y-auto"
 			use:dndzone={{
 				items: files,
 				zoneTabIndex: -1,

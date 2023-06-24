@@ -154,7 +154,7 @@
 								{#each $projects as project}
 									<a
 										class="project-card-container  text-lg text-dark-300 dark:text-light-300"
-										href="/projects/{project.id}/"
+										href="/projects_new/{project.id}/"
 									>
 										<div
 											class="project-card group flex h-full min-h-[125px] flex-col justify-between space-y-1 rounded-lg border border-light-200 bg-light-400 shadow transition duration-150 ease-out hover:bg-light-500 hover:ease-in dark:border-dark-700 dark:bg-dark-300 dark:hover:bg-dark-200"
