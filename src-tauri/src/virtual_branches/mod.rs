@@ -26,6 +26,18 @@ pub struct VirtualBranch {
     pub name: String,
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
+    pub commits: Vec<VirtualBranchCommit>,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualBranchCommit {
+    pub id: String,
+    pub description: String,
+    pub created_at: u128,
+    pub author_name: String,
+    pub author_email: String,
+    pub is_remote: bool,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -193,23 +205,93 @@ pub fn remote_branches(
     Ok(branches)
 }
 
+// just for debugging for now
+fn print_diff(diff: git2::Diff) -> Result<()> {
+    diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
+        println!(
+            "delta: {:?} {:?}",
+            line.origin(),
+            std::str::from_utf8(line.content()).unwrap()
+        );
+        true
+    })?;
+    Ok(())
+}
+
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<Vec<VirtualBranch>> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
+    let default_target = get_default_target(gb_repository)?;
+    let default_sha = default_target.sha.clone();
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
     for (branch, files) in &statuses {
         let mut vfiles = vec![];
-        for file in files {
-            vfiles.push(file.clone());
+
+        // check if head tree does not match target tree
+        // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
+        if default_sha != branch.head {
+            let vtree = write_tree(gb_repository, project_repository, &files)?;
+            let repo = &project_repository.git_repository;
+            // get the trees
+            let commit_old = repo.find_commit(branch.head)?;
+            let tree_old = commit_old.tree()?;
+            let vtree_tree = repo.find_tree(vtree)?;
+
+            // do a diff between branch.head and the tree we _would_ commit
+            let diff = repo.diff_tree_to_tree(Some(&tree_old), Some(&vtree_tree), None)?;
+            let hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
+
+            vfiles = hunks_by_filepath
+                .iter()
+                .map(|(file_path, hunks)| VirtualBranchFile {
+                    id: file_path.clone(),
+                    path: file_path.to_string(),
+                    hunks: hunks.clone(),
+                })
+                .collect::<Vec<_>>();
+        } else {
+            for file in files {
+                vfiles.push(file.clone());
+            }
         }
+
+        let mut commits = vec![];
+
+        // find all commits on head that are not on target.sha
+        let repo = &project_repository.git_repository;
+        let mut revwalk = repo.revwalk()?;
+        revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
+        revwalk.push(branch.head)?;
+        revwalk.hide(default_target.sha)?;
+        for oid in revwalk {
+            let oid = oid?;
+            let commit = repo.find_commit(oid)?;
+            let timestamp = commit.time().seconds() as u128;
+            let signature = commit.author();
+            let name = signature.name().unwrap().to_string();
+            let email = signature.email().unwrap().to_string();
+            let message = commit.message().unwrap().to_string();
+            let sha = oid.to_string();
+            let commit = VirtualBranchCommit {
+                id: sha,
+                created_at: timestamp * 1000,
+                author_name: name,
+                author_email: email,
+                description: message,
+                is_remote: false,
+            };
+            commits.push(commit);
+        }
+
         let branch = VirtualBranch {
             id: branch.id.to_string(),
             name: branch.name.to_string(),
             active: branch.applied,
             files: vfiles,
+            commits,
         };
         branches.push(branch);
     }
@@ -363,35 +445,10 @@ fn find_owner(stack: &[branch::Branch], needle: &branch::Ownership) -> Option<br
     explicitly_owned_by.or(implicitly_owned_by).cloned()
 }
 
-// list the virtual branches and their file statuses (statusi?)
-pub fn get_status_by_branch(
-    gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository<'_>,
-) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-
-    let target_reader = target::Reader::new(&current_session_reader);
-    let default_target = match target_reader.read_default() {
-        Ok(target) => Ok(target),
-        Err(reader::Error::NotFound) => {
-            println!("  no base sha set, run butler setup");
-            return Ok(vec![]);
-        }
-        Err(e) => Err(e),
-    }
-    .context("failed to read default target")?;
-
-    let diff = project_repository
-        .workdir_diff(&default_target.sha)
-        .context(format!(
-            "failed to get diff workdir with {}",
-            default_target.sha
-        ))?;
-
+fn diff_to_hunks_by_filepath(
+    diff: git2::Diff,
+    project_repository: &project_repository::Repository,
+) -> Result<HashMap<String, Vec<VirtualBranchHunk>>> {
     // find all the hunks
     let mut hunks_by_filepath: HashMap<String, Vec<VirtualBranchHunk>> = HashMap::new();
     let mut current_diff = String::new();
@@ -428,11 +485,13 @@ pub fn get_status_by_branch(
                     .workdir()
                     .unwrap()
                     .join(file_path);
-                let metadata = file_path.metadata().unwrap();
-                let mtime = FileTime::from_last_modification_time(&metadata);
-                // convert seconds and nanoseconds to milliseconds
-                let mtime = mtime.seconds() as u128 * 1000;
-                mtimes.insert(file_path, mtime);
+                let mtime = 0;
+                if let Ok(metadata) = file_path.metadata() {
+                    let mtime = FileTime::from_last_modification_time(&metadata);
+                    // convert seconds and nanoseconds to milliseconds
+                    let mtime = mtime.seconds() as u128 * 1000;
+                    mtimes.insert(file_path, mtime);
+                }
                 mtime
             }
         };
@@ -513,6 +572,39 @@ pub fn get_status_by_branch(
                 file_path,
             });
     }
+    Ok(hunks_by_filepath)
+}
+
+// list the virtual branches and their file statuses (statusi?)
+pub fn get_status_by_branch(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository<'_>,
+) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => Ok(target),
+        Err(reader::Error::NotFound) => {
+            println!("  no base sha set, run butler setup");
+            return Ok(vec![]);
+        }
+        Err(e) => Err(e),
+    }
+    .context("failed to read default target")?;
+
+    let diff = project_repository
+        .workdir_diff(&default_target.sha)
+        .context(format!(
+            "failed to get diff workdir with {}",
+            default_target.sha
+        ))?;
+
+    let hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
 
     let mut virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to read virtual branches")?
@@ -628,12 +720,7 @@ pub fn get_status_by_branch(
     Ok(statuses)
 }
 
-pub fn commit(
-    gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository,
-    branch_id: &str,
-    message: &str,
-) -> Result<()> {
+fn get_default_target(gb_repository: &gb_repository::Repository) -> Result<target::Target> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .expect("failed to get or create currnt session");
@@ -645,34 +732,52 @@ pub fn commit(
         Ok(target) => target,
         Err(e) => panic!("failed to read default target: {}", e),
     };
+    Ok(default_target)
+}
 
+fn write_tree(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    files: &Vec<VirtualBranchFile>,
+) -> Result<git2::Oid> {
+    let default_target = get_default_target(gb_repository)?;
+
+    // read the base sha into an index
+    let git_repository = &project_repository.git_repository;
+    let base_commit = git_repository.find_commit(default_target.sha).unwrap();
+    let base_tree = base_commit.tree().unwrap();
+    let mut index = git_repository.index().unwrap();
+    index.read_tree(&base_tree).unwrap();
+
+    // now update the index with content in the working directory for each file
+    for file in files {
+        // convert this string to a Path
+        let file = std::path::Path::new(&file.path);
+
+        // TODO: deal with removals too
+        index.add_path(file).unwrap();
+    }
+
+    // now write out the tree
+    let tree_oid = index.write_tree().unwrap();
+    Ok(tree_oid)
+}
+
+pub fn commit(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+    message: &str,
+) -> Result<()> {
     // get the files to commit
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .expect("failed to get status by branch");
     for (mut branch, files) in statuses {
         if branch.id == branch_id {
-            // read the base sha into an index
-            let git_repository = &project_repository.git_repository;
-            let base_commit = git_repository.find_commit(default_target.sha).unwrap();
-            let base_tree = base_commit.tree().unwrap();
-            let parent_commit = git_repository.find_commit(branch.head).unwrap();
-            let mut index = git_repository.index().unwrap();
-            index.read_tree(&base_tree).unwrap();
-
-            // now update the index with content in the working directory for each file
-            for file in files {
-                // convert this string to a Path
-                let file = std::path::Path::new(&file.path);
-
-                // TODO: deal with removals too
-                index.add_path(file).unwrap();
-            }
-
-            // now write out the tree
-            let tree_oid = index.write_tree().unwrap();
-
-            // only commit if it's a new tree
+            let tree_oid = write_tree(gb_repository, project_repository, &files)?;
             if tree_oid != branch.tree {
+                let git_repository = &project_repository.git_repository;
+                let parent_commit = git_repository.find_commit(branch.head).unwrap();
                 let tree = git_repository.find_tree(tree_oid).unwrap();
                 // now write a commit
                 let (author, committer) = gb_repository.git_signatures().unwrap();
@@ -732,6 +837,80 @@ mod tests {
             &[],
         )?;
         Ok(repository)
+    }
+
+    #[test]
+    fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\n",
+        )?;
+        commit_all(&repository)?;
+
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+        })?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch_writer.write_selected(&Some(branch1_id.clone()))?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line0\nline1\nline2\nline3\nline4\n",
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        assert_eq!(branch.files.len(), 1);
+        assert_eq!(branch.commits.len(), 0);
+
+        // commit
+        commit(&gb_repo, &project_repository, &branch1_id, "test commit")?;
+
+        // status (no files)
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        assert_eq!(branch.files.len(), 0);
+        assert_eq!(branch.commits.len(), 1);
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nlineBLAH\nline7\nline8\n",
+        )?;
+
+        // should have just the last change now, the other line is committed
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        assert_eq!(branch.files.len(), 1);
+        assert_eq!(branch.commits.len(), 1);
+
+        Ok(())
     }
 
     #[test]

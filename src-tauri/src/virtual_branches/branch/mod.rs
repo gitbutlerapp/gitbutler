@@ -4,9 +4,11 @@ mod writer;
 pub use reader::BranchReader as Reader;
 pub use writer::BranchWriter as Writer;
 
-use std::{fmt, ops, path};
+use std::{fmt, ops, path, vec};
 
 use anyhow::{anyhow, Context, Result};
+
+use super::VirtualBranchCommit;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Ownership {

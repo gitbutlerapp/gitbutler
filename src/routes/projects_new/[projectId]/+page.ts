@@ -41,6 +41,7 @@ export async function load(e: PageLoadEvent) {
 	const branches: Branch[] = sortBranchHunks(
 		plainToInstance(Branch, await getVirtualBranches({ projectId }))
 	);
+	console.log(branches);
 	return { projectId, target, remoteBranches, remoteBranchesData, branches };
 }
 
