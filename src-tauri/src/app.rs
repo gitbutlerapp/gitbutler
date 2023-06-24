@@ -324,6 +324,15 @@ impl App {
         Ok(Some(target))
     }
 
+    pub fn update_branch_target(&self, project_id: &str) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        virtual_branches::update_branch_target(&gb_repository, &project_repository)?;
+        Ok(())
+    }
+
     pub fn list_virtual_branches(
         &self,
         project_id: &str,

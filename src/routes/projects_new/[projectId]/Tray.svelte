@@ -1,11 +1,22 @@
 <script lang="ts">
-	import { Checkbox } from '$lib/components';
+	import { Button, Checkbox } from '$lib/components';
+	import { invoke } from '@tauri-apps/api';
 	import type { Branch, BranchData, Target } from './types';
 	import { formatDistanceToNow } from 'date-fns';
 
 	export let target: Target;
+	export let projectId: string;
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
+
+	async function updateBranchTarget(params: { projectId: string }) {
+		return invoke('update_branch_target', params);
+	}
+
+	function updateTarget() {
+		console.log('update');
+		updateBranchTarget({ projectId: projectId });
+	}
 </script>
 
 <div
@@ -15,14 +26,14 @@
 	<div class="flex flex-col gap-y-2">
 		<div>{target.name}</div>
 		{#if target.behind > 0}
-		<div class="flex flex-row justify-between">
-			<div>behind {target.behind}</div>
-			<div>update target</div>
-		</div>
+			<div class="flex flex-row justify-between">
+				<div>behind {target.behind}</div>
+				<Button on:click={updateTarget}>Update Target</Button>
+			</div>
 		{:else}
-		<div class="flex flex-row justify-between">
-			<div>up to date</div>
-		</div>
+			<div class="flex flex-row justify-between">
+				<div>up to date</div>
+			</div>
 		{/if}
 	</div>
 

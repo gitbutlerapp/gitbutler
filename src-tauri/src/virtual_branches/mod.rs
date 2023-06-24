@@ -735,6 +735,19 @@ fn get_default_target(gb_repository: &gb_repository::Repository) -> Result<targe
     Ok(default_target)
 }
 
+// try to update the target branch
+// this means that we need to:
+// determine if what the target branch is now pointing to is mergeable with our current working directory
+// merge the target branch into our current working directory
+// update the target sha
+pub fn update_branch_target(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<()> {
+    println!("updating branch target");
+    Ok(())
+}
+
 fn write_tree(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
