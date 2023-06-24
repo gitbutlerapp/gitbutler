@@ -223,7 +223,20 @@ pub fn list_virtual_branches(
     project_repository: &project_repository::Repository,
 ) -> Result<Vec<VirtualBranch>> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
-    let default_target = get_default_target(gb_repository)?;
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .expect("failed to open current session reader");
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => Ok(target),
+        Err(reader::Error::NotFound) => return Ok(vec![]),
+        Err(e) => Err(e),
+    }
+    .context("failed to read default target")?;
     let default_sha = default_target.sha.clone();
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
