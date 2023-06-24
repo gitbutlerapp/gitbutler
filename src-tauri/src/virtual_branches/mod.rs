@@ -770,15 +770,43 @@ pub fn update_branch_target(
 
     let mut index = repo.index()?;
     index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let tree_id = index.write_tree().unwrap();
+    // get tree object from oid
+    let tree = repo.find_tree(tree_id).unwrap();
+
+    let my_ref = "refs/heads/gitbutler/temp";
+    repo.reference(my_ref, target.sha, true, "update target")?;
+    // get commit object from target.sha
+    let target_commit = repo.find_commit(target.sha)?;
+
+    // commit index to temp head
+    repo.set_head(my_ref).context("failed to set head")?;
+    let (author, committer) = gb_repository.git_signatures()?;
+    let message = "gitbutler temp commit";
+    repo.commit(
+        Some("HEAD"),
+        &author,
+        &committer,
+        &message,
+        &tree,
+        &[&target_commit],
+    )?;
 
     let annotated_commit = repo.find_annotated_commit(oid)?;
 
     let mut merge_options = git2::MergeOptions::new();
     let mut checkout_options = git2::build::CheckoutBuilder::new();
-    checkout_options.dry_run();
+    //checkout_options.dry_run();
 
-    repo.merge(&[&annotated_commit], Some(&mut merge_options), Some(&mut checkout_options))?;
+    repo.merge(
+        &[&annotated_commit],
+        Some(&mut merge_options),
+        Some(&mut checkout_options),
+    )?;
     repo.cleanup_state()?;
+
+    // ok, now our working directory is updated, lets rebase the commits on all our applied branches 
+    // or, if that doesn't work but the heads merge cleanly, just write the output tree into a new commit as a merge
 
     Ok(())
 }
@@ -888,6 +916,111 @@ mod tests {
     }
 
     #[test]
+    fn test_update_branch_target() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\n",
+        )?;
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+        println!("up_target: {:?}", up_target);
+
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        // create a vbranch
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch_writer.write_selected(&Some(branch1_id.clone()))?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        // add a commit to the target branch it's pointing to so there is something "upstream"
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+        println!("up_target: {:?}", up_target);
+
+        // revert content
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+
+        //update repo ref refs/remotes/origin/master to up_target oid
+        repository.reference(
+            "refs/remotes/origin/master",
+            up_target,
+            true,
+            "update target",
+        )?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\nlocal\n",
+        )?;
+
+        commit(&gb_repo, &project_repository, &branch1_id, "test commit")?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\nlocal\nmore local\n",
+        )?;
+
+        // add something to the branch
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        dbg!(branch);
+
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        println!("before contents: {:?}", String::from_utf8(contents));
+
+        // update the target branch
+        // this should leave the work on file2, but update the contents of file1
+        // and the branch diff should only be on file2
+        update_branch_target(&gb_repo, &project_repository)?;
+
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        println!("after contents: {:?}", String::from_utf8(contents));
+
+        // assert that the vbranch target is updated
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        dbg!(branch);
+
+        Ok(())
+    }
+
+    #[test]
     fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
@@ -921,6 +1054,7 @@ mod tests {
             name: "origin".to_string(),
             remote: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
         })?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
@@ -977,6 +1111,7 @@ mod tests {
             name: "origin".to_string(),
             remote: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
         })?;
 
         create_virtual_branch(&gb_repo, "test_branch").expect("failed to create virtual branch");
@@ -1014,6 +1149,7 @@ mod tests {
             name: "origin".to_string(),
             remote: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
         })?;
 
         let file_path = std::path::Path::new("test.txt");
@@ -1071,6 +1207,7 @@ mod tests {
             name: "origin".to_string(),
             remote: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
         })?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
@@ -1163,6 +1300,7 @@ mod tests {
             name: "origin".to_string(),
             remote: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
         })?;
 
         let file_path = std::path::Path::new("test.txt");
@@ -1248,6 +1386,7 @@ mod tests {
             name: "origin".to_string(),
             remote: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
         })?;
 
         let file_path = std::path::Path::new("test.txt");
@@ -1332,6 +1471,7 @@ mod tests {
             name: "origin".to_string(),
             remote: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
         })?;
 
         std::fs::write(
@@ -1420,6 +1560,7 @@ mod tests {
             name: "origin".to_string(),
             remote: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
         })?;
 
         std::fs::write(

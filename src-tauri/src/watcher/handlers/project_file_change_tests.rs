@@ -19,6 +19,7 @@ fn test_target() -> virtual_branches::target::Target {
             unsafe { TEST_TARGET_INDEX }
         ))
         .unwrap(),
+        behind: 0,
     }
 }
 
