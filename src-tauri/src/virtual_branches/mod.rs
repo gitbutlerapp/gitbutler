@@ -768,9 +768,8 @@ pub fn update_branch_target(
     let oid = commit.id();
     println!("update target from {:?} to {:?}", target.sha, oid);
 
-    let mut index = git2::Index::new()?;
+    let mut index = repo.index()?;
     index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    repo.set_index(&mut index)?;
 
     let annotated_commit = repo.find_annotated_commit(oid)?;
 
