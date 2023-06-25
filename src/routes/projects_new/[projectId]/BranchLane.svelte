@@ -110,6 +110,8 @@
 	});
 
 	function setIfAllExpanded() {
+		// Exercise cache lookup for all files.
+		files.forEach((f) => getExpandedWithCacheFallback(f));
 		if (files.every((f) => getExpandedWithCacheFallback(f))) {
 			allExpanded = true;
 		} else if (files.every((f) => getExpandedWithCacheFallback(f) === false)) {
