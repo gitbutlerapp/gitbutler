@@ -117,6 +117,10 @@
 		}
 		files = files;
 	}
+
+	function handleBranchNameChange() {
+		console.log('branch name change', name);
+	}
 </script>
 
 <div class="flex max-h-full w-[22.5rem] shrink-0 flex-col overflow-y-auto  p-4  dark:text-dark-100">
@@ -126,8 +130,15 @@
 		<div class="mr-3 flex-grow-0 text-light-600 dark:text-dark-200">
 			<IconBranch />
 		</div>
-		<div class="flex-grow">{name}</div>
-		<div class="flex-grow-0 text-light-600 dark:text-dark-200">
+		<div class="flex-grow">
+			<input
+				type="text"
+				bind:value={name}
+				on:change={handleBranchNameChange}
+				class="border-0 bg-light-200 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+			/>
+		</div>
+		<div class="ml-3 flex-grow-0 text-light-600 dark:text-dark-200">
 			<IconMeatballMenu />
 		</div>
 	</div>
