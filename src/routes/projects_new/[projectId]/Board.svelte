@@ -9,7 +9,7 @@
 	import { invoke } from '$lib/ipc';
 
 	export let projectId: string;
-	let branches: Branch[] = [];
+	export let branches: Branch[];
 
 	const dispatch = createEventDispatcher();
 	const newBranchClass = 'new-branch-active';
