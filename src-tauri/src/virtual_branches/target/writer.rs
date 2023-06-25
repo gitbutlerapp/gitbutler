@@ -143,6 +143,7 @@ mod tests {
             name: "target_name".to_string(),
             remote: "target_remote".to_string(),
             sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
+            behind: 0,
         };
 
         let branch_writer = branch::Writer::new(&gb_repo);
@@ -229,6 +230,7 @@ mod tests {
             name: "target_name".to_string(),
             remote: "target_remote".to_string(),
             sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
+            behind: 0,
         };
 
         let branch_writer = branch::Writer::new(&gb_repo);
@@ -240,6 +242,7 @@ mod tests {
             name: "updated_target_name".to_string(),
             remote: "updated_target_remote".to_string(),
             sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
+            behind: 0,
         };
 
         target_writer.write(&branch.id, &updated_target)?;

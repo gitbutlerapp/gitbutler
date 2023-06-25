@@ -645,6 +645,14 @@ async fn set_target_branch(
     Ok(target)
 }
 
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn update_branch_target(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    let target = app.update_branch_target(project_id)?;
+    Ok(target)
+}
+
 fn main() {
     let tauri_context = generate_context!();
 
@@ -790,6 +798,7 @@ fn main() {
             commit_virtual_branch,
             get_target_data,
             set_target_branch,
+            update_branch_target,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")

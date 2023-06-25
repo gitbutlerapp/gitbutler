@@ -1,4 +1,7 @@
-use crate::reader::{self, SubReader};
+use crate::{
+    project_repository,
+    reader::{self, SubReader},
+};
 
 use super::Target;
 
@@ -28,6 +31,21 @@ impl<'reader> TargetReader<'reader> {
         let reader: &dyn crate::reader::Reader =
             &SubReader::new(self.reader, &format!("branches/{}/target", id));
         Target::try_from(reader)
+    }
+
+    pub fn read_default_with_behind(
+        &self,
+        project_repository: &project_repository::Repository,
+    ) -> Result<Target, reader::Error> {
+        let mut target = self.read_default()?;
+        let repo = &project_repository.git_repository;
+        let branch = repo
+            .find_branch(&target.name, git2::BranchType::Remote)
+            .unwrap();
+        let commit = branch.get().peel_to_commit().unwrap();
+        let oid = commit.id();
+        target.behind = project_repository.behind(oid, target.sha).unwrap();
+        Ok(target)
     }
 }
 
@@ -104,6 +122,7 @@ mod tests {
                 unsafe { TEST_TARGET_INDEX }
             ))
             .unwrap(),
+            behind: 0,
         }
     }
 
@@ -148,12 +167,14 @@ mod tests {
             name: "target".to_string(),
             remote: "remote".to_string(),
             sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
+            behind: 0,
         };
 
         let default_target = Target {
             name: "default_target".to_string(),
             remote: "default_remote".to_string(),
             sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
+            behind: 0,
         };
 
         let branch_writer = branch::Writer::new(&gb_repo);

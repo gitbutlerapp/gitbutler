@@ -297,10 +297,13 @@ impl App {
         project_id: &str,
     ) -> Result<Option<virtual_branches::target::Target>> {
         let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
         let current_session = gb_repository.get_or_create_current_session()?;
-        let curret_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
-        let target_reader = virtual_branches::target::Reader::new(&curret_session_reader);
-        match target_reader.read_default() {
+        let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)?;
+        let target_reader = virtual_branches::target::Reader::new(&current_session_reader);
+        match target_reader.read_default_with_behind(&project_repository) {
             Ok(target) => Ok(Some(target)),
             Err(reader::Error::NotFound) => Ok(None),
             Err(e) => Err(e.into()),
@@ -319,6 +322,15 @@ impl App {
         let target =
             gb_repository.set_target_branch(&project_repository, target_branch.to_string())?;
         Ok(Some(target))
+    }
+
+    pub fn update_branch_target(&self, project_id: &str) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        virtual_branches::update_branch_target(&gb_repository, &project_repository)?;
+        Ok(())
     }
 
     pub fn list_virtual_branches(
@@ -364,7 +376,7 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        virtual_branches::commit(&gb_repository, &project_repository, branch, message)?;
+        virtual_branches::commit(&gb_repository, &project_repository, branch, message, None)?;
         Ok(())
     }
 

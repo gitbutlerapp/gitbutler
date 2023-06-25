@@ -81,7 +81,32 @@ fn main() {
         "branches" => run_branches(butler),
         "remotes" => run_remotes(butler),
         "flush" => run_flush(butler), // artificially forces a session flush
+        "reset" => run_reset(butler), // sets all vbranches to unapplied
         _ => println!("Unknown command: {}", args.command),
+    }
+}
+
+fn run_reset(butler: ButlerCli) {
+    // get the branch to commit
+    let current_session = butler
+        .gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let current_session_reader = sessions::Reader::open(&butler.gb_repository, &current_session)
+        .expect("failed to open current session reader");
+
+    let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
+        .expect("failed to read virtual branches")
+        .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
+        .expect("failed to read virtual branches")
+        .into_iter()
+        .collect::<Vec<_>>();
+
+    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
+    for mut branch in virtual_branches {
+        println!("resetting {:?}", branch);
+        branch.applied = false;
+        writer.write(&branch).unwrap();
     }
 }
 
@@ -156,6 +181,7 @@ fn run_commit(butler: ButlerCli) {
         &butler.project_repository(),
         &commit_branch,
         &message,
+        None,
     )
     .expect("failed to commit");
 }
@@ -315,16 +341,22 @@ fn run_status(butler: ButlerCli) {
         virtual_branches::get_status_by_branch(&butler.gb_repository, &butler.project_repository())
             .expect("failed to get status by branch");
     for (branch, files) in statuses {
-        println!("branch: {}", branch.name.blue());
-        println!("  head: {}", branch.head.to_string().green());
-        println!("  tree: {}", branch.tree.to_string().green());
-        println!("    id: {}", branch.id.green());
-        println!(" files:");
-        for file in files {
-            println!("        {}", file.path);
-            for hunk in file.hunks {
-                println!("          {}", hunk.id);
+        if branch.applied {
+            println!(" branch: {}", branch.name.blue());
+            println!("   head: {}", branch.head.to_string().green());
+            println!("   tree: {}", branch.tree.to_string().green());
+            println!("     id: {}", branch.id.green());
+            println!("applied: {}", branch.applied.to_string().green());
+            println!(" files:");
+            for file in files {
+                println!("        {}", file.path.yellow());
+                for hunk in file.hunks {
+                    println!("          {}", hunk.id);
+                }
             }
+        } else {
+            println!(" branch: {}", branch.name.blue());
+            println!("applied: {}", branch.applied.to_string().green());
         }
         println!();
     }

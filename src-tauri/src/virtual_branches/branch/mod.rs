@@ -8,8 +8,6 @@ use std::{fmt, ops, path, vec};
 
 use anyhow::{anyhow, Context, Result};
 
-use super::VirtualBranchCommit;
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Ownership {
     pub file_path: path::PathBuf,

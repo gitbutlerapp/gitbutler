@@ -11,6 +11,7 @@ pub struct Target {
     pub name: String,
     pub remote: String,
     pub sha: git2::Oid,
+    pub behind: u32,
 }
 
 impl Serialize for Target {
@@ -21,6 +22,7 @@ impl Serialize for Target {
         let mut state = serializer.serialize_struct("Target", 3)?;
         state.serialize_field("name", &self.name)?;
         state.serialize_field("remote", &self.remote)?;
+        state.serialize_field("behind", &self.behind)?;
         state.serialize_field("sha", &self.sha.to_string())?;
         state.end()
     }
@@ -58,6 +60,11 @@ impl TryFrom<&dyn crate::reader::Reader> for Target {
                 ))
             })?;
 
-        Ok(Self { name, remote, sha })
+        Ok(Self {
+            name,
+            remote,
+            sha,
+            behind: 0,
+        })
     }
 }
