@@ -89,18 +89,18 @@ fn main() {
 fn run_reset(butler: ButlerCli) {
     // get the branch to commit
     let current_session = butler
-       .gb_repository
-       .get_or_create_current_session()
-       .expect("failed to get or create currnt session");
-   let current_session_reader = sessions::Reader::open(&butler.gb_repository, &current_session)
-       .expect("failed to open current session reader");
+        .gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let current_session_reader = sessions::Reader::open(&butler.gb_repository, &current_session)
+        .expect("failed to open current session reader");
 
-   let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
-       .expect("failed to read virtual branches")
-       .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
-       .expect("failed to read virtual branches")
-       .into_iter()
-       .collect::<Vec<_>>(); 
+    let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
+        .expect("failed to read virtual branches")
+        .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
+        .expect("failed to read virtual branches")
+        .into_iter()
+        .collect::<Vec<_>>();
 
     let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
     for mut branch in virtual_branches {
