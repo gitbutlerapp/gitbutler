@@ -351,6 +351,45 @@ impl App {
         Ok(())
     }
 
+    pub fn update_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_update: virtual_branches::branch::BranchUpdateRequest,
+    ) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let writer = virtual_branches::branch::Writer::new(&gb_repository);
+
+        let current_session = gb_repository
+            .get_or_create_current_session()
+            .context("failed to get or create currnt session")?;
+        let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
+            .context("failed to open current session")?;
+
+        let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
+            .context("failed to create branch iterator")?
+            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|branch| branch.applied)
+            .collect::<Vec<_>>();
+
+        let mut target_branch = virtual_branches
+            .iter()
+            .find(|b| b.id == branch_update.id)
+            .context("failed to find target branch")?
+            .clone();
+
+        match branch_update.name {
+            Some(name) => {
+                target_branch.name = name;
+                writer.write(&target_branch)?;
+            }
+            None => return Ok(()),
+        }
+
+        Ok(())
+    }
+
     pub fn move_virtual_branch_files(
         &self,
         project_id: &str,
