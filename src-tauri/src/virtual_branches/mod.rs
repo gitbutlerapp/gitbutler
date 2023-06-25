@@ -786,6 +786,45 @@ pub fn update_branch_target(
     // get tree object from our current working directory state
     let wd_tree = repo.find_tree(tree_id).unwrap();
 
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    // get all virtual branches that are applied
+    let mut virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
+
+    let mut merge_options = git2::MergeOptions::new();
+
+    // get tree from new target
+    let new_target_commit = repo.find_commit(new_target_oid)?;
+    let new_target_tree = new_target_commit.tree()?;
+    // get tree from target.sha
+    let target_commit = repo.find_commit(target.sha)?;
+    let target_tree = target_commit.tree()?;
+
+    // check index for conflicts
+    let merge_index = repo
+        .merge_trees(
+            &wd_tree,
+            &new_target_tree,
+            &target_tree,
+            Some(&merge_options),
+        )
+        .unwrap();
+
+    if merge_index.has_conflicts() {
+        // TODO: upstream won't merge, so unapply all the vbranches and reset the wd
+        bail!("merge conflict");
+    }
+
     // write the currrent target sha to a temp branch as a parent
     let my_ref = "refs/heads/gitbutler/temp";
     repo.reference(my_ref, target.sha, true, "update target")?;
@@ -810,29 +849,6 @@ pub fn update_branch_target(
         &[&target_commit],
     )?;
 
-    let mut merge_options = git2::MergeOptions::new();
-
-    // get tree from new target
-    let new_target_commit = repo.find_commit(new_target_oid)?;
-    let new_target_tree = new_target_commit.tree()?;
-    // get tree from target.sha
-    let target_commit = repo.find_commit(target.sha)?;
-    let target_tree = target_commit.tree()?;
-
-    // check index for conflicts
-    let merge_index = repo
-        .merge_trees(
-            &wd_tree,
-            &new_target_tree,
-            &target_tree,
-            Some(&merge_options),
-        )
-        .unwrap();
-
-    if merge_index.has_conflicts() {
-        bail!("merge conflict");
-    }
-
     // now we can try to merge the upstream branch into our current working directory
     let annotated_commit = repo.find_annotated_commit(new_target_oid)?;
     let mut checkout_options = git2::build::CheckoutBuilder::new();
@@ -846,20 +862,6 @@ pub fn update_branch_target(
     repo.cleanup_state()?;
 
     // ok, if that worked, then we can try to update all our virtual branches and write out our new target
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-
-    // get all virtual branches that are applied
-    let mut virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
     let writer = branch::Writer::new(gb_repository);
 
     // update the heads of all our virtual branches
