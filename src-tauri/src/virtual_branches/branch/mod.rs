@@ -4,6 +4,7 @@ mod writer;
 pub use reader::BranchReader as Reader;
 pub use writer::BranchWriter as Writer;
 
+use serde::{Deserialize, Serialize};
 use std::{fmt, ops, path, vec};
 
 use anyhow::{anyhow, Context, Result};
@@ -402,6 +403,12 @@ pub struct Branch {
     pub tree: git2::Oid, // last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
     pub head: git2::Oid,
     pub ownership: Vec<Ownership>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct BranchUpdateRequest {
+    pub id: String,
+    pub name: Option<String>,
 }
 
 impl Branch {

@@ -13,6 +13,7 @@
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
+	import { update_await_block_branch } from 'svelte/internal';
 
 	export let branchId: string;
 	export let name: string;
@@ -35,6 +36,11 @@
 
 	const commit_branch = async (params: { projectId: string; branch: string; message: string }) =>
 		invoke<object>('commit_virtual_branch', params);
+
+	const update_branch = async (params: {
+		projectId: string;
+		branch: { id: string; name: string };
+	}) => invoke('update_virtual_branch', params);
 
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
 		const newItems = e.detail.items;
@@ -120,6 +126,7 @@
 
 	function handleBranchNameChange() {
 		console.log('branch name change:', name);
+		update_branch({ projectId: projectId, branch: { id: branchId, name: name } });
 	}
 </script>
 

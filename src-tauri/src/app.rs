@@ -351,6 +351,16 @@ impl App {
         Ok(())
     }
 
+    pub fn update_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_update: virtual_branches::branch::BranchUpdateRequest,
+    ) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        virtual_branches::update_branch(&gb_repository, branch_update)?;
+        Ok(())
+    }
+
     pub fn move_virtual_branch_files(
         &self,
         project_id: &str,

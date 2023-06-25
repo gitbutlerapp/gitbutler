@@ -596,6 +596,18 @@ async fn create_virtual_branch(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn update_virtual_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: virtual_branches::branch::BranchUpdateRequest,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    app.update_virtual_branch(project_id, branch)?;
+    Ok(())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn move_virtual_branch_files(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -799,6 +811,7 @@ fn main() {
             get_target_data,
             set_target_branch,
             update_branch_target,
+            update_virtual_branch,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")
