@@ -966,17 +966,28 @@ pub fn update_branch_target(
                 // get tree from merge_tree_oid
                 let merge_tree = repo.find_tree(merge_tree_oid).unwrap();
 
-                // commit the merge tree oid
-                let new_branch_head = repo.commit(
-                    None,
-                    &author,
-                    &committer,
-                    "merged upstream",
-                    &merge_tree,
-                    &[&head_commit, &new_target_commit],
-                )?;
-                virtual_branch.head = new_branch_head;
-                writer.write(&virtual_branch)?;
+                // if the merge_tree is the same as the head_tree and there are no files (uncommitted changes)
+                // then the vbranch is fully merged, so delete it
+                if merge_tree_oid == head_tree.id() {
+                    // delete the branch
+                    // TODO: is there a way to delete a vbranch??
+                    virtual_branch.applied = false;
+                    virtual_branch.tree = merge_tree_oid;
+                    writer.write(&virtual_branch)?; 
+                } else {
+                    // commit the merge tree oid
+                    let new_branch_head = repo.commit(
+                        None,
+                        &author,
+                        &committer,
+                        "merged upstream",
+                        &merge_tree,
+                        &[&head_commit, &new_target_commit],
+                    )?;
+                    virtual_branch.head = new_branch_head;
+                    virtual_branch.tree = merge_tree_oid;
+                    writer.write(&virtual_branch)?;
+                }
             }
         }
 
@@ -1112,126 +1123,8 @@ mod tests {
         )?;
         Ok(repository)
     }
-
     #[test]
-    fn test_update_branch_target() -> Result<()> {
-        let repository = test_repository()?;
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
-        project_store.add_project(&project)?;
-
-        // create a commit and set the target
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path),
-            "line1\nline2\nline3\nline4\n",
-        )?;
-        let file_path2 = std::path::Path::new("test2.txt");
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path2),
-            "line5\nline6\nline7\nline8\n",
-        )?;
-        commit_all(&repository)?;
-        let up_target = repository.head().unwrap().target().unwrap();
-        println!("up_target: {:?}", up_target);
-
-        let gb_repo = gb_repository::Repository::open(
-            gb_repo_path,
-            project.id.clone(),
-            project_store,
-            user_store,
-        )?;
-        let project_repository = project_repository::Repository::open(&project)?;
-
-        target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
-            sha: repository.head().unwrap().target().unwrap(),
-            behind: 0,
-        })?;
-
-        // create a vbranch
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
-        let branch_writer = branch::Writer::new(&gb_repo);
-        branch_writer.write_selected(&Some(branch1_id.clone()))?;
-
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path),
-            "line1\nline2\nline3\nline4\nupstream\n",
-        )?;
-        // add a commit to the target branch it's pointing to so there is something "upstream"
-        commit_all(&repository)?;
-        let up_target = repository.head().unwrap().target().unwrap();
-        println!("up_target: {:?}", up_target);
-
-        // revert content
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path),
-            "line1\nline2\nline3\nline4\n",
-        )?;
-
-        //update repo ref refs/remotes/origin/master to up_target oid
-        repository.reference(
-            "refs/remotes/origin/master",
-            up_target,
-            true,
-            "update target",
-        )?;
-
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path2),
-            "line5\nline6\nline7\nline8\nlocal\n",
-        )?;
-
-        commit(
-            &gb_repo,
-            &project_repository,
-            &branch1_id,
-            "test commit",
-            None,
-        )?;
-
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path2),
-            "line5\nline6\nline7\nline8\nlocal\nmore local\n",
-        )?;
-
-        // add something to the branch
-        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
-        let branch = &branches[0];
-        assert_eq!(branch.files.len(), 1);
-        assert_eq!(branch.commits.len(), 1);
-
-        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
-        println!("before contents: {:?}", String::from_utf8(contents));
-
-        // update the target branch
-        // this should leave the work on file2, but update the contents of file1
-        // and the branch diff should only be on file2
-        update_branch_target(&gb_repo, &project_repository)?;
-
-        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
-        assert_eq!(
-            String::from_utf8(contents)?,
-            "line1\nline2\nline3\nline4\nupstream\n"
-        );
-
-        // assert that the vbranch target is updated
-        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
-        let branch = &branches[0];
-        assert_eq!(branch.files.len(), 1);
-        assert_eq!(branch.commits.len(), 2); // branch commit, merge commit
-        dbg!(branch);
-
-        Ok(())
-    }
-
-    #[test]
-    fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
+    fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -1312,7 +1205,7 @@ mod tests {
     }
 
     #[test]
-    fn create_branch() -> Result<()> {
+    fn test_create_branch() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -1913,4 +1806,122 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_update_branch_target() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\n",
+        )?;
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+        println!("up_target: {:?}", up_target);
+
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        // create a vbranch
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch_writer.write_selected(&Some(branch1_id.clone()))?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        // add a commit to the target branch it's pointing to so there is something "upstream"
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+        println!("up_target: {:?}", up_target);
+
+        // revert content
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+
+        //update repo ref refs/remotes/origin/master to up_target oid
+        repository.reference(
+            "refs/remotes/origin/master",
+            up_target,
+            true,
+            "update target",
+        )?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\nlocal\n",
+        )?;
+
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "test commit",
+            None,
+        )?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\nlocal\nmore local\n",
+        )?;
+
+        // add something to the branch
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        assert_eq!(branch.files.len(), 1);
+        assert_eq!(branch.commits.len(), 1);
+
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        println!("before contents: {:?}", String::from_utf8(contents));
+
+        // update the target branch
+        // this should leave the work on file2, but update the contents of file1
+        // and the branch diff should only be on file2
+        update_branch_target(&gb_repo, &project_repository)?;
+
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(
+            String::from_utf8(contents)?,
+            "line1\nline2\nline3\nline4\nupstream\n"
+        );
+
+        // assert that the vbranch target is updated
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        assert_eq!(branch.files.len(), 1);
+        assert_eq!(branch.commits.len(), 2); // branch commit, merge commit
+        dbg!(branch);
+
+        Ok(())
+    }
+
 }
