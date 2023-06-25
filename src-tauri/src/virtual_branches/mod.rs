@@ -7,7 +7,7 @@ use std::{
     path, time, vec,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use filetime::FileTime;
 use serde::Serialize;
 
@@ -206,8 +206,8 @@ pub fn remote_branches(
 }
 
 // just for debugging for now
-fn print_diff(diff: git2::Diff) -> Result<()> {
-    diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
+fn _print_diff(diff: &git2::Diff) -> Result<()> {
+    diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         println!(
             "delta: {:?} {:?}",
             line.origin(),
@@ -620,12 +620,16 @@ pub fn get_status_by_branch(
     let hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
 
     let mut virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to read virtual branches")?
+        .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?;
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
 
     if virtual_branches.is_empty() {
-        println!("  no virtual branches, run butler setup");
+        // TODO: just create an empty virtual branch
+        println!("  no applied virtual branches, run butler setup");
         return Ok(vec![]);
     }
 

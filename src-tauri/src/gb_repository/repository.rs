@@ -552,18 +552,7 @@ impl Repository {
         let remote_url_str = remote_url.url().unwrap();
         println!("remote: {}", remote_url_str);
 
-        // TODO: if there are no virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
-
-        let commit = branch.get().peel_to_commit()?;
-        let target = virtual_branches::target::Target {
-            name: branch.name().unwrap().unwrap().to_string(),
-            remote: remote_url_str.to_string(),
-            sha: commit.id(),
-            behind: 0,
-        };
-
-        let target_writer = virtual_branches::target::Writer::new(self);
-        target_writer.write_default(&target)?;
+        // get a list of currently active virtual branches
 
         let current_session = self
             .get_or_create_current_session()
@@ -571,9 +560,46 @@ impl Repository {
         let current_session_reader = sessions::Reader::open(self, &current_session)
             .context("failed to open current session for reading")?;
 
+        let active_virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
+            .context("failed to create branch iterator")?
+            .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|branch| branch.applied)
+            .collect::<Vec<_>>();
+
+        // if there are no applied virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
+        let commit = branch.get().peel_to_commit()?;
+        let mut commit_oid = commit.id();
+        if active_virtual_branches.len() == 0 {
+            // calculate the commit as the merge-base between HEAD in project_repository and this target commit
+            let head_oid = repo
+                .head()
+                .expect("Failed to get HEAD reference")
+                .peel_to_commit()
+                .expect("Failed to peel HEAD reference to commit")
+                .id();
+
+            commit_oid = repo
+                .merge_base(head_oid, commit_oid)
+                .expect("Failed to calculate merge base");
+
+            println!("merge base: {:?}", commit_oid);
+        }
+
+        let target = virtual_branches::target::Target {
+            name: branch.name().unwrap().unwrap().to_string(),
+            remote: remote_url_str.to_string(),
+            sha: commit_oid,
+            behind: 0,
+        };
+
+        let target_writer = virtual_branches::target::Writer::new(self);
+        target_writer.write_default(&target)?;
+
         let branch_writer = virtual_branches::branch::Writer::new(self);
-        let iter = virtual_branches::Iterator::new(&current_session_reader)?;
-        if iter.count() == 0 {
+
+        if active_virtual_branches.len() == 0 {
             let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
             let branch = virtual_branches::branch::Branch {
                 id: Uuid::new_v4().to_string(),
@@ -583,7 +609,7 @@ impl Repository {
                 created_timestamp_ms: now,
                 updated_timestamp_ms: now,
                 tree: commit.tree().unwrap().id(),
-                head: commit.id(),
+                head: commit_oid,
                 ownership: vec![],
             };
             branch_writer.write(&branch)?;
