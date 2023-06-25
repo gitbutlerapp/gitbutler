@@ -25,6 +25,7 @@
 
 		if (e.type == 'finalize') {
 			dispatch('newBranch', branchItems);
+			dispatch('update');
 			items = [];
 			return;
 		}

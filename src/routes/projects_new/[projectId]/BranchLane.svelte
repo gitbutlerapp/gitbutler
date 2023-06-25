@@ -14,6 +14,8 @@
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
 
+	const dispatch = createEventDispatcher();
+
 	export let branchId: string;
 	export let name: string;
 	export let commitMessage: string;
@@ -21,20 +23,20 @@
 	export let commits: Commit[];
 	export let projectId: string;
 
-	let allExpanded: boolean | undefined;
-
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
 
+	let allExpanded: boolean | undefined;
 	let descriptionHeight = 0;
 	let textArea: HTMLTextAreaElement;
-	const dispatch = createEventDispatcher();
 
-	const move_files = async (params: { projectId: string; branch: string; paths: Array<string> }) =>
-		invoke<object>('move_virtual_branch_files', params);
+	async function moveFiles(params: { projectId: string; branch: string; paths: Array<string> }) {
+		return invoke<object>('move_virtual_branch_files', params);
+	}
 
-	const commit_branch = async (params: { projectId: string; branch: string; message: string }) =>
-		invoke<object>('commit_virtual_branch', params);
+	async function commitBranch(params: { projectId: string; branch: string; message: string }) {
+		return invoke<object>('commit_virtual_branch', params);
+	}
 
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
 		const newItems = e.detail.items;
@@ -46,7 +48,7 @@
 				branch: branchId,
 				paths: fileItems.map((item) => item.path)
 			});
-			move_files({
+			moveFiles({
 				projectId: projectId,
 				branch: branchId,
 				paths: fileItems.map((item) => item.path)
@@ -84,13 +86,16 @@
 
 	function commit() {
 		console.log('commit', textArea.value, projectId, branchId);
-		commit_branch({
+		commitBranch({
 			projectId: projectId,
 			branch: branchId,
 			message: textArea.value
-		}).then((res) => {
-			console.log(res);
-		});
+		})
+			.then((res) => {
+				console.log(res);
+				dispatch('update');
+			})
+			.catch((e) => console.log(e));
 	}
 
 	onMount(() => {
