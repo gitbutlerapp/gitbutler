@@ -1,16 +1,30 @@
-<script lang="ts">
+<script lang="ts" async="true">
 	import { dndzone } from 'svelte-dnd-action';
 	import Lane from './BranchLane.svelte';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import type { Branch } from './types';
+	import { Branch } from './types';
+	import { plainToInstance } from 'class-transformer';
+	import { invoke } from '$lib/ipc';
 
-	export let branches: Branch[];
 	export let projectId: string;
+	let branches: Branch[] = [];
 
 	const dispatch = createEventDispatcher();
 	const newBranchClass = 'new-branch-active';
+
+	function sortBranchHunks(branches: Branch[]): Branch[] {
+		for (const branch of branches) {
+			for (const file of branch.files) {
+				file.hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
+			}
+		}
+		return branches;
+	}
+	async function getVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
+		return invoke<Array<Branch>>('list_virtual_branches', params);
+	}
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Branch>>) {
 		branches = e.detail.items.filter((branch) => branch.active);
@@ -26,6 +40,22 @@
 		}
 		branches = branches;
 	}
+
+	function updateBranches() {
+		getVirtualBranches({ projectId })
+			.then((res) => {
+				branches = sortBranchHunks(plainToInstance(Branch, res));
+			})
+			.catch((e) => console.log(e));
+	}
+
+	function handleUpdateRequest() {
+		updateBranches();
+	}
+
+	onMount(() => {
+		updateBranches();
+	});
 </script>
 
 <div
@@ -50,11 +80,12 @@
 			bind:files
 			{commits}
 			on:empty={handleEmpty}
+			on:update={handleUpdateRequest}
 			{projectId}
 			branchId={id}
 		/>
 	{/each}
-	<NewBranchDropZone on:newBranch />
+	<NewBranchDropZone on:newBranch on:update={handleUpdateRequest} />
 </div>
 
 <style lang="postcss">
