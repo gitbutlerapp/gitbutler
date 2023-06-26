@@ -1,7 +1,8 @@
 import { invoke } from '$lib/ipc';
-import type { Branch } from './types';
+import { Branch } from './types';
 import { stores } from '$lib';
 import { Value } from 'svelte-loadable-store';
+import { plainToInstance } from 'class-transformer';
 
 export function sortBranchHunks(branches: Branch[]): Branch[] {
 	for (const branch of branches) {
@@ -28,7 +29,9 @@ export function getVBranchesOnBackendChange(
 		return stores
 			.deltas({ projectId, sessionId: lastSession.id })
 			.subscribe(() =>
-				listVirtualBranches({ projectId }).then((newBranches) => callback(newBranches))
+				listVirtualBranches({ projectId }).then((newBranches) =>
+					callback(plainToInstance(Branch, newBranches))
+				)
 			);
 	});
 }
