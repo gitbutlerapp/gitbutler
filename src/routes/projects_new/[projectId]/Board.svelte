@@ -2,27 +2,17 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import Lane from './BranchLane.svelte';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import { Branch } from './types';
-	import { plainToInstance } from 'class-transformer';
-	import { invoke } from '$lib/ipc';
-	import { getVBranchesOnBackendChange, sortBranchHunks } from './vbranches';
-	import { error } from '$lib/toasts';
+	import type { Branch } from './types';
+	import type vbranches from './vbranches';
 
 	export let projectId: string;
 	export let branches: Branch[];
-
-	getVBranchesOnBackendChange(projectId, (newBranches: Branch[]) => {
-		branches = sortBranchHunks(newBranches);
-	});
+	export let branchStore: ReturnType<typeof vbranches>;
 
 	const dispatch = createEventDispatcher();
 	const newBranchClass = 'new-branch-active';
-
-	async function getVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
-		return invoke<Array<Branch>>('list_virtual_branches', params);
-	}
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Branch>>) {
 		branches = e.detail.items.filter((branch) => branch.active);
@@ -39,24 +29,10 @@
 		branches = branches;
 	}
 
-	function updateBranches() {
-		getVirtualBranches({ projectId })
-			.then((res) => {
-				branches = sortBranchHunks(plainToInstance(Branch, res));
-			})
-			.catch((e) => {
-				console.log(e);
-				error('Failed to update branch data');
-			});
-	}
-
 	function handleUpdateRequest() {
-		updateBranches();
+		// TODO: pass this as prop to components and refresh whenever we perform updates
+		branchStore.refresh();
 	}
-
-	onMount(() => {
-		updateBranches();
-	});
 </script>
 
 <div
