@@ -1,7 +1,6 @@
 import type { Target, BranchData } from './types';
 import { invoke } from '$lib/ipc';
 import type { PageLoadEvent } from './$types';
-import { sortBranchHunks } from './vbranches';
 
 async function getRemoteBranches(params: { projectId: string }) {
 	return invoke<Array<string>>('git_remote_branches', params);
