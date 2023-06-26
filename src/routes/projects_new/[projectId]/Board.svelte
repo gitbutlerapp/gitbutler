@@ -7,21 +7,18 @@
 	import { Branch } from './types';
 	import { plainToInstance } from 'class-transformer';
 	import { invoke } from '$lib/ipc';
+	import { getVBranchesOnBackendChange, sortBranchHunks } from './vbranches';
 
 	export let projectId: string;
 	export let branches: Branch[];
 
+	getVBranchesOnBackendChange(projectId, (newBranches: Branch[]) => {
+		branches = sortBranchHunks(newBranches);
+	});
+
 	const dispatch = createEventDispatcher();
 	const newBranchClass = 'new-branch-active';
 
-	function sortBranchHunks(branches: Branch[]): Branch[] {
-		for (const branch of branches) {
-			for (const file of branch.files) {
-				file.hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-			}
-		}
-		return branches;
-	}
 	async function getVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
 		return invoke<Array<Branch>>('list_virtual_branches', params);
 	}
