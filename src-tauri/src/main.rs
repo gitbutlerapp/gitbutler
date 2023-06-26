@@ -577,6 +577,7 @@ async fn list_virtual_branches(
     let app = handle.state::<app::App>();
     let branches = app
         .list_virtual_branches(project_id)
+        .await
         .context("failed to list virtual branches")?;
     Ok(branches)
 }
@@ -590,7 +591,9 @@ async fn create_virtual_branch(
     path: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.create_virtual_branch(project_id, name, path)?;
+    app.create_virtual_branch(project_id, name, path)
+        .await
+        .context("failed to create virtual branch")?;
     Ok(())
 }
 
@@ -615,7 +618,10 @@ async fn move_virtual_branch_files(
     paths: Vec<&str>,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let target = app.move_virtual_branch_files(project_id, branch, paths)?;
+    let target = app
+        .move_virtual_branch_files(project_id, branch, paths)
+        .await
+        .context("failed to move virtual branch files")?;
     Ok(target)
 }
 

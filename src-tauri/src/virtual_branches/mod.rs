@@ -13,6 +13,7 @@ use serde::Serialize;
 
 pub use branch::Branch;
 pub use iterator::BranchIterator as Iterator;
+use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 use crate::{gb_repository, project_repository, reader, sessions};
