@@ -3,6 +3,7 @@
 	import { invoke } from '@tauri-apps/api';
 	import type { Branch, BranchData, Target } from './types';
 	import { formatDistanceToNow } from 'date-fns';
+	import { error } from '$lib/toasts';
 
 	export let target: Target;
 	export let projectId: string;
@@ -15,7 +16,16 @@
 
 	function updateTarget() {
 		console.log('update');
-		updateBranchTarget({ projectId: projectId });
+		updateBranchTarget({ projectId: projectId }).then(
+			(res) => {
+				// We need to refetch target data here
+				console.log(res);
+			},
+			(e) => {
+				console.log(e);
+				error('Unable to update target!');
+			}
+		);
 	}
 </script>
 

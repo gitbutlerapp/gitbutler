@@ -13,6 +13,7 @@
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
+	import { error } from '$lib/toasts';
 
 	const dispatch = createEventDispatcher();
 
@@ -102,7 +103,10 @@
 				console.log(res);
 				dispatch('update');
 			})
-			.catch((e) => console.log(e));
+			.catch((e) => {
+				console.log(e);
+				error('Failed to commit files.');
+			});
 	}
 
 	onMount(() => {

@@ -8,6 +8,7 @@
 	import { plainToInstance } from 'class-transformer';
 	import { invoke } from '$lib/ipc';
 	import { getVBranchesOnBackendChange, sortBranchHunks } from './vbranches';
+	import { error } from '$lib/toasts';
 
 	export let projectId: string;
 	export let branches: Branch[];
@@ -43,7 +44,10 @@
 			.then((res) => {
 				branches = sortBranchHunks(plainToInstance(Branch, res));
 			})
-			.catch((e) => console.log(e));
+			.catch((e) => {
+				console.log(e);
+				error('Failed to update branch data');
+			});
 	}
 
 	function handleUpdateRequest() {
