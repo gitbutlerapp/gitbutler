@@ -48,20 +48,28 @@
 		const newItems = e.detail.items;
 		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 
-		let hunksToMove = [];
+		let hunkIdsToMove = [];
 
 		if (e.type == 'finalize') {
-			hunksToMove.push(...fileItems.flatMap((item) => item.hunks.map((h) => h.id)));
+			hunkIdsToMove.push(...fileItems.flatMap((item) => item.hunks.map((h) => h.id)));
 		}
 
-		const hunkItems = newItems.filter((item) => item instanceof Hunk);
-		hunksToMove.push(...hunkItems.map((h) => h.id));
+		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
+		hunkItems.forEach((hunk) => {
+			const file = files.find((f) => f.hunks.find((h) => h.id == hunk.id));
+			if (file) {
+				file.hunks.push(hunk);
+			} else {
+				fileItems.push(createFile(hunk.filePath, hunk));
+			}
+			hunkIdsToMove.push(hunk.id);
+		});
 
-		if (hunksToMove.length > 0)
+		if (hunkIdsToMove.length > 0)
 			moveFiles({
 				projectId: projectId,
 				branch: branchId,
-				paths: hunksToMove
+				paths: hunkIdsToMove
 			}).catch((e) => console.log(e));
 
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
