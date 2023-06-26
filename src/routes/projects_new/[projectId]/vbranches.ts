@@ -3,11 +3,20 @@ import { Branch } from './types';
 import { stores } from '$lib';
 import { writable, type Loadable, Value } from 'svelte-loadable-store';
 import { plainToInstance } from 'class-transformer';
-import type { Writable } from '@square/svelte-store';
+import type { Readable, Writable } from '@square/svelte-store';
+
+/** Virtual Branch interface with custom operations on top of subscribing */
+export interface VirtualBranch extends Readable<Loadable<Branch[]>> {
+	/**
+	 * Force re-fetch of the branches. Exists temporarily until we have all mutations on this interface.
+	 */
+	refresh(this: void): void;
+	// TODO: The other operations on branchesa, like create, delete, etc.
+}
 
 const cache: Record<string, Writable<Loadable<Branch[]>>> = {};
 
-export default (projectId: string) => {
+export default (projectId: string): VirtualBranch => {
 	if (projectId in cache) {
 		const store = cache[projectId];
 		return {
