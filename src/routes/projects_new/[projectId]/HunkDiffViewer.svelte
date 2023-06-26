@@ -91,7 +91,7 @@
 </script>
 
 <div
-	class="grid h-full w-full flex-auto whitespace-pre font-mono"
+	class="grid h-full w-full flex-auto whitespace-pre border border border-light-200 font-mono text-sm dark:border-dark-700"
 	style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
 >
 	{#each renderedRows as row}
@@ -104,22 +104,18 @@
 				? String(row.currentLineNumber + currentLineNumber - 1)
 				: ''}
 		<span
-			class="select-none border-r border-light-300  bg-light-200 text-light-800 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
+			class="min-w-[1rem] select-none border-r  border-light-400 bg-light-200 px-1 text-right text-light-800 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
 		>
-			<div class="mx-0.5 text-right">
-				{baseNumber}
-			</div>
+			{baseNumber}
 		</span>
 
 		<span
-			class="mr-1 select-none border-r border-light-300  bg-light-200 text-light-800 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
+			class="min-w-[1rem] select-none border-r  border-light-400 bg-light-200 px-1 text-right text-light-800 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
 		>
-			<div class="mx-0.5 text-right">
-				{curNumber}
-			</div>
+			{curNumber}
 		</span>
 		<span
-			class="diff-line-{row.type} overflow-hidden text-ellipsis whitespace-nowrap"
+			class="pl-1 diff-line-{row.type} overflow-hidden text-ellipsis whitespace-nowrap"
 			class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
 		>
 			{#each row.render.html as content}
