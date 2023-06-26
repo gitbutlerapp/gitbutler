@@ -237,7 +237,6 @@ pub fn list_virtual_branches(
         Err(e) => Err(e),
     }
     .context("failed to read default target")?;
-    let default_sha = default_target.sha.clone();
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
     for (branch, files) in &statuses {
@@ -245,8 +244,8 @@ pub fn list_virtual_branches(
 
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
-        if default_sha != branch.head {
-            let vtree = write_tree(gb_repository, project_repository, &files)?;
+        if default_target.sha != branch.head {
+            let vtree = write_tree(gb_repository, project_repository, files)?;
             let repo = &project_repository.git_repository;
             // get the trees
             let commit_old = repo.find_commit(branch.head)?;
@@ -358,12 +357,12 @@ pub fn update_branch(
     gb_repository: &gb_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<()> {
-    let writer = branch::Writer::new(&gb_repository);
+    let writer = branch::Writer::new(gb_repository);
 
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
     let virtual_branches = Iterator::new(&current_session_reader)
@@ -386,7 +385,7 @@ pub fn update_branch(
             writer.write(&target_branch)?;
             Ok(())
         }
-        None => return Ok(()),
+        None => Ok(()),
     }
 }
 
@@ -678,10 +677,15 @@ pub fn get_status_by_branch(
         .find(|b| b.applied)
         .map(|b| b.id.clone());
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let default_branch_id = branch_reader
+    let default_branch_id = if let Some(id) = branch_reader
         .read_selected()
         .context("failed to read selected branch")?
-        .or(first_applied_id);
+        .or(first_applied_id)
+    {
+        id
+    } else {
+        bail!("no default branch found")
+    };
 
     // now, distribute hunks to the branches
     let mut hunks_by_branch_id: HashMap<String, Vec<VirtualBranchHunk>> = virtual_branches
@@ -705,14 +709,10 @@ pub fn get_status_by_branch(
             continue;
         }
 
-        if default_branch_id.is_none() {
-            bail!("no branch found for {}", hunk_ownership);
-        }
-
         // put ownership into the virtual branch
         let mut default_branch = virtual_branches
             .iter()
-            .find(|b| b.id.eq(default_branch_id.as_ref().unwrap()))
+            .find(|b| b.id.eq(&default_branch_id))
             .unwrap()
             .clone();
 
@@ -884,7 +884,7 @@ pub fn update_branch_target(
         Some("HEAD"),
         &author,
         &committer,
-        &message,
+        message,
         &wd_tree,
         &[&target_commit],
     )?;
@@ -954,7 +954,7 @@ pub fn update_branch_target(
 
         // write new target oid
         target.sha = new_target_oid;
-        let target_writer = target::Writer::new(&gb_repository);
+        let target_writer = target::Writer::new(gb_repository);
         target_writer.write_default(&target)?;
     }
 
