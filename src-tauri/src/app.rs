@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops, sync};
 
 use anyhow::{Context, Result};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -29,6 +29,8 @@ pub struct App {
     files_database: files::Database,
     deltas_database: deltas::Database,
     bookmarks_database: bookmarks::Database,
+
+    vbranch_semaphores: sync::Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -63,6 +65,7 @@ impl App {
             deltas_database: deltas::Database::new(database.clone()),
             files_database: files::Database::new(database.clone()),
             bookmarks_database: bookmarks::Database::new(database),
+            vbranch_semaphores: sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         })
     }
 
@@ -333,7 +336,7 @@ impl App {
         Ok(())
     }
 
-    pub fn list_virtual_branches(
+    pub async fn list_virtual_branches(
         &self,
         project_id: &str,
     ) -> Result<Vec<virtual_branches::VirtualBranch>> {
@@ -341,11 +344,30 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         virtual_branches::list_virtual_branches(&gb_repository, &project_repository)
     }
 
-    pub fn create_virtual_branch(&self, project_id: &str, name: &str, path: &str) -> Result<()> {
+    pub async fn create_virtual_branch(
+        &self,
+        project_id: &str,
+        name: &str,
+        path: &str,
+    ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name)?;
         virtual_branches::move_files(&gb_repository, &branch_id, &vec![path.try_into()?])?;
         Ok(())
@@ -361,7 +383,7 @@ impl App {
         Ok(())
     }
 
-    pub fn move_virtual_branch_files(
+    pub async fn move_virtual_branch_files(
         &self,
         project_id: &str,
         branch: &str,
@@ -372,6 +394,13 @@ impl App {
             .into_iter()
             .map(|p| p.try_into())
             .collect::<Result<Vec<branch::Ownership>, _>>()?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         virtual_branches::move_files(&gb_repository, branch, &paths)?;
         Ok(())
     }
