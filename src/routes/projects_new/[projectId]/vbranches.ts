@@ -22,7 +22,7 @@ export function getStore(projectId: string) {
 				.deltas({ projectId, sessionId: lastSession.id })
 				.subscribe(() => {
 					list(projectId).then((newBranches) => {
-						set(sort(newBranches));
+						set(sort(plainToInstance(Branch, newBranches)));
 					});
 					return () => {
 						Promise.resolve(unsubscribeDeltas).then((unsubscribe) => unsubscribe());
@@ -39,7 +39,7 @@ export function getStore(projectId: string) {
 		subscribe: store.subscribe,
 		refresh: () =>
 			list(projectId).then((newBranches) =>
-				store.set({ isLoading: false, value: sort(newBranches) })
+				store.set({ isLoading: false, value: sort(plainToInstance(Branch, newBranches)) })
 			)
 	};
 }
@@ -53,10 +53,7 @@ function sort(branches: Branch[]): Branch[] {
 }
 
 async function list(projectId: string): Promise<Branch[]> {
-	return plainToInstance(
-		Array<Branch>,
-		invoke<Array<Branch>>('list_virtual_branches', { projectId })
-	);
+	return invoke<Array<Branch>>('list_virtual_branches', { projectId });
 }
 
 export function sortBranchHunks(branches: Branch[]): Branch[] {
@@ -66,10 +63,6 @@ export function sortBranchHunks(branches: Branch[]): Branch[] {
 		}
 	}
 	return branches;
-}
-
-async function listVirtualBranches(params: { projectId: string }) {
-	return invoke<Array<Branch>>('list_virtual_branches', params);
 }
 
 export function getVBranchesOnBackendChange(
@@ -84,9 +77,7 @@ export function getVBranchesOnBackendChange(
 		return stores
 			.deltas({ projectId, sessionId: lastSession.id })
 			.subscribe(() =>
-				listVirtualBranches({ projectId }).then((newBranches) =>
-					callback(plainToInstance(Branch, newBranches))
-				)
+				list(projectId).then((newBranches) => callback(plainToInstance(Branch, newBranches)))
 			);
 	});
 }
