@@ -3,12 +3,21 @@ import { Branch } from './types';
 import { stores } from '$lib';
 import { writable, type Loadable, Value } from 'svelte-loadable-store';
 import { plainToInstance } from 'class-transformer';
-import type { Readable } from '@square/svelte-store';
+import type { Writable } from '@square/svelte-store';
 
-const cache: Record<string, Readable<Loadable<Branch[]>>> = {};
+const cache: Record<string, Writable<Loadable<Branch[]>>> = {};
 
 export function getStore(projectId: string) {
-	if (projectId in cache) return cache[projectId];
+	if (projectId in cache) {
+		const store = cache[projectId];
+		return {
+			subscribe: store.subscribe,
+			refresh: () =>
+				list(projectId).then((newBranches) =>
+					store.set({ isLoading: false, value: sort(plainToInstance(Branch, newBranches)) })
+				)
+		};
+	}
 
 	// Subscribe to sessions,  grab the last one and subscribe to deltas on it.
 	// When a delta comes in, refresh the list of virtual branches.
