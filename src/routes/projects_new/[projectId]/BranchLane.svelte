@@ -13,7 +13,6 @@
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import { update_await_block_branch } from 'svelte/internal';
 
 	const dispatch = createEventDispatcher();
 
@@ -32,6 +31,7 @@
 	let textArea: HTMLTextAreaElement;
 
 	async function moveFiles(params: { projectId: string; branch: string; paths: Array<string> }) {
+		console.log('moveFiles', params);
 		return invoke<object>('move_virtual_branch_files', params);
 	}
 
@@ -48,28 +48,21 @@
 		const newItems = e.detail.items;
 		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 
+		let hunksToMove = [];
+
 		if (e.type == 'finalize') {
-			console.log({
-				projectId: projectId,
-				branch: branchId,
-				paths: fileItems.map((item) => item.path)
-			});
+			hunksToMove.push(...fileItems.flatMap((item) => item.hunks.map((h) => h.id)));
+		}
+
+		const hunkItems = newItems.filter((item) => item instanceof Hunk);
+		hunksToMove.push(...hunkItems.map((h) => h.id));
+
+		if (hunksToMove.length > 0)
 			moveFiles({
 				projectId: projectId,
 				branch: branchId,
-				paths: fileItems.map((item) => item.path)
-			});
-		}
-
-		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
-		for (const hunk of hunkItems) {
-			const file = fileItems.find((file) => file.path == hunk.filePath);
-			if (file) {
-				file.hunks.push(hunk);
-			} else {
-				fileItems.push(createFile(hunk.filePath, hunk));
-			}
-		}
+				paths: hunksToMove
+			}).catch((e) => console.log(e));
 
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
 		if (e.type == 'finalize' && files.length == 0) dispatch('empty');
