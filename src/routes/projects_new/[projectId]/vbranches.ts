@@ -7,7 +7,7 @@ import type { Writable } from '@square/svelte-store';
 
 const cache: Record<string, Writable<Loadable<Branch[]>>> = {};
 
-export function getStore(projectId: string) {
+export default (projectId: string) => {
 	if (projectId in cache) {
 		const store = cache[projectId];
 		return {
@@ -51,7 +51,7 @@ export function getStore(projectId: string) {
 				store.set({ isLoading: false, value: sort(plainToInstance(Branch, newBranches)) })
 			)
 	};
-}
+};
 function sort(branches: Branch[]): Branch[] {
 	for (const branch of branches) {
 		for (const file of branch.files) {
@@ -63,30 +63,4 @@ function sort(branches: Branch[]): Branch[] {
 
 async function list(projectId: string): Promise<Branch[]> {
 	return invoke<Array<Branch>>('list_virtual_branches', { projectId });
-}
-
-export function sortBranchHunks(branches: Branch[]): Branch[] {
-	for (const branch of branches) {
-		for (const file of branch.files) {
-			file.hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-		}
-	}
-	return branches;
-}
-
-export function getVBranchesOnBackendChange(
-	projectId: string,
-	callback: (newBranches: Array<Branch>) => void
-) {
-	stores.sessions({ projectId }).subscribe((sessions) => {
-		if (sessions.isLoading) return;
-		if (Value.isError(sessions.value)) return;
-		const lastSession = sessions.value.at(0);
-		if (!lastSession) return;
-		return stores
-			.deltas({ projectId, sessionId: lastSession.id })
-			.subscribe(() =>
-				list(projectId).then((newBranches) => callback(plainToInstance(Branch, newBranches)))
-			);
-	});
 }
