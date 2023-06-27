@@ -8,7 +8,7 @@ module.exports = {
 		'plugin:svelte/prettier',
 		'prettier'
 	],
-	plugins: ['svelte', '@typescript-eslint', 'square-svelte-store'],
+	plugins: ['svelte', '@typescript-eslint', 'square-svelte-store', 'import'],
 	parserOptions: {
 		sourceType: 'module',
 		ecmaVersion: 2020,
@@ -30,6 +30,7 @@ module.exports = {
 		node: true
 	},
 	rules: {
+		'import/no-cycle': 'error',
 		'svelte/no-at-html-tags': 'off',
 		'@typescript-eslint/no-namespace': 'off',
 		'@typescript-eslint/no-empty-function': 'off',
@@ -43,5 +44,16 @@ module.exports = {
 				caughtErrorsIgnorePattern: '^_'
 			}
 		]
+	},
+	settings: {
+		'import/extensions': ['.ts'],
+		'import/parsers': {
+			'@typescript-eslint/parser': ['.ts']
+		},
+		'import/resolver': {
+			typescript: {
+				project: ['./tsconfig.json', './.svelte-kit/tsconfig.json']
+			}
+		}
 	}
 };
