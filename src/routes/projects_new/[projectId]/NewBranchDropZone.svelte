@@ -4,9 +4,9 @@
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import { createBranch, createFile } from './helpers';
 	import { Button } from '$lib/components';
-	import type { VirtualBranchStore } from './vbranches';
+	import type { VirtualBranchOperations } from './vbranches';
 
-	export let virtualBranches: VirtualBranchStore;
+	export let virtualBranches: VirtualBranchOperations;
 	let items: Branch[] = [];
 
 	function handleDndFinalize(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {

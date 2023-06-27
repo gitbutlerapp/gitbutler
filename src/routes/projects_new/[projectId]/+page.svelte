@@ -2,12 +2,12 @@
 	import Board from './Board.svelte';
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
-	import { getStore } from './vbranches';
+	import { getVirtualBranches } from './vbranches';
 	import { Value } from 'svelte-loadable-store';
 
 	export let data: PageData;
 	let { projectId, target, remoteBranches, remoteBranchesData } = data;
-	const virtualBranches = getStore(projectId);
+	const virtualBranches = getVirtualBranches(projectId);
 	$: branches = $virtualBranches.isLoading
 		? []
 		: Value.isValue($virtualBranches.value)

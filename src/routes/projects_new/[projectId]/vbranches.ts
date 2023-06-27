@@ -6,9 +6,9 @@ import { plainToInstance } from 'class-transformer';
 import type { Writable, Readable } from '@square/svelte-store';
 import { error } from '$lib/toasts';
 
-const cache: Map<string, VirtualBranchStore & Readable<Loadable<Branch[]>>> = new Map();
+const cache: Map<string, VirtualBranchOperations & Readable<Loadable<Branch[]>>> = new Map();
 
-export interface VirtualBranchStore {
+export interface VirtualBranchOperations {
 	refresh: () => void;
 	setTarget: (branch: string) => Promise<object>;
 	createBranch: (name: string, path: string) => Promise<void | object>;
@@ -18,14 +18,16 @@ export interface VirtualBranchStore {
 	moveFiles: (branchId: string, paths: Array<string>) => Promise<void | object>;
 }
 
-export function getStore(projectId: string): VirtualBranchStore & Readable<Loadable<Branch[]>> {
+export function getVirtualBranches(
+	projectId: string
+): VirtualBranchOperations & Readable<Loadable<Branch[]>> {
 	const cachedStore = cache.get(projectId);
 	if (cachedStore) {
 		return cachedStore;
 	}
 
 	const writeable = createWriteable(projectId);
-	const store: VirtualBranchStore & Readable<Loadable<Branch[]>> = {
+	const store: VirtualBranchOperations & Readable<Loadable<Branch[]>> = {
 		subscribe: writeable.subscribe,
 		refresh: () => refresh(projectId, writeable),
 		setTarget(branch) {

@@ -12,7 +12,7 @@
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import type { VirtualBranchStore } from './vbranches';
+	import type { VirtualBranchOperations } from './vbranches';
 
 	const dispatch = createEventDispatcher();
 
@@ -22,7 +22,7 @@
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;
-	export let virtualBranches: VirtualBranchStore;
+	export let virtualBranches: VirtualBranchOperations;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
