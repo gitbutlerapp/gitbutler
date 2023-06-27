@@ -4,7 +4,7 @@ pub mod target;
 
 use std::{
     collections::{HashMap, HashSet},
-    ops, path, time, vec,
+    path, time, vec,
 };
 
 use anyhow::{bail, Context, Result};
@@ -429,7 +429,7 @@ pub fn move_files(
     };
 
     for ownership in to_move {
-        let source_branches = if ownership.ranges.is_empty() {
+        let source_branches = if ownership.hunks.is_empty() {
             // find all branches that own any part of the file
             virtual_branches
                 .clone()
@@ -483,34 +483,6 @@ pub fn move_files(
     Ok(())
 }
 
-fn distance(a: &ops::RangeInclusive<usize>, b: &ops::RangeInclusive<usize>) -> usize {
-    if a.start() > b.end() {
-        a.start() - b.end()
-    } else if b.start() > a.end() {
-        b.start() - a.end()
-    } else {
-        0
-    }
-}
-
-fn ranges_intersect(
-    one: &ops::RangeInclusive<usize>,
-    another: &ops::RangeInclusive<usize>,
-) -> bool {
-    one.contains(another.start())
-        || one.contains(another.end())
-        || another.contains(one.start())
-        || another.contains(one.end())
-}
-
-fn ranges_touching(
-    one: &ops::RangeInclusive<usize>,
-    another: &ops::RangeInclusive<usize>,
-    context: usize,
-) -> bool {
-    distance(one, another) <= context || distance(another, one) <= context
-}
-
 fn explicit_owner(stack: &[branch::Branch], needle: &branch::Ownership) -> Option<branch::Branch> {
     stack
         .iter()
@@ -518,7 +490,7 @@ fn explicit_owner(stack: &[branch::Branch], needle: &branch::Ownership) -> Optio
             branch
                 .ownership
                 .iter()
-                .filter(|ownership| !ownership.ranges.is_empty()) // only consider explicit ownership
+                .filter(|ownership| !ownership.hunks.is_empty()) // only consider explicit ownership
                 .any(|ownership| ownership.contains(needle))
         })
         .cloned()
@@ -534,13 +506,13 @@ fn owned_by_proximity(
             branch
                 .ownership
                 .iter()
-                .filter(|ownership| !ownership.ranges.is_empty()) // only consider explicit ownership
+                .filter(|ownership| !ownership.hunks.is_empty()) // only consider explicit ownership
                 .any(|ownership| {
-                    ownership.ranges.iter().any(|range| {
+                    ownership.hunks.iter().any(|range| {
                         needle
-                            .ranges
+                            .hunks
                             .iter()
-                            .any(|r| ranges_touching(r, range, 6) || ranges_intersect(r, range))
+                            .any(|r| r.touches(range) || r.intersects(range))
                     })
                 })
         })
