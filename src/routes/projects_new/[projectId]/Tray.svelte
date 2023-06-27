@@ -2,12 +2,12 @@
 	import { Button, Checkbox } from '$lib/components';
 	import type { Branch, BranchData, Target } from './types';
 	import { formatDistanceToNow } from 'date-fns';
-	import type { VirtualBranchStore } from './vbranches';
+	import type { VirtualBranchOperations } from './vbranches';
 
 	export let target: Target;
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
-	export let virtualBranches: VirtualBranchStore;
+	export let virtualBranches: VirtualBranchOperations;
 </script>
 
 <div
