@@ -14,6 +14,7 @@ export interface VirtualBranchStore {
 	setTarget: (branch: string) => Promise<object>;
 	createBranch: (name: string, path: string) => Promise<void | object>;
 	commitBranch: (branch: string, message: string) => Promise<void | object>;
+	updateBranchTarget: () => Promise<void | object>;
 }
 
 export function getStore(projectId: string): VirtualBranchStore {
@@ -52,6 +53,18 @@ export function getStore(projectId: string): VirtualBranchStore {
 				.catch((err) => {
 					console.log(err);
 					error('Failed to commit files.');
+				});
+		},
+		updateBranchTarget() {
+			return invoke<object>('update_branch_target', { projectId: projectId })
+				.then((res) => {
+					// TODO
+					// We need to refetch target data here
+					console.log(res);
+				})
+				.catch((err) => {
+					console.log(err);
+					error('Unable to update target!');
 				});
 		}
 	};
