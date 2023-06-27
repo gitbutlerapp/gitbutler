@@ -9,7 +9,6 @@ import { error } from '$lib/toasts';
 const cache: Map<string, VirtualBranchOperations & Readable<Loadable<Branch[]>>> = new Map();
 
 export interface VirtualBranchOperations {
-	refresh: () => void;
 	setTarget: (branch: string) => Promise<object>;
 	createBranch: (name: string, path: string) => Promise<void | object>;
 	commitBranch: (branch: string, message: string) => Promise<void | object>;
@@ -29,7 +28,6 @@ export function getVirtualBranches(
 	const writeable = createWriteable(projectId);
 	const store: VirtualBranchOperations & Readable<Loadable<Branch[]>> = {
 		subscribe: writeable.subscribe,
-		refresh: () => refresh(projectId, writeable),
 		setTarget(branch) {
 			return invoke<object>('set_target_branch', {
 				projectId: projectId,
