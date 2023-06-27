@@ -9,7 +9,7 @@
 
 	export let projectId: string;
 	export let branches: Branch[];
-	export let branchStore: VirtualBrancher;
+	export let virtualBranches: VirtualBrancher;
 
 	const dispatch = createEventDispatcher();
 	const newBranchClass = 'new-branch-active';
@@ -31,7 +31,7 @@
 
 	function handleUpdateRequest() {
 		// TODO: pass this as prop to components and refresh whenever we perform updates
-		branchStore.refresh();
+		virtualBranches.refresh();
 	}
 </script>
 
