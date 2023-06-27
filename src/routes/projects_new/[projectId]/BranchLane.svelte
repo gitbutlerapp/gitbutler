@@ -37,11 +37,6 @@
 		return invoke<object>('move_virtual_branch_files', params);
 	}
 
-	const update_branch = async (params: {
-		projectId: string;
-		branch: { id: string; name: string };
-	}) => invoke('update_virtual_branch', params);
-
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
 		const newItems = e.detail.items;
 		const fileItems = newItems.filter((item) => item instanceof File) as File[];
@@ -123,7 +118,7 @@
 
 	function handleBranchNameChange() {
 		console.log('branch name change:', name);
-		update_branch({ projectId: projectId, branch: { id: branchId, name: name } });
+		virtualBranches.updateBranchName(branchId, name);
 	}
 </script>
 
