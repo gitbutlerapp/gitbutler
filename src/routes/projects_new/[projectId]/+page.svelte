@@ -5,16 +5,15 @@
 	import type { Branch } from './types';
 	import { invoke } from '@tauri-apps/api';
 	import vbranches from './vbranches';
-	import { Value, Loadable } from 'svelte-loadable-store';
-	import type { Readable } from '@square/svelte-store';
+	import { Value } from 'svelte-loadable-store';
 
 	export let data: PageData;
 	let { projectId, target, remoteBranches, remoteBranchesData } = data;
-	const branchStore = vbranches(projectId) as Readable<Loadable<Branch[]>>;
-	$: branches = $branchStore.isLoading
+	const virtualBranches = vbranches(projectId);
+	$: branches = $virtualBranches.isLoading
 		? []
-		: Value.isValue($branchStore.value)
-		? $branchStore.value
+		: Value.isValue($virtualBranches.value)
+		? $virtualBranches.value
 		: [];
 	let targetChoice = 'origin/master'; // prob should check if it exists
 
@@ -40,7 +39,7 @@
 {#if target}
 	<div class="flex w-full max-w-full">
 		<Tray bind:branches {target} {projectId} remoteBranches={remoteBranchesData} />
-		<Board bind:branches {projectId} {branchStore} on:newBranch={handleNewBranch} />
+		<Board bind:branches {projectId} {virtualBranches} on:newBranch={handleNewBranch} />
 	</div>
 {:else}
 	<div class="m-auto flex flex-col space-y-2">
