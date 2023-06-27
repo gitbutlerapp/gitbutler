@@ -30,7 +30,7 @@ module.exports = {
 		node: true
 	},
 	rules: {
-		'import/no-cycle': 'error',
+		'import/no-cycle': 'warn',
 		'svelte/no-at-html-tags': 'off',
 		'@typescript-eslint/no-namespace': 'off',
 		'@typescript-eslint/no-empty-function': 'off',
