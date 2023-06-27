@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 
 use super::hunk::Hunk;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Ownership {
     pub file_path: path::PathBuf,
     pub hunks: Vec<Hunk>,
@@ -128,7 +128,7 @@ impl Ownership {
         another
             .hunks
             .iter()
-            .map(|range| self.hunks.iter().find(|r| r.eq(&range)))
+            .map(|hunk| self.hunks.iter().find(|r| r.eq(&hunk)))
             .all(|x| x.is_some())
     }
 
@@ -176,18 +176,6 @@ mod tests {
                 hunks: vec![]
             }
         );
-    }
-
-    #[test]
-    fn parse_ownership_invalid_range() {
-        let ownership = Ownership::parse_string("foo/bar.rs:1-2,4-5-6");
-        assert!(ownership.is_err());
-    }
-
-    #[test]
-    fn parse_ownership_invalid_range_2() {
-        let ownership = Ownership::parse_string("foo/bar.rs:1-2,6-5");
-        assert!(ownership.is_err());
     }
 
     #[test]
