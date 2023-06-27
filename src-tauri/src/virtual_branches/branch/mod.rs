@@ -3,14 +3,14 @@ mod ownership;
 mod reader;
 mod writer;
 
+pub use hunk::Hunk;
+pub use ownership::Ownership;
 pub use reader::BranchReader as Reader;
 pub use writer::BranchWriter as Writer;
 
 use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
-
-pub use ownership::Ownership;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Branch {

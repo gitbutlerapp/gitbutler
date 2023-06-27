@@ -551,7 +551,6 @@ fn diff_to_hunks_by_filepath(
                 hunk.new_start() + hunk.new_lines()
             )
         } else {
-            // no hunk, so we're in the header, skip it
             return true;
         };
 
@@ -730,7 +729,7 @@ pub fn get_status_by_branch(
         .collect();
     let all_hunks = hunks_by_filepath.values().flatten().collect::<Vec<_>>();
     for hunk in all_hunks {
-        let hunk_ownership = Ownership::try_from(&hunk.id)?;
+        let hunk_ownership = Ownership::try_from(format!("{}-{}", hunk.id, hunk.modified_at))?;
 
         let owned_by = explicit_owner(&virtual_branches, &hunk_ownership)
             .or_else(|| implicit_owner(&virtual_branches, &hunk_ownership))

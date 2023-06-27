@@ -4,10 +4,18 @@ use anyhow::{anyhow, Context, Result};
 
 static CONTEXT: usize = 3; // default git diff context
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Eq, Clone)]
 pub struct Hunk {
     start: usize,
     end: usize,
+    timestamp_ms: Option<u128>,
+}
+
+impl PartialEq for Hunk {
+    fn eq(&self, other: &Self) -> bool {
+        // ignore timestamp
+        self.start == other.start && self.end == other.end
+    }
 }
 
 impl From<RangeInclusive<usize>> for Hunk {
@@ -15,6 +23,7 @@ impl From<RangeInclusive<usize>> for Hunk {
         Hunk {
             start: *range.start(),
             end: *range.end(),
+            timestamp_ms: None,
         }
     }
 }
@@ -24,36 +33,67 @@ impl TryFrom<&str> for Hunk {
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         let mut range = s.split('-');
-        if range.clone().count() != 2 {
-            return Err(anyhow!("invalid range: {}", s));
-        }
-        let start = range
-            .next()
-            .unwrap()
-            .parse::<usize>()
-            .context(format!("failed to parse start of range: {}", s))?;
-        let end = range
-            .next()
-            .unwrap()
-            .parse::<usize>()
-            .context(format!("failed to parse end of range: {}", s))?;
-        if start > end {
-            Err(anyhow!("invalid range: {}", s))
+        let start = if let Some(raw_start) = range.next() {
+            raw_start
+                .parse::<usize>()
+                .context(format!("failed to parse start of range: {}", s))
         } else {
-            Ok(Hunk { start, end })
+            Err(anyhow!("invalid range: {}", s))
+        }?;
+
+        let end = if let Some(raw_end) = range.next() {
+            raw_end
+                .parse::<usize>()
+                .context(format!("failed to parse end of range: {}", s))
+        } else {
+            Err(anyhow!("invalid range: {}", s))
+        }?;
+        let hunk = Hunk::new(start, end)?;
+
+        if let Some(raw_timestamp) = range.next() {
+            let timestamp = raw_timestamp
+                .parse::<u128>()
+                .context(format!("failed to parse timestamp: {}", s))?;
+            Ok(hunk.with_timestamp(timestamp))
+        } else {
+            Ok(hunk)
         }
     }
 }
 
 impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-{}", self.start, self.end,)
+        if let Some(ts) = self.timestamp_ms {
+            write!(f, "{}-{}-{}", self.start, self.end, ts)
+        } else {
+            write!(f, "{}-{}", self.start, self.end)
+        }
     }
 }
 
 impl Hunk {
+    pub fn new(start: usize, end: usize) -> Result<Self> {
+        if start > end {
+            Err(anyhow!("invalid range: {}-{}", start, end))
+        } else {
+            Ok(Hunk {
+                start,
+                end,
+                timestamp_ms: None,
+            })
+        }
+    }
+
     pub fn start(&self) -> &usize {
         &self.start
+    }
+
+    pub fn with_timestamp(&self, timestamp_ms: u128) -> Self {
+        Hunk {
+            start: self.start,
+            end: self.end,
+            timestamp_ms: Some(timestamp_ms),
+        }
     }
 
     pub fn contains(&self, line: &usize) -> bool {
@@ -88,7 +128,19 @@ mod tests {
 
     #[test]
     fn to_from_string() {
-        let hunk = Hunk::from(1..=2);
-        assert_eq!(hunk, Hunk::try_from(hunk.to_string().as_str()).unwrap());
+        vec!["1-2", "1-2-3"].into_iter().for_each(|raw| {
+            let hunk = Hunk::try_from(raw).unwrap();
+            assert_eq!(raw, hunk.to_string(), "failed to convert {}", raw);
+        });
+    }
+
+    #[test]
+    fn parse_invalid() {
+        assert!(Hunk::try_from("3-2-garbage").is_err());
+    }
+
+    #[test]
+    fn parse_invalid_2() {
+        assert!(Hunk::try_from("3-2").is_err());
     }
 }
