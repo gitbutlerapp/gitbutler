@@ -24,79 +24,15 @@ export function getVirtualBranches(
 	if (cachedStore) {
 		return cachedStore;
 	}
-
 	const writeable = createWriteable(projectId);
 	const store: VirtualBranchOperations & Readable<Loadable<Branch[]>> = {
 		subscribe: writeable.subscribe,
-		setTarget(branch) {
-			return invoke<object>('set_target_branch', {
-				projectId: projectId,
-				branch: branch
-			});
-		},
-		createBranch(name, path) {
-			return invoke<object>('create_virtual_branch', {
-				projectId: projectId,
-				name: name,
-				path: path
-			}).then(() => refresh(projectId, writeable));
-		},
-		commitBranch(branch, message) {
-			return invoke<object>('commit_virtual_branch', {
-				projectId: projectId,
-				branch: branch,
-				message: message
-			})
-				.then((res) => {
-					console.log(res);
-					refresh(projectId, writeable);
-				})
-				.catch((err) => {
-					console.log(err);
-					error('Failed to commit files.');
-				});
-		},
-		updateBranchTarget() {
-			return invoke<object>('update_branch_target', { projectId: projectId })
-				.then((res) => {
-					// TODO
-					// We need to refetch target data here
-					console.log(res);
-				})
-				.catch((err) => {
-					console.log(err);
-					error('Unable to update target!');
-				});
-		},
-		updateBranchName(branchId, name) {
-			return invoke<object>('update_virtual_branch', {
-				projectId: projectId,
-				branch: { id: branchId, name: name }
-			})
-				.then((res) => {
-					console.log(res);
-					refresh(projectId, writeable);
-				})
-				.catch((err) => {
-					console.log(err);
-					error('Unable to update branch!');
-				});
-		},
-		moveFiles(branchId, paths) {
-			return invoke<object>('move_virtual_branch_files', {
-				projectId: projectId,
-				branch: branchId,
-				paths: paths
-			})
-				.then((res) => {
-					console.log(res);
-					refresh(projectId, writeable);
-				})
-				.catch((err) => {
-					console.log(err);
-					error('Unable to move files!');
-				});
-		}
+		setTarget: (branch) => setTarget(branch, projectId),
+		createBranch: (name, path) => createBranch(writeable, projectId, name, path),
+		commitBranch: (branch, message) => commitBranch(writeable, projectId, branch, message),
+		updateBranchTarget: () => updateBranchTarget(projectId),
+		updateBranchName: (branchId, name) => updateBranchName(writeable, projectId, branchId, name),
+		moveFiles: (branchId, paths) => moveFiles(writeable, projectId, branchId, paths)
 	};
 	cache.set(projectId, store);
 	return store;
@@ -141,4 +77,100 @@ async function list(projectId: string): Promise<Branch[]> {
 	return invoke<Array<Branch>>('list_virtual_branches', { projectId }).then((result) =>
 		sort(plainToInstance(Branch, result))
 	);
+}
+
+function setTarget(projectId: string, branch: string) {
+	return invoke<object>('set_target_branch', {
+		projectId: projectId,
+		branch: branch
+	});
+}
+
+function createBranch(
+	writable: Writable<Loadable<Branch[]>>,
+	projectId: string,
+	name: string,
+	path: string
+) {
+	return invoke<object>('create_virtual_branch', {
+		projectId: projectId,
+		name: name,
+		path: path
+	}).then(() => refresh(projectId, writable));
+}
+
+function commitBranch(
+	writable: Writable<Loadable<Branch[]>>,
+	projectId: string,
+	branch: string,
+	message: string
+) {
+	return invoke<object>('commit_virtual_branch', {
+		projectId: projectId,
+		branch: branch,
+		message: message
+	})
+		.then((res) => {
+			console.log(res);
+			refresh(projectId, writable);
+		})
+		.catch((err) => {
+			console.log(err);
+			error('Failed to commit files.');
+		});
+}
+
+function updateBranchTarget(projectId: string) {
+	return invoke<object>('update_branch_target', { projectId: projectId })
+		.then((res) => {
+			// TODO
+			// We need to refetch target data here
+			console.log(res);
+		})
+		.catch((err) => {
+			console.log(err);
+			error('Unable to update target!');
+		});
+}
+
+function updateBranchName(
+	writable: Writable<Loadable<Branch[]>>,
+	projectId: string,
+	branchId: string,
+	name: string
+) {
+	return invoke<object>('update_virtual_branch', {
+		projectId: projectId,
+		branch: { id: branchId, name: name }
+	})
+		.then((res) => {
+			console.log(res);
+			refresh(projectId, writable);
+		})
+		.catch((err) => {
+			console.log(err);
+			error('Unable to update branch!');
+		});
+}
+
+function moveFiles(
+	writable: Writable<Loadable<Branch[]>>,
+	projectId: string,
+
+	branchId: string,
+	paths: Array<string>
+) {
+	return invoke<object>('move_virtual_branch_files', {
+		projectId: projectId,
+		branch: branchId,
+		paths: paths
+	})
+		.then((res) => {
+			console.log(res);
+			refresh(projectId, writable);
+		})
+		.catch((err) => {
+			console.log(err);
+			error('Unable to move files!');
+		});
 }
