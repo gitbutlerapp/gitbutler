@@ -57,6 +57,8 @@
 		"diff-match-patch": "^1.0.5",
 		"eslint": "^8.41.0",
 		"eslint-config-prettier": "^8.5.0",
+		"eslint-import-resolver-typescript": "^3.5.5",
+		"eslint-plugin-import": "^2.27.5",
 		"eslint-plugin-square-svelte-store": "^1.0.0",
 		"eslint-plugin-svelte": "^2.29.0",
 		"histoire": "^0.16.1",
