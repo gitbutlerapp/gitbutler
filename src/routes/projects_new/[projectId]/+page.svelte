@@ -8,11 +8,10 @@
 	export let data: PageData;
 	let { projectId, target, remoteBranches, remoteBranchesData } = data;
 	const virtualBranches = getVirtualBranches(projectId);
-	$: branches = $virtualBranches.isLoading
-		? []
-		: Value.isValue($virtualBranches.value)
-		? $virtualBranches.value
-		: [];
+	$: branches =
+		!$virtualBranches.isLoading && !Value.isError($virtualBranches.value)
+			? $virtualBranches.value
+			: [];
 	let targetChoice = 'origin/master'; // prob should check if it exists
 </script>
 
