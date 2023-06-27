@@ -3,7 +3,7 @@ import { Branch } from './types';
 import { stores } from '$lib';
 import { writable, type Loadable, Value } from 'svelte-loadable-store';
 import { plainToInstance } from 'class-transformer';
-import type { Subscriber, Unsubscriber } from '@square/svelte-store';
+import type { Subscriber, Unsubscriber, Writable } from '@square/svelte-store';
 
 const cache: Map<string, VirtualBranchStore> = new Map();
 
@@ -11,6 +11,7 @@ export interface VirtualBranchStore {
 	subscribe: (branches: Subscriber<Loadable<Branch[]>>) => Unsubscriber;
 	refresh: () => void;
 	setTarget: (branch: string) => Promise<object>;
+	createBranch: (name: string, path: string) => Promise<void | object>;
 }
 
 export function getStore(projectId: string): VirtualBranchStore {
@@ -22,15 +23,19 @@ export function getStore(projectId: string): VirtualBranchStore {
 	const writeable = createWriteable(projectId);
 	const store: VirtualBranchStore = {
 		subscribe: writeable.subscribe,
-		refresh: () =>
-			list(projectId).then((newBranches) =>
-				writeable.set({ isLoading: false, value: newBranches })
-			),
+		refresh: () => refresh(projectId, writeable),
 		setTarget(branch) {
 			return invoke<object>('set_target_branch', {
 				projectId: projectId,
 				branch: branch
 			});
+		},
+		createBranch(name, path) {
+			return invoke<object>('create_virtual_branch', {
+				projectId: projectId,
+				name: name,
+				path: path
+			}).then(() => refresh(projectId, writeable));
 		}
 	};
 	cache.set(projectId, store);
@@ -57,6 +62,10 @@ function createWriteable(projectId: string) {
 			return () => sessionsUnsubscribe();
 		});
 	});
+}
+
+function refresh(projectId: string, store: Writable<Loadable<Branch[]>>) {
+	list(projectId).then((newBranches) => store.set({ isLoading: false, value: newBranches }));
 }
 
 function sort(branches: Branch[]): Branch[] {

@@ -3,7 +3,6 @@
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
 	import type { Branch } from './types';
-	import { invoke } from '@tauri-apps/api';
 	import { getStore } from './vbranches';
 	import { Value } from 'svelte-loadable-store';
 
@@ -17,15 +16,10 @@
 		: [];
 	let targetChoice = 'origin/master'; // prob should check if it exists
 
-	async function createBranch(params: { projectId: string; name: string; path: string }) {
-		return invoke<object>('create_virtual_branch', params);
-	}
-
 	function handleNewBranch(e: CustomEvent<Branch[]>) {
 		let name = e.detail[0].name;
 		let path = e.detail[0].files[0].path;
-		createBranch({ projectId: projectId, name: name, path: path });
-		branches.push(...e.detail);
+		virtualBranches.createBranch(name, path);
 	}
 </script>
 
