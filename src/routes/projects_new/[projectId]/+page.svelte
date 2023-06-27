@@ -5,11 +5,12 @@
 	import type { Branch } from './types';
 	import { invoke } from '@tauri-apps/api';
 	import vbranches from './vbranches';
-	import { Value } from 'svelte-loadable-store';
+	import { Value, Loadable } from 'svelte-loadable-store';
+	import type { Readable } from '@square/svelte-store';
 
 	export let data: PageData;
 	let { projectId, target, remoteBranches, remoteBranchesData } = data;
-	const branchStore = vbranches(projectId);
+	const branchStore = vbranches(projectId) as Readable<Loadable<Branch[]>>;
 	$: branches = $branchStore.isLoading
 		? []
 		: Value.isValue($branchStore.value)
