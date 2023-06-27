@@ -88,6 +88,10 @@ impl Hunk {
         &self.start
     }
 
+    pub fn timestamp_ms(&self) -> Option<&u128> {
+        self.timestamp_ms.as_ref()
+    }
+
     pub fn with_timestamp(&self, timestamp_ms: u128) -> Self {
         Hunk {
             start: self.start,
