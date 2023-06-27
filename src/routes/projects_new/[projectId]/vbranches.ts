@@ -3,13 +3,12 @@ import { Branch } from './types';
 import { stores } from '$lib';
 import { writable, type Loadable, Value } from 'svelte-loadable-store';
 import { plainToInstance } from 'class-transformer';
-import type { Subscriber, Unsubscriber, Writable } from '@square/svelte-store';
+import type { Writable, Readable } from '@square/svelte-store';
 import { error } from '$lib/toasts';
 
-const cache: Map<string, VirtualBranchStore> = new Map();
+const cache: Map<string, VirtualBranchStore & Readable<Loadable<Branch[]>>> = new Map();
 
 export interface VirtualBranchStore {
-	subscribe: (branches: Subscriber<Loadable<Branch[]>>) => Unsubscriber;
 	refresh: () => void;
 	setTarget: (branch: string) => Promise<object>;
 	createBranch: (name: string, path: string) => Promise<void | object>;
@@ -19,14 +18,14 @@ export interface VirtualBranchStore {
 	moveFiles: (branchId: string, paths: Array<string>) => Promise<void | object>;
 }
 
-export function getStore(projectId: string): VirtualBranchStore {
+export function getStore(projectId: string): VirtualBranchStore & Readable<Loadable<Branch[]>> {
 	const cachedStore = cache.get(projectId);
 	if (cachedStore) {
 		return cachedStore;
 	}
 
 	const writeable = createWriteable(projectId);
-	const store: VirtualBranchStore = {
+	const store: VirtualBranchStore & Readable<Loadable<Branch[]>> = {
 		subscribe: writeable.subscribe,
 		refresh: () => refresh(projectId, writeable),
 		setTarget(branch) {
