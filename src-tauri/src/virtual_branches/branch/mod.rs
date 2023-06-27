@@ -53,6 +53,16 @@ impl Ownership {
             return self.clone();
         }
 
+        if self.ranges.is_empty() {
+            // full ownership + partial ownership = full ownership
+            return self.clone();
+        }
+
+        if another.ranges.is_empty() {
+            // partial ownership + full ownership = full ownership
+            return another.clone();
+        }
+
         let mut ranges = self.ranges.clone();
         ranges.extend(another.ranges.clone());
 
@@ -272,6 +282,8 @@ mod ownership_tests {
                 "file.txt:8-15,20-25",
                 "file.txt:1-10,8-15,20-25",
             ),
+            ("file.txt:1-10", "file.txt", "file.txt"),
+            ("file.txt", "file.txt:1-10", "file.txt"),
             ("file.txt:1-10", "file.txt:10-15", "file.txt:1-10,10-15"),
             ("file.txt:5-10", "file.txt:1-5", "file.txt:1-5,5-10"),
             ("file.txt:1-10", "file.txt:1-10", "file.txt:1-10"),
