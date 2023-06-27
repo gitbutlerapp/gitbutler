@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use git_butler_tauri::{
     database, gb_repository, project_repository, projects, reader, sessions, storage, users,
-    virtual_branches::{self, branch::Ownership, list_virtual_branches},
+    virtual_branches::{self, branch::FileOwnership, list_virtual_branches},
 };
 
 #[derive(Parser)]
@@ -223,7 +223,7 @@ fn run_new(butler: ButlerCli) {
         head: default_target.sha,
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
-        ownership: vec![],
+        ownership: virtual_branches::branch::Ownership { files: Vec::new() },
     };
 
     let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
@@ -293,7 +293,7 @@ fn run_move(butler: ButlerCli) {
         "Moving {} hunks to {}",
         selected_files
             .iter()
-            .map(|f: &Ownership| f.to_string())
+            .map(|f: &FileOwnership| f.to_string())
             .collect::<Vec<_>>()
             .join(", "),
         target_branch_id
@@ -451,7 +451,7 @@ fn run_info(butler: ButlerCli) {
         .into_iter()
         .for_each(|branch| {
             println!("  {}", branch.name);
-            for file in &branch.ownership {
+            for file in branch.ownership.to_string().lines() {
                 println!("    {}", file);
             }
         });

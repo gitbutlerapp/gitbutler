@@ -610,7 +610,7 @@ impl Repository {
                 updated_timestamp_ms: now,
                 tree: commit.tree().unwrap().id(),
                 head: commit_oid,
-                ownership: vec![],
+                ownership: virtual_branches::branch::Ownership { files: vec![] },
             };
             branch_writer.write(&branch)?;
         }
