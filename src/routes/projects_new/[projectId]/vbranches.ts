@@ -6,7 +6,7 @@ import { plainToInstance } from 'class-transformer';
 import type { Readable, Writable } from '@square/svelte-store';
 
 /** Virtual Branch interface with custom operations on top of subscribing */
-export interface VirtualBranch {
+export interface VirtualBrancher {
 	/**
 	 * Force re-fetch of the branches. Exists temporarily until we have all mutations on this interface.
 	 */
@@ -16,7 +16,7 @@ export interface VirtualBranch {
 
 const cache: Record<string, Writable<Loadable<Branch[]>>> = {};
 
-export default (projectId: string): VirtualBranch | Readable<Loadable<Branch[]>> => {
+export default (projectId: string): VirtualBrancher | Readable<Loadable<Branch[]>> => {
 	if (projectId in cache) {
 		const store = cache[projectId];
 		return {
