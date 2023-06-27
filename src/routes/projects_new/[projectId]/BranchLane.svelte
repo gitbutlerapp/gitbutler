@@ -13,7 +13,7 @@
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import { error } from '$lib/toasts';
+	import type { VirtualBranchStore } from './vbranches';
 
 	const dispatch = createEventDispatcher();
 
@@ -23,6 +23,7 @@
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;
+	export let virtualBranches: VirtualBranchStore;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
@@ -34,10 +35,6 @@
 	async function moveFiles(params: { projectId: string; branch: string; paths: Array<string> }) {
 		console.log('moveFiles', params);
 		return invoke<object>('move_virtual_branch_files', params);
-	}
-
-	async function commitBranch(params: { projectId: string; branch: string; message: string }) {
-		return invoke<object>('commit_virtual_branch', params);
 	}
 
 	const update_branch = async (params: {
@@ -94,19 +91,7 @@
 
 	function commit() {
 		console.log('commit', textArea.value, projectId, branchId);
-		commitBranch({
-			projectId: projectId,
-			branch: branchId,
-			message: textArea.value
-		})
-			.then((res) => {
-				console.log(res);
-				dispatch('update');
-			})
-			.catch((e) => {
-				console.log(e);
-				error('Failed to commit files.');
-			});
+		virtualBranches.commitBranch(branchId, textArea.value);
 	}
 
 	onMount(() => {

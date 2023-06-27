@@ -4,6 +4,7 @@ import { stores } from '$lib';
 import { writable, type Loadable, Value } from 'svelte-loadable-store';
 import { plainToInstance } from 'class-transformer';
 import type { Subscriber, Unsubscriber, Writable } from '@square/svelte-store';
+import { error } from '$lib/toasts';
 
 const cache: Map<string, VirtualBranchStore> = new Map();
 
@@ -12,6 +13,7 @@ export interface VirtualBranchStore {
 	refresh: () => void;
 	setTarget: (branch: string) => Promise<object>;
 	createBranch: (name: string, path: string) => Promise<void | object>;
+	commitBranch: (branch: string, message: string) => Promise<void | object>;
 }
 
 export function getStore(projectId: string): VirtualBranchStore {
@@ -36,6 +38,21 @@ export function getStore(projectId: string): VirtualBranchStore {
 				name: name,
 				path: path
 			}).then(() => refresh(projectId, writeable));
+		},
+		commitBranch(branch, message) {
+			return invoke<object>('commit_virtual_branch', {
+				projectId: projectId,
+				branch: branch,
+				message: message
+			})
+				.then((res) => {
+					console.log(res);
+					refresh(projectId, writeable);
+				})
+				.catch((err) => {
+					console.log(err);
+					error('Failed to commit files.');
+				});
 		}
 	};
 	cache.set(projectId, store);
