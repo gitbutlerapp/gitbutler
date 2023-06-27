@@ -5,7 +5,6 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { createFile } from './helpers';
 	import FileCard from './FileCard.svelte';
-	import { invoke } from '@tauri-apps/api';
 	import { IconBranch } from '$lib/icons';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import { Button } from '$lib/components';
@@ -32,11 +31,6 @@
 	let descriptionHeight = 0;
 	let textArea: HTMLTextAreaElement;
 
-	async function moveFiles(params: { projectId: string; branch: string; paths: Array<string> }) {
-		console.log('moveFiles', params);
-		return invoke<object>('move_virtual_branch_files', params);
-	}
-
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
 		const newItems = e.detail.items;
 		const fileItems = newItems.filter((item) => item instanceof File) as File[];
@@ -58,12 +52,7 @@
 			hunkIdsToMove.push(hunk.id);
 		});
 
-		if (hunkIdsToMove.length > 0)
-			moveFiles({
-				projectId: projectId,
-				branch: branchId,
-				paths: hunkIdsToMove
-			}).catch((e) => console.log(e));
+		if (hunkIdsToMove.length > 0) virtualBranches.moveFiles(branchId, hunkIdsToMove);
 
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
 		if (e.type == 'finalize' && files.length == 0) dispatch('empty');

@@ -16,6 +16,7 @@ export interface VirtualBranchStore {
 	commitBranch: (branch: string, message: string) => Promise<void | object>;
 	updateBranchTarget: () => Promise<void | object>;
 	updateBranchName: (branchId: string, name: string) => Promise<void | object>;
+	moveFiles: (branchId: string, paths: Array<string>) => Promise<void | object>;
 }
 
 export function getStore(projectId: string): VirtualBranchStore {
@@ -80,6 +81,21 @@ export function getStore(projectId: string): VirtualBranchStore {
 				.catch((err) => {
 					console.log(err);
 					error('Unable to update branch!');
+				});
+		},
+		moveFiles(branchId, paths) {
+			return invoke<object>('move_virtual_branch_files', {
+				projectId: projectId,
+				branch: branchId,
+				paths: paths
+			})
+				.then((res) => {
+					console.log(res);
+					refresh(projectId, writeable);
+				})
+				.catch((err) => {
+					console.log(err);
+					error('Unable to move files!');
 				});
 		}
 	};
