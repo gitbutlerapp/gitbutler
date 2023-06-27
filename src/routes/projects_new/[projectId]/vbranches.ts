@@ -3,64 +3,53 @@ import { Branch } from './types';
 import { stores } from '$lib';
 import { writable, type Loadable, Value } from 'svelte-loadable-store';
 import { plainToInstance } from 'class-transformer';
-import type { Readable, Writable } from '@square/svelte-store';
+import type { Subscriber, Unsubscriber } from '@square/svelte-store';
 
-/** Virtual Branch interface with custom operations on top of subscribing */
-export interface VirtualBrancher extends Readable<Loadable<Branch[]>> {
-	/**
-	 * Force re-fetch of the branches. Exists temporarily until we have all mutations on this interface.
-	 */
-	refresh(this: void): void;
-	// TODO: The other operations on branchesa, like create, delete, etc.
+const cache: Map<string, VirtualBranchStore> = new Map();
+
+export interface VirtualBranchStore {
+	subscribe: (branches: Subscriber<Loadable<Branch[]>>) => Unsubscriber;
+	refresh: () => void;
 }
 
-const cache: Record<string, Writable<Loadable<Branch[]>>> = {};
-
-export default (projectId: string): VirtualBrancher => {
-	if (projectId in cache) {
-		const store = cache[projectId];
-		return {
-			subscribe: store.subscribe,
-			refresh: () =>
-				list(projectId).then((newBranches) =>
-					store.set({ isLoading: false, value: sort(plainToInstance(Branch, newBranches)) })
-				)
-		};
+export function getStore(projectId: string): VirtualBranchStore {
+	const cachedStore = cache.get(projectId);
+	if (cachedStore) {
+		return cachedStore;
 	}
 
+	const writeable = createWriteable(projectId);
+	const store: VirtualBranchStore = {
+		subscribe: writeable.subscribe,
+		refresh: () =>
+			list(projectId).then((newBranches) => writeable.set({ isLoading: false, value: newBranches }))
+	};
+	cache.set(projectId, store);
+	return store;
+}
+
+function createWriteable(projectId: string) {
 	// Subscribe to sessions,  grab the last one and subscribe to deltas on it.
 	// When a delta comes in, refresh the list of virtual branches.
-	const store = writable(list(projectId), (set) => {
-		const unsubscribeSessions = stores.sessions({ projectId }).subscribe((sessions) => {
+	return writable(list(projectId), (set) => {
+		const sessionsUnsubscribe = stores.sessions({ projectId }).subscribe((sessions) => {
 			if (sessions.isLoading) return;
 			if (Value.isError(sessions.value)) return;
 			const lastSession = sessions.value.at(0);
 			if (!lastSession) return;
-			const unsubscribeDeltas = stores
+			const deltasUnsubscribe = stores
 				.deltas({ projectId, sessionId: lastSession.id })
 				.subscribe(() => {
 					list(projectId).then((newBranches) => {
 						set(sort(plainToInstance(Branch, newBranches)));
 					});
-					return () => {
-						Promise.resolve(unsubscribeDeltas).then((unsubscribe) => unsubscribe());
-					};
+					return () => deltasUnsubscribe();
 				});
-			return () => {
-				Promise.resolve(unsubscribeSessions).then((unsubscribe) => unsubscribe());
-			};
+			return () => sessionsUnsubscribe();
 		});
 	});
-	cache[projectId] = store;
+}
 
-	return {
-		subscribe: store.subscribe,
-		refresh: () =>
-			list(projectId).then((newBranches) =>
-				store.set({ isLoading: false, value: sort(plainToInstance(Branch, newBranches)) })
-			)
-	};
-};
 function sort(branches: Branch[]): Branch[] {
 	for (const branch of branches) {
 		for (const file of branch.files) {
@@ -71,5 +60,7 @@ function sort(branches: Branch[]): Branch[] {
 }
 
 async function list(projectId: string): Promise<Branch[]> {
-	return invoke<Array<Branch>>('list_virtual_branches', { projectId });
+	return invoke<Array<Branch>>('list_virtual_branches', { projectId }).then((result) =>
+		sort(plainToInstance(Branch, result))
+	);
 }
