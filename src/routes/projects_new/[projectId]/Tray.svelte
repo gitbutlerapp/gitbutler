@@ -1,32 +1,13 @@
 <script lang="ts">
 	import { Button, Checkbox } from '$lib/components';
-	import { invoke } from '@tauri-apps/api';
 	import type { Branch, BranchData, Target } from './types';
 	import { formatDistanceToNow } from 'date-fns';
-	import { error } from '$lib/toasts';
+	import type { VirtualBranchStore } from './vbranches';
 
 	export let target: Target;
-	export let projectId: string;
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
-
-	async function updateBranchTarget(params: { projectId: string }) {
-		return invoke('update_branch_target', params);
-	}
-
-	function updateTarget() {
-		console.log('update');
-		updateBranchTarget({ projectId: projectId }).then(
-			(res) => {
-				// We need to refetch target data here
-				console.log(res);
-			},
-			(e) => {
-				console.log(e);
-				error('Unable to update target!');
-			}
-		);
-	}
+	export let virtualBranches: VirtualBranchStore;
 </script>
 
 <div
@@ -38,7 +19,7 @@
 		{#if target.behind > 0}
 			<div class="flex flex-row justify-between">
 				<div>behind {target.behind}</div>
-				<Button on:click={updateTarget}>Update Target</Button>
+				<Button on:click={virtualBranches.updateBranchTarget}>Update Target</Button>
 			</div>
 		{:else}
 			<div class="flex flex-row justify-between">

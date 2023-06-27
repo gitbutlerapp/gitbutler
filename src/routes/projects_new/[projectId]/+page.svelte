@@ -25,7 +25,7 @@
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray bind:branches {target} {projectId} remoteBranches={remoteBranchesData} />
+		<Tray bind:branches {target} remoteBranches={remoteBranchesData} {virtualBranches} />
 		<Board bind:branches {projectId} {virtualBranches} on:newBranch={handleNewBranch} />
 	</div>
 {:else}
