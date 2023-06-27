@@ -2,7 +2,6 @@
 	import Board from './Board.svelte';
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
-	import type { Branch } from './types';
 	import { getStore } from './vbranches';
 	import { Value } from 'svelte-loadable-store';
 
@@ -15,18 +14,12 @@
 		? $virtualBranches.value
 		: [];
 	let targetChoice = 'origin/master'; // prob should check if it exists
-
-	function handleNewBranch(e: CustomEvent<Branch[]>) {
-		let name = e.detail[0].name;
-		let path = e.detail[0].files[0].path;
-		virtualBranches.createBranch(name, path);
-	}
 </script>
 
 {#if target}
 	<div class="flex w-full max-w-full">
 		<Tray bind:branches {target} remoteBranches={remoteBranchesData} {virtualBranches} />
-		<Board bind:branches {projectId} {virtualBranches} on:newBranch={handleNewBranch} />
+		<Board bind:branches {projectId} {virtualBranches} />
 	</div>
 {:else}
 	<div class="m-auto flex flex-col space-y-2">

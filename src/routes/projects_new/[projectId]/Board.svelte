@@ -28,11 +28,6 @@
 		}
 		branches = branches;
 	}
-
-	function handleUpdateRequest() {
-		// TODO: pass this as prop to components and refresh whenever we perform updates
-		virtualBranches.refresh();
-	}
 </script>
 
 <div
@@ -62,7 +57,7 @@
 			{virtualBranches}
 		/>
 	{/each}
-	<NewBranchDropZone on:newBranch on:update={handleUpdateRequest} />
+	<NewBranchDropZone {virtualBranches} />
 </div>
 
 <style lang="postcss">

@@ -3,10 +3,10 @@
 	import { Branch, File, Hunk } from './types';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import { createBranch, createFile } from './helpers';
-	import { createEventDispatcher } from 'svelte';
 	import { Button } from '$lib/components';
+	import type { VirtualBranchStore } from './vbranches';
 
-	const dispatch = createEventDispatcher();
+	export let virtualBranches: VirtualBranchStore;
 	let items: Branch[] = [];
 
 	function handleDndFinalize(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {
@@ -24,8 +24,7 @@
 		}
 
 		if (e.type == 'finalize') {
-			dispatch('newBranch', branchItems);
-			dispatch('update');
+			virtualBranches.createBranch(branchItems[0].name, branchItems[0].files[0].path);
 			items = [];
 			return;
 		}
