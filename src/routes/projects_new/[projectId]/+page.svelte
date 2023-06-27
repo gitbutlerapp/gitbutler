@@ -4,12 +4,12 @@
 	import type { PageData } from './$types';
 	import type { Branch } from './types';
 	import { invoke } from '@tauri-apps/api';
-	import vbranches from './vbranches';
+	import { getStore } from './vbranches';
 	import { Value } from 'svelte-loadable-store';
 
 	export let data: PageData;
 	let { projectId, target, remoteBranches, remoteBranchesData } = data;
-	const virtualBranches = vbranches(projectId);
+	const virtualBranches = getStore(projectId);
 	$: branches = $virtualBranches.isLoading
 		? []
 		: Value.isValue($virtualBranches.value)

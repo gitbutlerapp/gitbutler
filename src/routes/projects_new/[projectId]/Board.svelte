@@ -5,11 +5,11 @@
 	import { createEventDispatcher } from 'svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { Branch } from './types';
-	import type { VirtualBrancher } from './vbranches';
+	import type { VirtualBranchStore } from './vbranches';
 
 	export let projectId: string;
 	export let branches: Branch[];
-	export let virtualBranches: VirtualBrancher;
+	export let virtualBranches: VirtualBranchStore;
 
 	const dispatch = createEventDispatcher();
 	const newBranchClass = 'new-branch-active';
