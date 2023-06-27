@@ -10,6 +10,7 @@ const cache: Map<string, VirtualBranchStore> = new Map();
 export interface VirtualBranchStore {
 	subscribe: (branches: Subscriber<Loadable<Branch[]>>) => Unsubscriber;
 	refresh: () => void;
+	setTarget: (branch: string) => Promise<object>;
 }
 
 export function getStore(projectId: string): VirtualBranchStore {
@@ -22,7 +23,15 @@ export function getStore(projectId: string): VirtualBranchStore {
 	const store: VirtualBranchStore = {
 		subscribe: writeable.subscribe,
 		refresh: () =>
-			list(projectId).then((newBranches) => writeable.set({ isLoading: false, value: newBranches }))
+			list(projectId).then((newBranches) =>
+				writeable.set({ isLoading: false, value: newBranches })
+			),
+		setTarget(branch) {
+			return invoke<object>('set_target_branch', {
+				projectId: projectId,
+				branch: branch
+			});
+		}
 	};
 	cache.set(projectId, store);
 	return store;
