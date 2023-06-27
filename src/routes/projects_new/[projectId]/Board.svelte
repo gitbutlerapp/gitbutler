@@ -57,9 +57,9 @@
 			bind:files
 			{commits}
 			on:empty={handleEmpty}
-			on:update={handleUpdateRequest}
 			{projectId}
 			branchId={id}
+			{virtualBranches}
 		/>
 	{/each}
 	<NewBranchDropZone on:newBranch on:update={handleUpdateRequest} />
