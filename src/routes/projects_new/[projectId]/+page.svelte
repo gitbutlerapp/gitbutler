@@ -17,13 +17,6 @@
 		: [];
 	let targetChoice = 'origin/master'; // prob should check if it exists
 
-	async function setTarget() {
-		return invoke<object>('set_target_branch', {
-			projectId: projectId,
-			branch: targetChoice
-		});
-	}
-
 	async function createBranch(params: { projectId: string; name: string; path: string }) {
 		return invoke<object>('create_virtual_branch', params);
 	}
@@ -60,7 +53,9 @@
 					{/if}
 				{/each}
 			</select>
-			<button class="btn btn-primary" on:click={setTarget}>Set Target</button>
+			<button class="btn btn-primary" on:click={() => virtualBranches.setTarget(targetChoice)}
+				>Set Target</button
+			>
 		{/if}
 	</div>
 {/if}
