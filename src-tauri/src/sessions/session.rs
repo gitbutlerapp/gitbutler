@@ -38,7 +38,7 @@ impl TryFrom<&dyn reader::Reader> for Session {
     type Error = SessionError;
 
     fn try_from(reader: &dyn reader::Reader) -> Result<Self, Self::Error> {
-        if !reader.exists("session") {
+        if !reader.exists("session/meta") {
             return Err(SessionError::NoSession);
         }
 
