@@ -257,14 +257,39 @@ pub fn list_virtual_branches(
     }
     .context("failed to read default target")?;
 
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .collect::<Vec<_>>();
+
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
-    for (branch, files) in &statuses {
+
+    for branch in &virtual_branches {
+        let branch_statuses = statuses.clone();
+        let mut files: Vec<VirtualBranchFile> = vec![];
+        //let (branch, files) in &statuses 
+        // find the entry in statuses with this branch id
+        let maybe_status = branch_statuses
+            .into_iter()
+            .find(|(vbranch, _)| vbranch.id == branch.id);
+
+        match maybe_status {
+            Some((_vbranch, sfiles)) => {
+                files = sfiles.clone();
+            },
+            None => {
+                // this branch has no status, so we just skip it
+            }
+        }
+
         let mut vfiles = vec![];
 
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
         if default_target.sha != branch.head {
-            let vtree = write_tree(gb_repository, project_repository, files)?;
+            let vtree = write_tree(gb_repository, project_repository, &files)?;
             let repo = &project_repository.git_repository;
             // get the trees
             let commit_old = repo.find_commit(branch.head)?;
