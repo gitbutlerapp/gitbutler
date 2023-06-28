@@ -40,7 +40,7 @@
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
 			<div class="rounded-lg p-2" title={branch.name}>
-				<Checkbox on:change={toggleBranch(branch.id, branch.active)} bind:checked={branch.active} />
+				<Checkbox on:change={() => toggleBranch(branch.id, branch.active)} bind:checked={branch.active} />
 				<span class="ml-2 cursor-pointer">
 					{branch.name}
 				</span>
