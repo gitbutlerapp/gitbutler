@@ -81,30 +81,33 @@ impl FileOwnership {
         .normalize()
     }
 
-    // returns a copy of self, with another ranges removed
+    // returns (taken, remaining)
     // if all of the ranges are removed, return None
-    pub fn minus(&self, another: &FileOwnership) -> Option<FileOwnership> {
+    pub fn minus(&self, another: &FileOwnership) -> (Option<FileOwnership>, Option<FileOwnership>) {
         if !self.file_path.eq(&another.file_path) {
-            return Some(self.clone());
+            // no changes
+            return (None, Some(self.clone()));
         }
 
         if another.hunks.is_empty() {
             // any ownership - full ownership = empty ownership
-            return None;
+            return (Some(self.clone()), None);
         }
 
         if self.hunks.is_empty() {
             // full ownership - partial ownership = full ownership, since we don't know all the
             // hunks.
-            return Some(self.clone());
+            return (None, Some(self.clone()));
         }
 
-        let mut ranges = self.hunks.clone();
+        let mut left = self.hunks.clone();
+        let mut taken = vec![];
         for range in &another.hunks {
-            ranges = ranges
+            left = left
                 .iter()
                 .flat_map(|r: &Hunk| -> Vec<Hunk> {
                     if r.eq(range) {
+                        taken.push(r.clone());
                         vec![]
                     } else {
                         vec![r.clone()]
@@ -113,14 +116,24 @@ impl FileOwnership {
                 .collect();
         }
 
-        if ranges.is_empty() {
-            None
-        } else {
-            Some(FileOwnership {
-                file_path: self.file_path.clone(),
-                hunks: ranges,
-            })
-        }
+        (
+            if taken.is_empty() {
+                None
+            } else {
+                Some(FileOwnership {
+                    file_path: self.file_path.clone(),
+                    hunks: taken,
+                })
+            },
+            if left.is_empty() {
+                None
+            } else {
+                Some(FileOwnership {
+                    file_path: self.file_path.clone(),
+                    hunks: left,
+                })
+            },
+        )
     }
 
     pub fn contains(&self, another: &FileOwnership) -> bool {
@@ -302,22 +315,38 @@ mod tests {
     #[test]
     fn test_minus() {
         vec![
-            ("file.txt:1-10", "another.txt:1-5", Some("file.txt:1-10")),
-            ("file.txt:1-10", "file.txt:1-5", Some("file.txt:1-10")),
-            ("file.txt:1-10", "file.txt:11-15", Some("file.txt:1-10")),
-            ("file.txt:1-10", "file.txt:1-10", None),
-            ("file.txt:1-10", "file.txt", None),
-            ("file.txt", "file.txt", None),
-            ("file.txt", "file.txt:1-10", Some("file.txt")),
+            (
+                "file.txt:1-10",
+                "another.txt:1-5",
+                (None, Some("file.txt:1-10")),
+            ),
+            (
+                "file.txt:1-10",
+                "file.txt:1-5",
+                (None, Some("file.txt:1-10")),
+            ),
+            (
+                "file.txt:1-10",
+                "file.txt:11-15",
+                (None, Some("file.txt:1-10")),
+            ),
+            (
+                "file.txt:1-10",
+                "file.txt:1-10",
+                (Some("file.txt:1-10"), None),
+            ),
+            ("file.txt:1-10", "file.txt", (Some("file.txt:1-10"), None)),
+            ("file.txt", "file.txt", (Some("file.txt"), None)),
+            ("file.txt", "file.txt:1-10", (None, Some("file.txt"))),
             (
                 "file.txt:1-10,11-15",
                 "file.txt:11-15",
-                Some("file.txt:1-10"),
+                (Some("file.txt:11-15"), Some("file.txt:1-10")),
             ),
             (
                 "file.txt:1-10,11-15,15-17",
                 "file.txt:1-10,15-17",
-                Some("file.txt:11-15"),
+                (Some("file.txt:1-10,15-17"), Some("file.txt:11-15")),
             ),
         ]
         .into_iter()
@@ -325,7 +354,10 @@ mod tests {
             (
                 FileOwnership::parse_string(a).unwrap(),
                 FileOwnership::parse_string(b).unwrap(),
-                expected.map(|s| FileOwnership::parse_string(s).unwrap()),
+                (
+                    expected.0.map(|s| FileOwnership::parse_string(s).unwrap()),
+                    expected.1.map(|s| FileOwnership::parse_string(s).unwrap()),
+                ),
             )
         })
         .for_each(|(a, b, expected)| {
