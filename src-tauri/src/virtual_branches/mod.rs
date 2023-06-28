@@ -8,7 +8,6 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use filetime::FileTime;
 use serde::Serialize;
 
 pub use branch::Branch;
@@ -17,7 +16,7 @@ use uuid::Uuid;
 
 use crate::{gb_repository, project_repository, reader, sessions};
 
-use self::branch::Ownership;
+use self::branch::{FileOwnership, Hunk, Ownership};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -56,6 +55,8 @@ pub struct VirtualBranchHunk {
     pub diff: String,
     pub modified_at: u128,
     pub file_path: String,
+    pub start: usize,
+    pub end: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -523,7 +524,7 @@ pub fn create_virtual_branch(
         head: default_target.sha,
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
-        ownership: vec![],
+        ownership: Ownership::default(),
     };
 
     let writer = branch::Writer::new(gb_repository);
@@ -570,7 +571,7 @@ pub fn update_branch(
 pub fn move_files(
     gb_repository: &gb_repository::Repository,
     dst_branch_id: &str,
-    to_move: &Vec<branch::Ownership>,
+    to_move: &Vec<branch::FileOwnership>,
 ) -> Result<()> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -594,111 +595,89 @@ pub fn move_files(
         .context("failed to find target branch")?
         .clone();
 
-    let update_list = |list: Vec<Branch>, update: &Branch| {
-        list.iter()
-            .map(|branch| {
-                if branch.id.eq(&update.id) {
-                    update.clone()
-                } else {
-                    branch.clone()
-                }
-            })
-            .collect::<Vec<_>>()
-    };
-
-    for ownership in to_move {
-        let source_branches = if ownership.hunks.is_empty() {
-            // find all branches that own any part of the file
-            virtual_branches
-                .clone()
-                .into_iter()
-                .filter(|b| {
-                    b.ownership
-                        .iter()
-                        .any(|o| o.file_path.eq(&ownership.file_path))
-                })
-                .collect::<Vec<_>>()
-        } else {
-            let owner = explicit_owner(&virtual_branches, ownership)
-                .or_else(|| implicit_owner(&virtual_branches, ownership))
-                .context(format!("failed to find owner branch for {}", ownership))?
-                .clone();
-            vec![owner]
-        };
-
-        for mut source_branch in source_branches {
-            source_branch.take(ownership);
-            source_branch
-                .ownership
-                .sort_by(|a, b| a.file_path.cmp(&b.file_path));
-            source_branch.ownership.dedup();
-
-            writer
-                .write(&source_branch)
-                .context(format!("failed to write source branch for {}", ownership))?;
-            virtual_branches = update_list(virtual_branches, &source_branch);
+    for file_ownership in to_move {
+        target_branch.ownership.put(file_ownership);
+        for branch in &mut virtual_branches {
+            let taken = branch.ownership.take(file_ownership);
+            taken.iter().for_each(|taken| {
+                target_branch.ownership.put(taken);
+                log::info!(
+                    "{}: moved {} to branch {}",
+                    gb_repository.project_id,
+                    taken,
+                    target_branch.name
+                );
+            });
+            writer.write(branch).context(format!(
+                "failed to write source branch for {}",
+                file_ownership
+            ))?;
+            writer.write(&target_branch).context(format!(
+                "failed to write target branch for {}",
+                file_ownership
+            ))?;
         }
-
-        target_branch.put(ownership);
-        target_branch
-            .ownership
-            .sort_by(|a, b| a.file_path.cmp(&b.file_path));
-        target_branch.ownership.dedup();
-
-        writer
-            .write(&target_branch)
-            .context(format!("failed to write target branch for {}", ownership))?;
-        virtual_branches = update_list(virtual_branches, &target_branch);
-
-        log::info!(
-            "{}: moved {} to branch {}",
-            gb_repository.project_id,
-            ownership,
-            target_branch.name
-        );
     }
 
     Ok(())
 }
 
-fn explicit_owner(stack: &[branch::Branch], needle: &branch::Ownership) -> Option<branch::Branch> {
-    stack
-        .iter()
-        .find(|branch| {
-            branch
-                .ownership
-                .iter()
-                .filter(|ownership| !ownership.hunks.is_empty()) // only consider explicit ownership
-                .any(|ownership| ownership.contains(needle))
-        })
-        .cloned()
+fn explicit_owner(
+    stack: &[branch::Branch],
+    needle: &branch::FileOwnership,
+) -> Option<(branch::Branch, branch::FileOwnership)> {
+    for branch in stack {
+        if let Some(owner) = branch.ownership.explicit_owner(needle) {
+            return Some((branch.clone(), owner.clone()));
+        }
+    }
+    None
 }
 
 fn owned_by_proximity(
     stack: &[branch::Branch],
-    needle: &branch::Ownership,
-) -> Option<branch::Branch> {
-    stack
-        .iter()
-        .find(|branch| {
-            branch
-                .ownership
-                .iter()
-                .filter(|ownership| !ownership.hunks.is_empty()) // only consider explicit ownership
-                .any(|ownership| {
-                    ownership.hunks.iter().any(|range| {
-                        needle
-                            .hunks
-                            .iter()
-                            .any(|r| r.touches(range) || r.intersects(range))
-                    })
-                })
-        })
-        .cloned()
+    needle: &branch::FileOwnership,
+) -> Option<(branch::Branch, branch::FileOwnership)> {
+    for branch in stack {
+        if let Some(owner) = branch.ownership.proximity_owner(needle) {
+            return Some((branch.clone(), owner.clone()));
+        }
+    }
+    None
 }
 
-fn implicit_owner(stack: &[branch::Branch], needle: &branch::Ownership) -> Option<branch::Branch> {
-    stack.iter().find(|branch| branch.contains(needle)).cloned()
+fn implicit_owner(
+    stack: &[branch::Branch],
+    needle: &branch::FileOwnership,
+) -> Option<(branch::Branch, branch::FileOwnership)> {
+    for branch in stack {
+        if let Some(owner) = branch.ownership.implicit_owner(needle) {
+            return Some((branch.clone(), owner.clone()));
+        }
+    }
+    None
+}
+
+fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf) -> u128 {
+    match cache.get(file_path) {
+        Some(mtime) => *mtime,
+        None => {
+            let mtime = file_path
+                .metadata()
+                .map(|metadata| {
+                    metadata
+                        .modified()
+                        .or(metadata.created())
+                        .unwrap_or_else(|_| time::SystemTime::now())
+                })
+                .unwrap_or_else(|_| time::SystemTime::now())
+                .duration_since(time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            cache.insert(file_path.to_path_buf(), mtime);
+            mtime
+        }
+    }
 }
 
 fn diff_to_hunks_by_filepath(
@@ -711,7 +690,9 @@ fn diff_to_hunks_by_filepath(
 
     let mut current_file_path: Option<path::PathBuf> = None;
     let mut current_hunk_id: Option<String> = None;
-    let mut mtimes = HashMap::new();
+    let mut current_start: Option<usize> = None;
+    let mut current_end: Option<usize> = None;
+    let mut mtimes: HashMap<path::PathBuf, u128> = HashMap::new();
 
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
         let file_path = delta.new_file().path().unwrap_or_else(|| {
@@ -721,35 +702,19 @@ fn diff_to_hunks_by_filepath(
                 .expect("failed to get file name from diff")
         });
 
-        let hunk_id = if let Some(hunk) = hunk {
-            format!(
-                "{}:{}-{}",
-                file_path.display(),
+        let (hunk_id, hunk_start, hunk_end) = if let Some(hunk) = hunk {
+            (
+                format!(
+                    "{}:{}-{}",
+                    file_path.display(),
+                    hunk.new_start(),
+                    hunk.new_start() + hunk.new_lines()
+                ),
                 hunk.new_start(),
-                hunk.new_start() + hunk.new_lines()
+                hunk.new_start() + hunk.new_lines(),
             )
         } else {
-            // no hunk, so we're in the header, skip it
             return true;
-        };
-
-        let mtime = match mtimes.get(file_path) {
-            Some(mtime) => *mtime,
-            None => {
-                let file_path = project_repository
-                    .git_repository
-                    .workdir()
-                    .unwrap()
-                    .join(file_path);
-                let mtime = 0;
-                if let Ok(metadata) = file_path.metadata() {
-                    let mtime = FileTime::from_last_modification_time(&metadata);
-                    // convert seconds and nanoseconds to milliseconds
-                    let mtime = mtime.seconds() as u128 * 1000;
-                    mtimes.insert(file_path, mtime);
-                }
-                mtime
-            }
         };
 
         let is_path_changed = if current_file_path.is_none() {
@@ -763,6 +728,15 @@ fn diff_to_hunks_by_filepath(
         } else {
             !hunk_id.eq(current_hunk_id.as_ref().unwrap())
         };
+
+        let mtime = get_mtime(
+            &mut mtimes,
+            &project_repository
+                .git_repository
+                .workdir()
+                .unwrap()
+                .join(file_path),
+        );
 
         if is_hunk_changed || is_path_changed {
             let file_path = current_file_path
@@ -780,6 +754,8 @@ fn diff_to_hunks_by_filepath(
                     diff: current_diff.clone(),
                     modified_at: mtime,
                     file_path,
+                    start: current_start.unwrap(),
+                    end: current_end.unwrap(),
                 });
             current_diff = String::new();
         }
@@ -792,30 +768,22 @@ fn diff_to_hunks_by_filepath(
         current_diff.push_str(std::str::from_utf8(line.content()).unwrap());
         current_file_path = Some(file_path.to_path_buf());
         current_hunk_id = Some(hunk_id);
+        current_start = Some(hunk_start as usize);
+        current_end = Some(hunk_end as usize);
 
         true
     })
     .context("failed to print diff")?;
 
     if let Some(file_path) = current_file_path {
-        let mtime = match mtimes.get(&file_path) {
-            Some(mtime) => *mtime,
-            None => {
-                let file_path = project_repository
-                    .git_repository
-                    .workdir()
-                    .unwrap()
-                    .join(&file_path);
-
-                let metadata = file_path.metadata().unwrap();
-                let mtime = FileTime::from_last_modification_time(&metadata);
-                // convert seconds and nanoseconds to milliseconds
-                let mtime = mtime.seconds() as u128 * 1000;
-                mtimes.insert(file_path, mtime);
-                mtime
-            }
-        };
-
+        let mtime = get_mtime(
+            &mut mtimes,
+            &project_repository
+                .git_repository
+                .workdir()
+                .unwrap()
+                .join(&file_path),
+        );
         let file_path = file_path.to_str().unwrap().to_string();
         hunks_by_filepath
             .entry(file_path.clone())
@@ -826,6 +794,8 @@ fn diff_to_hunks_by_filepath(
                 diff: current_diff,
                 modified_at: mtime,
                 file_path,
+                start: current_start.unwrap(),
+                end: current_end.unwrap(),
             });
     }
     Ok(hunks_by_filepath)
@@ -899,16 +869,27 @@ pub fn get_status_by_branch(
         .collect();
     let all_hunks = hunks_by_filepath.values().flatten().collect::<Vec<_>>();
     for hunk in all_hunks {
-        let hunk_ownership = Ownership::try_from(&hunk.id)?;
+        let file_ownership = FileOwnership::try_from(&hunk.id)?;
 
-        let owned_by = explicit_owner(&virtual_branches, &hunk_ownership)
-            .or_else(|| implicit_owner(&virtual_branches, &hunk_ownership))
-            .or_else(|| owned_by_proximity(&virtual_branches, &hunk_ownership));
-        if let Some(branch) = owned_by {
+        let owned_by = explicit_owner(&virtual_branches, &file_ownership)
+            .or_else(|| implicit_owner(&virtual_branches, &file_ownership))
+            .or_else(|| owned_by_proximity(&virtual_branches, &file_ownership));
+        if let Some((branch, owner)) = owned_by {
             hunks_by_branch_id
                 .entry(branch.id.clone())
                 .or_default()
                 .push(hunk.clone());
+
+            hunks_by_branch_id
+                .entry(branch.id.clone())
+                .or_default()
+                .sort_by(|a, b| {
+                    owner.compare(
+                        &Hunk::new(a.start, a.end).unwrap(),
+                        &Hunk::new(b.start, b.end).unwrap(),
+                    )
+                });
+
             continue;
         }
 
@@ -919,7 +900,7 @@ pub fn get_status_by_branch(
             .unwrap()
             .clone();
 
-        default_branch.put(&hunk_ownership);
+        default_branch.ownership.put(&file_ownership);
 
         // write the updated data back
         let writer = branch::Writer::new(gb_repository);
@@ -953,7 +934,7 @@ pub fn get_status_by_branch(
             .unwrap()
             .clone();
 
-        let files = hunks
+        let mut files = hunks
             .iter()
             .fold(HashMap::<String, Vec<_>>::new(), |mut acc, hunk| {
                 acc.entry(hunk.file_path.clone())
@@ -968,6 +949,23 @@ pub fn get_status_by_branch(
                 hunks,
             })
             .collect::<Vec<_>>();
+
+        files.sort_by(|a, b| {
+            branch
+                .ownership
+                .files
+                .iter()
+                .position(|o| o.file_path.eq(&a.path))
+                .unwrap_or(999)
+                .cmp(
+                    &branch
+                        .ownership
+                        .files
+                        .iter()
+                        .position(|id| id.file_path.eq(&b.path))
+                        .unwrap_or(999),
+                )
+        });
 
         statuses.push((branch, files));
     }
@@ -1606,12 +1604,16 @@ mod tests {
         let branch_reader = branch::Reader::new(&current_session_reader);
         let branch2 = branch_reader.read(&branch2_id)?;
         branch_writer.write(&branch::Branch {
-            ownership: vec!["test.txt:1-5".try_into()?],
+            ownership: Ownership {
+                files: vec!["test.txt:1-5".try_into()?],
+            },
             ..branch2
         })?;
         let branch1 = branch_reader.read(&branch1_id)?;
         branch_writer.write(&branch::Branch {
-            ownership: vec!["test.txt:11-15".try_into()?],
+            ownership: Ownership {
+                files: vec!["test.txt:11-15".try_into()?],
+            },
             ..branch1
         })?;
 
@@ -1646,10 +1648,10 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch2_id][0].hunks.len(), 2);
 
         let branch_reader = branch::Reader::new(&current_session_reader);
-        assert_eq!(branch_reader.read(&branch1_id)?.ownership, vec![]);
+        assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
         assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership,
-            vec!["test.txt".try_into()?]
+            branch_reader.read(&branch2_id)?.ownership.files,
+            vec!["test.txt".try_into()?, "test.txt:1-5,11-15".try_into()?]
         );
 
         Ok(())
@@ -1698,7 +1700,9 @@ mod tests {
         let branch_reader = branch::Reader::new(&current_session_reader);
         let branch1 = branch_reader.read(&branch1_id)?;
         branch_writer.write(&branch::Branch {
-            ownership: vec!["test.txt".try_into()?],
+            ownership: Ownership {
+                files: vec!["test.txt".try_into()?],
+            },
             ..branch1
         })?;
 
@@ -1732,9 +1736,9 @@ mod tests {
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
 
         let branch_reader = branch::Reader::new(&current_session_reader);
-        assert_eq!(branch_reader.read(&branch1_id)?.ownership, vec![]);
+        assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
         assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership,
+            branch_reader.read(&branch2_id)?.ownership.files,
             vec!["test.txt".try_into()?]
         );
 
@@ -1808,10 +1812,10 @@ mod tests {
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
 
         let branch_reader = branch::Reader::new(&current_session_reader);
-        assert_eq!(branch_reader.read(&branch1_id)?.ownership, vec![]);
+        assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
         assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership,
-            vec!["test.txt".try_into()?]
+            branch_reader.read(&branch2_id)?.ownership.files,
+            vec!["test.txt".try_into()?, "test.txt:1-3".try_into()?]
         );
 
         Ok(())
@@ -1897,11 +1901,11 @@ mod tests {
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let branch_reader = branch::Reader::new(&current_session_reader);
         assert_eq!(
-            branch_reader.read(&branch1_id)?.ownership,
+            branch_reader.read(&branch1_id)?.ownership.files,
             vec!["test.txt:12-16".try_into()?]
         );
         assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership,
+            branch_reader.read(&branch2_id)?.ownership.files,
             vec!["test.txt:1-5".try_into()?]
         );
 
@@ -1959,7 +1963,9 @@ mod tests {
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let branch1 = branch::Reader::new(&current_session_reader).read(&branch1_id)?;
         branch_writer.write(&Branch {
-            ownership: vec!["test.txt".try_into()?],
+            ownership: Ownership {
+                files: vec!["test.txt".try_into()?],
+            },
             ..branch1
         })?;
 
@@ -1996,13 +2002,70 @@ mod tests {
 
         let branch_reader = branch::Reader::new(&current_session_reader);
         assert_eq!(
-            branch_reader.read(&branch1_id)?.ownership,
+            branch_reader.read(&branch1_id)?.ownership.files,
             vec!["test.txt".try_into()?]
         );
         assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership,
+            branch_reader.read(&branch2_id)?.ownership.files,
             vec!["test.txt:1-5".try_into()?]
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_new_hunk_to_the_end() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\n",
+        )?;
+        commit_all(&repository)?;
+
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
+        )?;
+
+        create_virtual_branch(&gb_repo, "test_branch").expect("failed to create virtual branch");
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        assert_eq!(statuses[0].1[0].hunks[0].id, "test.txt:12-16");
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
+        )?;
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        assert_eq!(statuses[0].1[0].hunks[0].id, "test.txt:13-17");
+        assert_eq!(statuses[0].1[0].hunks[1].id, "test.txt:1-5");
 
         Ok(())
     }

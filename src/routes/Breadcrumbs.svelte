@@ -13,7 +13,7 @@
 		<a
 			class="button flex items-center px-3"
 			class:active={window.location.pathname.includes(`/projects/${project.id}`)}
-			href="/projects/{project.id}"
+			href="/repo/{project.id}"
 			title="{project.title} home"
 		>
 			{project.title}

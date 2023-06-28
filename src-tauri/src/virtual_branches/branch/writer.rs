@@ -93,18 +93,11 @@ impl<'writer> BranchWriter<'writer> {
                 &branch.updated_timestamp_ms,
             )
             .context("Failed to write branch updated timestamp")?;
-        // convert ownership to string by joining Vec<String> with newlines
-        let ownership = branch
-            .ownership
-            .iter()
-            .map(|ownership| ownership.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
 
         self.writer
             .write_string(
                 &format!("branches/{}/meta/ownership", branch.id),
-                &ownership,
+                &branch.ownership.to_string(),
             )
             .context("Failed to write branch ownership")?;
 
@@ -145,10 +138,12 @@ mod tests {
                 unsafe { TEST_INDEX + 10 }
             ))
             .unwrap(),
-            ownership: vec![branch::Ownership {
-                file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
-                hunks: vec![],
-            }],
+            ownership: branch::Ownership {
+                files: vec![branch::FileOwnership {
+                    file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
+                    hunks: vec![],
+                }],
+            },
         }
     }
 
@@ -277,7 +272,7 @@ mod tests {
             upstream: "updated_upstream".to_string(),
             created_timestamp_ms: 2,
             updated_timestamp_ms: 3,
-            ownership: vec![],
+            ownership: branch::Ownership { files: vec![] },
             ..branch.clone()
         };
 
