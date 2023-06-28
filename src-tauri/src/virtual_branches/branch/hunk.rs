@@ -109,4 +109,26 @@ mod tests {
     fn parse_invalid_2() {
         assert!(Hunk::try_from("3-2").is_err());
     }
+
+    #[test]
+    fn test_touches() {
+        vec![
+            ("1-2", "3-4", true),
+            ("1-2", "9-10", false),
+            ("1-2", "8-10", true),
+        ]
+        .into_iter()
+        .for_each(|(a, b, expected)| {
+            let a = Hunk::try_from(a).unwrap();
+            let b = Hunk::try_from(b).unwrap();
+            assert_eq!(
+                a.touches(&b),
+                expected,
+                "{} touches {}, expected {}",
+                a,
+                b,
+                expected
+            );
+        });
+    }
 }
