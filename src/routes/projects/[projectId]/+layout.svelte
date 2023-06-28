@@ -5,16 +5,11 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconEmail, IconRewind, IconSearch, IconSettings, IconTerminal } from '$lib/icons';
-	import QuickCommitModal from './QuickCommitModal.svelte';
-	import { onMount } from 'svelte';
-	import { unsubscribe } from '$lib/utils';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
-	import { events, hotkeys, stores } from '$lib';
+	import { events } from '$lib';
 
 	export let data: LayoutData;
-	const { cloud, project, head, statuses, diffs } = data;
-
-	const user = stores.user;
+	const { project } = data;
 
 	let query: string;
 
@@ -25,21 +20,6 @@
 		new URL(`/projects/${project.id}`, new URL(PUBLIC_API_BASE_URL)).toString();
 
 	$: selection = $page?.route?.id?.split('/')?.[3];
-
-	let quickCommitModal: QuickCommitModal;
-	onMount(() =>
-		unsubscribe(
-			events.on('openQuickCommitModal', () => quickCommitModal?.show()),
-
-			hotkeys.on('C', () => events.emit('openQuickCommitModal')),
-			hotkeys.on('Meta+Shift+C', () => goto(`/projects/${$project.id}/commit/`)),
-			hotkeys.on('Meta+T', () => goto(`/projects/${$project.id}/terminal/`)),
-			hotkeys.on('Meta+P', () => goto(`/projects/${$project.id}/`)),
-			hotkeys.on('Meta+Shift+,', () => goto(`/projects/${$project.id}/settings/`)),
-			hotkeys.on('Meta+R', () => goto(`/projects/${$project.id}/player/`)),
-			hotkeys.on('l f g', () => goto(`/projects_new/${$project.id}`))
-		)
-	);
 </script>
 
 <div class="flex h-full w-full flex-col">
@@ -158,17 +138,3 @@
 		</div>
 	</footer>
 </div>
-
-{#await Promise.all([diffs.load(), user.load(), project.load(), statuses.load()]) then}
-	{#if $user}
-		<QuickCommitModal
-			bind:this={quickCommitModal}
-			user={$user}
-			{cloud}
-			project={$project}
-			head={$head}
-			diffs={$diffs}
-			statuses={$statuses}
-		/>
-	{/if}
-{/await}
