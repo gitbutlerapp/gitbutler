@@ -78,19 +78,153 @@ pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<()> {
-    println!("apply branch");
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let repo = &project_repository.git_repository;
+
+    let mut index = repo.index()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let tree_id = index.write_tree().unwrap();
+    // get tree object from our current working directory state
+    let wd_tree = repo.find_tree(tree_id).unwrap();
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => Ok(target),
+        Err(reader::Error::NotFound) => return Ok(()),
+        Err(e) => Err(e),
+    }
+    .context("failed to read default target")?;
+
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|branch| !branch.applied)
+        .collect::<Vec<_>>();
+
+    let writer = branch::Writer::new(gb_repository);
+
+    let mut target_branch = virtual_branches
+        .iter()
+        .find(|b| b.id == branch_id)
+        .context("failed to find target branch")?
+        .clone();
+    let target_commit = gb_repository
+        .git_repository
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+    let target_tree = target_commit.tree().context("failed to get target tree")?;
+
+    let branch_tree = gb_repository
+        .git_repository
+        .find_tree(target_branch.tree.clone())
+        .context("failed to find branch tree")?;
+
+    let merge_options = git2::MergeOptions::new();
+
+    // check index for conflicts
+    let mut merge_index = repo
+        .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
+        .unwrap();
+
+    if merge_index.has_conflicts() {
+        bail!("conflict applying branch");
+    } else {
+        // checkout the merge index
+        let mut checkout_options = git2::build::CheckoutBuilder::new();
+        checkout_options.force();
+        repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+
+        target_branch.applied = true;
+        writer.write(&target_branch)?;
+    }
+
     Ok(())
 }
 
+// to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
 pub fn unapply_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<()> {
-    println!("unapply branch");
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+    let project = project_repository.project;
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => Ok(target),
+        Err(reader::Error::NotFound) => return Ok(()),
+        Err(e) => Err(e),
+    }
+    .context("failed to read default target")?;
+
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
+
+    let writer = branch::Writer::new(gb_repository);
+
+    let mut target_branch = virtual_branches
+        .iter()
+        .find(|b| b.id == branch_id)
+        .context("failed to find target branch")?
+        .clone();
+
+    let statuses = get_status_by_branch(gb_repository, project_repository)
+        .context("failed to get status by branch")?;
+
+    let status = statuses
+        .iter()
+        .find(|(s, _)| s.id == branch_id)
+        .context("failed to find status for branch");
+
+    let target_commit = gb_repository
+        .git_repository
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+    let target_tree = target_commit.tree().context("failed to get target tree")?;
+
+    if let Ok((_branch, files)) = status {
+        let tree = write_tree(gb_repository, project_repository, files)?;
+        for file in files {
+            // if file exists in target tree, revert to that content
+            let path = std::path::Path::new(&file.path);
+            let full_path = std::path::Path::new(&project.path).join(path);
+            if let Ok(target_entry) = target_tree.get_path(path) {
+                let target_entry = target_entry.to_object(&gb_repository.git_repository)?;
+                let target_entry = target_entry
+                    .as_blob()
+                    .context("failed to get target blob")?;
+                let target_content = target_entry.content();
+                // write this file to the file path
+                std::fs::write(full_path, target_content)?;
+            } else {
+                // if file does not exist in target tree, delete the file
+                std::fs::remove_file(full_path)?;
+            }
+        }
+        target_branch.tree = tree;
+        target_branch.applied = false;
+        writer.write(&target_branch)?;
+    }
+
     Ok(())
 }
-
 
 pub fn remote_branches(
     gb_repository: &gb_repository::Repository,
@@ -269,7 +403,7 @@ pub fn list_virtual_branches(
     for branch in &virtual_branches {
         let branch_statuses = statuses.clone();
         let mut files: Vec<VirtualBranchFile> = vec![];
-        //let (branch, files) in &statuses 
+        //let (branch, files) in &statuses
         // find the entry in statuses with this branch id
         let maybe_status = branch_statuses
             .into_iter()
@@ -278,7 +412,7 @@ pub fn list_virtual_branches(
         match maybe_status {
             Some((_vbranch, sfiles)) => {
                 files = sfiles.clone();
-            },
+            }
             None => {
                 // this branch has no status, so we just skip it
             }
@@ -752,20 +886,11 @@ pub fn get_status_by_branch(
     virtual_branches.sort_by(|a, b| a.created_timestamp_ms.cmp(&b.created_timestamp_ms));
 
     // select default branch
-    let first_applied_id = virtual_branches
+    let default_branch_id = virtual_branches
         .iter()
         .find(|b| b.applied)
-        .map(|b| b.id.clone());
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let default_branch_id = if let Some(id) = branch_reader
-        .read_selected()
-        .context("failed to read selected branch")?
-        .or(first_applied_id)
-    {
-        id
-    } else {
-        bail!("no default branch found")
-    };
+        .map(|b| b.id.clone())
+        .unwrap();
 
     // now, distribute hunks to the branches
     let mut hunks_by_branch_id: HashMap<String, Vec<VirtualBranchHunk>> = virtual_branches
@@ -1004,15 +1129,6 @@ pub fn update_branch_target(
             let head_commit = repo.find_commit(virtual_branch.head)?;
             let head_tree = head_commit.tree()?;
 
-            println!("head tree");
-            _print_tree(&repo, &head_tree);
-
-            println!("new_target_tree");
-            _print_tree(&repo, &new_target_tree);
-
-            println!("target_tree");
-            _print_tree(&repo, &target_tree);
-
             let mut merge_index = repo
                 .merge_trees(
                     &target_tree,
@@ -1033,8 +1149,6 @@ pub fn update_branch_target(
                 let merge_tree_oid = merge_index.write_tree_to(repo).unwrap();
                 // get tree from merge_tree_oid
                 let merge_tree = repo.find_tree(merge_tree_oid).unwrap();
-
-                _print_tree(&repo, &merge_tree);
 
                 // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                 // then the vbranch is fully merged, so delete it
@@ -1916,7 +2030,6 @@ mod tests {
         )?;
         commit_all(&repository)?;
         let up_target = repository.head().unwrap().target().unwrap();
-        println!("up_target: {:?}", up_target);
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path,
@@ -1946,7 +2059,6 @@ mod tests {
         // add a commit to the target branch it's pointing to so there is something "upstream"
         commit_all(&repository)?;
         let up_target = repository.head().unwrap().target().unwrap();
-        println!("up_target: {:?}", up_target);
 
         // revert content
         std::fs::write(
@@ -2028,7 +2140,6 @@ mod tests {
         )?;
         commit_all(&repository)?;
         let up_target = repository.head().unwrap().target().unwrap();
-        println!("up_target: {:?}", up_target);
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path,
@@ -2058,7 +2169,6 @@ mod tests {
         // add a commit to the target branch it's pointing to so there is something "upstream"
         commit_all(&repository)?;
         let up_target = repository.head().unwrap().target().unwrap();
-        println!("up_target: {:?}", up_target);
 
         //update repo ref refs/remotes/origin/master to up_target oid
         repository.reference(
@@ -2113,7 +2223,6 @@ mod tests {
         )?;
         commit_all(&repository)?;
         let up_target = repository.head().unwrap().target().unwrap();
-        println!("up_target: {:?}", up_target);
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path,
@@ -2143,7 +2252,6 @@ mod tests {
         // add a commit to the target branch it's pointing to so there is something "upstream"
         commit_all(&repository)?;
         let up_target = repository.head().unwrap().target().unwrap();
-        println!("up_target: {:?}", up_target);
 
         //update repo ref refs/remotes/origin/master to up_target oid
         repository.reference(
@@ -2183,6 +2291,114 @@ mod tests {
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.commits.len(), 2);
         dbg!(branch);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_apply_unapply_branch() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nbranch1\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\n",
+        )?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+            .expect("failed to create virtual branch");
+
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch1 = branch_reader.read(&branch1_id)?;
+        branch_writer.write(&branch::Branch {
+            ownership: vec!["test.txt".try_into()?, "test2.txt".try_into()?],
+            ..branch1
+        })?;
+
+        move_files(&gb_repo, &branch2_id, &vec!["test2.txt".try_into()?])
+            .expect("failed to move hunks");
+
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(
+            "line1\nline2\nline3\nline4\nbranch1\n",
+            String::from_utf8(contents)?
+        );
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+        assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch.files.len(), 1);
+        assert_eq!(branch.active, true);
+
+        unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
+
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+        assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch.files.len(), 0);
+        assert_eq!(branch.active, false);
+
+        println!("********** Applying Branch *********");
+        println!("");
+
+        apply_branch(&gb_repo, &project_repository, &branch1_id)?;
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(
+            "line1\nline2\nline3\nline4\nbranch1\n",
+            String::from_utf8(contents)?
+        );
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+        assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch.files.len(), 1);
+        assert_eq!(branch.active, true);
 
         Ok(())
     }

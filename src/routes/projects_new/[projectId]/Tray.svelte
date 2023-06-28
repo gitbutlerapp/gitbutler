@@ -15,7 +15,6 @@
 		} else {
 			virtualBranches.applyBranch(branchId);
 		}
-		console.log("CHANGE", branchId, applied);
 	}
 </script>
 

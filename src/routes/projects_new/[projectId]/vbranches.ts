@@ -136,11 +136,7 @@ function updateBranchTarget(writable: Writable<Loadable<Branch[]>>, projectId: s
 		});
 }
 
-function applyBranch(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-	branchId: string
-) {
+function applyBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {
 	return invoke<object>('apply_branch', {
 		projectId: projectId,
 		branch: branchId
