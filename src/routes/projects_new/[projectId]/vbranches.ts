@@ -30,7 +30,7 @@ export function getVirtualBranches(
 		setTarget: (branch) => setTarget(branch, projectId),
 		createBranch: (name, path) => createBranch(writeable, projectId, name, path),
 		commitBranch: (branch, message) => commitBranch(writeable, projectId, branch, message),
-		updateBranchTarget: () => updateBranchTarget(projectId),
+		updateBranchTarget: () => updateBranchTarget(writeable, projectId),
 		updateBranchName: (branchId, name) => updateBranchName(writeable, projectId, branchId, name),
 		moveFiles: (branchId, paths) => moveFiles(writeable, projectId, branchId, paths)
 	};
@@ -120,12 +120,11 @@ function commitBranch(
 		});
 }
 
-function updateBranchTarget(projectId: string) {
+function updateBranchTarget(writable: Writable<Loadable<Branch[]>>, projectId: string) {
 	return invoke<object>('update_branch_target', { projectId: projectId })
 		.then((res) => {
-			// TODO
-			// We need to refetch target data here
 			console.log(res);
+			refresh(projectId, writable);
 		})
 		.catch((err) => {
 			console.log(err);
