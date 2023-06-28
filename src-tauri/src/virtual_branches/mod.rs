@@ -2413,8 +2413,10 @@ mod tests {
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let branch_reader = branch::Reader::new(&current_session_reader);
         let branch1 = branch_reader.read(&branch1_id)?;
-        branch_writer.write(&branch::Branch {
-            ownership: vec!["test.txt".try_into()?, "test2.txt".try_into()?],
+        branch_writer.write(&Branch {
+            ownership: Ownership {
+                files: vec!["test.txt".try_into()?, "test2.txt".try_into()?],
+            },
             ..branch1
         })?;
 
