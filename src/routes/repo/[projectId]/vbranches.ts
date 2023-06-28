@@ -9,14 +9,14 @@ import { error } from '$lib/toasts';
 const cache: Map<string, VirtualBranchOperations & Readable<Loadable<Branch[]>>> = new Map();
 
 export interface VirtualBranchOperations {
-	setTarget: (branch: string) => Promise<object>;
-	createBranch: (name: string, path: string) => Promise<void | object>;
-	commitBranch: (branch: string, message: string) => Promise<void | object>;
-	updateBranchTarget: () => Promise<void | object>;
-	updateBranchName: (branchId: string, name: string) => Promise<void | object>;
-	applyBranch: (branchId: string) => Promise<void | object>;
-	unapplyBranch: (branchId: string) => Promise<void | object>;
-	moveFiles: (branchId: string, paths: Array<string>) => Promise<void | object>;
+	setTarget(branch: string): Promise<object>;
+	createBranch(name: string, path: string): Promise<void | object>;
+	commitBranch(branch: string, message: string): Promise<void | object>;
+	updateBranchTarget(): Promise<void | object>;
+	updateBranchName(branchId: string, name: string): Promise<void | object>;
+	applyBranch(branchId: string): Promise<void | object>;
+	unapplyBranch(branchId: string): Promise<void | object>;
+	moveFiles(branchId: string, paths: Array<string>): Promise<void | object>;
 }
 
 export function getVirtualBranches(
