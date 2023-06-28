@@ -4,7 +4,7 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import { toasts, Toaster, events, hotkeys, stores } from '$lib';
 	import type { LayoutData } from './$types';
-	import { Link, CommandPalette } from '$lib/components';
+	import { Link } from '$lib/components';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
 	import { onMount } from 'svelte';
@@ -24,7 +24,6 @@
 		projects?.find((project) => project.id === page.params.projectId)
 	);
 
-	let commandPalette: CommandPalette;
 	let linkProjectModal: LinkProjectModal;
 	let shareIssueModal: ShareIssueModal;
 
@@ -45,12 +44,9 @@
 					})
 					.catch((e: any) => toasts.error(e.message))
 			),
-			events.on('openCommandPalette', () => commandPalette?.show()),
-			events.on('closeCommandPalette', () => commandPalette?.close()),
 			events.on('goto', (path: string) => goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show()),
 
-			hotkeys.on('Meta+k', () => events.emit('openCommandPalette')),
 			hotkeys.on('Meta+,', () => events.emit('goto', '/users/')),
 			hotkeys.on('Meta+Shift+N', () => events.emit('openNewProjectModal')),
 
@@ -92,10 +88,6 @@
 	</div>
 
 	<Toaster />
-
-	{#await Promise.all([projects.load(), project.load()]) then}
-		<CommandPalette bind:this={commandPalette} {projects} {project} />
-	{/await}
 
 	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projects} />
 
