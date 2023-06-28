@@ -1115,7 +1115,6 @@ pub fn update_branch_target(
             .iter()
             .find(|vbranch| vbranch.id == virtual_branch.id)
             .unwrap();
-        println!("vbranch: {:?}", vbranch);
 
         if target.sha == virtual_branch.head {
             // there were no commits, so just update the head
@@ -2092,7 +2091,6 @@ mod tests {
             "line5\nline6\nline7\nline8\n",
         )?;
         commit_all(&repository)?;
-        let up_target = repository.head().unwrap().target().unwrap();
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path,
@@ -2162,7 +2160,7 @@ mod tests {
         assert_eq!(branch.commits.len(), 1);
 
         let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
-        println!("before contents: {:?}", String::from_utf8(contents));
+        assert_eq!(String::from_utf8(contents)?, "line1\nline2\nline3\nline4\n");
 
         // update the target branch
         // this should leave the work on file2, but update the contents of file1
@@ -2180,7 +2178,6 @@ mod tests {
         let branch = &branches[0];
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.commits.len(), 2); // branch commit, merge commit
-        dbg!(branch);
 
         Ok(())
     }
@@ -2202,7 +2199,6 @@ mod tests {
             "line1\nline2\nline3\nline4\n",
         )?;
         commit_all(&repository)?;
-        let up_target = repository.head().unwrap().target().unwrap();
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path,
@@ -2261,9 +2257,9 @@ mod tests {
 
         // there should be a new vbranch created, but nothing is on it
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
-        let branch = &branches[0];
-        assert_eq!(branch.files.len(), 0);
-        assert_eq!(branch.commits.len(), 0);
+        let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch.active, false);
+        assert_eq!(branch.commits.len(), 1);
 
         Ok(())
     }
@@ -2285,7 +2281,6 @@ mod tests {
             "line1\nline2\nline3\nline4\n",
         )?;
         commit_all(&repository)?;
-        let up_target = repository.head().unwrap().target().unwrap();
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path,
@@ -2342,7 +2337,6 @@ mod tests {
         let branch = &branches[0];
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.commits.len(), 1);
-        dbg!(branch);
 
         // update the target branch
         // this should notice that the trees are the same after the merge, but there are files on the branch, so do a merge and then leave the files there
@@ -2353,7 +2347,6 @@ mod tests {
         let branch = &branches[0];
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.commits.len(), 2);
-        dbg!(branch);
 
         Ok(())
     }
@@ -2382,7 +2375,6 @@ mod tests {
             "line1\nline2\nline3\nline4\n",
         )?;
         commit_all(&repository)?;
-        let up_target = repository.head().unwrap().target().unwrap();
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
             name: "origin/master".to_string(),
@@ -2447,9 +2439,6 @@ mod tests {
         let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch.files.len(), 0);
         assert_eq!(branch.active, false);
-
-        println!("********** Applying Branch *********");
-        println!("");
 
         apply_branch(&gb_repo, &project_repository, &branch1_id)?;
         let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
