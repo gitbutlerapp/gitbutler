@@ -80,10 +80,15 @@
 
 	onMount(() => {
 		updateTextArea();
-		setIfAllExpanded();
+		expandFromCache();
 	});
 
-	function setIfAllExpanded() {
+	$: {
+		// On refresh we need to check expansion status from localStorage
+		files && expandFromCache();
+	}
+
+	function expandFromCache() {
 		// Exercise cache lookup for all files.
 		files.forEach((f) => getExpandedWithCacheFallback(f));
 		if (files.every((f) => getExpandedWithCacheFallback(f))) {
@@ -175,7 +180,7 @@
 					on:empty={handleEmpty}
 					on:expanded={(e) => {
 						setExpandedWithCache(file, e.detail);
-						setIfAllExpanded();
+						expandFromCache();
 					}}
 				/>
 			{/each}
