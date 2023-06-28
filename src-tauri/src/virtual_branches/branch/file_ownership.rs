@@ -1,4 +1,4 @@
-use std::{fmt, path, vec};
+use std::{cmp::Ordering, fmt, vec};
 
 use anyhow::{Context, Result};
 
@@ -6,7 +6,7 @@ use super::hunk::Hunk;
 
 #[derive(Debug, Eq, Clone)]
 pub struct FileOwnership {
-    pub file_path: path::PathBuf,
+    pub file_path: String,
     pub hunks: Vec<Hunk>,
 }
 
@@ -78,7 +78,6 @@ impl FileOwnership {
             file_path: self.file_path.clone(),
             hunks,
         }
-        .normalize()
     }
 
     // returns (taken, remaining)
@@ -170,21 +169,40 @@ impl FileOwnership {
         }
         .context(format!("failed to parse ownership ranges: {}", s))?;
         Ok(Self {
-            file_path: path::PathBuf::from(file_path),
+            file_path: file_path.to_string(),
             hunks: ranges,
         })
+    }
+
+    // returns order of hunks in the ownership
+    pub fn compare(&self, a: &Hunk, b: &Hunk) -> Ordering {
+        let pos_a = self
+            .hunks
+            .iter()
+            .position(|r| r.eq(a) || r.touches(a) || r.intersects(a));
+        let pos_b = self
+            .hunks
+            .iter()
+            .position(|r| r.eq(b) || r.touches(b) || r.intersects(b));
+
+        match (pos_a, pos_b) {
+            (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (None, None) => Ordering::Equal,
+        }
     }
 }
 
 impl fmt::Display for FileOwnership {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         if self.hunks.is_empty() {
-            write!(f, "{}", self.file_path.to_str().unwrap())
+            write!(f, "{}", self.file_path)
         } else {
             write!(
                 f,
                 "{}:{}",
-                self.file_path.to_str().unwrap(),
+                self.file_path,
                 self.hunks
                     .iter()
                     .map(|r| r.to_string())
@@ -205,7 +223,7 @@ mod tests {
         assert_eq!(
             ownership,
             FileOwnership {
-                file_path: path::PathBuf::from("foo/bar.rs"),
+                file_path: "foo/bar.rs".to_string(),
                 hunks: vec![(1..=2).into(), (4..=5).into()]
             }
         );
@@ -217,7 +235,7 @@ mod tests {
         assert_eq!(
             ownership,
             FileOwnership {
-                file_path: path::PathBuf::from("foo/bar.rs"),
+                file_path: "foo/bar.rs".to_string(),
                 hunks: vec![]
             }
         );
@@ -226,7 +244,7 @@ mod tests {
     #[test]
     fn ownership_to_from_string() {
         let ownership = FileOwnership {
-            file_path: path::PathBuf::from("foo/bar.rs"),
+            file_path: "foo/bar.rs".to_string(),
             hunks: vec![(1..=2).into(), (4..=5).into()],
         };
         assert_eq!(ownership.to_string(), "foo/bar.rs:1-2,4-5".to_string());
@@ -239,7 +257,7 @@ mod tests {
     #[test]
     fn ownership_to_from_string_no_ranges() {
         let ownership = FileOwnership {
-            file_path: path::PathBuf::from("foo/bar.rs"),
+            file_path: "foo/bar.rs".to_string(),
             hunks: vec![],
         };
         assert_eq!(ownership.to_string(), "foo/bar.rs".to_string());
@@ -279,6 +297,7 @@ mod tests {
     fn test_plus() {
         vec![
             ("file.txt:1-10", "another.txt:1-5", "file.txt:1-10"),
+            ("file.txt:5-10", "file.txt:1-5", "file.txt:5-10,1-5"),
             ("file.txt:1-10", "file.txt:1-5", "file.txt:1-10,1-5"),
             ("file.txt:1-10", "file.txt:12-15", "file.txt:1-10,12-15"),
             (

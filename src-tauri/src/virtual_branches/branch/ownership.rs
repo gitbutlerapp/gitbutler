@@ -79,18 +79,18 @@ impl Ownership {
         taken
     }
 
-    pub fn explicitly_owns(&self, file: &FileOwnership) -> bool {
+    pub fn explicit_owner(&self, file: &FileOwnership) -> Option<&FileOwnership> {
         self.files
             .iter()
             .filter(|ownership| !ownership.is_full()) // only consider explicit ownership
-            .any(|ownership| ownership.contains(file))
+            .find(|ownership| ownership.contains(file))
     }
 
-    pub fn owns_by_proximity(&self, file: &FileOwnership) -> bool {
+    pub fn proximity_owner(&self, file: &FileOwnership) -> Option<&FileOwnership> {
         self.files
             .iter()
             .filter(|file_ownership| !file_ownership.is_full()) // only consider explicit ownership
-            .any(|file_ownership| {
+            .find(|file_ownership| {
                 file_ownership.hunks.iter().any(|range| {
                     file.hunks
                         .iter()
@@ -99,8 +99,8 @@ impl Ownership {
             })
     }
 
-    pub fn implicitly_owns(&self, file: &FileOwnership) -> bool {
-        self.files.iter().any(|ownership| ownership.contains(file))
+    pub fn implicit_owner(&self, file: &FileOwnership) -> Option<&FileOwnership> {
+        self.files.iter().find(|ownership| ownership.contains(file))
     }
 }
 

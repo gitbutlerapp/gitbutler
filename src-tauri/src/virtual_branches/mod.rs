@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::{gb_repository, project_repository, reader, sessions};
 
-use self::branch::{FileOwnership, Ownership};
+use self::branch::{FileOwnership, Hunk, Ownership};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +55,8 @@ pub struct VirtualBranchHunk {
     pub diff: String,
     pub modified_at: u128,
     pub file_path: String,
+    pub start: usize,
+    pub end: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -445,31 +447,37 @@ pub fn move_files(
 fn explicit_owner(
     stack: &[branch::Branch],
     needle: &branch::FileOwnership,
-) -> Option<branch::Branch> {
-    stack
-        .iter()
-        .find(|branch| branch.ownership.explicitly_owns(needle))
-        .cloned()
+) -> Option<(branch::Branch, branch::FileOwnership)> {
+    for branch in stack {
+        if let Some(owner) = branch.ownership.explicit_owner(needle) {
+            return Some((branch.clone(), owner.clone()));
+        }
+    }
+    None
 }
 
 fn owned_by_proximity(
     stack: &[branch::Branch],
     needle: &branch::FileOwnership,
-) -> Option<branch::Branch> {
-    stack
-        .iter()
-        .find(|branch| branch.ownership.owns_by_proximity(needle))
-        .cloned()
+) -> Option<(branch::Branch, branch::FileOwnership)> {
+    for branch in stack {
+        if let Some(owner) = branch.ownership.proximity_owner(needle) {
+            return Some((branch.clone(), owner.clone()));
+        }
+    }
+    None
 }
 
 fn implicit_owner(
     stack: &[branch::Branch],
     needle: &branch::FileOwnership,
-) -> Option<branch::Branch> {
-    stack
-        .iter()
-        .find(|branch| branch.ownership.implicitly_owns(needle))
-        .cloned()
+) -> Option<(branch::Branch, branch::FileOwnership)> {
+    for branch in stack {
+        if let Some(owner) = branch.ownership.implicit_owner(needle) {
+            return Some((branch.clone(), owner.clone()));
+        }
+    }
+    None
 }
 
 fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf) -> u128 {
@@ -504,6 +512,8 @@ fn diff_to_hunks_by_filepath(
 
     let mut current_file_path: Option<path::PathBuf> = None;
     let mut current_hunk_id: Option<String> = None;
+    let mut current_start: Option<usize> = None;
+    let mut current_end: Option<usize> = None;
     let mut mtimes: HashMap<path::PathBuf, u128> = HashMap::new();
 
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
@@ -514,12 +524,16 @@ fn diff_to_hunks_by_filepath(
                 .expect("failed to get file name from diff")
         });
 
-        let hunk_id = if let Some(hunk) = hunk {
-            format!(
-                "{}:{}-{}",
-                file_path.display(),
+        let (hunk_id, hunk_start, hunk_end) = if let Some(hunk) = hunk {
+            (
+                format!(
+                    "{}:{}-{}",
+                    file_path.display(),
+                    hunk.new_start(),
+                    hunk.new_start() + hunk.new_lines()
+                ),
                 hunk.new_start(),
-                hunk.new_start() + hunk.new_lines()
+                hunk.new_start() + hunk.new_lines(),
             )
         } else {
             return true;
@@ -562,6 +576,8 @@ fn diff_to_hunks_by_filepath(
                     diff: current_diff.clone(),
                     modified_at: mtime,
                     file_path,
+                    start: current_start.unwrap(),
+                    end: current_end.unwrap(),
                 });
             current_diff = String::new();
         }
@@ -574,6 +590,8 @@ fn diff_to_hunks_by_filepath(
         current_diff.push_str(std::str::from_utf8(line.content()).unwrap());
         current_file_path = Some(file_path.to_path_buf());
         current_hunk_id = Some(hunk_id);
+        current_start = Some(hunk_start as usize);
+        current_end = Some(hunk_end as usize);
 
         true
     })
@@ -598,6 +616,8 @@ fn diff_to_hunks_by_filepath(
                 diff: current_diff,
                 modified_at: mtime,
                 file_path,
+                start: current_start.unwrap(),
+                end: current_end.unwrap(),
             });
     }
     Ok(hunks_by_filepath)
@@ -685,11 +705,22 @@ pub fn get_status_by_branch(
         let owned_by = explicit_owner(&virtual_branches, &file_ownership)
             .or_else(|| implicit_owner(&virtual_branches, &file_ownership))
             .or_else(|| owned_by_proximity(&virtual_branches, &file_ownership));
-        if let Some(branch) = owned_by {
+        if let Some((branch, owner)) = owned_by {
             hunks_by_branch_id
                 .entry(branch.id.clone())
                 .or_default()
                 .push(hunk.clone());
+
+            hunks_by_branch_id
+                .entry(branch.id.clone())
+                .or_default()
+                .sort_by(|a, b| {
+                    owner.compare(
+                        &Hunk::new(a.start, a.end).unwrap(),
+                        &Hunk::new(b.start, b.end).unwrap(),
+                    )
+                });
+
             continue;
         }
 
@@ -734,7 +765,7 @@ pub fn get_status_by_branch(
             .unwrap()
             .clone();
 
-        let files = hunks
+        let mut files = hunks
             .iter()
             .fold(HashMap::<String, Vec<_>>::new(), |mut acc, hunk| {
                 acc.entry(hunk.file_path.clone())
@@ -749,6 +780,23 @@ pub fn get_status_by_branch(
                 hunks,
             })
             .collect::<Vec<_>>();
+
+        files.sort_by(|a, b| {
+            branch
+                .ownership
+                .files
+                .iter()
+                .position(|o| o.file_path.eq(&a.path))
+                .unwrap_or(999)
+                .cmp(
+                    &branch
+                        .ownership
+                        .files
+                        .iter()
+                        .position(|id| id.file_path.eq(&b.path))
+                        .unwrap_or(999),
+                )
+        });
 
         statuses.push((branch, files));
     }
@@ -1803,6 +1851,63 @@ mod tests {
             branch_reader.read(&branch2_id)?.ownership.files,
             vec!["test.txt:1-5".try_into()?]
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_new_hunk_to_the_end() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\n",
+        )?;
+        commit_all(&repository)?;
+
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
+        )?;
+
+        create_virtual_branch(&gb_repo, "test_branch").expect("failed to create virtual branch");
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        assert_eq!(statuses[0].1[0].hunks[0].id, "test.txt:12-16");
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
+        )?;
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        assert_eq!(statuses[0].1[0].hunks[0].id, "test.txt:13-17");
+        assert_eq!(statuses[0].1[0].hunks[1].id, "test.txt:1-5");
 
         Ok(())
     }
