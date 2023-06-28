@@ -416,26 +416,27 @@ pub fn move_files(
         .clone();
 
     for file_ownership in to_move {
+        target_branch.ownership.put(file_ownership);
         for branch in &mut virtual_branches {
-            branch.ownership.take(file_ownership);
+            let taken = branch.ownership.take(file_ownership);
+            taken.iter().for_each(|taken| {
+                target_branch.ownership.put(taken);
+                log::info!(
+                    "{}: moved {} to branch {}",
+                    gb_repository.project_id,
+                    taken,
+                    target_branch.name
+                );
+            });
             writer.write(branch).context(format!(
                 "failed to write source branch for {}",
                 file_ownership
             ))?;
+            writer.write(&target_branch).context(format!(
+                "failed to write target branch for {}",
+                file_ownership
+            ))?;
         }
-
-        target_branch.ownership.put(file_ownership);
-        writer.write(&target_branch).context(format!(
-            "failed to write target branch for {}",
-            file_ownership
-        ))?;
-
-        log::info!(
-            "{}: moved {} to branch {}",
-            gb_repository.project_id,
-            file_ownership,
-            target_branch.name
-        );
     }
 
     Ok(())
@@ -1467,7 +1468,7 @@ mod tests {
         assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
         assert_eq!(
             branch_reader.read(&branch2_id)?.ownership.files,
-            vec!["test.txt".try_into()?]
+            vec!["test.txt".try_into()?, "test.txt:1-5,11-15".try_into()?]
         );
 
         Ok(())
@@ -1631,7 +1632,7 @@ mod tests {
         assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
         assert_eq!(
             branch_reader.read(&branch2_id)?.ownership.files,
-            vec!["test.txt".try_into()?]
+            vec!["test.txt".try_into()?, "test.txt:1-3".try_into()?]
         );
 
         Ok(())
