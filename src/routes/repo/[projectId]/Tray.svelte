@@ -8,12 +8,33 @@
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
 	export let virtualBranches: VirtualBranchOperations;
+
+	// store left tray width preference in localStorage
+	const cacheKey = 'config:tray-width';
+
+	function rememberWidth(node: HTMLElement) {
+		const cachedWidth = localStorage.getItem(cacheKey);
+		if (cachedWidth) node.style.width = cachedWidth;
+
+		const resizeObserver = new ResizeObserver((entries) => {
+			const width = entries.at(0)?.borderBoxSize[0].inlineSize.toString();
+			if (width) localStorage.setItem(cacheKey, width + 'px');
+		});
+		resizeObserver.observe(node);
+
+		return {
+			destroy: () => {
+				resizeObserver.unobserve(node);
+			}
+		};
+	}
 </script>
 
 <div
-	class="w-80 shrink-0 overflow-y-auto bg-light-100 px-2 text-light-800 dark:bg-dark-800 dark:text-dark-100"
+	use:rememberWidth
+	class="w-80 shrink-0 resize-x overflow-x-auto overflow-y-auto bg-light-100 px-2 text-light-800 dark:bg-dark-800 dark:text-dark-100"
 >
-	<div class="py-4 text-lg font-bold">Your Target</div>
+	<div class="py-4 text-lg font-bold">Your target</div>
 	<div class="flex flex-col gap-y-2">
 		<div>{target.name}</div>
 		{#if target.behind > 0}
