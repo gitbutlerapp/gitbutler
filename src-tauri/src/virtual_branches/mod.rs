@@ -693,9 +693,15 @@ pub fn get_status_by_branch(
         .collect::<Vec<_>>();
 
     if virtual_branches.is_empty() {
-        // TODO: just create an empty virtual branch
-        println!("  no applied virtual branches, run butler setup");
-        return Ok(vec![]);
+        // just create an empty virtual branch and get an iterator with just that one in it
+        create_virtual_branch(gb_repository, "default branch")?;
+        virtual_branches = Iterator::new(&current_session_reader)
+            .context("failed to create branch iterator")?
+            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|branch| branch.applied)
+            .collect::<Vec<_>>();
     }
 
     // sort by created timestamp so that default selected branch is the earliest created one
@@ -945,11 +951,20 @@ pub fn update_branch_target(
             let head_commit = repo.find_commit(virtual_branch.head)?;
             let head_tree = head_commit.tree()?;
 
+            println!("head tree");
+            _print_tree(&repo, &head_tree);
+
+            println!("new_target_tree");
+            _print_tree(&repo, &new_target_tree);
+
+            println!("target_tree");
+            _print_tree(&repo, &target_tree);
+
             let mut merge_index = repo
                 .merge_trees(
+                    &target_tree,
                     &head_tree,
                     &new_target_tree,
-                    &target_tree,
                     Some(&merge_options),
                 )
                 .unwrap();
@@ -965,6 +980,8 @@ pub fn update_branch_target(
                 let merge_tree_oid = merge_index.write_tree_to(repo).unwrap();
                 // get tree from merge_tree_oid
                 let merge_tree = repo.find_tree(merge_tree_oid).unwrap();
+
+                _print_tree(&repo, &merge_tree);
 
                 // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                 // then the vbranch is fully merged, so delete it
@@ -1029,6 +1046,20 @@ fn write_tree(
     // now write out the tree
     let tree_oid = index.write_tree().unwrap();
     Ok(tree_oid)
+}
+
+fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) {
+    println!("tree id: {:?}", tree.id());
+    for entry in tree.iter() {
+        println!("entry: {:?} {:?}", entry.name(), entry.id());
+        // get entry contents
+        let object = entry.to_object(&repo).unwrap();
+        let blob = object.as_blob().unwrap();
+        // convert content to string
+        let content = std::str::from_utf8(blob.content()).unwrap();
+        println!("blob: {:?}", content);
+    }
+    println!("");
 }
 
 pub fn commit(
@@ -1842,7 +1873,7 @@ mod tests {
             user_store,
         )?;
         let project_repository = project_repository::Repository::open(&project)?;
-
+ 
         target::Writer::new(&gb_repo).write_default(&target::Target {
             name: "origin/master".to_string(),
             remote: "origin".to_string(),
@@ -1999,16 +2030,16 @@ mod tests {
         let branch = &branches[0];
         assert_eq!(branch.files.len(), 0);
         assert_eq!(branch.commits.len(), 1);
-        dbg!(branch);
 
         // update the target branch
         // this should notice that the trees are the same after the merge, so it should unapply the branch
         update_branch_target(&gb_repo, &project_repository)?;
 
-        // assert that the vbranch target is updated
+        // there should be a new vbranch created, but nothing is on it
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch = &branches[0];
-        dbg!(branch);
+        assert_eq!(branch.files.len(), 0);
+        assert_eq!(branch.commits.len(), 0);
 
         Ok(())
     }
