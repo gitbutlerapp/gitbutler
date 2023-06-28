@@ -966,9 +966,12 @@ pub fn update_branch_target(
                 // get tree from merge_tree_oid
                 let merge_tree = repo.find_tree(merge_tree_oid).unwrap();
 
-                // if the merge_tree is the same as the head_tree and there are no files (uncommitted changes)
+                // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                 // then the vbranch is fully merged, so delete it
-                if merge_tree_oid == head_tree.id() {
+                // TODO: how do we determine that there are no modified files?
+                println!("merge_tree_oid: {:?}", merge_tree_oid);
+                println!("new_target_tree.id(): {:?}", new_target_tree.id());
+                if merge_tree_oid == new_target_tree.id() {
                     // delete the branch
                     // TODO: is there a way to delete a vbranch??
                     virtual_branch.applied = false;
@@ -1924,4 +1927,89 @@ mod tests {
         Ok(())
     }
 
+
+    #[test]
+    fn test_update_branch_target_detect_integrated_branches() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+        println!("up_target: {:?}", up_target);
+
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        // create a vbranch
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch_writer.write_selected(&Some(branch1_id.clone()))?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        // add a commit to the target branch it's pointing to so there is something "upstream"
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+        println!("up_target: {:?}", up_target);
+
+        //update repo ref refs/remotes/origin/master to up_target oid
+        repository.reference(
+            "refs/remotes/origin/master",
+            up_target,
+            true,
+            "update target",
+        )?;
+
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "test commit",
+            None,
+        )?;
+
+        // add something to the branch
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        assert_eq!(branch.files.len(), 0);
+        assert_eq!(branch.commits.len(), 1);
+        dbg!(branch);
+
+        // update the target branch
+        // this should notice that the trees are the same after the merge, so it should unapply the branch
+        update_branch_target(&gb_repo, &project_repository)?;
+
+        // assert that the vbranch target is updated
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch = &branches[0];
+        dbg!(branch);
+
+        Ok(())
+    }
 }
