@@ -27,7 +27,7 @@ export function getVirtualBranches(
 	const writeable = createWriteable(projectId);
 	const store: VirtualBranchOperations & Readable<Loadable<Branch[]>> = {
 		subscribe: writeable.subscribe,
-		setTarget: (branch) => setTarget(branch, projectId),
+		setTarget: (branch) => setTarget(projectId, branch),
 		createBranch: (name, path) => createBranch(writeable, projectId, name, path),
 		commitBranch: (branch, message) => commitBranch(writeable, projectId, branch, message),
 		updateBranchTarget: () => updateBranchTarget(writeable, projectId),
