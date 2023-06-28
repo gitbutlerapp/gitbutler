@@ -4,18 +4,10 @@ use anyhow::{anyhow, Context, Result};
 
 static CONTEXT: usize = 3; // default git diff context
 
-#[derive(Debug, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Hunk {
     start: usize,
     end: usize,
-    timestamp_ms: Option<u128>,
-}
-
-impl PartialEq for Hunk {
-    fn eq(&self, other: &Self) -> bool {
-        // ignore timestamp
-        self.start == other.start && self.end == other.end
-    }
 }
 
 impl From<RangeInclusive<usize>> for Hunk {
@@ -23,7 +15,6 @@ impl From<RangeInclusive<usize>> for Hunk {
         Hunk {
             start: *range.start(),
             end: *range.end(),
-            timestamp_ms: None,
         }
     }
 }
@@ -50,24 +41,13 @@ impl TryFrom<&str> for Hunk {
         }?;
         let hunk = Hunk::new(start, end)?;
 
-        if let Some(raw_timestamp) = range.next() {
-            let timestamp = raw_timestamp
-                .parse::<u128>()
-                .context(format!("failed to parse timestamp: {}", s))?;
-            Ok(hunk.with_timestamp(timestamp))
-        } else {
-            Ok(hunk)
-        }
+        Ok(hunk)
     }
 }
 
 impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(ts) = self.timestamp_ms {
-            write!(f, "{}-{}-{}", self.start, self.end, ts)
-        } else {
-            write!(f, "{}-{}", self.start, self.end)
-        }
+        write!(f, "{}-{}", self.start, self.end)
     }
 }
 
@@ -76,28 +56,12 @@ impl Hunk {
         if start > end {
             Err(anyhow!("invalid range: {}-{}", start, end))
         } else {
-            Ok(Hunk {
-                start,
-                end,
-                timestamp_ms: None,
-            })
+            Ok(Hunk { start, end })
         }
     }
 
     pub fn start(&self) -> &usize {
         &self.start
-    }
-
-    pub fn timestamp_ms(&self) -> Option<&u128> {
-        self.timestamp_ms.as_ref()
-    }
-
-    pub fn with_timestamp(&self, timestamp_ms: u128) -> Self {
-        Hunk {
-            start: self.start,
-            end: self.end,
-            timestamp_ms: Some(timestamp_ms),
-        }
     }
 
     pub fn contains(&self, line: &usize) -> bool {
@@ -132,10 +96,8 @@ mod tests {
 
     #[test]
     fn to_from_string() {
-        vec!["1-2", "1-2-3"].into_iter().for_each(|raw| {
-            let hunk = Hunk::try_from(raw).unwrap();
-            assert_eq!(raw, hunk.to_string(), "failed to convert {}", raw);
-        });
+        let hunk = Hunk::try_from("1-2").unwrap();
+        assert_eq!("1-2", hunk.to_string());
     }
 
     #[test]

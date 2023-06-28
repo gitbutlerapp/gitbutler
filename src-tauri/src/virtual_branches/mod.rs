@@ -603,27 +603,6 @@ fn diff_to_hunks_by_filepath(
     Ok(hunks_by_filepath)
 }
 
-fn find_mtime(virtual_branches: &Vec<branch::Branch>, hunk: &FileOwnership) -> Option<u128> {
-    for branch in virtual_branches {
-        for file_ownership in &branch.ownership.files {
-            if !file_ownership
-                .file_path
-                .eq(path::Path::new(&hunk.file_path))
-            {
-                continue;
-            }
-            for oh in &file_ownership.hunks {
-                for h in &hunk.hunks {
-                    if oh == h {
-                        return oh.timestamp_ms().copied();
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
 // list the virtual branches and their file statuses (statusi?)
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
@@ -701,9 +680,7 @@ pub fn get_status_by_branch(
         .collect();
     let all_hunks = hunks_by_filepath.values().flatten().collect::<Vec<_>>();
     for hunk in all_hunks {
-        let mtime = find_mtime(&virtual_branches, &FileOwnership::try_from(&hunk.id)?)
-            .unwrap_or(hunk.modified_at);
-        let file_ownership = FileOwnership::try_from(format!("{}-{}", hunk.id, mtime))?;
+        let file_ownership = FileOwnership::try_from(&hunk.id)?;
 
         let owned_by = explicit_owner(&virtual_branches, &file_ownership)
             .or_else(|| implicit_owner(&virtual_branches, &file_ownership))
