@@ -940,7 +940,6 @@ pub fn update_branch_target(
     // ok, if that worked, then we can try to update all our virtual branches and write out our new target
     let writer = branch::Writer::new(gb_repository);
 
-
     // update the heads of all our virtual branches
     for virtual_branch in &mut virtual_branches {
         let mut virtual_branch = virtual_branch.clone();
