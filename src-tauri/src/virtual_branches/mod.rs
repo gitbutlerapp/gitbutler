@@ -73,6 +73,25 @@ pub struct RemoteBranch {
     authors: Vec<String>,
 }
 
+pub fn apply_branch(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+) -> Result<()> {
+    println!("apply branch");
+    Ok(())
+}
+
+pub fn unapply_branch(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+) -> Result<()> {
+    println!("unapply branch");
+    Ok(())
+}
+
+
 pub fn remote_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
