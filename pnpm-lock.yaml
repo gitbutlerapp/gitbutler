@@ -182,8 +182,8 @@ devDependencies:
     specifier: ^3.0.1
     version: 3.0.3(postcss-load-config@4.0.1)(postcss@8.4.21)(svelte@3.55.1)
   svelte-dnd-action:
-    specifier: github:gitbutlerapp/svelte-dnd-action#1e2aa65f5f8f6cdfbeaa88c37e96eef93857c3b3
-    version: github.com/gitbutlerapp/svelte-dnd-action/1e2aa65f5f8f6cdfbeaa88c37e96eef93857c3b3(svelte@3.55.1)
+    specifier: github:gitbutlerapp/svelte-dnd-action#9912712394c26b971ef067674bdc871550940636
+    version: github.com/gitbutlerapp/svelte-dnd-action/9912712394c26b971ef067674bdc871550940636(svelte@3.55.1)
   svelte-floating-ui:
     specifier: ^1.5.2
     version: 1.5.2
@@ -5434,9 +5434,9 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/gitbutlerapp/svelte-dnd-action/1e2aa65f5f8f6cdfbeaa88c37e96eef93857c3b3(svelte@3.55.1):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-dnd-action/tar.gz/1e2aa65f5f8f6cdfbeaa88c37e96eef93857c3b3}
-    id: github.com/gitbutlerapp/svelte-dnd-action/1e2aa65f5f8f6cdfbeaa88c37e96eef93857c3b3
+  github.com/gitbutlerapp/svelte-dnd-action/9912712394c26b971ef067674bdc871550940636(svelte@3.55.1):
+    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-dnd-action/tar.gz/9912712394c26b971ef067674bdc871550940636}
+    id: github.com/gitbutlerapp/svelte-dnd-action/9912712394c26b971ef067674bdc871550940636
     name: svelte-dnd-action
     version: 0.9.22
     peerDependencies:
