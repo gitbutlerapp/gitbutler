@@ -856,12 +856,25 @@ pub fn get_status_by_branch(
     virtual_branches.sort_by(|a, b| a.created_timestamp_ms.cmp(&b.created_timestamp_ms));
 
     // select default branch
-    let default_branch_id = virtual_branches
+    let first_branch_id = virtual_branches
         .iter()
         .find(|b| b.applied)
-        .map(|b| b.id.clone())
-        .unwrap();
-
+        .map(|b| b.id.clone());
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let mut default_branch_id = if let Some(id) = branch_reader
+        .read_selected()
+        .context("failed to read selected branch")?
+        .or(first_branch_id.clone())
+    {
+        id
+    } else {
+        bail!("no default branch found")
+    };
+    // does the branch exist?
+    if !virtual_branches.iter().filter(|b| b.applied).any(|b| b.id == default_branch_id) {
+        default_branch_id = first_branch_id.clone().unwrap().clone();
+    }
+    
     // now, distribute hunks to the branches
     let mut hunks_by_branch_id: HashMap<String, Vec<VirtualBranchHunk>> = virtual_branches
         .iter()
