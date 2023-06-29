@@ -86,12 +86,12 @@ function createBranch(
 	writable: Writable<Loadable<Branch[]>>,
 	projectId: string,
 	name: string,
-	path: string
+	ownership: string
 ) {
 	return invoke<object>('create_virtual_branch', {
-		projectId: projectId,
-		name: name,
-		path: path
+		projectId,
+		name,
+		ownership
 	}).then(() => refresh(projectId, writable));
 }
 
