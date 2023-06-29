@@ -618,11 +618,10 @@ async fn move_virtual_branch_files(
     paths: Vec<&str>,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let target = app
-        .move_virtual_branch_files(project_id, branch, paths)
+    app.move_virtual_branch_files(project_id, branch, paths)
         .await
         .context("failed to move virtual branch files")?;
-    Ok(target)
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -634,8 +633,8 @@ async fn commit_virtual_branch(
     message: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let target = app.commit_virtual_branch(project_id, branch, message)?;
-    Ok(target)
+    app.commit_virtual_branch(project_id, branch, message)?;
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -667,8 +666,8 @@ async fn set_target_branch(
 #[tauri::command(async)]
 async fn update_branch_target(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let target = app.update_branch_target(project_id)?;
-    Ok(target)
+    app.update_branch_target(project_id)?;
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -679,8 +678,8 @@ async fn apply_branch(
     branch: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let target = app.apply_virtual_branch(project_id, branch)?;
-    Ok(target)
+    app.apply_virtual_branch(project_id, branch)?;
+    Ok(())
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -691,8 +690,8 @@ async fn unapply_branch(
     branch: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let target = app.unapply_virtual_branch(project_id, branch)?;
-    Ok(target)
+    app.unapply_virtual_branch(project_id, branch)?;
+    Ok(())
 }
 
 fn main() {
