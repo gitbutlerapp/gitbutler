@@ -1321,6 +1321,20 @@ pub fn commit(
     Ok(())
 }
 
+pub fn push(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+) -> Result<()> {
+    let git_repository = &project_repository.git_repository;
+
+    let mut remote = git_repository.find_remote("origin")?;
+    remote
+        .push(&[branch_id], None)
+        .with_context(|| format!("failed to push {:?} to {:?}", branch_id, branch_id))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use tempfile::tempdir;

@@ -639,6 +639,18 @@ async fn commit_virtual_branch(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn push_virtual_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    app.push_virtual_branch(project_id, branch)?;
+    Ok(())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn get_target_data(
     handle: tauri::AppHandle,
     project_id: &str,

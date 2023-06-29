@@ -437,6 +437,19 @@ impl App {
         Ok(())
     }
 
+    pub fn push_virtual_branch(
+        &self,
+        project_id: &str,
+        branch: &str,
+    ) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        virtual_branches::push(&gb_repository, &project_repository, branch)?;
+        Ok(())
+    }
+
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
         let gb_repository = self.gb_repository(&bookmark.project_id)?;
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;

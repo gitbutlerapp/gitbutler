@@ -85,13 +85,9 @@
 		virtualBranches.commitBranch(branchId, textArea.value);
 	}
 
-	// some Pushing helpers for debugging for now. we'll want to do this properly on the backend later
-	function name2Branch(name: string) {
-		return 'refs/heads/' + name.replace(/[^a-zA-Z0-9]/g, '-');
-	}
-
-	function showPush() {
-		console.log(`git push origin ${localCommits[0].id}:${name2Branch(name)}`);
+	function push() {
+		console.log('push', projectId, branchId);
+		virtualBranches.pushBranch(branchId);
 	}
 
 	onMount(() => {
@@ -218,7 +214,7 @@
 			<div class="z-10 w-6" />
 			<div class="flex flex-grow gap-x-4 py-2">
 				{#if localCommits.length > 0}
-					<Button on:click={showPush} color="basic" height="small">Push Commits</Button>
+					<Button on:click={push} color="basic" height="small">Push Commits</Button>
 				{/if}
 			</div>
 		</div>
