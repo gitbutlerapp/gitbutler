@@ -855,6 +855,7 @@ fn main() {
             update_virtual_branch,
             apply_branch,
             unapply_branch,
+            push_virtual_branch,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")
