@@ -23,8 +23,12 @@
 			branchItems.push(createBranch(file));
 		}
 
+		const ownership = branchItems[0].files
+			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id.split(':')[1]).join(','))
+			.join('\n');
+
 		if (e.type == 'finalize') {
-			virtualBranches.createBranch(branchItems[0].name, branchItems[0].files[0].path);
+			virtualBranches.createBranch(branchItems[0].name, ownership);
 			items = [];
 			return;
 		}
