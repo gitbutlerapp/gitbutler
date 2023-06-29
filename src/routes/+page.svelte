@@ -8,8 +8,8 @@
 	const { projects } = data;
 </script>
 
-<div class="h-full w-full p-8">
-	<div class="flex h-full flex-col">
+<div class="h-full w-full bg-light-200 p-8 text-light-900 dark:bg-dark-1000">
+	<div class="flex h-full flex-col ">
 		{#await projects.load()}
 			loading...
 		{:then}
@@ -132,63 +132,47 @@
 					</div>
 				</div>
 			{:else}
-				<div class="select-none p-8">
-					<div class="flex flex-col">
-						<div class="flex flex-row justify-between">
-							<div class="pointer-events-none mb-1 select-none text-3xl text-zinc-300">
-								My Projects
-								<div class="pointer-events-none mb-1 select-none text-lg text-zinc-500">
-									All the projects that I am currently assisting you with.
-								</div>
-							</div>
-							<div>
-								<Tooltip label="Adds a git repository on your computer to GitButler">
-									<Button color="primary" on:click={() => events.emit('openNewProjectModal')}>
-										Track a New Project
-									</Button>
-								</Tooltip>
-							</div>
-						</div>
-						<div class="h-full max-h-screen overflow-auto">
-							<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 ">
-								{#each $projects as project}
-									<a
-										class="project-card-container  text-lg text-dark-300 dark:text-light-300"
-										href="/repo/{project.id}/"
-									>
-										<div
-											class="project-card group flex h-full min-h-[125px] flex-col justify-between space-y-1 rounded-lg border border-light-200 bg-light-400 shadow transition duration-150 ease-out hover:bg-light-500 hover:ease-in dark:border-dark-700 dark:bg-dark-300 dark:hover:bg-dark-200"
-										>
-											<div class="flex-grow-0 px-4 py-4">
-												<div class="text-lg text-dark-300 dark:text-light-300">
-													{project.title}
-												</div>
-												<div class="break-words text-base text-dark-100 dark:text-light-100">
-													{project.path}
-												</div>
-											</div>
-
-											<div
-												class="flex-grow-0 rounded-b-lg border-t border-zinc-600 bg-zinc-600 px-3 py-1 font-mono text-[12px] text-zinc-300"
-											>
-												{#if project.api}
-													<div class="flex flex-row items-center space-x-2 ">
-														<div class="h-2 w-2 rounded-full bg-green-600" />
-														<div class="text-zinc-300">Backed-up</div>
-													</div>
-												{:else}
-													<div class="flex flex-row items-center space-x-2 ">
-														<div class="h-2 w-2 rounded-full bg-light-100 dark:bg-dark-800" />
-														<div class="text-zinc-300">Offline</div>
-													</div>
-												{/if}
-											</div>
-										</div>
-									</a>
-								{/each}
-							</div>
-						</div>
+				<div class="mb-8 flex flex-row justify-between">
+					<div class="text-light-900 dark:text-dark-100">
+						<h1 class="mb-2 text-3xl">Your projects</h1>
+						<p class="text-lg text-light-700 dark:text-dark-200">
+							All the projects that I am currently assisting you with.
+						</p>
 					</div>
+					<div class="self-start">
+						<Button color="primary" on:click={() => events.emit('openNewProjectModal')}>
+							Add project
+						</Button>
+					</div>
+				</div>
+				<div class="flex flex-wrap gap-4">
+					{#each $projects as project}
+						<a
+							class="w-96 overflow-hidden rounded-lg bg-white text-light-900 shadow dark:border dark:border-dark-600 dark:bg-black dark:text-light-200"
+							href="/repo/{project.id}/"
+						>
+							<div class="p-4">
+								<h1 class="text-lg text-light-900 dark:text-dark-100">
+									{project.title}
+								</h1>
+								<p class="text-light-700 dark:text-dark-200">
+									{project.path}
+								</p>
+							</div>
+
+							<div
+								class="flex flex-row items-center gap-x-2 bg-light-100 px-4 py-2 text-light-900 dark:bg-dark-600 dark:text-dark-100"
+							>
+								{#if project.api}
+									<div class="h-2 w-2 rounded-full bg-green-600" />
+									<div>Backed-up</div>
+								{:else}
+									<div class="h-2 w-2 rounded-full bg-light-600 dark:bg-dark-200" />
+									<div>Offline</div>
+								{/if}
+							</div>
+						</a>
+					{/each}
 				</div>
 			{/if}
 		{/await}
