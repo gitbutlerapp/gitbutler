@@ -11,14 +11,14 @@ const config = {
 			mono: ['SF Mono', 'Consolas', 'Liberation Mono', 'monospace']
 		},
 		fontSize: {
-			xs: '10px',
-			sm: '11px',
-			base: '13px',
-			lg: '15px',
-			xl: '18px',
-			'2xl': '22px',
-			'3xl': '27px',
-			'4xl': '32px'
+			xs: '0.625rem',
+			sm: '0.6875rem',
+			base: '0.8125rem',
+			lg: '0.9375rem',
+			xl: '1.125rem',
+			'2xl': '1.375rem',
+			'3xl': '1.6875rem',
+			'4xl': '2rem'
 		},
 		colors: {
 			modal: {
