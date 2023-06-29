@@ -14,7 +14,7 @@ pub struct Handler {
     user_store: users::Storage,
 }
 
-impl<'handler> Handler {
+impl Handler {
     pub fn new(
         local_data_dir: path::PathBuf,
         project_id: String,

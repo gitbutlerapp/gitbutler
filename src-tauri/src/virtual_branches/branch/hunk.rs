@@ -60,10 +60,6 @@ impl Hunk {
         }
     }
 
-    pub fn start(&self) -> &usize {
-        &self.start
-    }
-
     pub fn contains(&self, line: &usize) -> bool {
         self.start <= *line && self.end >= *line
     }

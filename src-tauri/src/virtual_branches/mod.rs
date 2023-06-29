@@ -124,7 +124,7 @@ pub fn apply_branch(
 
     let branch_tree = gb_repository
         .git_repository
-        .find_tree(target_branch.tree.clone())
+        .find_tree(target_branch.tree)
         .context("failed to find branch tree")?;
 
     let merge_options = git2::MergeOptions::new();
@@ -410,13 +410,8 @@ pub fn list_virtual_branches(
             .into_iter()
             .find(|(vbranch, _)| vbranch.id == branch.id);
 
-        match maybe_status {
-            Some((_vbranch, sfiles)) => {
-                files = sfiles.clone();
-            }
-            None => {
-                // this branch has no status, so we just skip it
-            }
+        if let Some((_vbranch, sfiles)) = maybe_status {
+            files = sfiles.clone();
         }
 
         let mut vfiles = vec![];
@@ -911,7 +906,7 @@ pub fn get_status_by_branch(
         .filter(|b| b.applied)
         .any(|b| b.id == default_branch_id)
     {
-        default_branch_id = first_branch_id.clone().unwrap().clone();
+        default_branch_id = first_branch_id.unwrap()
     }
 
     // now, distribute hunks to the branches
@@ -1096,7 +1091,7 @@ pub fn update_branch_target(
 
     let vbranches = list_virtual_branches(gb_repository, project_repository)?;
 
-    let mut merge_options = git2::MergeOptions::new();
+    let merge_options = git2::MergeOptions::new();
 
     // get tree from new target
     let new_target_commit = repo.find_commit(new_target_oid)?;
@@ -1251,7 +1246,7 @@ fn write_tree(
         // if file exists
         if full_path.exists() {
             // add file to index
-            index.add_path(&rel_path).unwrap();
+            index.add_path(rel_path).unwrap();
         }
     }
 
@@ -1265,13 +1260,12 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) {
     for entry in tree.iter() {
         println!("entry: {:?} {:?}", entry.name(), entry.id());
         // get entry contents
-        let object = entry.to_object(&repo).unwrap();
+        let object = entry.to_object(repo).unwrap();
         let blob = object.as_blob().unwrap();
         // convert content to string
         let content = std::str::from_utf8(blob.content()).unwrap();
         println!("blob: {:?}", content);
     }
-    println!("");
 }
 
 pub fn commit(
@@ -2307,7 +2301,7 @@ mod tests {
         // there should be a new vbranch created, but nothing is on it
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-        assert_eq!(branch.active, false);
+        assert!(!branch.active);
         assert_eq!(branch.commits.len(), 1);
 
         Ok(())
@@ -2475,7 +2469,7 @@ mod tests {
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch.files.len(), 1);
-        assert_eq!(branch.active, true);
+        assert!(branch.active);
 
         unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
 
@@ -2487,7 +2481,7 @@ mod tests {
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch.files.len(), 0);
-        assert_eq!(branch.active, false);
+        assert!(!branch.active);
 
         apply_branch(&gb_repo, &project_repository, &branch1_id)?;
         let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
@@ -2501,7 +2495,7 @@ mod tests {
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch.files.len(), 1);
-        assert_eq!(branch.active, true);
+        assert!(branch.active);
 
         Ok(())
     }

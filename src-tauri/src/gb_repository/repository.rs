@@ -547,7 +547,7 @@ impl Repository {
         // lookup a branch by name
         let branch = repo.find_branch(&target_branch, git2::BranchType::Remote)?;
 
-        let remote = repo.branch_remote_name(&branch.get().name().unwrap())?;
+        let remote = repo.branch_remote_name(branch.get().name().unwrap())?;
         let remote_url = repo.find_remote(remote.as_str().unwrap())?;
         let remote_url_str = remote_url.url().unwrap();
         println!("remote: {}", remote_url_str);
@@ -571,7 +571,7 @@ impl Repository {
         // if there are no applied virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
         let commit = branch.get().peel_to_commit()?;
         let mut commit_oid = commit.id();
-        if active_virtual_branches.len() == 0 {
+        if active_virtual_branches.is_empty() {
             // calculate the commit as the merge-base between HEAD in project_repository and this target commit
             let head_oid = repo
                 .head()
@@ -599,7 +599,7 @@ impl Repository {
 
         let branch_writer = virtual_branches::branch::Writer::new(self);
 
-        if active_virtual_branches.len() == 0 {
+        if active_virtual_branches.is_empty() {
             let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
             let branch = virtual_branches::branch::Branch {
                 id: Uuid::new_v4().to_string(),
