@@ -535,37 +535,72 @@ pub fn create_virtual_branch(
 pub fn update_branch(
     gb_repository: &gb_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
-) -> Result<()> {
-    let writer = branch::Writer::new(gb_repository);
-
+) -> Result<branch::Branch> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_writer = branch::Writer::new(gb_repository);
 
-    let virtual_branches = Iterator::new(&current_session_reader)
+    let mut branch = branch_reader
+        .read(&branch_update.id)
+        .context("failed to read branch")?;
+
+    if let Some(ownership) = branch_update.ownership {
+        set_ownership(&branch_reader, &branch_writer, &mut branch, &ownership)
+            .context("failed to set ownership")?;
+    }
+
+    if let Some(name) = branch_update.name {
+        branch.name = name;
+        branch_writer
+            .write(&branch)
+            .context("failed to write branch")?;
+    };
+
+    Ok(branch)
+}
+
+fn set_ownership(
+    branch_reader: &branch::Reader,
+    branch_writer: &branch::Writer,
+    target_branch: &mut branch::Branch,
+    ownership: &branch::Ownership,
+) -> Result<()> {
+    if target_branch.ownership.eq(ownership) {
+        // nothing to update
+        return Ok(());
+    }
+
+    let mut virtual_branches = Iterator::new(branch_reader.reader())
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
         .into_iter()
         .filter(|branch| branch.applied)
+        .filter(|branch| branch.id != target_branch.id)
         .collect::<Vec<_>>();
 
-    let mut target_branch = virtual_branches
-        .iter()
-        .find(|b| b.id == branch_update.id)
-        .context("failed to find target branch")?
-        .clone();
-
-    match branch_update.name {
-        Some(name) => {
-            target_branch.name = name;
-            writer.write(&target_branch)?;
-            Ok(())
+    for file_ownership in &ownership.files {
+        for branch in &mut virtual_branches {
+            let taken = branch.ownership.take(file_ownership);
+            if !taken.is_empty() {
+                branch_writer.write(branch).context(format!(
+                    "failed to write source branch for {}",
+                    file_ownership
+                ))?;
+            }
         }
-        None => Ok(()),
     }
+
+    target_branch.ownership = ownership.clone();
+    branch_writer
+        .write(target_branch)
+        .context("failed to write target branch")?;
+
+    Ok(())
 }
 
 pub fn move_files(
