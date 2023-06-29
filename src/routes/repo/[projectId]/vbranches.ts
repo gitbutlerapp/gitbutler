@@ -16,7 +16,6 @@ export interface VirtualBranchOperations {
 	updateBranchName(branchId: string, name: string): Promise<void | object>;
 	applyBranch(branchId: string): Promise<void | object>;
 	unapplyBranch(branchId: string): Promise<void | object>;
-	moveFiles(branchId: string, paths: Array<string>): Promise<void | object>;
 	updateBranchOwnership(branchId: string, ownership: string): Promise<void | object>;
 }
 
@@ -37,7 +36,6 @@ export function getVirtualBranches(
 		updateBranchName: (branchId, name) => updateBranchName(writeable, projectId, branchId, name),
 		applyBranch: (branchId) => applyBranch(writeable, projectId, branchId),
 		unapplyBranch: (branchId) => unapplyBranch(writeable, projectId, branchId),
-		moveFiles: (branchId, paths) => moveFiles(writeable, projectId, branchId, paths),
 		updateBranchOwnership: (branchId, ownership) =>
 			updateBranchOwnership(writeable, projectId, branchId, ownership)
 	};
@@ -201,27 +199,5 @@ function updateBranchName(
 		.catch((err) => {
 			console.log(err);
 			error('Unable to update branch!');
-		});
-}
-
-function moveFiles(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-
-	branchId: string,
-	paths: Array<string>
-) {
-	return invoke<object>('move_virtual_branch_files', {
-		projectId: projectId,
-		branch: branchId,
-		paths: paths
-	})
-		.then((res) => {
-			console.log(res);
-			refresh(projectId, writable);
-		})
-		.catch((err) => {
-			console.log(err);
-			error('Unable to move files!');
 		});
 }

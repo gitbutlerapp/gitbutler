@@ -605,22 +605,9 @@ async fn update_virtual_branch(
     branch: virtual_branches::branch::BranchUpdateRequest,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.update_virtual_branch(project_id, branch)?;
-    Ok(())
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
-async fn move_virtual_branch_files(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    branch: &str,
-    paths: Vec<&str>,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.move_virtual_branch_files(project_id, branch, paths)
-        .await
-        .context("failed to move virtual branch files")?;
+    app.update_virtual_branch(project_id, branch).await.context(
+        "failed to update virtual branch",
+    )?;
     Ok(())
 }
 
@@ -835,7 +822,6 @@ fn main() {
             list_bookmarks,
             list_virtual_branches,
             create_virtual_branch,
-            move_virtual_branch_files,
             commit_virtual_branch,
             get_target_data,
             set_target_branch,
