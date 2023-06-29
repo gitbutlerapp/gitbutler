@@ -60,17 +60,21 @@
 	<div class="py-4 text-lg font-bold">Your Branches</div>
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
-			<div
-				class="rounded-lg p-2 {branch.mergeable ? 'bg-green-500' : 'bg-red-500'}"
-				title={branch.name}
-			>
-				<Checkbox
-					on:change={() => toggleBranch(branch.id, branch.active)}
-					bind:checked={branch.active}
-				/>
-				<span class="ml-2 cursor-pointer">
-					{branch.name}
-				</span>
+			<div class="rounded-lg p-2" title={branch.name}>
+				<div class="flex flex-row justify-between">
+					<div>
+						<Checkbox
+							on:change={() => toggleBranch(branch.id, branch.active)}
+							bind:checked={branch.active}
+						/>
+						<span class="ml-2 cursor-pointer">
+							{branch.name}
+						</span>
+					</div>
+					{#if !branch.active}
+						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+					{/if}
+				</div>
 			</div>
 		{/each}
 	</div>
@@ -79,10 +83,11 @@
 		{#each remoteBranches as branch}
 			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
 				<div class="flex flex-row justify-between">
-					<div class="cursor-pointer {branch.mergeable ? 'bg-green-500' : 'bg-red-500'}">
+					<div class="cursor-pointer">
 						{branch.branch.replace('refs/remotes/', '')}
 					</div>
 					<div>{branch.ahead}/{branch.behind}</div>
+					<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
 				</div>
 				{#if branch.lastCommitTs > 0}
 					<div class="flex flex-row justify-between">

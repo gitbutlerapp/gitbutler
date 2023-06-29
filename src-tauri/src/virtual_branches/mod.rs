@@ -89,11 +89,7 @@ pub fn apply_branch(
 
     let repo = &project_repository.git_repository;
 
-    let mut index = repo.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    let tree_id = index.write_tree().unwrap();
-    // get tree object from our current working directory state
-    let wd_tree = repo.find_tree(tree_id).unwrap();
+    let wd_tree = get_wd_tree(repo)?;
 
     let target_reader = target::Reader::new(&current_session_reader);
     let default_target = match target_reader.read_default() {
@@ -248,37 +244,55 @@ pub fn remote_branches(
     }
     .context("failed to read default target")?;
 
-    let main_oid = default_target.sha;
-
     let current_time = time::SystemTime::now();
     let too_old = time::Duration::from_secs(86_400 * 90); // 90 days (3 months) is too old
 
     let repo = &project_repository.git_repository;
 
-    let mut index = repo.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    let tree_id = index.write_tree().unwrap();
-    let wd_tree = repo.find_tree(tree_id).unwrap();
+    let main_oid = default_target.sha;
+    let target_commit = repo.find_commit(main_oid).ok().unwrap();
+
+    let wd_tree = get_wd_tree(&repo)?;
 
     let mut branches: Vec<RemoteBranch> = Vec::new();
+    let mut most_recent_branches: Vec<(git2::Branch, u64)> = Vec::new();
+
     for branch in repo.branches(Some(git2::BranchType::Remote))? {
         let (branch, _) = branch?;
+        match branch.get().target() {
+            Some(branch_oid) => {
+                // get the branch ref
+                let branch_commit = repo.find_commit(branch_oid).ok().unwrap();
+                let branch_time = branch_commit.time();
+                let seconds = branch_time.seconds().try_into().unwrap();
+                let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
+                let duration = current_time.duration_since(branch_time).unwrap();
+                if duration > too_old {
+                    continue;
+                }
+                most_recent_branches.push((branch, seconds));
+            }
+            None => {
+                continue;
+            }
+        }
+    }
+
+    // take the most recent 20 branches
+    most_recent_branches.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by timestamp in descending order.
+    let sorted_branches: Vec<git2::Branch> = most_recent_branches
+        .into_iter()
+        .map(|(branch, _)| branch)
+        .collect();
+    let top_branches = sorted_branches.into_iter().take(20).collect::<Vec<_>>(); // Take the first 20 entries.
+
+    for branch in &top_branches {
         let branch_name = branch.get().name().unwrap();
         let upstream_branch = branch.upstream();
         match branch.get().target() {
             Some(branch_oid) => {
                 // get the branch ref
                 let branch_commit = repo.find_commit(branch_oid).ok().unwrap();
-
-                // figure out if the last commit on this branch is too old to consider
-                let branch_time = branch_commit.time();
-                // convert git::Time to SystemTime
-                let branch_time = time::UNIX_EPOCH
-                    + time::Duration::from_secs(branch_time.seconds().try_into().unwrap());
-                let duration = current_time.duration_since(branch_time).unwrap();
-                if duration > too_old {
-                    continue;
-                }
 
                 let mut revwalk = repo.revwalk().unwrap();
                 revwalk.set_sorting(git2::Sort::TOPOLOGICAL).unwrap();
@@ -334,17 +348,8 @@ pub fn remote_branches(
                     Err(_) => "".to_string(),
                 };
 
-                let target_commit = repo
-                    .find_commit(default_target.sha)
-                    .context("failed to find target commit")?;
-                let target_tree = target_commit.tree().context("failed to get target tree")?;
-                let branch_tree = branch_commit.tree().context("failed to get branch tree")?;
-
-                let merge_options = git2::MergeOptions::new();
-                let merge_index = repo
-                    .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
-                    .unwrap();
-                let mergeable = !merge_index.has_conflicts();
+                let mergeable = check_mergeable(&repo, &target_commit, &branch_commit, &wd_tree)?;
+                println!("mergeable: {} {}", branch_name, mergeable);
 
                 branches.push(RemoteBranch {
                     sha: branch_oid.to_string(),
@@ -379,6 +384,40 @@ pub fn remote_branches(
         }
     }
     Ok(branches)
+}
+
+fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
+    let mut index = repo.index()?;
+    index.add_all(&["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let oid = index.write_tree()?;
+    let tree = repo.find_tree(oid)?;
+    Ok(tree)
+}
+
+fn check_mergeable(
+    repo: &git2::Repository,
+    target_commit: &git2::Commit,
+    branch_commit: &git2::Commit,
+    wd_tree: &git2::Tree,
+) -> Result<bool> {
+    // find merge base between target_commit and branch_commit
+    let merge_base = repo
+        .merge_base(target_commit.id(), branch_commit.id())
+        .context("failed to find merge base")?;
+    // turn oid into a commit
+    let merge_base_commit = repo
+        .find_commit(merge_base)
+        .context("failed to find merge base commit")?;
+    let base_tree = merge_base_commit
+        .tree()
+        .context("failed to get base tree object")?;
+    let branch_tree = branch_commit.tree().context("failed to get branch tree")?;
+
+    let merge_options = git2::MergeOptions::new();
+    let merge_index = repo
+        .merge_trees(&base_tree, &wd_tree, &branch_tree, Some(&merge_options))
+        .unwrap();
+    Ok(!merge_index.has_conflicts())
 }
 
 // just for debugging for now
@@ -424,10 +463,7 @@ pub fn list_virtual_branches(
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
 
     let repo = &project_repository.git_repository;
-    let mut index = repo.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    let tree_id = index.write_tree().unwrap();
-    let wd_tree = repo.find_tree(tree_id).unwrap();
+    let wd_tree = get_wd_tree(repo)?;
 
     for branch in &virtual_branches {
         let branch_statuses = statuses.clone();
@@ -501,22 +537,13 @@ pub fn list_virtual_branches(
         }
 
         // determine if this tree is mergeable
-
         let target_commit = repo
             .find_commit(default_target.sha)
             .context("failed to find target commit")?;
-        let target_tree = target_commit.tree().context("failed to get target tree")?;
-
         let branch_commit = repo
             .find_commit(branch.head)
             .context("failed to find branch tree")?;
-        let branch_tree = branch_commit.tree().context("failed to get branch tree")?;
-
-        let merge_options = git2::MergeOptions::new();
-        let merge_index = repo
-            .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
-            .unwrap();
-        let mergeable = !merge_index.has_conflicts();
+        let mergeable = check_mergeable(&repo, &target_commit, &branch_commit, &wd_tree)?;
 
         let branch = VirtualBranch {
             id: branch.id.to_string(),
@@ -1115,11 +1142,7 @@ pub fn update_branch_target(
 
     // ok, target has changed, so now we need to merge it into our current work and update our branches
     // first, pull the current state of the working directory into the index
-    let mut index = repo.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    let tree_id = index.write_tree().unwrap();
-    // get tree object from our current working directory state
-    let wd_tree = repo.find_tree(tree_id).unwrap();
+    let wd_tree = get_wd_tree(repo)?;
 
     let current_session = gb_repository
         .get_or_create_current_session()

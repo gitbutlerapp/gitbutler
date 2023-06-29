@@ -50,12 +50,15 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                 format!("meta/name: {}", e),
             ))
         })?;
-        let applied = reader.read_bool("meta/applied").map_err(|e| {
-            crate::reader::Error::IOError(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("meta/applied: {}", e),
-            ))
-        })?;
+        let applied = reader
+            .read_bool("meta/applied")
+            .map_err(|e| {
+                crate::reader::Error::IOError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("meta/applied: {}", e),
+                ))
+            })
+            .or(Ok(false))?;
         let upstream = reader.read_string("meta/upstream").map_err(|e| {
             crate::reader::Error::IOError(std::io::Error::new(
                 std::io::ErrorKind::Other,
