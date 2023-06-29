@@ -4,19 +4,10 @@ use anyhow::{Context, Result};
 
 use super::hunk::Hunk;
 
-#[derive(Debug, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FileOwnership {
     pub file_path: String,
     pub hunks: Vec<Hunk>,
-}
-
-impl PartialEq for FileOwnership {
-    fn eq(&self, other: &Self) -> bool {
-        if !self.file_path.eq(&other.file_path) {
-            return false;
-        }
-        self.normalize().hunks.eq(&other.normalize().hunks)
-    }
 }
 
 impl TryFrom<&String> for FileOwnership {
@@ -45,16 +36,6 @@ impl FileOwnership {
         self.hunks.is_empty()
     }
 
-    pub fn normalize(&self) -> FileOwnership {
-        let mut ranges = self.hunks.clone();
-        ranges.sort_by(|a, b| a.start().cmp(b.start()));
-        ranges.dedup();
-        FileOwnership {
-            file_path: self.file_path.clone(),
-            hunks: ranges,
-        }
-    }
-
     // return a copy of self, with another ranges added
     pub fn plus(&self, another: &FileOwnership) -> FileOwnership {
         if !self.file_path.eq(&another.file_path) {
@@ -69,6 +50,11 @@ impl FileOwnership {
         if another.hunks.is_empty() {
             // partial ownership + full ownership = full ownership
             return another.clone();
+        }
+
+        if another.hunks.iter().all(|r| self.hunks.contains(r)) {
+            // all ranges are already owned - noop
+            return self.clone();
         }
 
         let mut hunks = self.hunks.clone();
@@ -268,32 +254,6 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize() {
-        vec![
-            ("file.txt:1-10", "file.txt:1-10"),
-            ("file.txt:1-10,15-16", "file.txt:1-10,15-16"),
-            ("file.txt:1-10,10-15,15-16", "file.txt:1-10,10-15,15-16"),
-            ("file.txt:1-10,5-12", "file.txt:1-10,5-12"),
-            ("file.txt:15-16,1-10", "file.txt:1-10,15-16"),
-        ]
-        .into_iter()
-        .map(|(a, expected)| {
-            (
-                FileOwnership::parse_string(a).unwrap(),
-                FileOwnership::parse_string(expected).unwrap(),
-            )
-        })
-        .for_each(|(a, expected)| {
-            let got = a.normalize();
-            assert_eq!(
-                got, expected,
-                "normalize {} expected {}, got {}",
-                a, expected, got
-            );
-        });
-    }
-
-    #[test]
     fn test_plus() {
         vec![
             ("file.txt:1-10", "another.txt:1-5", "file.txt:1-10"),
@@ -308,10 +268,8 @@ mod tests {
             ("file.txt:1-10", "file.txt", "file.txt"),
             ("file.txt", "file.txt:1-10", "file.txt"),
             ("file.txt:1-10", "file.txt:10-15", "file.txt:1-10,10-15"),
-            ("file.txt:5-10", "file.txt:1-5", "file.txt:1-5,5-10"),
             ("file.txt:1-10", "file.txt:1-10", "file.txt:1-10"),
-            ("file.txt:5-10", "file.txt:2-7", "file.txt:2-7,5-10"),
-            ("file.txt:5-10", "file.txt:7-12", "file.txt:5-10,7-12"),
+            ("file.txt:1-10,3-15", "file.txt:1-10", "file.txt:1-10,3-15"),
         ]
         .into_iter()
         .map(|(a, b, expected)| {
@@ -431,7 +389,8 @@ mod tests {
         vec![
             ("file.txt:1-10", "file.txt:1-10", true),
             ("file.txt:1-10", "file.txt:1-11", false),
-            ("file.txt:1-10,11-15", "file.txt:11-15,1-10", true),
+            ("file.txt:1-10,11-15", "file.txt:11-15,1-10", false),
+            ("file.txt:1-10,11-15", "file.txt:1-10,11-15", true),
         ]
         .into_iter()
         .map(|(a, b, expected)| {

@@ -31,6 +31,7 @@ pub struct Branch {
 pub struct BranchUpdateRequest {
     pub id: String,
     pub name: Option<String>,
+    pub ownership: Option<Ownership>,
 }
 
 impl TryFrom<&dyn crate::reader::Reader> for Branch {
