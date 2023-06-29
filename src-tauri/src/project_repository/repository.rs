@@ -9,7 +9,7 @@ use crate::{project_repository::activity, projects, reader};
 
 pub struct Repository<'repository> {
     pub(crate) git_repository: git2::Repository,
-    project: &'repository projects::Project,
+    pub(crate) project: &'repository projects::Project,
 }
 
 impl<'repository> Repository<'repository> {

@@ -9,6 +9,14 @@
 	export let remoteBranches: BranchData[];
 	export let virtualBranches: VirtualBranchOperations;
 
+	function toggleBranch(branchId: string, applied: boolean) {
+		if (applied) {
+			virtualBranches.unapplyBranch(branchId);
+		} else {
+			virtualBranches.applyBranch(branchId);
+		}
+	}
+
 	// store left tray width preference in localStorage
 	const cacheKey = 'config:tray-width';
 
@@ -53,7 +61,10 @@
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
 			<div class="rounded-lg p-2" title={branch.name}>
-				<Checkbox bind:checked={branch.active} />
+				<Checkbox
+					on:change={() => toggleBranch(branch.id, branch.active)}
+					bind:checked={branch.active}
+				/>
 				<span class="ml-2 cursor-pointer">
 					{branch.name}
 				</span>

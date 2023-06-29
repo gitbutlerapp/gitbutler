@@ -14,6 +14,8 @@ export interface VirtualBranchOperations {
 	commitBranch(branch: string, message: string): Promise<void | object>;
 	updateBranchTarget(): Promise<void | object>;
 	updateBranchName(branchId: string, name: string): Promise<void | object>;
+	applyBranch(branchId: string): Promise<void | object>;
+	unapplyBranch(branchId: string): Promise<void | object>;
 	moveFiles(branchId: string, paths: Array<string>): Promise<void | object>;
 }
 
@@ -32,6 +34,8 @@ export function getVirtualBranches(
 		commitBranch: (branch, message) => commitBranch(writeable, projectId, branch, message),
 		updateBranchTarget: () => updateBranchTarget(writeable, projectId),
 		updateBranchName: (branchId, name) => updateBranchName(writeable, projectId, branchId, name),
+		applyBranch: (branchId) => applyBranch(writeable, projectId, branchId),
+		unapplyBranch: (branchId) => unapplyBranch(writeable, projectId, branchId),
 		moveFiles: (branchId, paths) => moveFiles(writeable, projectId, branchId, paths)
 	};
 	cache.set(projectId, store);
@@ -129,6 +133,40 @@ function updateBranchTarget(writable: Writable<Loadable<Branch[]>>, projectId: s
 		.catch((err) => {
 			console.log(err);
 			error('Unable to update target!');
+		});
+}
+
+function applyBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {
+	return invoke<object>('apply_branch', {
+		projectId: projectId,
+		branch: branchId
+	})
+		.then((res) => {
+			console.log(res);
+			refresh(projectId, writable);
+		})
+		.catch((err) => {
+			console.log(err);
+			error('Unable to apply branch!');
+		});
+}
+
+function unapplyBranch(
+	writable: Writable<Loadable<Branch[]>>,
+	projectId: string,
+	branchId: string
+) {
+	return invoke<object>('unapply_branch', {
+		projectId: projectId,
+		branch: branchId
+	})
+		.then((res) => {
+			console.log(res);
+			refresh(projectId, writable);
+		})
+		.catch((err) => {
+			console.log(err);
+			error('Unable to unapply branch!');
 		});
 }
 
