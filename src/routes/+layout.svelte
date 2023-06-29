@@ -27,6 +27,9 @@
 	let linkProjectModal: LinkProjectModal;
 	let shareIssueModal: ShareIssueModal;
 
+	let zoom = 1;
+	$: document.documentElement.style.fontSize = zoom + 'rem';
+
 	onMount(() =>
 		unsubscribe(
 			events.on('openNewProjectModal', () =>
@@ -50,6 +53,11 @@
 			hotkeys.on('Meta+,', () => events.emit('goto', '/users/')),
 			hotkeys.on('Meta+Shift+N', () => events.emit('openNewProjectModal')),
 
+			// Zoom using cmd +, - and =
+			hotkeys.on('Meta+Equal', () => (zoom = Math.min(zoom + 0.0625, 3))),
+			hotkeys.on('Meta+Minus', () => (zoom = Math.max(zoom - 0.0625, 0.375))),
+			hotkeys.on('Meta+Digit0', () => (zoom = 1)),
+
 			user.subscribe(posthog.identify),
 			user.subscribe(sentry.identify)
 		)
@@ -62,7 +70,7 @@
 		class="flex h-11 flex-row items-center gap-x-4 bg-white pt-1 text-light-900 dark:bg-dark-900 dark:text-dark-100"
 		style="z-index: 9999;"
 	>
-		<div class="breadcrumb-project-container ml-24">
+		<div class="breadcrumb-project-container ml-[80px]">
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
