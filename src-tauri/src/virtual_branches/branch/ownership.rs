@@ -1,10 +1,28 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize, Serializer};
+
 use super::FileOwnership;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Ownership {
     pub files: Vec<FileOwnership>,
+}
+
+impl Serialize for Ownership {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for Ownership {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ownership::try_from(s.as_str()).map_err(serde::de::Error::custom)
+    }
 }
 
 impl fmt::Display for Ownership {
@@ -30,6 +48,10 @@ impl TryFrom<&str> for Ownership {
 
 impl Ownership {
     pub fn put(&mut self, ownership: &FileOwnership) {
+        if self.files.contains(ownership) {
+            return;
+        }
+
         if ownership.is_full() {
             self.files.push(ownership.clone());
         } else {
@@ -49,9 +71,6 @@ impl Ownership {
                 self.files.push(ownership.clone());
             }
         }
-
-        self.files.sort_by(|a, b| a.file_path.cmp(&b.file_path));
-        self.files.dedup();
     }
 
     // modifies the ownership in-place and returns the file ownership that was taken, if any.
@@ -73,8 +92,6 @@ impl Ownership {
         }
 
         self.files = remaining;
-        self.files.sort_by(|a, b| a.file_path.cmp(&b.file_path));
-        self.files.dedup();
 
         taken
     }
@@ -255,5 +272,40 @@ mod tests {
             taken,
             vec![FileOwnership::try_from("src/main.rs:100-200").unwrap()]
         );
+    }
+
+    #[test]
+    fn test_equal() {
+        vec![
+            (
+                Ownership::try_from("src/main.rs:100-200").unwrap(),
+                Ownership::try_from("src/main.rs:100-200").unwrap(),
+                true,
+            ),
+            (
+                Ownership::try_from("src/main.rs:100-200\nsrc/main1.rs:300-400\n").unwrap(),
+                Ownership::try_from("src/main.rs:100-200").unwrap(),
+                false,
+            ),
+            (
+                Ownership::try_from("src/main.rs:100-200\nsrc/main1.rs:300-400\n").unwrap(),
+                Ownership::try_from("src/main.rs:100-200\nsrc/main1.rs:300-400\n").unwrap(),
+                true,
+            ),
+            (
+                Ownership::try_from("src/main.rs:300-400\nsrc/main1.rs:100-200\n").unwrap(),
+                Ownership::try_from("src/main1.rs:100-200\nsrc/main.rs:300-400\n").unwrap(),
+                false,
+            ),
+            (
+                Ownership::try_from("src/main.rs").unwrap(),
+                Ownership::try_from("src/main.rs:100-200").unwrap(),
+                false,
+            ),
+        ]
+        .into_iter()
+        .for_each(|(a, b, expected)| {
+            assert_eq!(a == b, expected, "{:#?} == {:#?}", a, b);
+        });
     }
 }
