@@ -12,7 +12,6 @@ export function getExpandedWithCacheFallback(file: File) {
 		return file.expanded; // No need to check after initial load
 	}
 	const value = localStorage.getItem(`expanded:${file.path}`);
-	console.log(value);
 	if (value == TRUE_KEY) {
 		file.expanded = true;
 	} else if (value == FALSE_KEY) {

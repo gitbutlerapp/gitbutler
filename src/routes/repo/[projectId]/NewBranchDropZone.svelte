@@ -10,6 +10,7 @@
 	let items: Branch[] = [];
 
 	function handleDndFinalize(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {
+		console.log('new dropzone: handleDndFinalize', e.type, e.detail.items);
 		const newItems = e.detail.items;
 		const branchItems = newItems.filter((item) => item instanceof Branch) as Branch[];
 
@@ -23,11 +24,11 @@
 			branchItems.push(createBranch(file));
 		}
 
-		const ownership = branchItems[0].files
-			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id.split(':')[1]).join(','))
-			.join('\n');
-
 		if (e.type == 'finalize') {
+			const ownership = branchItems[0].files
+				.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id.split(':')[1]).join(','))
+				.join('\n');
+
 			virtualBranches.createBranch(branchItems[0].name, ownership);
 			items = [];
 			return;

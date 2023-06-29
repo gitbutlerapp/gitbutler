@@ -26,6 +26,7 @@ pub struct VirtualBranch {
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
+    pub order: usize,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -477,10 +478,12 @@ pub fn list_virtual_branches(
             name: branch.name.to_string(),
             active: branch.applied,
             files: vfiles,
+            order: branch.order,
             commits,
         };
         branches.push(branch);
     }
+    branches.sort_by(|a, b| a.order.cmp(&b.order));
     Ok(branches)
 }
 
@@ -505,6 +508,16 @@ pub fn create_virtual_branch(
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
 
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?;
+    let max_order = virtual_branches
+        .iter()
+        .map(|branch| branch.order)
+        .max()
+        .unwrap_or(0);
+
     let now = time::UNIX_EPOCH
         .elapsed()
         .context("failed to get elapsed time")?
@@ -520,6 +533,7 @@ pub fn create_virtual_branch(
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
         ownership: Ownership::default(),
+        order: max_order + 1,
     };
 
     let writer = branch::Writer::new(gb_repository);
@@ -550,10 +564,15 @@ pub fn update_branch(
 
     if let Some(name) = branch_update.name {
         branch.name = name;
-        branch_writer
-            .write(&branch)
-            .context("failed to write branch")?;
     };
+
+    if let Some(order) = branch_update.order {
+        branch.order = order;
+    };
+
+    branch_writer
+        .write(&branch)
+        .context("failed to write target branch")?;
 
     Ok(branch)
 }
@@ -591,9 +610,6 @@ fn set_ownership(
     }
 
     target_branch.ownership = ownership.clone();
-    branch_writer
-        .write(target_branch)
-        .context("failed to write target branch")?;
 
     Ok(())
 }

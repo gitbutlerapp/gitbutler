@@ -8,7 +8,10 @@ use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
     project_repository::{self, activity},
     projects, pty, reader, search, sessions, storage, users,
-    virtual_branches::{self, branch::{BranchUpdateRequest, Ownership}},
+    virtual_branches::{
+        self,
+        branch::{BranchUpdateRequest, Ownership},
+    },
     watcher,
 };
 
@@ -369,11 +372,16 @@ impl App {
         let _permit = semaphore.acquire().await?;
 
         let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name)?;
-        virtual_branches::update_branch(&gb_repository, BranchUpdateRequest{
-            id: branch_id,
-            name: None,
-            ownership: Some(ownership.clone()),
-        }).context("failed to update branch")?;
+        virtual_branches::update_branch(
+            &gb_repository,
+            BranchUpdateRequest {
+                id: branch_id,
+                name: None,
+                order: None,
+                ownership: Some(ownership.clone()),
+            },
+        )
+        .context("failed to update branch")?;
         Ok(())
     }
 

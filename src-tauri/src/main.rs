@@ -605,9 +605,9 @@ async fn update_virtual_branch(
     branch: virtual_branches::branch::BranchUpdateRequest,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.update_virtual_branch(project_id, branch).await.context(
-        "failed to update virtual branch",
-    )?;
+    app.update_virtual_branch(project_id, branch)
+        .await
+        .context("failed to update virtual branch")?;
     Ok(())
 }
 

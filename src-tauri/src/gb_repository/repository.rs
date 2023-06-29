@@ -560,11 +560,13 @@ impl Repository {
         let current_session_reader = sessions::Reader::open(self, &current_session)
             .context("failed to open current session for reading")?;
 
-        let active_virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
+        let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
             .context("failed to create branch iterator")?
             .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
-            .context("failed to read virtual branches")?
-            .into_iter()
+            .context("failed to read virtual branches")?;
+
+        let active_virtual_branches = virtual_branches
+            .iter()
             .filter(|branch| branch.applied)
             .collect::<Vec<_>>();
 
@@ -600,9 +602,15 @@ impl Repository {
         let branch_writer = virtual_branches::branch::Writer::new(self);
 
         if active_virtual_branches.is_empty() {
+            let max_order = virtual_branches
+                .iter()
+                .map(|branch| branch.order)
+                .max()
+                .unwrap_or(0);
             let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
             let branch = virtual_branches::branch::Branch {
                 id: Uuid::new_v4().to_string(),
+                order: max_order + 1,
                 name: "default branch".to_string(),
                 applied: true,
                 upstream: "".to_string(),

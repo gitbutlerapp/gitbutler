@@ -22,9 +22,12 @@ pub struct Branch {
     pub upstream: String,
     pub created_timestamp_ms: u128,
     pub updated_timestamp_ms: u128,
-    pub tree: git2::Oid, // last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
+    // tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
+    pub tree: git2::Oid,
     pub head: git2::Oid,
     pub ownership: Ownership,
+    // order is the number by which UI should sort branches
+    pub order: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -32,6 +35,7 @@ pub struct BranchUpdateRequest {
     pub id: String,
     pub name: Option<String>,
     pub ownership: Option<Ownership>,
+    pub order: Option<usize>,
 }
 
 impl TryFrom<&dyn crate::reader::Reader> for Branch {
@@ -56,6 +60,19 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                 format!("meta/applied: {}", e),
             ))
         })?;
+
+        let order = match reader.read_usize("meta/order") {
+            Ok(order) => Ok(order),
+            Err(crate::reader::Error::NotFound) => Ok(0),
+            Err(e) => Err(e),
+        }
+        .map_err(|e| {
+            crate::reader::Error::IOError(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("meta/order: {}", e),
+            ))
+        })?;
+
         let upstream = reader.read_string("meta/upstream").map_err(|e| {
             crate::reader::Error::IOError(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -110,6 +127,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
             created_timestamp_ms,
             updated_timestamp_ms,
             ownership,
+            order,
         })
     }
 }
