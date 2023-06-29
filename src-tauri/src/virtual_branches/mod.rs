@@ -871,10 +871,14 @@ pub fn get_status_by_branch(
         bail!("no default branch found")
     };
     // does the branch exist?
-    if !virtual_branches.iter().filter(|b| b.applied).any(|b| b.id == default_branch_id) {
+    if !virtual_branches
+        .iter()
+        .filter(|b| b.applied)
+        .any(|b| b.id == default_branch_id)
+    {
         default_branch_id = first_branch_id.clone().unwrap().clone();
     }
-    
+
     // now, distribute hunks to the branches
     let mut hunks_by_branch_id: HashMap<String, Vec<VirtualBranchHunk>> = virtual_branches
         .iter()
