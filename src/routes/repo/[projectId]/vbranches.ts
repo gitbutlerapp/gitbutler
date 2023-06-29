@@ -17,6 +17,7 @@ export interface VirtualBranchOperations {
 	applyBranch(branchId: string): Promise<void | object>;
 	unapplyBranch(branchId: string): Promise<void | object>;
 	moveFiles(branchId: string, paths: Array<string>): Promise<void | object>;
+	updateBranchOwnership(branchId: string, ownership: string): Promise<void | object>;
 }
 
 export function getVirtualBranches(
@@ -36,7 +37,9 @@ export function getVirtualBranches(
 		updateBranchName: (branchId, name) => updateBranchName(writeable, projectId, branchId, name),
 		applyBranch: (branchId) => applyBranch(writeable, projectId, branchId),
 		unapplyBranch: (branchId) => unapplyBranch(writeable, projectId, branchId),
-		moveFiles: (branchId, paths) => moveFiles(writeable, projectId, branchId, paths)
+		moveFiles: (branchId, paths) => moveFiles(writeable, projectId, branchId, paths),
+		updateBranchOwnership: (branchId, ownership) =>
+			updateBranchOwnership(writeable, projectId, branchId, ownership)
 	};
 	cache.set(projectId, store);
 	return store;
@@ -55,7 +58,7 @@ function createWriteable(projectId: string) {
 				.deltas({ projectId, sessionId: lastSession.id })
 				.subscribe(() => {
 					list(projectId).then((newBranches) => {
-						set(sort(plainToInstance(Branch, newBranches)));
+						set(plainToInstance(Branch, newBranches));
 					});
 					return () => deltasUnsubscribe();
 				});
@@ -68,18 +71,9 @@ function refresh(projectId: string, store: Writable<Loadable<Branch[]>>) {
 	list(projectId).then((newBranches) => store.set({ isLoading: false, value: newBranches }));
 }
 
-function sort(branches: Branch[]): Branch[] {
-	for (const branch of branches) {
-		for (const file of branch.files) {
-			file.hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-		}
-	}
-	return branches;
-}
-
 async function list(projectId: string): Promise<Branch[]> {
 	return invoke<Array<Branch>>('list_virtual_branches', { projectId }).then((result) =>
-		sort(plainToInstance(Branch, result))
+		plainToInstance(Branch, result)
 	);
 }
 
@@ -167,6 +161,26 @@ function unapplyBranch(
 		.catch((err) => {
 			console.log(err);
 			error('Unable to unapply branch!');
+		});
+}
+
+function updateBranchOwnership(
+	writable: Writable<Loadable<Branch[]>>,
+	projectId: string,
+	branchId: string,
+	ownership: string
+) {
+	return invoke<object>('update_virtual_branch', {
+		projectId: projectId,
+		branch: { id: branchId, ownership }
+	})
+		.then((res) => {
+			console.log(res);
+			refresh(projectId, writable);
+		})
+		.catch((err) => {
+			console.log(err);
+			error('Unable to update branch!');
 		});
 }
 
