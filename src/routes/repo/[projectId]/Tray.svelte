@@ -79,7 +79,7 @@
 		{#each remoteBranches as branch}
 			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
 				<div class="flex flex-row justify-between">
-					<div class="cursor-pointer">
+					<div class="cursor-pointer {branch.mergeable ? 'bg-green-500' : 'bg-red-500'}">
 						{branch.branch.replace('refs/remotes/', '')}
 					</div>
 					<div>{branch.ahead}/{branch.behind}</div>

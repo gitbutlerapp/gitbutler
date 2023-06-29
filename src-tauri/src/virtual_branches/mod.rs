@@ -73,6 +73,7 @@ pub struct RemoteBranch {
     behind: u32,
     upstream: String,
     authors: Vec<String>,
+    mergeable: bool,
 }
 
 pub fn apply_branch(
@@ -253,6 +254,12 @@ pub fn remote_branches(
     let too_old = time::Duration::from_secs(86_400 * 90); // 90 days (3 months) is too old
 
     let repo = &project_repository.git_repository;
+
+    let mut index = repo.index()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let tree_id = index.write_tree().unwrap();
+    let wd_tree = repo.find_tree(tree_id).unwrap();
+
     let mut branches: Vec<RemoteBranch> = Vec::new();
     for branch in repo.branches(Some(git2::BranchType::Remote))? {
         let (branch, _) = branch?;
@@ -327,6 +334,18 @@ pub fn remote_branches(
                     Err(_) => "".to_string(),
                 };
 
+                let target_commit = repo
+                    .find_commit(default_target.sha)
+                    .context("failed to find target commit")?;
+                let target_tree = target_commit.tree().context("failed to get target tree")?;
+                let branch_tree = branch_commit.tree().context("failed to get branch tree")?;
+
+                let merge_options = git2::MergeOptions::new();
+                let merge_index = repo
+                    .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
+                    .unwrap();
+                let mergeable = !merge_index.has_conflicts();
+
                 branches.push(RemoteBranch {
                     sha: branch_oid.to_string(),
                     branch: branch_name.to_string(),
@@ -338,6 +357,7 @@ pub fn remote_branches(
                     behind: count_behind,
                     upstream: upstream_branch_name,
                     authors: authors.into_iter().collect(),
+                    mergeable,
                 });
             }
             None => {
@@ -353,6 +373,7 @@ pub fn remote_branches(
                     behind: 0,
                     upstream: "".to_string(),
                     authors: vec![],
+                    mergeable: false,
                 });
             }
         }

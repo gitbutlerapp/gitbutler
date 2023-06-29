@@ -41,6 +41,7 @@ export type BranchData = {
 	behind: number;
 	upstream: string;
 	authors: string[];
+	mergeable: boolean;
 };
 
 export class Commit {
