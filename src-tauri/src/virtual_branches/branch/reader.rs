@@ -11,6 +11,10 @@ impl<'reader> BranchReader<'reader> {
         Self { reader }
     }
 
+    pub fn reader(&self) -> &dyn reader::Reader {
+        self.reader
+    }
+
     pub fn read_selected(&self) -> Result<Option<String>, reader::Error> {
         match self.reader.read_string("branches/selected") {
             Ok(selected) => Ok(Some(selected)),

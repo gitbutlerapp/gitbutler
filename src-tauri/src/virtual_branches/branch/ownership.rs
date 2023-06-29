@@ -257,8 +257,6 @@ mod tests {
         let mut ownership =
             Ownership::try_from("src/main.rs:100-200,200-300\nsrc/main.rs").unwrap();
         let taken = ownership.take(&FileOwnership::try_from("src/main.rs:100-200").unwrap());
-        println!("{}", ownership);
-        println!("{:?}", taken);
         assert_eq!(ownership.files.len(), 2);
         assert_eq!(
             ownership.files[0],
