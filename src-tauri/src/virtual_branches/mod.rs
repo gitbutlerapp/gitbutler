@@ -1206,15 +1206,17 @@ fn write_tree(
     let base_tree = base_commit.tree().unwrap();
     let mut index = git_repository.index().unwrap();
     index.read_tree(&base_tree).unwrap();
+    let project = project_repository.project;
 
     // now update the index with content in the working directory for each file
     for file in files {
         // convert this string to a Path
-        let file_path = std::path::Path::new(&file.path);
+        let full_path = std::path::Path::new(&project.path).join(&file.path);
+        let rel_path = std::path::Path::new(&file.path);
         // if file exists
-        if file_path.exists() {
+        if full_path.exists() {
             // add file to index
-            index.add_path(file_path).unwrap();
+            index.add_path(&rel_path).unwrap();
         }
     }
 
