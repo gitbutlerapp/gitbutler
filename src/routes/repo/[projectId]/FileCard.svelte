@@ -12,13 +12,15 @@
 	export let hunks: Hunk[];
 	let zoneEl: HTMLElement;
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<{
+		expanded: boolean;
+		update: Hunk[];
+	}>();
 	export let expanded: boolean | undefined;
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
 		hunks = e.detail.items;
-		hunks.sort((itemA, itemB) => compareDesc(itemA.modifiedAt, itemB.modifiedAt));
-		if (e.type == 'finalize' && hunks.length == 0) dispatch('empty');
+		if (e.type == 'finalize') dispatch('update', e.detail.items);
 	}
 
 	function hunkSize(hunk: string): number[] {

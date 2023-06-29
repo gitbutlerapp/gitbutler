@@ -13,7 +13,6 @@
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
 	import type { VirtualBranchOperations } from './vbranches';
-	import Modal from '$lib/components/Modal/Modal.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -36,11 +35,7 @@
 		const newItems = e.detail.items;
 		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 
-		let hunkIdsToMove = [];
-
-		if (e.type == 'finalize') {
-			hunkIdsToMove.push(...fileItems.flatMap((item) => item.hunks.map((h) => h.id)));
-		}
+		console.log('handleDndEvent', e.type, e.detail.items);
 
 		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
 		hunkItems.forEach((hunk) => {
@@ -50,24 +45,35 @@
 			} else {
 				fileItems.push(createFile(hunk.filePath, hunk));
 			}
-			hunkIdsToMove.push(hunk.id);
 		});
-
-		if (hunkIdsToMove.length > 0) virtualBranches.moveFiles(branchId, hunkIdsToMove);
 
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
 		if (e.type == 'finalize' && files.length == 0) dispatch('empty');
+		if (e.type === 'finalize') updateBranchOwnership();
 	}
 
-	function handleEmpty() {
-		const emptyIndex = files.findIndex((item) => !item.hunks || item.hunks.length == 0);
-		if (emptyIndex != -1) {
-			files.splice(emptyIndex, 1);
+	function updateBranchOwnership() {
+		const ownership = files
+			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id.split(':')[1]).join(','))
+			.join('\n');
+		virtualBranches.updateBranchOwnership(branchId, ownership);
+	}
+
+	function handleFileUpdate(fileId: string, hunks: Hunk[]) {
+		const fileIndex = files.findIndex((f) => f.id == fileId);
+		console.log(fileIndex, fileId, hunks);
+		if (fileIndex == -1) {
+			return;
+		} else {
+			if (hunks.length === 0) {
+				files.splice(fileIndex, 1);
+				if (files.length === 0) dispatch('empty');
+			} else {
+				files[fileIndex].hunks = hunks;
+			}
+			files = files;
+			updateBranchOwnership();
 		}
-		if (files.length == 0) {
-			dispatch('empty');
-		}
-		files = files;
 	}
 
 	function updateTextArea(): void {
@@ -187,7 +193,9 @@
 					filepath={file.path}
 					bind:expanded={file.expanded}
 					bind:hunks={file.hunks}
-					on:empty={handleEmpty}
+					on:update={(e) => {
+						handleFileUpdate(file.id, e.detail);
+					}}
 					on:expanded={(e) => {
 						setExpandedWithCache(file, e.detail);
 						expandFromCache();
