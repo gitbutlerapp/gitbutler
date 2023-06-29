@@ -32,7 +32,7 @@
 
 <div
 	use:rememberWidth
-	class="w-80 shrink-0 resize-x overflow-x-auto overflow-y-auto bg-light-100 px-2 text-light-800 dark:bg-dark-800 dark:text-dark-100"
+	class="w-80 min-w-[200px] max-w-[400px] shrink-0 resize-x overflow-x-auto overflow-y-auto bg-light-100 px-2 text-light-800 dark:bg-dark-800 dark:text-dark-100"
 >
 	<div class="py-4 text-lg font-bold">Your target</div>
 	<div class="flex flex-col gap-y-2">
@@ -64,8 +64,8 @@
 		<div class="py-4 text-lg font-bold">Remote Branches</div>
 		{#each remoteBranches as branch}
 			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
-				<div class="flex flex-row justify-between">
-					<div class="cursor-pointer">
+				<div class="flex flex-row justify-between gap-4">
+					<div class="cursor-pointer truncate">
 						{branch.branch.replace('refs/remotes/', '')}
 					</div>
 					<div>{branch.ahead}/{branch.behind}</div>

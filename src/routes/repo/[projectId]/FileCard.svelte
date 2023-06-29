@@ -40,7 +40,7 @@
 </script>
 
 <div
-	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg bg-white text-dark-600 shadow dark:bg-dark-800 dark:text-light-300"
+	class="changed-file flex w-full flex-col justify-center rounded-lg bg-white py-2 text-dark-600 shadow dark:bg-dark-800 dark:text-light-300"
 >
 	<div class="flex items-center gap-2">
 		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap px-2" title={filepath}>
@@ -63,7 +63,7 @@
 	</div>
 
 	<div
-		class="hunk-change-container flex flex-col gap-2 rounded"
+		class="hunk-change-container flex flex-col gap-2 rounded px-2"
 		bind:this={zoneEl}
 		use:dndzone={{
 			items: hunks,
@@ -78,7 +78,7 @@
 		{#if expanded}
 			{#each hunks || [] as hunk (hunk.id)}
 				<div
-					class="changed-hunk flex w-full flex-col gap-1 rounded-lg border border-light-200 dark:border-dark-400"
+					class="changed-hunk flex w-full flex-col rounded border border-light-200 dark:border-dark-400"
 				>
 					<div class="truncate whitespace-normal p-2">
 						{#await summarizeHunk(hunk.diff) then description}
@@ -86,7 +86,7 @@
 						{/await}
 					</div>
 					<div
-						class="mx-2 cursor-pointer overflow-clip rounded border-t border-b border-light-200 text-sm dark:border-dark-700"
+						class="cursor-pointer overflow-clip rounded border-t border-b border-light-200 text-sm dark:border-dark-700"
 					>
 						<!-- Disabling syntax highlighting for performance reasons -->
 						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={2} />

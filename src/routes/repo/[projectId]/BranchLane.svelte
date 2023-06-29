@@ -116,9 +116,11 @@
 	}
 </script>
 
-<div class="flex max-h-full w-[22.5rem] shrink-0 flex-col overflow-y-auto  p-4  dark:text-dark-100">
+<div
+	class="flex max-h-full w-[22.5rem] shrink-0 flex-col overflow-y-auto border-r border-zinc-800 px-4 dark:text-dark-100"
+>
 	<div
-		class="mb-2 flex w-full shrink-0 items-center rounded-lg bg-light-200 px-3 py-2 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="flex w-full shrink-0 items-center rounded-lg bg-light-200 px-3 py-2 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div class="mr-3 flex-grow-0 text-light-600 dark:text-dark-200">
 			<IconBranch />
@@ -128,7 +130,7 @@
 				type="text"
 				bind:value={name}
 				on:change={handleBranchNameChange}
-				class="border-0 bg-light-200 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+				class="border-0 bg-light-200 text-base text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 			/>
 		</div>
 		<div class="ml-3 flex-grow-0 text-light-600 dark:text-dark-200">
