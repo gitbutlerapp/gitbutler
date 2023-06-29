@@ -13,6 +13,7 @@
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
 	import type { VirtualBranchOperations } from './vbranches';
+	import Modal from '$lib/components/Modal/Modal.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -76,6 +77,15 @@
 	function commit() {
 		console.log('commit', textArea.value, projectId, branchId);
 		virtualBranches.commitBranch(branchId, textArea.value);
+	}
+
+	// some Pushing helpers for debugging for now. we'll want to do this properly on the backend later
+	function name2Branch(name: string) {
+		return 'refs/heads/' + name.replace(/[^a-zA-Z0-9]/g, '-');
+	}
+
+	function showPush() {
+		console.log(`git push origin ${localCommits[0].id}:${name2Branch(name)}`);
 	}
 
 	onMount(() => {
@@ -199,8 +209,9 @@
 		<div class="flex w-full p-2">
 			<div class="z-10 w-6" />
 			<div class="flex flex-grow gap-x-4 py-2">
-				<Button color="basic" height="small">Push Commits</Button>
-				<Button color="basic" height="small">Pull Commits</Button>
+				{#if localCommits.length > 0}
+					<Button on:click={showPush} color="basic" height="small">Push Commits</Button>
+				{/if}
 			</div>
 		</div>
 		<!-- Unpushed commits -->
