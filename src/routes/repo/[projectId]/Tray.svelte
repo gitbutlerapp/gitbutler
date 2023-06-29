@@ -60,7 +60,7 @@
 	<div class="py-4 text-lg font-bold">Your Branches</div>
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
-			<div class="rounded-lg p-2" title={branch.name}>
+			<div class="rounded-lg p-2 {branch.mergeable ? 'bg-green-500' : 'bg-red-500'}" title={branch.name}>
 				<Checkbox
 					on:change={() => toggleBranch(branch.id, branch.active)}
 					bind:checked={branch.active}

@@ -27,6 +27,7 @@ export class Branch extends DndItem {
 	files!: File[];
 	commits!: Commit[];
 	description!: string;
+	mergeable!: boolean;
 }
 
 export type BranchData = {

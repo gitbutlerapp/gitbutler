@@ -26,6 +26,7 @@ pub struct VirtualBranch {
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
+    pub mergeable: bool,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -401,6 +402,12 @@ pub fn list_virtual_branches(
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
 
+    let repo = &project_repository.git_repository;
+    let mut index = repo.index()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let tree_id = index.write_tree().unwrap();
+    let wd_tree = repo.find_tree(tree_id).unwrap();
+
     for branch in &virtual_branches {
         let branch_statuses = statuses.clone();
         let mut files: Vec<VirtualBranchFile> = vec![];
@@ -472,12 +479,31 @@ pub fn list_virtual_branches(
             commits.push(commit);
         }
 
+        // determine if this tree is mergeable
+
+        let target_commit = repo
+            .find_commit(default_target.sha)
+            .context("failed to find target commit")?;
+        let target_tree = target_commit.tree().context("failed to get target tree")?;
+
+        let branch_commit = repo
+            .find_commit(branch.head)
+            .context("failed to find branch tree")?;
+        let branch_tree = branch_commit.tree().context("failed to get branch tree")?;
+
+        let merge_options = git2::MergeOptions::new();
+        let merge_index = repo
+            .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
+            .unwrap();
+        let mergeable = !merge_index.has_conflicts();
+
         let branch = VirtualBranch {
             id: branch.id.to_string(),
             name: branch.name.to_string(),
             active: branch.applied,
             files: vfiles,
             commits,
+            mergeable,
         };
         branches.push(branch);
     }
@@ -1174,6 +1200,7 @@ pub fn update_branch_target(
                     Some(&merge_options),
                 )
                 .unwrap();
+
 
             // check index for conflicts
             if merge_index.has_conflicts() {
