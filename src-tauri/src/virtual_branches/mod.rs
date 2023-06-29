@@ -1201,7 +1201,6 @@ pub fn update_branch_target(
                 )
                 .unwrap();
 
-
             // check index for conflicts
             if merge_index.has_conflicts() {
                 println!("conflicts");
