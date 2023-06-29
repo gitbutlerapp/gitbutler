@@ -1071,11 +1071,11 @@ pub fn update_branch_target(
     let target_tree = target_commit.tree()?;
 
     // check index for conflicts
-    let merge_index = repo
+    let mut merge_index = repo
         .merge_trees(
+            &target_tree,
             &wd_tree,
             &new_target_tree,
-            &target_tree,
             Some(&merge_options),
         )
         .unwrap();
@@ -1110,16 +1110,9 @@ pub fn update_branch_target(
     )?;
 
     // now we can try to merge the upstream branch into our current working directory
-    let annotated_commit = repo.find_annotated_commit(new_target_oid)?;
     let mut checkout_options = git2::build::CheckoutBuilder::new();
-    //checkout_options.dry_run();
-
-    repo.merge(
-        &[&annotated_commit],
-        Some(&mut merge_options),
-        Some(&mut checkout_options),
-    )?;
-    repo.cleanup_state()?;
+    checkout_options.force();
+    repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
 
     // ok, if that worked, then we can try to update all our virtual branches and write out our new target
     let writer = branch::Writer::new(gb_repository);
@@ -1213,14 +1206,18 @@ fn write_tree(
     let base_tree = base_commit.tree().unwrap();
     let mut index = git_repository.index().unwrap();
     index.read_tree(&base_tree).unwrap();
+    let project = project_repository.project;
 
     // now update the index with content in the working directory for each file
     for file in files {
         // convert this string to a Path
-        let file = std::path::Path::new(&file.path);
-
-        // TODO: deal with removals too
-        index.add_path(file).unwrap();
+        let full_path = std::path::Path::new(&project.path).join(&file.path);
+        let rel_path = std::path::Path::new(&file.path);
+        // if file exists
+        if full_path.exists() {
+            // add file to index
+            index.add_path(&rel_path).unwrap();
+        }
     }
 
     // now write out the tree
