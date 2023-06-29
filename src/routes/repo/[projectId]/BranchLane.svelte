@@ -37,7 +37,7 @@
 		const newItems = e.detail.items;
 		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 
-		console.log('handleDndEvent', e.type, e.detail.items);
+		console.log('lane: handleDndEvent', e.type, e.detail.items);
 
 		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
 		hunkItems.forEach((hunk) => {

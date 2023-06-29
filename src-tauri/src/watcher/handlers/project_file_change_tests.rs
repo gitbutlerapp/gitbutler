@@ -52,6 +52,7 @@ fn test_branch() -> virtual_branches::branch::Branch {
                 hunks: vec![],
             }],
         },
+        order: unsafe { TEST_INDEX },
     }
 }
 

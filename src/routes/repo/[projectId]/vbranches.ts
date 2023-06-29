@@ -14,6 +14,7 @@ export interface VirtualBranchOperations {
 	commitBranch(branch: string, message: string): Promise<void | object>;
 	updateBranchTarget(): Promise<void | object>;
 	updateBranchName(branchId: string, name: string): Promise<void | object>;
+	updateBranchOrder(branchId: string, order: number): Promise<void | object>;
 	applyBranch(branchId: string): Promise<void | object>;
 	unapplyBranch(branchId: string): Promise<void | object>;
 	updateBranchOwnership(branchId: string, ownership: string): Promise<void | object>;
@@ -33,6 +34,8 @@ export function getVirtualBranches(
 		createBranch: (name, path) => createBranch(writeable, projectId, name, path),
 		commitBranch: (branch, message) => commitBranch(writeable, projectId, branch, message),
 		updateBranchTarget: () => updateBranchTarget(writeable, projectId),
+		updateBranchOrder: (branchId, order) =>
+			updateBranchOrder(writeable, projectId, branchId, order),
 		updateBranchName: (branchId, name) => updateBranchName(writeable, projectId, branchId, name),
 		applyBranch: (branchId) => applyBranch(writeable, projectId, branchId),
 		unapplyBranch: (branchId) => unapplyBranch(writeable, projectId, branchId),
@@ -92,7 +95,11 @@ function createBranch(
 		projectId,
 		name,
 		ownership
-	}).then(() => refresh(projectId, writable));
+	})
+		.then(() => refresh(projectId, writable))
+		.catch(() => {
+			error('Failed to create branch.');
+		});
 }
 
 function commitBranch(
@@ -106,24 +113,34 @@ function commitBranch(
 		branch: branch,
 		message: message
 	})
-		.then((res) => {
-			console.log(res);
+		.then(() => {
 			refresh(projectId, writable);
 		})
-		.catch((err) => {
-			console.log(err);
+		.catch(() => {
 			error('Failed to commit files.');
 		});
 }
 
+function updateBranchOrder(
+	writable: Writable<Loadable<Branch[]>>,
+	projectId: string,
+	branchId: string,
+	order: number
+) {
+	return invoke<object>('update_virtual_branch', {
+		projectId: projectId,
+		branch: { id: branchId, order }
+	}).catch(() => {
+		error('Unable to update branch order!');
+	});
+}
+
 function updateBranchTarget(writable: Writable<Loadable<Branch[]>>, projectId: string) {
 	return invoke<object>('update_branch_target', { projectId: projectId })
-		.then((res) => {
-			console.log(res);
+		.then(() => {
 			refresh(projectId, writable);
 		})
-		.catch((err) => {
-			console.log(err);
+		.catch(() => {
 			error('Unable to update target!');
 		});
 }
@@ -133,12 +150,10 @@ function applyBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, 
 		projectId: projectId,
 		branch: branchId
 	})
-		.then((res) => {
-			console.log(res);
+		.then(() => {
 			refresh(projectId, writable);
 		})
-		.catch((err) => {
-			console.log(err);
+		.catch(() => {
 			error('Unable to apply branch!');
 		});
 }
@@ -152,12 +167,10 @@ function unapplyBranch(
 		projectId: projectId,
 		branch: branchId
 	})
-		.then((res) => {
-			console.log(res);
+		.then(() => {
 			refresh(projectId, writable);
 		})
-		.catch((err) => {
-			console.log(err);
+		.catch(() => {
 			error('Unable to unapply branch!');
 		});
 }
@@ -172,12 +185,10 @@ function updateBranchOwnership(
 		projectId: projectId,
 		branch: { id: branchId, ownership }
 	})
-		.then((res) => {
-			console.log(res);
+		.then(() => {
 			refresh(projectId, writable);
 		})
-		.catch((err) => {
-			console.log(err);
+		.catch(() => {
 			error('Unable to update branch!');
 		});
 }
@@ -192,12 +203,10 @@ function updateBranchName(
 		projectId: projectId,
 		branch: { id: branchId, name: name }
 	})
-		.then((res) => {
-			console.log(res);
+		.then(() => {
 			refresh(projectId, writable);
 		})
-		.catch((err) => {
-			console.log(err);
-			error('Unable to update branch!');
+		.catch(() => {
+			error('Unable to update branch name!');
 		});
 }

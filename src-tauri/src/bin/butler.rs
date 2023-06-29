@@ -3,8 +3,6 @@ use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Input, MultiSelect, Select};
 
 use git2::Repository;
-use std::time;
-use uuid::Uuid;
 
 use git_butler_tauri::{
     database, gb_repository, project_repository, projects, reader, sessions, storage, users,
@@ -187,47 +185,13 @@ fn run_commit(butler: ButlerCli) {
 }
 
 fn run_new(butler: ButlerCli) {
-    let current_session = butler
-        .gb_repository
-        .get_or_create_current_session()
-        .expect("failed to get or create currnt session");
-    let current_session_reader = sessions::Reader::open(&butler.gb_repository, &current_session)
-        .expect("failed to open current session reader");
-
-    let target_reader = virtual_branches::target::Reader::new(&current_session_reader);
-    let default_target = match target_reader.read_default() {
-        Ok(target) => target,
-        Err(reader::Error::NotFound) => return,
-        Err(e) => panic!("failed to read default target: {}", e),
-    };
-
-    println!("  base sha: {}", default_target.sha.to_string().blue());
-    // lookup tree for this sha
-    let git_repository = butler.git_repository();
-    let commit = git_repository.find_commit(default_target.sha).unwrap();
-    let tree = commit.tree().unwrap();
-
     let input: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("New branch name")
         .interact_text()
         .unwrap();
 
-    let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
-
-    let branch = virtual_branches::Branch {
-        id: Uuid::new_v4().to_string(),
-        name: input,
-        applied: true,
-        upstream: "".to_string(),
-        tree: tree.id(),
-        head: default_target.sha,
-        created_timestamp_ms: now,
-        updated_timestamp_ms: now,
-        ownership: virtual_branches::branch::Ownership { files: Vec::new() },
-    };
-
-    let writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
-    writer.write(&branch).unwrap();
+    virtual_branches::create_virtual_branch(&butler.gb_repository, &input)
+        .expect("failed to create virtual branch");
 }
 
 fn run_move(butler: ButlerCli) {

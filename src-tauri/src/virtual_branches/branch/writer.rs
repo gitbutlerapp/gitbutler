@@ -58,6 +58,10 @@ impl<'writer> BranchWriter<'writer> {
             .context("Failed to write branch name")?;
 
         self.writer
+            .write_usize(&format!("branches/{}/meta/order", branch.id), &branch.order)
+            .context("Failed to write branch order")?;
+
+        self.writer
             .write_bool(
                 &format!("branches/{}/meta/applied", branch.id),
                 &branch.applied,
@@ -144,6 +148,7 @@ mod tests {
                     hunks: vec![],
                 }],
             },
+            order: unsafe { TEST_INDEX } ,
         }
     }
 

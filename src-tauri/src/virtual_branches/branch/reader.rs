@@ -56,6 +56,7 @@ mod tests {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
             applied: true,
+            order: unsafe { TEST_INDEX },
             upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
