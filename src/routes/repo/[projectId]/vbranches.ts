@@ -186,13 +186,9 @@ function updateBranchOwnership(
 	return invoke<object>('update_virtual_branch', {
 		projectId: projectId,
 		branch: { id: branchId, ownership }
-	})
-		.then(() => {
-			refresh(projectId, writable);
-		})
-		.catch(() => {
-			error('Unable to update branch!');
-		});
+	}).catch(() => {
+		error('Unable to update branch!');
+	});
 }
 
 function updateBranchName(
