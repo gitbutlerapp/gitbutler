@@ -1416,6 +1416,7 @@ use std::process::Command;
 pub fn push(
     project_path: &str,
     gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
     commit_id: &str,
     branch_id: &str,
 ) -> Result<()> {
@@ -1432,6 +1433,12 @@ pub fn push(
         Err(e) => Err(e),
     }
     .context("failed to read default target")?;
+
+    let vbranches = list_virtual_branches(gb_repository, project_repository)?;
+    let vbranch = vbranches
+        .iter()
+        .find(|b| b.id == branch_id)
+        .context("failed to find branch")?;
 
     let output = Command::new("git")
         .arg("push")
