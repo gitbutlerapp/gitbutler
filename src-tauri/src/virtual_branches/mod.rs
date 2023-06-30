@@ -892,7 +892,7 @@ pub fn get_status_by_branch(
             .unwrap()
             .clone();
 
-        let files = hunks
+        let mut files = hunks
             .iter()
             .fold(HashMap::<String, Vec<_>>::new(), |mut acc, hunk| {
                 acc.entry(hunk.file_path.clone())
@@ -907,6 +907,23 @@ pub fn get_status_by_branch(
                 hunks,
             })
             .collect::<Vec<_>>();
+
+        files.sort_by(|a, b| {
+            branch
+                .ownership
+                .files
+                .iter()
+                .position(|o| o.file_path.eq(&a.path))
+                .unwrap_or(999)
+                .cmp(
+                    &branch
+                        .ownership
+                        .files
+                        .iter()
+                        .position(|id| id.file_path.eq(&b.path))
+                        .unwrap_or(999),
+                )
+        });
 
         statuses.push((branch, files));
     }

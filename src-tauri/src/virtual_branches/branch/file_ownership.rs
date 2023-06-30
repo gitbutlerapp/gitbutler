@@ -70,13 +70,14 @@ impl FileOwnership {
             return another.clone();
         }
 
-        if another.hunks.iter().all(|r| self.hunks.contains(r)) {
-            // all ranges are already owned - noop
-            return self.clone();
-        }
-
         let mut hunks = self.hunks.clone();
-        hunks.extend(another.hunks.clone());
+        another
+            .hunks
+            .iter()
+            .filter(|hunk| !self.hunks.contains(hunk))
+            .for_each(|hunk| {
+                hunks.insert(0, hunk.clone());
+            });
 
         FileOwnership {
             file_path: self.file_path.clone(),
@@ -197,15 +198,15 @@ mod tests {
     fn test_plus() {
         vec![
             ("file.txt:1-10", "another.txt:1-5", "file.txt:1-10"),
-            ("file.txt:5-10", "file.txt:1-5", "file.txt:5-10,1-5"),
-            ("file.txt:1-10", "file.txt:1-5", "file.txt:1-10,1-5"),
-            ("file.txt:1-10", "file.txt:12-15", "file.txt:1-10,12-15"),
+            ("file.txt:1-10,3-14", "file.txt:3-14", "file.txt:1-10,3-14"),
+            ("file.txt:5-10", "file.txt:1-5", "file.txt:1-5,5-10"),
+            ("file.txt:1-10", "file.txt:1-5", "file.txt:1-5,1-10"),
+            ("file.txt:1-5,2-2", "file.txt:1-10", "file.txt:1-10,1-5,2-2"),
             (
                 "file.txt:1-10",
                 "file.txt:8-15,20-25",
-                "file.txt:1-10,8-15,20-25",
+                "file.txt:20-25,8-15,1-10",
             ),
-            ("file.txt:1-10", "file.txt:10-15", "file.txt:1-10,10-15"),
             ("file.txt:1-10", "file.txt:1-10", "file.txt:1-10"),
             ("file.txt:1-10,3-15", "file.txt:1-10", "file.txt:1-10,3-15"),
         ]

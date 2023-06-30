@@ -46,12 +46,7 @@ fn test_branch() -> virtual_branches::branch::Branch {
             unsafe { TEST_INDEX + 10 }
         ))
         .unwrap(),
-        ownership: branch::Ownership {
-            files: vec![branch::FileOwnership {
-                file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
-                hunks: vec![],
-            }],
-        },
+        ownership: branch::Ownership::default(),
         order: unsafe { TEST_INDEX },
     }
 }
