@@ -2,8 +2,6 @@ use std::{fmt::Display, ops::RangeInclusive};
 
 use anyhow::{anyhow, Context, Result};
 
-static CONTEXT: usize = 3; // default git diff context
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Hunk {
     start: usize,
@@ -64,20 +62,6 @@ impl Hunk {
         self.start <= *line && self.end >= *line
     }
 
-    pub fn distance(&self, another: &Hunk) -> usize {
-        if self.start > another.end {
-            self.start - another.end
-        } else if another.start > self.end {
-            another.start - self.end
-        } else {
-            0
-        }
-    }
-
-    pub fn touches(&self, another: &Hunk) -> bool {
-        self.distance(another) <= CONTEXT * 2
-    }
-
     pub fn intersects(&self, another: &Hunk) -> bool {
         self.contains(&another.start)
             || self.contains(&another.end)
@@ -104,27 +88,5 @@ mod tests {
     #[test]
     fn parse_invalid_2() {
         assert!(Hunk::try_from("3-2").is_err());
-    }
-
-    #[test]
-    fn test_touches() {
-        vec![
-            ("1-2", "3-4", true),
-            ("1-2", "9-10", false),
-            ("1-2", "8-10", true),
-        ]
-        .into_iter()
-        .for_each(|(a, b, expected)| {
-            let a = Hunk::try_from(a).unwrap();
-            let b = Hunk::try_from(b).unwrap();
-            assert_eq!(
-                a.touches(&b),
-                expected,
-                "{} touches {}, expected {}",
-                a,
-                b,
-                expected
-            );
-        });
     }
 }
