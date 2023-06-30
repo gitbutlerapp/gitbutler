@@ -18,6 +18,13 @@ use crate::{gb_repository, project_repository, reader, sessions};
 
 use self::branch::{FileOwnership, Hunk, Ownership};
 
+// this struct is a mapping to the view `Branch` type in Typescript
+// found in src-tauri/src/routes/repo/[project_id]/types.ts
+// it holds a materialized view for presentation purposes of the Branch struct in Rust
+// which is our persisted data structure for virtual branches
+//
+// it is not persisted, it is only used for presentation purposes through the ipc
+//
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranch {
@@ -32,6 +39,14 @@ pub struct VirtualBranch {
     pub upstream: String,
 }
 
+// this is the struct that maps to the view `Commit` type in Typescript
+// it is derived from walking the git commits between the `Branch.head` commit
+// and the `Target.sha` commit, or, everything that is uniquely committed to
+// the virtual branch we assign it to. an array of them are returned as part of
+// the `VirtualBranch` struct
+//
+// it is not persisted, it is only used for presentation purposes through the ipc
+//
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
@@ -43,6 +58,14 @@ pub struct VirtualBranchCommit {
     pub is_remote: bool,
 }
 
+// this struct is a mapping to the view `File` type in Typescript
+// found in src-tauri/src/routes/repo/[project_id]/types.ts
+// it holds a materialized view for presentation purposes of one entry of the
+// `Branch.ownership` vector in Rust. an array of them are returned as part of
+// the `VirtualBranch` struct, which map to each entry of the `Branch.ownership` vector
+//
+// it is not persisted, it is only used for presentation purposes through the ipc
+//
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchFile {
@@ -51,6 +74,14 @@ pub struct VirtualBranchFile {
     pub hunks: Vec<VirtualBranchHunk>,
 }
 
+// this struct is a mapping to the view `Hunk` type in Typescript
+// found in src-tauri/src/routes/repo/[project_id]/types.ts
+// it holds a materialized view for presentation purposes of one entry of the
+// each hunk in one `Branch.ownership` vector entry in Rust.
+// an array of them are returned as part of the `VirtualBranchFile` struct
+//
+// it is not persisted, it is only used for presentation purposes through the ipc
+//
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
@@ -63,6 +94,14 @@ pub struct VirtualBranchHunk {
     pub end: usize,
 }
 
+// this struct is a mapping to the view `RemoteBranch` type in Typescript
+// found in src-tauri/src/routes/repo/[project_id]/types.ts
+// it holds data calculated for presentation purposes of one Git branch
+// with comparison data to the Target commit, determining if it is mergeable,
+// and how far ahead or behind the Target it is.
+// an array of them can be requested from the frontend to show in the sidebar
+// Tray and should only contain branches that have not been converted into
+// virtual branches yet (ie, we have no `Branch` struct persisted in our data.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
@@ -988,6 +1027,7 @@ pub fn get_status_by_branch(
         .collect();
 
     for branch in &mut virtual_branches {
+        let mut updated: Vec<_> = vec![];
         branch.ownership = Ownership {
             files: branch
                 .ownership
@@ -1008,14 +1048,29 @@ pub fn get_status_by_branch(
                             // if any of the current hunks intersects with the owned hunk, we want to keep it
                             for (i, current_hunk) in current_hunks.iter().enumerate() {
                                 let ch = Hunk::new(current_hunk.start, current_hunk.end).unwrap();
-                                if ch.eq(owned_hunk)
-                                    || ch.intersects(owned_hunk)
-                                    || ch.touches(owned_hunk)
-                                {
+                                if owned_hunk.eq(&ch) {
+                                    // if it's an exact match, push it to the end, preserving the
+                                    // order
                                     hunks_by_branch_id
                                         .entry(branch.id.clone())
                                         .or_default()
                                         .push(current_hunk.clone());
+                                    // remove the hunk from the current hunks because each hunk can
+                                    // only be owned once
+                                    current_hunks.remove(i);
+                                    return Some(ch);
+                                } else if owned_hunk.intersects(&ch) {
+                                    // if it's an intersection, push it to the beginning,
+                                    // indicating the the hunk has been updated
+                                    hunks_by_branch_id
+                                        .entry(branch.id.clone())
+                                        .or_default()
+                                        .insert(0, current_hunk.clone());
+                                    // track updated hunks
+                                    updated.push(FileOwnership {
+                                        file_path: file_owership.file_path.clone(),
+                                        hunks: vec![ch.clone()],
+                                    });
                                     // remove the hunk from the current hunks because each hunk can
                                     // only be owned once
                                     current_hunks.remove(i);
@@ -1037,6 +1092,10 @@ pub fn get_status_by_branch(
                 })
                 .collect(),
         };
+        // add the updated hunks to the branch again to promote them to the top
+        updated
+            .iter()
+            .for_each(|file_ownership| branch.ownership.put(file_ownership));
     }
 
     // put the remaining hunks into the default (first) branch
@@ -1738,6 +1797,89 @@ mod tests {
         assert_eq!(files_by_branch_id.len(), 2);
         assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_updated_ownership_should_bubble_up() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n",
+        )?;
+        commit_all(&repository)?;
+
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch")
+            .id;
+
+        // write first file
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
+        )?;
+        get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        assert_eq!(
+            branch_reader.read(&branch1_id)?.ownership.files,
+            vec!["test.txt:11-15,1-5".try_into()?]
+        );
+
+        // wriging a new file should put it on the top
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "hello",
+        )?;
+        get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        assert_eq!(
+            branch_reader.read(&branch1_id)?.ownership.files,
+            vec![
+                "test2.txt:1-2".try_into()?,
+                "test.txt:11-15,1-5".try_into()?
+            ]
+        );
+
+        // update second hunk, it should make both file and hunk bubble up
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line0\nline1update\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
+        )?;
+        get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        assert_eq!(
+            branch_reader.read(&branch1_id)?.ownership.files,
+            vec![
+                "test.txt:1-6,11-15".try_into()?,
+                "test2.txt:1-2".try_into()?,
+            ]
+        );
 
         Ok(())
     }
@@ -2491,9 +2633,7 @@ mod tests {
         std::fs::remove_file(std::path::Path::new(&project.path).join(file_path3))?;
 
         // create branches that conflict with our earlier branches
-        let _branch3_id = create_virtual_branch(&gb_repo, "test_branch3")
-            .expect("failed to create virtual branch")
-            .id;
+        create_virtual_branch(&gb_repo, "test_branch3").expect("failed to create virtual branch");
         let branch4_id = create_virtual_branch(&gb_repo, "test_branch4")
             .expect("failed to create virtual branch")
             .id;

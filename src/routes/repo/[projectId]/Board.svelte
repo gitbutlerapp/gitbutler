@@ -63,7 +63,7 @@
 			{virtualBranches}
 		/>
 	{/each}
-	<NewBranchDropZone {virtualBranches} />
+	<NewBranchDropZone {branches} {virtualBranches} />
 </div>
 
 <style lang="postcss">

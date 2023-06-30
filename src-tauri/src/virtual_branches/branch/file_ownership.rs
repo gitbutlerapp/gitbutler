@@ -70,14 +70,16 @@ impl FileOwnership {
             return another.clone();
         }
 
-        let mut hunks = self.hunks.clone();
-        another
+        let mut hunks = self
             .hunks
             .iter()
-            .filter(|hunk| !self.hunks.contains(hunk))
-            .for_each(|hunk| {
-                hunks.insert(0, hunk.clone());
-            });
+            .cloned()
+            .filter(|hunk| !another.hunks.contains(hunk))
+            .collect::<Vec<Hunk>>();
+
+        another.hunks.iter().for_each(|hunk| {
+            hunks.insert(0, hunk.clone());
+        });
 
         FileOwnership {
             file_path: self.file_path.clone(),
@@ -198,7 +200,7 @@ mod tests {
     fn test_plus() {
         vec![
             ("file.txt:1-10", "another.txt:1-5", "file.txt:1-10"),
-            ("file.txt:1-10,3-14", "file.txt:3-14", "file.txt:1-10,3-14"),
+            ("file.txt:1-10,3-14", "file.txt:3-14", "file.txt:3-14,1-10"),
             ("file.txt:5-10", "file.txt:1-5", "file.txt:1-5,5-10"),
             ("file.txt:1-10", "file.txt:1-5", "file.txt:1-5,1-10"),
             ("file.txt:1-5,2-2", "file.txt:1-10", "file.txt:1-10,1-5,2-2"),
