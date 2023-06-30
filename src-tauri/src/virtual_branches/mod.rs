@@ -36,6 +36,7 @@ pub struct VirtualBranch {
     pub mergeable: bool,
     pub merge_conflicts: Vec<String>,
     pub order: usize,
+    pub upstream: String,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -580,10 +581,64 @@ pub fn list_virtual_branches(
             }
         }
 
-        let mut commits = vec![];
+        let repo = &project_repository.git_repository;
+
+        // see if we can identify some upstream
+        let mut upstream_commit = None;
+        if branch.upstream != "" {
+            // get the target remote
+            let remote_url = &default_target.remote;
+            let remotes = repo.remotes()?;
+            let mut upstream_remote = None;
+            for remote_name in remotes.iter() {
+                let remote_name = match remote_name {
+                    Some(name) => name,
+                    None => continue,
+                };
+
+                let remote = repo.find_remote(remote_name)?;
+                let url = match remote.url() {
+                    Some(url) => url,
+                    None => continue,
+                };
+
+                if url == remote_url {
+                    upstream_remote = Some(remote);
+                    break;
+                }
+            }
+            if let Some(remote) = upstream_remote {
+                let full_branch_name = format!(
+                    "refs/remotes/{}/{}",
+                    remote.name().unwrap(),
+                    branch.upstream
+                );
+                if let Ok(upstream_oid) = repo.refname_to_id(&full_branch_name) {
+                    if let Ok(upstream_commit_obj) = repo.find_commit(upstream_oid) {
+                        upstream_commit = Some(upstream_commit_obj);
+                    }
+                }
+            }
+        }
+
+        // find upstream commits if we found an upstream reference
+        let mut upstream_commits = HashMap::new();
+        if let Some(ref upstream) = upstream_commit {
+            let mut revwalk = repo.revwalk()?;
+            revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
+            revwalk.push(upstream.id())?;
+            // find merge base between upstream and default_target.sha
+            let merge_base = repo.merge_base(upstream.id(), default_target.sha)?;
+            revwalk.hide(merge_base)?;
+            for oid in revwalk {
+                if let Ok(upstream_oid) = oid {
+                    upstream_commits.insert(upstream_oid, true);
+                }
+            }
+        }
 
         // find all commits on head that are not on target.sha
-        let repo = &project_repository.git_repository;
+        let mut commits = vec![];
         let mut revwalk = repo.revwalk()?;
         revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
         revwalk.push(branch.head)?;
@@ -597,13 +652,15 @@ pub fn list_virtual_branches(
             let email = signature.email().unwrap().to_string();
             let message = commit.message().unwrap().to_string();
             let sha = oid.to_string();
+            let is_remote = upstream_commits.contains_key(&oid);
+
             let commit = VirtualBranchCommit {
                 id: sha,
                 created_at: timestamp * 1000,
                 author_name: name,
                 author_email: email,
                 description: message,
-                is_remote: false,
+                is_remote,
             };
             commits.push(commit);
         }
@@ -635,6 +692,7 @@ pub fn list_virtual_branches(
             commits,
             mergeable,
             merge_conflicts,
+            upstream: branch.upstream.to_string(),
         };
         branches.push(branch);
     }
@@ -2632,6 +2690,120 @@ mod tests {
         assert!(remote2.mergeable);
         assert_eq!(remote2.ahead, 2);
         assert_eq!(remote2.merge_conflicts.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_detect_remote_commits() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch_writer = branch::Writer::new(&gb_repo);
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        commit_all(&repository)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "http://origin.com/project".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        let repo = &project_repository.git_repository;
+        repo.remote("origin", "http://origin.com/project")?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch")
+            .id;
+
+        // create a commit to push upstream
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "upstream commit 1",
+            None,
+        )?;
+
+        // create another commit to push upstream
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\nmore upstream\n",
+        )?;
+
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "upstream commit 2",
+            None,
+        )?;
+
+        // push the commit upstream
+        let branch1 = branch_reader.read(&branch1_id)?;
+        let up_target = branch1.head;
+        repository.reference(
+            "refs/remotes/origin/remote_branch",
+            up_target,
+            true,
+            "update target",
+        )?;
+        // set the upstream reference
+        branch_writer.write(&Branch {
+            upstream: "remote_branch".to_string(),
+            ..branch1
+        })?;
+
+        // create another commit that is not pushed up
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\nmore upstream\nmore work\n",
+        )?;
+
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "local commit",
+            None,
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        assert_eq!(branches.len(), 1);
+
+        let branch = &branches.first().unwrap();
+        assert_eq!(branch.commits.len(), 3);
+        assert_eq!(branch.commits[0].description, "local commit");
+        assert!(!branch.commits[0].is_remote);
+        assert_eq!(branch.commits[1].description, "upstream commit 2");
+        assert!(branch.commits[1].is_remote);
+        assert!(branch.commits[2].is_remote);
 
         Ok(())
     }
