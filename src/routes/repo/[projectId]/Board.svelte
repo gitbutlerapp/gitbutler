@@ -2,7 +2,6 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import Lane from './BranchLane.svelte';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { createEventDispatcher } from 'svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { Branch } from './types';
 	import type { VirtualBranchOperations } from './vbranches';
@@ -11,13 +10,20 @@
 	export let branches: Branch[];
 	export let virtualBranches: VirtualBranchOperations;
 
-	const dispatch = createEventDispatcher();
 	const newBranchClass = 'new-branch-active';
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Branch>>) {
-		branches = e.detail.items.filter((branch) => branch.active);
+		branches = e.detail.items;
+
 		if (e.type == 'finalize') {
-			dispatch('finalize', branches);
+			branches = branches.filter((branch) => branch.active);
+			// ensure branch.order is sorted in ascending order
+			// if not, send update requests
+			branches.forEach((branch, i) => {
+				if (branch.order !== i) {
+					virtualBranches.updateBranchOrder(branch.id, i);
+				}
+			});
 		}
 	}
 

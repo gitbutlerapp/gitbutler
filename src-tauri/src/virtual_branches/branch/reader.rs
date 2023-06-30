@@ -15,14 +15,6 @@ impl<'reader> BranchReader<'reader> {
         self.reader
     }
 
-    pub fn read_selected(&self) -> Result<Option<String>, reader::Error> {
-        match self.reader.read_string("branches/selected") {
-            Ok(selected) => Ok(Some(selected)),
-            Err(reader::Error::NotFound) => Ok(None),
-            Err(e) => Err(e),
-        }
-    }
-
     pub fn read(&self, id: &str) -> Result<Branch, reader::Error> {
         if !self.reader.exists(&format!("branches/{}", id)) {
             return Err(reader::Error::NotFound);
@@ -56,6 +48,7 @@ mod tests {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
             applied: true,
+            order: unsafe { TEST_INDEX },
             upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
@@ -141,34 +134,6 @@ mod tests {
         let reader = BranchReader::new(&session_reader);
 
         assert_eq!(branch, reader.read(&branch.id).unwrap());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_read_selected() -> Result<()> {
-        let repository = test_repository()?;
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
-
-        let session = gb_repo.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
-        let reader = BranchReader::new(&session_reader);
-        let writer = Writer::new(&gb_repo);
-
-        assert_eq!(None, reader.read_selected()?);
-
-        writer.write_selected(&Some("test".to_string()))?;
-        assert_eq!(Some("test".to_string()), reader.read_selected()?);
-
-        writer.write_selected(&Some("updated".to_string()))?;
-        assert_eq!(Some("updated".to_string()), reader.read_selected()?);
 
         Ok(())
     }

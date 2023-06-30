@@ -108,6 +108,7 @@ mod tests {
                     hunks: vec![],
                 }],
             },
+            order: unsafe { TEST_INDEX },
         }
     }
 

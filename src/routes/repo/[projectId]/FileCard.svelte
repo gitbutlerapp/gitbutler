@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { dndzone } from 'svelte-dnd-action';
-	import { formatDistanceToNow, compareDesc } from 'date-fns';
+	import { formatDistanceToNow } from 'date-fns';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import type { Hunk } from './types';
 	import HunkDiffViewer from './HunkDiffViewer.svelte';
@@ -10,7 +10,6 @@
 
 	export let filepath: string;
 	export let hunks: Hunk[];
-	let zoneEl: HTMLElement;
 
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;
@@ -66,7 +65,6 @@
 
 	<div
 		class="hunk-change-container flex flex-col gap-2 rounded"
-		bind:this={zoneEl}
 		use:dndzone={{
 			items: hunks,
 			zoneTabIndex: -1,

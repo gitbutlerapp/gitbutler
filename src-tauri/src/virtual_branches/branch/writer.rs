@@ -20,25 +20,6 @@ impl<'writer> BranchWriter<'writer> {
         }
     }
 
-    pub fn write_selected(&self, id: &Option<String>) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("Failed to unlock repository");
-        }
-
-        if let Some(id) = id {
-            self.writer
-                .write_string("branches/selected", id)
-                .context("Failed to write selected branch")?;
-        } else {
-            self.writer
-                .remove("branches/selected")
-                .context("Failed to remove selected branch")?;
-        }
-
-        Ok(())
-    }
-
     pub fn write(&self, branch: &Branch) -> Result<()> {
         self.repository
             .get_or_create_current_session()
@@ -56,6 +37,10 @@ impl<'writer> BranchWriter<'writer> {
         self.writer
             .write_string(&format!("branches/{}/meta/name", branch.id), &branch.name)
             .context("Failed to write branch name")?;
+
+        self.writer
+            .write_usize(&format!("branches/{}/meta/order", branch.id), &branch.order)
+            .context("Failed to write branch order")?;
 
         self.writer
             .write_bool(
@@ -144,6 +129,7 @@ mod tests {
                     hunks: vec![],
                 }],
             },
+            order: unsafe { TEST_INDEX },
         }
     }
 
@@ -320,44 +306,6 @@ mod tests {
             .context("Failed to parse branch updated timestamp")?,
             updated_branch.updated_timestamp_ms
         );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_write_selected() -> Result<()> {
-        let repository = test_repository()?;
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
-        project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
-
-        let writer = BranchWriter::new(&gb_repo);
-
-        assert!(!gb_repo.root().join("branches").join("selected").exists());
-
-        writer.write_selected(&None)?;
-        assert!(!gb_repo.root().join("branches").join("selected").exists());
-
-        writer.write_selected(&Some("123".to_string()))?;
-        assert_eq!(
-            fs::read_to_string(
-                gb_repo
-                    .root()
-                    .join("branches")
-                    .join("selected")
-                    .to_str()
-                    .unwrap()
-            )?,
-            "123"
-        );
-
-        writer.write_selected(&None)?;
-        assert!(!gb_repo.root().join("branches").join("selected").exists());
 
         Ok(())
     }

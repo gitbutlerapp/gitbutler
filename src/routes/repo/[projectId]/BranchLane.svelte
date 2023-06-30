@@ -14,7 +14,9 @@
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
 	import type { VirtualBranchOperations } from './vbranches';
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<{
+		empty: never;
+	}>();
 
 	export let branchId: string;
 	export let name: string;
@@ -35,7 +37,7 @@
 		const newItems = e.detail.items;
 		const fileItems = newItems.filter((item) => item instanceof File) as File[];
 
-		console.log('handleDndEvent', e.type, e.detail.items);
+		console.log('lane: handleDndEvent', e.type, e.detail.items);
 
 		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
 		hunkItems.forEach((hunk) => {
@@ -48,7 +50,6 @@
 		});
 
 		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
-		if (e.type == 'finalize' && files.length == 0) dispatch('empty');
 		if (e.type === 'finalize') updateBranchOwnership();
 	}
 
@@ -57,21 +58,21 @@
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id.split(':')[1]).join(','))
 			.join('\n');
 		virtualBranches.updateBranchOwnership(branchId, ownership);
+		if (files.length == 0) dispatch('empty');
 	}
 
 	function handleFileUpdate(fileId: string, hunks: Hunk[]) {
 		const fileIndex = files.findIndex((f) => f.id == fileId);
-		console.log(fileIndex, fileId, hunks);
 		if (fileIndex == -1) {
 			return;
 		} else {
 			if (hunks.length === 0) {
 				files.splice(fileIndex, 1);
-				if (files.length === 0) dispatch('empty');
 			} else {
 				files[fileIndex].hunks = hunks;
 			}
 			files = files;
+			if (files.length === 0) dispatch('empty');
 			updateBranchOwnership();
 		}
 	}

@@ -7,7 +7,7 @@ use std::{
     path, time, vec,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde::Serialize;
 
 pub use branch::Branch;
@@ -27,6 +27,7 @@ pub struct VirtualBranch {
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
     pub mergeable: bool,
+    pub order: usize,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -550,11 +551,13 @@ pub fn list_virtual_branches(
             name: branch.name.to_string(),
             active: branch.applied,
             files: vfiles,
+            order: branch.order,
             commits,
             mergeable,
         };
         branches.push(branch);
     }
+    branches.sort_by(|a, b| a.order.cmp(&b.order));
     Ok(branches)
 }
 
@@ -579,6 +582,16 @@ pub fn create_virtual_branch(
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
 
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?;
+    let max_order = virtual_branches
+        .iter()
+        .map(|branch| branch.order)
+        .max()
+        .unwrap_or(0);
+
     let now = time::UNIX_EPOCH
         .elapsed()
         .context("failed to get elapsed time")?
@@ -594,6 +607,7 @@ pub fn create_virtual_branch(
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
         ownership: Ownership::default(),
+        order: max_order + 1,
     };
 
     let writer = branch::Writer::new(gb_repository);
@@ -624,10 +638,15 @@ pub fn update_branch(
 
     if let Some(name) = branch_update.name {
         branch.name = name;
-        branch_writer
-            .write(&branch)
-            .context("failed to write branch")?;
     };
+
+    if let Some(order) = branch_update.order {
+        branch.order = order;
+    };
+
+    branch_writer
+        .write(&branch)
+        .context("failed to write target branch")?;
 
     Ok(branch)
 }
@@ -665,9 +684,6 @@ fn set_ownership(
     }
 
     target_branch.ownership = ownership.clone();
-    branch_writer
-        .write(target_branch)
-        .context("failed to write target branch")?;
 
     Ok(())
 }
@@ -956,32 +972,15 @@ pub fn get_status_by_branch(
             .collect::<Vec<_>>();
     }
 
-    // sort by created timestamp so that default selected branch is the earliest created one
-    virtual_branches.sort_by(|a, b| a.created_timestamp_ms.cmp(&b.created_timestamp_ms));
+    // sort by order, so that the default branch is first (left in the ui)
+    virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     // select default branch
-    let first_branch_id = virtual_branches
+    let default_branch_id = virtual_branches
         .iter()
         .find(|b| b.applied)
-        .map(|b| b.id.clone());
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let mut default_branch_id = if let Some(id) = branch_reader
-        .read_selected()
-        .context("failed to read selected branch")?
-        .or(first_branch_id.clone())
-    {
-        id
-    } else {
-        bail!("no default branch found")
-    };
-    // does the branch exist?
-    if !virtual_branches
-        .iter()
-        .filter(|b| b.applied)
-        .any(|b| b.id == default_branch_id)
-    {
-        default_branch_id = first_branch_id.unwrap()
-    }
+        .map(|b| b.id.clone())
+        .ok_or_else(|| anyhow!("no default branch found"))?;
 
     // now, distribute hunks to the branches
     let mut hunks_by_branch_id: HashMap<String, Vec<VirtualBranchHunk>> = virtual_branches
@@ -1472,8 +1471,6 @@ mod tests {
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
             .expect("failed to create virtual branch");
-        let branch_writer = branch::Writer::new(&gb_repo);
-        branch_writer.write_selected(&Some(branch1_id.clone()))?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -1581,7 +1578,6 @@ mod tests {
             .expect("failed to create virtual branch");
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
             .expect("failed to create virtual branch");
-        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -1595,7 +1591,23 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
 
         // even though selected branch has changed
-        branch::Writer::new(&gb_repo).write_selected(&Some(branch2_id.clone()))?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch1_id.clone(),
+                order: Some(1),
+                ..Default::default()
+            },
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                order: Some(0),
+                ..Default::default()
+            },
+        )?;
+
         // a slightly different hunk should still go to the same branch
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -1650,7 +1662,6 @@ mod tests {
             .expect("failed to create virtual branch");
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
             .expect("failed to create virtual branch");
-        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -1708,12 +1719,10 @@ mod tests {
             "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
         )?;
 
-        let branch_writer = branch::Writer::new(&gb_repo);
-        branch_writer.write_selected(&Some(branch2_id.clone()))?;
-
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch_writer = branch::Writer::new(&gb_repo);
         let branch2 = branch_reader.read(&branch2_id)?;
         branch_writer.write(&branch::Branch {
             ownership: Ownership {
@@ -1805,7 +1814,6 @@ mod tests {
             .expect("failed to create virtual branch");
 
         let branch_writer = branch::Writer::new(&gb_repo);
-        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
 
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
@@ -1892,8 +1900,6 @@ mod tests {
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
             .expect("failed to create virtual branch");
 
-        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
-
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
         let files_by_branch_id = statuses
@@ -1975,8 +1981,6 @@ mod tests {
             .expect("failed to create virtual branch");
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
             .expect("failed to create virtual branch");
-
-        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -2068,7 +2072,6 @@ mod tests {
             .expect("failed to create virtual branch");
 
         let branch_writer = branch::Writer::new(&gb_repo);
-        branch_writer.write_selected(&Some(branch1_id.clone()))?;
 
         // update ownership to be implicit
         let current_session = gb_repo.get_or_create_current_session()?;
@@ -2223,8 +2226,6 @@ mod tests {
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
             .expect("failed to create virtual branch");
-        let branch_writer = branch::Writer::new(&gb_repo);
-        branch_writer.write_selected(&Some(branch1_id.clone()))?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -2331,8 +2332,6 @@ mod tests {
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
             .expect("failed to create virtual branch");
-        let branch_writer = branch::Writer::new(&gb_repo);
-        branch_writer.write_selected(&Some(branch1_id.clone()))?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -2413,8 +2412,6 @@ mod tests {
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
             .expect("failed to create virtual branch");
-        let branch_writer = branch::Writer::new(&gb_repo);
-        branch_writer.write_selected(&Some(branch1_id.clone()))?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -2511,12 +2508,10 @@ mod tests {
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
             .expect("failed to create virtual branch");
 
-        let branch_writer = branch::Writer::new(&gb_repo);
-        branch::Writer::new(&gb_repo).write_selected(&Some(branch1_id.clone()))?;
-
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch_writer = branch::Writer::new(&gb_repo);
         let branch1 = branch_reader.read(&branch1_id)?;
         branch_writer.write(&Branch {
             ownership: Ownership {

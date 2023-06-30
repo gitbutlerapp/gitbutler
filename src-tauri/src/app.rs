@@ -8,7 +8,10 @@ use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
     project_repository::{self, activity},
     projects, pty, reader, search, sessions, storage, users,
-    virtual_branches::{self, branch},
+    virtual_branches::{
+        self,
+        branch::{BranchUpdateRequest, Ownership},
+    },
     watcher,
 };
 
@@ -358,7 +361,7 @@ impl App {
         &self,
         project_id: &str,
         name: &str,
-        path: &str,
+        ownership: &Ownership,
     ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
 
@@ -369,16 +372,32 @@ impl App {
         let _permit = semaphore.acquire().await?;
 
         let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name)?;
-        virtual_branches::move_files(&gb_repository, &branch_id, &vec![path.try_into()?])?;
+        virtual_branches::update_branch(
+            &gb_repository,
+            BranchUpdateRequest {
+                id: branch_id,
+                name: None,
+                order: None,
+                ownership: Some(ownership.clone()),
+            },
+        )
+        .context("failed to update branch")?;
         Ok(())
     }
 
-    pub fn update_virtual_branch(
+    pub async fn update_virtual_branch(
         &self,
         project_id: &str,
         branch_update: virtual_branches::branch::BranchUpdateRequest,
     ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         virtual_branches::update_branch(&gb_repository, branch_update)?;
         Ok(())
     }
@@ -398,28 +417,6 @@ impl App {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         virtual_branches::apply_branch(&gb_repository, &project_repository, branch_id)?;
-        Ok(())
-    }
-
-    pub async fn move_virtual_branch_files(
-        &self,
-        project_id: &str,
-        branch: &str,
-        paths: Vec<&str>,
-    ) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-        let paths: Vec<branch::FileOwnership> = paths
-            .into_iter()
-            .map(|p| p.try_into())
-            .collect::<Result<Vec<branch::FileOwnership>, _>>()?;
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        virtual_branches::move_files(&gb_repository, branch, &paths)?;
         Ok(())
     }
 
