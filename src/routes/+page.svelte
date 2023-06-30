@@ -1,13 +1,11 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { Button, Tooltip } from '$lib/components';
+	import { Button } from '$lib/components';
 	import { events } from '$lib';
-	import { initTheme } from '$lib/theme';
 
 	export let data: LayoutData;
 
 	const { projects } = data;
-	initTheme();
 </script>
 
 <div class="h-full w-full bg-light-200 p-8 text-light-900 dark:bg-dark-1000">
