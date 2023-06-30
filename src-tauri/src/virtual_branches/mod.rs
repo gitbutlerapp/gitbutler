@@ -2730,8 +2730,14 @@ mod tests {
             ..branch1
         })?;
 
-        move_files(&gb_repo, &branch2_id, &vec!["test4.txt".try_into()?])
-            .expect("failed to move hunks");
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some(Ownership::try_from("test4.txt")?),
+                ..Default::default()
+            },
+        )?;
 
         // unapply both branches and create some conflicting ones
         unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
