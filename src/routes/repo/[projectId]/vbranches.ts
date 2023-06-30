@@ -42,7 +42,7 @@ export function getVirtualBranches(
 		unapplyBranch: (branchId) => unapplyBranch(writeable, projectId, branchId),
 		updateBranchOwnership: (branchId, ownership) =>
 			updateBranchOwnership(writeable, projectId, branchId, ownership),
-		pushBranch: (commitId, branchId) => pushBranch(writeable, projectId, commitId, branchId)
+		pushBranch: (branchId) => pushBranch(writeable, projectId, branchId)
 	};
 	cache.set(projectId, store);
 	return store;
