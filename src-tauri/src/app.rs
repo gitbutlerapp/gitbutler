@@ -371,7 +371,7 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-        let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name)?;
+        let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name)?.id;
         virtual_branches::update_branch(
             &gb_repository,
             BranchUpdateRequest {

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt, vec};
+use std::{fmt, vec};
 
 use anyhow::{Context, Result};
 
@@ -13,21 +13,39 @@ pub struct FileOwnership {
 impl TryFrom<&String> for FileOwnership {
     type Error = anyhow::Error;
     fn try_from(value: &String) -> std::result::Result<Self, Self::Error> {
-        Self::parse_string(value)
+        Self::try_from(value.as_str())
     }
 }
 
 impl TryFrom<&str> for FileOwnership {
     type Error = anyhow::Error;
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        Self::parse_string(value)
+        let mut parts = value.split(':');
+        let file_path = parts.next().unwrap();
+        let ranges = match parts.next() {
+            Some(raw_ranges) => raw_ranges
+                .split(',')
+                .map(Hunk::try_from)
+                .collect::<Result<Vec<Hunk>>>(),
+            None => Ok(vec![]),
+        }
+        .context(format!("failed to parse ownership ranges: {}", value))?;
+
+        if ranges.is_empty() {
+            Err(anyhow::anyhow!("ownership ranges cannot be empty"))?
+        } else {
+            Ok(Self {
+                file_path: file_path.to_string(),
+                hunks: ranges,
+            })
+        }
     }
 }
 
 impl TryFrom<String> for FileOwnership {
     type Error = anyhow::Error;
     fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
-        Self::parse_string(&value)
+        Self::try_from(&value)
     }
 }
 
@@ -120,64 +138,6 @@ impl FileOwnership {
             },
         )
     }
-
-    pub fn contains(&self, another: &FileOwnership) -> bool {
-        if self.file_path != another.file_path {
-            return false;
-        }
-
-        if self.hunks.is_empty() {
-            // full ownership
-            return true;
-        }
-
-        if another.hunks.is_empty() {
-            // empty ownership
-            return false;
-        }
-
-        another
-            .hunks
-            .iter()
-            .map(|hunk| self.hunks.iter().find(|r| r.eq(&hunk)))
-            .all(|x| x.is_some())
-    }
-
-    pub fn parse_string(s: &str) -> Result<Self> {
-        let mut parts = s.split(':');
-        let file_path = parts.next().unwrap();
-        let ranges = match parts.next() {
-            Some(raw_ranges) => raw_ranges
-                .split(',')
-                .map(Hunk::try_from)
-                .collect::<Result<Vec<Hunk>>>(),
-            None => Ok(vec![]),
-        }
-        .context(format!("failed to parse ownership ranges: {}", s))?;
-        Ok(Self {
-            file_path: file_path.to_string(),
-            hunks: ranges,
-        })
-    }
-
-    // returns order of hunks in the ownership
-    pub fn compare(&self, a: &Hunk, b: &Hunk) -> Ordering {
-        let pos_a = self
-            .hunks
-            .iter()
-            .position(|r| r.eq(a) || r.touches(a) || r.intersects(a));
-        let pos_b = self
-            .hunks
-            .iter()
-            .position(|r| r.eq(b) || r.touches(b) || r.intersects(b));
-
-        match (pos_a, pos_b) {
-            (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
-            (Some(_), None) => Ordering::Less,
-            (None, Some(_)) => Ordering::Greater,
-            (None, None) => Ordering::Equal,
-        }
-    }
 }
 
 impl fmt::Display for FileOwnership {
@@ -205,7 +165,7 @@ mod tests {
 
     #[test]
     fn parse_ownership() {
-        let ownership = FileOwnership::parse_string("foo/bar.rs:1-2,4-5").unwrap();
+        let ownership = FileOwnership::try_from("foo/bar.rs:1-2,4-5").unwrap();
         assert_eq!(
             ownership,
             FileOwnership {
@@ -217,14 +177,7 @@ mod tests {
 
     #[test]
     fn parse_ownership_no_ranges() {
-        let ownership = FileOwnership::parse_string("foo/bar.rs").unwrap();
-        assert_eq!(
-            ownership,
-            FileOwnership {
-                file_path: "foo/bar.rs".to_string(),
-                hunks: vec![]
-            }
-        );
+        assert!(FileOwnership::try_from("foo/bar.rs").is_err());
     }
 
     #[test]
@@ -235,20 +188,7 @@ mod tests {
         };
         assert_eq!(ownership.to_string(), "foo/bar.rs:1-2,4-5".to_string());
         assert_eq!(
-            FileOwnership::parse_string(&ownership.to_string()).unwrap(),
-            ownership
-        );
-    }
-
-    #[test]
-    fn ownership_to_from_string_no_ranges() {
-        let ownership = FileOwnership {
-            file_path: "foo/bar.rs".to_string(),
-            hunks: vec![],
-        };
-        assert_eq!(ownership.to_string(), "foo/bar.rs".to_string());
-        assert_eq!(
-            FileOwnership::parse_string(&ownership.to_string()).unwrap(),
+            FileOwnership::try_from(&ownership.to_string()).unwrap(),
             ownership
         );
     }
@@ -265,8 +205,6 @@ mod tests {
                 "file.txt:8-15,20-25",
                 "file.txt:1-10,8-15,20-25",
             ),
-            ("file.txt:1-10", "file.txt", "file.txt"),
-            ("file.txt", "file.txt:1-10", "file.txt"),
             ("file.txt:1-10", "file.txt:10-15", "file.txt:1-10,10-15"),
             ("file.txt:1-10", "file.txt:1-10", "file.txt:1-10"),
             ("file.txt:1-10,3-15", "file.txt:1-10", "file.txt:1-10,3-15"),
@@ -274,9 +212,9 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                FileOwnership::parse_string(a).unwrap(),
-                FileOwnership::parse_string(b).unwrap(),
-                FileOwnership::parse_string(expected).unwrap(),
+                FileOwnership::try_from(a).unwrap(),
+                FileOwnership::try_from(b).unwrap(),
+                FileOwnership::try_from(expected).unwrap(),
             )
         })
         .for_each(|(a, b, expected)| {
@@ -312,9 +250,6 @@ mod tests {
                 "file.txt:1-10",
                 (Some("file.txt:1-10"), None),
             ),
-            ("file.txt:1-10", "file.txt", (Some("file.txt:1-10"), None)),
-            ("file.txt", "file.txt", (Some("file.txt"), None)),
-            ("file.txt", "file.txt:1-10", (None, Some("file.txt"))),
             (
                 "file.txt:1-10,11-15",
                 "file.txt:11-15",
@@ -329,11 +264,11 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                FileOwnership::parse_string(a).unwrap(),
-                FileOwnership::parse_string(b).unwrap(),
+                FileOwnership::try_from(a).unwrap(),
+                FileOwnership::try_from(b).unwrap(),
                 (
-                    expected.0.map(|s| FileOwnership::parse_string(s).unwrap()),
-                    expected.1.map(|s| FileOwnership::parse_string(s).unwrap()),
+                    expected.0.map(|s| FileOwnership::try_from(s).unwrap()),
+                    expected.1.map(|s| FileOwnership::try_from(s).unwrap()),
                 ),
             )
         })
@@ -343,43 +278,6 @@ mod tests {
                 got, expected,
                 "{} minus {}, expected {:?}, got {:?}",
                 a, b, expected, got
-            );
-        });
-    }
-
-    #[test]
-    fn test_contains() {
-        vec![
-            ("file.txt", "another.txt", false),
-            ("file.txt", "file.txt", true),
-            ("file.txt", "file.txt:1-10", true),
-            ("file.txt:1-10", "file.txt", false),
-            ("file.txt:1-10", "file.txt:11-20", false),
-            ("file.txt:1-10", "file.txt:1-5", false),
-            ("file.txt:1-10", "file.txt:5-10", false),
-            ("file.txt:1-10", "file.txt:1-10", true),
-            ("file.txt:1-10", "file.txt:2-7", false),
-            ("file.txt:3-5", "file.txt:1-10", false),
-            ("file.txt:1-10", "another.txt:1-10", false),
-            ("file.txt:1-10", "file.txt:1-10,20-25", false),
-            ("file.txt:1-10,11-15", "file.txt:11-15", true),
-        ]
-        .into_iter()
-        .map(|(a, b, expected)| {
-            (
-                FileOwnership::parse_string(a).unwrap(),
-                FileOwnership::parse_string(b).unwrap(),
-                expected,
-            )
-        })
-        .for_each(|(a, b, expected)| {
-            assert_eq!(
-                a.contains(&b),
-                expected,
-                "{} contains {}, expected {}",
-                a,
-                b,
-                expected
             );
         });
     }
@@ -395,8 +293,8 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                FileOwnership::parse_string(a).unwrap(),
-                FileOwnership::parse_string(b).unwrap(),
+                FileOwnership::try_from(a).unwrap(),
+                FileOwnership::try_from(b).unwrap(),
                 expected,
             )
         })
