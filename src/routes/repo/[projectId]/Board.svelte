@@ -53,9 +53,9 @@
 >
 	{#each branches.filter((c) => c.active) as { id, name, files, commits, description } (id)}
 		<Lane
-			bind:name
-			bind:commitMessage={description}
-			bind:files
+			{name}
+			commitMessage={description}
+			{files}
 			{commits}
 			on:empty={handleEmpty}
 			{projectId}

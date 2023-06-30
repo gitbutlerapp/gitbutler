@@ -192,8 +192,8 @@
 			{#each files.filter((x) => x.hunks) as file (file.id)}
 				<FileCard
 					filepath={file.path}
-					bind:expanded={file.expanded}
-					bind:hunks={file.hunks}
+					expanded={file.expanded}
+					hunks={file.hunks}
 					on:update={(e) => {
 						handleFileUpdate(file.id, e.detail);
 					}}
