@@ -1425,14 +1425,6 @@ pub fn push(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let target_reader = target::Reader::new(&current_session_reader);
-    let default_target = match target_reader.read_default() {
-        Ok(target) => Ok(target),
-        Err(reader::Error::NotFound) => return Ok(()),
-        Err(e) => Err(e),
-    }
-    .context("failed to read default target")?;
-
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
 
@@ -1448,7 +1440,7 @@ pub fn push(
 
     let output = Command::new("git")
         .arg("push")
-        .arg(default_target.remote)
+        .arg("origin")
         .arg(format!("{}:{}", vbranch.head, upstream))
         .current_dir(project_path)
         .output()
