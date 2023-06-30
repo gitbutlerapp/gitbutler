@@ -1508,10 +1508,29 @@ pub fn push(
         branch_writer
             .write(&vbranch)
             .context("failed to write target branch after push")?;
+        fetch(project_path).context("failed to fetch after push")?;
         Ok(())
     } else {
         Err(anyhow::anyhow!(
             "failed to push branch: {}",
+            String::from_utf8(output.stderr)?
+        ))
+    }
+}
+
+fn fetch(project_path: &str) -> Result<()> {
+    let output = Command::new("git")
+        .arg("fetch")
+        .arg("origin")
+        .current_dir(project_path)
+        .output()
+        .context("failed to fork exec")?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "failed to fetch: {}",
             String::from_utf8(output.stderr)?
         ))
     }
