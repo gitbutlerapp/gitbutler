@@ -18,6 +18,13 @@ use crate::{gb_repository, project_repository, reader, sessions};
 
 use self::branch::{FileOwnership, Hunk, Ownership};
 
+// this struct is a mapping to the view `Branch` type in Typescript 
+// found in src-tauri/src/routes/repo/[project_id]/types.ts
+// it holds a materialized view for presentation purposes of the Branch struct in Rust
+// which is our persisted data structure for virtual branches
+//
+// it is not persisted, it is only used for presentation purposes through the ipc
+//
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranch {
@@ -31,6 +38,14 @@ pub struct VirtualBranch {
     pub order: usize,
 }
 
+// this is the struct that maps to the view `Commit` type in Typescript
+// it is derived from walking the git commits between the `Branch.head` commit
+// and the `Target.sha` commit, or, everything that is uniquely committed to
+// the virtual branch we assign it to. an array of them are returned as part of
+// the `VirtualBranch` struct
+//
+// it is not persisted, it is only used for presentation purposes through the ipc
+//
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
@@ -42,6 +57,14 @@ pub struct VirtualBranchCommit {
     pub is_remote: bool,
 }
 
+// this struct is a mapping to the view `File` type in Typescript
+// found in src-tauri/src/routes/repo/[project_id]/types.ts
+// it holds a materialized view for presentation purposes of one entry of the
+// `Branch.ownership` vector in Rust. an array of them are returned as part of
+// the `VirtualBranch` struct, which map to each entry of the `Branch.ownership` vector
+//
+// it is not persisted, it is only used for presentation purposes through the ipc
+//
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchFile {
@@ -50,6 +73,14 @@ pub struct VirtualBranchFile {
     pub hunks: Vec<VirtualBranchHunk>,
 }
 
+// this struct is a mapping to the view `Hunk` type in Typescript
+// found in src-tauri/src/routes/repo/[project_id]/types.ts
+// it holds a materialized view for presentation purposes of one entry of the
+// each hunk in one `Branch.ownership` vector entry in Rust. 
+// an array of them are returned as part of the `VirtualBranchFile` struct
+//
+// it is not persisted, it is only used for presentation purposes through the ipc
+//
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
@@ -62,6 +93,14 @@ pub struct VirtualBranchHunk {
     pub end: usize,
 }
 
+// this struct is a mapping to the view `RemoteBranch` type in Typescript
+// found in src-tauri/src/routes/repo/[project_id]/types.ts
+// it holds data calculated for presentation purposes of one Git branch
+// with comparison data to the Target commit, determining if it is mergeable,
+// and how far ahead or behind the Target it is.
+// an array of them can be requested from the frontend to show in the sidebar
+// Tray and should only contain branches that have not been converted into 
+// virtual branches yet (ie, we have no `Branch` struct persisted in our data.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
