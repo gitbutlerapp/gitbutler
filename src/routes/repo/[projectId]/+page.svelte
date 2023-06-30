@@ -18,7 +18,7 @@
 {#if target}
 	<div class="flex w-full max-w-full">
 		<Tray bind:branches {target} remoteBranches={remoteBranchesData} {virtualBranches} />
-		<Board bind:branches {projectId} {virtualBranches} />
+		<Board {branches} {projectId} {virtualBranches} />
 	</div>
 {:else}
 	<div class="m-auto flex flex-col space-y-2">
