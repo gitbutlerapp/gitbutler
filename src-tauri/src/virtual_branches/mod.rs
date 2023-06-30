@@ -1275,11 +1275,7 @@ fn name_to_branch(name: &str) -> String {
 }
 
 use std::process::Command;
-pub fn push(
-    project_path: &str,
-    commit_id: &str,
-    branch_id: &str,
-) -> Result<()> {
+pub fn push(project_path: &str, commit_id: &str, branch_id: &str) -> Result<()> {
     let output = Command::new("git")
         .arg("push")
         .arg("origin")
