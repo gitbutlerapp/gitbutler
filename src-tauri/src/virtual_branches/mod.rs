@@ -353,7 +353,8 @@ pub fn remote_branches(
 
                 let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
                 let branch_tree = branch_commit.tree()?;
-                let (mergeable, merge_conflicts) = check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                let (mergeable, merge_conflicts) =
+                    check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
                 println!("mergeable: {} {}", branch_name, mergeable);
 
                 branches.push(RemoteBranch {
@@ -401,7 +402,11 @@ fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
     Ok(tree)
 }
 
-fn find_base_tree<'a>(repo: &'a git2::Repository, branch_commit: &'a git2::Commit<'a>, target_commit: &'a git2::Commit<'a>) -> Result<git2::Tree<'a>> {
+fn find_base_tree<'a>(
+    repo: &'a git2::Repository,
+    branch_commit: &'a git2::Commit<'a>,
+    target_commit: &'a git2::Commit<'a>,
+) -> Result<git2::Tree<'a>> {
     // find merge base between target_commit and branch_commit
     let merge_base = repo
         .merge_base(target_commit.id(), branch_commit.id())
@@ -578,7 +583,8 @@ pub fn list_virtual_branches(
             let branch_tree = repo
                 .find_tree(branch.tree)
                 .context("failed to find branch tree")?;
-            (mergeable, merge_conflicts) = check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+            (mergeable, merge_conflicts) =
+                check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
         }
 
         let branch = VirtualBranch {
@@ -2685,12 +2691,12 @@ mod tests {
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
             "line1\nline2\nline3\nline4\n",
-        )?; 
+        )?;
         let file_path3 = std::path::Path::new("test3.txt");
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path3),
             "file3\n",
-        )?; 
+        )?;
         commit_all(&repository)?;
         let up_target = repository.head().unwrap().target().unwrap();
         repository.reference(
@@ -2737,7 +2743,6 @@ mod tests {
             ..branch4
         })?;
 
-
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         assert_eq!(branches.len(), 4);
 
@@ -2751,15 +2756,21 @@ mod tests {
         assert_eq!(branch2.active, false);
         assert_eq!(branch2.mergeable, true);
         assert_eq!(branch2.merge_conflicts.len(), 0);
- 
+
         let remotes = remote_branches(&gb_repo, &project_repository)?;
-        let remote1 = &remotes.iter().find(|b| b.branch == "refs/remotes/origin/remote_branch").unwrap();
+        let remote1 = &remotes
+            .iter()
+            .find(|b| b.branch == "refs/remotes/origin/remote_branch")
+            .unwrap();
         assert_eq!(remote1.mergeable, false);
         assert_eq!(remote1.ahead, 1);
         assert_eq!(remote1.merge_conflicts.len(), 1);
         assert_eq!(remote1.merge_conflicts.first().unwrap(), "test.txt");
 
-        let remote2 = &remotes.iter().find(|b| b.branch == "refs/remotes/origin/remote_branch2").unwrap();
+        let remote2 = &remotes
+            .iter()
+            .find(|b| b.branch == "refs/remotes/origin/remote_branch2")
+            .unwrap();
         assert_eq!(remote2.mergeable, true);
         assert_eq!(remote2.ahead, 2);
         assert_eq!(remote2.merge_conflicts.len(), 0);
