@@ -442,7 +442,15 @@ impl App {
     ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
-        virtual_branches::push(&project.path, &gb_repository, commit_id, branch_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        virtual_branches::push(
+            &project.path,
+            &gb_repository,
+            &project_repository,
+            commit_id,
+            branch_id,
+        )?;
         Ok(())
     }
 
