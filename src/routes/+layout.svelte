@@ -74,7 +74,6 @@
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
-		<ThemeSelector />
 		<div class="mr-6">
 			<Link href="/users/">
 				{#await user.load() then}
@@ -91,7 +90,7 @@
 		</div>
 	</header>
 
-	<div class="flex flex-grow overflow-y-hidden">
+	<div class="flex flex-grow overflow-y-auto">
 		<slot />
 	</div>
 

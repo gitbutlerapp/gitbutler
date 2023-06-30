@@ -12,10 +12,9 @@ button {
 }
 
 input,
-textarea,
 textarea {
 	outline: none;
-	@apply rounded border border-zinc-600 bg-zinc-700 p-2 text-zinc-300 dark:bg-zinc-700;
+	@apply rounded border border-light-500 bg-white p-2 text-light-900 dark:border-dark-400 dark:bg-dark-600 dark:text-dark-100;
 	@apply hover:border-zinc-500/80;
 	@apply focus:ring-2 focus:ring-blue-600;
 }
@@ -239,7 +238,7 @@ button:focus {
 	@apply text-[#5852A0];
 }
 .purple.outlined {
-	@apply border-[#524C93] no-underline;
+	@apply border-[#524C93] text-light-900 no-underline dark:text-dark-100;
 }
 .purple.outlined:hover {
 	@apply bg-[#524C93]/20;
