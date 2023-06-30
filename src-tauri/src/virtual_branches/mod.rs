@@ -1275,10 +1275,29 @@ fn name_to_branch(name: &str) -> String {
 }
 
 use std::process::Command;
-pub fn push(project_path: &str, commit_id: &str, branch_id: &str) -> Result<()> {
+pub fn push(
+    project_path: &str,
+    gb_repository: &gb_repository::Repository,
+    commit_id: &str,
+    branch_id: &str,
+) -> Result<()> {
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = match target_reader.read_default() {
+        Ok(target) => Ok(target),
+        Err(reader::Error::NotFound) => return Ok(()),
+        Err(e) => Err(e),
+    }
+    .context("failed to read default target")?;
+
     let output = Command::new("git")
         .arg("push")
-        .arg("origin")
+        .arg(default_target.remote)
         .arg(format!("{}:{}", commit_id, &name_to_branch(branch_id)))
         .current_dir(project_path)
         .output()

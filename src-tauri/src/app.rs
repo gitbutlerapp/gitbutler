@@ -440,8 +440,9 @@ impl App {
         commit_id: &str,
         branch_id: &str,
     ) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
-        virtual_branches::push(&project.path, commit_id, branch_id)?;
+        virtual_branches::push(&project.path, &gb_repository, commit_id, branch_id)?;
         Ok(())
     }
 
