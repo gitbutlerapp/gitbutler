@@ -14,6 +14,10 @@ use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
 
+// this is the struct for the virtual branch data that is stored in our data
+// store. it is more or less equivalent to a git branch reference, but it is not
+// stored or accessible from the git repository itself. it is stored in our
+// session storage under the branches/ directory.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Branch {
     pub id: String,
