@@ -1,3 +1,4 @@
+import { building } from '$app/environment';
 import { writable, type Writable } from '@square/svelte-store';
 import { appWindow, type Theme } from '@tauri-apps/api/window';
 
@@ -7,6 +8,7 @@ export const theme: Writable<string> = writable('dark');
 let systemTheme: string | null;
 
 export function initTheme() {
+	if (building) return;
 	appWindow.theme().then((value: Theme | null) => {
 		systemTheme = value;
 		updateDom();
