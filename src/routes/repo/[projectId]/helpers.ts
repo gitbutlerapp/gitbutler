@@ -11,12 +11,12 @@ export function createFile(path: string, hunk: Hunk): File {
 	});
 }
 
-export function createBranch(file: File): Branch {
+export function createBranch(file?: File): Branch {
 	branchCounter++;
 	return plainToInstance(Branch, {
 		id: `branch-${branchCounter}`,
 		name: `new branch ${branchCounter}`,
 		active: true,
-		files: [file]
+		files: file ? [file] : []
 	});
 }

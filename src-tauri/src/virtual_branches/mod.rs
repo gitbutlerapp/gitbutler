@@ -1034,7 +1034,6 @@ pub fn get_status_by_branch(
                 })
                 .collect(),
         };
-        println!("{:#?}", updated);
         // add the updated hunks to the branch again to promote them to the top
         updated
             .iter()

@@ -6,8 +6,18 @@
 	import { Button } from '$lib/components';
 	import type { VirtualBranchOperations } from './vbranches';
 
+	export let branches: Branch[];
 	export let virtualBranches: VirtualBranchOperations;
 	let items: Branch[] = [];
+
+	function newBranchName() {
+		const nextNumber = branches.filter((b) => b.name.startsWith('new branch')).length + 1;
+		return `new branch ${nextNumber}`;
+	}
+
+	function handleNewVirtualBranch() {
+		virtualBranches.createBranch(newBranchName(), '');
+	}
 
 	function handleDndFinalize(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {
 		console.log('new dropzone: handleDndFinalize', e.type, e.detail.items);
@@ -29,7 +39,7 @@
 				.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id.split(':')[1]).join(','))
 				.join('\n');
 
-			virtualBranches.createBranch(branchItems[0].name, ownership);
+			virtualBranches.createBranch(newBranchName(), ownership);
 			items = [];
 			return;
 		}
@@ -55,7 +65,7 @@
 		class="flex flex-col items-center gap-y-3 self-center p-8 text-center text-lg text-light-800 dark:text-dark-100"
 	>
 		<p>Drag changes or click button to create new virtual branch</p>
-		<Button color="purple">New virtual branch</Button>
+		<Button color="purple" on:click={handleNewVirtualBranch}>New virtual branch</Button>
 	</div>
 </div>
 
