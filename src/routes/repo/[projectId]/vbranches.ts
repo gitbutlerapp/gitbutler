@@ -18,6 +18,7 @@ export interface VirtualBranchOperations {
 	applyBranch(branchId: string): Promise<void | object>;
 	unapplyBranch(branchId: string): Promise<void | object>;
 	updateBranchOwnership(branchId: string, ownership: string): Promise<void | object>;
+	pushBranch(commitId: string, branchId: string): Promise<void | object>;
 }
 
 export function getVirtualBranches(
@@ -40,7 +41,8 @@ export function getVirtualBranches(
 		applyBranch: (branchId) => applyBranch(writeable, projectId, branchId),
 		unapplyBranch: (branchId) => unapplyBranch(writeable, projectId, branchId),
 		updateBranchOwnership: (branchId, ownership) =>
-			updateBranchOwnership(writeable, projectId, branchId, ownership)
+			updateBranchOwnership(writeable, projectId, branchId, ownership),
+		pushBranch: (commitId, branchId) => pushBranch(writeable, projectId, commitId, branchId)
 	};
 	cache.set(projectId, store);
 	return store;
@@ -208,5 +210,26 @@ function updateBranchName(
 		})
 		.catch(() => {
 			error('Unable to update branch name!');
+		});
+}
+
+function pushBranch(
+	writable: Writable<Loadable<Branch[]>>,
+	projectId: string,
+	commitId: string,
+	branchId: string
+) {
+	return invoke<object>('push_virtual_branch', {
+		projectId: projectId,
+		commitId: commitId,
+		branchId: branchId
+	})
+		.then((res) => {
+			console.log(res);
+			refresh(projectId, writable);
+		})
+		.catch((err) => {
+			console.log(err);
+			error('Failed to push branch.');
 		});
 }

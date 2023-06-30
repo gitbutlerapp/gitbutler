@@ -1265,6 +1265,38 @@ pub fn commit(
     }
     Ok(())
 }
+fn name_to_branch(name: &str) -> String {
+    let cleaned_name = name
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>();
+
+    return format!("refs/heads/{}", cleaned_name);
+}
+
+use std::process::Command;
+pub fn push(
+    project_path: &str,
+    commit_id: &str,
+    branch_id: &str,
+) -> Result<()> {
+    let output = Command::new("git")
+        .arg("push")
+        .arg("origin")
+        .arg(format!("{}:{}", commit_id, &name_to_branch(branch_id)))
+        .current_dir(project_path)
+        .output()
+        .context("failed to fork exec")?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "failed to push branch: {}",
+            String::from_utf8(output.stderr)?
+        ))
+    }
+}
 
 #[cfg(test)]
 mod tests {
