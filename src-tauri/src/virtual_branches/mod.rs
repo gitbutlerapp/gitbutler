@@ -614,60 +614,6 @@ fn set_ownership(
     Ok(())
 }
 
-pub fn move_files(
-    gb_repository: &gb_repository::Repository,
-    dst_branch_id: &str,
-    to_move: &Vec<branch::FileOwnership>,
-) -> Result<()> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-
-    let mut virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
-
-    let writer = branch::Writer::new(gb_repository);
-
-    let mut target_branch = virtual_branches
-        .iter()
-        .find(|b| b.id == dst_branch_id)
-        .context("failed to find target branch")?
-        .clone();
-
-    for file_ownership in to_move {
-        target_branch.ownership.put(file_ownership);
-        for branch in &mut virtual_branches {
-            let taken = branch.ownership.take(file_ownership);
-            taken.iter().for_each(|taken| {
-                target_branch.ownership.put(taken);
-                log::info!(
-                    "{}: moved {} to branch {}",
-                    gb_repository.project_id,
-                    taken,
-                    target_branch.name
-                );
-            });
-            writer.write(branch).context(format!(
-                "failed to write source branch for {}",
-                file_ownership
-            ))?;
-            writer.write(&target_branch).context(format!(
-                "failed to write target branch for {}",
-                file_ownership
-            ))?;
-        }
-    }
-
-    Ok(())
-}
-
 fn explicit_owner(
     stack: &[branch::Branch],
     needle: &branch::FileOwnership,
@@ -1682,8 +1628,14 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id][0].hunks.len(), 1);
 
-        move_files(&gb_repo, &branch2_id, &vec!["test.txt".try_into()?])
-            .expect("failed to move hunks");
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some(Ownership::try_from("test.txt")?),
+                ..Default::default()
+            },
+        )?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -1702,7 +1654,7 @@ mod tests {
         assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
         assert_eq!(
             branch_reader.read(&branch2_id)?.ownership.files,
-            vec!["test.txt".try_into()?, "test.txt:1-5,11-15".try_into()?]
+            vec!["test.txt".try_into()?]
         );
 
         Ok(())
@@ -1767,8 +1719,14 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
 
-        move_files(&gb_repo, &branch2_id, &vec!["test.txt".try_into()?])
-            .expect("failed to move hunks");
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some(Ownership::try_from("test.txt")?),
+                ..Default::default()
+            },
+        )?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -1841,8 +1799,14 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
 
-        move_files(&gb_repo, &branch2_id, &vec!["test.txt".try_into()?])
-            .expect("failed to move hunks");
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some(Ownership::try_from("test.txt")?),
+                ..Default::default()
+            },
+        )?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -1863,7 +1827,7 @@ mod tests {
         assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
         assert_eq!(
             branch_reader.read(&branch2_id)?.ownership.files,
-            vec!["test.txt".try_into()?, "test.txt:1-3".try_into()?]
+            vec!["test.txt".try_into()?]
         );
 
         Ok(())
@@ -1924,8 +1888,14 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 2);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
 
-        move_files(&gb_repo, &branch2_id, &vec!["test.txt:1-5".try_into()?])
-            .expect("failed to move hunks");
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some(Ownership::try_from("test.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -1934,8 +1904,6 @@ mod tests {
             .iter()
             .map(|(branch, files)| (branch.id.clone(), files))
             .collect::<HashMap<_, _>>();
-
-        println!("{:#?}", statuses);
 
         assert_eq!(files_by_branch_id.len(), 2);
         assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
@@ -2026,13 +1994,17 @@ mod tests {
         assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 2);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
 
-        move_files(&gb_repo, &branch2_id, &vec!["test.txt:1-5".try_into()?])
-            .expect("failed to move hunks");
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some(Ownership::try_from("test.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-
-        println!("{:#?}", statuses);
 
         let files_by_branch_id = statuses
             .iter()
@@ -2450,8 +2422,14 @@ mod tests {
             ..branch1
         })?;
 
-        move_files(&gb_repo, &branch2_id, &vec!["test2.txt".try_into()?])
-            .expect("failed to move hunks");
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id,
+                ownership: Some(Ownership::try_from("test2.txt")?),
+                ..Default::default()
+            },
+        )?;
 
         let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
         assert_eq!(

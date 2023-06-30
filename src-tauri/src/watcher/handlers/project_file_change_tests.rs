@@ -699,8 +699,6 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     assert_eq!(branches[0].id, vbranch0.id);
     assert_eq!(branches[1].id, vbranch1.id);
 
-    let vbranch_reader = virtual_branches::branch::Reader::new(&session_reader);
-
     let target_reader = virtual_branches::target::Reader::new(&session_reader);
     assert_eq!(target_reader.read_default().unwrap(), default_target);
     assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
@@ -774,8 +772,6 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     assert_eq!(branches.len(), 2);
     assert_eq!(branches[0].id, vbranch0.id);
     assert_eq!(branches[1].id, vbranch1.id);
-
-    let vbranch_reader = virtual_branches::branch::Reader::new(&session_reader);
 
     let target_reader = virtual_branches::target::Reader::new(&session_reader);
     assert_eq!(target_reader.read_default().unwrap(), default_target);
