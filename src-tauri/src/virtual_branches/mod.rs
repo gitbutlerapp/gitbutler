@@ -18,7 +18,7 @@ use crate::{gb_repository, project_repository, reader, sessions};
 
 use self::branch::{FileOwnership, Hunk, Ownership};
 
-// this struct is a mapping to the view `Branch` type in Typescript 
+// this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 // it holds a materialized view for presentation purposes of the Branch struct in Rust
 // which is our persisted data structure for virtual branches
@@ -76,7 +76,7 @@ pub struct VirtualBranchFile {
 // this struct is a mapping to the view `Hunk` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 // it holds a materialized view for presentation purposes of one entry of the
-// each hunk in one `Branch.ownership` vector entry in Rust. 
+// each hunk in one `Branch.ownership` vector entry in Rust.
 // an array of them are returned as part of the `VirtualBranchFile` struct
 //
 // it is not persisted, it is only used for presentation purposes through the ipc
@@ -99,7 +99,7 @@ pub struct VirtualBranchHunk {
 // with comparison data to the Target commit, determining if it is mergeable,
 // and how far ahead or behind the Target it is.
 // an array of them can be requested from the frontend to show in the sidebar
-// Tray and should only contain branches that have not been converted into 
+// Tray and should only contain branches that have not been converted into
 // virtual branches yet (ie, we have no `Branch` struct persisted in our data.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
