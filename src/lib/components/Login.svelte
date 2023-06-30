@@ -8,6 +8,8 @@
 	const cloud = CloudApi();
 	const user = stores.user;
 
+	export let width: 'basic' | 'full-width' = 'basic';
+
 	const pollForUser = async (token: string) => {
 		const apiUser = await cloud.login.user.get(token).catch(() => null);
 		if (apiUser) {
@@ -37,20 +39,18 @@
 	const authUrl = derived(token, ($token) => $token?.url as string);
 </script>
 
-<div>
-	{#if $user}
-		<Button kind="plain" color="destructive" on:click={() => ($user = null)}>Log out</Button>
-	{:else if $token !== null}
-		{#await Promise.all([open($token.url), pollForUser($token.token)])}
-			<div>Log in in your system browser</div>
-		{/await}
-		<p>
-			<button class="underline" on:click={() => open($authUrl)}>Click here</button>
-			if you are not redirected automatically, you can
-		</p>
-	{:else}
-		<Button loading={signUpOrLoginLoading} color="primary" on:click={onSignUpOrLoginClick}>
-			Sign up or Log in
-		</Button>
-	{/if}
-</div>
+{#if $user}
+	<Button kind="plain" color="destructive" on:click={() => ($user = null)}>Log out</Button>
+{:else if $token !== null}
+	{#await Promise.all([open($token.url), pollForUser($token.token)])}
+		<div>Log in in your system browser</div>
+	{/await}
+	<p>
+		<button class="underline" on:click={() => open($authUrl)}>Click here</button>
+		if you are not redirected automatically, you can
+	</p>
+{:else}
+	<Button {width} loading={signUpOrLoginLoading} color="purple" on:click={onSignUpOrLoginClick}>
+		Sign up or Log in
+	</Button>
+{/if}
