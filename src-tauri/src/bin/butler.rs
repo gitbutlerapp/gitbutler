@@ -6,7 +6,7 @@ use git2::Repository;
 
 use git_butler_tauri::{
     database, gb_repository, project_repository, projects, reader, sessions, storage, users,
-    virtual_branches::{self, branch::FileOwnership, list_virtual_branches},
+    virtual_branches::{self, list_virtual_branches},
 };
 
 #[derive(Parser)]
@@ -54,10 +54,6 @@ impl ButlerCli {
 
     fn project_repository(&self) -> project_repository::Repository {
         project_repository::Repository::open(&self.project).unwrap()
-    }
-
-    fn git_repository(&self) -> git2::Repository {
-        git2::Repository::open(&self.path).unwrap()
     }
 }
 
@@ -212,18 +208,13 @@ fn run_move(butler: ButlerCli) {
             })
             .collect::<Vec<_>>();
 
-    let selected_files = MultiSelect::with_theme(&ColorfulTheme::default())
+    let selected_files: Vec<String> = MultiSelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Which hunks do you want to move?")
         .items(&all_hunks)
         .interact()
         .expect("failed to get selections")
         .iter()
-        .map(|i| {
-            all_hunks[*i]
-                .clone()
-                .try_into()
-                .expect("failed to convert hunk")
-        })
+        .map(|i| all_hunks[*i].clone())
         .collect::<Vec<_>>();
 
     let current_session = butler
@@ -251,19 +242,24 @@ fn run_move(butler: ButlerCli) {
         .interact_on_opt(&Term::stderr())
         .unwrap();
 
-    let target_branch_id = virtual_branches[selection.unwrap()].id.clone();
-
-    println!(
-        "Moving {} hunks to {}",
-        selected_files
-            .iter()
-            .map(|f: &FileOwnership| f.to_string())
-            .collect::<Vec<_>>()
-            .join(", "),
-        target_branch_id
+    let target_branch = virtual_branches[selection.unwrap()].clone();
+    let mut ownership = target_branch.ownership.clone();
+    ownership.put(
+        &selected_files
+            .join("\n")
+            .try_into()
+            .expect("failed to convert to ownership"),
     );
-    virtual_branches::move_files(&butler.gb_repository, &target_branch_id, &selected_files)
-        .expect("failed to move files");
+
+    virtual_branches::update_branch(
+        &butler.gb_repository,
+        virtual_branches::branch::BranchUpdateRequest {
+            id: target_branch.id,
+            ownership: Some(ownership),
+            ..Default::default()
+        },
+    )
+    .expect("failed to update branch");
 }
 
 // TODO: vbranches: split function that identifies part of a file and moves that hunk to another branch
