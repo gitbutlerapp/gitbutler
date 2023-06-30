@@ -1474,7 +1474,6 @@ use std::process::Command;
 pub fn push(
     project_path: &str,
     gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<()> {
     let current_session = gb_repository
