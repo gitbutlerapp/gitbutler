@@ -89,8 +89,8 @@
 
 	function push() {
 		if (localCommits[0]?.id) {
-			console.log(`pushing commmit ${localCommits[0].id} on ${branchId}`);
-			virtualBranches.pushBranch(localCommits[0].id, branchId);
+			console.log(`pushing ${branchId}`);
+			virtualBranches.pushBranch(branchId);
 		}
 	}
 

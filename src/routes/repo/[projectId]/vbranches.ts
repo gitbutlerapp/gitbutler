@@ -18,7 +18,7 @@ export interface VirtualBranchOperations {
 	applyBranch(branchId: string): Promise<void | object>;
 	unapplyBranch(branchId: string): Promise<void | object>;
 	updateBranchOwnership(branchId: string, ownership: string): Promise<void | object>;
-	pushBranch(commitId: string, branchId: string): Promise<void | object>;
+	pushBranch(branchId: string): Promise<void | object>;
 }
 
 export function getVirtualBranches(
@@ -211,15 +211,9 @@ function updateBranchName(
 		});
 }
 
-function pushBranch(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-	commitId: string,
-	branchId: string
-) {
+function pushBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {
 	return invoke<object>('push_virtual_branch', {
 		projectId: projectId,
-		commitId: commitId,
 		branchId: branchId
 	})
 		.then((res) => {
