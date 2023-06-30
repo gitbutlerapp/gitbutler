@@ -3,7 +3,7 @@ import { api, log } from '$lib';
 import Posthog from '$lib/posthog';
 import Sentry from '$lib/sentry';
 import { wrapLoadWithSentry } from '@sentry/sveltekit';
-import { initTheme } from '$lib/theme';
+import { building } from '$app/environment';
 
 export const ssr = false;
 export const prerender = true;
@@ -11,7 +11,9 @@ export const csr = true;
 
 export const load: LayoutLoad = wrapLoadWithSentry(({ fetch }) => {
 	log.setup();
-	initTheme();
+	if (!building) {
+		import('$lib/theme').then(({ initTheme }) => initTheme());
+	}
 	return {
 		projects: api.projects.Projects(),
 		cloud: api.CloudApi({ fetch }),
