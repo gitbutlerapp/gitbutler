@@ -7,7 +7,7 @@ use std::{
     path, time, vec,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::Serialize;
 
 pub use branch::Branch;
@@ -294,7 +294,7 @@ pub fn remote_branches(
     let main_oid = default_target.sha;
     let target_commit = repo.find_commit(main_oid).ok().unwrap();
 
-    let wd_tree = get_wd_tree(&repo)?;
+    let wd_tree = get_wd_tree(repo)?;
 
     let mut branches: Vec<RemoteBranch> = Vec::new();
     let mut most_recent_branches: Vec<(git2::Branch, u64)> = Vec::new();
@@ -393,7 +393,7 @@ pub fn remote_branches(
                 let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
                 let branch_tree = branch_commit.tree()?;
                 let (mergeable, merge_conflicts) =
-                    check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                    check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
                 println!("mergeable: {} {}", branch_name, mergeable);
 
                 branches.push(RemoteBranch {
@@ -435,7 +435,7 @@ pub fn remote_branches(
 
 fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
     let mut index = repo.index()?;
-    index.add_all(&["*"], git2::IndexAddOption::DEFAULT, None)?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
     let oid = index.write_tree()?;
     let tree = repo.find_tree(oid)?;
     Ok(tree)
@@ -469,7 +469,7 @@ fn check_mergeable(
     let mut merge_conflicts = Vec::new();
     let merge_options = git2::MergeOptions::new();
     let merge_index = repo
-        .merge_trees(&base_tree, &wd_tree, &branch_tree, Some(&merge_options))
+        .merge_trees(base_tree, wd_tree, branch_tree, Some(&merge_options))
         .unwrap();
     let mergeable = !merge_index.has_conflicts();
     if merge_index.has_conflicts() {
@@ -645,7 +645,7 @@ pub fn list_virtual_branches(
 pub fn create_virtual_branch(
     gb_repository: &gb_repository::Repository,
     name: &str,
-) -> Result<String> {
+) -> Result<branch::Branch> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -693,7 +693,7 @@ pub fn create_virtual_branch(
 
     let writer = branch::Writer::new(gb_repository);
     writer.write(&branch).context("failed to write branch")?;
-    Ok(branch.id)
+    Ok(branch)
 }
 
 pub fn update_branch(
@@ -767,42 +767,6 @@ fn set_ownership(
     target_branch.ownership = ownership.clone();
 
     Ok(())
-}
-
-fn explicit_owner(
-    stack: &[branch::Branch],
-    needle: &branch::FileOwnership,
-) -> Option<(branch::Branch, branch::FileOwnership)> {
-    for branch in stack {
-        if let Some(owner) = branch.ownership.explicit_owner(needle) {
-            return Some((branch.clone(), owner.clone()));
-        }
-    }
-    None
-}
-
-fn owned_by_proximity(
-    stack: &[branch::Branch],
-    needle: &branch::FileOwnership,
-) -> Option<(branch::Branch, branch::FileOwnership)> {
-    for branch in stack {
-        if let Some(owner) = branch.ownership.proximity_owner(needle) {
-            return Some((branch.clone(), owner.clone()));
-        }
-    }
-    None
-}
-
-fn implicit_owner(
-    stack: &[branch::Branch],
-    needle: &branch::FileOwnership,
-) -> Option<(branch::Branch, branch::FileOwnership)> {
-    for branch in stack {
-        if let Some(owner) = branch.ownership.implicit_owner(needle) {
-            return Some((branch.clone(), owner.clone()));
-        }
-    }
-    None
 }
 
 fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf) -> u128 {
@@ -977,8 +941,6 @@ pub fn get_status_by_branch(
             default_target.sha
         ))?;
 
-    let hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
-
     let mut virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
@@ -988,89 +950,93 @@ pub fn get_status_by_branch(
         .collect::<Vec<_>>();
 
     if virtual_branches.is_empty() {
-        // just create an empty virtual branch and get an iterator with just that one in it
-        create_virtual_branch(gb_repository, "default branch")?;
-        virtual_branches = Iterator::new(&current_session_reader)
-            .context("failed to create branch iterator")?
-            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .filter(|branch| branch.applied)
-            .collect::<Vec<_>>();
+        // create an empty virtual branch
+        virtual_branches = vec![create_virtual_branch(gb_repository, "default branch")
+            .context("failed to default branch")?];
     }
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
 
-    // select default branch
-    let default_branch_id = virtual_branches
-        .iter()
-        .find(|b| b.applied)
-        .map(|b| b.id.clone())
-        .ok_or_else(|| anyhow!("no default branch found"))?;
+    // align branch ownership to the real hunks:
+    // - update shifted hunks
+    // - remove non existent hunks
+    let mut hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
 
-    // now, distribute hunks to the branches
     let mut hunks_by_branch_id: HashMap<String, Vec<VirtualBranchHunk>> = virtual_branches
         .iter()
-        .map(|b| (b.id.clone(), Vec::new()))
+        .map(|branch| (branch.id.clone(), vec![]))
         .collect();
-    let all_hunks = hunks_by_filepath.values().flatten().collect::<Vec<_>>();
-    for hunk in all_hunks {
-        let file_ownership = FileOwnership::try_from(&hunk.id)?;
 
-        let owned_by = explicit_owner(&virtual_branches, &file_ownership)
-            .or_else(|| implicit_owner(&virtual_branches, &file_ownership))
-            .or_else(|| owned_by_proximity(&virtual_branches, &file_ownership));
-        if let Some((branch, owner)) = owned_by {
-            hunks_by_branch_id
-                .entry(branch.id.clone())
-                .or_default()
-                .push(hunk.clone());
+    for branch in &mut virtual_branches {
+        branch.ownership = Ownership {
+            files: branch
+                .ownership
+                .files
+                .iter()
+                .filter_map(|file_owership| {
+                    let current_hunks = match hunks_by_filepath.get_mut(&file_owership.file_path) {
+                        None => {
+                            // if the file is not in the diff, we don't want it
+                            return None;
+                        }
+                        Some(hunks) => hunks,
+                    };
+                    let updated_hunks: Vec<Hunk> = file_owership
+                        .hunks
+                        .iter()
+                        .filter_map(|owned_hunk| {
+                            // if any of the current hunks intersects with the owned hunk, we want to keep it
+                            for (i, current_hunk) in current_hunks.iter().enumerate() {
+                                let ch = Hunk::new(current_hunk.start, current_hunk.end).unwrap();
+                                if ch.eq(owned_hunk)
+                                    || ch.intersects(owned_hunk)
+                                    || ch.touches(owned_hunk)
+                                {
+                                    hunks_by_branch_id
+                                        .entry(branch.id.clone())
+                                        .or_default()
+                                        .push(current_hunk.clone());
+                                    // remove the hunk from the current hunks because each hunk can
+                                    // only be owned once
+                                    current_hunks.remove(i);
+                                    return Some(ch);
+                                }
+                            }
+                            None
+                        })
+                        .collect();
+                    if updated_hunks.is_empty() {
+                        // if there are no hunks left, we don't want the file either
+                        None
+                    } else {
+                        Some(FileOwnership {
+                            file_path: file_owership.file_path.clone(),
+                            hunks: updated_hunks,
+                        })
+                    }
+                })
+                .collect(),
+        };
+    }
 
-            hunks_by_branch_id
-                .entry(branch.id.clone())
-                .or_default()
-                .sort_by(|a, b| {
-                    owner.compare(
-                        &Hunk::new(a.start, a.end).unwrap(),
-                        &Hunk::new(b.start, b.end).unwrap(),
-                    )
-                });
-
-            continue;
-        }
-
-        // put ownership into the virtual branch
-        let mut default_branch = virtual_branches
-            .iter()
-            .find(|b| b.id.eq(&default_branch_id))
-            .unwrap()
-            .clone();
-
-        default_branch.ownership.put(&file_ownership);
-
-        // write the updated data back
-        let writer = branch::Writer::new(gb_repository);
-        writer
-            .write(&default_branch)
-            .context("failed to write branch")?;
-
-        // update virtual branches list for future usage
-        virtual_branches = virtual_branches
-            .iter()
-            .map(|branch| {
-                if branch.id.eq(&default_branch.id) {
-                    default_branch.clone()
-                } else {
-                    branch.clone()
-                }
-            })
-            .collect::<Vec<_>>();
-
+    // put the remaining hunks into the default (first) branch
+    for hunk in hunks_by_filepath.values().flatten() {
+        virtual_branches[0]
+            .ownership
+            .put(&FileOwnership::try_from(&hunk.id).unwrap());
         hunks_by_branch_id
-            .entry(default_branch.id.clone())
+            .entry(virtual_branches[0].id.clone())
             .or_default()
             .push(hunk.clone());
+    }
+
+    // write updated state
+    let branch_writer = branch::Writer::new(gb_repository);
+    for vranch in &virtual_branches {
+        branch_writer
+            .write(vranch)
+            .context(format!("failed to write virtual branch {}", vranch.name))?;
     }
 
     let mut statuses: Vec<(branch::Branch, Vec<VirtualBranchFile>)> = vec![];
@@ -1116,7 +1082,8 @@ pub fn get_status_by_branch(
 
         statuses.push((branch, files));
     }
-    statuses.sort_by(|a, b| a.0.name.cmp(&b.0.name));
+
+    statuses.sort_by(|a, b| a.0.order.cmp(&b.0.order));
 
     Ok(statuses)
 }
@@ -1544,7 +1511,8 @@ mod tests {
         })?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -1649,9 +1617,11 @@ mod tests {
         )?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -1733,9 +1703,11 @@ mod tests {
         )?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -1752,7 +1724,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_hunks_entire_file_multiple_sources() -> Result<()> {
+    fn test_move_hunks_multiple_sources() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -1784,9 +1756,14 @@ mod tests {
         })?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
+        let branch3_id = create_virtual_branch(&gb_repo, "test_branch3")
+            .expect("failed to create virtual branch")
+            .id;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -1820,17 +1797,18 @@ mod tests {
             .map(|(branch, files)| (branch.id.clone(), files))
             .collect::<HashMap<_, _>>();
 
-        assert_eq!(files_by_branch_id.len(), 2);
+        assert_eq!(files_by_branch_id.len(), 3);
         assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id][0].hunks.len(), 1);
+        assert_eq!(files_by_branch_id[&branch3_id].len(), 0);
 
         update_branch(
             &gb_repo,
             branch::BranchUpdateRequest {
-                id: branch2_id.clone(),
-                ownership: Some(Ownership::try_from("test.txt")?),
+                id: branch3_id.clone(),
+                ownership: Some(Ownership::try_from("test.txt:1-5,11-15")?),
                 ..Default::default()
             },
         )?;
@@ -1843,189 +1821,17 @@ mod tests {
             .map(|(branch, files)| (branch.id.clone(), files))
             .collect::<HashMap<_, _>>();
 
-        assert_eq!(files_by_branch_id.len(), 2);
+        assert_eq!(files_by_branch_id.len(), 3);
         assert_eq!(files_by_branch_id[&branch1_id].len(), 0);
-        assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
-        assert_eq!(files_by_branch_id[&branch2_id][0].hunks.len(), 2);
-
-        let branch_reader = branch::Reader::new(&current_session_reader);
-        assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
-        assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership.files,
-            vec!["test.txt".try_into()?]
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_move_hunks_entire_file_single_source_full_file() -> Result<()> {
-        let repository = test_repository()?;
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            gb_repo_path,
-            project.id.clone(),
-            project_store,
-            user_store,
-        )?;
-        let project_repository = project_repository::Repository::open(&project)?;
-
-        target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
-            sha: repository.head().unwrap().target().unwrap(),
-            behind: 0,
-        })?;
-
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path),
-            "line1\nline2\n",
-        )?;
-
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
-
-        let branch_writer = branch::Writer::new(&gb_repo);
-
-        let current_session = gb_repo.get_or_create_current_session()?;
-        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
-        let branch_reader = branch::Reader::new(&current_session_reader);
-        let branch1 = branch_reader.read(&branch1_id)?;
-        branch_writer.write(&branch::Branch {
-            ownership: Ownership {
-                files: vec!["test.txt".try_into()?],
-            },
-            ..branch1
-        })?;
-
-        let statuses =
-            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-        let files_by_branch_id = statuses
-            .iter()
-            .map(|(branch, files)| (branch.id.clone(), files))
-            .collect::<HashMap<_, _>>();
-
-        assert_eq!(files_by_branch_id.len(), 2);
-        assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
-
-        update_branch(
-            &gb_repo,
-            branch::BranchUpdateRequest {
-                id: branch2_id.clone(),
-                ownership: Some(Ownership::try_from("test.txt")?),
-                ..Default::default()
-            },
-        )?;
-
-        let statuses =
-            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-
-        let files_by_branch_id = statuses
-            .iter()
-            .map(|(branch, files)| (branch.id.clone(), files))
-            .collect::<HashMap<_, _>>();
-
-        assert_eq!(files_by_branch_id.len(), 2);
-        assert_eq!(files_by_branch_id[&branch1_id].len(), 0);
-        assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
-
-        let current_session = gb_repo.get_or_create_current_session()?;
-        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        assert_eq!(files_by_branch_id[&branch3_id][0].hunks.len(), 2);
 
         let branch_reader = branch::Reader::new(&current_session_reader);
         assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
+        assert_eq!(branch_reader.read(&branch2_id)?.ownership.files, vec![]);
         assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership.files,
-            vec!["test.txt".try_into()?]
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_move_hunks_entire_file_single_source() -> Result<()> {
-        let repository = test_repository()?;
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
-        project_store.add_project(&project)?;
-        let gb_repo = gb_repository::Repository::open(
-            gb_repo_path,
-            project.id.clone(),
-            project_store,
-            user_store,
-        )?;
-        let project_repository = project_repository::Repository::open(&project)?;
-
-        target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
-            sha: repository.head().unwrap().target().unwrap(),
-            behind: 0,
-        })?;
-
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path),
-            "line1\nline2\n",
-        )?;
-
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
-
-        let statuses =
-            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-        let files_by_branch_id = statuses
-            .iter()
-            .map(|(branch, files)| (branch.id.clone(), files))
-            .collect::<HashMap<_, _>>();
-
-        assert_eq!(files_by_branch_id.len(), 2);
-        assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
-        assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
-
-        update_branch(
-            &gb_repo,
-            branch::BranchUpdateRequest {
-                id: branch2_id.clone(),
-                ownership: Some(Ownership::try_from("test.txt")?),
-                ..Default::default()
-            },
-        )?;
-
-        let statuses =
-            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-
-        let files_by_branch_id = statuses
-            .iter()
-            .map(|(branch, files)| (branch.id.clone(), files))
-            .collect::<HashMap<_, _>>();
-
-        assert_eq!(files_by_branch_id.len(), 2);
-        assert_eq!(files_by_branch_id[&branch1_id].len(), 0);
-        assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
-
-        let current_session = gb_repo.get_or_create_current_session()?;
-        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
-
-        let branch_reader = branch::Reader::new(&current_session_reader);
-        assert_eq!(branch_reader.read(&branch1_id)?.ownership.files, vec![]);
-        assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership.files,
-            vec!["test.txt".try_into()?]
+            branch_reader.read(&branch3_id)?.ownership.files,
+            vec!["test.txt:1-5,11-15".try_into()?]
         );
 
         Ok(())
@@ -2070,9 +1876,11 @@ mod tests {
         )?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -2115,110 +1923,6 @@ mod tests {
         assert_eq!(
             branch_reader.read(&branch1_id)?.ownership.files,
             vec!["test.txt:12-16".try_into()?]
-        );
-        assert_eq!(
-            branch_reader.read(&branch2_id)?.ownership.files,
-            vec!["test.txt:1-5".try_into()?]
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_move_hunks_partial_implicity_owned() -> Result<()> {
-        let repository = test_repository()?;
-        let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
-        project_store.add_project(&project)?;
-
-        let file_path = std::path::Path::new("test.txt");
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path),
-            "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n",
-        )?;
-        commit_all(&repository)?;
-
-        let gb_repo = gb_repository::Repository::open(
-            gb_repo_path,
-            project.id.clone(),
-            project_store,
-            user_store,
-        )?;
-
-        let project_repository = project_repository::Repository::open(&project)?;
-
-        target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
-            sha: repository.head().unwrap().target().unwrap(),
-            behind: 0,
-        })?;
-
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path),
-            "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
-        )?;
-
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
-
-        let branch_writer = branch::Writer::new(&gb_repo);
-
-        // update ownership to be implicit
-        let current_session = gb_repo.get_or_create_current_session()?;
-        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
-        let branch1 = branch::Reader::new(&current_session_reader).read(&branch1_id)?;
-        branch_writer.write(&Branch {
-            ownership: Ownership {
-                files: vec!["test.txt".try_into()?],
-            },
-            ..branch1
-        })?;
-
-        let statuses =
-            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-        let files_by_branch_id = statuses
-            .iter()
-            .map(|(branch, files)| (branch.id.clone(), files))
-            .collect::<HashMap<_, _>>();
-
-        assert_eq!(files_by_branch_id.len(), 2);
-        assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
-        assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 2);
-        assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
-
-        update_branch(
-            &gb_repo,
-            branch::BranchUpdateRequest {
-                id: branch2_id.clone(),
-                ownership: Some(Ownership::try_from("test.txt:1-5")?),
-                ..Default::default()
-            },
-        )?;
-
-        let statuses =
-            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-
-        let files_by_branch_id = statuses
-            .iter()
-            .map(|(branch, files)| (branch.id.clone(), files))
-            .collect::<HashMap<_, _>>();
-
-        assert_eq!(files_by_branch_id.len(), 2);
-        assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
-        assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
-        assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
-        assert_eq!(files_by_branch_id[&branch1_id][0].hunks.len(), 1);
-
-        let branch_reader = branch::Reader::new(&current_session_reader);
-        assert_eq!(
-            branch_reader.read(&branch1_id)?.ownership.files,
-            vec!["test.txt".try_into()?]
         );
         assert_eq!(
             branch_reader.read(&branch2_id)?.ownership.files,
@@ -2325,7 +2029,8 @@ mod tests {
 
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -2431,7 +2136,8 @@ mod tests {
 
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -2511,7 +2217,8 @@ mod tests {
 
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -2604,27 +2311,17 @@ mod tests {
         )?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
-
-        let current_session = gb_repo.get_or_create_current_session()?;
-        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
-        let branch_reader = branch::Reader::new(&current_session_reader);
-        let branch_writer = branch::Writer::new(&gb_repo);
-        let branch1 = branch_reader.read(&branch1_id)?;
-        branch_writer.write(&Branch {
-            ownership: Ownership {
-                files: vec!["test.txt".try_into()?, "test2.txt".try_into()?],
-            },
-            ..branch1
-        })?;
+            .expect("failed to create virtual branch")
+            .id;
 
         update_branch(
             &gb_repo,
             branch::BranchUpdateRequest {
                 id: branch2_id,
-                ownership: Some(Ownership::try_from("test2.txt")?),
+                ownership: Some(Ownership::try_from("test2.txt:1-3")?),
                 ..Default::default()
             },
         )?;
@@ -2714,30 +2411,26 @@ mod tests {
         )?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let branch_reader = branch::Reader::new(&current_session_reader);
         let branch_writer = branch::Writer::new(&gb_repo);
-        let branch1 = branch_reader.read(&branch1_id)?;
-        branch_writer.write(&Branch {
-            ownership: Ownership {
-                files: vec!["test.txt".try_into()?, "test4.txt".try_into()?],
-            },
-            ..branch1
-        })?;
 
         update_branch(
             &gb_repo,
             branch::BranchUpdateRequest {
                 id: branch2_id.clone(),
-                ownership: Some(Ownership::try_from("test4.txt")?),
+                ownership: Some("test4.txt:1-3".try_into()?),
                 ..Default::default()
             },
-        )?;
+        )
+        .expect("failed to update branch");
 
         // unapply both branches and create some conflicting ones
         unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
@@ -2780,9 +2473,11 @@ mod tests {
 
         // create branches that conflict with our earlier branches
         let branch3_id = create_virtual_branch(&gb_repo, "test_branch3")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch4_id = create_virtual_branch(&gb_repo, "test_branch4")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         // branch3 conflicts with branch1 and remote_branch
         std::fs::write(
@@ -2797,18 +2492,10 @@ mod tests {
             "line1\nline2\nline3\nline4\nbranch4\n",
         )?;
 
-        let branch3 = branch_reader.read(&branch3_id)?;
-        branch_writer.write(&Branch {
-            ownership: Ownership {
-                files: vec!["test.txt".try_into()?],
-            },
-            ..branch3
-        })?;
-
         let branch4 = branch_reader.read(&branch4_id)?;
         branch_writer.write(&Branch {
             ownership: Ownership {
-                files: vec!["test2.txt".try_into()?],
+                files: vec!["test2.txt:1-6".try_into()?],
             },
             ..branch4
         })?;
@@ -2817,14 +2504,14 @@ mod tests {
         assert_eq!(branches.len(), 4);
 
         let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-        assert_eq!(branch1.active, false);
-        assert_eq!(branch1.mergeable, false);
+        assert!(!branch1.active);
+        assert!(!branch1.mergeable);
         assert_eq!(branch1.merge_conflicts.len(), 1);
         assert_eq!(branch1.merge_conflicts.first().unwrap(), "test.txt");
 
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
-        assert_eq!(branch2.active, false);
-        assert_eq!(branch2.mergeable, true);
+        assert!(!branch2.active);
+        assert!(branch2.mergeable);
         assert_eq!(branch2.merge_conflicts.len(), 0);
 
         let remotes = remote_branches(&gb_repo, &project_repository)?;
@@ -2832,7 +2519,7 @@ mod tests {
             .iter()
             .find(|b| b.branch == "refs/remotes/origin/remote_branch")
             .unwrap();
-        assert_eq!(remote1.mergeable, false);
+        assert!(!remote1.mergeable);
         assert_eq!(remote1.ahead, 1);
         assert_eq!(remote1.merge_conflicts.len(), 1);
         assert_eq!(remote1.merge_conflicts.first().unwrap(), "test.txt");
@@ -2841,7 +2528,7 @@ mod tests {
             .iter()
             .find(|b| b.branch == "refs/remotes/origin/remote_branch2")
             .unwrap();
-        assert_eq!(remote2.mergeable, true);
+        assert!(remote2.mergeable);
         assert_eq!(remote2.ahead, 2);
         assert_eq!(remote2.merge_conflicts.len(), 0);
 

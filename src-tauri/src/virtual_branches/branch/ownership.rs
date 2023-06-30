@@ -40,7 +40,7 @@ impl TryFrom<&str> for Ownership {
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         let mut ownership = Ownership::default();
         for line in s.lines() {
-            ownership.put(&FileOwnership::try_from(line)?);
+            ownership.files.push(FileOwnership::try_from(line)?);
         }
         Ok(ownership)
     }
@@ -52,24 +52,20 @@ impl Ownership {
             return;
         }
 
-        if ownership.is_full() {
-            self.files.push(ownership.clone());
+        let target = self
+            .files
+            .iter()
+            .filter(|o| !o.is_full()) // only consider explicit ownership
+            .cloned()
+            .find(|o| o.file_path == ownership.file_path);
+
+        self.files
+            .retain(|o| o.is_full() || o.file_path != ownership.file_path);
+
+        if let Some(target) = target {
+            self.files.insert(0, target.plus(ownership));
         } else {
-            let target = self
-                .files
-                .iter()
-                .filter(|o| !o.is_full()) // only consider explicit ownership
-                .cloned()
-                .find(|o| o.file_path == ownership.file_path);
-
-            self.files
-                .retain(|o| o.is_full() || o.file_path != ownership.file_path);
-
-            if let Some(target) = target {
-                self.files.push(target.plus(ownership));
-            } else {
-                self.files.push(ownership.clone());
-            }
+            self.files.insert(0, ownership.clone());
         }
     }
 
@@ -95,30 +91,6 @@ impl Ownership {
 
         taken
     }
-
-    pub fn explicit_owner(&self, file: &FileOwnership) -> Option<&FileOwnership> {
-        self.files
-            .iter()
-            .filter(|ownership| !ownership.is_full()) // only consider explicit ownership
-            .find(|ownership| ownership.contains(file))
-    }
-
-    pub fn proximity_owner(&self, file: &FileOwnership) -> Option<&FileOwnership> {
-        self.files
-            .iter()
-            .filter(|file_ownership| !file_ownership.is_full()) // only consider explicit ownership
-            .find(|file_ownership| {
-                file_ownership.hunks.iter().any(|range| {
-                    file.hunks
-                        .iter()
-                        .any(|r| r.touches(range) || r.intersects(range))
-                })
-            })
-    }
-
-    pub fn implicit_owner(&self, file: &FileOwnership) -> Option<&FileOwnership> {
-        self.files.iter().find(|ownership| ownership.contains(file))
-    }
 }
 
 #[cfg(test)]
@@ -129,13 +101,17 @@ mod tests {
 
     #[test]
     fn test_ownership() {
-        let ownership = Ownership::try_from("src/main.rs:0-100\nsrc/main.rs:200-300");
+        let ownership = Ownership::try_from("src/main.rs:0-100\nsrc/main2.rs:200-300");
         assert!(ownership.is_ok());
         let ownership = ownership.unwrap();
-        assert_eq!(ownership.files.len(), 1);
+        assert_eq!(ownership.files.len(), 2);
         assert_eq!(
             ownership.files[0],
-            FileOwnership::try_from("src/main.rs:0-100,200-300").unwrap()
+            FileOwnership::try_from("src/main.rs:0-100").unwrap()
+        );
+        assert_eq!(
+            ownership.files[1],
+            FileOwnership::try_from("src/main2.rs:200-300").unwrap()
         );
     }
 
@@ -162,59 +138,37 @@ mod tests {
         assert_eq!(ownership.files.len(), 1);
         assert_eq!(
             ownership.files[0],
-            FileOwnership::try_from("src/main.rs:0-100,200-300").unwrap()
+            FileOwnership::try_from("src/main.rs:200-300,0-100").unwrap()
         );
     }
 
     #[test]
     fn test_put_2() {
-        let mut ownership = Ownership::try_from("src/main.rs").unwrap();
-        ownership.put(&FileOwnership::try_from("src/main.rs:200-300").unwrap());
+        let mut ownership = Ownership::try_from("src/main.rs:0-100").unwrap();
+        ownership.put(&FileOwnership::try_from("src/main.rs2:200-300").unwrap());
         assert_eq!(ownership.files.len(), 2);
         assert_eq!(
             ownership.files[0],
-            FileOwnership::try_from("src/main.rs").unwrap()
+            FileOwnership::try_from("src/main.rs2:200-300").unwrap()
         );
         assert_eq!(
             ownership.files[1],
-            FileOwnership::try_from("src/main.rs:200-300").unwrap()
+            FileOwnership::try_from("src/main.rs:0-100").unwrap()
         );
     }
 
     #[test]
-    fn test_put_4() {
-        let mut ownership = Ownership::try_from("src/main.rs:200-300").unwrap();
-        ownership.put(&FileOwnership::try_from("src/main.rs").unwrap());
+    fn test_put_3() {
+        let mut ownership = Ownership::try_from("src/main.rs:0-100\nsrc/main2.rs:100-200").unwrap();
+        ownership.put(&FileOwnership::try_from("src/main2.rs:200-300").unwrap());
         assert_eq!(ownership.files.len(), 2);
         assert_eq!(
             ownership.files[0],
-            FileOwnership::try_from("src/main.rs:200-300").unwrap()
+            FileOwnership::try_from("src/main2.rs:200-300,100-200").unwrap()
         );
         assert_eq!(
             ownership.files[1],
-            FileOwnership::try_from("src/main.rs").unwrap()
-        );
-    }
-
-    #[test]
-    fn test_put_5() {
-        let mut ownership = Ownership::try_from("src/main.rs:200-300").unwrap();
-        ownership.put(&FileOwnership::try_from("src/main.rs:400-500").unwrap());
-        assert_eq!(ownership.files.len(), 1);
-        assert_eq!(
-            ownership.files[0],
-            FileOwnership::try_from("src/main.rs:200-300,400-500").unwrap()
-        );
-    }
-
-    #[test]
-    fn test_put_6() {
-        let mut ownership = Ownership::try_from("src/main.rs").unwrap();
-        ownership.put(&FileOwnership::try_from("src/main.rs").unwrap());
-        assert_eq!(ownership.files.len(), 1);
-        assert_eq!(
-            ownership.files[0],
-            FileOwnership::try_from("src/main.rs").unwrap()
+            FileOwnership::try_from("src/main.rs:0-100").unwrap()
         );
     }
 
@@ -230,14 +184,6 @@ mod tests {
     }
 
     #[test]
-    fn test_take() {
-        let mut ownership = Ownership::try_from("src/main.rs").unwrap();
-        let taken = ownership.take(&FileOwnership::try_from("src/main.rs").unwrap());
-        assert_eq!(ownership.files.len(), 0);
-        assert_eq!(taken, vec![FileOwnership::try_from("src/main.rs").unwrap()]);
-    }
-
-    #[test]
     fn test_take_1() {
         let mut ownership = Ownership::try_from("src/main.rs:100-200,200-300").unwrap();
         let taken = ownership.take(&FileOwnership::try_from("src/main.rs:100-200").unwrap());
@@ -245,26 +191,6 @@ mod tests {
         assert_eq!(
             ownership.files[0],
             FileOwnership::try_from("src/main.rs:200-300").unwrap()
-        );
-        assert_eq!(
-            taken,
-            vec![FileOwnership::try_from("src/main.rs:100-200").unwrap()]
-        );
-    }
-
-    #[test]
-    fn test_take_2() {
-        let mut ownership =
-            Ownership::try_from("src/main.rs:100-200,200-300\nsrc/main.rs").unwrap();
-        let taken = ownership.take(&FileOwnership::try_from("src/main.rs:100-200").unwrap());
-        assert_eq!(ownership.files.len(), 2);
-        assert_eq!(
-            ownership.files[0],
-            FileOwnership::try_from("src/main.rs:200-300").unwrap()
-        );
-        assert_eq!(
-            ownership.files[1],
-            FileOwnership::try_from("src/main.rs").unwrap()
         );
         assert_eq!(
             taken,
@@ -293,11 +219,6 @@ mod tests {
             (
                 Ownership::try_from("src/main.rs:300-400\nsrc/main1.rs:100-200\n").unwrap(),
                 Ownership::try_from("src/main1.rs:100-200\nsrc/main.rs:300-400\n").unwrap(),
-                false,
-            ),
-            (
-                Ownership::try_from("src/main.rs").unwrap(),
-                Ownership::try_from("src/main.rs:100-200").unwrap(),
                 false,
             ),
         ]

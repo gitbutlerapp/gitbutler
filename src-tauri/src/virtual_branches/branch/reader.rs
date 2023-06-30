@@ -32,8 +32,7 @@ mod tests {
     use tempfile::tempdir;
 
     use crate::{
-        gb_repository, projects, sessions, storage, users,
-        virtual_branches::branch::{FileOwnership, Ownership},
+        gb_repository, projects, sessions, storage, users, virtual_branches::branch::Ownership,
     };
 
     use super::{super::Writer, *};
@@ -63,10 +62,9 @@ mod tests {
             ))
             .unwrap(),
             ownership: Ownership {
-                files: vec![FileOwnership {
-                    file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
-                    hunks: vec![],
-                }],
+                files: vec![format!("file/{}:1-2", unsafe { TEST_INDEX })
+                    .try_into()
+                    .unwrap()],
             },
         }
     }
