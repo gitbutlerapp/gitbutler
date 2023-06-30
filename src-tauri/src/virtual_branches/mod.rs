@@ -1417,7 +1417,6 @@ pub fn push(
     project_path: &str,
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    commit_id: &str,
     branch_id: &str,
 ) -> Result<()> {
     let current_session = gb_repository
@@ -1450,7 +1449,7 @@ pub fn push(
     let output = Command::new("git")
         .arg("push")
         .arg(default_target.remote)
-        .arg(format!("{}:{}", commit_id, upstream))
+        .arg(format!("{}:{}", vbranch.head, upstream))
         .current_dir(project_path)
         .output()
         .context("failed to fork exec")?;

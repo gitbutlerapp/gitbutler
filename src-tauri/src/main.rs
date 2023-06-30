@@ -629,11 +629,10 @@ async fn commit_virtual_branch(
 async fn push_virtual_branch(
     handle: tauri::AppHandle,
     project_id: &str,
-    commit_id: &str,
     branch_id: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.push_virtual_branch(project_id, commit_id, branch_id)?;
+    app.push_virtual_branch(project_id, branch_id)?;
     Ok(())
 }
 
