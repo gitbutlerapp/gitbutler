@@ -27,6 +27,8 @@ export class Branch extends DndItem {
 	files!: File[];
 	commits!: Commit[];
 	description!: string;
+	mergeable!: boolean;
+	mergeConflicts!: string[];
 	order!: number;
 }
 
@@ -41,6 +43,8 @@ export type BranchData = {
 	behind: number;
 	upstream: string;
 	authors: string[];
+	mergeable: boolean;
+	mergeConflicts: string[];
 };
 
 export class Commit {

@@ -26,6 +26,8 @@ pub struct VirtualBranch {
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
+    pub mergeable: bool,
+    pub merge_conflicts: Vec<String>,
     pub order: usize,
 }
 
@@ -73,6 +75,8 @@ pub struct RemoteBranch {
     behind: u32,
     upstream: String,
     authors: Vec<String>,
+    mergeable: bool,
+    merge_conflicts: Vec<String>,
 }
 
 pub fn apply_branch(
@@ -88,11 +92,7 @@ pub fn apply_branch(
 
     let repo = &project_repository.git_repository;
 
-    let mut index = repo.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    let tree_id = index.write_tree().unwrap();
-    // get tree object from our current working directory state
-    let wd_tree = repo.find_tree(tree_id).unwrap();
+    let wd_tree = get_wd_tree(repo)?;
 
     let target_reader = target::Reader::new(&current_session_reader);
     let default_target = match target_reader.read_default() {
@@ -247,31 +247,55 @@ pub fn remote_branches(
     }
     .context("failed to read default target")?;
 
-    let main_oid = default_target.sha;
-
     let current_time = time::SystemTime::now();
     let too_old = time::Duration::from_secs(86_400 * 90); // 90 days (3 months) is too old
 
     let repo = &project_repository.git_repository;
+
+    let main_oid = default_target.sha;
+    let target_commit = repo.find_commit(main_oid).ok().unwrap();
+
+    let wd_tree = get_wd_tree(&repo)?;
+
     let mut branches: Vec<RemoteBranch> = Vec::new();
+    let mut most_recent_branches: Vec<(git2::Branch, u64)> = Vec::new();
+
     for branch in repo.branches(Some(git2::BranchType::Remote))? {
         let (branch, _) = branch?;
+        match branch.get().target() {
+            Some(branch_oid) => {
+                // get the branch ref
+                let branch_commit = repo.find_commit(branch_oid).ok().unwrap();
+                let branch_time = branch_commit.time();
+                let seconds = branch_time.seconds().try_into().unwrap();
+                let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
+                let duration = current_time.duration_since(branch_time).unwrap();
+                if duration > too_old {
+                    continue;
+                }
+                most_recent_branches.push((branch, seconds));
+            }
+            None => {
+                continue;
+            }
+        }
+    }
+
+    // take the most recent 20 branches
+    most_recent_branches.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by timestamp in descending order.
+    let sorted_branches: Vec<git2::Branch> = most_recent_branches
+        .into_iter()
+        .map(|(branch, _)| branch)
+        .collect();
+    let top_branches = sorted_branches.into_iter().take(20).collect::<Vec<_>>(); // Take the first 20 entries.
+
+    for branch in &top_branches {
         let branch_name = branch.get().name().unwrap();
         let upstream_branch = branch.upstream();
         match branch.get().target() {
             Some(branch_oid) => {
                 // get the branch ref
                 let branch_commit = repo.find_commit(branch_oid).ok().unwrap();
-
-                // figure out if the last commit on this branch is too old to consider
-                let branch_time = branch_commit.time();
-                // convert git::Time to SystemTime
-                let branch_time = time::UNIX_EPOCH
-                    + time::Duration::from_secs(branch_time.seconds().try_into().unwrap());
-                let duration = current_time.duration_since(branch_time).unwrap();
-                if duration > too_old {
-                    continue;
-                }
 
                 let mut revwalk = repo.revwalk().unwrap();
                 revwalk.set_sorting(git2::Sort::TOPOLOGICAL).unwrap();
@@ -327,6 +351,12 @@ pub fn remote_branches(
                     Err(_) => "".to_string(),
                 };
 
+                let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
+                let branch_tree = branch_commit.tree()?;
+                let (mergeable, merge_conflicts) =
+                    check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                println!("mergeable: {} {}", branch_name, mergeable);
+
                 branches.push(RemoteBranch {
                     sha: branch_oid.to_string(),
                     branch: branch_name.to_string(),
@@ -338,6 +368,8 @@ pub fn remote_branches(
                     behind: count_behind,
                     upstream: upstream_branch_name,
                     authors: authors.into_iter().collect(),
+                    mergeable,
+                    merge_conflicts,
                 });
             }
             None => {
@@ -353,11 +385,72 @@ pub fn remote_branches(
                     behind: 0,
                     upstream: "".to_string(),
                     authors: vec![],
+                    mergeable: false,
+                    merge_conflicts: vec![],
                 });
             }
         }
     }
     Ok(branches)
+}
+
+fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
+    let mut index = repo.index()?;
+    index.add_all(&["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let oid = index.write_tree()?;
+    let tree = repo.find_tree(oid)?;
+    Ok(tree)
+}
+
+fn find_base_tree<'a>(
+    repo: &'a git2::Repository,
+    branch_commit: &'a git2::Commit<'a>,
+    target_commit: &'a git2::Commit<'a>,
+) -> Result<git2::Tree<'a>> {
+    // find merge base between target_commit and branch_commit
+    let merge_base = repo
+        .merge_base(target_commit.id(), branch_commit.id())
+        .context("failed to find merge base")?;
+    // turn oid into a commit
+    let merge_base_commit = repo
+        .find_commit(merge_base)
+        .context("failed to find merge base commit")?;
+    let base_tree = merge_base_commit
+        .tree()
+        .context("failed to get base tree object")?;
+    Ok(base_tree.clone())
+}
+
+fn check_mergeable(
+    repo: &git2::Repository,
+    base_tree: &git2::Tree,
+    branch_tree: &git2::Tree,
+    wd_tree: &git2::Tree,
+) -> Result<(bool, Vec<String>)> {
+    let mut merge_conflicts = Vec::new();
+    let merge_options = git2::MergeOptions::new();
+    let merge_index = repo
+        .merge_trees(&base_tree, &wd_tree, &branch_tree, Some(&merge_options))
+        .unwrap();
+    let mergeable = !merge_index.has_conflicts();
+    if merge_index.has_conflicts() {
+        let conflicts = merge_index.conflicts()?;
+        for conflict in conflicts {
+            if let Ok(path) = conflict {
+                if let Some(their) = path.their {
+                    let path = std::str::from_utf8(&their.path)?.to_string();
+                    merge_conflicts.push(path);
+                } else if let Some(ours) = path.our {
+                    let path = std::str::from_utf8(&ours.path)?.to_string();
+                    merge_conflicts.push(path);
+                } else if let Some(anc) = path.ancestor {
+                    let path = std::str::from_utf8(&anc.path)?.to_string();
+                    merge_conflicts.push(path);
+                }
+            }
+        }
+    }
+    Ok((mergeable, merge_conflicts))
 }
 
 // just for debugging for now
@@ -401,6 +494,9 @@ pub fn list_virtual_branches(
         .collect::<Vec<_>>();
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
+
+    let repo = &project_repository.git_repository;
+    let wd_tree = get_wd_tree(repo)?;
 
     for branch in &virtual_branches {
         let branch_statuses = statuses.clone();
@@ -473,6 +569,24 @@ pub fn list_virtual_branches(
             commits.push(commit);
         }
 
+        let mut mergeable = true;
+        let mut merge_conflicts = vec![];
+        if !branch.applied {
+            let target_commit = repo
+                .find_commit(default_target.sha)
+                .context("failed to find target commit")?;
+            let branch_commit = repo
+                .find_commit(branch.head)
+                .context("failed to find branch commit")?;
+            let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
+            // determine if this tree is mergeable
+            let branch_tree = repo
+                .find_tree(branch.tree)
+                .context("failed to find branch tree")?;
+            (mergeable, merge_conflicts) =
+                check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+        }
+
         let branch = VirtualBranch {
             id: branch.id.to_string(),
             name: branch.name.to_string(),
@@ -480,6 +594,8 @@ pub fn list_virtual_branches(
             files: vfiles,
             order: branch.order,
             commits,
+            mergeable,
+            merge_conflicts,
         };
         branches.push(branch);
     }
@@ -1013,11 +1129,7 @@ pub fn update_branch_target(
 
     // ok, target has changed, so now we need to merge it into our current work and update our branches
     // first, pull the current state of the working directory into the index
-    let mut index = repo.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    let tree_id = index.write_tree().unwrap();
-    // get tree object from our current working directory state
-    let wd_tree = repo.find_tree(tree_id).unwrap();
+    let wd_tree = get_wd_tree(repo)?;
 
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -2516,6 +2628,177 @@ mod tests {
         let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch.files.len(), 1);
         assert!(branch.active);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_detect_mergeable_branch() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        commit_all(&repository)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nbranch1\n",
+        )?;
+        let file_path4 = std::path::Path::new("test4.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path4),
+            "line5\nline6\n",
+        )?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+            .expect("failed to create virtual branch");
+        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+            .expect("failed to create virtual branch");
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch_writer = branch::Writer::new(&gb_repo);
+        let branch1 = branch_reader.read(&branch1_id)?;
+        branch_writer.write(&Branch {
+            ownership: Ownership {
+                files: vec!["test.txt".try_into()?, "test4.txt".try_into()?],
+            },
+            ..branch1
+        })?;
+
+        move_files(&gb_repo, &branch2_id, &vec!["test4.txt".try_into()?])
+            .expect("failed to move hunks");
+
+        // unapply both branches and create some conflicting ones
+        unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
+        unapply_branch(&gb_repo, &project_repository, &branch2_id)?;
+
+        // create an upstream remote conflicting commit
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+        repository.reference(
+            "refs/remotes/origin/remote_branch",
+            up_target,
+            true,
+            "update target",
+        )?;
+
+        // revert content and write a mergeable branch
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        let file_path3 = std::path::Path::new("test3.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "file3\n",
+        )?;
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+        repository.reference(
+            "refs/remotes/origin/remote_branch2",
+            up_target,
+            true,
+            "update target",
+        )?;
+        // remove file_path3
+        std::fs::remove_file(std::path::Path::new(&project.path).join(file_path3))?;
+
+        // create branches that conflict with our earlier branches
+        let branch3_id = create_virtual_branch(&gb_repo, "test_branch3")
+            .expect("failed to create virtual branch");
+        let branch4_id = create_virtual_branch(&gb_repo, "test_branch4")
+            .expect("failed to create virtual branch");
+
+        // branch3 conflicts with branch1 and remote_branch
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nbranch3\n",
+        )?;
+
+        // branch4 conflicts with branch2
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line1\nline2\nline3\nline4\nbranch4\n",
+        )?;
+
+        let branch3 = branch_reader.read(&branch3_id)?;
+        branch_writer.write(&Branch {
+            ownership: Ownership {
+                files: vec!["test.txt".try_into()?],
+            },
+            ..branch3
+        })?;
+
+        let branch4 = branch_reader.read(&branch4_id)?;
+        branch_writer.write(&Branch {
+            ownership: Ownership {
+                files: vec!["test2.txt".try_into()?],
+            },
+            ..branch4
+        })?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        assert_eq!(branches.len(), 4);
+
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch1.active, false);
+        assert_eq!(branch1.mergeable, false);
+        assert_eq!(branch1.merge_conflicts.len(), 1);
+        assert_eq!(branch1.merge_conflicts.first().unwrap(), "test.txt");
+
+        let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
+        assert_eq!(branch2.active, false);
+        assert_eq!(branch2.mergeable, true);
+        assert_eq!(branch2.merge_conflicts.len(), 0);
+
+        let remotes = remote_branches(&gb_repo, &project_repository)?;
+        let remote1 = &remotes
+            .iter()
+            .find(|b| b.branch == "refs/remotes/origin/remote_branch")
+            .unwrap();
+        assert_eq!(remote1.mergeable, false);
+        assert_eq!(remote1.ahead, 1);
+        assert_eq!(remote1.merge_conflicts.len(), 1);
+        assert_eq!(remote1.merge_conflicts.first().unwrap(), "test.txt");
+
+        let remote2 = &remotes
+            .iter()
+            .find(|b| b.branch == "refs/remotes/origin/remote_branch2")
+            .unwrap();
+        assert_eq!(remote2.mergeable, true);
+        assert_eq!(remote2.ahead, 2);
+        assert_eq!(remote2.merge_conflicts.len(), 0);
 
         Ok(())
     }

@@ -61,13 +61,20 @@
 	<div class="flex flex-col gap-y-2">
 		{#each branches as branch (branch.id)}
 			<div class="rounded-lg p-2" title={branch.name}>
-				<Checkbox
-					on:change={() => toggleBranch(branch.id, branch.active)}
-					bind:checked={branch.active}
-				/>
-				<span class="ml-2 cursor-pointer">
-					{branch.name}
-				</span>
+				<div class="flex flex-row justify-between">
+					<div>
+						<Checkbox
+							on:change={() => toggleBranch(branch.id, branch.active)}
+							bind:checked={branch.active}
+						/>
+						<span class="ml-2 cursor-pointer">
+							{branch.name}
+						</span>
+					</div>
+					{#if !branch.active}
+						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+					{/if}
+				</div>
 			</div>
 		{/each}
 	</div>
@@ -80,6 +87,7 @@
 						{branch.branch.replace('refs/remotes/', '')}
 					</div>
 					<div>{branch.ahead}/{branch.behind}</div>
+					<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
 				</div>
 				{#if branch.lastCommitTs > 0}
 					<div class="flex flex-row justify-between">
