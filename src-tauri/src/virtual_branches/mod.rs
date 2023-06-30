@@ -255,7 +255,7 @@ pub fn remote_branches(
     let main_oid = default_target.sha;
     let target_commit = repo.find_commit(main_oid).ok().unwrap();
 
-    let wd_tree = get_wd_tree(&repo)?;
+    let wd_tree = get_wd_tree(repo)?;
 
     let mut branches: Vec<RemoteBranch> = Vec::new();
     let mut most_recent_branches: Vec<(git2::Branch, u64)> = Vec::new();
@@ -354,7 +354,7 @@ pub fn remote_branches(
                 let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
                 let branch_tree = branch_commit.tree()?;
                 let (mergeable, merge_conflicts) =
-                    check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                    check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
                 println!("mergeable: {} {}", branch_name, mergeable);
 
                 branches.push(RemoteBranch {
@@ -396,7 +396,7 @@ pub fn remote_branches(
 
 fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
     let mut index = repo.index()?;
-    index.add_all(&["*"], git2::IndexAddOption::DEFAULT, None)?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
     let oid = index.write_tree()?;
     let tree = repo.find_tree(oid)?;
     Ok(tree)
@@ -430,7 +430,7 @@ fn check_mergeable(
     let mut merge_conflicts = Vec::new();
     let merge_options = git2::MergeOptions::new();
     let merge_index = repo
-        .merge_trees(&base_tree, &wd_tree, &branch_tree, Some(&merge_options))
+        .merge_trees(base_tree, wd_tree, branch_tree, Some(&merge_options))
         .unwrap();
     let mergeable = !merge_index.has_conflicts();
     if merge_index.has_conflicts() {
@@ -2372,24 +2372,26 @@ mod tests {
         )?;
 
         let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let branch_reader = branch::Reader::new(&current_session_reader);
         let branch_writer = branch::Writer::new(&gb_repo);
-        let branch1 = branch_reader.read(&branch1_id)?;
-        branch_writer.write(&Branch {
-            ownership: Ownership {
-                files: vec!["test.txt".try_into()?, "test4.txt".try_into()?],
-            },
-            ..branch1
-        })?;
 
-        move_files(&gb_repo, &branch2_id, &vec!["test4.txt".try_into()?])
-            .expect("failed to move hunks");
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some("test4.txt:1-3".try_into()?),
+                ..Default::default()
+            },
+        )
+        .expect("failed to update branch");
 
         // unapply both branches and create some conflicting ones
         unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
@@ -2432,9 +2434,11 @@ mod tests {
 
         // create branches that conflict with our earlier branches
         let branch3_id = create_virtual_branch(&gb_repo, "test_branch3")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
         let branch4_id = create_virtual_branch(&gb_repo, "test_branch4")
-            .expect("failed to create virtual branch");
+            .expect("failed to create virtual branch")
+            .id;
 
         // branch3 conflicts with branch1 and remote_branch
         std::fs::write(
@@ -2449,18 +2453,10 @@ mod tests {
             "line1\nline2\nline3\nline4\nbranch4\n",
         )?;
 
-        let branch3 = branch_reader.read(&branch3_id)?;
-        branch_writer.write(&Branch {
-            ownership: Ownership {
-                files: vec!["test.txt".try_into()?],
-            },
-            ..branch3
-        })?;
-
         let branch4 = branch_reader.read(&branch4_id)?;
         branch_writer.write(&Branch {
             ownership: Ownership {
-                files: vec!["test2.txt".try_into()?],
+                files: vec!["test2.txt:1-6".try_into()?],
             },
             ..branch4
         })?;
@@ -2469,14 +2465,14 @@ mod tests {
         assert_eq!(branches.len(), 4);
 
         let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-        assert_eq!(branch1.active, false);
-        assert_eq!(branch1.mergeable, false);
+        assert!(!branch1.active);
+        assert!(!branch1.mergeable);
         assert_eq!(branch1.merge_conflicts.len(), 1);
         assert_eq!(branch1.merge_conflicts.first().unwrap(), "test.txt");
 
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
-        assert_eq!(branch2.active, false);
-        assert_eq!(branch2.mergeable, true);
+        assert!(!branch2.active);
+        assert!(branch2.mergeable);
         assert_eq!(branch2.merge_conflicts.len(), 0);
 
         let remotes = remote_branches(&gb_repo, &project_repository)?;
@@ -2484,7 +2480,7 @@ mod tests {
             .iter()
             .find(|b| b.branch == "refs/remotes/origin/remote_branch")
             .unwrap();
-        assert_eq!(remote1.mergeable, false);
+        assert!(!remote1.mergeable);
         assert_eq!(remote1.ahead, 1);
         assert_eq!(remote1.merge_conflicts.len(), 1);
         assert_eq!(remote1.merge_conflicts.first().unwrap(), "test.txt");
@@ -2493,7 +2489,7 @@ mod tests {
             .iter()
             .find(|b| b.branch == "refs/remotes/origin/remote_branch2")
             .unwrap();
-        assert_eq!(remote2.mergeable, true);
+        assert!(remote2.mergeable);
         assert_eq!(remote2.ahead, 2);
         assert_eq!(remote2.merge_conflicts.len(), 0);
 
