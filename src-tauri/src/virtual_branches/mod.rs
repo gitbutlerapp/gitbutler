@@ -1492,21 +1492,32 @@ pub fn push(
     }
     .context("failed to read default target")?;
 
-    let vbranches = list_virtual_branches(gb_repository, project_repository)?;
-    let vbranch = vbranches
-        .iter()
-        .find(|b| b.id == branch_id)
-        .context("failed to find branch")?;
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_writer = branch::Writer::new(gb_repository);
+
+    let mut vbranch = branch_reader
+        .read(branch_id)
+        .context("failed to read branch")?;
+
+    let upstream = if vbranch.upstream.is_empty() {
+        name_to_branch(&vbranch.name)
+    } else {
+        vbranch.upstream.clone()
+    };
 
     let output = Command::new("git")
         .arg("push")
         .arg(default_target.remote)
-        .arg(format!("{}:{}", commit_id, &name_to_branch(branch_id)))
+        .arg(format!("{}:{}", commit_id, upstream))
         .current_dir(project_path)
         .output()
         .context("failed to fork exec")?;
 
     if output.status.success() {
+        vbranch.upstream = upstream;
+        branch_writer
+            .write(&vbranch)
+            .context("failed to write target branch after push")?;
         Ok(())
     } else {
         Err(anyhow::anyhow!(
