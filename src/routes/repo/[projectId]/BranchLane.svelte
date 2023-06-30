@@ -15,7 +15,7 @@
 	import type { VirtualBranchOperations } from './vbranches';
 
 	const dispatch = createEventDispatcher<{
-		empty: {};
+		empty: never;
 	}>();
 
 	export let branchId: string;

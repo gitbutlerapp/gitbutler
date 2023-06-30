@@ -299,16 +299,7 @@ impl Repository {
                 .with_context(|| format!("{}: failed to write target", branch.id))?;
         }
 
-        let src_branch_reader = virtual_branches::branch::Reader::new(&last_session_reader);
         let dst_branch_writer = virtual_branches::branch::Writer::new(self);
-
-        // copy selected branch
-        let selected_branch = src_branch_reader
-            .read_selected()
-            .context("failed to read selected branch")?;
-        dst_branch_writer
-            .write_selected(&selected_branch)
-            .context("failed to write selected branch")?;
 
         // copy branches that we don't already have
         for branch in &branches {

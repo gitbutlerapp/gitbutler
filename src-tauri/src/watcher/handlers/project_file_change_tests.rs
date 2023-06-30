@@ -672,7 +672,6 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     target_writer.write_default(&default_target)?;
     let vbranch0 = test_branch();
     branch_writer.write(&vbranch0)?;
-    branch_writer.write_selected(&Some(vbranch0.id.clone()))?;
     let vbranch1 = test_branch();
     let vbranch1_target = test_target();
     branch_writer.write(&vbranch1)?;
@@ -701,8 +700,6 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     assert_eq!(branches[1].id, vbranch1.id);
 
     let vbranch_reader = virtual_branches::branch::Reader::new(&session_reader);
-    let selected = vbranch_reader.read_selected().unwrap().unwrap();
-    assert_eq!(selected, vbranch0.id);
 
     let target_reader = virtual_branches::target::Reader::new(&session_reader);
     assert_eq!(target_reader.read_default().unwrap(), default_target);
@@ -748,7 +745,6 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     target_writer.write_default(&default_target)?;
     let vbranch0 = test_branch();
     branch_writer.write(&vbranch0)?;
-    branch_writer.write_selected(&Some(vbranch0.id.clone()))?;
     let vbranch1 = test_branch();
     let vbranch1_target = test_target();
     branch_writer.write(&vbranch1)?;
@@ -780,8 +776,6 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     assert_eq!(branches[1].id, vbranch1.id);
 
     let vbranch_reader = virtual_branches::branch::Reader::new(&session_reader);
-    let selected = vbranch_reader.read_selected().unwrap().unwrap();
-    assert_eq!(selected, vbranch0.id);
 
     let target_reader = virtual_branches::target::Reader::new(&session_reader);
     assert_eq!(target_reader.read_default().unwrap(), default_target);

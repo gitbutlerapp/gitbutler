@@ -161,7 +161,6 @@ mod tests {
         branch_writer.write(&branch_2)?;
         let branch_3 = test_branch();
         branch_writer.write(&branch_3)?;
-        branch_writer.write_selected(&Some(branch_2.id.clone()))?;
 
         let session = gb_repo.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repo, &session)?;
