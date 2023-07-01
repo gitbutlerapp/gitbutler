@@ -1,4 +1,13 @@
-lockfileVersion: '6.0'
+lockfileVersion: '6.1'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+dependencies:
+  svelte-gravatar:
+    specifier: ^1.0.3
+    version: 1.0.3(svelte@3.55.1)
 
 devDependencies:
   '@codemirror/autocomplete':
@@ -207,7 +216,7 @@ devDependencies:
     version: github.com/tauri-apps/tauri-plugin-log/21921031d74f871180381317a338559f588ad8e9
   tauri-plugin-websocket-api:
     specifier: github:tauri-apps/tauri-plugin-websocket
-    version: github.com/tauri-apps/tauri-plugin-websocket/cef52e11dbca0181f0d5673d831f5d9a15c6e452
+    version: github.com/tauri-apps/tauri-plugin-websocket/7832cb121d2ecaf6b52c9bdee77df18fddaac5d9
   tinykeys:
     specifier: ^1.4.0
     version: 1.4.0
@@ -1877,6 +1886,10 @@ packages:
       tslib: 2.5.0
     dev: true
 
+  /charenc@0.0.2:
+    resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
+    dev: false
+
   /check-error@1.0.2:
     resolution: {integrity: sha512-BrgHpW9NURQgzoNyjfq0Wu6VFO6D7IZEmJNdtgNqpzGG8RuNFHt2jQxWlAs4HMe119chBnv+34syEZtc6IhLtA==}
     dev: true
@@ -1982,6 +1995,10 @@ packages:
       shebang-command: 2.0.0
       which: 2.0.2
     dev: true
+
+  /crypt@0.0.2:
+    resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
+    dev: false
 
   /cssesc@3.0.0:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
@@ -3170,6 +3187,10 @@ packages:
       has-tostringtag: 1.0.0
     dev: true
 
+  /is-buffer@1.1.6:
+    resolution: {integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==}
+    dev: false
+
   /is-callable@1.2.7:
     resolution: {integrity: sha512-1BC0BVFhS/p0qtw6enp8e+8OD0UrK0oFLztSjNzhcKA3WDuJxxAPXzPuPtKkjEY9UUoEWlX/8fgKeu2S8i9JTA==}
     engines: {node: '>= 0.4'}
@@ -3590,6 +3611,14 @@ packages:
     dependencies:
       blueimp-md5: 2.19.0
     dev: true
+
+  /md5@2.3.0:
+    resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
+    dependencies:
+      charenc: 0.0.2
+      crypt: 0.0.2
+      is-buffer: 1.1.6
+    dev: false
 
   /mdurl@1.0.1:
     resolution: {integrity: sha512-/sKlQJCBYVY9Ers9hqzKou4H6V5UWc/M59TH2dvkt+84itfnq7uFOMLpOiOS4ujvHP4etln18fmIxA5R5fll0g==}
@@ -4683,6 +4712,16 @@ packages:
       - svelte
     dev: true
 
+  /svelte-gravatar@1.0.3(svelte@3.55.1):
+    resolution: {integrity: sha512-CNxIV2lAuiqwdaPrGAM/BFj5U1dNNQXzeyh+HVi/48BODFXoDy0L1CMqYyvM+aKiF4ideZUBwT0S9/C1BeL5oA==}
+    peerDependencies:
+      svelte: '*'
+    dependencies:
+      md5: 2.3.0
+      svelte: 3.55.1
+      svelte-waypoint: 0.1.4
+    dev: false
+
   /svelte-hmr@0.15.1(svelte@3.55.1):
     resolution: {integrity: sha512-BiKB4RZ8YSwRKCNVdNxK/GfY+r4Kjgp9jCLEy0DuqAKfmQtpL38cQK3afdpjw4sqSs4PLi3jIPJIFp259NkZtA==}
     engines: {node: ^12.20 || ^14.13.1 || >= 16}
@@ -4764,6 +4803,10 @@ packages:
       resize-observer-polyfill: 1.5.1
     dev: true
 
+  /svelte-waypoint@0.1.4:
+    resolution: {integrity: sha512-UEqoXZjJeKj2sWlAIsBOFjxjMn+KP8aFCc/zjdmZi1cCOE59z6T2C+I6ZaAf8EmNQqNzfZVB/Lci4Ci9spzXAw==}
+    dev: false
+
   /svelte-writable-derived@2.1.6(svelte@3.55.1):
     resolution: {integrity: sha512-vqOXuiESMZyP/kt/RD+nOk2RVHNakDm1K1hmfeGAKc4jzcSp5hEkUi43MDbkVlMurkSBlcMVTQwRQy4LcBT2lw==}
     peerDependencies:
@@ -4775,7 +4818,6 @@ packages:
   /svelte@3.55.1:
     resolution: {integrity: sha512-S+87/P0Ve67HxKkEV23iCdAh/SX1xiSfjF1HOglno/YTbSTW7RniICMCofWGdJJbdjw3S+0PfFb1JtGfTXE0oQ==}
     engines: {node: '>= 8'}
-    dev: true
 
   /symbol-tree@3.2.4:
     resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}
@@ -5453,8 +5495,8 @@ packages:
       '@tauri-apps/api': 1.4.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/cef52e11dbca0181f0d5673d831f5d9a15c6e452:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/cef52e11dbca0181f0d5673d831f5d9a15c6e452}
+  github.com/tauri-apps/tauri-plugin-websocket/7832cb121d2ecaf6b52c9bdee77df18fddaac5d9:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/7832cb121d2ecaf6b52c9bdee77df18fddaac5d9}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:

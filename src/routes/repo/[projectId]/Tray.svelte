@@ -7,6 +7,7 @@
 	import { IconGitBranch, IconRemote, IconRefresh, IconAdd } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
+	import Gravatar from 'svelte-gravatar';
 
 	export let target: Target;
 	export let branches: Branch[];
@@ -78,7 +79,7 @@
 		</div>
 	</div>
 	<div
-		class="flex items-center justify-between border-t border-light-400 px-2 py-2 dark:border-dark-600"
+		class="flex items-center justify-between border-t border-light-400 bg-zinc-100 px-2 py-2 dark:border-dark-600 dark:bg-zinc-800"
 	>
 		<div class="font-bold">Your branches</div>
 		<div>
@@ -117,7 +118,7 @@
 	</div>
 	{#if remoteBranches}
 		<div
-			class="flex items-center justify-between border-t border-light-400 px-2 py-2 dark:border-dark-600"
+			class="flex items-center justify-between border-t border-light-400 bg-zinc-100 px-2 py-2 dark:border-dark-600 dark:bg-zinc-800"
 		>
 			<div class="font-bold">Remote branches</div>
 			<div>
@@ -158,9 +159,15 @@
 					{#if branch.lastCommitTs > 0}
 						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
 							<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
-							<div title={branch.authors.join('\n')}>
+							<div
+								title={branch.authors.join('\n')}
+								class="isolate flex -space-x-1 overflow-hidden"
+							>
 								{#each branch.authors as author}
-									{author[0]}
+									<Gravatar
+										class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white"
+										email={author}
+									/>
 								{/each}
 							</div>
 						</div>
