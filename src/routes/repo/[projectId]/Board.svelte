@@ -51,7 +51,7 @@
 	on:consider={handleDndEvent}
 	on:finalize={handleDndEvent}
 >
-	{#each branches.filter((c) => c.active) as { id, name, files, commits, description } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description } (id)}
 		<Lane
 			{name}
 			commitMessage={description}
@@ -59,6 +59,7 @@
 			{commits}
 			on:empty={handleEmpty}
 			{projectId}
+			{upstream}
 			branchId={id}
 			{virtualBranches}
 		/>

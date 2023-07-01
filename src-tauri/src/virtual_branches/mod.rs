@@ -608,11 +608,10 @@ pub fn list_virtual_branches(
                 }
             }
             if let Some(remote) = upstream_remote {
-                let full_branch_name = format!(
-                    "refs/remotes/{}/{}",
-                    remote.name().unwrap(),
-                    branch.upstream
-                );
+                // remove "refs/heads/" from the branch name
+                let branch_name = branch.upstream.replace("refs/heads/", "");
+                let full_branch_name =
+                    format!("refs/remotes/{}/{}", remote.name().unwrap(), branch_name);
                 if let Ok(upstream_oid) = repo.refname_to_id(&full_branch_name) {
                     if let Ok(upstream_commit_obj) = repo.find_commit(upstream_oid) {
                         upstream_commit = Some(upstream_commit_obj);
@@ -692,7 +691,7 @@ pub fn list_virtual_branches(
             commits,
             mergeable,
             merge_conflicts,
-            upstream: branch.upstream.to_string(),
+            upstream: branch.upstream.to_string().replace("refs/heads/", ""),
         };
         branches.push(branch);
     }

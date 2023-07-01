@@ -21,6 +21,7 @@
 	export let branchId: string;
 	export let name: string;
 	export let commitMessage: string;
+	export let upstream: string;
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;
@@ -79,7 +80,9 @@
 	}
 
 	function updateTextArea(): void {
-		descriptionHeight = textArea.scrollHeight + 2;
+		if (textArea) {
+			descriptionHeight = textArea.scrollHeight + 2;
+		}
 	}
 
 	function commit() {
@@ -102,6 +105,7 @@
 	$: {
 		// On refresh we need to check expansion status from localStorage
 		files && expandFromCache();
+		updateTextArea();
 	}
 
 	function expandFromCache() {
@@ -156,26 +160,28 @@
 		class="flex flex-col rounded-lg bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-900"
 	>
 		<div class="mb-4 flex items-center">
-			<textarea
-				bind:this={textArea}
-				class="h-14 shrink-0 flex-grow resize-none rounded border border-light-200 bg-white p-2 text-dark-800 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
-				style="height: {descriptionHeight}px"
-				value={commitMessage ? commitMessage.trim() : ''}
-				placeholder="Your commit message here..."
-				on:input={updateTextArea}
-			/>
-			<button
-				class="mx-0.5 h-6 w-6 items-center justify-center text-light-600 dark:text-dark-200"
-				on:click={handleToggleExpandAll}
-			>
-				{#if allExpanded}
-					<IconTriangleUp />
-				{:else if allExpanded == undefined}
-					<IconTriangleDown />
-				{:else}
-					<IconTriangleDown />
-				{/if}
-			</button>
+			{#if files.filter((x) => x.hunks).length > 0}
+				<textarea
+					bind:this={textArea}
+					class="h-14 shrink-0 flex-grow resize-none rounded border border-light-200 bg-white p-2 text-dark-800 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+					style="height: {descriptionHeight}px"
+					value={commitMessage ? commitMessage.trim() : ''}
+					placeholder="Your commit message here..."
+					on:input={updateTextArea}
+				/>
+				<button
+					class="mx-0.5 h-6 w-6 items-center justify-center text-light-600 dark:text-dark-200"
+					on:click={handleToggleExpandAll}
+				>
+					{#if allExpanded}
+						<IconTriangleUp />
+					{:else if allExpanded == undefined}
+						<IconTriangleDown />
+					{:else}
+						<IconTriangleDown />
+					{/if}
+				</button>
+			{/if}
 		</div>
 		<div
 			class="flex flex-shrink flex-col gap-y-2"
@@ -202,13 +208,17 @@
 					}}
 				/>
 			{/each}
-			<Button
-				width="full-width"
-				color="purple"
-				on:click={() => {
-					commit();
-				}}>Commit</Button
-			>
+			{#if files.filter((x) => x.hunks).length > 0}
+				<Button
+					width="full-width"
+					color="purple"
+					on:click={() => {
+						commit();
+					}}>Commit</Button
+				>
+			{:else}
+				<div class="p-3 pt-0">There isn't any work on this branch yet.</div>
+			{/if}
 		</div>
 	</div>
 	<div class="relative">
@@ -251,7 +261,7 @@
 						<IconGithub />
 					</div>
 				</div>
-				<div class="flex-grow">Pushed to origin/master</div>
+				<div class="flex-grow">Pushed to {upstream}</div>
 			</div>
 			{#each remoteCommits as commit (commit.id)}
 				<div class="flex w-full px-2 pb-4">
