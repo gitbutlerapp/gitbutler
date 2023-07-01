@@ -69,7 +69,7 @@
 <div class="flex h-full flex-col">
 	<header
 		data-tauri-drag-region
-		class="flex h-11 flex-row items-center gap-x-4 bg-white pt-1 text-light-900 dark:bg-dark-900 dark:text-dark-100"
+		class="flex flex-shrink-0 h-11 flex-row items-center gap-x-4 bg-white pt-1 text-light-900 dark:bg-dark-900 dark:text-dark-100 border-b border-light-300 dark:border-dark-500"
 		style="z-index: 9999;"
 	>
 		<div class="breadcrumb-project-container ml-[80px]">
