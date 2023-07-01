@@ -80,6 +80,7 @@
 		"svelte-dnd-action": "github:gitbutlerapp/svelte-dnd-action#9912712394c26b971ef067674bdc871550940636",
 		"svelte-floating-ui": "^1.5.2",
 		"svelte-french-toast": "^1.0.3",
+		"svelte-gravatar": "^1.0.3",
 		"svelte-loadable-store": "^1.2.3",
 		"svelte-outclick": "^3.5.0",
 		"svelte-resize-observer": "^2.0.0",
@@ -97,8 +98,5 @@
 		"xterm-addon-ligatures": "^0.6.0",
 		"xterm-addon-unicode11": "^0.5.0",
 		"xterm-addon-webgl": "^0.14.0"
-	},
-	"dependencies": {
-		"svelte-gravatar": "^1.0.3"
 	}
 }
