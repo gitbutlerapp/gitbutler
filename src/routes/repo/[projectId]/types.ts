@@ -30,6 +30,7 @@ export class Branch extends DndItem {
 	mergeable!: boolean;
 	mergeConflicts!: string[];
 	order!: number;
+	upstream!: string;
 }
 
 export type BranchData = {
