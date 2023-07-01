@@ -84,7 +84,7 @@
 			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
 				<div class="flex flex-row justify-between">
 					<div class="w-32 cursor-pointer truncate">
-						{branch.branch.replace('refs/remotes/', '').replace('origin/', '')}
+						{branch.branch.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '')}
 					</div>
 					<div class="flex flex-row space-x-1">
 						<div>{branch.ahead}/{branch.behind}</div>
@@ -99,6 +99,11 @@
 								{author[0]}
 							{/each}
 						</div>
+					</div>
+				{/if}
+				{#if branch.mergeable}
+					<div class="flex flex-row justify-end">
+						<div class="text-blue-500 cursor-pointer">make vbranch</div>
 					</div>
 				{/if}
 			</div>

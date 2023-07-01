@@ -297,10 +297,21 @@ pub fn remote_branches(
 
     let wd_tree = get_wd_tree(repo)?;
 
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|branch| branch.upstream != "")
+        .map(|branch| branch.upstream.clone().replace("refs/heads/", ""))
+        .collect::<Vec<_>>();
+
+    println!("virtual branches: {:?}", virtual_branches);
+
     let mut branches: Vec<RemoteBranch> = Vec::new();
     let mut most_recent_branches: Vec<(git2::Branch, u64)> = Vec::new();
 
-    for branch in repo.branches(Some(git2::BranchType::Remote))? {
+    for branch in repo.branches(None)? {
         let (branch, _) = branch?;
         match branch.get().target() {
             Some(branch_oid) => {
@@ -311,6 +322,20 @@ pub fn remote_branches(
                 let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
                 let duration = current_time.duration_since(branch_time).unwrap();
                 if duration > too_old {
+                    continue;
+                }
+
+                let branch_name = branch.name().unwrap().expect("could not get branch name").to_string();
+                let branch_name = branch_name.replace("origin/", "");
+                println!("branch name: {}", branch_name);
+                if virtual_branches.contains(&branch_name) {
+                    println!("skip");
+                    continue;
+                }
+                if branch_name == "HEAD" {
+                    continue;
+                }
+                if branch_name == "gitbutler/temp" {
                     continue;
                 }
                 most_recent_branches.push((branch, seconds));
@@ -391,26 +416,28 @@ pub fn remote_branches(
                     Err(_) => "".to_string(),
                 };
 
-                let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
-                let branch_tree = branch_commit.tree()?;
-                let (mergeable, merge_conflicts) =
-                    check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
-                println!("mergeable: {} {}", branch_name, mergeable);
+                if count_ahead > 0 {
+                    let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
+                    let branch_tree = branch_commit.tree()?;
+                    let (mergeable, merge_conflicts) =
+                        check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
+                    println!("mergeable: {} {}", branch_name, mergeable);
 
-                branches.push(RemoteBranch {
-                    sha: branch_oid.to_string(),
-                    branch: branch_name.to_string(),
-                    name: branch_name.to_string(),
-                    description: "".to_string(),
-                    last_commit_ts: max_time.unwrap_or(0),
-                    first_commit_ts: min_time.unwrap_or(0),
-                    ahead: count_ahead,
-                    behind: count_behind,
-                    upstream: upstream_branch_name,
-                    authors: authors.into_iter().collect(),
-                    mergeable,
-                    merge_conflicts,
-                });
+                    branches.push(RemoteBranch {
+                        sha: branch_oid.to_string(),
+                        branch: branch_name.to_string(),
+                        name: branch_name.to_string(),
+                        description: "".to_string(),
+                        last_commit_ts: max_time.unwrap_or(0),
+                        first_commit_ts: min_time.unwrap_or(0),
+                        ahead: count_ahead,
+                        behind: count_behind,
+                        upstream: upstream_branch_name,
+                        authors: authors.into_iter().collect(),
+                        mergeable,
+                        merge_conflicts,
+                    });
+                }
             }
             None => {
                 // this is a detached head
