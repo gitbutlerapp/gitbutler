@@ -21,6 +21,7 @@
 	export let branchId: string;
 	export let name: string;
 	export let commitMessage: string;
+	export let upstream: string;
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;
@@ -251,7 +252,7 @@
 						<IconGithub />
 					</div>
 				</div>
-				<div class="flex-grow">Pushed to origin/master</div>
+				<div class="flex-grow">Pushed to {upstream}</div>
 			</div>
 			{#each remoteCommits as commit (commit.id)}
 				<div class="flex w-full px-2 pb-4">
