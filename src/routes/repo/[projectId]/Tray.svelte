@@ -83,11 +83,13 @@
 		{#each remoteBranches as branch}
 			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
 				<div class="flex flex-row justify-between">
-					<div class="cursor-pointer">
-						{branch.branch.replace('refs/remotes/', '')}
+					<div class="w-32 cursor-pointer truncate">
+						{branch.branch.replace('refs/remotes/', '').replace('origin/', '')}
 					</div>
-					<div>{branch.ahead}/{branch.behind}</div>
-					<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+					<div class="flex flex-row space-x-1">
+						<div>{branch.ahead}/{branch.behind}</div>
+						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+					</div>
 				</div>
 				{#if branch.lastCommitTs > 0}
 					<div class="flex flex-row justify-between">
