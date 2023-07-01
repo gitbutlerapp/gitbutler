@@ -165,7 +165,7 @@
 							>
 								{#each branch.authors as author}
 									<Gravatar
-										class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white"
+										class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
 										email={author}
 									/>
 								{/each}
