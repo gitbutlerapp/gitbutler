@@ -194,6 +194,15 @@
 			on:consider={handleDndEvent}
 			on:finalize={handleDndEvent}
 		>
+			<Button
+				width="basic"
+				kind="outlined"
+				height="small"
+				color="destructive"
+				on:click={() => {
+					virtualBranches.deleteBranch(branchId);
+				}}>delete</Button
+			>
 			{#each files.filter((x) => x.hunks) as file (file.id)}
 				<FileCard
 					filepath={file.path}
