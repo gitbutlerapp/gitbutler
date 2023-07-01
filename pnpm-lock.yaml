@@ -1,13 +1,4 @@
-lockfileVersion: '6.1'
-
-settings:
-  autoInstallPeers: true
-  excludeLinksFromLockfile: false
-
-dependencies:
-  svelte-gravatar:
-    specifier: ^1.0.3
-    version: 1.0.3(svelte@3.55.1)
+lockfileVersion: '6.0'
 
 devDependencies:
   '@codemirror/autocomplete':
