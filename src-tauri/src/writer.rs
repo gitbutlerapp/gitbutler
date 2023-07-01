@@ -55,10 +55,18 @@ impl Writer for DirWriter {
 
     fn remove(&self, path: &str) -> Result<()> {
         let file_path = self.root.join(path);
-        match std::fs::remove_file(file_path) {
-            Ok(_) => Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(e.into()),
+        if file_path.is_dir() {
+            match std::fs::remove_dir_all(file_path) {
+                Ok(_) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(e.into()),
+            }
+        } else {
+            match std::fs::remove_file(file_path) {
+                Ok(_) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(e.into()),
+            }
         }
     }
 }
@@ -99,5 +107,8 @@ mod tests {
         writer.write("foo/bar", b"baz").unwrap();
         writer.remove("foo/bar").unwrap();
         assert!(!root.path().join("foo/bar").exists());
+        writer.write("parent/child", b"baz").unwrap();
+        writer.remove("parent").unwrap();
+        assert!(!root.path().join("parent").exists());
     }
 }
