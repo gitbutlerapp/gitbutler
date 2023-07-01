@@ -7,7 +7,7 @@
 	import { IconGitBranch, IconRemote, IconRefresh, IconAdd } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
-	import Gravatar from 'svelte-gravatar';
+	import Gravatar from '$lib/components/Gravatar/Gravatar.svelte';
 
 	export let target: Target;
 	export let branches: Branch[];
