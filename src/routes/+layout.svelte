@@ -14,6 +14,7 @@
 	import Breadcrumbs from './Breadcrumbs.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import { initTheme } from '$lib/theme';
+	import ThemeSelector from './ThemeSelector.svelte';
 
 	initTheme();
 
@@ -76,6 +77,7 @@
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
+		<ThemeSelector />
 		<div class="mr-6">
 			<Link href="/users/">
 				{#await user.load() then}
