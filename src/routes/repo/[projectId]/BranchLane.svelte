@@ -228,7 +228,7 @@
 					}}>Commit</Button
 				>
 			{:else}
-				<div class="p-3 pt-0">There isn't any work on this branch yet.</div>
+				<div class="p-3 pt-0">No uncommitted work on this branch.</div>
 			{/if}
 		</div>
 	</div>

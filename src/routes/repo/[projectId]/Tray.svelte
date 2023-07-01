@@ -3,9 +3,11 @@
 	import type { Branch, BranchData, Target } from './types';
 	import { formatDistanceToNow } from 'date-fns';
 	import type { VirtualBranchOperations } from './vbranches';
+	import { invoke } from '@tauri-apps/api';
 
 	export let target: Target;
 	export let branches: Branch[];
+	export let projectId: string;
 	export let remoteBranches: BranchData[];
 	export let virtualBranches: VirtualBranchOperations;
 
@@ -19,6 +21,14 @@
 
 	// store left tray width preference in localStorage
 	const cacheKey = 'config:tray-width';
+
+	async function createvBranchFromBranch(params: { projectId: string; branch: string }) {
+		return invoke<void>('create_virtual_branch_from_branch', params);
+	}
+
+	function makeBranch(branch: string) {
+		createvBranchFromBranch({ projectId: projectId, branch });
+	}
 
 	function rememberWidth(node: HTMLElement) {
 		const cachedWidth = localStorage.getItem(cacheKey);
@@ -84,7 +94,10 @@
 			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
 				<div class="flex flex-row justify-between">
 					<div class="w-32 cursor-pointer truncate">
-						{branch.branch.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '')}
+						{branch.branch
+							.replace('refs/remotes/', '')
+							.replace('origin/', '')
+							.replace('refs/heads/', '')}
 					</div>
 					<div class="flex flex-row space-x-1">
 						<div>{branch.ahead}/{branch.behind}</div>
@@ -103,7 +116,7 @@
 				{/if}
 				{#if branch.mergeable}
 					<div class="flex flex-row justify-end">
-						<div class="text-blue-500 cursor-pointer">make vbranch</div>
+						<Button on:click={() => makeBranch(branch.branch)}>apply</Button>
 					</div>
 				{/if}
 			</div>

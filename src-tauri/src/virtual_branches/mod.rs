@@ -325,7 +325,11 @@ pub fn remote_branches(
                     continue;
                 }
 
-                let branch_name = branch.name().unwrap().expect("could not get branch name").to_string();
+                let branch_name = branch
+                    .name()
+                    .unwrap()
+                    .expect("could not get branch name")
+                    .to_string();
                 let branch_name = branch_name.replace("origin/", "");
                 println!("branch name: {}", branch_name);
                 if virtual_branches.contains(&branch_name) {
@@ -724,6 +728,70 @@ pub fn list_virtual_branches(
     }
     branches.sort_by(|a, b| a.order.cmp(&b.order));
     Ok(branches)
+}
+
+pub fn create_virtual_branch_from_branch(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_ref: &str,
+) -> Result<()> {
+    println!("create branch from {}", branch_ref);
+    let name = branch_ref
+        .replace("refs/heads/", "")
+        .replace("refs/remotes/", "")
+        .replace("origin/", "");
+    let upstream = "refs/heads/".to_string() + &name;
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let target_reader = target::Reader::new(&current_session_reader);
+    let default_target = target_reader
+        .read_default()
+        .context("failed to read default")?;
+
+    let repo = &project_repository.git_repository;
+    let commit = repo
+        .find_commit(default_target.sha)
+        .context("failed to find commit")?;
+    let tree = commit.tree().context("failed to find tree")?;
+
+    let head = repo.revparse_single(branch_ref)?;
+    let head_commit = head.peel_to_commit()?;
+
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?;
+    let max_order = virtual_branches
+        .iter()
+        .map(|branch| branch.order)
+        .max()
+        .unwrap_or(0);
+
+    let now = time::UNIX_EPOCH
+        .elapsed()
+        .context("failed to get elapsed time")?
+        .as_millis();
+
+    let branch = Branch {
+        id: Uuid::new_v4().to_string(),
+        name: name.to_string(),
+        applied: false,
+        upstream: upstream.clone(),
+        tree: tree.id(),
+        head: head_commit.id(),
+        created_timestamp_ms: now,
+        updated_timestamp_ms: now,
+        ownership: Ownership::default(),
+        order: max_order + 1,
+    };
+
+    let writer = branch::Writer::new(gb_repository);
+    writer.write(&branch).context("failed to write branch")?;
+    Ok(())
 }
 
 pub fn create_virtual_branch(

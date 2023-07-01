@@ -385,6 +385,23 @@ impl App {
         Ok(())
     }
 
+    pub async fn create_virtual_branch_from_branch(
+        &self,
+        project_id: &str,
+        branch: &str,
+    ) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        virtual_branches::create_virtual_branch_from_branch(
+            &gb_repository,
+            &project_repository,
+            branch,
+        )?;
+        Ok(())
+    }
+
     pub async fn update_virtual_branch(
         &self,
         project_id: &str,
