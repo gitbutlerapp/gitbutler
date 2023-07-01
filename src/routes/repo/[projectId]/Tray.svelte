@@ -4,6 +4,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import type { VirtualBranchOperations } from './vbranches';
 	import { invoke } from '@tauri-apps/api';
+	import { IconGitBranch, IconRemote } from '$lib/icons';
 
 	export let target: Target;
 	export let branches: Branch[];
@@ -93,6 +94,11 @@
 		{#each remoteBranches as branch}
 			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
 				<div class="flex flex-row justify-between">
+					{#if branch.branch.match('refs/remotes')}
+						<IconRemote class="h-4 w-4" />
+					{:else}
+						<IconGitBranch class="h-4 w-4" />
+					{/if}
 					<div class="w-32 cursor-pointer truncate">
 						{branch.branch
 							.replace('refs/remotes/', '')

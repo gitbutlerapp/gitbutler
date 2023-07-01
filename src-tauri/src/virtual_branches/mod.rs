@@ -753,13 +753,9 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to read default")?;
 
     let repo = &project_repository.git_repository;
-    let commit = repo
-        .find_commit(default_target.sha)
-        .context("failed to find commit")?;
-    let tree = commit.tree().context("failed to find tree")?;
-
     let head = repo.revparse_single(branch_ref)?;
     let head_commit = head.peel_to_commit()?;
+    let tree = head_commit.tree().context("failed to find tree")?;
 
     let virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
