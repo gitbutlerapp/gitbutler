@@ -789,6 +789,29 @@ pub fn update_branch(
     Ok(branch)
 }
 
+pub fn delete_branch(
+    gb_repository: &gb_repository::Repository,
+    branch_id: &str,
+) -> Result<branch::Branch> {
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch_writer = branch::Writer::new(gb_repository);
+
+    let branch = branch_reader
+        .read(&branch_id)
+        .context("failed to read branch")?;
+
+    branch_writer
+        .remove(&branch)
+        .context("Failed to remove branch")?;
+
+    Ok(branch)
+}
+
 fn set_ownership(
     branch_reader: &branch::Reader,
     branch_writer: &branch::Writer,
