@@ -20,6 +20,18 @@ impl<'writer> BranchWriter<'writer> {
         }
     }
 
+    pub fn remove(&self, branch: &Branch) -> Result<()> {
+        self.repository
+            .get_or_create_current_session()
+            .context("Failed to get or create current session")?;
+        self.repository.lock()?;
+        defer! {
+            self.repository.unlock().expect("Failed to unlock repository");
+        }
+        self.writer.remove(&format!("branches/{}", branch.id))?;
+        Ok(())
+    }
+
     pub fn write(&self, branch: &Branch) -> Result<()> {
         self.repository
             .get_or_create_current_session()
@@ -209,6 +221,9 @@ mod tests {
             .context("Failed to parse branch updated timestamp")?,
             branch.updated_timestamp_ms
         );
+
+        writer.remove(&branch)?;
+        assert!(fs::read_dir(root).is_err());
 
         Ok(())
     }

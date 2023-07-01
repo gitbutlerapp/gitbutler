@@ -19,6 +19,7 @@ export interface VirtualBranchOperations {
 	unapplyBranch(branchId: string): Promise<void | object>;
 	updateBranchOwnership(branchId: string, ownership: string): Promise<void | object>;
 	pushBranch(branchId: string): Promise<void | object>;
+	deleteBranch(branchId: string): Promise<void | object>;
 }
 
 export function getVirtualBranches(
@@ -42,7 +43,8 @@ export function getVirtualBranches(
 		unapplyBranch: (branchId) => unapplyBranch(writeable, projectId, branchId),
 		updateBranchOwnership: (branchId, ownership) =>
 			updateBranchOwnership(writeable, projectId, branchId, ownership),
-		pushBranch: (branchId) => pushBranch(writeable, projectId, branchId)
+		pushBranch: (branchId) => pushBranch(writeable, projectId, branchId),
+		deleteBranch: (branchId) => deleteBranch(writeable, projectId, branchId)
 	};
 	cache.set(projectId, store);
 	return store;
@@ -223,5 +225,18 @@ function pushBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, b
 		.catch((err) => {
 			console.log(err);
 			error('Failed to push branch.');
+		});
+}
+
+function deleteBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {
+	return invoke<object>('delete_virtual_branch', {
+		projectId: projectId,
+		branchId: branchId
+	})
+		.then(() => {
+			refresh(projectId, writable);
+		})
+		.catch(() => {
+			error('Unable to delete branch');
 		});
 }

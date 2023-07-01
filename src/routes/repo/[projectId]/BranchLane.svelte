@@ -33,6 +33,7 @@
 	let allExpanded: boolean | undefined;
 	let descriptionHeight = 0;
 	let textArea: HTMLTextAreaElement;
+	let isPushing = false;
 
 	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
 		const newItems = e.detail.items;
@@ -93,7 +94,8 @@
 	function push() {
 		if (localCommits[0]?.id) {
 			console.log(`pushing ${branchId}`);
-			virtualBranches.pushBranch(branchId);
+			isPushing = true;
+			virtualBranches.pushBranch(branchId).finally(() => (isPushing = false));
 		}
 	}
 
@@ -194,6 +196,15 @@
 			on:consider={handleDndEvent}
 			on:finalize={handleDndEvent}
 		>
+			<Button
+				width="basic"
+				kind="outlined"
+				height="small"
+				color="destructive"
+				on:click={() => {
+					virtualBranches.deleteBranch(branchId);
+				}}>delete</Button
+			>
 			{#each files.filter((x) => x.hunks) as file (file.id)}
 				<FileCard
 					filepath={file.path}
@@ -228,7 +239,9 @@
 			<div class="z-10 w-6" />
 			<div class="flex flex-grow gap-x-4 py-2">
 				{#if localCommits.length > 0}
-					<Button on:click={push} color="basic" height="small">Push Commits</Button>
+					<Button on:click={push} loading={isPushing} color="basic" height="small"
+						>Push Commits</Button
+					>
 				{/if}
 			</div>
 		</div>

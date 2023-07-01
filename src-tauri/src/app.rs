@@ -402,6 +402,19 @@ impl App {
         Ok(())
     }
 
+    pub async fn delete_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+        virtual_branches::delete_branch(&gb_repository, branch_id)?;
+        Ok(())
+    }
+
     pub fn unapply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
