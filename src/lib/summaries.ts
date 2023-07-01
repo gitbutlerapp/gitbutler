@@ -1,31 +1,16 @@
-import { get, writable } from '@square/svelte-store';
-import { browser } from '$app/environment';
 import { CloudApi } from '$lib/api';
-
+import lscache from 'lscache';
 const cloud = CloudApi();
 
-export const store = writable<Map<string, string>>(
-	(browser && new Map(Object.entries(JSON.parse(localStorage.getItem('hunkSummaries') || '{}')))) ||
-		new Map<string, string>()
-);
-
-store.subscribe((val: Map<string, string>) => {
-	if (browser) {
-		localStorage.setItem('hunkSummaries', JSON.stringify(Object.fromEntries(val)));
-	}
-});
-
 export async function summarizeHunk(diff: string): Promise<string> {
-	const cache = get(store);
 	const diffHash = hash(diff);
 
-	if (cache.has(diffHash)) {
-		return cache.get(diffHash) as string;
+	if (lscache.get(diffHash)) {
+		return lscache.get(diffHash);
 	}
 
 	const rsp = await cloud.summarize.hunk({ hunk: diff });
-	cache.set(diffHash, rsp.message);
-	store.set(cache);
+	lscache.set(diffHash, rsp.message, 1440); // 1 day ttl
 	return rsp.message;
 }
 
