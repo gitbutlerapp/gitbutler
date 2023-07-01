@@ -139,7 +139,12 @@
 					title={branch.branch}
 				>
 					<div class="flex flex-row items-center gap-x-2">
-						<div class="-cursor-pointer flex-grow truncate">
+						{#if branch.branch.match('refs/remotes')}
+							<IconRemote class="h-4 w-4" />
+						{:else}
+							<IconGitBranch class="h-4 w-4" />
+						{/if}
+						<div class="flex-grow cursor-pointer truncate" title={branch.branch}>
 							{branch.branch
 								.replace('refs/remotes/', '')
 								.replace('origin/', '')
@@ -159,10 +164,7 @@
 					{#if branch.lastCommitTs > 0}
 						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
 							<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
-							<div
-								title={branch.authors.join('\n')}
-								class="isolate flex -space-x-1 overflow-hidden"
-							>
+							<div class="isolate flex -space-x-1 overflow-hidden">
 								{#each branch.authors as author}
 									<Gravatar
 										class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"

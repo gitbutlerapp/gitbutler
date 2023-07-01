@@ -43,6 +43,7 @@
 </script>
 
 <img
+	title={typeof alt === 'undefined' ? `Gravatar for ${formattedEmail}` : alt}
 	alt={typeof alt === 'undefined' ? `Gravatar for ${formattedEmail}` : alt}
 	style={extraStyles}
 	class={extraClass}
