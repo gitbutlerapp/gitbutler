@@ -97,6 +97,9 @@ devDependencies:
   '@types/diff-match-patch':
     specifier: ^1.0.32
     version: 1.0.32
+  '@types/lscache':
+    specifier: ^1.3.1
+    version: 1.3.1
   '@types/marked':
     specifier: ^5.0.0
     version: 5.0.0
@@ -148,6 +151,9 @@ devDependencies:
   leven:
     specifier: ^4.0.0
     version: 4.0.0
+  lscache:
+    specifier: ^1.3.2
+    version: 1.3.2
   marked:
     specifier: ^5.0.2
     version: 5.0.2
@@ -1344,6 +1350,10 @@ packages:
 
   /@types/linkify-it@3.0.2:
     resolution: {integrity: sha512-HZQYqbiFVWufzCwexrvh694SOim8z2d+xJl5UNamcvQFejLY/2YUtzXHYi3cHdI7PMlS8ejH2slRAOJQ32aNbA==}
+    dev: true
+
+  /@types/lscache@1.3.1:
+    resolution: {integrity: sha512-psd3P6tJ9Ydte9AWWOOmRq9wq3unFCqQymp0iIgath87KBQCg31r9sxbv9ruDzOFICxZMazeEj5t+9C/7RPxrA==}
     dev: true
 
   /@types/markdown-it@12.2.3:
@@ -3535,6 +3545,10 @@ packages:
 
   /lru_map@0.3.3:
     resolution: {integrity: sha512-Pn9cox5CsMYngeDbmChANltQl+5pi6XmTrraMSzhPmMBbmgcxmqWry0U3PGapCU1yB4/LqCcom7qhHZiF/jGfQ==}
+    dev: true
+
+  /lscache@1.3.2:
+    resolution: {integrity: sha512-CBZT/pDcaK3I3XGwDLaszDe8hj0pCgbuxd3W79gvHApBSdKVXvR9fillbp6eLvp7dLgtaWm3a1mvmhAqn9uCXQ==}
     dev: true
 
   /magic-string@0.26.7:
