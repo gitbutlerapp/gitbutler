@@ -88,6 +88,9 @@ devDependencies:
   '@tauri-apps/cli':
     specifier: ^1.4.0
     version: 1.4.0
+  '@types/crypto-js':
+    specifier: ^4.1.1
+    version: 4.1.1
   '@types/diff':
     specifier: ^5.0.2
     version: 5.0.2
@@ -109,6 +112,9 @@ devDependencies:
   class-transformer:
     specifier: ^0.5.1
     version: 0.5.1
+  crypto-js:
+    specifier: ^4.1.1
+    version: 4.1.1
   date-fns:
     specifier: ^2.29.3
     version: 2.29.3
@@ -188,9 +194,6 @@ devDependencies:
     specifier: ^1.5.2
     version: 1.5.2
   svelte-french-toast:
-    specifier: ^1.0.3
-    version: 1.0.3(svelte@3.55.1)
-  svelte-gravatar:
     specifier: ^1.0.3
     version: 1.0.3(svelte@3.55.1)
   svelte-loadable-store:
@@ -1309,6 +1312,10 @@ packages:
     resolution: {integrity: sha512-COUnqfB2+ckwXXSFInsFdOAWQzCCx+a5hq2ruyj+Vjund94RJQd4LG2u9hnvJrTgunKAaax7ancBYlDrNYxA0g==}
     dev: true
 
+  /@types/crypto-js@4.1.1:
+    resolution: {integrity: sha512-BG7fQKZ689HIoc5h+6D2Dgq1fABRa0RbBWKBd9SP/MVRVXROflpm5fhwyATX5duFmbStzyzyycPB8qUYKDH3NA==}
+    dev: true
+
   /@types/diff-match-patch@1.0.32:
     resolution: {integrity: sha512-bPYT5ECFiblzsVzyURaNhljBH2Gh1t9LowgUwciMrNAhFewLkHT2H0Mto07Y4/3KCOGZHRQll3CTtQZ0X11D/A==}
     dev: true
@@ -1880,10 +1887,6 @@ packages:
       tslib: 2.5.0
     dev: true
 
-  /charenc@0.0.2:
-    resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
-    dev: true
-
   /check-error@1.0.2:
     resolution: {integrity: sha512-BrgHpW9NURQgzoNyjfq0Wu6VFO6D7IZEmJNdtgNqpzGG8RuNFHt2jQxWlAs4HMe119chBnv+34syEZtc6IhLtA==}
     dev: true
@@ -1990,8 +1993,8 @@ packages:
       which: 2.0.2
     dev: true
 
-  /crypt@0.0.2:
-    resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
+  /crypto-js@4.1.1:
+    resolution: {integrity: sha512-o2JlM7ydqd3Qk9CA0L4NL6mTzU2sdx96a+oOfPu8Mkl/PK51vSyoi8/rQ8NknZtk44vq15lmhAj9CIAGwgeWKw==}
     dev: true
 
   /cssesc@3.0.0:
@@ -3181,10 +3184,6 @@ packages:
       has-tostringtag: 1.0.0
     dev: true
 
-  /is-buffer@1.1.6:
-    resolution: {integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==}
-    dev: true
-
   /is-callable@1.2.7:
     resolution: {integrity: sha512-1BC0BVFhS/p0qtw6enp8e+8OD0UrK0oFLztSjNzhcKA3WDuJxxAPXzPuPtKkjEY9UUoEWlX/8fgKeu2S8i9JTA==}
     engines: {node: '>= 0.4'}
@@ -3604,14 +3603,6 @@ packages:
     engines: {node: '>=8'}
     dependencies:
       blueimp-md5: 2.19.0
-    dev: true
-
-  /md5@2.3.0:
-    resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
-    dependencies:
-      charenc: 0.0.2
-      crypt: 0.0.2
-      is-buffer: 1.1.6
     dev: true
 
   /mdurl@1.0.1:
@@ -4706,16 +4697,6 @@ packages:
       - svelte
     dev: true
 
-  /svelte-gravatar@1.0.3(svelte@3.55.1):
-    resolution: {integrity: sha512-CNxIV2lAuiqwdaPrGAM/BFj5U1dNNQXzeyh+HVi/48BODFXoDy0L1CMqYyvM+aKiF4ideZUBwT0S9/C1BeL5oA==}
-    peerDependencies:
-      svelte: '*'
-    dependencies:
-      md5: 2.3.0
-      svelte: 3.55.1
-      svelte-waypoint: 0.1.4
-    dev: true
-
   /svelte-hmr@0.15.1(svelte@3.55.1):
     resolution: {integrity: sha512-BiKB4RZ8YSwRKCNVdNxK/GfY+r4Kjgp9jCLEy0DuqAKfmQtpL38cQK3afdpjw4sqSs4PLi3jIPJIFp259NkZtA==}
     engines: {node: ^12.20 || ^14.13.1 || >= 16}
@@ -4795,10 +4776,6 @@ packages:
     resolution: {integrity: sha512-hMG30MeUFiVhAeAGWoasBGNAFWa/K8mAIvbpjdaYRqNcU5nkxvjZYhzOhQ8rYbHSd2Hflk2s21yFR7CNKEHZpw==}
     dependencies:
       resize-observer-polyfill: 1.5.1
-    dev: true
-
-  /svelte-waypoint@0.1.4:
-    resolution: {integrity: sha512-UEqoXZjJeKj2sWlAIsBOFjxjMn+KP8aFCc/zjdmZi1cCOE59z6T2C+I6ZaAf8EmNQqNzfZVB/Lci4Ci9spzXAw==}
     dev: true
 
   /svelte-writable-derived@2.1.6(svelte@3.55.1):
