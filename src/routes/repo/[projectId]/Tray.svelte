@@ -4,13 +4,20 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import type { VirtualBranchOperations } from './vbranches';
 	import { invoke } from '@tauri-apps/api';
-	import { IconGitBranch, IconRemote } from '$lib/icons';
+	import { IconGitBranch, IconRemote, IconRefresh, IconAdd } from '$lib/icons';
+	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
+	import { accordion } from './accordion';
 
 	export let target: Target;
 	export let branches: Branch[];
 	export let projectId: string;
 	export let remoteBranches: BranchData[];
 	export let virtualBranches: VirtualBranchOperations;
+
+	let yourBranchesOpen = true;
+	let remoteBranchesOpen = true;
+
+	$: behindMessage = target.behind > 0 ? `behind ${target.behind}` : 'up-to-date';
 
 	function toggleBranch(branchId: string, applied: boolean) {
 		if (applied) {
@@ -51,27 +58,43 @@
 
 <div
 	use:rememberWidth
-	class="w-80 shrink-0 resize-x overflow-x-auto overflow-y-auto bg-light-100 px-2 text-light-800 dark:bg-dark-800 dark:text-dark-100"
+	class="w-80 shrink-0 resize-x overflow-x-auto overflow-y-auto bg-white py-2 text-light-800 dark:bg-dark-900 dark:text-dark-100"
 >
-	<div class="py-4 text-lg font-bold">Your target</div>
-	<div class="flex flex-col gap-y-2">
-		<div>{target.name}</div>
-		{#if target.behind > 0}
-			<div class="flex flex-row justify-between">
-				<div>behind {target.behind}</div>
-				<Button on:click={virtualBranches.updateBranchTarget}>Update Target</Button>
-			</div>
-		{:else}
-			<div class="flex flex-row justify-between">
-				<div>up to date</div>
-			</div>
-		{/if}
+	<div class="px-2 text-light-700 dark:bg-dark-800 dark:text-dark-200">Target branch</div>
+	<div
+		class="flex w-full flex-row items-center gap-x-4 px-2 text-light-900 dark:bg-dark-800 dark:text-dark-100"
+	>
+		<div class="flex-grow font-bold" title={behindMessage}>{target.name}</div>
+		<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
+		<div class="flex-shrink-0 text-light-700 dark:text-dark-200" title={behindMessage}>
+			<button
+				class="p-1 disabled:text-light-300 disabled:dark:text-dark-800"
+				on:click={virtualBranches.updateBranchTarget}
+				disabled={target.behind == 0}
+				title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
+			>
+				<IconRefresh />
+			</button>
+		</div>
 	</div>
-
-	<div class="py-4 text-lg font-bold">Your Branches</div>
-	<div class="flex flex-col gap-y-2">
+	<div
+		class="flex items-center justify-between border-t border-light-400 px-2 py-2 dark:border-dark-600"
+	>
+		<div class="font-bold">Your branches</div>
+		<div>
+			<button class="p-1" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
+				{#if yourBranchesOpen}
+					<IconTriangleUp />
+				{:else}
+					<IconTriangleDown />
+				{/if}
+			</button>
+		</div>
+	</div>
+	<div class="flex flex-col dark:bg-dark-800" use:accordion={yourBranchesOpen}>
 		{#each branches as branch (branch.id)}
-			<div class="rounded-lg p-2" title={branch.name}>
+			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
+			<div class="border-t border-light-400 p-2 px-2 dark:border-dark-600" title={branch.name}>
 				<div class="flex flex-row justify-between">
 					<div>
 						<Checkbox
@@ -86,46 +109,64 @@
 						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
 					{/if}
 				</div>
+				<div class="text-sm text-light-700 dark:text-dark-300">
+					{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
+				</div>
 			</div>
 		{/each}
 	</div>
 	{#if remoteBranches}
-		<div class="py-4 text-lg font-bold">Remote Branches</div>
-		{#each remoteBranches as branch}
-			<div class="flex flex-col justify-between rounded-lg p-2" title={branch.branch}>
-				<div class="flex flex-row justify-between">
-					{#if branch.branch.match('refs/remotes')}
-						<IconRemote class="h-4 w-4" />
+		<div
+			class="flex items-center justify-between border-t border-light-400 px-2 py-2 dark:border-dark-600"
+		>
+			<div class="font-bold">Remote branches</div>
+			<div>
+				<button class="p-1" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
+					{#if remoteBranchesOpen}
+						<IconTriangleUp />
 					{:else}
-						<IconGitBranch class="h-4 w-4" />
+						<IconTriangleDown />
 					{/if}
-					<div class="w-32 cursor-pointer truncate">
-						{branch.branch
-							.replace('refs/remotes/', '')
-							.replace('origin/', '')
-							.replace('refs/heads/', '')}
-					</div>
-					<div class="flex flex-row space-x-1">
+				</button>
+			</div>
+		</div>
+
+		<div class="dark:bg-dark-800" use:accordion={remoteBranchesOpen}>
+			{#each remoteBranches as branch}
+				<div
+					class="flex flex-col justify-between border-t border-light-400 p-2 px-2 dark:border-dark-600"
+					title={branch.branch}
+				>
+					<div class="flex flex-row items-center gap-x-2">
+						<div class="-cursor-pointer flex-grow truncate">
+							{branch.branch
+								.replace('refs/remotes/', '')
+								.replace('origin/', '')
+								.replace('refs/heads/', '')}
+						</div>
 						<div>{branch.ahead}/{branch.behind}</div>
 						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+						{#if branch.mergeable}
+							<button
+								class="p-0 text-light-600 dark:text-dark-400"
+								on:click={() => makeBranch(branch.branch)}
+							>
+								<IconAdd />
+							</button>
+						{/if}
 					</div>
-				</div>
-				{#if branch.lastCommitTs > 0}
-					<div class="flex flex-row justify-between">
-						<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
-						<div title={branch.authors.join('\n')}>
-							{#each branch.authors as author}
-								{author[0]}
-							{/each}
+					{#if branch.lastCommitTs > 0}
+						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
+							<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
+							<div title={branch.authors.join('\n')}>
+								{#each branch.authors as author}
+									{author[0]}
+								{/each}
+							</div>
 						</div>
-					</div>
-				{/if}
-				{#if branch.mergeable}
-					<div class="flex flex-row justify-end">
-						<Button on:click={() => makeBranch(branch.branch)}>apply</Button>
-					</div>
-				{/if}
-			</div>
-		{/each}
+					{/if}
+				</div>
+			{/each}
+		</div>
 	{/if}
 </div>
