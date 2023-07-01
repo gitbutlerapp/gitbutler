@@ -13,7 +13,9 @@
 	import LinkProjectModal from './LinkProjectModal.svelte';
 	import Breadcrumbs from './Breadcrumbs.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
-	import ThemeSelector from './ThemeSelector.svelte';
+	import { initTheme } from '$lib/theme';
+
+	initTheme();
 
 	export let data: LayoutData;
 	const { posthog, projects, sentry, cloud } = data;
