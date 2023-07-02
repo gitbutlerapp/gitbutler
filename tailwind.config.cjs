@@ -6,6 +6,11 @@ const config = {
 		backgroundOpacity: false
 	},
 	theme: {
+		extend: {
+			transitionProperty: {
+				width: 'width'
+			}
+		},
 		fontFamily: {
 			sans: ['Inter', 'SF Pro', '-apple-system', 'system-ui'],
 			mono: ['SF Mono', 'Consolas', 'Liberation Mono', 'monospace']
