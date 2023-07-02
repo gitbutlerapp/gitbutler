@@ -91,7 +91,7 @@
 </script>
 
 <div
-	class="grid h-full w-full flex-auto whitespace-pre border border border-light-200 font-mono text-sm dark:border-dark-700"
+	class="grid h-full w-full flex-auto whitespace-pre font-mono text-sm"
 	style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
 >
 	{#each renderedRows as row}
