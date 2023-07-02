@@ -3,22 +3,22 @@
 	let menu = { h: 0, w: 0 };
 	let browser = { h: 0, w: 0 };
 	let showMenu = false;
-	let itemId: string | undefined;
+	let item: any;
 
 	function onDismiss(e: MouseEvent | KeyboardEvent) {
 		showMenu = false;
 	}
 
-	export function openByMouse(e: MouseEvent, id: string) {
-		show(e.clientX, e.clientY, id);
+	export function openByMouse(e: MouseEvent, item: any) {
+		show(e.clientX, e.clientY, item);
 	}
 
-	export function openByElement(elt: HTMLElement, id: string) {
-		show(elt.offsetLeft + elt.clientWidth, elt.offsetTop + elt.clientHeight, id);
+	export function openByElement(elt: HTMLElement, item: any) {
+		show(elt.offsetLeft + elt.clientWidth, elt.offsetTop + elt.clientHeight, item);
 	}
 
-	function show(x: number, y: number, id: string) {
-		itemId = id;
+	function show(x: number, y: number, newItem: any) {
+		item = newItem;
 		showMenu = true;
 		browser = {
 			w: window.innerWidth,
@@ -55,7 +55,7 @@
 			style="position: absolute; top:{pos.y}px; left:{pos.x}px"
 			class="rounded border border-light-400 bg-white shadow dark:border-dark-600 dark:bg-dark-700"
 		>
-			<slot {itemId} />
+			<slot {item} />
 		</div>
 	</div>
 {/if}

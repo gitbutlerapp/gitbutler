@@ -139,7 +139,7 @@
 		<div class="dark:bg-dark-900" use:accordion={remoteBranchesOpen}>
 			{#each remoteBranches as branch}
 				<div
-					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, branch.sha)}
+					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, branch)}
 					class="flex flex-col justify-between border-t border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
@@ -174,9 +174,8 @@
 			{/each}
 		</div>
 	{/if}
+	<PopupMenu bind:this={popupMenu} let:item>
+		{@const disabled = !remoteBranches.some((b) => b.sha == item.sha && b.mergeable)}
+		<PopupMenuItem {disabled} on:click={() => item && makeBranch(item.name)}>Apply</PopupMenuItem>
+	</PopupMenu>
 </div>
-<PopupMenu bind:this={popupMenu} let:itemId>
-	<PopupMenuItem on:click={() => itemId && virtualBranches.deleteBranch(itemId)}>
-		Delete
-	</PopupMenuItem>
-</PopupMenu>
