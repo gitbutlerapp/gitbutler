@@ -14,6 +14,7 @@
 	export let projectPath: string;
 	export let filepath: string;
 	export let hunks: Hunk[];
+	export let maximized: boolean;
 
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;
@@ -89,7 +90,7 @@
 		{#if expanded}
 			{#each hunks || [] as hunk (hunk.id)}
 				<div
-					class="changed-hunk flex w-full flex-col gap-1 rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
+					class="changed-hunk flex w-full flex-col rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
 					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, hunk)}
 				>
 					<div class="truncate whitespace-normal p-2">
@@ -99,9 +100,9 @@
 					</div>
 					<div class="cursor-pointer overflow-clip text-sm">
 						<!-- Disabling syntax highlighting for performance reasons -->
-						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={2} />
+						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={maximized ? 8 : 2} />
 					</div>
-					<div class="flex p-2 text-sm">
+					<div class="flex px-2 py-1 text-sm">
 						<div class="flex flex-grow gap-1">
 							<div class="text-green-600">+{hunkSize(hunk.diff)[0]}</div>
 							{#if hunkSize(hunk.diff)[1] > 0}

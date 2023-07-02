@@ -34,6 +34,7 @@
 	$: localCommits = commits.filter((c) => !c.isRemote);
 
 	let allExpanded: boolean | undefined;
+	let maximized = false;
 	let descriptionHeight = 0;
 	let textArea: HTMLTextAreaElement;
 	let isPushing = false;
@@ -144,12 +145,17 @@
 </script>
 
 <div
-	class="flex max-h-full w-[22.5rem] shrink-0 flex-col overflow-y-auto py-2 px-3 dark:text-dark-100"
+	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 snap-center flex-col overflow-y-auto py-2 px-3 transition-width dark:text-dark-100"
+	class:w-full={maximized}
+	class:w-96={!maximized}
 >
 	<div
 		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
-		<div class="flex-grow-0 text-light-600 dark:text-dark-200">
+		<div
+			on:dblclick={() => (maximized = !maximized)}
+			class="flex-grow-0 cursor-pointer text-light-600 dark:text-dark-200"
+		>
 			<IconBranch />
 		</div>
 		<div class="flex-grow">
@@ -229,6 +235,7 @@
 					filepath={file.path}
 					expanded={file.expanded}
 					hunks={file.hunks}
+					{maximized}
 					on:update={(e) => {
 						handleFileUpdate(file.id, e.detail);
 					}}
