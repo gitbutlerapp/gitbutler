@@ -167,6 +167,11 @@
 		>
 			<IconMeatballMenu />
 		</button>
+		<PopupMenu bind:this={popupMenu} let:item={branchId}>
+			<PopupMenuItem on:click={() => branchId && virtualBranches.deleteBranch(branchId)}>
+				Delete
+			</PopupMenuItem>
+		</PopupMenu>
 	</div>
 
 	<div
@@ -292,9 +297,3 @@
 		</div>
 	{/if}
 </div>
-
-<PopupMenu bind:this={popupMenu} let:itemId>
-	<PopupMenuItem on:click={() => itemId && virtualBranches.deleteBranch(itemId)}>
-		Delete
-	</PopupMenuItem>
-</PopupMenu>
