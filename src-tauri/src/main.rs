@@ -603,12 +603,13 @@ async fn create_virtual_branch_from_branch(
     handle: tauri::AppHandle,
     project_id: &str,
     branch: &str,
-) -> Result<(), Error> {
+) -> Result<String, Error> {
     let app = handle.state::<app::App>();
-    app.create_virtual_branch_from_branch(project_id, branch)
+    let branch_id = app
+        .create_virtual_branch_from_branch(project_id, branch)
         .await
         .context("failed to create virtual branch from branch")?;
-    Ok(())
+    Ok(branch_id)
 }
 
 #[timed(duration(printer = "debug!"))]

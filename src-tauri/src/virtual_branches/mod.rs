@@ -586,7 +586,7 @@ pub fn list_virtual_branches(
 
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
-        if default_target.sha != branch.head {
+        if (default_target.sha != branch.head) && branch.applied {
             let vtree = write_tree(gb_repository, project_repository, &files)?;
             let repo = &project_repository.git_repository;
             // get the trees
@@ -734,16 +734,16 @@ pub fn create_virtual_branch_from_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_ref: &str,
-) -> Result<()> {
+) -> Result<String> {
     println!("create branch from {}", branch_ref);
     let name = branch_ref
         .replace("refs/heads/", "")
         .replace("refs/remotes/", "")
-        .replace("origin/", "");
+        .replace("origin/", ""); // TODO: get this properly
     let upstream = "refs/heads/".to_string() + &name;
     let current_session = gb_repository
         .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
+        .context("failed to get or create current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
@@ -772,8 +772,9 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to get elapsed time")?
         .as_millis();
 
-    let branch = Branch {
-        id: Uuid::new_v4().to_string(),
+    let branch_id = Uuid::new_v4().to_string();
+    let mut branch = Branch {
+        id: branch_id.clone(),
         name: name.to_string(),
         applied: false,
         upstream: upstream.clone(),
@@ -785,9 +786,25 @@ pub fn create_virtual_branch_from_branch(
         order: max_order + 1,
     };
 
+    // add file ownership based off the diff
+    let target_commit = repo.find_commit(default_target.sha)?;
+    let merge_base = repo.merge_base(target_commit.id(), head_commit.id())?;
+    let merge_tree = repo.find_commit(merge_base)?.tree()?;
+
+    // do a diff between the head of this branch and the target base
+    let diff = repo.diff_tree_to_tree(Some(&merge_tree), Some(&tree), None)?;
+    let hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
+
+    // assign ownership to the branch
+    for hunk in hunks_by_filepath.values().flatten() {
+        branch
+            .ownership
+            .put(&FileOwnership::try_from(&hunk.id).unwrap());
+    }
+
     let writer = branch::Writer::new(gb_repository);
     writer.write(&branch).context("failed to write branch")?;
-    Ok(())
+    Ok(branch_id)
 }
 
 pub fn create_virtual_branch(
@@ -2944,6 +2961,137 @@ mod tests {
         assert_eq!(branch.commits[1].description, "upstream commit 2");
         assert!(branch.commits[1].is_remote);
         assert!(branch.commits[2].is_remote);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_vbranch_from_remote_branch() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        commit_all(&repository)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "http://origin.com/project".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+        repository.remote("origin", "http://origin.com/project")?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nbranch\n",
+        )?;
+        commit_all(&repository)?;
+        repository.reference(
+            "refs/remotes/branch1",
+            repository.head().unwrap().target().unwrap(),
+            true,
+            "update target",
+        )?;
+
+        // reset the first file
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+
+        // create a default branch. there should not be anything on this
+        let branch1_id = create_virtual_branch(&gb_repo, "default branch")
+            .expect("failed to create virtual branch")
+            .id;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].files.len(), 0);
+
+        // create a new virtual branch from the remote branch
+        let branch2_id = create_virtual_branch_from_branch(
+            &gb_repo,
+            &project_repository,
+            "refs/remotes/branch1",
+        )?;
+
+        // shouldn't be anything on either of our branches
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch1.files.len(), 0);
+        assert_eq!(branch1.active, true);
+        let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
+        assert_eq!(branch2.files.len(), 0);
+        assert_eq!(branch2.active, false);
+
+        // file should still be the original
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
+
+        // this should bring in the branch change
+        apply_branch(&gb_repo, &project_repository, &branch2_id)?;
+
+        // file should be the branch version now
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(
+            "line1\nline2\nline3\nline4\nbranch\n",
+            String::from_utf8(contents)?
+        );
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch1.files.len(), 0);
+        assert_eq!(branch1.active, true);
+        let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
+        assert_eq!(branch2.files.len(), 0);
+        assert_eq!(branch2.active, true);
+        assert_eq!(branch2.commits.len(), 1);
+
+        // add to the applied file in the same hunk so it adds to the second branch
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nbranch\nmore branch\n",
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch1.files.len(), 0);
+        assert_eq!(branch1.active, true);
+        let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
+        assert_eq!(branch2.files.len(), 1);
+        assert_eq!(branch2.active, true);
+
+        // add to another file so it goes to the default one
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\n",
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch1.files.len(), 1);
+        assert_eq!(branch1.active, true);
+        let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
+        assert_eq!(branch2.files.len(), 1);
+        assert_eq!(branch2.active, true);
 
         Ok(())
     }

@@ -350,10 +350,6 @@ fn run_info(butler: ButlerCli) {
     if let Some(api) = butler.project.api.as_ref() {
         println!("  {}:", "api".to_string().red());
         println!("   api name: {}", api.name.blue());
-        println!(
-            "   api description: {}",
-            api.description.clone().unwrap().blue()
-        );
         println!("   repo id: {}", api.repository_id.blue());
         println!("   git url: {}", api.git_url.blue());
         println!("   created: {}", api.created_at.blue());

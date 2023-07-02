@@ -36,7 +36,7 @@
 	const cacheKey = 'config:tray-width';
 
 	async function createvBranchFromBranch(params: { projectId: string; branch: string }) {
-		return invoke<void>('create_virtual_branch_from_branch', params);
+		return invoke<string>('create_virtual_branch_from_branch', params);
 	}
 
 	function makeBranch(branch: string) {
