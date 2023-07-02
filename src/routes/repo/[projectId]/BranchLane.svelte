@@ -138,11 +138,13 @@
 	}
 </script>
 
-<div class="flex max-h-full w-[22.5rem] shrink-0 flex-col overflow-y-auto  p-4  dark:text-dark-100">
+<div
+	class="flex max-h-full w-[22.5rem] shrink-0 flex-col overflow-y-auto py-2 px-3 dark:text-dark-100"
+>
 	<div
-		class="mb-2 flex w-full shrink-0 items-center rounded-lg bg-light-200 px-3 py-2 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
-		<div class="mr-3 flex-grow-0 text-light-600 dark:text-dark-200">
+		<div class="flex-grow-0 text-light-600 dark:text-dark-200">
 			<IconBranch />
 		</div>
 		<div class="flex-grow">

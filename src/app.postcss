@@ -43,44 +43,6 @@ textarea {
 
 /* SCROLL BAR STYLING */
 
-/* width */
-::-webkit-scrollbar {
-	width: 8px;
-	height: 8px;
-}
-
-/* Track */
-::-webkit-scrollbar-track {
-	border-radius: 2px;
-}
-
-/* Handle */
-::-webkit-scrollbar-thumb {
-	/* background: #44444A;  */
-	background: rgba(128, 128, 128, 0.3);
-	border-radius: 10px;
-}
-
-/* Handle on hover */
-::-webkit-scrollbar-thumb:hover {
-	background: rgba(128, 128, 128, 0.3);
-}
-.scrollbar-hidden::-webkit-scrollbar {
-	-webkit-appearance: none;
-	width: 0;
-	height: 0;
-}
-.scrollbar-hidden::-webkit-scrollbar {
-	-webkit-appearance: none;
-	width: 0;
-	height: 0;
-}
-
-/* MAIN CONTENT CONTAINER */
-.main-content-container {
-	@apply flex h-full w-2/3 flex-auto flex-col;
-}
-
 /* CARD STYLING */
 .card {
 	@apply rounded border-[0.5px] border-gb-700 bg-card-default shadow;
