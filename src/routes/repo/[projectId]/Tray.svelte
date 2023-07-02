@@ -8,6 +8,8 @@
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
 	import Gravatar from '$lib/components/Gravatar/Gravatar.svelte';
+	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
+	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 
 	export let target: Target;
 	export let branches: Branch[];
@@ -17,6 +19,8 @@
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
+
+	let popupMenu: PopupMenu;
 
 	$: behindMessage = target.behind > 0 ? `behind ${target.behind}` : 'up-to-date';
 
@@ -135,8 +139,8 @@
 		<div class="dark:bg-dark-900" use:accordion={remoteBranchesOpen}>
 			{#each remoteBranches as branch}
 				<div
-					class="flex flex-col justify-between border-t border-light-400 p-2 px-2 dark:border-dark-600"
-					title={branch.branch}
+					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, branch.sha)}
+					class="flex flex-col justify-between border-t border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
 						{#if branch.branch.match('refs/remotes')}
@@ -152,14 +156,6 @@
 						</div>
 						<div>{branch.ahead}/{branch.behind}</div>
 						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
-						{#if branch.mergeable}
-							<button
-								class="p-0 text-light-600 dark:text-dark-400"
-								on:click={() => makeBranch(branch.branch)}
-							>
-								<IconAdd />
-							</button>
-						{/if}
 					</div>
 					{#if branch.lastCommitTs > 0}
 						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
@@ -179,3 +175,8 @@
 		</div>
 	{/if}
 </div>
+<PopupMenu bind:this={popupMenu} let:itemId>
+	<PopupMenuItem on:click={() => itemId && virtualBranches.deleteBranch(itemId)}>
+		Delete
+	</PopupMenuItem>
+</PopupMenu>
