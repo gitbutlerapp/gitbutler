@@ -38,7 +38,7 @@
 
 <div
 	id="branch-lanes"
-	class="flex max-w-full flex-shrink flex-grow items-start overflow-x-auto overflow-y-hidden bg-light-200 px-2 dark:bg-dark-1000"
+	class="flex max-w-full flex-shrink flex-grow items-start overflow-x-auto overflow-y-hidden bg-light-200 dark:bg-dark-1000"
 	use:dndzone={{
 		items: branches,
 		types: ['branch'],
