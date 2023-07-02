@@ -212,21 +212,13 @@ pub fn unapply_branch(
     }
     .context("failed to read default target")?;
 
-    let virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
+    let branch_reader = branch::Reader::new(&current_session_reader);
 
     let writer = branch::Writer::new(gb_repository);
 
-    let mut target_branch = virtual_branches
-        .iter()
-        .find(|b| b.id == branch_id)
-        .context("failed to find target branch")?
-        .clone();
+    let mut target_branch = branch_reader
+        .read(&branch_id)
+        .context("failed to read branch")?;
 
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
