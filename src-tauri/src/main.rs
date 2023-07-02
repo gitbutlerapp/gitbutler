@@ -818,8 +818,6 @@ fn main() {
                 LogTarget::LogDir,
                 #[cfg(debug_assertions)]
                 LogTarget::Stdout,
-                #[cfg(debug_assertions)]
-                LogTarget::Webview,
             ];
             tauri_plugin_log::Builder::default()
                 .filter(|metadata| {
