@@ -734,7 +734,7 @@ pub fn create_virtual_branch_from_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_ref: &str,
-) -> Result<()> {
+) -> Result<String> {
     println!("create branch from {}", branch_ref);
     let name = branch_ref
         .replace("refs/heads/", "")
@@ -772,8 +772,19 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to get elapsed time")?
         .as_millis();
 
+    /*
+    let mut ownership = target_branch.ownership.clone();
+    ownership.put(
+        &selected_files
+            .join("\n")
+            .try_into()
+            .expect("failed to convert to ownership"),
+    );
+    */
+
+    let branch_id = Uuid::new_v4().to_string();
     let branch = Branch {
-        id: Uuid::new_v4().to_string(),
+        id: branch_id.clone(),
         name: name.to_string(),
         applied: false,
         upstream: upstream.clone(),
@@ -787,7 +798,7 @@ pub fn create_virtual_branch_from_branch(
 
     let writer = branch::Writer::new(gb_repository);
     writer.write(&branch).context("failed to write branch")?;
-    Ok(())
+    Ok(branch_id)
 }
 
 pub fn create_virtual_branch(
@@ -2944,6 +2955,93 @@ mod tests {
         assert_eq!(branch.commits[1].description, "upstream commit 2");
         assert!(branch.commits[1].is_remote);
         assert!(branch.commits[2].is_remote);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_vbranch_from_remote_branch() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch_writer = branch::Writer::new(&gb_repo);
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        commit_all(&repository)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "http://origin.com/project".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+        repository.remote("origin", "http://origin.com/project")?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nbranch\n",
+        )?;
+        commit_all(&repository)?;
+        repository.reference(
+            "refs/remotes/branch1",
+            repository.head().unwrap().target().unwrap(),
+            true,
+            "update target",
+        )?;
+
+        // reset the first file
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+
+        /*
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\n",
+        )?;
+        */
+
+        let branch1_id = create_virtual_branch(&gb_repo, "default branch")
+            .expect("failed to create virtual branch")
+            .id;
+
+        //let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        //dbg!(branches);
+
+        let branch2_id = create_virtual_branch_from_branch(
+            &gb_repo,
+            &project_repository,
+            "refs/remotes/branch1",
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        dbg!(branches);
+
+        apply_branch(&gb_repo, &project_repository, &branch2_id)?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        dbg!(branches);
 
         Ok(())
     }
