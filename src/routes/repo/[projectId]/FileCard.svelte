@@ -78,7 +78,7 @@
 		{#if expanded}
 			{#each hunks || [] as hunk (hunk.id)}
 				<div
-					class="changed-hunk flex w-full flex-col gap-1 rounded-lg border border-light-200 dark:border-dark-400"
+					class="changed-hunk flex w-full flex-col gap-1 rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-800"
 				>
 					<div class="truncate whitespace-normal p-2">
 						{#await summarizeHunk(hunk.diff) then description}
