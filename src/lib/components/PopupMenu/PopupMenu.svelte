@@ -45,7 +45,7 @@
 
 {#if showMenu}
 	<div
-		class="absolute top-0 left-0 z-10 h-full w-full"
+		class="absolute top-0 left-0 z-50 h-full w-full"
 		on:click={onDismiss}
 		on:keydown={onDismiss}
 		on:contextmenu|preventDefault={onDismiss}

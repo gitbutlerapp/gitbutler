@@ -1,6 +1,7 @@
 import type { Target, BranchData } from './types';
 import { invoke } from '$lib/ipc';
 import type { PageLoadEvent } from './$types';
+import { api } from '$lib';
 
 async function getRemoteBranches(params: { projectId: string }) {
 	return invoke<Array<string>>('git_remote_branches', params);
@@ -24,7 +25,8 @@ export async function load(e: PageLoadEvent) {
 	const target = await getTargetData({ projectId });
 	const remoteBranches = await getRemoteBranches({ projectId });
 	const remoteBranchesData = sortBranchData(await getRemoteBranchesData({ projectId }));
-	return { projectId, target, remoteBranches, remoteBranchesData };
+	const project = api.projects.get({ id: projectId });
+	return { projectId, target, remoteBranches, remoteBranchesData, project };
 }
 
 if (import.meta.vitest) {

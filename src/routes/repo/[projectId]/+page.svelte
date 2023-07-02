@@ -6,7 +6,7 @@
 	import { Value } from 'svelte-loadable-store';
 
 	export let data: PageData;
-	let { projectId, target, remoteBranches, remoteBranchesData } = data;
+	let { projectId, project, target, remoteBranches, remoteBranchesData } = data;
 	const virtualBranches = getVirtualBranches(projectId);
 	$: branches =
 		!$virtualBranches.isLoading && !Value.isError($virtualBranches.value)
@@ -18,7 +18,7 @@
 {#if target}
 	<div class="flex w-full max-w-full">
 		<Tray {branches} {projectId} {target} remoteBranches={remoteBranchesData} {virtualBranches} />
-		<Board {branches} {projectId} {virtualBranches} />
+		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} />
 	</div>
 {:else}
 	<div class="m-auto flex flex-col space-y-2">
