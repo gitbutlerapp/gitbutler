@@ -7,7 +7,11 @@
 	import HunkDiffViewer from './HunkDiffViewer.svelte';
 	import { summarizeHunk } from '$lib/summaries';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
+	import { open } from '@tauri-apps/api/shell';
+	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
+	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 
+	export let projectPath: string;
 	export let filepath: string;
 	export let hunks: Hunk[];
 
@@ -16,6 +20,8 @@
 		update: Hunk[];
 	}>();
 	export let expanded: boolean | undefined;
+
+	let popupMenu: PopupMenu;
 
 	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
 		hunks = e.detail.items;
@@ -38,12 +44,17 @@
 			'</span>'
 		);
 	}
+
+	// This should be refactored, it's borrowed from HunkDiffViewer
+	function getFirstLineNumber(diff: string): number {
+		return parseInt(diff.split('\n')[0].split('@@')[1].trim().split(' ')[0].split(',')[0].slice(1));
+	}
 </script>
 
 <div
 	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg bg-white text-dark-600 shadow dark:bg-dark-800 dark:text-light-300"
 >
-	<div class="flex items-center gap-2">
+	<div class="flex items-center">
 		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap px-2" title={filepath}>
 			{@html boldenFilename(filepath)}
 		</div>
@@ -79,6 +90,7 @@
 			{#each hunks || [] as hunk (hunk.id)}
 				<div
 					class="changed-hunk flex w-full flex-col gap-1 rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-800"
+					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, hunk)}
 				>
 					<div class="truncate whitespace-normal p-2">
 						{#await summarizeHunk(hunk.diff) then description}
@@ -106,4 +118,12 @@
 			{/each}
 		{/if}
 	</div>
+	<PopupMenu bind:this={popupMenu} let:item={hunk}>
+		<PopupMenuItem
+			on:click={() =>
+				open(`vscode://file${projectPath}/${filepath}:${getFirstLineNumber(hunk.diff)}`)}
+		>
+			Open in VS Code
+		</PopupMenuItem>
+	</PopupMenu>
 </div>

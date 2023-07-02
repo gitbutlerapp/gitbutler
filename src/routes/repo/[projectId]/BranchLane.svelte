@@ -21,6 +21,7 @@
 	}>();
 
 	export let branchId: string;
+	export let projectPath: string;
 	export let name: string;
 	export let commitMessage: string;
 	export let upstream: string;
@@ -224,6 +225,7 @@
 						setExpandedWithCache(file, e.detail);
 						expandFromCache();
 					}}
+					{projectPath}
 				/>
 			{/each}
 			{#if files.filter((x) => x.hunks).length > 0}

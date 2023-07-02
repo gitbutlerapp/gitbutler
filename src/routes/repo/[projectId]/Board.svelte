@@ -7,6 +7,7 @@
 	import type { VirtualBranchOperations } from './vbranches';
 
 	export let projectId: string;
+	export let projectPath: string;
 	export let branches: Branch[];
 	export let virtualBranches: VirtualBranchOperations;
 
@@ -62,6 +63,7 @@
 			{upstream}
 			branchId={id}
 			{virtualBranches}
+			{projectPath}
 		/>
 	{/each}
 	<NewBranchDropZone {branches} {virtualBranches} />
