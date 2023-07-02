@@ -168,21 +168,21 @@
 		>
 			<IconMeatballMenu />
 		</button>
-		<PopupMenu bind:this={popupMenu} let:item={branchId}>
-			<PopupMenuItem on:click={() => branchId && virtualBranches.deleteBranch(branchId)}>
-				Delete
-			</PopupMenuItem>
-		</PopupMenu>
 	</div>
+	<PopupMenu bind:this={popupMenu} let:item={branchId}>
+		<PopupMenuItem on:click={() => branchId && virtualBranches.deleteBranch(branchId)}>
+			Delete
+		</PopupMenuItem>
+	</PopupMenu>
 
 	<div
-		class="flex flex-col rounded-lg bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-900"
+		class="flex flex-col rounded bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-800"
 	>
-		<div class="mb-4 flex items-center">
+		<div class="mb-2 flex items-center">
 			{#if files.filter((x) => x.hunks).length > 0}
 				<textarea
 					bind:this={textArea}
-					class="h-14 shrink-0 flex-grow resize-none rounded border border-light-200 bg-white p-2 text-dark-800 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+					class="h-14 shrink-0 flex-grow resize-none rounded border border-light-200 bg-white p-2 text-dark-700 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 					style="height: {descriptionHeight}px"
 					value={commitMessage ? commitMessage.trim() : ''}
 					placeholder="Your commit message here..."
@@ -200,6 +200,17 @@
 						<IconTriangleDown />
 					{/if}
 				</button>
+			{/if}
+		</div>
+		<div class="mb-4">
+			{#if files.filter((x) => x.hunks).length > 0}
+				<Button
+					height="small"
+					color="purple"
+					on:click={() => {
+						commit();
+					}}>Commit</Button
+				>
 			{/if}
 		</div>
 		<div
@@ -228,15 +239,7 @@
 					{projectPath}
 				/>
 			{/each}
-			{#if files.filter((x) => x.hunks).length > 0}
-				<Button
-					width="full-width"
-					color="purple"
-					on:click={() => {
-						commit();
-					}}>Commit</Button
-				>
-			{:else}
+			{#if files.filter((x) => x.hunks).length == 0}
 				<div class="p-3 pt-0">No uncommitted work on this branch.</div>
 			{/if}
 		</div>
