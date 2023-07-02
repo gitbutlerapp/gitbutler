@@ -5,6 +5,22 @@
 	import { getVirtualBranches } from './vbranches';
 	import { Value } from 'svelte-loadable-store';
 
+	import hljs from 'highlight.js/lib/core';
+	import javascript from 'highlight.js/lib/languages/javascript';
+	import css from 'highlight.js/lib/languages/css';
+	import typescript from 'highlight.js/lib/languages/typescript';
+	import http from 'highlight.js/lib/languages/http';
+	import rust from 'highlight.js/lib/languages/rust';
+	import python from 'highlight.js/lib/languages/python';
+
+	hljs.registerLanguage('javascript', javascript);
+	hljs.registerLanguage('css', css);
+	hljs.registerLanguage('typescript', typescript);
+	hljs.registerLanguage('http', http);
+	hljs.registerLanguage('typescript', typescript);
+	hljs.registerLanguage('rust', rust);
+	hljs.registerLanguage('python', python);
+
 	export let data: PageData;
 	let { projectId, project, target, remoteBranches, remoteBranchesData } = data;
 	const virtualBranches = getVirtualBranches(projectId);
