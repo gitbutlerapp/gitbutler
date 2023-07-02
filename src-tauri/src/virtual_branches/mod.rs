@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
+use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 
 pub use branch::Branch;
@@ -1514,10 +1515,38 @@ fn write_tree(
         // convert this string to a Path
         let full_path = std::path::Path::new(&project.path).join(&file.path);
         let rel_path = std::path::Path::new(&file.path);
+
         // if file exists
         if full_path.exists() {
-            // add file to index
-            index.add_path(rel_path).unwrap();
+            // get contents for this path from the index
+            match index.get_path(rel_path, 0) {
+                Some(index_entry) => {
+                    // if the file exists in the target, then patch it
+                    let blob = git_repository.find_blob(index_entry.id)?;
+                    let blob_contents = blob.content();
+
+                    // create a patch to apply from all the hunks
+                    let mut patch = "--- original\n+++ modified\n".to_string();
+                    for hunk in &file.hunks {
+                        patch.push_str(&hunk.diff);
+                    }
+
+                    // apply patch to blob_contents
+                    let patch_bytes = patch.as_bytes();
+                    let patch = Patch::from_bytes(&patch_bytes).unwrap();
+                    let new_content = apply_bytes(blob_contents, &patch).unwrap();
+
+                    // add_frombuffer
+                    index.add_frombuffer(&index_entry, &new_content).unwrap();
+                }
+                None => {
+                    // if the file is new, then add it
+                    index.add_path(rel_path).unwrap();
+                }
+            }
+        } else {
+            // remove file from index
+            index.remove_path(rel_path).unwrap();
         }
     }
 
@@ -1708,6 +1737,7 @@ mod tests {
         )?;
         Ok(repository)
     }
+
     #[test]
     fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         let repository = test_repository()?;
@@ -3094,5 +3124,227 @@ mod tests {
         assert_eq!(branch2.active, true);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_partial_commit() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
+        )?;
+        commit_all(&repository)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch_1")
+            .expect("failed to create virtual branch")
+            .id;
+        let branch2_id = create_virtual_branch(&gb_repo, "test_branch_2")
+            .expect("failed to create virtual branch")
+            .id;
+
+        // create a change with two hunks
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nmiddle\nline11\nline12\npatch3\n",
+        )?;
+
+        // move hunk1 and hunk3 to branch2
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch_writer = branch::Writer::new(&gb_repo);
+        let branch2 = branch_reader.read(&branch2_id)?;
+        branch_writer.write(&branch::Branch {
+            ownership: Ownership {
+                files: vec!["test.txt:9-16".try_into()?],
+            },
+            ..branch2
+        })?;
+        let branch1 = branch_reader.read(&branch1_id)?;
+        branch_writer.write(&branch::Branch {
+            ownership: Ownership {
+                files: vec!["test.txt:1-6".try_into()?, "test.txt:17-24".try_into()?],
+            },
+            ..branch1
+        })?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch1.files[0].hunks.len(), 2);
+        let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
+        assert_eq!(branch2.files[0].hunks.len(), 1);
+
+        // commit
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "branch1 commit",
+            None,
+        )?;
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch2_id,
+            "branch2 commit",
+            None,
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
+
+        // branch one test.txt has just the 1st and 3rd hunks applied
+        let commit = &branch1.commits[0].id;
+        let contents = commit_sha_to_contents(&repository, &commit, "test.txt");
+        assert_eq!(contents, "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nmiddle\nline11\nline12\npatch3\n");
+
+        // branch two test.txt has just the middle hunk applied
+        let commit = &branch2.commits[0].id;
+        let contents = commit_sha_to_contents(&repository, &commit, "test.txt");
+        assert_eq!(contents, "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n");
+
+        Ok(())
+    }
+
+    fn commit_sha_to_contents(repository: &git2::Repository, commit: &str, path: &str) -> String {
+        let commit = git2::Oid::from_str(commit).expect("failed to parse oid");
+        let commit = repository
+            .find_commit(commit)
+            .expect("failed to get commit object");
+        // get the tree
+        let tree = commit.tree().expect("failed to get tree");
+        // get the blob
+        let tree_entry = tree
+            .get_path(std::path::Path::new(path))
+            .expect("failed to get blob");
+        // blob from tree_entry
+        let blob = tree_entry
+            .to_object(&repository)
+            .unwrap()
+            .peel_to_blob()
+            .expect("failed to get blob");
+
+        // get the contents
+        let contents = blob.content();
+        let contents = std::str::from_utf8(contents).expect("failed to convert to string");
+        contents.to_string()
+    }
+
+    #[test]
+    fn test_commit_add_and_delete_files() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "file1\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\n",
+        )?;
+        commit_all(&repository)?;
+
+        let commit1_oid = repository.head().unwrap().target().unwrap();
+        let commit1 = repository.find_commit(commit1_oid).unwrap();
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: commit1_oid,
+            behind: 0,
+        })?;
+
+        // remove file
+        std::fs::remove_file(std::path::Path::new(&project.path).join(file_path2))?;
+        // add new file
+        let file_path3 = std::path::Path::new("test3.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "file3\n",
+        )?;
+
+        let branch1_id = create_virtual_branch(&gb_repo, "test_branch_1")
+            .expect("failed to create virtual branch")
+            .id;
+
+        // commit
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch1_id,
+            "branch1 commit",
+            None,
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+
+        // branch one test.txt has just the 1st and 3rd hunks applied
+        let commit2 = &branch1.commits[0].id;
+        let commit2 = git2::Oid::from_str(commit2).expect("failed to parse oid");
+        let commit2 = repository
+            .find_commit(commit2)
+            .expect("failed to get commit object");
+
+        let tree = commit1.tree().expect("failed to get tree");
+        let file_list = tree_to_file_list(&repository, &tree);
+        assert_eq!(file_list, vec!["test.txt", "test2.txt"]);
+
+        // get the tree
+        let tree = commit2.tree().expect("failed to get tree");
+        let file_list = tree_to_file_list(&repository, &tree);
+        assert_eq!(file_list, vec!["test.txt", "test3.txt"]);
+
+        Ok(())
+    }
+
+    fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Vec<String> {
+        let mut file_list = Vec::new();
+        for entry in tree.iter() {
+            let path = entry.name().unwrap();
+            let entry = tree.get_path(std::path::Path::new(path)).unwrap();
+            let object = entry.to_object(&repository).unwrap();
+            if object.kind() == Some(git2::ObjectType::Blob) {
+                file_list.push(path.to_string());
+            }
+        }
+        file_list
     }
 }
