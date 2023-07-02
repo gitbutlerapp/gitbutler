@@ -1,4 +1,6 @@
 <script lang="ts">
+	import hljs from 'highlight.js/lib/core';
+	import github from 'highlight.js/styles/github.css';
 	import { buildDiffRows, documentMap, RowType, type Row } from '$lib/components/Differ/renderer';
 	import { line, type DiffArray } from '$lib/diff';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
@@ -54,9 +56,7 @@
 			let tokenContent = '';
 
 			doc.highlightRange(pos, pos + token.text.length, (text, classNames) => {
-				const token = classNames
-					? `<span class=${classNames}>${sanitize(text)}</span>`
-					: sanitize(text);
+				const token = classNames ? `<span class=${classNames}>${text}</span>` : text;
 
 				tokenContent += token;
 			});
@@ -79,7 +79,8 @@
 		return element.innerHTML;
 	}
 
-	$: parsedHunk = parseHunk(diff, linesShown);
+	$: highlightedRows = hljs.highlightAuto(diff).value;
+	$: parsedHunk = parseHunk(highlightedRows, linesShown);
 	$: diffRows = parsedHunk.diffRows;
 	$: originalLineNumber = parsedHunk.originalLineNumber;
 	$: currentLineNumber = parsedHunk.currentLineNumber;
@@ -89,6 +90,10 @@
 	$: currentMap = documentMap(diffRows.currentLines);
 	$: renderedRows = diffRows.rows.map((row) => ({ ...row, render: renderRowContent(row) }));
 </script>
+
+<svelte:head>
+	{@html github}
+</svelte:head>
 
 <div
 	class="grid h-full w-full flex-auto whitespace-pre font-mono text-sm"
@@ -115,7 +120,7 @@
 			{curNumber}
 		</span>
 		<span
-			class="pl-1 diff-line-{row.type} overflow-hidden whitespace-nowrap"
+			class="pl-1 diff-line-{row.type} overflow-hidden whitespace-pre"
 			class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
 		>
 			{#each row.render.html as content}

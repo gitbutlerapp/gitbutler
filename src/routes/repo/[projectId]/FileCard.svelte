@@ -53,7 +53,7 @@
 </script>
 
 <div
-	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+	class="changed-file flex w-full flex-col justify-center gap-2 rounded border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 >
 	<div class="flex items-center px-2 pt-2">
 		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap " title={filepath}>

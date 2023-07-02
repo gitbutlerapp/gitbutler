@@ -64,6 +64,7 @@
 		"eslint-plugin-import": "^2.27.5",
 		"eslint-plugin-square-svelte-store": "^1.0.0",
 		"eslint-plugin-svelte": "^2.29.0",
+		"highlight.js": "^11.8.0",
 		"histoire": "^0.16.1",
 		"inter-ui": "^3.19.3",
 		"leven": "^4.0.0",
