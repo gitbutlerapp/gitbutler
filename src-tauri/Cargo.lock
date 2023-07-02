@@ -996,6 +996,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "diffy"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e616e59155c92257e84970156f506287853355f58cd4a6eb167385722c32b790"
+dependencies = [
+ "nu-ansi-term",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1633,6 +1642,7 @@ dependencies = [
  "clap",
  "colored 2.0.0",
  "dialoguer",
+ "diffy",
  "dirs 5.0.1",
  "filetime",
  "fslock",
