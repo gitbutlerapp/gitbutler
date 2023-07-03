@@ -132,6 +132,12 @@ impl<'handler> Handler {
                     .context("failed to send git head event")?;
                 Ok(vec![])
             }
+            events::Event::GitFetch => {
+                self.events_sender
+                    .send(app_events::Event::git_fetch(&self.project_id))
+                    .context("failed to send git fetch event")?;
+                Ok(vec![])
+            }
             events::Event::GitIndexChange => {
                 self.events_sender
                     .send(app_events::Event::git_index(&self.project_id))
