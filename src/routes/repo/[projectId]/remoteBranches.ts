@@ -10,6 +10,7 @@ const cache: Map<string, RemoteBranchOperations & Readable<Loadable<BranchData[]
 
 export interface RemoteBranchOperations {
 	updateBranchTarget(): Promise<void | object>;
+	createvBranchFromBranch(branch: string): Promise<void | string>;
 }
 
 export function getRemoteBranches(
@@ -22,7 +23,8 @@ export function getRemoteBranches(
 	const writeable = createWriteable(projectId);
 	const store: RemoteBranchOperations & Readable<Loadable<BranchData[]>> = {
 		subscribe: writeable.subscribe,
-		updateBranchTarget: () => updateBranchTarget(writeable, projectId)
+		updateBranchTarget: () => updateBranchTarget(writeable, projectId),
+		createvBranchFromBranch: (branch) => createvBranchFromBranch(writeable, projectId, branch)
 	};
 
 	cache.set(projectId, store);
@@ -58,6 +60,20 @@ function refresh(projectId: string, store: Writable<Loadable<BranchData[]>>) {
 function sortBranchData(branchData: BranchData[]): BranchData[] {
 	// sort remote_branches_data by date
 	return branchData.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
+}
+
+async function createvBranchFromBranch(
+	writable: Writable<Loadable<BranchData[]>>,
+	projectId: string,
+	branch: string
+) {
+	return invoke<string>('create_virtual_branch_from_branch', { projectId, branch })
+		.then(() => {
+			refresh(projectId, writable);
+		})
+		.catch(() => {
+			error('Unable to create virtual branch from branch!');
+		});
 }
 
 async function getRemoteBranchesData(projectId: string) {
