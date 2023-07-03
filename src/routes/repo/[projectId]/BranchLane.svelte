@@ -176,8 +176,8 @@
 		</button>
 	</div>
 	<PopupMenu bind:this={popupMenu} let:item={branchId}>
-		<PopupMenuItem on:click={() => branchId && virtualBranches.deleteBranch(branchId)}>
-			Delete
+		<PopupMenuItem on:click={() => branchId && virtualBranches.unapplyBranch(branchId)}>
+			Unapply
 		</PopupMenuItem>
 	</PopupMenu>
 
