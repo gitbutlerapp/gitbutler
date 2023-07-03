@@ -242,7 +242,9 @@
 				height="small"
 				color="destructive"
 				on:click={() => {
-					virtualBranches.deleteBranch(item.id);
+					virtualBranches.deleteBranch(item.id).then(() => {
+						remoteBranchOperations.refresh();
+					});
 					close();
 				}}
 			>
