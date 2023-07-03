@@ -23,7 +23,7 @@
 </script>
 
 <dialog
-	class="bg-transparent"
+	class="rounded-lg border-[0.5px] border-light-200 bg-white p-0 backdrop:bg-black/10 dark:border-dark-500 dark:bg-dark-700 backdrop:dark:bg-black/20"
 	in:scale={{ duration: 150 }}
 	bind:this={dialog}
 	on:close={close}
