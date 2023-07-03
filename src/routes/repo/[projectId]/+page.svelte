@@ -3,7 +3,6 @@
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
 	import { getVirtualBranches } from './vbranches';
-	import { getRemoteBranches } from './remoteBranches';
 	import { Value } from 'svelte-loadable-store';
 
 	import hljs from 'highlight.js/lib/core';
@@ -29,17 +28,12 @@
 		!$virtualBranches.isLoading && !Value.isError($virtualBranches.value)
 			? $virtualBranches.value
 			: [];
-	const remoteBranchesStore = getRemoteBranches(projectId);
-	$: remoteBranchesData =
-		!$remoteBranchesStore.isLoading && !Value.isError($remoteBranchesStore.value)
-			? $remoteBranchesStore.value
-			: [];
 	let targetChoice = 'origin/master'; // prob should check if it exists
 </script>
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray {branches} {projectId} {target} remoteBranches={remoteBranchesData} {virtualBranches} />
+		<Tray {branches} {projectId} {target} {virtualBranches} />
 		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} />
 	</div>
 {:else}
