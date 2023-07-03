@@ -1083,7 +1083,6 @@ fn diff_to_hunks_by_filepath(
                 .unwrap()
                 .join(file_path),
         );
-
         if is_hunk_changed || is_path_changed {
             let file_path = current_file_path
                 .as_ref()
@@ -1230,40 +1229,55 @@ pub fn get_status_by_branch(
                                     current_hunk.start,
                                     current_hunk.end,
                                     Some(current_hunk.hash.clone()),
+                                    Some(current_hunk.modified_at),
                                 )
                                 .unwrap();
                                 if owned_hunk.eq(&ch) {
-                                    // if it's an exact match, push it to the end, preserving the
-                                    // order
+                                    // try to re-use old timestamp
+                                    let timestamp = owned_hunk
+                                        .timestam_ms()
+                                        .unwrap_or(current_hunk.modified_at);
+
+                                    // push hunk to the end of the list, preserving the order
                                     hunks_by_branch_id
                                         .entry(branch.id.clone())
                                         .or_default()
-                                        .push(current_hunk.clone());
+                                        .push(VirtualBranchHunk {
+                                            modified_at: timestamp,
+                                            ..current_hunk.clone()
+                                        });
+
                                     // remove the hunk from the current hunks because each hunk can
                                     // only be owned once
                                     current_hunks.remove(i);
-                                    return Some(ch);
+
+                                    return Some(owned_hunk.with_timestamp(timestamp));
                                 } else if owned_hunk.intersects(&ch) {
-                                    // if it's an intersection, push it to the beginning,
+                                    // if it's an intersection, push the hunk to the beginning,
                                     // indicating the the hunk has been updated
                                     hunks_by_branch_id
                                         .entry(branch.id.clone())
                                         .or_default()
                                         .insert(0, current_hunk.clone());
-                                    // track updated hunks
+
+                                    // track updated hunks to bubble them up later
                                     updated.push(FileOwnership {
                                         file_path: file_owership.file_path.clone(),
                                         hunks: vec![ch.clone()],
                                     });
+
                                     // remove the hunk from the current hunks because each hunk can
                                     // only be owned once
                                     current_hunks.remove(i);
+
+                                    // return updated version, with new hash and/or timestamp
                                     return Some(ch);
                                 }
                             }
                             None
                         })
                         .collect();
+
                     if updated_hunks.is_empty() {
                         // if there are no hunks left, we don't want the file either
                         None
@@ -1276,6 +1290,7 @@ pub fn get_status_by_branch(
                 })
                 .collect(),
         };
+
         // add the updated hunks to the branch again to promote them to the top
         updated
             .iter()
@@ -1284,9 +1299,13 @@ pub fn get_status_by_branch(
 
     // put the remaining hunks into the default (first) branch
     for hunk in hunks_by_filepath.values().flatten() {
-        virtual_branches[0]
-            .ownership
-            .put(&FileOwnership::try_from(&hunk.id).unwrap());
+        virtual_branches[0].ownership.put(
+            &FileOwnership::try_from(format!(
+                "{}:{}-{}-{}-{}",
+                hunk.file_path, hunk.start, hunk.end, hunk.hash, hunk.modified_at,
+            ))
+            .unwrap(),
+        );
         hunks_by_branch_id
             .entry(virtual_branches[0].id.clone())
             .or_default()
@@ -1579,27 +1598,16 @@ fn write_tree(
                     let blob_contents = blob.content();
 
                     let mut patch = "--- original\n+++ modified\n".to_string();
-
-                    // create a patch to apply from all the hunks
-                    // force order patches by line number
-                    let mut sorted_diffs: Vec<String> = file
-                        .hunks
-                        .iter()
-                        .map(|s| s.diff.clone()) // extract the 'diff' field from each struct
-                        .collect(); // collect into a new vector
-                                    // Sort the vector of diffs by the 'start' field
-                    sorted_diffs.sort_by_key(|diff| {
-                        let index = file.hunks.iter().position(|s| s.diff == *diff).unwrap(); // unwrap is safe assuming diffs are always found
-                        file.hunks[index].start
-                    });
-
-                    for diff in sorted_diffs {
-                        patch.push_str(&diff.clone());
+                    // make sure hunks are in order
+                    let mut hunks = file.hunks.to_vec();
+                    hunks.sort_by_key(|hunk| hunk.start);
+                    for hunk in hunks {
+                        patch.push_str(&hunk.diff);
                     }
 
                     // apply patch to blob_contents
                     let patch_bytes = patch.as_bytes();
-                    let patch = Patch::from_bytes(&patch_bytes)?;
+                    let patch = Patch::from_bytes(patch_bytes)?;
                     let new_content = apply_bytes(blob_contents, &patch)?;
 
                     // add_frombuffer
@@ -1763,6 +1771,8 @@ fn fetch(project_path: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::{thread, time::Duration};
+
     use tempfile::tempdir;
 
     use crate::{projects, storage, users};
@@ -2101,10 +2111,15 @@ mod tests {
             "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
         )?;
         get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        let files = branch_reader.read(&branch1_id)?.ownership.files;
+        assert_eq!(files, vec!["test.txt:11-15,1-5".try_into()?]);
         assert_eq!(
-            branch_reader.read(&branch1_id)?.ownership.files,
-            vec!["test.txt:11-15,1-5".try_into()?]
+            files[0].hunks[0].timestam_ms(),
+            files[0].hunks[1].timestam_ms(),
+            "timestamps must be the same"
         );
+
+        thread::sleep(Duration::from_millis(10)); // make sure timestamps are different
 
         // wriging a new file should put it on the top
         let file_path2 = std::path::Path::new("test2.txt");
@@ -2112,14 +2127,30 @@ mod tests {
             std::path::Path::new(&project.path).join(file_path2),
             "hello",
         )?;
+
         get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        let files1 = branch_reader.read(&branch1_id)?.ownership.files;
         assert_eq!(
-            branch_reader.read(&branch1_id)?.ownership.files,
+            files1,
             vec![
                 "test2.txt:1-2".try_into()?,
                 "test.txt:11-15,1-5".try_into()?
             ]
         );
+
+        assert_ne!(
+            files1[0].hunks[0].timestam_ms(),
+            files1[1].hunks[0].timestam_ms(),
+            "new file timestamp must be different"
+        );
+
+        assert_eq!(
+            files[0].hunks[0].timestam_ms(),
+            files1[1].hunks[0].timestam_ms(),
+            "old file timestamp must not change"
+        );
+
+        thread::sleep(Duration::from_millis(10)); // make sure timestamps are different
 
         // update second hunk, it should make both file and hunk bubble up
         std::fs::write(
@@ -2127,12 +2158,29 @@ mod tests {
             "line0\nline1update\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
         )?;
         get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+        let files2 = branch_reader.read(&branch1_id)?.ownership.files;
         assert_eq!(
-            branch_reader.read(&branch1_id)?.ownership.files,
+            files2,
             vec![
                 "test.txt:1-6,11-15".try_into()?,
                 "test2.txt:1-2".try_into()?,
             ]
+        );
+
+        assert_ne!(
+            files2[0].hunks[0].timestam_ms(),
+            files2[0].hunks[1].timestam_ms(),
+            "new file timestamps must be different"
+        );
+        assert_eq!(
+            files2[0].hunks[1].timestam_ms(),
+            files1[1].hunks[0].timestam_ms(),
+            "old file timestamp must not change"
+        );
+        assert_eq!(
+            files2[1].hunks[0].timestam_ms(),
+            files1[0].hunks[0].timestam_ms(),
+            "old file timestamp must not change"
         );
 
         Ok(())

@@ -5,6 +5,7 @@ use anyhow::{anyhow, Context, Result};
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
     hash: Option<String>,
+    timestamp_ms: Option<u128>,
     start: usize,
     end: usize,
 }
@@ -25,6 +26,7 @@ impl From<RangeInclusive<usize>> for Hunk {
             start: *range.start(),
             end: *range.end(),
             hash: None,
+            timestamp_ms: None,
         }
     }
 }
@@ -50,29 +52,73 @@ impl TryFrom<&str> for Hunk {
             Err(anyhow!("invalid range: {}", s))
         }?;
 
-        let hash = range.next().map(|s| s.to_string());
+        let hash = if let Some(raw_hash) = range.next() {
+            if raw_hash.is_empty() {
+                None
+            } else {
+                Some(raw_hash.to_string())
+            }
+        } else {
+            None
+        };
 
-        Hunk::new(start, end, hash)
+        let timestamp_ms = if let Some(raw_timestamp_ms) = range.next() {
+            Some(
+                raw_timestamp_ms
+                    .parse::<u128>()
+                    .context(format!("failed to parse timestamp_ms of range: {}", s))?,
+            )
+        } else {
+            None
+        };
+
+        Hunk::new(start, end, hash, timestamp_ms)
     }
 }
 
 impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{}", self.start, self.end)?;
         if let Some(hash) = self.hash.as_ref() {
-            write!(f, "{}-{}-{}", self.start, self.end, hash)
-        } else {
-            write!(f, "{}-{}", self.start, self.end)
+            write!(f, "-{}", hash)?;
         }
+        if let Some(timestamp_ms) = self.timestamp_ms {
+            write!(f, "-{}", timestamp_ms)?;
+        }
+        Ok(())
     }
 }
 
 impl Hunk {
-    pub fn new(start: usize, end: usize, hash: Option<String>) -> Result<Self> {
+    pub fn new(
+        start: usize,
+        end: usize,
+        hash: Option<String>,
+        timestamp_ms: Option<u128>,
+    ) -> Result<Self> {
         if start > end {
             Err(anyhow!("invalid range: {}-{}", start, end))
         } else {
-            Ok(Hunk { start, end, hash })
+            Ok(Hunk {
+                start,
+                end,
+                hash,
+                timestamp_ms,
+            })
         }
+    }
+
+    pub fn with_timestamp(&self, timestamp_ms: u128) -> Self {
+        Hunk {
+            start: self.start,
+            end: self.end,
+            hash: self.hash.clone(),
+            timestamp_ms: Some(timestamp_ms),
+        }
+    }
+
+    pub fn timestam_ms(&self) -> Option<u128> {
+        self.timestamp_ms
     }
 
     pub fn contains(&self, line: &usize) -> bool {
@@ -106,7 +152,15 @@ mod tests {
     fn parse_with_hash() {
         assert_eq!(
             Hunk::try_from("2-3-hash").unwrap(),
-            Hunk::new(2, 3, Some("hash".to_string())).unwrap()
+            Hunk::new(2, 3, Some("hash".to_string()), None).unwrap()
+        );
+    }
+
+    #[test]
+    fn parse_with_timestamp() {
+        assert_eq!(
+            Hunk::try_from("2-3--123").unwrap(),
+            Hunk::new(2, 3, None, Some(123)).unwrap()
         );
     }
 
