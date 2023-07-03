@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Checkbox } from '$lib/components';
+	import { Button, Checkbox, Modal } from '$lib/components';
 	import type { Branch, BranchData, Target } from './types';
 	import { formatDistanceToNow } from 'date-fns';
 	import type { VirtualBranchOperations } from './vbranches';
@@ -28,6 +28,8 @@
 
 	let yourBranchContextMenu: PopupMenu;
 	let remoteBranchContextMenu: PopupMenu;
+	let updateTargetModal: Modal;
+	let deleteBranchModal: Modal;
 
 	$: behindMessage = target.behind > 0 ? `behind ${target.behind}` : 'up-to-date';
 
@@ -82,11 +84,7 @@
 		<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
 			<button
 				class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-				on:click={() => {
-					remoteBranchOperations.updateBranchTarget().then(() => {
-						virtualBranches.refresh();
-					});
-				}}
+				on:click={updateTargetModal.show}
 				disabled={target.behind == 0}
 				title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
 			>
@@ -204,7 +202,7 @@
 		<PopupMenuItem
 			{disabled}
 			title={disabled ? 'Unapply before delete' : 'Delete branch'}
-			on:click={() => item && virtualBranches.deleteBranch(item.id)}
+			on:click={() => item && deleteBranchModal.show(item)}
 		>
 			Delete
 		</PopupMenuItem>
@@ -215,4 +213,44 @@
 		{@const disabled = !remoteBranches.some((b) => b.sha == item.sha && b.mergeable)}
 		<PopupMenuItem {disabled} on:click={() => item && makeBranch(item.name)}>Apply</PopupMenuItem>
 	</PopupMenu>
+
+	<!-- Confirm target update modal -->
+
+	<Modal width="small" bind:this={updateTargetModal}>
+		<p>You are about to update the target branch.</p>
+		<svelte:fragment slot="controls" let:close>
+			<Button
+				height="small"
+				color="primary"
+				on:click={() => {
+					remoteBranchOperations.updateBranchTarget().then(() => {
+						virtualBranches.refresh();
+					});
+					close();
+				}}
+			>
+				Update
+			</Button>
+		</svelte:fragment>
+	</Modal>
+
+	<!-- Delete branch confirmation modal -->
+
+	<Modal width="small" bind:this={deleteBranchModal} let:item>
+		<div>
+			Are you sure you want to delete <code>{item.name}</code>?
+		</div>
+		<svelte:fragment slot="controls" let:close let:item>
+			<Button
+				height="small"
+				color="destructive"
+				on:click={() => {
+					virtualBranches.deleteBranch(item.id);
+					close();
+				}}
+			>
+				Delete
+			</Button>
+		</svelte:fragment>
+	</Modal>
 </div>
