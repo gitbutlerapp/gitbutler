@@ -82,7 +82,11 @@
 		<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
 			<button
 				class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-				on:click={remoteBranchOperations.updateBranchTarget}
+				on:click={() => {
+					remoteBranchOperations.updateBranchTarget().then(() => {
+						virtualBranches.refresh();
+					});
+				}}
 				disabled={target.behind == 0}
 				title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
 			>

@@ -19,6 +19,7 @@ export interface VirtualBranchOperations {
 	updateBranchOwnership(branchId: string, ownership: string): Promise<void | object>;
 	pushBranch(branchId: string): Promise<void | object>;
 	deleteBranch(branchId: string): Promise<void | object>;
+	refresh(): Promise<void | object>;
 }
 
 export function getVirtualBranches(
@@ -42,7 +43,8 @@ export function getVirtualBranches(
 		updateBranchOwnership: (branchId, ownership) =>
 			updateBranchOwnership(writeable, projectId, branchId, ownership),
 		pushBranch: (branchId) => pushBranch(writeable, projectId, branchId),
-		deleteBranch: (branchId) => deleteBranch(writeable, projectId, branchId)
+		deleteBranch: (branchId) => deleteBranch(writeable, projectId, branchId),
+		refresh: () => refresh(projectId, writeable)
 	};
 	cache.set(projectId, store);
 	return store;
@@ -71,7 +73,7 @@ function createWriteable(projectId: string) {
 }
 
 function refresh(projectId: string, store: Writable<Loadable<Branch[]>>) {
-	list(projectId).then((newBranches) => store.set({ isLoading: false, value: newBranches }));
+	return list(projectId).then((newBranches) => store.set({ isLoading: false, value: newBranches }));
 }
 
 async function list(projectId: string): Promise<Branch[]> {
