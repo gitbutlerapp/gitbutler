@@ -244,7 +244,11 @@ pub fn unapply_branch(
 
     if let Ok((_branch, files)) = status {
         let tree = write_tree(gb_repository, project_repository, files)?;
+
         for file in files {
+            // for each file, go through all the other applied branches and see if they have hunks of the file
+            // if so, apply those hunks to the target file and write that back to the working directory
+
             // if file exists in target tree, revert to that content
             let path = std::path::Path::new(&file.path);
             let full_path = std::path::Path::new(&project.path).join(path);
@@ -1525,10 +1529,23 @@ fn write_tree(
                     let blob = git_repository.find_blob(index_entry.id)?;
                     let blob_contents = blob.content();
 
-                    // create a patch to apply from all the hunks
                     let mut patch = "--- original\n+++ modified\n".to_string();
-                    for hunk in &file.hunks {
-                        patch.push_str(&hunk.diff);
+
+                    // create a patch to apply from all the hunks
+                    // force order patches by line number
+                    let mut sorted_diffs: Vec<String> = file
+                        .hunks
+                        .iter()
+                        .map(|s| s.diff.clone()) // extract the 'diff' field from each struct
+                        .collect(); // collect into a new vector
+                                    // Sort the vector of diffs by the 'start' field
+                    sorted_diffs.sort_by_key(|diff| {
+                        let index = file.hunks.iter().position(|s| s.diff == *diff).unwrap(); // unwrap is safe assuming diffs are always found
+                        file.hunks[index].start
+                    });
+
+                    for diff in sorted_diffs {
+                        patch.push_str(&diff.clone());
                     }
 
                     // apply patch to blob_contents
