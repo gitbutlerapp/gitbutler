@@ -458,10 +458,17 @@ pub fn remote_branches(
                 };
 
                 if count_ahead > 0 {
-                    let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
-                    let branch_tree = branch_commit.tree()?;
-                    let (mergeable, merge_conflicts) =
-                        check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
+                    let mut mergeable = true;
+                    let mut merge_conflicts = vec![];
+                    if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
+                        // determine if this tree is mergeable
+                        let branch_tree = branch_commit.tree()?;
+                        (mergeable, merge_conflicts) =
+                            check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                    } else {
+                        // there is no common base
+                        mergeable = false;
+                    };
                     println!("mergeable: {} {}", branch_name, mergeable);
 
                     branches.push(RemoteBranch {
@@ -741,13 +748,17 @@ pub fn list_virtual_branches(
             let branch_commit = repo
                 .find_commit(branch.head)
                 .context("failed to find branch commit")?;
-            let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
-            // determine if this tree is mergeable
-            let branch_tree = repo
-                .find_tree(branch.tree)
-                .context("failed to find branch tree")?;
-            (mergeable, merge_conflicts) =
-                check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+            if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
+                // determine if this tree is mergeable
+                let branch_tree = repo
+                    .find_tree(branch.tree)
+                    .context("failed to find branch tree")?;
+                (mergeable, merge_conflicts) =
+                    check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+            } else {
+                // there is no common base
+                mergeable = false;
+            };
         }
 
         let branch = VirtualBranch {
