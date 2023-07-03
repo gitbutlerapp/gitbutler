@@ -67,13 +67,13 @@
 >
 	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Target branch</div>
 	<div
-		class="flex w-full flex-row items-center gap-x-4 pl-2 pr-4 text-light-900 dark:bg-dark-700 dark:text-dark-100"
+		class="flex w-full flex-row items-center gap-x-4 border-b border-light-400 pl-2 pr-4 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
 	>
-		<div class="flex-grow font-bold" title={behindMessage}>{target.name}</div>
+		<div class="flex-grow text-lg font-bold" title={behindMessage}>{target.name}</div>
 		<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
-		<div class="flex-shrink-0 text-light-700 dark:text-dark-200" title={behindMessage}>
+		<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
 			<button
-				class="p-1 disabled:text-light-300 disabled:dark:text-dark-500"
+				class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
 				on:click={virtualBranches.updateBranchTarget}
 				disabled={target.behind == 0}
 				title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
@@ -83,7 +83,7 @@
 		</div>
 	</div>
 	<div
-		class="flex items-center justify-between border-t border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
+		class="flex items-center justify-between border-b border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
 	>
 		<div class="font-bold">Your branches</div>
 		<div>
@@ -99,14 +99,14 @@
 	<div class="flex flex-col dark:bg-dark-900" use:accordion={yourBranchesOpen}>
 		{#each branches as branch (branch.id)}
 			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
-			<div class="border-t border-light-400 p-2 pl-2 pr-4 dark:border-dark-600" title={branch.name}>
+			<div class="border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600" title={branch.name}>
 				<div class="flex flex-row justify-between">
 					<div>
 						<Checkbox
 							on:change={() => toggleBranch(branch.id, branch.active)}
 							bind:checked={branch.active}
 						/>
-						<span class="ml-2 cursor-pointer">
+						<span class="ml-2 cursor-pointer text-black dark:text-white">
 							{branch.name}
 						</span>
 					</div>
@@ -122,7 +122,7 @@
 	</div>
 	{#if remoteBranches}
 		<div
-			class="flex items-center justify-between border-t border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
+			class="flex items-center justify-between border-b border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
 		>
 			<div class="font-bold">Remote branches</div>
 			<div>
@@ -140,7 +140,7 @@
 			{#each remoteBranches as branch}
 				<div
 					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, branch)}
-					class="flex flex-col justify-between border-t border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
+					class="flex flex-col justify-between border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
 						{#if branch.branch.match('refs/remotes')}
@@ -148,7 +148,10 @@
 						{:else}
 							<IconGitBranch class="h-4 w-4" />
 						{/if}
-						<div class="flex-grow cursor-pointer truncate" title={branch.branch}>
+						<div
+							class="flex-grow cursor-pointer truncate text-black dark:text-white"
+							title={branch.branch}
+						>
 							{branch.branch
 								.replace('refs/remotes/', '')
 								.replace('origin/', '')
