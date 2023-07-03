@@ -373,7 +373,11 @@ impl<'repository> Repository<'repository> {
                 "failed to push: {}",
                 String::from_utf8(output.stderr).unwrap()
             )
-        })
+        })?;
+
+        log::info!("{}: pushed {} to {}", self.project.id, head, upstream);
+
+        Ok(())
     }
 
     pub fn fetch(&self) -> Result<()> {
@@ -389,7 +393,11 @@ impl<'repository> Repository<'repository> {
                 "failed to fetch: {}",
                 String::from_utf8(output.stderr).unwrap()
             )
-        })
+        })?;
+
+        log::info!("{}: fetched", self.project.id);
+
+        Ok(())
     }
 
     pub fn git_commit(&self, message: &str, push: bool) -> Result<()> {
