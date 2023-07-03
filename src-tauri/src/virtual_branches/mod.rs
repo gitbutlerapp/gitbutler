@@ -242,26 +242,65 @@ pub fn unapply_branch(
         .context("failed to find target commit")?;
     let target_tree = target_commit.tree().context("failed to get target tree")?;
 
-    if let Ok((_branch, files)) = status {
+    if let Ok((branch, files)) = status {
         let tree = write_tree(gb_repository, project_repository, files)?;
 
+        // for each file, go through all the other applied branches and see if they have hunks of the file
+        // if so, apply those hunks to the target file and write that back to the working directory
         for file in files {
-            // for each file, go through all the other applied branches and see if they have hunks of the file
-            // if so, apply those hunks to the target file and write that back to the working directory
+            let full_path = std::path::Path::new(&project.path).join(&file.path);
+            let rel_path = std::path::Path::new(&file.path);
 
-            // if file exists in target tree, revert to that content
-            let path = std::path::Path::new(&file.path);
-            let full_path = std::path::Path::new(&project.path).join(path);
-            if let Ok(target_entry) = target_tree.get_path(path) {
-                let target_entry = target_entry.to_object(&gb_repository.git_repository)?;
-                let target_entry = target_entry
-                    .as_blob()
-                    .context("failed to get target blob")?;
-                let target_content = target_entry.content();
-                // write this file to the file path
-                std::fs::write(full_path, target_content)?;
+            if let Ok(tree_entry) = target_tree.get_path(std::path::Path::new(rel_path)) {
+                // if there is a tree entry in the target, then we can have multiple branches with possible changes
+
+                // blob from tree_entry
+                let blob = &tree_entry
+                    .to_object(&gb_repository.git_repository)?
+                    .peel_to_blob()
+                    .expect("failed to get blob");
+
+                // get the base contents
+                let blob_contents = blob.content();
+                let mut all_hunks = Vec::new();
+
+                // ok, go through all the other branches and find every hunk anywhere else and push them all to `all_hunks`
+                for status in &statuses {
+                    let (status_branch, status_files) = status;
+                    if status_branch.id != branch.id {
+                        for status_file in status_files {
+                            if status_file.path == file.path {
+                                for hunk in &status_file.hunks {
+                                    all_hunks.push(hunk);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // now order all the hunks by start line and make one patch
+                let mut patch = "--- original\n+++ modified\n".to_string();
+                let mut all_diffs: Vec<String> = all_hunks
+                    .iter()
+                    .map(|s| s.diff.clone()) // extract the 'diff' field from each struct
+                    .collect(); // collect into a new vector
+                all_diffs.sort_by_key(|diff| {
+                    let index = all_hunks.iter().position(|s| s.diff == *diff).unwrap(); // unwrap is safe assuming diffs are always found
+                    all_hunks[index].start
+                });
+
+                for diff in all_diffs {
+                    patch.push_str(&diff.clone());
+                }
+
+                // apply patch to blob_contents
+                let patch_bytes = patch.as_bytes();
+                let patch = Patch::from_bytes(&patch_bytes)?;
+                let new_content = apply_bytes(blob_contents, &patch)?;
+                std::fs::write(full_path, new_content)?;
             } else {
-                // if file does not exist in target tree, delete the file
+                // if there is no file in the target, then we can only have one branch with possible changes, which this branch owns
+                // so we can just delete the file
                 std::fs::remove_file(full_path)?;
             }
         }
@@ -1550,8 +1589,8 @@ fn write_tree(
 
                     // apply patch to blob_contents
                     let patch_bytes = patch.as_bytes();
-                    let patch = Patch::from_bytes(&patch_bytes).unwrap();
-                    let new_content = apply_bytes(blob_contents, &patch).unwrap();
+                    let patch = Patch::from_bytes(&patch_bytes)?;
+                    let new_content = apply_bytes(blob_contents, &patch)?;
 
                     // add_frombuffer
                     index.add_frombuffer(&index_entry, &new_content).unwrap();
@@ -2734,6 +2773,106 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_unapply_added_deleted_files() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "file1\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\n",
+        )?;
+        commit_all(&repository)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        // rm file_path2, add file3
+        std::fs::remove_file(std::path::Path::new(&project.path).join(file_path2))?;
+        let file_path3 = std::path::Path::new("test3.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "file3\n",
+        )?;
+
+        let branch2_id = create_virtual_branch(&gb_repo, "branch_rm_2")
+            .expect("failed to create virtual branch")
+            .id;
+        let branch3_id = create_virtual_branch(&gb_repo, "branch_add_3")
+            .expect("failed to create virtual branch")
+            .id;
+
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some(Ownership::try_from("test2.txt:0-0")?),
+                ..Default::default()
+            },
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch3_id.clone(),
+                ownership: Some(Ownership::try_from("test3.txt:1-2")?),
+                ..Default::default()
+            },
+        )?;
+
+        unapply_branch(&gb_repo, &project_repository, &branch2_id)?;
+        // check that file2 is back
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+        assert_eq!("file2\n", String::from_utf8(contents)?);
+
+        unapply_branch(&gb_repo, &project_repository, &branch3_id)?;
+        // check that file3 is gone
+        assert!(
+            std::path::Path::new(&project.path)
+                .join(file_path3)
+                .exists()
+                == false
+        );
+
+        apply_branch(&gb_repo, &project_repository, &branch2_id)?;
+        // check that file2 is gone
+        assert!(
+            std::path::Path::new(&project.path)
+                .join(file_path2)
+                .exists()
+                == false
+        );
+
+        apply_branch(&gb_repo, &project_repository, &branch3_id)?;
+        // check that file3 is back
+        let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path3))?;
+        assert_eq!("file3\n", String::from_utf8(contents)?);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_detect_mergeable_branch() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
@@ -3242,6 +3381,28 @@ mod tests {
         let commit = &branch2.commits[0].id;
         let contents = commit_sha_to_contents(&repository, &commit, "test.txt");
         assert_eq!(contents, "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n");
+
+        // ok, now we're going to unapply branch1, which should remove the 1st and 3rd hunks
+        unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
+        // read contents of test.txt
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(contents, "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n");
+
+        // ok, now we're going to re-apply branch1, which adds hunk 1 and 3, then unapply branch2, which should remove the middle hunk
+        apply_branch(&gb_repo, &project_repository, &branch1_id)?;
+        unapply_branch(&gb_repo, &project_repository, &branch2_id)?;
+
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(contents, "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nmiddle\nline11\nline12\npatch3\n");
+
+        // finally, reapply the middle hunk on branch2, so we have all of them again
+        apply_branch(&gb_repo, &project_repository, &branch2_id)?;
+
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(contents, "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nmiddle\nline11\nline12\npatch3\n");
 
         Ok(())
     }
