@@ -180,13 +180,14 @@ pub fn apply_branch(
     if merge_index.has_conflicts() {
         bail!("conflict applying branch");
     } else {
+        // apply the branch
+        target_branch.applied = true;
+        writer.write(&target_branch)?;
+
         // checkout the merge index
         let mut checkout_options = git2::build::CheckoutBuilder::new();
         checkout_options.force();
         repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
-
-        target_branch.applied = true;
-        writer.write(&target_branch)?;
     }
 
     Ok(())
@@ -482,26 +483,28 @@ pub fn remote_branches(
                 };
 
                 if count_ahead > 0 {
-                    let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
-                    let branch_tree = branch_commit.tree()?;
-                    let (mergeable, merge_conflicts) =
-                        check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
-                    println!("mergeable: {} {}", branch_name, mergeable);
+                    if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
+                        // determine if this tree is mergeable
+                        let branch_tree = branch_commit.tree()?;
+                        let (mergeable, merge_conflicts) =
+                            check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                        println!("mergeable: {} {}", branch_name, mergeable);
 
-                    branches.push(RemoteBranch {
-                        sha: branch_oid.to_string(),
-                        branch: branch_name.to_string(),
-                        name: branch_name.to_string(),
-                        description: "".to_string(),
-                        last_commit_ts: max_time.unwrap_or(0),
-                        first_commit_ts: min_time.unwrap_or(0),
-                        ahead: count_ahead,
-                        behind: count_behind,
-                        upstream: upstream_branch_name,
-                        authors: authors.into_iter().collect(),
-                        mergeable,
-                        merge_conflicts,
-                    });
+                        branches.push(RemoteBranch {
+                            sha: branch_oid.to_string(),
+                            branch: branch_name.to_string(),
+                            name: branch_name.to_string(),
+                            description: "".to_string(),
+                            last_commit_ts: max_time.unwrap_or(0),
+                            first_commit_ts: min_time.unwrap_or(0),
+                            ahead: count_ahead,
+                            behind: count_behind,
+                            upstream: upstream_branch_name,
+                            authors: authors.into_iter().collect(),
+                            mergeable,
+                            merge_conflicts,
+                        });
+                    };
                 }
             }
             None => {
@@ -748,13 +751,17 @@ pub fn list_virtual_branches(
             let branch_commit = repo
                 .find_commit(branch.head)
                 .context("failed to find branch commit")?;
-            let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
-            // determine if this tree is mergeable
-            let branch_tree = repo
-                .find_tree(branch.tree)
-                .context("failed to find branch tree")?;
-            (mergeable, merge_conflicts) =
-                check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
+            if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
+                // determine if this tree is mergeable
+                let branch_tree = repo
+                    .find_tree(branch.tree)
+                    .context("failed to find branch tree")?;
+                (mergeable, merge_conflicts) =
+                    check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+            } else {
+                // there is no common base
+                mergeable = false;
+            };
         }
 
         let branch = VirtualBranch {
@@ -1590,12 +1597,10 @@ fn write_tree(
 
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
-    let base_commit = git_repository
-        .find_commit(default_target.sha)
-        .context("failed to find commit")?;
-    let base_tree = base_commit.tree().context("failed to find tree")?;
-    let mut index = git_repository.index().context("failed to get index")?;
-    index.read_tree(&base_tree).context("failed to read tree")?;
+    let base_commit = git_repository.find_commit(default_target.sha)?;
+    let base_tree = base_commit.tree()?;
+
+    let mut builder = git2::build::TreeUpdateBuilder::new();
     let project = project_repository.project;
 
     // now update the index with content in the working directory for each file
@@ -1603,49 +1608,55 @@ fn write_tree(
         // convert this string to a Path
         let full_path = std::path::Path::new(&project.path).join(&file.path);
         let rel_path = std::path::Path::new(&file.path);
+        println!("relpath: {}", rel_path.display());
 
         // if file exists
         if full_path.exists() {
-            // get contents for this path from the index
-            match index.get_path(rel_path, 0) {
-                Some(index_entry) => {
-                    // if the file exists in the target, then patch it
-                    let blob = git_repository.find_blob(index_entry.id)?;
-                    let blob_contents = blob.content();
+            // get the blob
+            if let Ok(tree_entry) = base_tree.get_path(rel_path) {
+                // blob from tree_entry
+                let blob = tree_entry
+                    .to_object(&git_repository)
+                    .unwrap()
+                    .peel_to_blob()
+                    .expect("failed to get blob");
 
-                    let mut patch = "--- original\n+++ modified\n".to_string();
-                    // make sure hunks are in order
-                    let mut hunks = file.hunks.to_vec();
-                    hunks.sort_by_key(|hunk| hunk.start);
-                    for hunk in hunks {
-                        patch.push_str(&hunk.diff);
-                    }
+                // get the contents
+                let blob_contents = blob.content();
 
-                    // apply patch to blob_contents
-                    let patch_bytes = patch.as_bytes();
-                    let patch = Patch::from_bytes(patch_bytes)?;
-                    let new_content = apply_bytes(blob_contents, &patch)?;
+                let mut patch = "--- original\n+++ modified\n".to_string();
 
-                    // add_frombuffer
-                    index
-                        .add_frombuffer(&index_entry, &new_content)
-                        .context("failed to add_frombuffer")?;
+                let mut hunks = file.hunks.to_vec();
+                hunks.sort_by_key(|hunk| hunk.start);
+                for hunk in hunks {
+                    patch.push_str(&hunk.diff);
                 }
-                None => {
-                    // if the file is new, then add it
-                    index.add_path(rel_path).context("failed to add_path")?;
-                }
+
+                println!("patch: {:?}", patch);
+
+                // apply patch to blob_contents
+                let patch_bytes = patch.as_bytes();
+                let patch = Patch::from_bytes(&patch_bytes)?;
+                let new_content = apply_bytes(blob_contents, &patch)?;
+
+                // create a blob
+                let new_blob_oid = git_repository.blob(&new_content)?;
+                dbg!(&new_blob_oid);
+                // upsert into the builder
+                builder.upsert(rel_path, new_blob_oid, git2::FileMode::Blob);
+            } else {
+                // create a git blob from a file on disk
+                let blob_oid = git_repository.blob_path(&full_path)?;
+                builder.upsert(rel_path, blob_oid, git2::FileMode::Blob);
             }
         } else {
             // remove file from index
-            index
-                .remove_path(rel_path)
-                .context("failed to remove_path")?;
+            builder.remove(rel_path);
         }
     }
 
     // now write out the tree
-    let tree_oid = index.write_tree().context("failed to write tree")?;
+    let tree_oid = builder.create_updated(git_repository, &base_tree)?;
     Ok(tree_oid)
 }
 
@@ -1674,44 +1685,45 @@ pub fn commit(
     // get the files to commit
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .expect("failed to get status by branch");
+
     for (mut branch, files) in statuses {
         if branch.id == branch_id {
             let tree_oid = write_tree(gb_repository, project_repository, &files)?;
-            if tree_oid != branch.tree {
-                let git_repository = &project_repository.git_repository;
-                let parent_commit = git_repository.find_commit(branch.head).unwrap();
-                let tree = git_repository.find_tree(tree_oid).unwrap();
+            dbg!(&tree_oid);
 
-                // now write a commit, using a merge parent if it exists
-                let (author, committer) = gb_repository.git_signatures().unwrap();
-                match merge_parent {
-                    Some(merge_parent) => {
-                        let merge_parent = git_repository.find_commit(*merge_parent).unwrap();
-                        let commit_oid = git_repository
-                            .commit(
-                                None,
-                                &author,
-                                &committer,
-                                message,
-                                &tree,
-                                &[&parent_commit, &merge_parent],
-                            )
-                            .unwrap();
-                        branch.head = commit_oid;
-                    }
-                    None => {
-                        let commit_oid = git_repository
-                            .commit(None, &author, &committer, message, &tree, &[&parent_commit])
-                            .unwrap();
-                        branch.head = commit_oid;
-                    }
+            let git_repository = &project_repository.git_repository;
+            let parent_commit = git_repository.find_commit(branch.head).unwrap();
+            let tree = git_repository.find_tree(tree_oid).unwrap();
+
+            // now write a commit, using a merge parent if it exists
+            let (author, committer) = gb_repository.git_signatures().unwrap();
+            match merge_parent {
+                Some(merge_parent) => {
+                    let merge_parent = git_repository.find_commit(*merge_parent).unwrap();
+                    let commit_oid = git_repository
+                        .commit(
+                            None,
+                            &author,
+                            &committer,
+                            message,
+                            &tree,
+                            &[&parent_commit, &merge_parent],
+                        )
+                        .unwrap();
+                    branch.head = commit_oid;
                 }
-
-                // update the virtual branch head
-                branch.tree = tree_oid;
-                let writer = branch::Writer::new(gb_repository);
-                writer.write(&branch).unwrap();
+                None => {
+                    let commit_oid = git_repository
+                        .commit(None, &author, &committer, message, &tree, &[&parent_commit])
+                        .unwrap();
+                    branch.head = commit_oid;
+                }
             }
+
+            // update the virtual branch head
+            branch.tree = tree_oid;
+            let writer = branch::Writer::new(gb_repository);
+            writer.write(&branch)?;
         }
     }
     Ok(())
