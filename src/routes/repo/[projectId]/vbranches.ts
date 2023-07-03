@@ -132,9 +132,13 @@ function updateBranchOrder(
 	return invoke<object>('update_virtual_branch', {
 		projectId: projectId,
 		branch: { id: branchId, order }
-	}).catch(() => {
-		error('Unable to update branch order!');
-	});
+	})
+		.then(() => {
+			refresh(projectId, writable);
+		})
+		.catch(() => {
+			error('Unable to update branch order!');
+		});
 }
 
 function applyBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {
