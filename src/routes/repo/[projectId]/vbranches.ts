@@ -12,7 +12,6 @@ export interface VirtualBranchOperations {
 	setTarget(branch: string): Promise<object>;
 	createBranch(name: string, path: string): Promise<void | object>;
 	commitBranch(branch: string, message: string): Promise<void | object>;
-	updateBranchTarget(): Promise<void | object>;
 	updateBranchName(branchId: string, name: string): Promise<void | object>;
 	updateBranchOrder(branchId: string, order: number): Promise<void | object>;
 	applyBranch(branchId: string): Promise<void | object>;
@@ -35,7 +34,6 @@ export function getVirtualBranches(
 		setTarget: (branch) => setTarget(projectId, branch),
 		createBranch: (name, path) => createBranch(writeable, projectId, name, path),
 		commitBranch: (branch, message) => commitBranch(writeable, projectId, branch, message),
-		updateBranchTarget: () => updateBranchTarget(writeable, projectId),
 		updateBranchOrder: (branchId, order) =>
 			updateBranchOrder(writeable, projectId, branchId, order),
 		updateBranchName: (branchId, name) => updateBranchName(writeable, projectId, branchId, name),
@@ -137,16 +135,6 @@ function updateBranchOrder(
 	}).catch(() => {
 		error('Unable to update branch order!');
 	});
-}
-
-function updateBranchTarget(writable: Writable<Loadable<Branch[]>>, projectId: string) {
-	return invoke<object>('update_branch_target', { projectId: projectId })
-		.then(() => {
-			refresh(projectId, writable);
-		})
-		.catch(() => {
-			error('Unable to update target!');
-		});
 }
 
 function applyBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {

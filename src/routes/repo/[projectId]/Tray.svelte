@@ -10,12 +10,18 @@
 	import Gravatar from '$lib/components/Gravatar/Gravatar.svelte';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
+	import { getRemoteBranches } from './remoteBranches';
+	import { Value } from 'svelte-loadable-store';
 
 	export let target: Target;
 	export let branches: Branch[];
 	export let projectId: string;
-	export let remoteBranches: BranchData[];
 	export let virtualBranches: VirtualBranchOperations;
+	const remoteBranchOperations = getRemoteBranches(projectId);
+	$: remoteBranches =
+		!$remoteBranchOperations.isLoading && !Value.isError($remoteBranchOperations.value)
+			? $remoteBranchOperations.value
+			: [];
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
@@ -76,7 +82,7 @@
 		<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
 			<button
 				class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-				on:click={virtualBranches.updateBranchTarget}
+				on:click={remoteBranchOperations.updateBranchTarget}
 				disabled={target.behind == 0}
 				title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
 			>
