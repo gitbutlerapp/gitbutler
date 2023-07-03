@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, process::Command};
 
 use anyhow::{Context, Result};
 use git2::Diff;
@@ -356,6 +356,47 @@ impl<'repository> Repository<'repository> {
             }
         }
         index.write().with_context(|| "failed to write index")?;
+        Ok(())
+    }
+
+    pub fn push(&self, head: &git2::Oid, upstream: &str) -> Result<()> {
+        let output = Command::new("git")
+            .arg("push")
+            .arg("origin")
+            .arg(format!("{}:{}", head, upstream))
+            .current_dir(&self.project.path)
+            .output()
+            .context("failed to fork exec")?;
+
+        output.status.success().then(|| ()).ok_or_else(|| {
+            anyhow::anyhow!(
+                "failed to push: {}",
+                String::from_utf8(output.stderr).unwrap()
+            )
+        })?;
+
+        log::info!("{}: pushed {} to {}", self.project.id, head, upstream);
+
+        Ok(())
+    }
+
+    pub fn fetch(&self) -> Result<()> {
+        let output = Command::new("git")
+            .arg("fetch")
+            .arg("origin")
+            .current_dir(&self.project.path)
+            .output()
+            .context("failed to fork exec")?;
+
+        output.status.success().then(|| ()).ok_or_else(|| {
+            anyhow::anyhow!(
+                "failed to fetch: {}",
+                String::from_utf8(output.stderr).unwrap()
+            )
+        })?;
+
+        log::info!("{}: fetched", self.project.id);
+
         Ok(())
     }
 
