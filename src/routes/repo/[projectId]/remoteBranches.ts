@@ -1,4 +1,5 @@
 import { invoke } from '$lib/ipc';
+import { git } from '$lib/api/ipc';
 import type { BranchData } from './types';
 import { writable, type Loadable } from 'svelte-loadable-store';
 import { error } from '$lib/toasts';
@@ -30,11 +31,11 @@ export function getRemoteBranches(
 
 function createWriteable(projectId: string) {
 	return writable(getRemoteBranchesData(projectId), (set) => {
-		setInterval(() => {
+		git.fetches.subscribe({ projectId }, () => {
 			getRemoteBranchesData(projectId).then((branches) => {
 				set(sortBranchData(branches));
 			});
-		}, 60000); // poll since we don't have a way to subscribe to changes
+		});
 	});
 }
 
