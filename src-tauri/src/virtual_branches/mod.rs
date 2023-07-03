@@ -1700,12 +1700,11 @@ fn name_to_branch(name: &str) -> String {
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect::<String>();
 
-    return format!("refs/heads/{}", cleaned_name);
+    format!("refs/heads/{}", cleaned_name)
 }
 
-use std::process::Command;
 pub fn push(
-    project_path: &str,
+    project_repository: &project_repository::Repository,
     gb_repository: &gb_repository::Repository,
     branch_id: &str,
 ) -> Result<()> {
@@ -1728,45 +1727,18 @@ pub fn push(
         vbranch.upstream.clone()
     };
 
-    let output = Command::new("git")
-        .arg("push")
-        .arg("origin")
-        .arg(format!("{}:{}", vbranch.head, upstream))
-        .current_dir(project_path)
-        .output()
-        .context("failed to fork exec")?;
+    project_repository
+        .push(&vbranch.head, &upstream)
+        .context("failed to fetch before push")?;
 
-    if output.status.success() {
-        vbranch.upstream = upstream;
-        branch_writer
-            .write(&vbranch)
-            .context("failed to write target branch after push")?;
-        fetch(project_path).context("failed to fetch after push")?;
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!(
-            "failed to push branch: {}",
-            String::from_utf8(output.stderr)?
-        ))
-    }
-}
+    vbranch.upstream = upstream;
+    branch_writer
+        .write(&vbranch)
+        .context("failed to write target branch after push")?;
 
-fn fetch(project_path: &str) -> Result<()> {
-    let output = Command::new("git")
-        .arg("fetch")
-        .arg("origin")
-        .current_dir(project_path)
-        .output()
-        .context("failed to fork exec")?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!(
-            "failed to fetch: {}",
-            String::from_utf8(output.stderr)?
-        ))
-    }
+    project_repository
+        .fetch()
+        .context("failed to fetch before push")
 }
 
 #[cfg(test)]
