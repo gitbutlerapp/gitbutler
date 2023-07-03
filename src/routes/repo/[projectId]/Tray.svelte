@@ -20,7 +20,8 @@
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
 
-	let popupMenu: PopupMenu;
+	let yourBranchContextMenu: PopupMenu;
+	let remoteBranchContextMenu: PopupMenu;
 
 	$: behindMessage = target.behind > 0 ? `behind ${target.behind}` : 'up-to-date';
 
@@ -65,6 +66,7 @@
 	use:rememberWidth
 	class="w-80 shrink-0 resize-x overflow-y-auto bg-white text-light-800 dark:bg-dark-900 dark:text-dark-100"
 >
+	<!-- Target branch -->
 	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Target branch</div>
 	<div
 		class="flex w-full flex-row items-center gap-x-4 border-b border-light-400 pl-2 pr-4 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
@@ -82,6 +84,8 @@
 			</button>
 		</div>
 	</div>
+
+	<!-- Your branches -->
 	<div
 		class="flex items-center justify-between border-b border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
 	>
@@ -99,7 +103,11 @@
 	<div class="flex flex-col dark:bg-dark-900" use:accordion={yourBranchesOpen}>
 		{#each branches as branch (branch.id)}
 			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
-			<div class="border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600" title={branch.name}>
+			<div
+				on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
+				class="border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
+				title={branch.name}
+			>
 				<div class="flex flex-row justify-between">
 					<div>
 						<Checkbox
@@ -120,6 +128,8 @@
 			</div>
 		{/each}
 	</div>
+
+	<!-- Remote branches -->
 	{#if remoteBranches}
 		<div
 			class="flex items-center justify-between border-b border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
@@ -139,7 +149,7 @@
 		<div class="dark:bg-dark-900" use:accordion={remoteBranchesOpen}>
 			{#each remoteBranches as branch}
 				<div
-					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, branch)}
+					on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
 					class="flex flex-col justify-between border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
@@ -177,7 +187,21 @@
 			{/each}
 		</div>
 	{/if}
-	<PopupMenu bind:this={popupMenu} let:item>
+
+	<!-- Your branches context menu -->
+	<PopupMenu bind:this={yourBranchContextMenu} let:item>
+		{@const disabled = branches.some((b) => b.id == item.id && b.active)}
+		<PopupMenuItem
+			{disabled}
+			title={disabled ? 'Unapply before delete' : 'Delete branch'}
+			on:click={() => item && virtualBranches.deleteBranch(item.id)}
+		>
+			Delete
+		</PopupMenuItem>
+	</PopupMenu>
+
+	<!-- Remote branches context menu -->
+	<PopupMenu bind:this={remoteBranchContextMenu} let:item>
 		{@const disabled = !remoteBranches.some((b) => b.sha == item.sha && b.mergeable)}
 		<PopupMenuItem {disabled} on:click={() => item && makeBranch(item.name)}>Apply</PopupMenuItem>
 	</PopupMenu>
