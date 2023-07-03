@@ -4,6 +4,8 @@
 	import type { PageData } from './$types';
 	import { getVirtualBranches } from './vbranches';
 	import { Value } from 'svelte-loadable-store';
+	import { Button } from '$lib/components';
+	import { error } from '$lib/toasts';
 
 	export let data: PageData;
 	let { projectId, project, target, remoteBranches } = data;
@@ -12,7 +14,20 @@
 		!$virtualBranches.isLoading && !Value.isError($virtualBranches.value)
 			? $virtualBranches.value
 			: [];
-	let targetChoice = 'origin/master'; // prob should check if it exists
+	let targetChoice: string | undefined;
+
+	function onSetTargetClick() {
+		if (!targetChoice) {
+			return;
+		}
+		virtualBranches
+			.setTarget(targetChoice)
+			.then((t) => (target = t))
+			.catch((e) => {
+				console.log('failed to set branch', e);
+				error('Failed to set target branch');
+			});
+	}
 </script>
 
 {#if target}
@@ -21,9 +36,9 @@
 		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} />
 	</div>
 {:else}
-	<div class="m-auto flex flex-col space-y-2">
-		<h1 class="text-2xl font-bold">Set your target</h1>
-		<p class="text-gray-500">
+	<div class="m-auto flex max-w-xs flex-col gap-y-4">
+		<h1 class="text-lg font-bold">Set your target</h1>
+		<p class="text-light-700 dark:text-dark-100">
 			You need to set your target before you can start working on your project.
 		</p>
 		<!-- select menu of remoteBranches -->
@@ -39,9 +54,9 @@
 					{/if}
 				{/each}
 			</select>
-			<button class="btn btn-primary" on:click={() => virtualBranches.setTarget(targetChoice)}
-				>Set Target</button
-			>
+			<div>
+				<Button color="purple" height="small" on:click={onSetTargetClick}>Set Target</Button>
+			</div>
 		{/if}
 	</div>
 {/if}

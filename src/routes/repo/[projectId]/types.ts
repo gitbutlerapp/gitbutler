@@ -60,9 +60,9 @@ export class Commit {
 	isRemote!: boolean;
 }
 
-export class Target {
-	sha!: string;
-	name!: string;
-	remote!: string;
-	behind!: number;
+export interface Target {
+	sha: string;
+	name: string;
+	remote: string;
+	behind: number;
 }
