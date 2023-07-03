@@ -175,7 +175,7 @@ pub fn apply_branch(
     // check index for conflicts
     let mut merge_index = repo
         .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
-        .unwrap();
+        .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
         bail!("conflict applying branch");
@@ -273,6 +273,12 @@ pub fn unapply_branch(
 
                 // now order all the hunks by start line and make one patch
                 let mut patch = "--- original\n+++ modified\n".to_string();
+                // let mut hunks = file.hunks.to_vec();
+                // hunks.sort_by_key(|hunk| hunk.start);
+                // for hunk in hunks {
+                //     patch.push_str(&hunk.diff);
+                // }
+
                 let mut all_diffs: Vec<String> = all_hunks
                     .iter()
                     .map(|s| s.diff.clone()) // extract the 'diff' field from each struct
@@ -330,7 +336,9 @@ pub fn remote_branches(
     let repo = &project_repository.git_repository;
 
     let main_oid = default_target.sha;
-    let target_commit = repo.find_commit(main_oid).ok().unwrap();
+    let target_commit = repo
+        .find_commit(main_oid)
+        .context("failed to find target commit")?;
 
     let wd_tree = get_wd_tree(repo)?;
 
@@ -353,19 +361,26 @@ pub fn remote_branches(
         match branch.get().target() {
             Some(branch_oid) => {
                 // get the branch ref
-                let branch_commit = repo.find_commit(branch_oid).ok().unwrap();
+                let branch_commit = repo
+                    .find_commit(branch_oid)
+                    .context("failed to find branch commit")?;
                 let branch_time = branch_commit.time();
-                let seconds = branch_time.seconds().try_into().unwrap();
+                let seconds = branch_time
+                    .seconds()
+                    .try_into()
+                    .context("failed to convert seconds")?;
                 let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
-                let duration = current_time.duration_since(branch_time).unwrap();
+                let duration = current_time
+                    .duration_since(branch_time)
+                    .context("failed to get duration")?;
                 if duration > too_old {
                     continue;
                 }
 
                 let branch_name = branch
                     .name()
-                    .unwrap()
-                    .expect("could not get branch name")
+                    .context("could not get branch name")?
+                    .context("could not get branch name")?
                     .to_string();
                 let branch_name = branch_name.replace("origin/", "");
                 println!("branch name: {}", branch_name);
@@ -396,21 +411,27 @@ pub fn remote_branches(
     let top_branches = sorted_branches.into_iter().take(20).collect::<Vec<_>>(); // Take the first 20 entries.
 
     for branch in &top_branches {
-        let branch_name = branch.get().name().unwrap();
+        let branch_name = branch.get().name().context("could not get branch name")?;
         let upstream_branch = branch.upstream();
         match branch.get().target() {
             Some(branch_oid) => {
                 // get the branch ref
-                let branch_commit = repo.find_commit(branch_oid).ok().unwrap();
+                let branch_commit = repo
+                    .find_commit(branch_oid)
+                    .context("failed to find branch commit")?;
 
-                let mut revwalk = repo.revwalk().unwrap();
-                revwalk.set_sorting(git2::Sort::TOPOLOGICAL).unwrap();
-                revwalk.push(main_oid).unwrap();
-                revwalk.hide(branch_oid).unwrap();
+                let mut revwalk = repo.revwalk().context("failed to create revwalk")?;
+                revwalk
+                    .set_sorting(git2::Sort::TOPOLOGICAL)
+                    .context("failed to set sorting")?;
+                revwalk.push(main_oid).context("failed to push main oid")?;
+                revwalk
+                    .hide(branch_oid)
+                    .context("failed to hide branch oid")?;
 
                 let mut count_behind = 0;
-                for oid in revwalk {
-                    if oid.unwrap() == branch_oid {
+                for oid in revwalk.flatten() {
+                    if oid == branch_oid {
                         break;
                     }
                     count_behind += 1;
@@ -419,21 +440,24 @@ pub fn remote_branches(
                     }
                 }
 
-                let mut revwalk2 = repo.revwalk().unwrap();
-                revwalk2.set_sorting(git2::Sort::TOPOLOGICAL).unwrap();
-                revwalk2.push(branch_oid).unwrap();
-                revwalk2.hide(main_oid).unwrap();
+                let mut revwalk2 = repo.revwalk().context("failed to create revwalk")?;
+                revwalk2
+                    .set_sorting(git2::Sort::TOPOLOGICAL)
+                    .context("failed to set sorting")?;
+                revwalk2
+                    .push(branch_oid)
+                    .context("failed to push branch oid")?;
+                revwalk2.hide(main_oid).context("failed to hide main oid")?;
 
                 let mut min_time = None;
                 let mut max_time = None;
                 let mut count_ahead = 0;
                 let mut authors = HashSet::new();
-                for oid in revwalk2 {
-                    let oid = oid.unwrap();
+                for oid in revwalk2.flatten() {
                     if oid == main_oid {
                         break;
                     }
-                    let commit = repo.find_commit(oid).ok().unwrap();
+                    let commit = repo.find_commit(oid).context("failed to find commit")?;
                     let timestamp = commit.time().seconds() as u128;
 
                     if min_time.is_none() || timestamp < min_time.unwrap() {
@@ -445,7 +469,7 @@ pub fn remote_branches(
                     }
 
                     // find the signature for this commit
-                    let commit = repo.find_commit(oid).ok().unwrap();
+                    let commit = repo.find_commit(oid).context("failed to find commit")?;
                     let signature = commit.author();
                     authors.insert(signature.email().unwrap().to_string());
 
@@ -539,7 +563,7 @@ fn check_mergeable(
     let merge_options = git2::MergeOptions::new();
     let merge_index = repo
         .merge_trees(base_tree, wd_tree, branch_tree, Some(&merge_options))
-        .unwrap();
+        .context("failed to merge trees")?;
     let mergeable = !merge_index.has_conflicts();
     if merge_index.has_conflicts() {
         let conflicts = merge_index.conflicts()?;
@@ -557,19 +581,6 @@ fn check_mergeable(
         }
     }
     Ok((mergeable, merge_conflicts))
-}
-
-// just for debugging for now
-fn _print_diff(diff: &git2::Diff) -> Result<()> {
-    diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
-        println!(
-            "delta: {:?} {:?}",
-            line.origin(),
-            std::str::from_utf8(line.content()).unwrap()
-        );
-        true
-    })?;
-    Ok(())
 }
 
 pub fn list_virtual_branches(
@@ -1396,8 +1407,11 @@ pub fn update_branch_target(
     let repo = &project_repository.git_repository;
     let branch = repo
         .find_branch(&target.name, git2::BranchType::Remote)
-        .unwrap();
-    let new_target_commit = branch.get().peel_to_commit().unwrap();
+        .context(format!("failed to find branch {}", target.name))?;
+    let new_target_commit = branch
+        .get()
+        .peel_to_commit()
+        .context(format!("failed to peel branch {} to commit", target.name))?;
     let new_target_oid = new_target_commit.id();
     println!(
         "update target from {:?} to {:?}",
@@ -1448,7 +1462,7 @@ pub fn update_branch_target(
             &new_target_tree,
             Some(&merge_options),
         )
-        .unwrap();
+        .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
         // TODO: upstream won't merge, so unapply all the vbranches and reset the wd
@@ -1513,7 +1527,7 @@ pub fn update_branch_target(
                     &new_target_tree,
                     Some(&merge_options),
                 )
-                .unwrap();
+                .context("failed to merge trees")?;
 
             // check index for conflicts
             if merge_index.has_conflicts() {
@@ -1523,9 +1537,13 @@ pub fn update_branch_target(
                 writer.write(&virtual_branch)?;
             } else {
                 // get the merge tree oid from writing the index out
-                let merge_tree_oid = merge_index.write_tree_to(repo).unwrap();
+                let merge_tree_oid = merge_index
+                    .write_tree_to(repo)
+                    .context("failed to write tree")?;
                 // get tree from merge_tree_oid
-                let merge_tree = repo.find_tree(merge_tree_oid).unwrap();
+                let merge_tree = repo
+                    .find_tree(merge_tree_oid)
+                    .context("failed to find tree")?;
 
                 // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                 // then the vbranch is fully merged, so delete it
@@ -1572,10 +1590,12 @@ fn write_tree(
 
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
-    let base_commit = git_repository.find_commit(default_target.sha).unwrap();
-    let base_tree = base_commit.tree().unwrap();
-    let mut index = git_repository.index().unwrap();
-    index.read_tree(&base_tree).unwrap();
+    let base_commit = git_repository
+        .find_commit(default_target.sha)
+        .context("failed to find commit")?;
+    let base_tree = base_commit.tree().context("failed to find tree")?;
+    let mut index = git_repository.index().context("failed to get index")?;
+    index.read_tree(&base_tree).context("failed to read tree")?;
     let project = project_repository.project;
 
     // now update the index with content in the working directory for each file
@@ -1607,35 +1627,41 @@ fn write_tree(
                     let new_content = apply_bytes(blob_contents, &patch)?;
 
                     // add_frombuffer
-                    index.add_frombuffer(&index_entry, &new_content).unwrap();
+                    index
+                        .add_frombuffer(&index_entry, &new_content)
+                        .context("failed to add_frombuffer")?;
                 }
                 None => {
                     // if the file is new, then add it
-                    index.add_path(rel_path).unwrap();
+                    index.add_path(rel_path).context("failed to add_path")?;
                 }
             }
         } else {
             // remove file from index
-            index.remove_path(rel_path).unwrap();
+            index
+                .remove_path(rel_path)
+                .context("failed to remove_path")?;
         }
     }
 
     // now write out the tree
-    let tree_oid = index.write_tree().unwrap();
+    let tree_oid = index.write_tree().context("failed to write tree")?;
     Ok(tree_oid)
 }
 
-fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) {
+fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
     println!("tree id: {:?}", tree.id());
     for entry in tree.iter() {
         println!("entry: {:?} {:?}", entry.name(), entry.id());
         // get entry contents
-        let object = entry.to_object(repo).unwrap();
-        let blob = object.as_blob().unwrap();
+        let object = entry.to_object(repo).context("failed to get object")?;
+        let blob = object.as_blob().context("failed to get blob")?;
         // convert content to string
-        let content = std::str::from_utf8(blob.content()).unwrap();
+        let content =
+            std::str::from_utf8(blob.content()).context("failed to convert content to string")?;
         println!("blob: {:?}", content);
     }
+    Ok(())
 }
 
 pub fn commit(
@@ -3523,27 +3549,31 @@ mod tests {
             .expect("failed to get commit object");
 
         let tree = commit1.tree().expect("failed to get tree");
-        let file_list = tree_to_file_list(&repository, &tree);
+        let file_list = tree_to_file_list(&repository, &tree).unwrap();
         assert_eq!(file_list, vec!["test.txt", "test2.txt"]);
 
         // get the tree
         let tree = commit2.tree().expect("failed to get tree");
-        let file_list = tree_to_file_list(&repository, &tree);
+        let file_list = tree_to_file_list(&repository, &tree).unwrap();
         assert_eq!(file_list, vec!["test.txt", "test3.txt"]);
 
         Ok(())
     }
 
-    fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Vec<String> {
+    fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result<Vec<String>> {
         let mut file_list = Vec::new();
         for entry in tree.iter() {
             let path = entry.name().unwrap();
-            let entry = tree.get_path(std::path::Path::new(path)).unwrap();
-            let object = entry.to_object(repository).unwrap();
+            let entry = tree
+                .get_path(std::path::Path::new(path))
+                .context(format!("failed to get tree entry for path {}", path))?;
+            let object = entry
+                .to_object(repository)
+                .context(format!("failed to get object for tree entry {}", path))?;
             if object.kind() == Some(git2::ObjectType::Blob) {
                 file_list.push(path.to_string());
             }
         }
-        file_list
+        Ok(file_list)
     }
 }
