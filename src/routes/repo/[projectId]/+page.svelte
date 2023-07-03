@@ -3,6 +3,7 @@
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
 	import { getVirtualBranches } from './vbranches';
+	import { getRemoteBranches } from './remoteBranches';
 	import { Value } from 'svelte-loadable-store';
 
 	import hljs from 'highlight.js/lib/core';
@@ -22,11 +23,16 @@
 	hljs.registerLanguage('python', python);
 
 	export let data: PageData;
-	let { projectId, project, target, remoteBranches, remoteBranchesData } = data;
+	let { projectId, project, target, remoteBranches } = data;
 	const virtualBranches = getVirtualBranches(projectId);
 	$: branches =
 		!$virtualBranches.isLoading && !Value.isError($virtualBranches.value)
 			? $virtualBranches.value
+			: [];
+	const remoteBranchesStore = getRemoteBranches(projectId);
+	$: remoteBranchesData =
+		!$remoteBranchesStore.isLoading && !Value.isError($remoteBranchesStore.value)
+			? $remoteBranchesStore.value
 			: [];
 	let targetChoice = 'origin/master'; // prob should check if it exists
 </script>
