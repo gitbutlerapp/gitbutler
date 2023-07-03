@@ -1,5 +1,5 @@
 import { invoke } from '$lib/ipc';
-import { Branch } from './types';
+import { Branch, type Target } from './types';
 import { stores } from '$lib';
 import { writable, type Loadable, Value } from 'svelte-loadable-store';
 import { plainToInstance } from 'class-transformer';
@@ -9,7 +9,7 @@ import { error } from '$lib/toasts';
 const cache: Map<string, VirtualBranchOperations & Readable<Loadable<Branch[]>>> = new Map();
 
 export interface VirtualBranchOperations {
-	setTarget(branch: string): Promise<object>;
+	setTarget(branch: string): Promise<Target>;
 	createBranch(name: string, path: string): Promise<void | object>;
 	commitBranch(branch: string, message: string): Promise<void | object>;
 	updateBranchName(branchId: string, name: string): Promise<void | object>;
@@ -83,7 +83,7 @@ async function list(projectId: string): Promise<Branch[]> {
 }
 
 function setTarget(projectId: string, branch: string) {
-	return invoke<object>('set_target_branch', {
+	return invoke<Target>('set_target_branch', {
 		projectId: projectId,
 		branch: branch
 	});
