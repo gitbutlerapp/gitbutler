@@ -3,7 +3,6 @@
 	import type { Branch, BranchData, Target } from './types';
 	import { formatDistanceToNow } from 'date-fns';
 	import type { VirtualBranchOperations } from './vbranches';
-	import { invoke } from '@tauri-apps/api';
 	import { IconGitBranch, IconRemote, IconRefresh, IconAdd } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
@@ -44,12 +43,10 @@
 	// store left tray width preference in localStorage
 	const cacheKey = 'config:tray-width';
 
-	async function createvBranchFromBranch(params: { projectId: string; branch: string }) {
-		return invoke<string>('create_virtual_branch_from_branch', params);
-	}
-
 	function makeBranch(branch: string) {
-		createvBranchFromBranch({ projectId: projectId, branch });
+		remoteBranchOperations.createvBranchFromBranch(branch).then(() => {
+			virtualBranches.refresh();
+		});
 	}
 
 	function rememberWidth(node: HTMLElement) {
