@@ -299,6 +299,17 @@ async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::P
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn get_project(
+    handle: tauri::AppHandle,
+    id: &str,
+) -> Result<Option<projects::Project>, Error> {
+    let app = handle.state::<app::App>();
+    let project = app.get_project(id)?;
+    Ok(project)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
     let app = handle.state::<app::App>();
 
@@ -807,8 +818,6 @@ fn main() {
                 LogTarget::LogDir,
                 #[cfg(debug_assertions)]
                 LogTarget::Stdout,
-                #[cfg(debug_assertions)]
-                LogTarget::Webview,
             ];
             tauri_plugin_log::Builder::default()
                 .filter(|metadata| {
@@ -833,6 +842,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             add_project,
+            get_project,
             list_projects,
             delete_project,
             update_project,

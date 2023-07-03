@@ -5,8 +5,24 @@
 	import { getVirtualBranches } from './vbranches';
 	import { Value } from 'svelte-loadable-store';
 
+	import hljs from 'highlight.js/lib/core';
+	import javascript from 'highlight.js/lib/languages/javascript';
+	import css from 'highlight.js/lib/languages/css';
+	import typescript from 'highlight.js/lib/languages/typescript';
+	import http from 'highlight.js/lib/languages/http';
+	import rust from 'highlight.js/lib/languages/rust';
+	import python from 'highlight.js/lib/languages/python';
+
+	hljs.registerLanguage('javascript', javascript);
+	hljs.registerLanguage('css', css);
+	hljs.registerLanguage('typescript', typescript);
+	hljs.registerLanguage('http', http);
+	hljs.registerLanguage('typescript', typescript);
+	hljs.registerLanguage('rust', rust);
+	hljs.registerLanguage('python', python);
+
 	export let data: PageData;
-	let { projectId, target, remoteBranches, remoteBranchesData } = data;
+	let { projectId, project, target, remoteBranches, remoteBranchesData } = data;
 	const virtualBranches = getVirtualBranches(projectId);
 	$: branches =
 		!$virtualBranches.isLoading && !Value.isError($virtualBranches.value)
@@ -18,7 +34,7 @@
 {#if target}
 	<div class="flex w-full max-w-full">
 		<Tray {branches} {projectId} {target} remoteBranches={remoteBranchesData} {virtualBranches} />
-		<Board {branches} {projectId} {virtualBranches} />
+		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} />
 	</div>
 {:else}
 	<div class="m-auto flex flex-col space-y-2">

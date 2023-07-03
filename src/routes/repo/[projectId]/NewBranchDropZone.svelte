@@ -65,7 +65,9 @@
 		class="flex flex-col items-center gap-y-3 self-center p-8 text-center text-lg text-light-800 dark:text-dark-100"
 	>
 		<p>Drag changes or click button to create new virtual branch</p>
-		<Button color="purple" on:click={handleNewVirtualBranch}>New virtual branch</Button>
+		<Button color="purple" height="small" on:click={handleNewVirtualBranch}
+			>New virtual branch</Button
+		>
 	</div>
 </div>
 

@@ -14,6 +14,10 @@ export function list() {
 	return invoke<Project[]>('list_projects');
 }
 
+export function get(params: { id: string }): Promise<Project> {
+	return invoke<Project>('get_project', params);
+}
+
 export function update(params: {
 	project: {
 		id: string;

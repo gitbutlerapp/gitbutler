@@ -5,7 +5,7 @@
 	export let alt: string | undefined = undefined;
 	export let rating = 'g';
 	export let md55 = '';
-	export let protocol = '//';
+	export let protocol = 'https://';
 	export let email: string | undefined;
 	export let domain = 'en.gravatar.com';
 

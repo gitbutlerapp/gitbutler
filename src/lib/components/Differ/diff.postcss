@@ -13,6 +13,7 @@
 	--override-addition-background-color: hsl(144deg 55% 49% / 20%);
 
 	background-color: var(--override-addition-background-color);
+	@apply text-black dark:text-white;
 }
 
 .diff-line-marker-deletion,
@@ -20,12 +21,12 @@
 	--override-deletion-background-color: rgba(220, 38, 38, 0.2);
 
 	background-color: var(--override-deletion-background-color);
+	@apply text-black dark:text-white;
 }
 
 .diff-line-addition .inner-diff {
 	--override-addition-inner-diff-background-color: hsl(144deg 55% 49% / 60%);
 
-	color: white;
 	background-color: var(--override-addition-inner-diff-background-color);
 }
 
