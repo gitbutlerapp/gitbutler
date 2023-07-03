@@ -2,7 +2,7 @@ use std::{path, time};
 
 use anyhow::{Context, Result};
 
-use crate::{gb_repository, projects, users};
+use crate::{gb_repository, project_repository, projects, users};
 
 use super::events;
 
@@ -30,7 +30,7 @@ impl Handler {
     }
 
     pub fn handle(&self) -> Result<Vec<events::Event>> {
-        let gb_rep = gb_repository::Repository::open(
+        let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             self.project_id.clone(),
             self.project_storage.clone(),
@@ -38,11 +38,33 @@ impl Handler {
         )
         .context("failed to open repository")?;
 
-        let sessions_before_fetch = gb_rep
+        let sessions_before_fetch = gb_repo
             .get_sessions_iterator()?
             .filter_map(|s| s.ok())
             .collect::<Vec<_>>();
-        if !gb_rep.fetch().context("failed to fetch")? {
+
+        let mut fetched = false;
+        if let Err(err) = gb_repo.fetch() {
+            log::error!("failed to fetch: {}", err);
+        } else {
+            fetched = true
+        };
+
+        let project = self
+            .project_storage
+            .get_project(&self.project_id)
+            .context("failed to get project")?
+            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+
+        if let Err(err) = project_repository.fetch() {
+            log::error!("failed to fetch: {}", err);
+        } else {
+            fetched = true
+        };
+
+        if !fetched {
             return Ok(vec![]);
         }
 
@@ -59,7 +81,7 @@ impl Handler {
             })
             .context("failed to update project")?;
 
-        let sessions_after_fetch = gb_rep
+        let sessions_after_fetch = gb_repo
             .get_sessions_iterator()?
             .filter_map(|s| s.ok())
             .collect::<Vec<_>>();
