@@ -1763,7 +1763,7 @@ pub fn push(
 
     project_repository
         .push(&vbranch.head, &upstream)
-        .context("failed to fetch before push")?;
+        .context("failed to push")?;
 
     vbranch.upstream = upstream;
     branch_writer
@@ -1772,7 +1772,7 @@ pub fn push(
 
     project_repository
         .fetch()
-        .context("failed to fetch before push")
+        .context("failed to fetch after push")
 }
 
 #[cfg(test)]
