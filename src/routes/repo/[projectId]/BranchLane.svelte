@@ -36,7 +36,7 @@
 	let allExpanded: boolean | undefined;
 	let maximized = false;
 	let descriptionHeight = 0;
-	let textArea: HTMLTextAreaElement;
+	let messageDiv: HTMLDivElement;
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
@@ -86,15 +86,10 @@
 		}
 	}
 
-	function updateTextArea(): void {
-		if (textArea) {
-			descriptionHeight = textArea.scrollHeight + 2;
-		}
-	}
-
 	function commit() {
-		console.log('commit', textArea.value, projectId, branchId);
-		virtualBranches.commitBranch(branchId, textArea.value);
+		const message = messageDiv.innerText.trim();
+		console.log('commit', message, projectId, branchId);
+		virtualBranches.commitBranch(branchId, message);
 	}
 
 	function push() {
@@ -106,14 +101,12 @@
 	}
 
 	onMount(() => {
-		updateTextArea();
 		expandFromCache();
 	});
 
 	$: {
 		// On refresh we need to check expansion status from localStorage
 		files && expandFromCache();
-		updateTextArea();
 	}
 
 	function expandFromCache() {
@@ -186,14 +179,15 @@
 	>
 		<div class="mb-2 flex items-center">
 			{#if files.filter((x) => x.hunks).length > 0}
-				<textarea
-					bind:this={textArea}
-					class="h-14 shrink-0 flex-grow resize-none rounded border border-light-200 bg-white p-2 text-dark-700 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
-					style="height: {descriptionHeight}px"
-					value={commitMessage ? commitMessage.trim() : ''}
+				<div
+					bind:this={messageDiv}
+					role="textbox"
+					contenteditable
+					class="max-h-32 shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-light-200 bg-white p-2 text-dark-700 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 					placeholder="Your commit message here..."
-					on:input={updateTextArea}
-				/>
+				>
+					{commitMessage ? commitMessage.trim() : ''}
+				</div>
 				<button
 					class="mx-0.5 h-6 w-6 items-center justify-center text-light-600 dark:text-dark-200"
 					on:click={handleToggleExpandAll}
