@@ -12,6 +12,7 @@ pub enum Event {
     GitFileChange(path::PathBuf),
     GitIndexChange,
     GitActivity,
+    GitFetch,
     GitHeadChange(String),
 
     ProjectFileChange(path::PathBuf),
@@ -31,6 +32,7 @@ impl Display for Event {
             Event::Tick(ts) => write!(f, "Tick({:?})", ts),
             Event::Flush(session) => write!(f, "Flush({})", session.id),
             Event::Fetch => write!(f, "Fetch"),
+            Event::GitFetch => write!(f, "GitFetch"),
             Event::FileChange(_) => write!(f, "FileChange"),
             Event::GitFileChange(_) => write!(f, "GitFileChange"),
             Event::GitIndexChange => write!(f, "GitIndexChange"),

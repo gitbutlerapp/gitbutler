@@ -34,6 +34,13 @@ impl Event {
         }
     }
 
+    pub fn git_fetch(project_id: &str) -> Self {
+        Event {
+            name: format!("project://{}/git/fetch", project_id),
+            payload: serde_json::json!({}),
+        }
+    }
+
     pub fn git_head(project_id: &str, head: &str) -> Self {
         Event {
             name: format!("project://{}/git/head", project_id),

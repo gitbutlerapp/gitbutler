@@ -33,6 +33,10 @@ impl Handler {
             .with_context(|| "failed to open project repository for project")?;
 
         match path.as_ref().to_str().unwrap() {
+            "FETCH_HEAD" => {
+                log::info!("{}: git fetch", project.id);
+                Ok(vec![events::Event::GitFetch])
+            }
             "logs/HEAD" => {
                 log::info!("{}: git activity", project.id);
                 Ok(vec![events::Event::GitActivity])
