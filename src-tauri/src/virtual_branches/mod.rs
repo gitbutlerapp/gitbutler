@@ -218,7 +218,7 @@ pub fn unapply_branch(
     let writer = branch::Writer::new(gb_repository);
 
     let mut target_branch = branch_reader
-        .read(&branch_id)
+        .read(branch_id)
         .context("failed to read branch")?;
 
     let statuses = get_status_by_branch(gb_repository, project_repository)
@@ -288,7 +288,7 @@ pub fn unapply_branch(
 
                 // apply patch to blob_contents
                 let patch_bytes = patch.as_bytes();
-                let patch = Patch::from_bytes(&patch_bytes)?;
+                let patch = Patch::from_bytes(patch_bytes)?;
                 let new_content = apply_bytes(blob_contents, &patch)?;
                 std::fs::write(full_path, new_content)?;
             } else {
@@ -339,8 +339,8 @@ pub fn remote_branches(
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
         .into_iter()
-        .filter(|branch| branch.upstream != "")
-        .map(|branch| branch.upstream.clone().replace("refs/heads/", ""))
+        .filter(|branch| !branch.upstream.is_empty())
+        .map(|branch| branch.upstream.replace("refs/heads/", ""))
         .collect::<Vec<_>>();
 
     println!("virtual branches: {:?}", virtual_branches);
@@ -543,18 +543,16 @@ fn check_mergeable(
     let mergeable = !merge_index.has_conflicts();
     if merge_index.has_conflicts() {
         let conflicts = merge_index.conflicts()?;
-        for conflict in conflicts {
-            if let Ok(path) = conflict {
-                if let Some(their) = path.their {
-                    let path = std::str::from_utf8(&their.path)?.to_string();
-                    merge_conflicts.push(path);
-                } else if let Some(ours) = path.our {
-                    let path = std::str::from_utf8(&ours.path)?.to_string();
-                    merge_conflicts.push(path);
-                } else if let Some(anc) = path.ancestor {
-                    let path = std::str::from_utf8(&anc.path)?.to_string();
-                    merge_conflicts.push(path);
-                }
+        for path in conflicts.flatten() {
+            if let Some(their) = path.their {
+                let path = std::str::from_utf8(&their.path)?.to_string();
+                merge_conflicts.push(path);
+            } else if let Some(ours) = path.our {
+                let path = std::str::from_utf8(&ours.path)?.to_string();
+                merge_conflicts.push(path);
+            } else if let Some(anc) = path.ancestor {
+                let path = std::str::from_utf8(&anc.path)?.to_string();
+                merge_conflicts.push(path);
             }
         }
     }
@@ -653,7 +651,7 @@ pub fn list_virtual_branches(
 
         // see if we can identify some upstream
         let mut upstream_commit = None;
-        if branch.upstream != "" {
+        if !branch.upstream.is_empty() {
             // get the target remote
             let remote_url = &default_target.remote;
             let remotes = repo.remotes()?;
@@ -697,10 +695,8 @@ pub fn list_virtual_branches(
             // find merge base between upstream and default_target.sha
             let merge_base = repo.merge_base(upstream.id(), default_target.sha)?;
             revwalk.hide(merge_base)?;
-            for oid in revwalk {
-                if let Ok(upstream_oid) = oid {
-                    upstream_commits.insert(upstream_oid, true);
-                }
+            for oid in revwalk.flatten() {
+                upstream_commits.insert(oid, true);
             }
         }
 
@@ -747,7 +743,7 @@ pub fn list_virtual_branches(
                 .find_tree(branch.tree)
                 .context("failed to find branch tree")?;
             (mergeable, merge_conflicts) =
-                check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
         }
 
         let branch = VirtualBranch {
@@ -812,9 +808,9 @@ pub fn create_virtual_branch_from_branch(
     let branch_id = Uuid::new_v4().to_string();
     let mut branch = Branch {
         id: branch_id.clone(),
-        name: name.to_string(),
+        name,
         applied: false,
-        upstream: upstream.clone(),
+        upstream,
         tree: tree.id(),
         head: head_commit.id(),
         created_timestamp_ms: now,
@@ -947,7 +943,7 @@ pub fn delete_branch(
     let branch_writer = branch::Writer::new(gb_repository);
 
     let branch = branch_reader
-        .read(&branch_id)
+        .read(branch_id)
         .context("failed to read branch")?;
 
     branch_writer
@@ -2879,21 +2875,15 @@ mod tests {
 
         unapply_branch(&gb_repo, &project_repository, &branch3_id)?;
         // check that file3 is gone
-        assert!(
-            std::path::Path::new(&project.path)
-                .join(file_path3)
-                .exists()
-                == false
-        );
+        assert!(!std::path::Path::new(&project.path)
+            .join(file_path3)
+            .exists());
 
         apply_branch(&gb_repo, &project_repository, &branch2_id)?;
         // check that file2 is gone
-        assert!(
-            std::path::Path::new(&project.path)
-                .join(file_path2)
-                .exists()
-                == false
-        );
+        assert!(!std::path::Path::new(&project.path)
+            .join(file_path2)
+            .exists());
 
         apply_branch(&gb_repo, &project_repository, &branch3_id)?;
         // check that file3 is back
@@ -3253,10 +3243,10 @@ mod tests {
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch1.files.len(), 0);
-        assert_eq!(branch1.active, true);
+        assert!(branch1.active);
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
         assert_eq!(branch2.files.len(), 0);
-        assert_eq!(branch2.active, false);
+        assert!(!branch2.active);
 
         // file should still be the original
         let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
@@ -3275,10 +3265,10 @@ mod tests {
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch1.files.len(), 0);
-        assert_eq!(branch1.active, true);
+        assert!(branch1.active);
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
         assert_eq!(branch2.files.len(), 0);
-        assert_eq!(branch2.active, true);
+        assert!(branch2.active);
         assert_eq!(branch2.commits.len(), 1);
 
         // add to the applied file in the same hunk so it adds to the second branch
@@ -3290,10 +3280,10 @@ mod tests {
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch1.files.len(), 0);
-        assert_eq!(branch1.active, true);
+        assert!(branch1.active);
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
         assert_eq!(branch2.files.len(), 1);
-        assert_eq!(branch2.active, true);
+        assert!(branch2.active);
 
         // add to another file so it goes to the default one
         let file_path2 = std::path::Path::new("test2.txt");
@@ -3305,10 +3295,10 @@ mod tests {
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch1.files.len(), 1);
-        assert_eq!(branch1.active, true);
+        assert!(branch1.active);
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
         assert_eq!(branch2.files.len(), 1);
-        assert_eq!(branch2.active, true);
+        assert!(branch2.active);
 
         Ok(())
     }
@@ -3405,12 +3395,12 @@ mod tests {
 
         // branch one test.txt has just the 1st and 3rd hunks applied
         let commit = &branch1.commits[0].id;
-        let contents = commit_sha_to_contents(&repository, &commit, "test.txt");
+        let contents = commit_sha_to_contents(&repository, commit, "test.txt");
         assert_eq!(contents, "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nmiddle\nline11\nline12\npatch3\n");
 
         // branch two test.txt has just the middle hunk applied
         let commit = &branch2.commits[0].id;
-        let contents = commit_sha_to_contents(&repository, &commit, "test.txt");
+        let contents = commit_sha_to_contents(&repository, commit, "test.txt");
         assert_eq!(contents, "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n");
 
         // ok, now we're going to unapply branch1, which should remove the 1st and 3rd hunks
@@ -3451,7 +3441,7 @@ mod tests {
             .expect("failed to get blob");
         // blob from tree_entry
         let blob = tree_entry
-            .to_object(&repository)
+            .to_object(repository)
             .unwrap()
             .peel_to_blob()
             .expect("failed to get blob");
@@ -3549,7 +3539,7 @@ mod tests {
         for entry in tree.iter() {
             let path = entry.name().unwrap();
             let entry = tree.get_path(std::path::Path::new(path)).unwrap();
-            let object = entry.to_object(&repository).unwrap();
+            let object = entry.to_object(repository).unwrap();
             if object.kind() == Some(git2::ObjectType::Blob) {
                 file_list.push(path.to_string());
             }

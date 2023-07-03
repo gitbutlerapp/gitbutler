@@ -104,7 +104,7 @@ mod tests {
             .unwrap(),
             ownership: branch::Ownership {
                 files: vec![branch::FileOwnership {
-                    file_path: format!("file/{}", unsafe { TEST_INDEX }).into(),
+                    file_path: format!("file/{}", unsafe { TEST_INDEX }),
                     hunks: vec![],
                 }],
             },
