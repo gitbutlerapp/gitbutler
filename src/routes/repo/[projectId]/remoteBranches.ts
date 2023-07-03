@@ -9,6 +9,7 @@ import type { Writable, Readable } from '@square/svelte-store';
 const cache: Map<string, RemoteBranchOperations & Readable<Loadable<BranchData[]>>> = new Map();
 
 export interface RemoteBranchOperations {
+	refresh(): Promise<void | object>;
 	updateBranchTarget(): Promise<void | object>;
 	createvBranchFromBranch(branch: string): Promise<void | string>;
 }
@@ -22,6 +23,7 @@ export function getRemoteBranches(
 	}
 	const writeable = createWriteable(projectId);
 	const store: RemoteBranchOperations & Readable<Loadable<BranchData[]>> = {
+		refresh: () => refresh(projectId, writeable),
 		subscribe: writeable.subscribe,
 		updateBranchTarget: () => updateBranchTarget(writeable, projectId),
 		createvBranchFromBranch: (branch) => createvBranchFromBranch(writeable, projectId, branch)
@@ -52,7 +54,7 @@ function updateBranchTarget(writable: Writable<Loadable<BranchData[]>>, projectI
 }
 
 function refresh(projectId: string, store: Writable<Loadable<BranchData[]>>) {
-	getRemoteBranchesData(projectId).then((newBranches) =>
+	return getRemoteBranchesData(projectId).then((newBranches) =>
 		store.set({ isLoading: false, value: newBranches })
 	);
 }
