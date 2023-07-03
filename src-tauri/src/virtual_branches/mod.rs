@@ -91,6 +91,7 @@ pub struct VirtualBranchHunk {
     pub diff: String,
     pub modified_at: u128,
     pub file_path: String,
+    pub hash: String,
     pub start: usize,
     pub end: usize,
 }
@@ -980,6 +981,16 @@ fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf
     }
 }
 
+fn diff_hash(diff: &str) -> String {
+    let addition = diff
+        .lines()
+        .skip(1)
+        .filter(|line| line.starts_with('+'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("{:x}", md5::compute(addition))
+}
+
 fn diff_to_hunks_by_filepath(
     diff: git2::Diff,
     project_repository: &project_repository::Repository,
@@ -1056,6 +1067,7 @@ fn diff_to_hunks_by_filepath(
                     file_path,
                     start: current_start.unwrap(),
                     end: current_end.unwrap(),
+                    hash: diff_hash(current_diff.as_str()),
                 });
             current_diff = String::new();
         }
@@ -1091,11 +1103,12 @@ fn diff_to_hunks_by_filepath(
             .push(VirtualBranchHunk {
                 id: current_hunk_id.as_ref().unwrap().to_string(),
                 name: "".to_string(),
-                diff: current_diff,
                 modified_at: mtime,
                 file_path,
                 start: current_start.unwrap(),
                 end: current_end.unwrap(),
+                hash: diff_hash(current_diff.as_str()),
+                diff: current_diff,
             });
     }
     Ok(hunks_by_filepath)
@@ -1178,7 +1191,12 @@ pub fn get_status_by_branch(
                         .filter_map(|owned_hunk| {
                             // if any of the current hunks intersects with the owned hunk, we want to keep it
                             for (i, current_hunk) in current_hunks.iter().enumerate() {
-                                let ch = Hunk::new(current_hunk.start, current_hunk.end).unwrap();
+                                let ch = Hunk::new(
+                                    current_hunk.start,
+                                    current_hunk.end,
+                                    Some(current_hunk.hash.clone()),
+                                )
+                                .unwrap();
                                 if owned_hunk.eq(&ch) {
                                     // if it's an exact match, push it to the end, preserving the
                                     // order
@@ -1890,6 +1908,7 @@ mod tests {
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+
         let files_by_branch_id = statuses
             .iter()
             .map(|(branch, files)| (branch.id.clone(), files))
