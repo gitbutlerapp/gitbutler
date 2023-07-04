@@ -541,6 +541,10 @@ impl Repository {
         self.git_repository.path().join("gitbutler")
     }
 
+    pub fn branches_path(&self) -> std::path::PathBuf {
+        self.root().join("branches")
+    }
+
     pub(crate) fn session_path(&self) -> std::path::PathBuf {
         self.root().join("session")
     }
