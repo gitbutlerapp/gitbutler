@@ -11,6 +11,8 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { getRemoteBranches } from './remoteBranches';
 	import { Value } from 'svelte-loadable-store';
+	import { get } from 'lscache';
+	import { invoke } from '@tauri-apps/api';
 
 	export let target: Target;
 	export let branches: Branch[];
@@ -49,6 +51,17 @@
 		});
 	}
 
+	async function getTargetData(params: { projectId: string }) {
+		target = await invoke<Target>('get_target_data', params);
+	}
+
+	function fetchTarget() {
+		remoteBranchOperations.fetchFromTarget().then(() => {
+			virtualBranches.refresh();
+		});
+		getTargetData({ projectId });
+	}
+
 	function rememberWidth(node: HTMLElement) {
 		const cachedWidth = localStorage.getItem(cacheKey);
 		if (cachedWidth) node.style.width = cachedWidth;
@@ -79,14 +92,24 @@
 		<div class="flex-grow text-lg font-bold" title={behindMessage}>{target.name}</div>
 		<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
 		<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
-			<button
-				class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-				on:click={updateTargetModal.show}
-				disabled={target.behind == 0}
-				title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
-			>
-				<IconRefresh />
-			</button>
+			{#if target.behind == 0}
+				<button
+					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+					on:click={fetchTarget}
+					title="click to fetch"
+				>
+					<IconRefresh />
+				</button>
+			{:else}
+				<button
+					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+					on:click={updateTargetModal.show}
+					disabled={target.behind == 0}
+					title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
+				>
+					<IconRefresh />
+				</button>
+			{/if}
 		</div>
 	</div>
 

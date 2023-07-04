@@ -12,6 +12,7 @@ export interface RemoteBranchOperations {
 	refresh(): Promise<void | object>;
 	updateBranchTarget(): Promise<void | object>;
 	createvBranchFromBranch(branch: string): Promise<void | string>;
+	fetchFromTarget(): Promise<void | object>;
 }
 
 export function getRemoteBranches(
@@ -26,7 +27,8 @@ export function getRemoteBranches(
 		refresh: () => refresh(projectId, writeable),
 		subscribe: writeable.subscribe,
 		updateBranchTarget: () => updateBranchTarget(writeable, projectId),
-		createvBranchFromBranch: (branch) => createvBranchFromBranch(writeable, projectId, branch)
+		createvBranchFromBranch: (branch) => createvBranchFromBranch(writeable, projectId, branch),
+		fetchFromTarget: () => fetchFromTarget(writeable, projectId)
 	};
 
 	cache.set(projectId, store);
@@ -50,6 +52,16 @@ function updateBranchTarget(writable: Writable<Loadable<BranchData[]>>, projectI
 		})
 		.catch(() => {
 			error('Unable to update target!');
+		});
+}
+
+function fetchFromTarget(writable: Writable<Loadable<BranchData[]>>, projectId: string) {
+	return invoke<void>('fetch_from_target', { projectId: projectId })
+		.then(() => {
+			refresh(projectId, writable);
+		})
+		.catch(() => {
+			error('Unable to fetch from upstream!');
 		});
 }
 
