@@ -13,6 +13,7 @@ export * as files from './files';
 export * as zip from './zip';
 export * as bookmarks from './bookmarks';
 export type { Bookmark } from './bookmarks';
+export * as vbranches from './vbranches';
 
 import { invoke } from '$lib/ipc';
 

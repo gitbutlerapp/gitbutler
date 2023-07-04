@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dndzone } from 'svelte-dnd-action';
-	import { Branch, File, Hunk } from './types';
+	import { Branch, File, Hunk } from '$lib/api/ipc/vbranches';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import { createBranch, createFile } from './helpers';
 	import { Button } from '$lib/components';
