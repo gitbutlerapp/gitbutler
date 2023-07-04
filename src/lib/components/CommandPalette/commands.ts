@@ -164,15 +164,7 @@ const navigateGroup = ({ project, input }: { project?: Project; input: string })
 						icon: IconSettings
 					}
 			  ]
-			: []),
-		{
-			title: 'Settings',
-			hotkey: 'Meta+,',
-			action: {
-				href: '/users/'
-			},
-			icon: IconAdjustmentsHorizontal
-		}
+			: [])
 	].filter(({ title }) => input.length === 0 || title.toLowerCase().includes(input.toLowerCase()))
 });
 
