@@ -20,7 +20,6 @@ pub struct Handler {
     sessions_database: sessions::Database,
     deltas_database: deltas::Database,
     bookmarks_database: bookmarks::Database,
-    events_sender: app_events::Sender,
 }
 
 impl Handler {
@@ -35,7 +34,6 @@ impl Handler {
         sessions_database: sessions::Database,
         deltas_database: deltas::Database,
         bookmarks_database: bookmarks::Database,
-        events_sender: app_events::Sender,
     ) -> Self {
         Self {
             local_data_dir,
@@ -47,7 +45,6 @@ impl Handler {
             sessions_database,
             deltas_database,
             bookmarks_database,
-            events_sender,
         }
     }
 
@@ -60,7 +57,12 @@ impl Handler {
         self.deltas_database
             .insert(&self.project_id, session_id, file_path, deltas)
             .context("failed to insert deltas into database")?;
-        Ok(vec![])
+        Ok(vec![events::Event::Emit(app_events::Event::deltas(
+            &self.project_id,
+            session_id,
+            deltas,
+            path::Path::new(file_path),
+        ))])
     }
 
     pub fn index_file(
@@ -72,17 +74,25 @@ impl Handler {
         self.files_database
             .insert(&self.project_id, session_id, file_path, content)
             .context("failed to insert file into database")?;
-        Ok(vec![])
+        Ok(vec![events::Event::Emit(app_events::Event::file(
+            &self.project_id,
+            session_id,
+            file_path,
+            content,
+        ))])
     }
 
     pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {
         let updated = self.bookmarks_database.upsert(bookmark)?;
         self.deltas_searcher.index_bookmark(bookmark)?;
         if let Some(updated) = updated {
-            self.events_sender
-                .send(app_events::Event::bookmark(&self.project_id, &updated))?;
+            Ok(vec![events::Event::Emit(app_events::Event::bookmark(
+                &self.project_id,
+                &updated,
+            ))])
+        } else {
+            Ok(vec![])
         }
-        Ok(vec![])
     }
 
     pub fn reindex(&self) -> Result<Vec<events::Event>> {
@@ -136,7 +146,10 @@ impl Handler {
             .insert(&self.project_id, &[session])
             .context("failed to insert session into database")?;
 
-        let mut events: Vec<events::Event> = vec![];
+        let mut events: Vec<events::Event> = vec![events::Event::Emit(app_events::Event::session(
+            &self.project_id,
+            session,
+        ))];
 
         for (file_path, content) in session_reader
             .files(None)

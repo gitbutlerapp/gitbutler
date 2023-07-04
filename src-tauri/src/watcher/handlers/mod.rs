@@ -52,7 +52,7 @@ impl<'handler> Handler {
     ) -> Self {
         Self {
             project_id: project_id.clone(),
-            events_sender: events_sender.clone(),
+            events_sender,
 
             file_change_handler: file_change::Handler::new(),
             project_file_handler: project_file_change::Handler::new(
@@ -97,7 +97,6 @@ impl<'handler> Handler {
                 sessions_database,
                 deltas_database,
                 bookmarks_database,
-                events_sender,
             ),
         }
     }
@@ -112,48 +111,28 @@ impl<'handler> Handler {
                 .file_change_handler
                 .handle(path.clone())
                 .with_context(|| format!("failed to handle file change event: {:?}", path)),
+
             events::Event::ProjectFileChange(path) => self
                 .project_file_handler
                 .handle(path.clone())
                 .with_context(|| format!("failed to handle project file change event: {:?}", path)),
+
             events::Event::GitFileChange(path) => self
                 .git_file_change_handler
                 .handle(path)
                 .context("failed to handle git file change event"),
-            events::Event::GitActivity => {
-                self.events_sender
-                    .send(app_events::Event::git_activity(&self.project_id))
-                    .context("failed to send git activity event")?;
-                Ok(vec![])
-            }
-            events::Event::GitHeadChange(head) => {
-                self.events_sender
-                    .send(app_events::Event::git_head(&self.project_id, &head))
-                    .context("failed to send git head event")?;
-                Ok(vec![])
-            }
-            events::Event::GitFetch => {
-                self.events_sender
-                    .send(app_events::Event::git_fetch(&self.project_id))
-                    .context("failed to send git fetch event")?;
-                Ok(vec![])
-            }
-            events::Event::GitIndexChange => {
-                self.events_sender
-                    .send(app_events::Event::git_index(&self.project_id))
-                    .context("failed to send git index event")?;
-                Ok(vec![])
-            }
+
             events::Event::FetchGitbutlerData(tick) => self
                 .fetch_gitbutler_handler
                 .handle(tick)
                 .context("failed to fetch gitbutler data"),
+
             events::Event::Tick(tick) => {
                 let one = match self.check_current_session_handler.handle(tick) {
                     Ok(events) => events,
                     Err(err) => {
                         log::error!(
-                            "{}: failed to check current session: {:#?}",
+                            "{}: failed to check current session: {:#}",
                             self.project_id,
                             err
                         );
@@ -165,7 +144,7 @@ impl<'handler> Handler {
                     Ok(events) => events,
                     Err(err) => {
                         log::error!(
-                            "{}: failed to fetch project data: {:#?}",
+                            "{}: failed to fetch project data: {:#}",
                             self.project_id,
                             err
                         );
@@ -177,7 +156,7 @@ impl<'handler> Handler {
                     Ok(events) => events,
                     Err(err) => {
                         log::error!(
-                            "{}: failed to fetch gitbutler data: {:#?}",
+                            "{}: failed to fetch gitbutler data: {:#}",
                             self.project_id,
                             err
                         );
@@ -191,64 +170,40 @@ impl<'handler> Handler {
                     .chain(three.into_iter())
                     .collect())
             }
+
             events::Event::Flush(session) => self
                 .flush_session_handler
                 .handle(&session)
                 .context("failed to handle flush session event"),
 
-            events::Event::SessionFile((session_id, file_path, contents)) => {
-                let file_events = self
-                    .index_handler
-                    .index_file(&session_id, file_path.to_str().unwrap(), &contents)
-                    .context("failed to index file")?;
-                self.events_sender
-                    .send(app_events::Event::file(
-                        &self.project_id,
-                        &session_id,
-                        file_path.to_str().unwrap(),
-                        &contents,
-                    ))
-                    .context("failed to send file event")?;
-                Ok(file_events)
-            }
-            events::Event::Session(session) => {
-                let session_events = self
-                    .index_handler
-                    .index_session(&session)
-                    .context("failed to index session")?;
-                self.events_sender
-                    .send(app_events::Event::session(&self.project_id, &session))
-                    .context("failed to send session event")?;
-                Ok(session_events)
-            }
-            events::Event::SessionDelta((session_id, path, delta)) => {
-                let deltas = vec![delta];
-                let delta_events = self
-                    .index_handler
-                    .index_deltas(&session_id, path.to_str().unwrap(), &deltas)
-                    .context("failed to index deltas")?;
-                self.events_sender
-                    .send(app_events::Event::deltas(
-                        &self.project_id,
-                        &session_id,
-                        &deltas,
-                        &path,
-                    ))
-                    .context("failed to send deltas event")?;
-                Ok(delta_events)
-            }
-            events::Event::Bookmark(bookmark) => {
-                let bookmark_events = self
-                    .index_handler
-                    .index_bookmark(&bookmark)
-                    .context("failed to index bookmark")?;
-                self.events_sender
-                    .send(app_events::Event::bookmark(&self.project_id, &bookmark))
-                    .context("failed to send bookmark event")?;
-                Ok(bookmark_events)
-            }
+            events::Event::SessionFile((session_id, file_path, contents)) => self
+                .index_handler
+                .index_file(&session_id, file_path.to_str().unwrap(), &contents)
+                .context("failed to index file"),
+
+            events::Event::Session(session) => self
+                .index_handler
+                .index_session(&session)
+                .context("failed to index session"),
+
+            events::Event::SessionDelta((session_id, path, delta)) => self
+                .index_handler
+                .index_deltas(&session_id, path.to_str().unwrap(), &vec![delta])
+                .context("failed to index deltas"),
+
+            events::Event::Bookmark(bookmark) => self
+                .index_handler
+                .index_bookmark(&bookmark)
+                .context("failed to index bookmark"),
 
             events::Event::IndexAll => self.index_handler.reindex(),
+
+            events::Event::Emit(event) => {
+                self.events_sender
+                    .send(event)
+                    .context("failed to send event")?;
+                Ok(vec![])
+            }
         }
     }
 }
