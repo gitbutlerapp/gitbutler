@@ -4,12 +4,18 @@
 	import type { PageData } from './$types';
 	import { getVirtualBranches } from './vbranches';
 	import { getTarget } from './targetData';
+	import { getRemoteBranches } from './remoteBranches';
 	import { Value } from 'svelte-loadable-store';
 	import { Button } from '$lib/components';
 	import { error } from '$lib/toasts';
 
 	export let data: PageData;
-	let { projectId, project, remoteBranches } = data;
+	let { projectId, remoteBranchNames, project } = data;
+	const remoteBranchOperations = getRemoteBranches(projectId);
+	$: remoteBranches =
+		!$remoteBranchOperations.isLoading && !Value.isError($remoteBranchOperations.value)
+			? $remoteBranchOperations.value
+			: [];
 	const targetOperations = getTarget(projectId);
 	$: target =
 		!$targetOperations.isLoading && !Value.isError($targetOperations.value)
@@ -38,7 +44,14 @@
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray {branches} {projectId} {target} {virtualBranches} {targetOperations} />
+		<Tray
+			{branches}
+			{target}
+			{virtualBranches}
+			{targetOperations}
+			{remoteBranches}
+			{remoteBranchOperations}
+		/>
 		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} />
 	</div>
 {:else}
@@ -48,11 +61,11 @@
 			You need to set your target before you can start working on your project.
 		</p>
 		<!-- select menu of remoteBranches -->
-		{#if remoteBranches.length === 0}
+		{#if remoteBranchNames.length === 0}
 			<p class="text-gray-500">You don't have any remote branches.</p>
 		{:else}
 			<select bind:value={targetChoice}>
-				{#each remoteBranches as branch}
+				{#each remoteBranchNames as branch}
 					{#if branch == 'origin/master' || branch == 'origin/main'}
 						<option value={branch} selected>{branch}</option>
 					{:else}
