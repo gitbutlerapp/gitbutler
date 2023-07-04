@@ -20,7 +20,7 @@ impl<'writer> BranchWriter<'writer> {
         }
     }
 
-    pub fn remove(&self, branch: &Branch) -> Result<()> {
+    pub fn delete(&self, branch: &Branch) -> Result<()> {
         self.repository
             .get_or_create_current_session()
             .context("Failed to get or create current session")?;
@@ -222,7 +222,7 @@ mod tests {
             branch.updated_timestamp_ms
         );
 
-        writer.remove(&branch)?;
+        writer.delete(&branch)?;
         assert!(fs::read_dir(root).is_err());
 
         Ok(())

@@ -965,7 +965,7 @@ pub fn delete_branch(
         .context("failed to read branch")?;
 
     branch_writer
-        .remove(&branch)
+        .delete(&branch)
         .context("Failed to remove branch")?;
 
     Ok(branch)
@@ -1564,11 +1564,7 @@ pub fn update_branch_target(
                 println!("merge_tree_oid: {:?}", merge_tree_oid);
                 println!("new_target_tree.id(): {:?}", new_target_tree.id());
                 if merge_tree_oid == new_target_tree.id() && vbranch.files.is_empty() {
-                    // delete the branch
-                    // TODO: is there a way to delete a vbranch??
-                    virtual_branch.applied = false;
-                    virtual_branch.tree = merge_tree_oid;
-                    writer.write(&virtual_branch)?;
+                    writer.delete(&virtual_branch)?;
                 } else {
                     // commit the merge tree oid
                     let new_branch_head = repo.commit(
@@ -2651,11 +2647,9 @@ mod tests {
         // this should notice that the trees are the same after the merge, so it should unapply the branch
         update_branch_target(&gb_repo, &project_repository)?;
 
-        // there should be a new vbranch created, but nothing is on it
+        // integrated branch should be deleted
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
-        let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-        assert!(!branch.active);
-        assert_eq!(branch.commits.len(), 1);
+        assert!(!branches.iter().any(|b| b.id == branch1_id));
 
         Ok(())
     }
