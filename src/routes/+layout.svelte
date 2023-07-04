@@ -53,7 +53,6 @@
 			events.on('goto', (path: string) => goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show()),
 
-			hotkeys.on('Meta+,', () => events.emit('goto', '/users/')),
 			hotkeys.on('Meta+Shift+N', () => events.emit('openNewProjectModal')),
 
 			// Zoom using cmd +, - and =
