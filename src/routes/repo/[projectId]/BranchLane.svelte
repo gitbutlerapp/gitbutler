@@ -6,7 +6,6 @@
 	import { createFile } from './helpers';
 	import FileCard from './FileCard.svelte';
 	import { IconBranch } from '$lib/icons';
-	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import { Button } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
@@ -32,11 +31,11 @@
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
+	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 2), 10);
 
 	let allExpanded: boolean | undefined;
 	let maximized = false;
-	let descriptionHeight = 0;
-	let messageDiv: HTMLDivElement;
+	let messageInput: HTMLTextAreaElement;
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
@@ -87,7 +86,7 @@
 	}
 
 	function commit() {
-		const message = messageDiv.innerText.trim();
+		const message = messageInput.value.trim();
 		console.log('commit', message, projectId, branchId);
 		virtualBranches.commitBranch(branchId, message);
 	}
@@ -172,6 +171,13 @@
 		<PopupMenuItem on:click={() => branchId && virtualBranches.unapplyBranch(branchId)}>
 			Unapply
 		</PopupMenuItem>
+		<PopupMenuItem on:click={handleToggleExpandAll}>
+			{#if allExpanded}
+				Collapse all
+			{:else}
+				Expand all
+			{/if}
+		</PopupMenuItem>
 	</PopupMenu>
 
 	<div
@@ -179,30 +185,15 @@
 	>
 		<div class="mb-2 flex items-center">
 			{#if files.filter((x) => x.hunks).length > 0}
-				<div
-					bind:this={messageDiv}
-					role="textbox"
-					contenteditable
-					class="max-h-32 shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-light-200 bg-white p-2 text-dark-700 outline-none dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+				<textarea
+					bind:value={commitMessage}
+					class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-light-400 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300 dark:focus:border-dark-300"
 					placeholder="Your commit message here..."
-				>
-					{commitMessage ? commitMessage.trim() : ''}
-				</div>
-				<button
-					class="mx-0.5 h-6 w-6 items-center justify-center text-light-600 dark:text-dark-200"
-					on:click={handleToggleExpandAll}
-				>
-					{#if allExpanded}
-						<IconTriangleUp />
-					{:else if allExpanded == undefined}
-						<IconTriangleDown />
-					{:else}
-						<IconTriangleDown />
-					{/if}
-				</button>
+					rows={messageRows}
+				/>
 			{/if}
 		</div>
-		<div class="mb-4">
+		<div class="mb-4 text-right">
 			{#if files.filter((x) => x.hunks).length > 0}
 				<Button
 					height="small"

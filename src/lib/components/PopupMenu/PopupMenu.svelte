@@ -5,7 +5,7 @@
 	let showMenu = false;
 	let item: any;
 
-	function onDismiss(e: MouseEvent | KeyboardEvent) {
+	function onDismiss(e: MouseEvent | KeyboardEvent | FocusEvent) {
 		showMenu = false;
 	}
 
@@ -44,16 +44,13 @@
 </script>
 
 {#if showMenu}
-	<div
-		class="absolute top-0 left-0 z-50 h-full w-full"
-		on:click={onDismiss}
-		on:keydown={onDismiss}
-		on:contextmenu|preventDefault={onDismiss}
-	>
+	<div class="absolute top-0 left-0 z-50 h-full w-full" on:click={onDismiss} on:keydown={onDismiss}>
 		<div
 			use:recordDimensions
+			on:mouseleave={onDismiss}
+			on:blur={onDismiss}
 			style="position: absolute; top:{pos.y}px; left:{pos.x}px"
-			class="rounded border border-light-400 bg-white shadow dark:border-dark-600 dark:bg-dark-700"
+			class="flex flex-col rounded border border-light-400 bg-white shadow dark:border-dark-600 dark:bg-dark-700"
 		>
 			<slot {item} />
 		</div>
