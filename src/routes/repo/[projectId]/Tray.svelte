@@ -9,20 +9,15 @@
 	import Gravatar from '$lib/components/Gravatar/Gravatar.svelte';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
-	import { getRemoteBranches } from './remoteBranches';
-	import { Value } from 'svelte-loadable-store';
+	import type { RemoteBranchOperations } from './remoteBranches';
 	import type { TargetOperations } from './targetData';
 
 	export let target: Target;
 	export let branches: Branch[];
-	export let projectId: string;
 	export let virtualBranches: VirtualBranchOperations;
 	export let targetOperations: TargetOperations;
-	const remoteBranchOperations = getRemoteBranches(projectId);
-	$: remoteBranches =
-		!$remoteBranchOperations.isLoading && !Value.isError($remoteBranchOperations.value)
-			? $remoteBranchOperations.value
-			: [];
+	export let remoteBranches: BranchData[];
+	export let remoteBranchOperations: RemoteBranchOperations;
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
