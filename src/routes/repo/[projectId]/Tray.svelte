@@ -158,11 +158,13 @@
 					class="flex flex-col justify-between border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
-						{#if branch.branch.match('refs/remotes')}
-							<IconRemote class="h-4 w-4" />
-						{:else}
-							<IconGitBranch class="h-4 w-4" />
-						{/if}
+						<div>
+							{#if branch.branch.match('refs/remotes')}
+								<IconRemote class="h-4 w-4" />
+							{:else}
+								<IconGitBranch class="h-4 w-4" />
+							{/if}
+						</div>
 						<div
 							class="flex-grow cursor-pointer truncate text-black dark:text-white"
 							title={branch.branch}
