@@ -84,6 +84,10 @@
 			.then(() => deleteConfirmationModal.close())
 			.then(() => goto('/', { replaceState: true, invalidateAll: true }))
 			.finally(() => (isDeleting = false));
+
+	$: if (!$user) {
+		goto('/login/');
+	}
 </script>
 
 {#if $user}
