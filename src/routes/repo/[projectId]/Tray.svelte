@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Checkbox, Modal } from '$lib/components';
-	import type { Target } from './types';
+	import type { BranchData, Target } from './types';
 	import type { Branch } from '$lib/api/ipc/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
 	import type { VirtualBranchOperations } from './vbranches';
