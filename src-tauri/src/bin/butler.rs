@@ -344,7 +344,14 @@ fn run_info(butler: ButlerCli) {
             .unwrap_or("none".to_string())
             .blue()
     );
-    println!("  last_fetched_ts: {:?}", butler.project.last_fetched_ts);
+    println!(
+        "  project_data_last_fetched: {:?}",
+        butler.project.project_data_last_fetched
+    );
+    println!(
+        "  project_gitbutler_data_last_fetched: {:?}",
+        butler.project.gitbutler_data_last_fetched
+    );
     println!("  path: {}", butler.project.path.blue());
 
     if let Some(api) = butler.project.api.as_ref() {
@@ -372,7 +379,7 @@ fn run_info(butler: ButlerCli) {
     // sessions storage
     let sessions = butler
         .sessions_db
-        .list_by_project_id(&butler.project.id, butler.project.last_fetched_ts)
+        .list_by_project_id(&butler.project.id, None)
         .unwrap();
     //list the sessions
     for session in &sessions {

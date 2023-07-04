@@ -1,3 +1,5 @@
+use std::time;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -14,6 +16,47 @@ pub struct ApiProject {
     pub sync: bool,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum FetchResult {
+    Fetched {
+        timestamp_ms: u128,
+    },
+    Error {
+        timestamp_ms: u128,
+        error: String,
+        attempt: u32,
+    },
+}
+
+const TEN_MINUTES: time::Duration = time::Duration::new(10 * 60, 0);
+
+impl FetchResult {
+    pub fn should_fetch(&self, now: &time::SystemTime) -> Result<bool> {
+        match self {
+            FetchResult::Error {
+                timestamp_ms,
+                attempt,
+                ..
+            } => {
+                // if last fetch errored, wait 10 seconds * 2^attempt, up to 10 minutes
+                let last_fetch = time::UNIX_EPOCH
+                    + time::Duration::from_millis(TryInto::<u64>::try_into(*timestamp_ms)?);
+                Ok(
+                    last_fetch + TEN_MINUTES.min(time::Duration::new(10 * 2u64.pow(*attempt), 0))
+                        < *now,
+                )
+            }
+            FetchResult::Fetched { timestamp_ms } => {
+                // if last fetch was successful, wait 10 minutes
+                let last_fetch = time::UNIX_EPOCH
+                    + time::Duration::from_millis(TryInto::<u64>::try_into(*timestamp_ms)?);
+                Ok(last_fetch + TEN_MINUTES < *now)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Project {
     pub id: String,
@@ -22,7 +65,9 @@ pub struct Project {
     pub path: String,
     pub api: Option<ApiProject>,
     #[serde(default)]
-    pub last_fetched_ts: Option<u128>,
+    pub project_data_last_fetched: Option<FetchResult>,
+    #[serde(default)]
+    pub gitbutler_data_last_fetched: Option<FetchResult>,
 }
 
 impl AsRef<Project> for Project {

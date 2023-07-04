@@ -1,6 +1,6 @@
 mod check_current_session;
-mod check_fetch_project;
-mod fetch_project;
+mod fetch_gitbutler_data;
+mod fetch_project_data;
 mod file_change;
 mod flush_session;
 mod git_file_change;
@@ -29,8 +29,8 @@ pub struct Handler {
     git_file_change_handler: git_file_change::Handler,
     check_current_session_handler: check_current_session::Handler,
     flush_session_handler: flush_session::Handler,
-    fetch_project_handler: fetch_project::Handler,
-    chech_fetch_project_handler: check_fetch_project::Handler,
+    fetch_project_handler: fetch_project_data::Handler,
+    fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
     index_handler: index_handler::Handler,
 
     events_sender: app_events::Sender,
@@ -77,15 +77,15 @@ impl<'handler> Handler {
                 project_store.clone(),
                 user_store.clone(),
             ),
-            fetch_project_handler: fetch_project::Handler::new(
+            fetch_project_handler: fetch_project_data::Handler::new(
+                project_id.clone(),
+                project_store.clone(),
+            ),
+            fetch_gitbutler_handler: fetch_gitbutler_data::Handler::new(
                 local_data_dir.clone(),
                 project_id.clone(),
                 project_store.clone(),
                 user_store.clone(),
-            ),
-            chech_fetch_project_handler: check_fetch_project::Handler::new(
-                project_id.clone(),
-                project_store.clone(),
             ),
             index_handler: index_handler::Handler::new(
                 local_data_dir,
@@ -144,22 +144,57 @@ impl<'handler> Handler {
                     .context("failed to send git index event")?;
                 Ok(vec![])
             }
+            events::Event::FetchGitbutlerData(tick) => self
+                .fetch_gitbutler_handler
+                .handle(tick)
+                .context("failed to fetch gitbutler data"),
             events::Event::Tick(tick) => {
-                let one = self
-                    .check_current_session_handler
-                    .handle(tick)
-                    .context("failed to handle tick event")?;
-                let two = self
-                    .chech_fetch_project_handler
-                    .handle(tick)
-                    .context("failed to handle tick event")?;
-                Ok(one.into_iter().chain(two.into_iter()).collect())
+                let one = match self.check_current_session_handler.handle(tick) {
+                    Ok(events) => events,
+                    Err(err) => {
+                        log::error!(
+                            "{}: failed to check current session: {:#?}",
+                            self.project_id,
+                            err
+                        );
+                        vec![]
+                    }
+                };
+
+                let two = match self.fetch_project_handler.handle(tick) {
+                    Ok(events) => events,
+                    Err(err) => {
+                        log::error!(
+                            "{}: failed to fetch project data: {:#?}",
+                            self.project_id,
+                            err
+                        );
+                        vec![]
+                    }
+                };
+
+                let three = match self.fetch_gitbutler_handler.handle(tick) {
+                    Ok(events) => events,
+                    Err(err) => {
+                        log::error!(
+                            "{}: failed to fetch gitbutler data: {:#?}",
+                            self.project_id,
+                            err
+                        );
+                        vec![]
+                    }
+                };
+
+                Ok(one
+                    .into_iter()
+                    .chain(two.into_iter())
+                    .chain(three.into_iter())
+                    .collect())
             }
             events::Event::Flush(session) => self
                 .flush_session_handler
                 .handle(&session)
                 .context("failed to handle flush session event"),
-            events::Event::Fetch => self.fetch_project_handler.handle(),
 
             events::Event::SessionFile((session_id, file_path, contents)) => {
                 let file_events = self

@@ -2,7 +2,7 @@ use std::{path, time};
 
 use anyhow::{Context, Result};
 
-use crate::{gb_repository, project_repository, projects, users};
+use crate::{gb_repository, projects, users};
 
 use super::events;
 
@@ -29,7 +29,21 @@ impl Handler {
         }
     }
 
-    pub fn handle(&self) -> Result<Vec<events::Event>> {
+    pub fn handle(&self, now: time::SystemTime) -> Result<Vec<events::Event>> {
+        let project = self
+            .project_storage
+            .get_project(&self.project_id)
+            .context("failed to get project")?
+            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+
+        if !project
+            .gitbutler_data_last_fetched
+            .as_ref()
+            .map_or(Ok(true), |r| r.should_fetch(&now))?
+        {
+            return Ok(vec![]);
+        }
+
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             self.project_id.clone(),
@@ -43,44 +57,31 @@ impl Handler {
             .filter_map(|s| s.ok())
             .collect::<Vec<_>>();
 
-        // update last_fetched no matter what happens
+        let fetch_result = if let Err(err) = gb_repo.fetch() {
+            projects::FetchResult::Error {
+                attempt: project
+                    .gitbutler_data_last_fetched
+                    .as_ref()
+                    .map_or(0, |r| match r {
+                        projects::FetchResult::Error { attempt, .. } => *attempt + 1,
+                        projects::FetchResult::Fetched { .. } => 0,
+                    }),
+                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+                error: err.to_string(),
+            }
+        } else {
+            projects::FetchResult::Fetched {
+                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+            }
+        };
+
         self.project_storage
             .update_project(&projects::UpdateRequest {
                 id: self.project_id.clone(),
-                last_fetched_ts: Some(
-                    time::SystemTime::now()
-                        .duration_since(time::UNIX_EPOCH)
-                        .context("failed to get time since epoch")?
-                        .as_millis(),
-                ),
+                gitbutler_data_last_fetched: Some(fetch_result),
                 ..Default::default()
             })
             .context("failed to update project")?;
-
-        let mut fetched = false;
-        if let Err(err) = gb_repo.fetch() {
-            log::error!("failed to fetch from handler: {}", err);
-        } else {
-            fetched = true
-        };
-
-        let project = self
-            .project_storage
-            .get_project(&self.project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-
-        if let Err(err) = project_repository.fetch() {
-            log::error!("failed to fetch: {}", err);
-        } else {
-            fetched = true
-        };
-
-        if !fetched {
-            return Ok(vec![]);
-        }
 
         let sessions_after_fetch = gb_repo
             .get_sessions_iterator()?

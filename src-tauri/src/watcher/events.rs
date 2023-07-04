@@ -6,7 +6,8 @@ use crate::{bookmarks, deltas, sessions};
 pub enum Event {
     Tick(time::SystemTime),
     Flush(sessions::Session),
-    Fetch,
+
+    FetchGitbutlerData(time::SystemTime),
 
     FileChange(path::PathBuf),
     GitFileChange(path::PathBuf),
@@ -30,8 +31,8 @@ impl Display for Event {
         match self {
             Event::IndexAll => write!(f, "IndexAll"),
             Event::Tick(ts) => write!(f, "Tick({:?})", ts),
+            Event::FetchGitbutlerData(ts) => write!(f, "FetchGitbutlerData({:?})", ts),
             Event::Flush(session) => write!(f, "Flush({})", session.id),
-            Event::Fetch => write!(f, "Fetch"),
             Event::GitFetch => write!(f, "GitFetch"),
             Event::FileChange(_) => write!(f, "FileChange"),
             Event::GitFileChange(_) => write!(f, "GitFileChange"),
