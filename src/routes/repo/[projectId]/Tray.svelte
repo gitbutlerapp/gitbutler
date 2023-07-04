@@ -239,8 +239,10 @@
 	<!-- Confirm target update modal -->
 
 	<Modal width="small" bind:this={updateTargetModal}>
+		<svelte:fragment slot="title">Update target</svelte:fragment>
 		<p>You are about to update the target branch.</p>
 		<svelte:fragment slot="controls" let:close>
+			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
 			<Button
 				height="small"
 				color="primary"
@@ -259,10 +261,12 @@
 	<!-- Delete branch confirmation modal -->
 
 	<Modal width="small" bind:this={deleteBranchModal} let:item>
+		<svelte:fragment slot="title">Delete branch</svelte:fragment>
 		<div>
-			Are you sure you want to delete <code>{item.name}</code>?
+			Deleting <code>{item.name}</code> cannot be undone.
 		</div>
 		<svelte:fragment slot="controls" let:close let:item>
+			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
 			<Button
 				height="small"
 				color="destructive"

@@ -117,16 +117,15 @@ button:focus {
 }
 
 .basic {
-	@apply text-zinc-300;
 }
 .basic:hover {
-	@apply bg-[#D4D4D833]/20;
+	@apply bg-light-50 dark:bg-dark-500;
 }
 .basic:active {
 	@apply bg-transparent no-underline;
 }
 .basic.outlined {
-	@apply border-[#3F3F46] no-underline;
+	@apply border-light-700 no-underline dark:border-light-700;
 }
 .basic.outlined:hover {
 	@apply bg-[#3F3F46]/20;
@@ -198,7 +197,7 @@ button:focus {
 	@apply bg-[#524C93]/20;
 }
 .purple.filled {
-	@apply border-t border-b border-b-[#3C386D] border-t-[#7570B1] bg-gradient-to-b from-[#5852A0] to-[#474281] no-underline drop-shadow;
+	@apply border-t border-b border-b-[#3C386D] border-t-[#7570B1] bg-gradient-to-b from-[#5852A0] to-[#474281] text-light-50 no-underline drop-shadow;
 }
 .purple.filled:hover {
 	@apply bg-[#423E7A];
@@ -223,7 +222,7 @@ button:focus {
 
 .filled,
 .outlined {
-	@apply text-zinc-50;
+	@apply text-light-900 dark:text-dark-100;
 }
 
 .outlined {
