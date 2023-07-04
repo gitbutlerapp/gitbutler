@@ -22,6 +22,8 @@
 	const { posthog, projects, sentry, cloud } = data;
 
 	const user = stores.user;
+	let loginOrUsersUrl = '/login/';
+	$: if (user) user.load().then((u) => (loginOrUsersUrl = u ? '/users/' : '/login/'));
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects?.find((project) => project.id === page.params.projectId)
@@ -78,7 +80,7 @@
 		<div class="flex-grow" />
 		<ThemeSelector />
 		<div class="mr-6">
-			<Link href="/users/">
+			<Link href={loginOrUsersUrl}>
 				{#await user.load() then}
 					{#if $user !== null}
 						{#if $user.picture}
