@@ -472,6 +472,16 @@ impl App {
         Ok(())
     }
 
+    pub fn fetch_from_target(&self, project_id: &str) -> Result<()> {
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        project_repository
+            .fetch()
+            .context("failed to fetch from target")?;
+
+        Ok(())
+    }
+
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
         let gb_repository = self.gb_repository(&bookmark.project_id)?;
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;

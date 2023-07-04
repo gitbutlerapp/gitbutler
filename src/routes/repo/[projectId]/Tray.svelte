@@ -79,14 +79,28 @@
 		<div class="flex-grow text-lg font-bold" title={behindMessage}>{target.name}</div>
 		<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
 		<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
-			<button
-				class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-				on:click={updateTargetModal.show}
-				disabled={target.behind == 0}
-				title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
-			>
-				<IconRefresh />
-			</button>
+			{#if target.behind == 0}
+				<button
+					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+					on:click={() => {
+						remoteBranchOperations.fetchFromTarget().then(() => {
+							virtualBranches.refresh();
+						});
+					}}
+					title="click to fetch"
+				>
+					<IconRefresh />
+				</button>
+			{:else}
+				<button
+					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+					on:click={updateTargetModal.show}
+					disabled={target.behind == 0}
+					title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
+				>
+					<IconRefresh />
+				</button>
+			{/if}
 		</div>
 	</div>
 
