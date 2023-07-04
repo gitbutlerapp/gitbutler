@@ -79,13 +79,12 @@ impl TryFrom<&str> for Hunk {
 impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}", self.start, self.end)?;
-        if let Some(hash) = self.hash.as_ref() {
-            write!(f, "-{}", hash)?;
+        match (self.hash.as_ref(), self.timestamp_ms.as_ref()) {
+            (Some(hash), Some(timestamp_ms)) => write!(f, "-{}-{}", hash, timestamp_ms),
+            (Some(hash), None) => write!(f, "-{}", hash),
+            (None, Some(timestamp_ms)) => write!(f, "--{}", timestamp_ms),
+            (None, None) => Ok(()),
         }
-        if let Some(timestamp_ms) = self.timestamp_ms {
-            write!(f, "-{}", timestamp_ms)?;
-        }
-        Ok(())
     }
 }
 
@@ -167,6 +166,14 @@ mod tests {
     #[test]
     fn parse_invalid_2() {
         assert!(Hunk::try_from("3-2").is_err());
+    }
+
+    #[test]
+    fn to_string_no_hash() {
+        assert_eq!(
+            "1-2--123",
+            Hunk::new(1, 2, None, Some(123)).unwrap().to_string()
+        );
     }
 
     #[test]
