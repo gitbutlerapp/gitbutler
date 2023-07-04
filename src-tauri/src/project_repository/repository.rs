@@ -390,8 +390,9 @@ impl<'repository> Repository<'repository> {
 
         output.status.success().then(|| ()).ok_or_else(|| {
             anyhow::anyhow!(
-                "failed to fetch: {}",
-                String::from_utf8(output.stderr).unwrap()
+                "failed to fetch from repository: {}: {}",
+                &self.project.title,
+                String::from_utf8(output.stderr).unwrap(),
             )
         })?;
 

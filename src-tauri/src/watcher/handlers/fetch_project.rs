@@ -43,9 +43,23 @@ impl Handler {
             .filter_map(|s| s.ok())
             .collect::<Vec<_>>();
 
+        // update last_fetched no matter what happens
+        self.project_storage
+            .update_project(&projects::UpdateRequest {
+                id: self.project_id.clone(),
+                last_fetched_ts: Some(
+                    time::SystemTime::now()
+                        .duration_since(time::UNIX_EPOCH)
+                        .context("failed to get time since epoch")?
+                        .as_millis(),
+                ),
+                ..Default::default()
+            })
+            .context("failed to update project")?;
+
         let mut fetched = false;
         if let Err(err) = gb_repo.fetch() {
-            log::error!("failed to fetch: {}", err);
+            log::error!("failed to fetch from handler: {}", err);
         } else {
             fetched = true
         };
@@ -67,19 +81,6 @@ impl Handler {
         if !fetched {
             return Ok(vec![]);
         }
-
-        self.project_storage
-            .update_project(&projects::UpdateRequest {
-                id: self.project_id.clone(),
-                last_fetched_ts: Some(
-                    time::SystemTime::now()
-                        .duration_since(time::UNIX_EPOCH)
-                        .context("failed to get time since epoch")?
-                        .as_millis(),
-                ),
-                ..Default::default()
-            })
-            .context("failed to update project")?;
 
         let sessions_after_fetch = gb_repo
             .get_sessions_iterator()?
