@@ -1,5 +1,5 @@
 mod project;
 mod storage;
 
-pub use project::{ApiProject, CreateError, Project};
+pub use project::{ApiProject, CreateError, FetchResult, Project};
 pub use storage::{Storage, UpdateRequest};

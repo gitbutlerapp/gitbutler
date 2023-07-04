@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops, sync};
+use std::{collections::HashMap, ops, sync, time};
 
 use anyhow::{Context, Result};
 use tokio::sync::{mpsc, Semaphore};
@@ -239,7 +239,10 @@ impl App {
     pub fn update_project(&self, project: &projects::UpdateRequest) -> Result<projects::Project> {
         let updated = self.projects_storage.update_project(project)?;
 
-        if let Err(err) = self.send_event(&project.id, watcher::Event::Fetch) {
+        if let Err(err) = self.send_event(
+            &project.id,
+            watcher::Event::FetchGitbutlerData(time::SystemTime::now()),
+        ) {
             log::error!("{}: failed to fetch project: {:#}", &project.id, err);
         }
 

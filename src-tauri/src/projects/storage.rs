@@ -16,7 +16,8 @@ pub struct UpdateRequest {
     pub title: Option<String>,
     pub description: Option<String>,
     pub api: Option<project::ApiProject>,
-    pub last_fetched_ts: Option<u128>,
+    pub project_data_last_fetched: Option<project::FetchResult>,
+    pub gitbutler_data_last_fetched: Option<project::FetchResult>,
 }
 
 impl Storage {
@@ -72,7 +73,15 @@ impl Storage {
             project.api = Some(api.clone());
         }
 
-        project.last_fetched_ts = update_request.last_fetched_ts;
+        if let Some(project_data_last_fetched) = update_request.project_data_last_fetched.as_ref() {
+            project.project_data_last_fetched = Some(project_data_last_fetched.clone());
+        }
+
+        if let Some(gitbutler_data_last_fetched) =
+            update_request.gitbutler_data_last_fetched.as_ref()
+        {
+            project.gitbutler_data_last_fetched = Some(gitbutler_data_last_fetched.clone());
+        }
 
         self.storage
             .write(PROJECTS_FILE, &serde_json::to_string(&projects)?)?;
