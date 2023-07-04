@@ -4,6 +4,7 @@
 	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import Button from './Button';
+	import { goto } from '$app/navigation';
 
 	const cloud = CloudApi();
 	const user = stores.user;
@@ -37,6 +38,10 @@
 	};
 	const token = writable<LoginToken | null>(null);
 	const authUrl = derived(token, ($token) => $token?.url as string);
+
+	$: if ($user) {
+		goto('/users/');
+	}
 </script>
 
 {#if $user}
