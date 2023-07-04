@@ -11,6 +11,8 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { getRemoteBranches } from './remoteBranches';
 	import { Value } from 'svelte-loadable-store';
+	import { get } from 'lscache';
+	import { invoke } from '@tauri-apps/api';
 
 	export let target: Target;
 	export let branches: Branch[];
@@ -49,6 +51,17 @@
 		});
 	}
 
+	async function getTargetData(params: { projectId: string }) {
+		target = await invoke<Target>('get_target_data', params);
+	}
+
+	function fetchTarget() {
+		remoteBranchOperations.fetchFromTarget().then(() => {
+			virtualBranches.refresh();
+		});
+		getTargetData({ projectId });
+	}
+
 	function rememberWidth(node: HTMLElement) {
 		const cachedWidth = localStorage.getItem(cacheKey);
 		if (cachedWidth) node.style.width = cachedWidth;
@@ -82,11 +95,7 @@
 			{#if target.behind == 0}
 				<button
 					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-					on:click={() => {
-						remoteBranchOperations.fetchFromTarget().then(() => {
-							virtualBranches.refresh();
-						});
-					}}
+					on:click={fetchTarget}
 					title="click to fetch"
 				>
 					<IconRefresh />
