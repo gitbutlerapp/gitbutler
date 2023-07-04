@@ -15,8 +15,10 @@ impl Sender {
 
     pub fn send(&self, event: Event) -> Result<()> {
         self.app_handle
-            .emit_all(&event.name, Some(event.payload))
-            .context("emit event")
+            .emit_all(&event.name, Some(&event.payload))
+            .context("emit event")?;
+        log::debug!("sent event: {}", event.name);
+        Ok(())
     }
 }
 

@@ -63,7 +63,7 @@
 
 	function updateBranchOwnership() {
 		const ownership = files
-			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id.split(':')[1]).join(','))
+			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
 		console.log('updateBranchOwnership', branchId, ownership);
 		virtualBranches.updateBranchOwnership(branchId, ownership);

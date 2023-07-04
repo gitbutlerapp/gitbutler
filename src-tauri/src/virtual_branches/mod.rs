@@ -487,7 +487,7 @@ pub fn remote_branches(
                         // determine if this tree is mergeable
                         let branch_tree = branch_commit.tree()?;
                         let (mergeable, merge_conflicts) =
-                            check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                            check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
                         println!("mergeable: {} {}", branch_name, mergeable);
 
                         branches.push(RemoteBranch {
@@ -757,7 +757,7 @@ pub fn list_virtual_branches(
                     .find_tree(branch.tree)
                     .context("failed to find branch tree")?;
                 (mergeable, merge_conflicts) =
-                    check_mergeable(&repo, &base_tree, &branch_tree, &wd_tree)?;
+                    check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
             } else {
                 // there is no common base
                 mergeable = false;
@@ -1257,6 +1257,7 @@ pub fn get_status_by_branch(
                                         .entry(branch.id.clone())
                                         .or_default()
                                         .push(VirtualBranchHunk {
+                                            id: ch.with_timestamp(timestamp).to_string(),
                                             modified_at: timestamp,
                                             ..current_hunk.clone()
                                         });
@@ -1272,7 +1273,13 @@ pub fn get_status_by_branch(
                                     hunks_by_branch_id
                                         .entry(branch.id.clone())
                                         .or_default()
-                                        .insert(0, current_hunk.clone());
+                                        .insert(
+                                            0,
+                                            VirtualBranchHunk {
+                                                id: ch.to_string(),
+                                                ..current_hunk.clone()
+                                            },
+                                        );
 
                                     // track updated hunks to bubble them up later
                                     updated.push(FileOwnership {
@@ -1616,7 +1623,7 @@ fn write_tree(
             if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 // blob from tree_entry
                 let blob = tree_entry
-                    .to_object(&git_repository)
+                    .to_object(git_repository)
                     .unwrap()
                     .peel_to_blob()
                     .expect("failed to get blob");
@@ -1636,7 +1643,7 @@ fn write_tree(
 
                 // apply patch to blob_contents
                 let patch_bytes = patch.as_bytes();
-                let patch = Patch::from_bytes(&patch_bytes)?;
+                let patch = Patch::from_bytes(patch_bytes)?;
                 let new_content = apply_bytes(blob_contents, &patch)?;
 
                 // create a blob
@@ -2452,7 +2459,9 @@ mod tests {
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-        assert_eq!(statuses[0].1[0].hunks[0].id, "test.txt:13-17");
+        assert!(statuses[0].1[0].hunks[0]
+            .id
+            .starts_with("13-17-ad6f6af93b494f66d4754e4806c7c1b4-"));
         assert_eq!(statuses[0].1[0].hunks[1].id, "test.txt:1-5");
 
         Ok(())
