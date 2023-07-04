@@ -11,13 +11,13 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { getRemoteBranches } from './remoteBranches';
 	import { Value } from 'svelte-loadable-store';
-	import { get } from 'lscache';
-	import { invoke } from '@tauri-apps/api';
+	import type { TargetOperations } from './targetData';
 
 	export let target: Target;
 	export let branches: Branch[];
 	export let projectId: string;
 	export let virtualBranches: VirtualBranchOperations;
+	export let targetOperations: TargetOperations;
 	const remoteBranchOperations = getRemoteBranches(projectId);
 	$: remoteBranches =
 		!$remoteBranchOperations.isLoading && !Value.isError($remoteBranchOperations.value)
@@ -51,15 +51,12 @@
 		});
 	}
 
-	async function getTargetData(params: { projectId: string }) {
-		target = await invoke<Target>('get_target_data', params);
-	}
-
 	function fetchTarget() {
 		remoteBranchOperations.fetchFromTarget().then(() => {
-			virtualBranches.refresh();
+			virtualBranches.refresh().then(() => {
+				targetOperations.refresh();
+			});
 		});
-		getTargetData({ projectId });
 	}
 
 	function rememberWidth(node: HTMLElement) {

@@ -7,10 +7,6 @@ async function getRemoteBranches(params: { projectId: string }) {
 	return invoke<Array<string>>('git_remote_branches', params);
 }
 
-async function getTargetData(params: { projectId: string }) {
-	return invoke<Target>('get_target_data', params);
-}
-
 function sortBranchData(branchData: BranchData[]): BranchData[] {
 	// sort remote_branches_data by date
 	return branchData.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
@@ -18,10 +14,9 @@ function sortBranchData(branchData: BranchData[]): BranchData[] {
 
 export async function load(e: PageLoadEvent) {
 	const projectId = e.params.projectId;
-	const target = await getTargetData({ projectId });
 	const remoteBranches = await getRemoteBranches({ projectId });
 	const project = api.projects.get({ id: projectId });
-	return { projectId, target, remoteBranches, project };
+	return { projectId, remoteBranches, project };
 }
 
 if (import.meta.vitest) {
