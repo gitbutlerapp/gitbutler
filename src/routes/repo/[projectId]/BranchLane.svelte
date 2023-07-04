@@ -183,7 +183,7 @@
 					bind:this={messageDiv}
 					role="textbox"
 					contenteditable
-					class="max-h-32 shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-light-200 bg-white p-2 font-mono text-dark-700 outline-none dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+					class="max-h-32 shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-light-200 bg-white p-2 text-dark-700 outline-none dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 					placeholder="Your commit message here..."
 				>
 					{commitMessage ? commitMessage.trim() : ''}
