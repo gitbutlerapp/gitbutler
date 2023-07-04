@@ -54,20 +54,18 @@ function createWriteable(projectId: string) {
 	// Subscribe to sessions,  grab the last one and subscribe to deltas on it.
 	// When a delta comes in, refresh the list of virtual branches.
 	return writable(list(projectId), (set) => {
-		const sessionsUnsubscribe = stores.sessions({ projectId }).subscribe((sessions) => {
+		stores.sessions({ projectId }).subscribe((sessions) => {
 			if (sessions.isLoading) return;
 			if (Value.isError(sessions.value)) return;
-			const lastSession = sessions.value.at(0);
+			const lastSession = sessions.value.at(-1);
 			if (!lastSession) return;
-			const deltasUnsubscribe = stores
-				.deltas({ projectId, sessionId: lastSession.id })
-				.subscribe(() => {
-					list(projectId).then((newBranches) => {
-						set(plainToInstance(Branch, newBranches));
-					});
-					return () => deltasUnsubscribe();
+			console.log('session', lastSession.id);
+			return stores.deltas({ projectId, sessionId: lastSession.id }).subscribe(() => {
+				console.log('deltas updated');
+				list(projectId).then((newBranches) => {
+					set(plainToInstance(Branch, newBranches));
 				});
-			return () => sessionsUnsubscribe();
+			});
 		});
 	});
 }
