@@ -1,4 +1,4 @@
-import { Branch, File, type Hunk } from './types';
+import { Branch, File, type Hunk } from '$lib/api/ipc/vbranches';
 import { plainToInstance } from 'class-transformer';
 
 let branchCounter = 0;

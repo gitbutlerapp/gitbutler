@@ -3,7 +3,7 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import { formatDistanceToNow } from 'date-fns';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import type { Hunk } from './types';
+	import type { Hunk } from '$lib/api/ipc/vbranches';
 	import HunkDiffViewer from './HunkDiffViewer.svelte';
 	import { summarizeHunk } from '$lib/summaries';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';

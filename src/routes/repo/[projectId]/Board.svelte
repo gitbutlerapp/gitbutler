@@ -3,7 +3,7 @@
 	import Lane from './BranchLane.svelte';
 	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import type { Branch } from './types';
+	import type { Branch } from '$lib/api/ipc/vbranches';
 	import type { VirtualBranchOperations } from './vbranches';
 
 	export let projectId: string;

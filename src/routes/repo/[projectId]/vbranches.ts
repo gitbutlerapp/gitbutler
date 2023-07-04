@@ -1,12 +1,12 @@
 import { invoke } from '$lib/ipc';
-import { Branch, type Target } from './types';
-import { stores } from '$lib';
+import type { Target } from './types';
+import { stores, toasts } from '$lib';
+import { api } from '$lib';
 import { writable, type Loadable, Value } from 'svelte-loadable-store';
-import { plainToInstance } from 'class-transformer';
 import type { Writable, Readable } from '@square/svelte-store';
-import { error } from '$lib/toasts';
 
-const cache: Map<string, VirtualBranchOperations & Readable<Loadable<Branch[]>>> = new Map();
+const cache: Map<string, VirtualBranchOperations & Readable<Loadable<api.vbranches.Branch[]>>> =
+	new Map();
 
 export interface VirtualBranchOperations {
 	setTarget(branch: string): Promise<Target>;
@@ -24,26 +24,87 @@ export interface VirtualBranchOperations {
 
 export function getVirtualBranches(
 	projectId: string
-): VirtualBranchOperations & Readable<Loadable<Branch[]>> {
+): VirtualBranchOperations & Readable<Loadable<api.vbranches.Branch[]>> {
 	const cachedStore = cache.get(projectId);
 	if (cachedStore) {
 		return cachedStore;
 	}
 	const writeable = createWriteable(projectId);
-	const store: VirtualBranchOperations & Readable<Loadable<Branch[]>> = {
+	const store: VirtualBranchOperations & Readable<Loadable<api.vbranches.Branch[]>> = {
 		subscribe: writeable.subscribe,
 		setTarget: (branch) => setTarget(projectId, branch),
-		createBranch: (name, path) => createBranch(writeable, projectId, name, path),
-		commitBranch: (branch, message) => commitBranch(writeable, projectId, branch, message),
+		createBranch: (name, path) =>
+			api.vbranches
+				.create({ projectId, name, ownership: path })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to create branch');
+				}),
+		commitBranch: (branch, message) =>
+			api.vbranches
+				.commit({ projectId, branch, message })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to commit branch');
+				}),
 		updateBranchOrder: (branchId, order) =>
-			updateBranchOrder(writeable, projectId, branchId, order),
-		updateBranchName: (branchId, name) => updateBranchName(writeable, projectId, branchId, name),
-		applyBranch: (branchId) => applyBranch(writeable, projectId, branchId),
-		unapplyBranch: (branchId) => unapplyBranch(writeable, projectId, branchId),
+			api.vbranches
+				.update({ projectId, branch: { id: branchId, order } })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to update branch order');
+				}),
+		updateBranchName: (branchId, name) =>
+			api.vbranches
+				.update({ projectId, branch: { id: branchId, name } })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to update branch name');
+				}),
+		applyBranch: (branchId) =>
+			api.vbranches
+				.apply({ projectId, branch: branchId })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to apply branch');
+				}),
+		unapplyBranch: (branchId) =>
+			api.vbranches
+				.unapply({ projectId, branch: branchId })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to unapply branch');
+				}),
 		updateBranchOwnership: (branchId, ownership) =>
-			updateBranchOwnership(writeable, projectId, branchId, ownership),
-		pushBranch: (branchId) => pushBranch(writeable, projectId, branchId),
-		deleteBranch: (branchId) => deleteBranch(writeable, projectId, branchId),
+			api.vbranches
+				.update({ projectId, branch: { id: branchId, ownership } })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to update branch ownership');
+				}),
+		pushBranch: (branchId) =>
+			api.vbranches
+				.push({ projectId, branchId })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to push branch');
+				}),
+		deleteBranch: (branchId) =>
+			api.vbranches
+				.delete({ projectId, branchId })
+				.then(() => refresh(projectId, writeable))
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to delete branch');
+				}),
 		refresh: () => refresh(projectId, writeable)
 	};
 	cache.set(projectId, store);
@@ -53,31 +114,23 @@ export function getVirtualBranches(
 function createWriteable(projectId: string) {
 	// Subscribe to sessions,  grab the last one and subscribe to deltas on it.
 	// When a delta comes in, refresh the list of virtual branches.
-	return writable(list(projectId), (set) => {
+	return writable(api.vbranches.list({ projectId }), (set) => {
 		stores.sessions({ projectId }).subscribe((sessions) => {
 			if (sessions.isLoading) return;
 			if (Value.isError(sessions.value)) return;
 			const lastSession = sessions.value.at(-1);
 			if (!lastSession) return;
-			console.log('session', lastSession.id);
 			return stores.deltas({ projectId, sessionId: lastSession.id }).subscribe(() => {
-				console.log('deltas updated');
-				list(projectId).then((newBranches) => {
-					set(plainToInstance(Branch, newBranches));
-				});
+				api.vbranches.list({ projectId }).then(set);
 			});
 		});
 	});
 }
 
-function refresh(projectId: string, store: Writable<Loadable<Branch[]>>) {
-	return list(projectId).then((newBranches) => store.set({ isLoading: false, value: newBranches }));
-}
-
-async function list(projectId: string): Promise<Branch[]> {
-	return invoke<Array<Branch>>('list_virtual_branches', { projectId }).then((result) =>
-		plainToInstance(Branch, result)
-	);
+async function refresh(projectId: string, store: Writable<Loadable<api.vbranches.Branch[]>>) {
+	return await api.vbranches
+		.list({ projectId })
+		.then((newBranches) => store.set({ isLoading: false, value: newBranches }));
 }
 
 function setTarget(projectId: string, branch: string) {
@@ -85,150 +138,4 @@ function setTarget(projectId: string, branch: string) {
 		projectId: projectId,
 		branch: branch
 	});
-}
-
-function createBranch(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-	name: string,
-	ownership: string
-) {
-	return invoke<object>('create_virtual_branch', {
-		projectId,
-		name,
-		ownership
-	})
-		.then(() => refresh(projectId, writable))
-		.catch(() => {
-			error('Failed to create branch.');
-		});
-}
-
-function commitBranch(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-	branch: string,
-	message: string
-) {
-	return invoke<object>('commit_virtual_branch', {
-		projectId: projectId,
-		branch: branch,
-		message: message
-	})
-		.then(() => {
-			refresh(projectId, writable);
-		})
-		.catch(() => {
-			error('Failed to commit files.');
-		});
-}
-
-function updateBranchOrder(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-	branchId: string,
-	order: number
-) {
-	return invoke<object>('update_virtual_branch', {
-		projectId: projectId,
-		branch: { id: branchId, order }
-	})
-		.then(() => {
-			refresh(projectId, writable);
-		})
-		.catch(() => {
-			error('Unable to update branch order!');
-		});
-}
-
-function applyBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {
-	return invoke<object>('apply_branch', {
-		projectId: projectId,
-		branch: branchId
-	})
-		.then(() => {
-			refresh(projectId, writable);
-		})
-		.catch(() => {
-			error('Unable to apply branch!');
-		});
-}
-
-function unapplyBranch(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-	branchId: string
-) {
-	return invoke<object>('unapply_branch', {
-		projectId: projectId,
-		branch: branchId
-	})
-		.then(() => {
-			refresh(projectId, writable);
-		})
-		.catch(() => {
-			error('Unable to unapply branch!');
-		});
-}
-
-function updateBranchOwnership(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-	branchId: string,
-	ownership: string
-) {
-	return invoke<object>('update_virtual_branch', {
-		projectId: projectId,
-		branch: { id: branchId, ownership }
-	})
-		.then(() => refresh(projectId, writable))
-		.catch(() => {
-			error('Unable to update branch!');
-		});
-}
-
-function updateBranchName(
-	writable: Writable<Loadable<Branch[]>>,
-	projectId: string,
-	branchId: string,
-	name: string
-) {
-	return invoke<object>('update_virtual_branch', {
-		projectId: projectId,
-		branch: { id: branchId, name: name }
-	})
-		.then(() => {
-			refresh(projectId, writable);
-		})
-		.catch(() => {
-			error('Unable to update branch name!');
-		});
-}
-
-function pushBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {
-	return invoke<object>('push_virtual_branch', {
-		projectId: projectId,
-		branchId: branchId
-	})
-		.then((res) => {
-			console.log(res);
-			refresh(projectId, writable);
-		})
-		.catch((err) => {
-			console.log(err);
-			error('Failed to push branch.');
-		});
-}
-
-function deleteBranch(writable: Writable<Loadable<Branch[]>>, projectId: string, branchId: string) {
-	return invoke<object>('delete_virtual_branch', {
-		projectId: projectId,
-		branchId: branchId
-	})
-		.then(() => {
-			refresh(projectId, writable);
-		})
-		.catch(() => {
-			error('Unable to delete branch');
-		});
 }
