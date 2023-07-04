@@ -3,12 +3,18 @@
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
 	import { getVirtualBranches } from './vbranches';
+	import { getTarget } from './targetData';
 	import { Value } from 'svelte-loadable-store';
 	import { Button } from '$lib/components';
 	import { error } from '$lib/toasts';
 
 	export let data: PageData;
-	let { projectId, project, target, remoteBranches } = data;
+	let { projectId, project, remoteBranches } = data;
+	const targetOperations = getTarget(projectId);
+	$: target =
+		!$targetOperations.isLoading && !Value.isError($targetOperations.value)
+			? $targetOperations.value
+			: undefined;
 	const virtualBranches = getVirtualBranches(projectId);
 	$: branches =
 		!$virtualBranches.isLoading && !Value.isError($virtualBranches.value)
@@ -32,7 +38,7 @@
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray {branches} {projectId} {target} {virtualBranches} />
+		<Tray {branches} {projectId} {target} {virtualBranches} {targetOperations} />
 		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} />
 	</div>
 {:else}
