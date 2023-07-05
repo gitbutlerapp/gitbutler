@@ -26,11 +26,6 @@ impl<'writer> SessionWriter<'writer> {
             return Err(anyhow!("can not open writer for a session with a hash"));
         }
 
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("failed to unlock");
-        }
-
         let reader = reader::DirReader::open(self.repository.root());
 
         let current_session_id = reader.read_string("session/meta/id");

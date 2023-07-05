@@ -100,8 +100,11 @@ impl Repository {
                 return Ok(gb_repository);
             }
 
+            gb_repository.lock()?;
             let session = gb_repository
                 .create_current_session(&project_repository::Repository::open(&project)?)?;
+            gb_repository.unlock()?;
+
             gb_repository
                 .flush_session(&project_repository::Repository::open(&project)?, &session)
                 .context("failed to run initial flush")?;
@@ -350,8 +353,6 @@ impl Repository {
             .write(&session)
             .context("failed to write session")?;
 
-        self.copy_branches().context("failed to unpack branches")?;
-
         Ok(session)
     }
 
@@ -374,12 +375,14 @@ impl Repository {
     }
 
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
-        match self
-            .get_current_session()
-            .context("failed to get current session")?
-        {
-            Some(session) => Ok(session),
-            None => {
+        self.lock().context("failed to lock")?;
+        let reader = reader::DirReader::open(self.root());
+        match sessions::Session::try_from(reader) {
+            Result::Ok(session) => {
+                self.unlock().context("failed to unlock")?;
+                Ok(session)
+            }
+            Err(sessions::SessionError::NoSession) => {
                 let project = self
                     .project_store
                     .get_project(&self.project_id)
@@ -393,7 +396,13 @@ impl Repository {
                 let session = self
                     .create_current_session(&project_repository)
                     .context("failed to create current session")?;
+                self.unlock().context("failed to unlock")?;
+                self.copy_branches().context("failed to unpack branches")?;
                 Ok(session)
+            }
+            Err(err) => {
+                self.unlock().context("failed to unlock")?;
+                Err(err).context("failed to read current session")
             }
         }
     }
@@ -436,13 +445,10 @@ impl Repository {
             return Err(anyhow!("nothing to flush"));
         }
 
+        self.lock()?;
+
         // update last timestamp
         sessions::Writer::new(self).write(session)?;
-
-        self.lock()?;
-        defer! {
-            self.unlock().expect("failed to unlock");
-        }
 
         let mut tree_builder = self
             .git_repository
@@ -494,6 +500,8 @@ impl Repository {
         std::fs::remove_dir_all(self.session_path())
             .context("failed to remove session directory")?;
 
+        self.unlock().context("failed to unlock")?;
+
         if let Err(e) = self.push() {
             log::error!("{}: failed to push to remote: {:#}", self.project_id, e);
         }
@@ -511,15 +519,21 @@ impl Repository {
     }
 
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
-        self.lock()?;
-        defer! {
-            self.unlock().expect("failed to unlock");
-        }
+        self.lock().context("failed to lock")?;
         let reader = reader::DirReader::open(self.root());
         match sessions::Session::try_from(reader) {
-            Result::Ok(session) => Ok(Some(session)),
-            Err(sessions::SessionError::NoSession) => Ok(None),
-            Err(sessions::SessionError::Err(err)) => Err(err),
+            Result::Ok(session) => {
+                self.unlock().context("failed to unlock")?;
+                Ok(Some(session))
+            }
+            Err(sessions::SessionError::NoSession) => {
+                self.unlock().context("failed to unlock")?;
+                Ok(None)
+            }
+            Err(sessions::SessionError::Err(err)) => {
+                self.unlock().context("failed to unlock")?;
+                Err(err)
+            }
         }
     }
 
