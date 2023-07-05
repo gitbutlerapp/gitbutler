@@ -40,7 +40,7 @@
 	const authUrl = derived(token, ($token) => $token?.url as string);
 
 	$: if ($user) {
-		goto('/users/');
+		goto('/user/');
 	}
 </script>
 

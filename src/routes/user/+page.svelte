@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Modal, Login } from '$lib/components';
-	import type { PageData } from './$types';
+	import type { PageData } from '../users/$types';
 	import { log, stores, toasts } from '$lib';
 	import { deleteAllData } from '$lib/api';
 	import { goto } from '$app/navigation';
