@@ -34,7 +34,7 @@
 		}
 		virtualBranches
 			.setTarget(targetChoice)
-			.then((t) => () => {
+			.then((t) => {
 				if (t) {
 					target = t;
 				}

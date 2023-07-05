@@ -11,52 +11,52 @@
 {#await projects.load()}
 	loading...
 {:then}
-	{#if $projects.length == 0}
-		<div
-			class="mx-auto flex h-full w-full items-center justify-center bg-light-200 p-8 text-light-900 dark:bg-dark-1000"
-		>
-			<div class="inline-block w-96 text-center">
-				<svg
-					class="mx-auto h-12 w-12 text-light-600 dark:text-dark-200"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					aria-hidden="true"
-				>
-					<path
-						vector-effect="non-scaling-stroke"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-					/>
-				</svg>
-				<h3 class="mt-2 text-lg text-light-800 dark:font-bold dark:text-white">No projects</h3>
-				<p class="mt-1 text-light-500 dark:text-dark-100">
-					Get started by tracking a project you're working on.
+	<div class="flex h-full w-full flex-col bg-light-200 p-8 text-light-900 dark:bg-dark-1000">
+		<div class="mb-8 flex flex-row justify-between">
+			<div class="text-light-900 dark:text-dark-100">
+				<h1 class="mb-2 text-3xl">Your projects</h1>
+				<p class="text-lg text-light-700 dark:text-dark-200">
+					All the projects Tracked by GitButler
 				</p>
-				<div class="mt-6">
-					<Button color="primary" on:click={() => events.emit('openNewProjectModal')}>
-						<span class="font-bold text-white">Start Tracking a Project</span>
-					</Button>
-				</div>
 			</div>
-		</div>
-	{:else}
-		<div class="h-full w-full items-center bg-light-200 p-8 text-light-900 dark:bg-dark-1000">
-			<div class="mb-8 flex flex-row justify-between">
-				<div class="text-light-900 dark:text-dark-100">
-					<h1 class="mb-2 text-3xl">Your projects</h1>
-					<p class="text-lg text-light-700 dark:text-dark-200">
-						All the projects that I am currently assisting you with.
-					</p>
-				</div>
+			{#if $projects.length > 0}
 				<div class="self-start">
 					<Button color="primary" on:click={() => events.emit('openNewProjectModal')}>
 						Add project
 					</Button>
 				</div>
+			{/if}
+		</div>
+		{#if $projects.length == 0}
+			<div
+				class="mx-auto flex w-full flex-grow items-center justify-center border border-light-400 bg-light-200 p-8 text-light-900 dark:border-dark-500 dark:bg-dark-1000 dark:text-dark-100"
+			>
+				<div class="inline-flex w-96 flex-col items-center gap-y-4 text-center">
+					<svg
+						width="38"
+						height="37"
+						viewBox="0 0 38 37"
+						fill="none"
+						class="text-light-600 dark:text-dark-100"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							fill-rule="evenodd"
+							clip-rule="evenodd"
+							d="M34 4.5C35.6569 4.5 37 5.84315 37 7.5V33.5C37 35.1569 35.6569 36.5 34 36.5H4C2.34315 36.5 1 35.1569 1 33.5V3.5C1 1.84315 2.34315 0.5 4 0.5H13.7574C14.553 0.5 15.3161 0.816071 15.8787 1.37868L18.1213 3.62132C18.6839 4.18393 19.447 4.5 20.2426 4.5H34ZM17 14.5C17 13.3954 17.8954 12.5 19 12.5C20.1046 12.5 21 13.3954 21 14.5V18.5H25C26.1046 18.5 27 19.3954 27 20.5C27 21.6046 26.1046 22.5 25 22.5H21V26.5C21 27.6046 20.1046 28.5 19 28.5C17.8954 28.5 17 27.6046 17 26.5V22.5H13C11.8954 22.5 11 21.6046 11 20.5C11 19.3954 11.8954 18.5 13 18.5H17V14.5Z"
+							fill="currentColor"
+							stroke="currentColor"
+						/>
+					</svg>
+
+					<h3 class="text-xl font-medium">Add project</h3>
+					<p>Get started by adding a project you're working on.</p>
+					<Button color="purple" height="small" on:click={() => events.emit('openNewProjectModal')}>
+						<span class="font-bold text-white">Start Tracking a Project</span>
+					</Button>
+				</div>
 			</div>
+		{:else}
 			<div class="flex flex-wrap gap-4">
 				{#each $projects as project}
 					<a
@@ -86,6 +86,6 @@
 					</a>
 				{/each}
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 {/await}
