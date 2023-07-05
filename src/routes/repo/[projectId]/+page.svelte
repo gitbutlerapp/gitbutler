@@ -34,7 +34,12 @@
 		}
 		virtualBranches
 			.setTarget(targetChoice)
-			.then((t) => (target = t))
+			.then((t) => () => {
+				if (t) {
+					target = t;
+				}
+				remoteBranchOperations.refresh();
+			})
 			.catch((e) => {
 				console.log('failed to set branch', e);
 				error('Failed to set target branch');

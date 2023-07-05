@@ -9,7 +9,7 @@ const cache: Map<string, VirtualBranchOperations & Readable<Loadable<api.vbranch
 	new Map();
 
 export interface VirtualBranchOperations {
-	setTarget(branch: string): Promise<Target>;
+	setTarget(branch: string): Promise<void | Target>;
 	createBranch(name: string, path: string): Promise<void | object>;
 	commitBranch(branch: string, message: string): Promise<void | object>;
 	updateBranchName(branchId: string, name: string): Promise<void | object>;
@@ -32,7 +32,16 @@ export function getVirtualBranches(
 	const writeable = createWriteable(projectId);
 	const store: VirtualBranchOperations & Readable<Loadable<api.vbranches.Branch[]>> = {
 		subscribe: writeable.subscribe,
-		setTarget: (branch) => setTarget(projectId, branch),
+		setTarget: (branch) =>
+			setTarget(projectId, branch)
+				.then((t) => {
+					refresh(projectId, writeable);
+					return t;
+				})
+				.catch((err) => {
+					console.error(err);
+					toasts.error('Failed to set target');
+				}),
 		createBranch: (name, path) =>
 			api.vbranches
 				.create({ projectId, name, ownership: path })
@@ -133,8 +142,8 @@ async function refresh(projectId: string, store: Writable<Loadable<api.vbranches
 		.then((newBranches) => store.set({ isLoading: false, value: newBranches }));
 }
 
-function setTarget(projectId: string, branch: string) {
-	return invoke<Target>('set_target_branch', {
+async function setTarget(projectId: string, branch: string) {
+	return await invoke<Target>('set_target_branch', {
 		projectId: projectId,
 		branch: branch
 	});
