@@ -5,9 +5,10 @@
 	export let color: 'basic' | 'primary' | 'destructive' | 'purple' = 'basic';
 	export let kind: 'plain' | 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
-	export let height: 'basic' | 'small' = 'basic';
+	export let height: 'basic' | 'small' = 'small';
 	export let width: 'basic' | 'full-width' = 'basic';
 	export let type: 'button' | 'submit' = 'button';
+	export let align: 'left' | 'center' | 'right' = 'center';
 	export let icon: ComponentType | undefined = undefined;
 	export let loading = false;
 
@@ -33,6 +34,9 @@
 	{type}
 	class:disabled
 	on:click
+	class:justify-start={align == 'left'}
+	class:justify-center={align == 'center'}
+	class:justify-end={align == 'right'}
 	class:px-4={!!$$slots.default}
 	class:px-2={!$$slots.default}
 >
