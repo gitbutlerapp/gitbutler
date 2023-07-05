@@ -31,7 +31,7 @@
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
-	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 2), 10);
+	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
 
 	let allExpanded: boolean | undefined;
 	let maximized = false;
@@ -153,7 +153,8 @@
 				type="text"
 				bind:value={name}
 				on:change={handleBranchNameChange}
-				class="border-0 bg-light-200 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+				title={name}
+				class="w-full truncate border-0 bg-light-200 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 			/>
 		</div>
 		<button
