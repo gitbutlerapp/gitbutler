@@ -35,7 +35,6 @@
 
 	let allExpanded: boolean | undefined;
 	let maximized = false;
-	let messageInput: HTMLTextAreaElement;
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
@@ -86,9 +85,8 @@
 	}
 
 	function commit() {
-		const message = messageInput.value.trim();
-		console.log('commit', message, projectId, branchId);
-		virtualBranches.commitBranch(branchId, message);
+		console.log('commit', commitMessage, projectId, branchId);
+		virtualBranches.commitBranch(branchId, commitMessage);
 	}
 
 	function push() {
