@@ -52,7 +52,7 @@
 					<h3 class="text-xl font-medium">Add project</h3>
 					<p>Get started by adding a project you're working on.</p>
 					<Button color="purple" height="small" on:click={() => events.emit('openNewProjectModal')}>
-						<span class="font-bold text-white">Start Tracking a Project</span>
+						Add Git project
 					</Button>
 				</div>
 			</div>
