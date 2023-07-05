@@ -22,8 +22,6 @@
 	const { posthog, projects, sentry, cloud } = data;
 
 	const user = stores.user;
-	let loginOrUsersUrl = '/login/';
-	$: if (user) user.load().then((u) => (loginOrUsersUrl = u ? '/users/' : '/login/'));
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects?.find((project) => project.id === page.params.projectId)
@@ -71,7 +69,7 @@
 <div class="flex h-full flex-col">
 	<header
 		data-tauri-drag-region
-		class="flex h-8 flex-shrink-0 flex-row items-center gap-x-4 border-b border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 dark:text-dark-100"
+		class="flex h-8 flex-shrink-0 flex-row items-center gap-x-6 border-b border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 dark:text-dark-100"
 		style="z-index: 9999;"
 	>
 		<div class="breadcrumb-project-container ml-[80px]">
@@ -80,18 +78,18 @@
 		<div class="flex-grow" />
 		<ThemeSelector />
 		<div class="mr-6">
-			<Link href={loginOrUsersUrl}>
-				{#await user.load() then}
+			{#await user.load() then}
+				<Link href="/user/">
 					{#if $user !== null}
 						{#if $user.picture}
 							<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
 						{/if}
 						<span class="hover:no-underline">{$user.name}</span>
 					{:else}
-						<span>Connect to GitButler Cloud</span>
+						Account
 					{/if}
-				{/await}
-			</Link>
+				</Link>
+			{/await}
 		</div>
 	</header>
 
