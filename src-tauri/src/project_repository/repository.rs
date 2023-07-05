@@ -383,6 +383,7 @@ impl<'repository> Repository<'repository> {
     pub fn fetch(&self) -> Result<()> {
         let output = Command::new("git")
             .arg("fetch")
+            .arg("--prune")
             .arg("origin")
             .current_dir(&self.project.path)
             .output()
