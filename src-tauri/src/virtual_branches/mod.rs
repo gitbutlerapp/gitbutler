@@ -1610,7 +1610,6 @@ fn write_tree(
         // convert this string to a Path
         let full_path = std::path::Path::new(&project.path).join(&file.path);
         let rel_path = std::path::Path::new(&file.path);
-        println!("relpath: {}", rel_path.display());
 
         // if file exists
         if full_path.exists() {
@@ -1633,8 +1632,6 @@ fn write_tree(
                 for hunk in hunks {
                     patch.push_str(&hunk.diff);
                 }
-
-                println!("patch: {:?}", patch);
 
                 // apply patch to blob_contents
                 let patch_bytes = patch.as_bytes();
