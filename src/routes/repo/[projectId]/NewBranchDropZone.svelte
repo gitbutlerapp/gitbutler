@@ -36,7 +36,7 @@
 
 		if (e.type == 'finalize') {
 			const ownership = branchItems[0].files
-				.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id.split(':')[1]).join(','))
+				.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 				.join('\n');
 
 			virtualBranches.createBranch(newBranchName(), ownership);
