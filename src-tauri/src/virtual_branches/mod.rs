@@ -850,7 +850,7 @@ pub fn create_virtual_branch_from_branch(
     for hunk in hunks_by_filepath.values().flatten() {
         branch
             .ownership
-            .put(&FileOwnership::try_from(&hunk.id).unwrap());
+            .put(&FileOwnership::try_from(format!("{}:{}", hunk.file_path, hunk.id)).unwrap());
     }
 
     let writer = branch::Writer::new(gb_repository);
@@ -1065,8 +1065,7 @@ fn diff_to_hunks_by_filepath(
         let (hunk_id, hunk_start, hunk_end) = if let Some(hunk) = hunk {
             (
                 format!(
-                    "{}:{}-{}",
-                    file_path.display(),
+                    "{}-{}",
                     hunk.new_start(),
                     hunk.new_start() + hunk.new_lines()
                 ),
@@ -2446,7 +2445,7 @@ mod tests {
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
-        assert_eq!(statuses[0].1[0].hunks[0].id, "test.txt:12-16");
+        assert_eq!(statuses[0].1[0].hunks[0].id, "12-16");
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -2458,7 +2457,7 @@ mod tests {
         assert!(statuses[0].1[0].hunks[0]
             .id
             .starts_with("13-17-ad6f6af93b494f66d4754e4806c7c1b4-"));
-        assert_eq!(statuses[0].1[0].hunks[1].id, "test.txt:1-5");
+        assert_eq!(statuses[0].1[0].hunks[1].id, "1-5");
 
         Ok(())
     }
