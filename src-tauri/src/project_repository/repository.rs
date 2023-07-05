@@ -1,7 +1,12 @@
-use std::{collections::HashMap, env, process::Command};
+use std::{
+    cell::Cell,
+    collections::HashMap,
+    env,
+    process::{Command, Stdio},
+};
 
-use anyhow::{Context, Result};
-use git2::Diff;
+use anyhow::{bail, Context, Result};
+use git2::{CredentialType, Diff};
 use serde::Serialize;
 use walkdir::WalkDir;
 
@@ -359,7 +364,38 @@ impl<'repository> Repository<'repository> {
         Ok(())
     }
 
+    fn get_credential_types(&self, remote: &mut git2::Remote) -> CredentialType {
+        // try to empty push with no credentials, to see what kind of credentials are needed
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        let allowed_types = Cell::new(CredentialType::empty());
+
+        // try to auth with creds from an ssh-agent
+        callbacks.credentials(|_url, _username_from_url, _allowed_types| {
+            allowed_types.set(_allowed_types);
+            git2::Cred::default()
+        });
+
+        let mut push_options = git2::PushOptions::new();
+        push_options.remote_callbacks(callbacks);
+
+        let _ = remote.push::<&str>(&[], Some(&mut push_options));
+
+        allowed_types.get()
+    }
+
     pub fn push(&self, head: &git2::Oid, upstream: &str) -> Result<()> {
+        let mut remote = self
+            .git_repository
+            .find_remote("origin")
+            .context("failed to find remote")?;
+
+        let allowed_credentials = self.get_credential_types(&mut remote);
+
+        if allowed_credentials == CredentialType::USER_PASS_PLAINTEXT {
+            bail!("user/pass credentials not supported")
+        }
+
         let output = Command::new("git")
             .arg("push")
             .arg("origin")
