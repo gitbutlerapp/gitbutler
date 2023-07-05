@@ -511,6 +511,10 @@ impl Repository {
     }
 
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
+        self.lock()?;
+        defer! {
+            self.unlock().expect("failed to unlock");
+        }
         let reader = reader::DirReader::open(self.root());
         match sessions::Session::try_from(reader) {
             Result::Ok(session) => Ok(Some(session)),
