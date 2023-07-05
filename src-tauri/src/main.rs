@@ -446,9 +446,12 @@ async fn git_remote_branches(
     project_id: &str,
 ) -> Result<Vec<String>, Error> {
     let app = handle.state::<app::App>();
-    let branches = app
-        .git_remote_branches(project_id)
-        .with_context(|| format!("failed to get git branches for project {}", project_id))?;
+    let branches = app.git_remote_branches(project_id).with_context(|| {
+        format!(
+            "failed to get remote git branches for project {}",
+            project_id
+        )
+    })?;
     Ok(branches)
 }
 

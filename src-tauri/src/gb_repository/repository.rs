@@ -388,8 +388,11 @@ impl Repository {
                     return Err(anyhow!("project does not exist"));
                 }
                 let project = project.unwrap();
-                let project_repository = project_repository::Repository::open(&project)?;
-                let session = self.create_current_session(&project_repository)?;
+                let project_repository = project_repository::Repository::open(&project)
+                    .context("failed to open project repository")?;
+                let session = self
+                    .create_current_session(&project_repository)
+                    .context("failed to create current session")?;
                 Ok(session)
             }
         }
@@ -568,14 +571,14 @@ impl Repository {
             // calculate the commit as the merge-base between HEAD in project_repository and this target commit
             let head_oid = repo
                 .head()
-                .expect("Failed to get HEAD reference")
+                .context("Failed to get HEAD reference")?
                 .peel_to_commit()
-                .expect("Failed to peel HEAD reference to commit")
+                .context("Failed to peel HEAD reference to commit")?
                 .id();
 
             commit_oid = repo
                 .merge_base(head_oid, commit_oid)
-                .expect("Failed to calculate merge base");
+                .context("Failed to calculate merge base")?;
 
             println!("merge base: {:?}", commit_oid);
         }

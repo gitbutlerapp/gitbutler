@@ -593,10 +593,10 @@ pub fn list_virtual_branches(
     let mut branches: Vec<VirtualBranch> = Vec::new();
     let current_session = gb_repository
         .get_or_create_current_session()
-        .expect("failed to get or create currnt session");
+        .context("failed to get or create currnt session")?;
 
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .expect("failed to open current session reader");
+        .context("failed to open current session reader")?;
 
     let target_reader = target::Reader::new(&current_session_reader);
     let default_target = match target_reader.read_default() {
@@ -1392,9 +1392,9 @@ pub fn get_status_by_branch(
 fn get_default_target(gb_repository: &gb_repository::Repository) -> Result<target::Target> {
     let current_session = gb_repository
         .get_or_create_current_session()
-        .expect("failed to get or create currnt session");
+        .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .expect("failed to open current session reader");
+        .context("failed to open current session reader")?;
 
     let target_reader = target::Reader::new(&current_session_reader);
     let default_target = match target_reader.read_default() {
@@ -1621,7 +1621,7 @@ fn write_tree(
                     .to_object(git_repository)
                     .unwrap()
                     .peel_to_blob()
-                    .expect("failed to get blob");
+                    .context("failed to get blob")?;
 
                 // get the contents
                 let blob_contents = blob.content();
@@ -1686,7 +1686,7 @@ pub fn commit(
 ) -> Result<()> {
     // get the files to commit
     let statuses = get_status_by_branch(gb_repository, project_repository)
-        .expect("failed to get status by branch");
+        .context("failed to get status by branch")?;
 
     for (mut branch, files) in statuses {
         if branch.id == branch_id {
