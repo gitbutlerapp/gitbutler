@@ -3,4 +3,4 @@ pub mod activity;
 mod activity_tests;
 mod repository;
 
-pub use repository::{FileStatus, Repository};
+pub use repository::{Error, FileStatus, Repository};

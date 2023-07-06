@@ -37,13 +37,11 @@ pub struct App {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum AddProjectError {
-    #[error("Project already exists")]
-    ProjectAlreadyExists,
+pub enum Error {
     #[error("{0}")]
-    OpenError(projects::CreateError),
-    #[error("{0}")]
-    Other(anyhow::Error),
+    Message(String),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 impl App {
@@ -211,27 +209,27 @@ impl App {
         self.users_storage.delete()
     }
 
-    pub fn add_project(&self, path: &str) -> Result<projects::Project, AddProjectError> {
+    pub fn add_project(&self, path: &str) -> Result<projects::Project, Error> {
         let all_projects = self
             .projects_storage
             .list_projects()
-            .map_err(AddProjectError::Other)?;
+            .map_err(Error::Other)?;
 
         if all_projects.iter().any(|project| project.path == path) {
-            return Err(AddProjectError::ProjectAlreadyExists);
+            return Err(Error::Message("Project already exists".to_string()));
         }
 
-        let project =
-            projects::Project::from_path(path.to_string()).map_err(AddProjectError::OpenError)?;
+        let project = projects::Project::from_path(path.to_string())
+            .map_err(|err| Error::Message(err.to_string()))?;
 
         self.projects_storage
             .add_project(&project)
             .context("failed to add project")
-            .map_err(AddProjectError::Other)?;
+            .map_err(Error::Other)?;
 
         self.init_project(&project)
             .context("failed to init project")
-            .map_err(AddProjectError::Other)?;
+            .map_err(Error::Other)?;
 
         Ok(project)
     }
@@ -467,12 +465,18 @@ impl App {
         Ok(())
     }
 
-    pub fn push_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        virtual_branches::push(&project_repository, &gb_repository, branch_id)?;
-        Ok(())
+    pub fn push_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<(), Error> {
+        let gb_repository = self.gb_repository(project_id).map_err(Error::Other)?;
+        let project = self.gb_project(project_id).map_err(Error::Other)?;
+        let project_repository =
+            project_repository::Repository::open(&project).map_err(Error::Other)?;
+        match virtual_branches::push(&project_repository, &gb_repository, branch_id) {
+            Ok(_) => Ok(()),
+            Err(virtual_branches::Error::UnsupportedAuthCredentials(_)) => Err(Error::Message(
+                "unsupported authentication credentials".to_string(),
+            )),
+            Err(virtual_branches::Error::Other(e)) => Err(Error::Other(e)),
+        }
     }
 
     pub fn fetch_from_target(&self, project_id: &str) -> Result<()> {
