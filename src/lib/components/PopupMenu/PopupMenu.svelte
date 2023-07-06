@@ -50,7 +50,7 @@
 			on:mouseleave={onDismiss}
 			on:blur={onDismiss}
 			style="position: absolute; top:{pos.y}px; left:{pos.x}px"
-			class="flex flex-col rounded border-light-400 bg-white shadow dark:border-dark-500 dark:bg-dark-700 p-1 border"
+			class="flex flex-col rounded border border-light-400 bg-white p-1 shadow dark:border-dark-500 dark:bg-dark-700"
 		>
 			<slot {item} />
 		</div>
