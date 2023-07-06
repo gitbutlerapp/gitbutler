@@ -165,7 +165,7 @@
 				/>
 				<Button
 					disabled={chatInput.length == 0 || waitingForResponse}
-					color="primary"
+					color="purple"
 					on:click={() => {
 						if (!chatId) {
 							cloud.chat

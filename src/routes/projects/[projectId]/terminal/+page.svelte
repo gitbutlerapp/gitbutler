@@ -39,7 +39,7 @@
 		{/await}
 		<div class="mt-4 font-bold">Commands</div>
 		<ul class="py-2">
-			<Button color="primary" width="full-width" on:click={() => runCommand('git push')}>
+			<Button color="purple" width="full-width" on:click={() => runCommand('git push')}>
 				Push Commit
 			</Button>
 		</ul>

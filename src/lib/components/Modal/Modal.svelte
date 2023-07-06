@@ -68,7 +68,7 @@
 		>
 			<slot name="controls" {item} {close}>
 				<Button kind="outlined" on:click={close}>Secondary action</Button>
-				<Button color="primary" on:click={close}>Primary action</Button>
+				<Button color="purple" on:click={close}>Primary action</Button>
 			</slot>
 		</div>
 	</div>
