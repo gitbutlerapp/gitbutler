@@ -185,7 +185,7 @@
 
 			<div class="flex gap-2">
 				<Button kind="outlined" on:click={close}>Cancel</Button>
-				<Button type="submit" disabled={isAutowriting} color="primary" loading={isCommitting}>
+				<Button type="submit" disabled={isAutowriting} color="purple" loading={isCommitting}>
 					Commit
 				</Button>
 			</div>

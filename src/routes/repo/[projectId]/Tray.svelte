@@ -238,7 +238,7 @@
 			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
 			<Button
 				height="small"
-				color="primary"
+				color="purple"
 				on:click={() => {
 					remoteBranchOperations.updateBranchTarget().then(() => {
 						virtualBranches.refresh();

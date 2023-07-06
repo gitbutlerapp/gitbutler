@@ -252,7 +252,7 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button kind="outlined" on:click={close}>Cancel</Button>
-		<Button color="primary" on:click={() => enableProjectSync().finally(close)}>Connect</Button>
+		<Button color="purple" on:click={() => enableProjectSync().finally(close)}>Connect</Button>
 	</svelte:fragment>
 </Modal>
 
@@ -382,7 +382,7 @@
 					<Button
 						loading={isCommitting}
 						disabled={!isCommitEnabled || isGeneratingCommitMessage}
-						color="primary"
+						color="purple"
 						type="submit"
 					>
 						Commit changes

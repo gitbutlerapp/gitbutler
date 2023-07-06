@@ -15,7 +15,7 @@
 		<Button on:click={leftAction} {width}>
 			{leftLabel}
 		</Button>
-		<Button on:click={rightAction} color="primary" {width}>
+		<Button on:click={rightAction} color="purple" {width}>
 			{rightLabel}
 		</Button>
 	</div>
