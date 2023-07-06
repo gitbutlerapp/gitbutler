@@ -1,16 +1,30 @@
-use std::{
-    cell::Cell,
-    collections::HashMap,
-    env,
-    process::{Command, Stdio},
-};
+use core::fmt;
+use std::{cell::Cell, collections::HashMap, env, process::Command};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use git2::{CredentialType, Diff};
 use serde::Serialize;
 use walkdir::WalkDir;
 
 use crate::{project_repository::activity, projects, reader};
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Other(anyhow::Error),
+    UnsupportedAuthCredentials(CredentialType),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::UnsupportedAuthCredentials(cred_type) => {
+                write!(f, "unsupported credential type: {:?}", cred_type)
+            }
+            err => err.fmt(f),
+        }
+    }
+}
 
 pub struct Repository<'repository> {
     pub(crate) git_repository: git2::Repository,
@@ -384,16 +398,17 @@ impl<'repository> Repository<'repository> {
         allowed_types.get()
     }
 
-    pub fn push(&self, head: &git2::Oid, upstream: &str) -> Result<()> {
+    pub fn push(&self, head: &git2::Oid, upstream: &str) -> Result<(), Error> {
         let mut remote = self
             .git_repository
             .find_remote("origin")
-            .context("failed to find remote")?;
+            .context("failed to find remote")
+            .map_err(Error::Other)?;
 
         let allowed_credentials = self.get_credential_types(&mut remote);
 
         if allowed_credentials == CredentialType::USER_PASS_PLAINTEXT {
-            bail!("user/pass credentials not supported")
+            return Err(Error::UnsupportedAuthCredentials(allowed_credentials));
         }
 
         let output = Command::new("git")
@@ -402,14 +417,20 @@ impl<'repository> Repository<'repository> {
             .arg(format!("{}:{}", head, upstream))
             .current_dir(&self.project.path)
             .output()
-            .context("failed to fork exec")?;
+            .context("failed to fork exec")
+            .map_err(Error::Other)?;
 
-        output.status.success().then(|| ()).ok_or_else(|| {
-            anyhow::anyhow!(
-                "failed to push: {}",
-                String::from_utf8(output.stderr).unwrap()
-            )
-        })?;
+        output
+            .status
+            .success()
+            .then(|| ())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "failed to push: {}",
+                    String::from_utf8(output.stderr).unwrap()
+                )
+            })
+            .map_err(Error::Other)?;
 
         log::info!("{}: pushed {} to {}", self.project.id, head, upstream);
 

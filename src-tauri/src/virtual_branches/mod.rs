@@ -4,7 +4,7 @@ pub mod target;
 
 use std::{
     collections::{HashMap, HashSet},
-    path, time, vec,
+    fmt, path, time, vec,
 };
 
 use anyhow::{bail, Context, Result};
@@ -1736,23 +1736,44 @@ fn name_to_branch(name: &str) -> String {
     format!("refs/heads/{}", cleaned_name)
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    UnsupportedAuthCredentials(git2::CredentialType),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::UnsupportedAuthCredentials(cred_type) => {
+                write!(f, "unsupported credential type: {:?}", cred_type)
+            }
+            err => err.fmt(f),
+        }
+    }
+}
+
 pub fn push(
     project_repository: &project_repository::Repository,
     gb_repository: &gb_repository::Repository,
     branch_id: &str,
-) -> Result<()> {
+) -> Result<(), Error> {
     let current_session = gb_repository
         .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
+        .context("failed to get or create currnt session")
+        .map_err(Error::Other)?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
+        .context("failed to open current session")
+        .map_err(Error::Other)?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
 
     let mut vbranch = branch_reader
         .read(branch_id)
-        .context("failed to read branch")?;
+        .context("failed to read branch")
+        .map_err(Error::Other)?;
 
     let upstream = if vbranch.upstream.is_empty() {
         name_to_branch(&vbranch.name)
@@ -1760,9 +1781,13 @@ pub fn push(
         vbranch.upstream.clone()
     };
 
-    project_repository
-        .push(&vbranch.head, &upstream)
-        .context("failed to push")?;
+    match project_repository.push(&vbranch.head, &upstream) {
+        Ok(_) => Ok(()),
+        Err(project_repository::Error::UnsupportedAuthCredentials(cred_type)) => {
+            return Err(Error::UnsupportedAuthCredentials(cred_type))
+        }
+        Err(err) => Err(Error::Other(err.into())),
+    }?;
 
     vbranch.upstream = upstream;
     branch_writer
@@ -1772,6 +1797,7 @@ pub fn push(
     project_repository
         .fetch()
         .context("failed to fetch after push")
+        .map_err(Error::Other)
 }
 
 #[cfg(test)]

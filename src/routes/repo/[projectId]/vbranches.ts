@@ -103,8 +103,7 @@ export function getVirtualBranches(
 				.push({ projectId, branchId })
 				.then(() => refresh(projectId, writeable))
 				.catch((err) => {
-					console.error(err);
-					toasts.error('Failed to push branch');
+					toasts.error(`Failed to push: ${err.message}`);
 				}),
 		deleteBranch: (branchId) =>
 			api.vbranches

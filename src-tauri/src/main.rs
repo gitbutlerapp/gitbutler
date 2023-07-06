@@ -57,23 +57,20 @@ impl Serialize for Error {
     }
 }
 
+impl From<app::Error> for Error {
+    fn from(e: app::Error) -> Self {
+        match e {
+            app::Error::Message(msg) => Error::Message(msg),
+            app::Error::Other(e) => Error::from(e),
+        }
+    }
+}
+
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
         sentry_anyhow::capture_anyhow(&e);
         log::error!("{:#}", e);
         Error::Unknown
-    }
-}
-
-impl From<app::AddProjectError> for Error {
-    fn from(e: app::AddProjectError) -> Self {
-        match e {
-            app::AddProjectError::ProjectAlreadyExists => {
-                Error::Message("Project already exists".to_string())
-            }
-            app::AddProjectError::OpenError(e) => Error::Message(e.to_string()),
-            app::AddProjectError::Other(e) => e.into(),
-        }
     }
 }
 
