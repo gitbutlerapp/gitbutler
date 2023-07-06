@@ -289,7 +289,7 @@ fn run_setup(butler: ButlerCli) {
             println!("Setting target to: {}", items[index].red());
             butler
                 .gb_repository
-                .set_target_branch(&butler.project_repository(), items[index].clone())
+                .set_target_branch(&butler.project_repository(), &items[index])
                 .unwrap();
         }
         None => println!("User did not select anything"),
