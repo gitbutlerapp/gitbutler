@@ -75,34 +75,36 @@
 
 <div
 	use:rememberWidth
-	class="w-80 shrink-0 resize-x overflow-y-auto bg-white text-light-800 dark:bg-dark-900 dark:text-dark-100"
+	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto bg-white text-light-800 dark:bg-dark-900 dark:text-dark-100"
 >
 	<!-- Target branch -->
 	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Target branch</div>
 	<div
-		class="flex w-full flex-row items-center gap-x-4 border-b border-light-400 pl-2 pr-4 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
+		class="flex w-full flex-row items-center  justify-between border-b border-light-400 pl-2 pr-2 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
 	>
 		<div class="flex-grow text-lg font-bold" title={behindMessage}>{target.name}</div>
-		<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
-		<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
-			{#if target.behind == 0}
-				<button
-					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-					on:click={fetchTarget}
-					title="click to fetch"
-				>
-					<IconRefresh />
-				</button>
-			{:else}
-				<button
-					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-					on:click={updateTargetModal.show}
-					disabled={target.behind == 0}
-					title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
-				>
-					<IconRefresh />
-				</button>
-			{/if}
+		<div class="flex items-center">
+			<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
+			<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
+				{#if target.behind == 0}
+					<button
+						class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+						on:click={fetchTarget}
+						title="click to fetch"
+					>
+						<IconRefresh />
+					</button>
+				{:else}
+					<button
+						class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+						on:click={updateTargetModal.show}
+						disabled={target.behind == 0}
+						title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
+					>
+						<IconRefresh />
+					</button>
+				{/if}
+			</div>
 		</div>
 	</div>
 
