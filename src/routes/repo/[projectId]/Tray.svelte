@@ -128,18 +128,18 @@
 			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 			<div
 				on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
-				class="border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
+				class="border-b border-light-400 p-2 dark:border-dark-600"
 				title={branch.name}
 			>
 				<div class="flex flex-row justify-between">
-					<div>
+					<div class="w-full flex">
 						<Checkbox
 							on:change={() => toggleBranch(branch.id, branch.active)}
 							bind:checked={branch.active}
 						/>
-						<span class="ml-2 cursor-pointer text-black dark:text-white">
+						<div class="ml-2 cursor-pointer text-black dark:text-white truncate w-full">
 							{branch.name}
-						</span>
+						</div>
 					</div>
 					{#if !branch.active}
 						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
