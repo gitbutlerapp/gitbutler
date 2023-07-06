@@ -132,12 +132,12 @@
 				title={branch.name}
 			>
 				<div class="flex flex-row justify-between">
-					<div class="w-full flex">
+					<div class="flex w-full">
 						<Checkbox
 							on:change={() => toggleBranch(branch.id, branch.active)}
 							bind:checked={branch.active}
 						/>
-						<div class="ml-2 cursor-pointer text-black dark:text-white truncate w-full">
+						<div class="ml-2 w-full cursor-pointer truncate text-black dark:text-white">
 							{branch.name}
 						</div>
 					</div>
@@ -198,7 +198,9 @@
 					{#if branch.lastCommitTs > 0}
 						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
 							<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
-							<div class="isolate flex -space-x-1 overflow-hidden">
+							<div
+								class="isolate flex -space-x-2 overflow-hidden  transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
+							>
 								{#each branch.authors as author}
 									<Gravatar
 										class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
