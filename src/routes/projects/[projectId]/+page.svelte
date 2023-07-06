@@ -50,11 +50,11 @@
 					</div>
 				</Tooltip>
 				{#await statuses.load()}
-					<Button disabled color="primary">Commit changes</Button>
+					<Button disabled color="purple">Commit changes</Button>
 				{:then}
 					<Button
 						disabled={Object.keys($statuses).length === 0}
-						color="primary"
+						color="purple"
 						on:click={() => goto(`/projects/${$project?.id}/commit`)}
 					>
 						Commit changes
