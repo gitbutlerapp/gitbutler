@@ -552,17 +552,16 @@ impl Repository {
     pub fn set_target_branch(
         &self,
         project_repository: &project_repository::Repository,
-        target_branch: String,
+        target_branch: &str,
     ) -> Result<virtual_branches::target::Target> {
         let repo = &project_repository.git_repository;
 
         // lookup a branch by name
-        let branch = repo.find_branch(&target_branch, git2::BranchType::Remote)?;
+        let branch = repo.find_branch(target_branch, git2::BranchType::Remote)?;
 
         let remote = repo.branch_remote_name(branch.get().name().unwrap())?;
         let remote_url = repo.find_remote(remote.as_str().unwrap())?;
         let remote_url_str = remote_url.url().unwrap();
-        println!("remote: {}", remote_url_str);
 
         // get a list of currently active virtual branches
 
@@ -594,11 +593,10 @@ impl Repository {
                 .context("Failed to peel HEAD reference to commit")?
                 .id();
 
-            commit_oid = repo
-                .merge_base(head_oid, commit_oid)
-                .context("Failed to calculate merge base")?;
-
-            println!("merge base: {:?}", commit_oid);
+            commit_oid = repo.merge_base(head_oid, commit_oid).context(format!(
+                "Failed to calculate merge base between {} and {}",
+                head_oid, commit_oid
+            ))?;
         }
 
         let target = virtual_branches::target::Target {
