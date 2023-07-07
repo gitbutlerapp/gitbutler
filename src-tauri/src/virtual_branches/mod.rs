@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::{gb_repository, project_repository, reader, sessions};
 
-use self::branch::{FileOwnership, Hunk, Ownership};
+use self::branch::{BranchCreateRequest, FileOwnership, Hunk, Ownership};
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -870,11 +870,8 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?;
-    let max_order = virtual_branches
-        .iter()
-        .map(|branch| branch.order)
-        .max()
-        .unwrap_or(0);
+
+    let order = virtual_branches.len();
 
     let now = time::UNIX_EPOCH
         .elapsed()
@@ -892,7 +889,7 @@ pub fn create_virtual_branch_from_branch(
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
         ownership: Ownership::default(),
-        order: max_order + 1,
+        order,
     };
 
     // add file ownership based off the diff
@@ -918,8 +915,10 @@ pub fn create_virtual_branch_from_branch(
 
 pub fn create_virtual_branch(
     gb_repository: &gb_repository::Repository,
-    name: &str,
+    create: &BranchCreateRequest,
 ) -> Result<branch::Branch> {
+    println!("create virtual branch: {:?}", create);
+
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -937,24 +936,49 @@ pub fn create_virtual_branch(
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
 
-    let virtual_branches = Iterator::new(&current_session_reader)
+    let mut virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?;
-    let max_order = virtual_branches
-        .iter()
-        .map(|branch| branch.order)
-        .max()
-        .unwrap_or(0);
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<branch::Branch>>();
+    virtual_branches.sort_by_key(|branch| branch.order);
+
+    let order = if let Some(order) = create.order {
+        if order > virtual_branches.len() {
+            virtual_branches.len()
+        } else {
+            order
+        }
+    } else {
+        virtual_branches.len()
+    };
+    let branch_writer = branch::Writer::new(gb_repository);
+
+    // make space for the new branch
+    for branch in virtual_branches.iter().skip(order) {
+        let mut branch = branch.clone();
+        branch.order += 1;
+        branch_writer
+            .write(&branch)
+            .context("failed to write branch")?;
+    }
 
     let now = time::UNIX_EPOCH
         .elapsed()
         .context("failed to get elapsed time")?
         .as_millis();
 
-    let branch = Branch {
+    let name: String = create
+        .name
+        .as_ref()
+        .map(|name| name.to_string())
+        .unwrap_or_else(|| format!("Branch {}", virtual_branches.len() + 1));
+
+    let mut branch = Branch {
         id: Uuid::new_v4().to_string(),
-        name: name.to_string(),
+        name,
         applied: true,
         upstream: "".to_string(),
         tree: tree.id(),
@@ -962,11 +986,19 @@ pub fn create_virtual_branch(
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
         ownership: Ownership::default(),
-        order: max_order + 1,
+        order,
     };
 
-    let writer = branch::Writer::new(gb_repository);
-    writer.write(&branch).context("failed to write branch")?;
+    branch_writer
+        .write(&branch)
+        .context("failed to write branch")?;
+
+    if let Some(ownership) = &create.ownership {
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        set_ownership(&branch_reader, &branch_writer, &mut branch, ownership)
+            .context("failed to set ownership")?;
+    }
+
     Ok(branch)
 }
 
@@ -1261,8 +1293,11 @@ pub fn get_status_by_branch(
 
     if virtual_branches.is_empty() {
         // create an empty virtual branch
-        virtual_branches = vec![create_virtual_branch(gb_repository, "default branch")
-            .context("failed to default branch")?];
+        virtual_branches =
+            vec![
+                create_virtual_branch(gb_repository, &BranchCreateRequest::default())
+                    .context("failed to default branch")?,
+            ];
     }
 
     // sort by order, so that the default branch is first (left in the ui)
@@ -1970,7 +2005,7 @@ mod tests {
             behind: 0,
         })?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2014,7 +2049,7 @@ mod tests {
     }
 
     #[test]
-    fn test_create_branch() -> Result<()> {
+    fn test_create_branch_in_the_middle() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -2032,7 +2067,55 @@ mod tests {
             behind: 0,
         })?;
 
-        create_virtual_branch(&gb_repo, "test_branch").expect("failed to create virtual branch");
+        create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch");
+        create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch");
+        create_virtual_branch(
+            &gb_repo,
+            &BranchCreateRequest {
+                order: Some(1),
+                ..Default::default()
+            },
+        )
+        .expect("failed to create virtual branch");
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+
+        let mut branches = iterator::BranchIterator::new(&current_session_reader)?
+            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+            .expect("failed to read branches");
+        branches.sort_by_key(|b| b.order);
+        assert_eq!(branches.len(), 3);
+        assert_eq!(branches[0].name, "Branch 1");
+        assert_eq!(branches[1].name, "Branch 3");
+        assert_eq!(branches[2].name, "Branch 2");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_branch_no_arguments() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo =
+            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch");
 
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
@@ -2041,7 +2124,10 @@ mod tests {
             .collect::<Result<Vec<branch::Branch>, reader::Error>>()
             .expect("failed to read branches");
         assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].name, "test_branch");
+        assert_eq!(branches[0].name, "Branch 1");
+        assert!(branches[0].applied);
+        assert_eq!(branches[0].ownership, Ownership::default());
+        assert_eq!(branches[0].order, 0);
 
         Ok(())
     }
@@ -2076,10 +2162,10 @@ mod tests {
             "line1\nline2\n",
         )?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2163,10 +2249,10 @@ mod tests {
             "line1\nline2\n",
         )?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2220,7 +2306,7 @@ mod tests {
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let branch_reader = branch::Reader::new(&current_session_reader);
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2337,13 +2423,13 @@ mod tests {
             behind: 0,
         })?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch3_id = create_virtual_branch(&gb_repo, "test_branch3")
+        let branch3_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2457,10 +2543,10 @@ mod tests {
             "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\n",
         )?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2552,7 +2638,8 @@ mod tests {
             "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
         )?;
 
-        create_virtual_branch(&gb_repo, "test_branch").expect("failed to create virtual branch");
+        create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch");
 
         let statuses =
             get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -2612,7 +2699,7 @@ mod tests {
         })?;
 
         // create a vbranch
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2719,7 +2806,7 @@ mod tests {
         })?;
 
         // create a vbranch
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2798,7 +2885,7 @@ mod tests {
         })?;
 
         // create a vbranch
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2892,10 +2979,10 @@ mod tests {
             "line5\nline6\n",
         )?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -2995,10 +3082,10 @@ mod tests {
             "file3\n",
         )?;
 
-        let branch2_id = create_virtual_branch(&gb_repo, "branch_rm_2")
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch3_id = create_virtual_branch(&gb_repo, "branch_add_3")
+        let branch3_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -3086,10 +3173,10 @@ mod tests {
             "line5\nline6\n",
         )?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch2")
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -3148,8 +3235,9 @@ mod tests {
         std::fs::remove_file(std::path::Path::new(&project.path).join(file_path3))?;
 
         // create branches that conflict with our earlier branches
-        create_virtual_branch(&gb_repo, "test_branch3").expect("failed to create virtual branch");
-        let branch4_id = create_virtual_branch(&gb_repo, "test_branch4")
+        create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch");
+        let branch4_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -3248,7 +3336,7 @@ mod tests {
         let repo = &project_repository.git_repository;
         repo.remote("origin", "http://origin.com/project")?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -3375,7 +3463,7 @@ mod tests {
         )?;
 
         // create a default branch. there should not be anything on this
-        let branch1_id = create_virtual_branch(&gb_repo, "default branch")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -3485,10 +3573,10 @@ mod tests {
             behind: 0,
         })?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch_1")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
-        let branch2_id = create_virtual_branch(&gb_repo, "test_branch_2")
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 
@@ -3650,7 +3738,7 @@ mod tests {
             "file3\n",
         )?;
 
-        let branch1_id = create_virtual_branch(&gb_repo, "test_branch_1")
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
 

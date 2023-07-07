@@ -42,6 +42,13 @@ pub struct BranchUpdateRequest {
     pub order: Option<usize>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct BranchCreateRequest {
+    pub name: Option<String>,
+    pub ownership: Option<Ownership>,
+    pub order: Option<usize>,
+}
+
 impl TryFrom<&dyn crate::reader::Reader> for Branch {
     type Error = crate::reader::Error;
 

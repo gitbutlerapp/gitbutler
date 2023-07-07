@@ -27,6 +27,7 @@
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;
+	export let order: number;
 	export let virtualBranches: VirtualBranchOperations;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
@@ -160,22 +161,32 @@
 		<button
 			bind:this={meatballButton}
 			class="flex-grow-0 p-2 text-light-600 dark:text-dark-200"
-			on:keydown={(e) => popupMenu.openByElement(meatballButton, branchId)}
-			on:click={(e) => popupMenu.openByElement(meatballButton, branchId)}
+			on:keydown={() => popupMenu.openByElement(meatballButton, branchId)}
+			on:click={() => popupMenu.openByElement(meatballButton, branchId)}
 		>
 			<IconMeatballMenu />
 		</button>
 	</div>
+
 	<PopupMenu bind:this={popupMenu} let:item={branchId}>
 		<PopupMenuItem on:click={() => branchId && virtualBranches.unapplyBranch(branchId)}>
 			Unapply
 		</PopupMenuItem>
+
 		<PopupMenuItem on:click={handleToggleExpandAll}>
 			{#if allExpanded}
 				Collapse all
 			{:else}
 				Expand all
 			{/if}
+		</PopupMenuItem>
+
+		<PopupMenuItem on:click={() => virtualBranches.createBranch({ order: order + 1 })}>
+			Create branch after
+		</PopupMenuItem>
+
+		<PopupMenuItem on:click={() => virtualBranches.createBranch({ order })}>
+			Create branch before
 		</PopupMenuItem>
 	</PopupMenu>
 

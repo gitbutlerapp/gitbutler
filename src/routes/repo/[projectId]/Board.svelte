@@ -13,18 +13,20 @@
 
 	const newBranchClass = 'new-branch-active';
 
+	function ensureBranchOrder() {
+		branches.forEach((branch, i) => {
+			if (branch.order !== i) {
+				virtualBranches.updateBranchOrder(branch.id, i);
+			}
+		});
+	}
+
 	function handleDndEvent(e: CustomEvent<DndEvent<Branch>>) {
 		branches = e.detail.items;
 
 		if (e.type == 'finalize') {
 			branches = branches.filter((branch) => branch.active);
-			// ensure branch.order is sorted in ascending order
-			// if not, send update requests
-			branches.forEach((branch, i) => {
-				if (branch.order !== i) {
-					virtualBranches.updateBranchOrder(branch.id, i);
-				}
-			});
+			ensureBranchOrder();
 		}
 	}
 
@@ -52,13 +54,14 @@
 	on:consider={handleDndEvent}
 	on:finalize={handleDndEvent}
 >
-	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order } (id)}
 		<Lane
 			{name}
 			commitMessage={description}
 			{files}
 			{commits}
 			on:empty={handleEmpty}
+			{order}
 			{projectId}
 			{upstream}
 			branchId={id}
@@ -66,7 +69,7 @@
 			{projectPath}
 		/>
 	{/each}
-	<NewBranchDropZone {branches} {virtualBranches} />
+	<NewBranchDropZone {virtualBranches} />
 </div>
 
 <style lang="postcss">
