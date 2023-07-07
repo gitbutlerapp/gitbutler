@@ -50,7 +50,14 @@ export async function list(params: { projectId: string }): Promise<Branch[]> {
 	return plainToInstance(Branch, result);
 }
 
-export async function create(params: { projectId: string; name: string; ownership: string }) {
+export async function create(params: {
+	projectId: string;
+	branch: {
+		name?: string;
+		ownership?: string;
+		order?: number;
+	};
+}) {
 	return await invoke<void>('create_virtual_branch', params);
 }
 

@@ -6,17 +6,11 @@
 	import { Button } from '$lib/components';
 	import type { VirtualBranchOperations } from './vbranches';
 
-	export let branches: Branch[];
 	export let virtualBranches: VirtualBranchOperations;
 	let items: Branch[] = [];
 
-	function newBranchName() {
-		const nextNumber = branches.filter((b) => b.name.startsWith('new branch')).length + 1;
-		return `new branch ${nextNumber}`;
-	}
-
 	function handleNewVirtualBranch() {
-		virtualBranches.createBranch(newBranchName(), '');
+		virtualBranches.createBranch({});
 	}
 
 	function handleDndFinalize(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {
@@ -39,7 +33,7 @@
 				.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 				.join('\n');
 
-			virtualBranches.createBranch(newBranchName(), ownership);
+			virtualBranches.createBranch({ ownership });
 			items = [];
 			return;
 		}

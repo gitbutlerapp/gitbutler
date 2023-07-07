@@ -10,7 +10,11 @@ const cache: Map<string, VirtualBranchOperations & Readable<Loadable<api.vbranch
 
 export interface VirtualBranchOperations {
 	setTarget(branch: string): Promise<void | Target>;
-	createBranch(name: string, path: string): Promise<void | object>;
+	createBranch(branch: {
+		name?: string;
+		ownership?: string;
+		order?: number;
+	}): Promise<void | object>;
 	commitBranch(branch: string, message: string): Promise<void | object>;
 	updateBranchName(branchId: string, name: string): Promise<void | object>;
 	updateBranchOrder(branchId: string, order: number): Promise<void | object>;
@@ -42,9 +46,9 @@ export function getVirtualBranches(
 					console.error(err);
 					toasts.error('Failed to set target');
 				}),
-		createBranch: (name, path) =>
+		createBranch: (branch: { name?: string; ownership?: string; order?: number }) =>
 			api.vbranches
-				.create({ projectId, name, ownership: path })
+				.create({ projectId, branch })
 				.then(() => refresh(projectId, writeable))
 				.catch((err) => {
 					console.error(err);

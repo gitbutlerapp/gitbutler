@@ -186,8 +186,14 @@ fn run_new(butler: ButlerCli) {
         .interact_text()
         .unwrap();
 
-    virtual_branches::create_virtual_branch(&butler.gb_repository, &input)
-        .expect("failed to create virtual branch");
+    virtual_branches::create_virtual_branch(
+        &butler.gb_repository,
+        &virtual_branches::branch::BranchCreateRequest {
+            name: Some(input),
+            ..Default::default()
+        },
+    )
+    .expect("failed to create virtual branch");
 }
 
 fn run_move(butler: ButlerCli) {

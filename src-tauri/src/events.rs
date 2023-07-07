@@ -17,7 +17,6 @@ impl Sender {
         self.app_handle
             .emit_all(&event.name, Some(&event.payload))
             .context("emit event")?;
-        log::debug!("sent event: {}", event.name);
         Ok(())
     }
 }

@@ -7,12 +7,7 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
     project_repository::{self, activity},
-    projects, pty, reader, search, sessions, storage, users,
-    virtual_branches::{
-        self,
-        branch::{BranchUpdateRequest, Ownership},
-    },
-    watcher,
+    projects, pty, search, sessions, storage, users, virtual_branches, watcher,
 };
 
 #[derive(Clone)]
@@ -353,8 +348,7 @@ impl App {
     pub async fn create_virtual_branch(
         &self,
         project_id: &str,
-        name: &str,
-        ownership: &Ownership,
+        create: &virtual_branches::branch::BranchCreateRequest,
     ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
 
@@ -364,17 +358,7 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-        let branch_id = virtual_branches::create_virtual_branch(&gb_repository, name)?.id;
-        virtual_branches::update_branch(
-            &gb_repository,
-            BranchUpdateRequest {
-                id: branch_id,
-                name: None,
-                order: None,
-                ownership: Some(ownership.clone()),
-            },
-        )
-        .context("failed to update branch")?;
+        virtual_branches::create_virtual_branch(&gb_repository, create)?;
         Ok(())
     }
 
