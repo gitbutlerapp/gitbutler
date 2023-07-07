@@ -73,6 +73,7 @@ pub struct VirtualBranchFile {
     pub id: String,
     pub path: String,
     pub hunks: Vec<VirtualBranchHunk>,
+    pub modified_at: u128,
 }
 
 // this struct is a mapping to the view `Hunk` type in Typescript
@@ -739,6 +740,12 @@ pub fn list_virtual_branches(
                     id: file_path.clone(),
                     path: file_path.to_string(),
                     hunks: hunks.clone(),
+                    modified_at: hunks
+                        .iter()
+                        .map(|h| h.modified_at)
+                        .max()
+                        .unwrap_or(0)
+                        .into(),
                 })
                 .collect::<Vec<_>>();
         } else {
@@ -1518,7 +1525,13 @@ pub fn get_status_by_branch(
             .map(|(file_path, hunks)| VirtualBranchFile {
                 id: file_path.clone(),
                 path: file_path,
-                hunks,
+                hunks: hunks.clone(),
+                modified_at: hunks
+                    .iter()
+                    .map(|h| h.modified_at)
+                    .max()
+                    .unwrap_or(0)
+                    .into(),
             })
             .collect::<Vec<_>>();
 
