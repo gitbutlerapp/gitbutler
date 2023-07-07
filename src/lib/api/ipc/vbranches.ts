@@ -19,6 +19,8 @@ export class File {
 	@Type(() => Hunk)
 	hunks!: Hunk[];
 	expanded?: boolean;
+	@Transform((obj) => new Date(obj.value))
+	modifiedAt!: Date;
 }
 
 export class Branch {
