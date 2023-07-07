@@ -76,8 +76,20 @@ fn main() {
         "remotes" => run_remotes(butler),
         "flush" => run_flush(butler), // artificially forces a session flush
         "reset" => run_reset(butler), // sets all vbranches to unapplied
+        "clear" => run_clear(butler), // deletes all vbranch stuff
         _ => println!("Unknown command: {}", args.command),
     }
+}
+
+fn run_clear(butler: ButlerCli) {
+    // make sure there is a session
+    let current_session = butler
+        .gb_repository
+        .get_or_create_current_session()
+        .expect("failed to get or create currnt session");
+    let branch_path = butler.gb_repository.branches_path();
+    // delete 'butler' directory under path
+    std::fs::remove_dir_all(branch_path).unwrap();
 }
 
 fn run_reset(butler: ButlerCli) {

@@ -896,6 +896,41 @@ pub fn create_virtual_branch_from_branch(
     let target_commit = repo.find_commit(default_target.sha)?;
     let merge_base = repo.merge_base(target_commit.id(), head_commit.id())?;
     let merge_tree = repo.find_commit(merge_base)?.tree()?;
+    if merge_base != target_commit.id() {
+        println!("merge base is not target commit");
+        let target_tree = target_commit.tree()?;
+        let head_tree = head_commit.tree()?;
+
+        // merge target and head
+        let merge_options = git2::MergeOptions::new();
+        let mut merge_index = repo
+            .merge_trees(&merge_tree, &head_tree, &target_tree, Some(&merge_options))
+            .context("failed to merge trees")?;
+
+        if merge_index.has_conflicts() {
+            bail!("merge conflict");
+        } else {
+            println!("merging target");
+            let (author, committer) = gb_repository.git_signatures()?;
+            let new_head_tree_oid = merge_index
+                .write_tree_to(repo)
+                .context("failed to write merge tree")?;
+            let new_head_tree = repo
+                .find_tree(new_head_tree_oid)
+                .context("failed to find tree")?;
+
+            let new_branch_head = repo.commit(
+                None,
+                &author,
+                &committer,
+                "merged upstream",
+                &new_head_tree,
+                &[&head_commit, &target_commit],
+            )?;
+            branch.head = new_branch_head;
+            branch.tree = new_head_tree_oid
+        }
+    }
 
     // do a diff between the head of this branch and the target base
     let diff = repo.diff_tree_to_tree(Some(&merge_tree), Some(&tree), None)?;
@@ -1571,7 +1606,7 @@ pub fn update_branch_target(
     }
 
     // write the currrent target sha to a temp branch as a parent
-    let my_ref = "refs/heads/gitbutler/temp";
+    let my_ref = "refs/heads/gitbutler/integration";
     repo.reference(my_ref, target.sha, true, "update target")?;
     // get commit object from target.sha
     let target_commit = repo.find_commit(target.sha)?;
@@ -1736,7 +1771,6 @@ fn write_tree(
 
                 // create a blob
                 let new_blob_oid = git_repository.blob(&new_content)?;
-                dbg!(&new_blob_oid);
                 // upsert into the builder
                 builder.upsert(rel_path, new_blob_oid, git2::FileMode::Blob);
             } else {
@@ -1784,7 +1818,6 @@ pub fn commit(
     for (mut branch, files) in statuses {
         if branch.id == branch_id {
             let tree_oid = write_tree(gb_repository, project_repository, &files)?;
-            dbg!(&tree_oid);
 
             let git_repository = &project_repository.git_repository;
             let parent_commit = git_repository.find_commit(branch.head).unwrap();
@@ -3538,6 +3571,132 @@ mod tests {
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
         assert_eq!(branch2.files.len(), 1);
         assert!(branch2.active);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\n",
+        )?;
+        commit_all(&repository)?;
+
+        let base_commit = repository.head().unwrap().target().unwrap();
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        commit_all(&repository)?;
+
+        let upstream_commit = repository.head().unwrap().target().unwrap();
+        repository.reference(
+            "refs/remotes/origin/master",
+            upstream_commit,
+            true,
+            "update target",
+        )?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "http://origin.com/project".to_string(),
+            sha: upstream_commit,
+            behind: 0,
+        })?;
+        repository.remote("origin", "http://origin.com/project")?;
+
+        // reset master to the base commit
+        repository.reference("refs/heads/master", base_commit, true, "update target")?;
+
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\nremote",
+        )?;
+        commit_all(&repository)?;
+        let remote_commit = repository.head().unwrap().target().unwrap();
+
+        repository.reference(
+            "refs/remotes/origin/branch1",
+            remote_commit,
+            true,
+            "update target",
+        )?;
+
+        // reset wd
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\n",
+        )?;
+
+        // create a new virtual branch from the remote branch
+        let branch1_id = create_virtual_branch_from_branch(
+            &gb_repo,
+            &project_repository,
+            "refs/remotes/origin/branch1",
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branch1.files.len(), 0);
+
+        // nothing has changed
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(contents, "line1\nline2\nline3\nline4\nupstream\n");
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path2))?;
+        assert_eq!(contents, "file2\n");
+
+        apply_branch(&gb_repo, &project_repository, &branch1_id)?;
+
+        // the file2 has been updated
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(contents, "line1\nline2\nline3\nline4\nupstream\n");
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path2))?;
+        assert_eq!(contents, "file2\nremote");
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+        // a default branch has been created
+        assert_eq!(branches.len(), 2);
+        // our branch still no hunks
+        assert_eq!(branch1.files.len(), 0);
+        assert_eq!(branch1.commits.len(), 2); // a merge commit too
 
         Ok(())
     }
