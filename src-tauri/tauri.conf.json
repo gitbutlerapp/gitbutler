@@ -52,7 +52,7 @@
                 "icons/icon.icns",
                 "icons/icon.ico"
             ],
-            "targets": ["dmg", "updater"],
+            "targets": ["app", "dmg", "updater"],
             "resources": [
                 "../scripts/branch_testdata.json"
             ]
