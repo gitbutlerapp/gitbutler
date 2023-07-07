@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import { dndzone } from 'svelte-dnd-action';
 	import { formatDistanceToNow } from 'date-fns';
-	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import type { Hunk } from '$lib/api/ipc/vbranches';
 	import HunkDiffViewer from './HunkDiffViewer.svelte';
 	import { summarizeHunk } from '$lib/summaries';
@@ -11,6 +9,7 @@
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 
+	export let id: string;
 	export let projectPath: string;
 	export let filepath: string;
 	export let hunks: Hunk[];
@@ -19,15 +18,11 @@
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;
 		update: Hunk[];
+		drag: boolean;
 	}>();
 	export let expanded: boolean | undefined;
 
 	let popupMenu: PopupMenu;
-
-	function handleDndEvent(e: CustomEvent<DndEvent<Hunk>>) {
-		hunks = e.detail.items;
-		if (e.type == 'finalize') dispatch('update', e.detail.items);
-	}
 
 	function hunkSize(hunk: string): number[] {
 		const linesAdded = hunk.split('\n').filter((line) => line.startsWith('+')).length;
@@ -53,9 +48,19 @@
 </script>
 
 <div
+	draggable="true"
+	on:dragstart|stopPropagation={(e) => {
+		if (!e.dataTransfer) return;
+		e.dataTransfer.setData('text/hunk', id + ':' + hunks.map((h) => h.id).join(','));
+		dispatch('drag', true);
+		return true;
+	}}
+	on:dragend|stopPropagation={(e) => {
+		dispatch('drag', false);
+	}}
 	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 >
-	<div class="flex items-center px-2 pt-2">
+	<div class="items-cente flex px-2 pt-2">
 		<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap " title={filepath}>
 			{@html boldenFilename(filepath)}
 		</div>
@@ -75,23 +80,22 @@
 		</div>
 	</div>
 
-	<div
-		class="hunk-change-container flex flex-col gap-2 rounded px-2 pb-2"
-		use:dndzone={{
-			items: hunks,
-			zoneTabIndex: -1,
-			autoAriaDisabled: true,
-			types: ['hunk', filepath],
-			receives: [filepath]
-		}}
-		on:consider={handleDndEvent}
-		on:finalize={handleDndEvent}
-	>
+	<div class="hunk-change-container flex flex-col gap-2 rounded px-2 pb-2">
 		{#if expanded}
 			{#each hunks || [] as hunk (hunk.id)}
 				<div
-					class="changed-hunk flex w-full flex-col rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
+					draggable="true"
+					on:dragstart|stopPropagation={(e) => {
+						if (!e.dataTransfer) return;
+						e.dataTransfer.setData('text/hunk', id + ':' + hunk.id);
+						dispatch('drag', true);
+						return false;
+					}}
+					on:dragend|stopPropagation={(e) => {
+						dispatch('drag', false);
+					}}
 					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, hunk)}
+					class="changed-hunk flex w-full flex-col rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
 				>
 					<div class="truncate whitespace-normal p-2">
 						{#await summarizeHunk(hunk.diff) then description}

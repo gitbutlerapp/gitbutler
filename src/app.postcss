@@ -316,3 +316,36 @@ input[type='checkbox'].large {
 	width: 20px;
 	height: 20px;
 }
+
+/* drag & drop */
+
+.drag-zone-hover * {
+	@apply pointer-events-none;
+}
+.drag-zone-marker {
+	@apply border-green-450 bg-green-200 dark:bg-green-470;
+}
+.drag-zone-active.drag-zone-hover .drag-zone-marker,
+.drag-zone-active + #new-branch-dz.drag-zone-hover .drag-zone-marker {
+	@apply bg-green-300 dark:bg-green-460;
+}
+.drag-zone-hover {
+	@apply border-green-500;
+}
+.drag-zone-active .no-changes {
+	@apply hidden;
+}
+.drag-zone-active .drag-zone-marker {
+	@apply block;
+}
+
+/* drag & drop ugly stuff */
+#new-branch-dz.new-branch-active {
+	@apply visible flex;
+}
+.drag-zone-active + #new-branch-dz .call-to-action {
+	@apply hidden;
+}
+.drag-zone-active + #new-branch-dz .drag-zone-marker {
+	@apply block;
+}

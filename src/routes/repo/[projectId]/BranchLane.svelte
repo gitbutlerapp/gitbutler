@@ -1,9 +1,10 @@
+<script lang="ts" context="module">
+	const zones = new Set<HTMLDivElement>();
+</script>
+
 <script lang="ts">
-	import { dndzone } from 'svelte-dnd-action';
-	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { Commit, File, Hunk } from '$lib/api/ipc/vbranches';
+	import type { Commit, File, Hunk } from '$lib/api/ipc/vbranches';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import { createFile } from './helpers';
 	import FileCard from './FileCard.svelte';
 	import { IconBranch } from '$lib/icons';
 	import { Button } from '$lib/components';
@@ -39,26 +40,15 @@
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
+	let dropZone: HTMLDivElement;
 
-	function handleDndEvent(e: CustomEvent<DndEvent<File | Hunk>>) {
-		const newItems = e.detail.items;
-		const fileItems = newItems.filter((item) => item instanceof File) as File[];
+	const hoverClass = 'drag-zone-hover';
+	const hunkType = 'text/hunk';
 
-		console.log('lane: handleDndEvent', e.type, e.detail.items);
-
-		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
-		hunkItems.forEach((hunk) => {
-			const file = files.find((f) => f.hunks.find((h) => h.id == hunk.id));
-			if (file) {
-				file.hunks.push(hunk);
-			} else {
-				fileItems.push(createFile(hunk.filePath, hunk));
-			}
-		});
-
-		files = fileItems.filter((file) => file.hunks && file.hunks.length > 0);
-		if (e.type === 'finalize') updateBranchOwnership();
-	}
+	onMount(() => {
+		zones.add(dropZone);
+		return () => zones.delete(dropZone);
+	});
 
 	function updateBranchOwnership() {
 		const ownership = files
@@ -133,12 +123,53 @@
 		console.log('branch name change:', name);
 		virtualBranches.updateBranchName(branchId, name);
 	}
+
+	function isChildOf(child: any, parent: HTMLElement): boolean {
+		if (parent === child) return false;
+		if (!child.parentElement) return false;
+		if (child.parentElement == parent) return true;
+		return isChildOf(child.parentElement, parent);
+	}
 </script>
 
 <div
-	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 snap-center flex-col overflow-y-auto py-2 px-3 transition-width dark:text-dark-100"
+	draggable="true"
+	bind:this={dropZone}
+	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	class:w-full={maximized}
 	class:w-96={!maximized}
+	on:dragstart
+	on:dragenter={(e) => {
+		if (!e.dataTransfer?.types.includes(hunkType)) {
+			return;
+		}
+		dropZone.classList.add(hoverClass);
+	}}
+	on:dragleave|stopPropagation={(e) => {
+		if (!e.dataTransfer?.types.includes(hunkType)) {
+			return;
+		}
+		if (!isChildOf(e.target, dropZone)) {
+			dropZone.classList.remove(hoverClass);
+		}
+	}}
+	on:dragover|stopPropagation={(e) => {
+		if (e.dataTransfer?.types.includes(hunkType)) e.preventDefault();
+	}}
+	on:dragend={(e) => {
+		dropZone.classList.remove(hoverClass);
+	}}
+	on:drop|stopPropagation={(e) => {
+		if (!e.dataTransfer) {
+			return;
+		}
+		dropZone.classList.remove(hoverClass);
+		const data = e.dataTransfer.getData(hunkType);
+		const ownership = files
+			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
+			.join('\n');
+		virtualBranches.updateBranchOwnership(branchId, (data + '\n' + ownership).trim());
+	}}
 >
 	<div
 		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
@@ -194,39 +225,29 @@
 		class="flex flex-col rounded bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-800"
 	>
 		<div class="mb-2 flex items-center">
-			{#if files.filter((x) => x.hunks).length > 0}
-				<textarea
-					bind:value={commitMessage}
-					class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-light-400 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300 dark:focus:border-dark-300"
-					placeholder="Your commit message here..."
-					rows={messageRows}
-				/>
-			{/if}
+			<textarea
+				bind:value={commitMessage}
+				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-light-400 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300 dark:focus:border-dark-300"
+				placeholder="Your commit message here..."
+				rows={messageRows}
+			/>
 		</div>
 		<div class="mb-4 text-right">
-			{#if files.filter((x) => x.hunks).length > 0}
-				<Button
-					height="small"
-					color="purple"
-					on:click={() => {
-						commit();
-					}}>Commit</Button
-				>
-			{/if}
+			<Button
+				height="small"
+				color="purple"
+				on:click={() => {
+					commit();
+				}}>Commit</Button
+			>
 		</div>
-		<div
-			class="flex flex-shrink flex-col gap-y-2"
-			use:dndzone={{
-				items: files,
-				zoneTabIndex: -1,
-				types: ['file'],
-				receives: ['file', 'hunk']
-			}}
-			on:consider={handleDndEvent}
-			on:finalize={handleDndEvent}
-		>
-			{#each files.filter((x) => x.hunks) as file (file.id)}
+		<div class="flex flex-shrink flex-col gap-y-2">
+			<div class="drag-zone-marker hidden rounded-lg border p-6">
+				Drop here to add to virtual branch
+			</div>
+			{#each files as file (file.id)}
 				<FileCard
+					id={file.id}
 					filepath={file.path}
 					expanded={file.expanded}
 					hunks={file.hunks}
@@ -238,11 +259,21 @@
 						setExpandedWithCache(file, e.detail);
 						expandFromCache();
 					}}
+					on:drag={(e) => {
+						zones.forEach((zone) => {
+							if (zone != dropZone) {
+								e.detail
+									? zone.classList.add('drag-zone-active')
+									: zone.classList.remove('drag-zone-active');
+							}
+						});
+					}}
 					{projectPath}
 				/>
 			{/each}
-			{#if files.filter((x) => x.hunks).length == 0}
-				<div class="p-3 pt-0">No uncommitted work on this branch.</div>
+			{#if files.length == 0}
+				<!-- attention: these markers have custom css at the bottom of thise file -->
+				<div class="no-changes p-2" data-dnd-ignore>No uncommitted work on this branch.</div>
 			{/if}
 		</div>
 	</div>

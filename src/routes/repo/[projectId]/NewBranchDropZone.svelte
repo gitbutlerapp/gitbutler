@@ -1,72 +1,58 @@
 <script lang="ts">
-	import { dndzone } from 'svelte-dnd-action';
-	import { Branch, File, Hunk } from '$lib/api/ipc/vbranches';
-	import type { DndEvent } from 'svelte-dnd-action/typings';
-	import { createBranch, createFile } from './helpers';
+	import type { Branch } from '$lib/api/ipc/vbranches';
 	import { Button } from '$lib/components';
 	import type { VirtualBranchOperations } from './vbranches';
 
 	export let virtualBranches: VirtualBranchOperations;
 	let items: Branch[] = [];
+	let dropZone: HTMLDivElement;
 
 	function handleNewVirtualBranch() {
 		virtualBranches.createBranch({});
 	}
 
-	function handleDndFinalize(e: CustomEvent<DndEvent<Branch | File | Hunk>>) {
-		console.log('new dropzone: handleDndFinalize', e.type, e.detail.items);
-		const newItems = e.detail.items;
-		const branchItems = newItems.filter((item) => item instanceof Branch) as Branch[];
-
-		const hunkItems = newItems.filter((item) => item instanceof Hunk) as Hunk[];
-		for (const hunk of hunkItems) {
-			branchItems.push(createBranch(createFile(hunk.filePath, hunk)));
-		}
-
-		const fileItems = newItems.filter((item) => item instanceof File) as File[];
-		for (const file of fileItems) {
-			branchItems.push(createBranch(file));
-		}
-
-		if (e.type == 'finalize') {
-			const ownership = branchItems[0].files
-				.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
-				.join('\n');
-
-			virtualBranches.createBranch({ ownership });
-			items = [];
-			return;
-		}
-		items = branchItems;
+	function isChildOf(child: any, parent: HTMLElement): boolean {
+		if (parent === child) return false;
+		if (!child.parentElement) return false;
+		if (child.parentElement == parent) return true;
+		return isChildOf(child.parentElement, parent);
 	}
 </script>
 
 <div
 	id="new-branch-dz"
-	class="ml-4 mt-16 flex h-40 w-[22.5rem] shrink-0 items-center rounded-lg border border-dashed border-light-600 px-8 py-10"
-	use:dndzone={{
-		items: items,
-		types: ['new-branch'],
-		receives: ['file', 'hunk'],
-		dropTargetClassMap: {
-			file: ['new-branch-active'],
-			hunk: ['new-branch-active']
+	class="h-42 ml-4 mt-16 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
+	bind:this={dropZone}
+	on:dragover|stopPropagation={(e) => {
+		if (e.dataTransfer?.types.includes('text/hunk')) e.preventDefault();
+		dropZone.classList.add('drag-zone-hover');
+	}}
+	on:dragleave|stopPropagation={(e) => {
+		if (!isChildOf(e.target, dropZone)) {
+			dropZone.classList.remove('drag-zone-hover');
 		}
 	}}
-	on:finalize={handleDndFinalize}
+	on:drop|stopPropagation={(e) => {
+		if (!e.dataTransfer) {
+			return;
+		}
+		dropZone.classList.remove('drag-zone-hover');
+		const ownership = e.dataTransfer.getData('text/hunk');
+		virtualBranches.createBranch({ ownership });
+	}}
 >
-	<div
-		class="flex flex-col items-center gap-y-3 self-center p-8 text-center text-lg text-light-800 dark:text-dark-100"
-	>
-		<p>Drag changes or click button to create new virtual branch</p>
-		<Button color="purple" height="small" on:click={handleNewVirtualBranch}
-			>New virtual branch</Button
-		>
+	<div class="bg-green-300" />
+	<div class="call-to-action flex-grow rounded-lg border border-dashed border-light-600 p-8">
+		<div class="flex flex-col items-center gap-y-3 self-center p-2">
+			<p>Drag changes or click button to create new virtual branch</p>
+			<Button color="purple" height="small" on:click={handleNewVirtualBranch}
+				>New virtual branch</Button
+			>
+		</div>
+	</div>
+	<div class="drag-zone-marker hidden flex-grow rounded-lg border border-green-450 p-8">
+		<div class="flex flex-col items-center gap-y-3 self-center p-2">
+			<p>Drop here to add to virtual branch</p>
+		</div>
 	</div>
 </div>
-
-<style lang="postcss">
-	:global(#new-branch-dz.new-branch-active) {
-		@apply visible flex;
-	}
-</style>

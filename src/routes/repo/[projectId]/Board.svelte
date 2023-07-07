@@ -1,7 +1,5 @@
 <script lang="ts" async="true">
-	import { dndzone } from 'svelte-dnd-action';
 	import Lane from './BranchLane.svelte';
-	import type { DndEvent } from 'svelte-dnd-action/typings';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { Branch } from '$lib/api/ipc/vbranches';
 	import type { VirtualBranchOperations } from './vbranches';
@@ -10,25 +8,12 @@
 	export let projectPath: string;
 	export let branches: Branch[];
 	export let virtualBranches: VirtualBranchOperations;
+	let dragged: any;
+	let dropZone: HTMLDivElement;
+	let priorPosition = 0;
+	let dropPosition = 0;
 
-	const newBranchClass = 'new-branch-active';
-
-	function ensureBranchOrder() {
-		branches.forEach((branch, i) => {
-			if (branch.order !== i) {
-				virtualBranches.updateBranchOrder(branch.id, i);
-			}
-		});
-	}
-
-	function handleDndEvent(e: CustomEvent<DndEvent<Branch>>) {
-		branches = e.detail.items;
-
-		if (e.type == 'finalize') {
-			branches = branches.filter((branch) => branch.active);
-			ensureBranchOrder();
-		}
-	}
+	const hoverClass = 'drag-zone-hover';
 
 	function handleEmpty() {
 		const emptyIndex = branches.findIndex((item) => !item.files || item.files.length == 0);
@@ -40,22 +25,64 @@
 </script>
 
 <div
+	bind:this={dropZone}
 	id="branch-lanes"
 	class="flex max-w-full flex-shrink flex-grow snap-x items-start overflow-x-auto overflow-y-hidden bg-light-200 px-2 dark:bg-dark-1000"
-	use:dndzone={{
-		items: branches,
-		types: ['branch'],
-		receives: ['branch'],
-		dropTargetClassMap: {
-			file: [newBranchClass],
-			hunk: [newBranchClass]
+	on:dragenter={(e) => {
+		if (!e.dataTransfer?.types.includes('text/branch')) {
+			return;
+		}
+		dropZone.classList.add(hoverClass);
+	}}
+	on:dragend={(e) => {
+		if (!e.dataTransfer?.types.includes('text/branch')) {
+			return;
+		}
+		dropZone.classList.remove(hoverClass);
+	}}
+	on:dragover={(e) => {
+		if (!e.dataTransfer?.types.includes('text/branch')) {
+			return;
+		}
+		e.preventDefault(); // Only when text/branch
+		const children = [...e.currentTarget.children];
+		dropPosition = 0;
+		for (let i = 0; i < children.length; i++) {
+			const pos = children[i].getBoundingClientRect();
+			if (e.clientX > pos.left + pos.width) {
+				dropPosition = i + 1; // Note that this is declared in the <script>
+			} else {
+				break;
+			}
+		}
+		const idx = children.indexOf(dragged);
+		if (idx != dropPosition) {
+			idx >= dropPosition
+				? children[dropPosition].before(dragged)
+				: children[dropPosition].after(dragged);
 		}
 	}}
-	on:consider={handleDndEvent}
-	on:finalize={handleDndEvent}
+	on:drop={(e) => {
+		dropZone.classList.remove(hoverClass);
+		if (priorPosition != dropPosition) {
+			const el = branches.splice(priorPosition, 1);
+			branches.splice(dropPosition, 0, ...el);
+			branches.forEach((branch, i) => {
+				if (branch.order !== i) {
+					virtualBranches.updateBranchOrder(branch.id, i);
+				}
+			});
+		}
+	}}
 >
 	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order } (id)}
 		<Lane
+			on:dragstart={(e) => {
+				if (!e.dataTransfer) return;
+				e.dataTransfer.setData('text/branch', id);
+				dragged = e.currentTarget;
+				priorPosition = Array.from(dropZone.children).indexOf(dragged);
+			}}
 			{name}
 			commitMessage={description}
 			{files}
@@ -73,7 +100,7 @@
 </div>
 
 <style lang="postcss">
-	:global(#branch-lanes.new-branch-active [data-dnd-ignore]) {
-		@apply visible flex;
+	:global(.drag-zone-hover *) {
+		@apply pointer-events-none;
 	}
 </style>
