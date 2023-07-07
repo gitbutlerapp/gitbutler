@@ -406,12 +406,12 @@ pub fn remote_branches(
         .into_iter()
         .filter(|branch| !branch.upstream.is_empty())
         .map(|branch| branch.upstream.replace("refs/heads/", ""))
-        .collect::<Vec<_>>();
+        .collect::<HashSet<_>>();
 
     println!("virtual branches: {:?}", virtual_branches);
 
     let mut branches: Vec<RemoteBranch> = Vec::new();
-    let mut most_recent_branches: Vec<(git2::Branch, u64)> = Vec::new();
+    let mut most_recent_branches_by_hash: HashMap<git2::Oid, (git2::Branch, u64)> = HashMap::new();
 
     for branch in repo.branches(None)? {
         let (branch, _) = branch?;
@@ -440,9 +440,8 @@ pub fn remote_branches(
                     .context("could not get branch name")?
                     .to_string();
                 let branch_name = branch_name.replace("origin/", "");
-                println!("branch name: {}", branch_name);
+
                 if virtual_branches.contains(&branch_name) {
-                    println!("skip");
                     continue;
                 }
                 if branch_name == "HEAD" {
@@ -451,13 +450,41 @@ pub fn remote_branches(
                 if branch_name == "gitbutler/temp" {
                     continue;
                 }
-                most_recent_branches.push((branch, seconds));
+
+                match most_recent_branches_by_hash.get(&branch_oid) {
+                    Some((_, existing_seconds)) => {
+                        let branch_name =
+                            branch.get().name().context("could not get branch name")?;
+                        if seconds < *existing_seconds {
+                            // this branch is older than the one we already have
+                            continue;
+                        }
+                        if seconds > *existing_seconds {
+                            most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                            continue;
+                        }
+                        if branch_name.starts_with("refs/remotes") {
+                            // this branch is a remote branch
+                            // we always prefer the remote branch if it is the same age as the local branch
+                            most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                            continue;
+                        }
+                    }
+                    None => {
+                        // this is the first time we've seen this branch
+                        // so we should add it to the list
+                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                    }
+                }
             }
             None => {
                 continue;
             }
         }
     }
+
+    let mut most_recent_branches: Vec<(git2::Branch, u64)> =
+        most_recent_branches_by_hash.into_values().collect();
 
     // take the most recent 20 branches
     most_recent_branches.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by timestamp in descending order.
