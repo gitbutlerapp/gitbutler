@@ -15,6 +15,7 @@
 	import type { VirtualBranchOperations } from './vbranches';
 	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
+	import type { SettingsStore } from '$lib/userSettings';
 
 	const dispatch = createEventDispatcher<{
 		empty: never;
@@ -30,6 +31,7 @@
 	export let projectId: string;
 	export let order: number;
 	export let virtualBranches: VirtualBranchOperations;
+	export let userSettings: SettingsStore;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
@@ -251,6 +253,7 @@
 					filepath={file.path}
 					expanded={file.expanded}
 					hunks={file.hunks}
+					{userSettings}
 					{maximized}
 					on:update={(e) => {
 						handleFileUpdate(file.id, e.detail);

@@ -12,6 +12,7 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import type { RemoteBranchOperations } from './remoteBranches';
 	import type { TargetOperations } from './targetData';
+	import type { SettingsStore } from '$lib/userSettings';
 
 	export let target: Target;
 	export let branches: Branch[];
@@ -19,6 +20,7 @@
 	export let targetOperations: TargetOperations;
 	export let remoteBranches: BranchData[];
 	export let remoteBranchOperations: RemoteBranchOperations;
+	export let userSettings: SettingsStore;
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
@@ -61,7 +63,11 @@
 
 		const resizeObserver = new ResizeObserver((entries) => {
 			const width = entries.at(0)?.borderBoxSize[0].inlineSize.toString();
-			if (width) localStorage.setItem(cacheKey, width + 'px');
+			if (width)
+				userSettings.update((s) => ({
+					...s,
+					trayWidth: width
+				}));
 		});
 		resizeObserver.observe(node);
 
