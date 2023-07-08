@@ -1,4 +1,4 @@
-import type { Refreshable } from './branchStores';
+import type { Refreshable } from './BranchStoresCache';
 import type { Readable } from '@square/svelte-store';
 import type { Loadable } from 'svelte-loadable-store';
 import type { Branch, BranchData, Target } from './types';
