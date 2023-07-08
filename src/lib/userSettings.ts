@@ -1,6 +1,7 @@
 import { get, writable, type Writable } from '@square/svelte-store';
 
 const SETTINGS_KEY = 'settings-json';
+export const SETTINGS_CONTEXT = Symbol();
 
 export interface Settings {
 	aiSummariesEnabled?: boolean;

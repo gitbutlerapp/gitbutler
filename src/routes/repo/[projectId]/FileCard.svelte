@@ -8,14 +8,16 @@
 	import { open } from '@tauri-apps/api/shell';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
-	import type { SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { getContext } from 'svelte';
+
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	export let id: string;
 	export let projectPath: string;
 	export let filepath: string;
 	export let hunks: Hunk[];
 	export let maximized: boolean;
-	export let userSettings: SettingsStore;
 
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;
