@@ -10,7 +10,7 @@
 	import { error } from '$lib/toasts';
 
 	export let data: PageData;
-	let { projectId, remoteBranchNames, project } = data;
+	let { projectId, remoteBranchNames, project, userSettings } = data;
 	const remoteBranchOperations = getRemoteBranches(projectId);
 	$: remoteBranches =
 		!$remoteBranchOperations.isLoading && !Value.isError($remoteBranchOperations.value)
@@ -56,8 +56,9 @@
 			{targetOperations}
 			{remoteBranches}
 			{remoteBranchOperations}
+			{userSettings}
 		/>
-		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} />
+		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} {userSettings} />
 	</div>
 {:else}
 	<div class="m-auto flex max-w-xs flex-col gap-y-4">

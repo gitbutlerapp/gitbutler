@@ -16,10 +16,10 @@
 	import { initTheme } from '$lib/theme';
 	import ThemeSelector from './ThemeSelector.svelte';
 
-	initTheme();
-
 	export let data: LayoutData;
-	const { posthog, projects, sentry, cloud } = data;
+	const { posthog, projects, sentry, cloud, userSettings } = data;
+
+	initTheme(userSettings);
 
 	const user = stores.user;
 
@@ -30,8 +30,9 @@
 	let linkProjectModal: LinkProjectModal;
 	let shareIssueModal: ShareIssueModal;
 
-	let zoom = 1;
+	$: zoom = $userSettings.zoom || 1;
 	$: document.documentElement.style.fontSize = zoom + 'rem';
+	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
 
 	onMount(() =>
 		unsubscribe(
@@ -76,7 +77,7 @@
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
-		<ThemeSelector />
+		<ThemeSelector {userSettings} />
 		<div class="mr-6">
 			{#await user.load() then}
 				<Link href="/user/">

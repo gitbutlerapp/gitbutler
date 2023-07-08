@@ -8,12 +8,14 @@
 	import { open } from '@tauri-apps/api/shell';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
+	import type { SettingsStore } from '$lib/userSettings';
 
 	export let id: string;
 	export let projectPath: string;
 	export let filepath: string;
 	export let hunks: Hunk[];
 	export let maximized: boolean;
+	export let userSettings: SettingsStore;
 
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;
@@ -97,11 +99,13 @@
 					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, hunk)}
 					class="changed-hunk flex w-full flex-col rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
 				>
-					<div class="truncate whitespace-normal p-2">
-						{#await summarizeHunk(hunk.diff) then description}
-							{description}
-						{/await}
-					</div>
+					{#if $userSettings.aiSummariesEnabled}
+						<div class="truncate whitespace-normal p-2">
+							{#await summarizeHunk(hunk.diff) then description}
+								{description}
+							{/await}
+						</div>
+					{/if}
 					<div class="cursor-pointer overflow-clip text-sm">
 						<!-- Disabling syntax highlighting for performance reasons -->
 						<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={maximized ? 8 : 2} />
