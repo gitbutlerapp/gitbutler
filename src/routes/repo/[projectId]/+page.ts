@@ -1,4 +1,4 @@
-import type { BranchData } from './types';
+import type { BranchData } from '$lib/vbranches';
 import type { PageLoadEvent } from './$types';
 import { invoke } from '$lib/ipc';
 import { api } from '$lib';

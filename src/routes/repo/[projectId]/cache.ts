@@ -1,4 +1,4 @@
-import type { File } from '$lib/api/ipc/vbranches';
+import type { File } from '$lib/vbranches';
 
 const TRUE_KEY = '1';
 const FALSE_KEY = '0';

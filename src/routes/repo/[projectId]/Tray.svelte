@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Button, Checkbox, Modal } from '$lib/components';
-	import type { BranchData, Target } from './types';
-	import type { Branch } from '$lib/api/ipc/vbranches';
+	import type { Branch, BranchData, Target } from '$lib/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
 	import { IconGitBranch, IconRemote, IconRefresh } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';

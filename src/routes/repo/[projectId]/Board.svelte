@@ -1,7 +1,7 @@
 <script lang="ts" async="true">
 	import Lane from './BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import type { Branch } from '$lib/api/ipc/vbranches';
+	import type { Branch } from '$lib/vbranches';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { setContext } from 'svelte';
 	import { dzHighlight } from './dropZone';

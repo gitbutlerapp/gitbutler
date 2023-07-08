@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Commit, File, Hunk } from '$lib/api/ipc/vbranches';
+	import type { Commit, File, Hunk } from '$lib/vbranches';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import FileCard from './FileCard.svelte';
 	import { IconBranch } from '$lib/icons';
