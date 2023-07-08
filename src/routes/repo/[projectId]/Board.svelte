@@ -3,13 +3,16 @@
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { Branch } from '$lib/api/ipc/vbranches';
 	import type { VirtualBranchOperations } from './vbranches';
-	import type { SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { setContext } from 'svelte';
 
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
 	export let virtualBranches: VirtualBranchOperations;
 	export let userSettings: SettingsStore;
+
+	setContext(SETTINGS_CONTEXT, userSettings);
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -97,7 +100,6 @@
 			branchId={id}
 			{virtualBranches}
 			{projectPath}
-			{userSettings}
 		/>
 	{/each}
 	<NewBranchDropZone {virtualBranches} />
