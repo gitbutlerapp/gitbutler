@@ -20,6 +20,6 @@
  *    so that it can take advantage of caching, making project navigation quicker.
  *  - Create the BranchController at the level of a specific project and inject it to components that need it.
  */
-export type { Branch, File, Hunk, Commit, BranchData, Target } from './types';
+export { Branch, File, Hunk, Commit, BranchData, Target } from './types';
 export { BranchStoresCache } from './BranchStoresCache';
 export { BranchController } from './BranchController';

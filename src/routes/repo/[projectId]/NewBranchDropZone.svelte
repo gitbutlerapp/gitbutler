@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Branch } from '$lib/api/ipc/vbranches';
+	import type { Branch } from '$lib/vbranches';
 	import { Button } from '$lib/components';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';

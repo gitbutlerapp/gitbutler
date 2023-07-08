@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { formatDistanceToNow } from 'date-fns';
-	import type { Commit } from '$lib/api/ipc/vbranches';
+	import type { Commit } from '$lib/vbranches';
 
 	export let commit: Commit;
 </script>
