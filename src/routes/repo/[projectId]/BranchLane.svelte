@@ -8,10 +8,10 @@
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import type { VirtualBranchOperations } from './vbranches';
 	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
+	import type { BranchController } from '$lib/vbranches';
 
 	const dispatch = createEventDispatcher<{
 		empty: never;
@@ -26,7 +26,7 @@
 	export let commits: Commit[];
 	export let projectId: string;
 	export let order: number;
-	export let virtualBranches: VirtualBranchOperations;
+	export let branchController: BranchController;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
@@ -46,7 +46,7 @@
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
 		console.log('updateBranchOwnership', branchId, ownership);
-		virtualBranches.updateBranchOwnership(branchId, ownership);
+		branchController.updateBranchOwnership(branchId, ownership);
 		if (files.length == 0) dispatch('empty');
 	}
 
@@ -68,14 +68,14 @@
 
 	function commit() {
 		console.log('commit', commitMessage, projectId, branchId);
-		virtualBranches.commitBranch(branchId, commitMessage);
+		branchController.commitBranch(branchId, commitMessage);
 	}
 
 	function push() {
 		if (localCommits[0]?.id) {
 			console.log(`pushing ${branchId}`);
 			isPushing = true;
-			virtualBranches.pushBranch(branchId).finally(() => (isPushing = false));
+			branchController.pushBranch(branchId).finally(() => (isPushing = false));
 		}
 	}
 
@@ -112,7 +112,7 @@
 
 	function handleBranchNameChange() {
 		console.log('branch name change:', name);
-		virtualBranches.updateBranchName(branchId, name);
+		branchController.updateBranchName(branchId, name);
 	}
 
 	function isChildOf(child: any, parent: HTMLElement): boolean {
@@ -139,7 +139,7 @@
 		const ownership = files
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
-		virtualBranches.updateBranchOwnership(branchId, (data + '\n' + ownership).trim());
+		branchController.updateBranchOwnership(branchId, (data + '\n' + ownership).trim());
 	}}
 >
 	<div
@@ -171,7 +171,7 @@
 	</div>
 
 	<PopupMenu bind:this={popupMenu} let:item={branchId}>
-		<PopupMenuItem on:click={() => branchId && virtualBranches.unapplyBranch(branchId)}>
+		<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
 			Unapply
 		</PopupMenuItem>
 
@@ -183,11 +183,11 @@
 			{/if}
 		</PopupMenuItem>
 
-		<PopupMenuItem on:click={() => virtualBranches.createBranch({ order: order + 1 })}>
+		<PopupMenuItem on:click={() => branchController.createBranch({ order: order + 1 })}>
 			Create branch after
 		</PopupMenuItem>
 
-		<PopupMenuItem on:click={() => virtualBranches.createBranch({ order })}>
+		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
 			Create branch before
 		</PopupMenuItem>
 	</PopupMenu>

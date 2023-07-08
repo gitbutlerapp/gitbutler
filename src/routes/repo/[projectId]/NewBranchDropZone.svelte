@@ -2,14 +2,14 @@
 	import type { Branch } from '$lib/api/ipc/vbranches';
 	import { Button } from '$lib/components';
 	import { dzHighlight } from './dropZone';
-	import type { VirtualBranchOperations } from './vbranches';
+	import type { BranchController } from '$lib/vbranches';
 
-	export let virtualBranches: VirtualBranchOperations;
+	export let branchController: BranchController;
 	let items: Branch[] = [];
 	let dropZone: HTMLDivElement;
 
 	function handleNewVirtualBranch() {
-		virtualBranches.createBranch({});
+		branchController.createBranch({});
 	}
 
 	function isChildOf(child: any, parent: HTMLElement): boolean {
@@ -30,7 +30,7 @@
 			return;
 		}
 		const ownership = e.dataTransfer.getData('text/hunk');
-		virtualBranches.createBranch({ ownership });
+		branchController.createBranch({ ownership });
 	}}
 >
 	<div class="bg-green-300" />

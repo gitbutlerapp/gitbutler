@@ -2,15 +2,15 @@
 	import Lane from './BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { Branch } from '$lib/api/ipc/vbranches';
-	import type { VirtualBranchOperations } from './vbranches';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { setContext } from 'svelte';
 	import { dzHighlight } from './dropZone';
+	import type { BranchController } from '$lib/vbranches';
 
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
-	export let virtualBranches: VirtualBranchOperations;
+	export let branchController: BranchController;
 	export let userSettings: SettingsStore;
 
 	setContext(SETTINGS_CONTEXT, userSettings);
@@ -60,7 +60,7 @@
 			branches.splice(dropPosition, 0, ...el);
 			branches.forEach((branch, i) => {
 				if (branch.order !== i) {
-					virtualBranches.updateBranchOrder(branch.id, i);
+					branchController.updateBranchOrder(branch.id, i);
 				}
 			});
 		}
@@ -83,11 +83,11 @@
 			{projectId}
 			{upstream}
 			branchId={id}
-			{virtualBranches}
+			{branchController}
 			{projectPath}
 		/>
 	{/each}
-	<NewBranchDropZone {virtualBranches} />
+	<NewBranchDropZone {branchController} />
 </div>
 
 <style lang="postcss">

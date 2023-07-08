@@ -3,23 +3,19 @@
 	import type { BranchData, Target } from './types';
 	import type { Branch } from '$lib/api/ipc/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
-	import type { VirtualBranchOperations } from './vbranches';
-	import { IconGitBranch, IconRemote, IconRefresh, IconAdd } from '$lib/icons';
+	import { IconGitBranch, IconRemote, IconRefresh } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
 	import Gravatar from '$lib/components/Gravatar/Gravatar.svelte';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
-	import type { RemoteBranchOperations } from './remoteBranches';
-	import type { TargetOperations } from './targetData';
 	import type { SettingsStore } from '$lib/userSettings';
+	import type { BranchController } from '$lib/vbranches';
 
 	export let target: Target;
 	export let branches: Branch[];
-	export let virtualBranches: VirtualBranchOperations;
-	export let targetOperations: TargetOperations;
+	export let branchController: BranchController;
 	export let remoteBranches: BranchData[];
-	export let remoteBranchOperations: RemoteBranchOperations;
 	export let userSettings: SettingsStore;
 
 	let yourBranchesOpen = true;
@@ -34,28 +30,14 @@
 
 	function toggleBranch(branchId: string, applied: boolean) {
 		if (applied) {
-			virtualBranches.unapplyBranch(branchId);
+			branchController.unapplyBranch(branchId);
 		} else {
-			virtualBranches.applyBranch(branchId);
+			branchController.applyBranch(branchId);
 		}
 	}
 
 	// store left tray width preference in localStorage
 	const cacheKey = 'config:tray-width';
-
-	function makeBranch(branch: string) {
-		remoteBranchOperations.createvBranchFromBranch(branch).then(() => {
-			virtualBranches.refresh();
-		});
-	}
-
-	function fetchTarget() {
-		remoteBranchOperations.fetchFromTarget().then(() => {
-			virtualBranches.refresh().then(() => {
-				targetOperations.refresh();
-			});
-		});
-	}
 
 	function rememberWidth(node: HTMLElement) {
 		const cachedWidth = localStorage.getItem(cacheKey);
@@ -95,7 +77,7 @@
 				{#if target.behind == 0}
 					<button
 						class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-						on:click={fetchTarget}
+						on:click={() => branchController.fetchFromTarget()}
 						title="click to fetch"
 					>
 						<IconRefresh />
@@ -238,7 +220,11 @@
 	<!-- Remote branches context menu -->
 	<PopupMenu bind:this={remoteBranchContextMenu} let:item>
 		{@const disabled = !remoteBranches.some((b) => b.sha == item.sha && b.mergeable)}
-		<PopupMenuItem {disabled} on:click={() => item && makeBranch(item.name)}>Apply</PopupMenuItem>
+		<PopupMenuItem
+			{disabled}
+			on:click={() => item && branchController.createvBranchFromBranch(item.name)}
+			>Apply</PopupMenuItem
+		>
 	</PopupMenu>
 
 	<!-- Confirm target update modal -->
@@ -252,9 +238,7 @@
 				height="small"
 				color="purple"
 				on:click={() => {
-					remoteBranchOperations.updateBranchTarget().then(() => {
-						virtualBranches.refresh();
-					});
+					branchController.updateBranchTarget();
 					close();
 				}}
 			>
@@ -276,9 +260,7 @@
 				height="small"
 				color="destructive"
 				on:click={() => {
-					virtualBranches.deleteBranch(item.id).then(() => {
-						remoteBranchOperations.refresh();
-					});
+					branchController.deleteBranch(item.id);
 					close();
 				}}
 			>
