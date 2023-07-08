@@ -13,154 +13,151 @@ export class BranchController {
 		readonly targetBranchStore: Refreshable & Readable<Loadable<Target>>
 	) {}
 
-	setTarget(branch: string) {
-		const projectId = this.projectId;
-		return ipc
-			.setTarget({ projectId, branch })
-			.then(this.virtualBranchStore.refresh)
-			.then(this.remoteBranchStore.refresh)
-			.catch((err) => {
-				console.log(err);
-				toasts.error('Failed to set target');
-			});
+	async setTarget(branch: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.setTarget({ projectId, branch });
+			await this.virtualBranchStore.refresh();
+			await this.remoteBranchStore.refresh();
+		} catch (err) {
+			console.log(err);
+			toasts.error('Failed to set target');
+		}
 	}
 
-	createBranch(branch: { name?: string; ownership?: string; order?: number }) {
-		const projectId = this.projectId;
-		return ipc
-			.create({ projectId, branch })
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to create branch');
-			});
+	async createBranch(branch: { name?: string; ownership?: string; order?: number }) {
+		try {
+			const projectId = this.projectId;
+			await ipc.create({ projectId, branch });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to create branch');
+		}
 	}
 
-	commitBranch(branch: string, message: string) {
-		const projectId = this.projectId;
-		return ipc
-			.commit({ projectId, branch, message })
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to commit branch');
-			});
+	async commitBranch(branch: string, message: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.commit({ projectId, branch, message });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to commit branch');
+		}
 	}
 
-	updateBranchName(branchId: string, name: string) {
-		const projectId = this.projectId;
-		return ipc
-			.update({ projectId, branch: { id: branchId, name } })
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to update branch name');
-			});
+	async updateBranchName(branchId: string, name: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.update({ projectId, branch: { id: branchId, name } });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to update branch name');
+		}
 	}
 
-	updateBranchOrder(branchId: string, order: number) {
-		const projectId = this.projectId;
-		return ipc
-			.update({ projectId, branch: { id: branchId, order } })
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to update branch order');
-			});
+	async updateBranchOrder(branchId: string, order: number) {
+		try {
+			const projectId = this.projectId;
+			await ipc.update({ projectId, branch: { id: branchId, order } });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to update branch order');
+		}
 	}
 
-	applyBranch(branchId: string) {
-		const projectId = this.projectId;
-		return ipc
-			.apply({ projectId, branch: branchId })
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to apply branch');
-			});
+	async applyBranch(branchId: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.apply({ projectId, branch: branchId });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to apply branch');
+		}
 	}
 
-	unapplyBranch(branchId: string) {
-		const projectId = this.projectId;
-		return ipc
-			.unapply({ projectId, branch: branchId })
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to unapply branch');
-			});
+	async unapplyBranch(branchId: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.unapply({ projectId, branch: branchId });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to unapply branch');
+		}
 	}
 
-	updateBranchOwnership(branchId: string, ownership: string) {
-		const projectId = this.projectId;
-		return ipc
-			.update({ projectId, branch: { id: branchId, ownership } })
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to update branch ownership');
-			});
+	async updateBranchOwnership(branchId: string, ownership: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.update({ projectId, branch: { id: branchId, ownership } });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to update branch ownership');
+		}
 	}
 
-	pushBranch(branchId: string) {
-		const projectId = this.projectId;
-		return ipc
-			.push({ projectId, branchId })
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to push branch');
-			});
+	async pushBranch(branchId: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.push({ projectId, branchId });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to push branch');
+		}
 	}
 
-	deleteBranch(branchId: string) {
-		const projectId = this.projectId;
-		return ipc
-			.delete({ projectId, branchId })
-			.then(this.virtualBranchStore.refresh)
-			.then(this.remoteBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to delete branch');
-			});
+	async deleteBranch(branchId: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.delete({ projectId, branchId });
+			await this.virtualBranchStore.refresh();
+			await this.remoteBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to delete branch');
+		}
 	}
 
-	// remote
-
-	updateBranchTarget() {
-		const projectId = this.projectId;
-		return ipc
-			.updateBranchTarget({ projectId })
-			.then(this.remoteBranchStore.refresh)
-			.then(this.virtualBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to update target');
-			});
+	async updateBranchTarget() {
+		try {
+			const projectId = this.projectId;
+			await ipc.updateBranchTarget({ projectId });
+			await this.remoteBranchStore.refresh();
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to update target');
+		}
 	}
 
-	createvBranchFromBranch(branch: string): Promise<void | string> {
-		const projectId = this.projectId;
-		const result = ipc.createvBranchFromBranch({ projectId, branch });
-		result.then(this.remoteBranchStore.refresh);
-		result.then(this.virtualBranchStore.refresh);
-		result.catch((err) => {
+	async createvBranchFromBranch(branch: string) {
+		try {
+			const projectId = this.projectId;
+			await ipc.createvBranchFromBranch({ projectId, branch });
+			await this.remoteBranchStore.refresh();
+			await this.targetBranchStore.refresh();
+		} catch (err) {
 			console.error(err);
 			toasts.error('Failed to create virtual branch from branch');
-		});
-		// is this return right?
-		return result;
+		}
 	}
 
-	fetchFromTarget() {
-		const projectId = this.projectId;
-		return ipc
-			.fetchFromTarget({ projectId })
-			.then(this.remoteBranchStore.refresh)
-			.then(this.targetBranchStore.refresh)
-			.catch((err) => {
-				console.error(err);
-				toasts.error('Failed to fetch from target');
-			});
+	async fetchFromTarget() {
+		try {
+			const projectId = this.projectId;
+			await ipc.fetchFromTarget({ projectId });
+			await this.remoteBranchStore.refresh();
+			await this.targetBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error('Failed to fetch from target');
+		}
 	}
 }
