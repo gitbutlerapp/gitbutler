@@ -4,7 +4,7 @@ pub mod target;
 
 use std::{
     collections::{HashMap, HashSet},
-    fmt, path, time, vec,
+    default, fmt, path, time, vec,
 };
 
 use anyhow::{bail, Context, Result};
@@ -36,6 +36,7 @@ pub struct VirtualBranch {
     pub commits: Vec<VirtualBranchCommit>,
     pub mergeable: bool,
     pub merge_conflicts: Vec<String>,
+    pub conflicted: bool,
     pub order: usize,
     pub upstream: String,
 }
@@ -74,6 +75,7 @@ pub struct VirtualBranchFile {
     pub path: String,
     pub hunks: Vec<VirtualBranchHunk>,
     pub modified_at: u128,
+    pub conflicted: bool,
 }
 
 // this struct is a mapping to the view `Hunk` type in Typescript
@@ -205,36 +207,85 @@ pub fn apply_branch(
 
     let writer = branch::Writer::new(gb_repository);
 
-    let mut target_branch = virtual_branches
+    let mut apply_branch = virtual_branches
         .iter()
         .find(|b| b.id == branch_id)
         .context("failed to find target branch")?
         .clone();
-    let target_commit = gb_repository
-        .git_repository
+    let target_commit = repo
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
     let target_tree = target_commit.tree().context("failed to get target tree")?;
 
-    let branch_tree = gb_repository
-        .git_repository
-        .find_tree(target_branch.tree)
+    let mut branch_tree = repo
+        .find_tree(apply_branch.tree)
         .context("failed to find branch tree")?;
 
+    // calculate the merge base and make sure it's the same as the target commit
+    // if not, we need to merge or rebase the branch to get it up to date
+
     let merge_options = git2::MergeOptions::new();
+
+    let merge_base = repo.merge_base(default_target.sha, apply_branch.head)?;
+    if merge_base != default_target.sha {
+        // Branch is out of date, merge or rebase it
+        let merge_base_tree = repo.find_commit(merge_base)?.tree()?;
+        let mut merge_index = repo
+            .merge_trees(
+                &merge_base_tree,
+                &branch_tree,
+                &target_tree,
+                Some(&merge_options),
+            )
+            .context("failed to merge trees")?;
+        if merge_index.has_conflicts() {
+            bail!("cannot merge branch, it has conflicts");
+        } else {
+            let head_commit = repo
+                .find_commit(apply_branch.head)
+                .context("failed to find head commit")?;
+
+            // commit our new upstream merge
+            let (author, committer) = gb_repository.git_signatures()?;
+            let message = "merge upstream";
+            // write the merge commit
+            let branch_tree_oid = merge_index.write_tree_to(repo)?;
+            branch_tree = repo.find_tree(branch_tree_oid)?;
+
+            let new_branch_head = repo.commit(
+                None,
+                &author,
+                &committer,
+                message,
+                &branch_tree,
+                &[&head_commit, &target_commit],
+            )?;
+
+            // ok, update the virtual branch
+            apply_branch.head = new_branch_head;
+            apply_branch.tree = branch_tree_oid;
+            writer.write(&apply_branch)?;
+        }
+    }
 
     // check index for conflicts
     let mut merge_index = repo
         .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
         .context("failed to merge trees")?;
 
-    if merge_index.has_conflicts() {
-        bail!("conflict applying branch");
-    } else {
-        // apply the branch
-        target_branch.applied = true;
-        writer.write(&target_branch)?;
+    // apply the branch
+    apply_branch.applied = true;
+    writer.write(&apply_branch)?;
 
+    if merge_index.has_conflicts() {
+        // checkout the conflicts
+        let mut checkout_options = git2::build::CheckoutBuilder::new();
+        checkout_options
+            .allow_conflicts(true)
+            .conflict_style_merge(true)
+            .force();
+        repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+    } else {
         // checkout the merge index
         let mut checkout_options = git2::build::CheckoutBuilder::new();
         checkout_options.force();
@@ -740,6 +791,7 @@ pub fn list_virtual_branches(
                     id: file_path.clone(),
                     path: file_path.to_string(),
                     hunks: hunks.clone(),
+                    conflicted: false,
                     modified_at: hunks
                         .iter()
                         .map(|h| h.modified_at)
@@ -867,6 +919,7 @@ pub fn list_virtual_branches(
             mergeable,
             merge_conflicts,
             upstream: branch.upstream.to_string().replace("refs/heads/", ""),
+            conflicted: false,
         };
         branches.push(branch);
     }
@@ -1526,6 +1579,7 @@ pub fn get_status_by_branch(
                 id: file_path.clone(),
                 path: file_path,
                 hunks: hunks.clone(),
+                conflicted: false,
                 modified_at: hunks
                     .iter()
                     .map(|h| h.modified_at)
@@ -2025,6 +2079,7 @@ mod tests {
 
     fn test_repository() -> Result<git2::Repository> {
         let path = tempdir()?.path().to_str().unwrap().to_string();
+        println!("path: {}", path);
         let repository = git2::Repository::init(path)?;
         repository.remote_add_fetch("origin/master", "master")?;
         let mut index = repository.index()?;
@@ -3988,4 +4043,151 @@ mod tests {
         }
         Ok(file_list)
     }
+
+    // TODO: test for an out of date vbranch being applied
+
+    #[test]
+    fn test_apply_out_of_date_vbranch() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\n",
+        )?;
+        commit_all(&repository)?;
+
+        let base_commit = repository.head().unwrap().target().unwrap();
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin/master".to_string(),
+            remote: "http://origin.com/project".to_string(),
+            sha: base_commit,
+            behind: 0,
+        })?;
+        repository.remote("origin", "http://origin.com/project")?;
+
+        // ok, pretend upstream was updated
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        commit_all(&repository)?;
+
+        let upstream_commit = repository.head().unwrap().target().unwrap();
+        repository.reference(
+            "refs/remotes/origin/master",
+            upstream_commit,
+            true,
+            "update target",
+        )?;
+
+        // reset master to the base commit
+        repository.reference("refs/heads/master", base_commit, true, "update target")?;
+
+        // write new unapplied virtual branch with other changes
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\nbranch",
+        )?;
+        commit_all(&repository)?;
+        let branch_commit = repository.head().unwrap().target().unwrap();
+        let branch_commit_obj = repository.find_commit(branch_commit)?;
+
+        let mut branch = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch");
+
+        branch.head = branch_commit;
+        branch.tree = branch_commit_obj.tree()?.id();
+        branch.applied = false;
+        let branch_id = &branch.id.clone();
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch_writer = branch::Writer::new(&gb_repo);
+        branch_writer.write(&branch::Branch {
+            ownership: Ownership {
+                files: vec!["test2.txt:1-2".try_into()?],
+            },
+            ..branch
+        })?;
+
+        // reset wd
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "file2\n",
+        )?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        assert_eq!(branches.len(), 1); // just the unapplied one with it's one commit
+        let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
+        assert_eq!(branch1.files.len(), 0);
+        assert_eq!(branch1.commits.len(), 1);
+
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(contents, "line1\nline2\nline3\nline4\n");
+
+        // update target, this will update the wd and add an empty default branch
+        update_branch_target(&gb_repo, &project_repository)?;
+
+        // updated the file
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(contents, "line1\nline2\nline3\nline4\nupstream\n");
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path2))?;
+        assert_eq!(contents, "file2\n");
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        assert_eq!(branches.len(), 2); // added a default one
+
+        // apply branch which is now out of date
+        // - it should merge the new target into it and update the wd and nothing is in files
+        apply_branch(&gb_repo, &project_repository, &branch_id)?;
+
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
+        assert_eq!(contents, "line1\nline2\nline3\nline4\nupstream\n");
+        let contents =
+            std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path2))?;
+        assert_eq!(contents, "file2\nbranch");
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+        assert_eq!(branches.len(), 2); // both are there still
+        let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
+        assert_eq!(branch1.files.len(), 0);
+        assert_eq!(branch1.commits.len(), 2);
+
+        Ok(())
+    }
+
+    // TODO: test for a conflicted vbranch being applied
 }
