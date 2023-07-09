@@ -182,7 +182,7 @@
 					class="flex flex-col justify-between border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
-						<div>
+						<div class="text-light-600 dark:text-dark-200">
 							{#if branch.branch.match('refs/remotes')}
 								<IconRemote class="h-4 w-4" />
 							{:else}
@@ -199,7 +199,9 @@
 								.replace('refs/heads/', '')}
 						</div>
 						<div>{branch.ahead}/{branch.behind}</div>
-						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+						{#if !branch.mergeable}
+							<div class="text-red-500 font-bold" title="Can't be merged">!</div>
+						{/if}
 					</div>
 					{#if branch.lastCommitTs > 0}
 						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
