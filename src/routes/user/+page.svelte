@@ -8,7 +8,7 @@
 	import ThemeSelector from '../ThemeSelector.svelte';
 
 	export let data: PageData;
-	const { cloud } = data;
+	const { cloud, userSettings } = data;
 
 	const user = stores.user;
 
@@ -194,7 +194,6 @@
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Appearance</h2>
 		</div>
-		<!-- mattias: commenting out for July 7 release
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Automatically generate AI hunk changes</p>
@@ -204,14 +203,22 @@
 			</div>
 			<div>
 				<label class="relative inline-flex cursor-pointer items-center">
-					<input type="checkbox" value="" class="peer sr-only" />
+					<input
+						type="checkbox"
+						bind:checked={$userSettings.aiSummariesEnabled}
+						on:change={(e) =>
+							userSettings.update((s) => ({
+								...s,
+								aiSummariesEnabled: !!e.currentTarget?.checked
+							}))}
+						class="peer sr-only"
+					/>
 					<div
 						class="peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 dark:border-gray-600 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-light-500 after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4"
 					/>
 				</label>
 			</div>
 		</div>
-		-->
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Interface theme</p>
@@ -219,7 +226,7 @@
 					Select or customize your interface theme.
 				</p>
 			</div>
-			<div><ThemeSelector /></div>
+			<div><ThemeSelector {userSettings} /></div>
 		</div>
 
 		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />

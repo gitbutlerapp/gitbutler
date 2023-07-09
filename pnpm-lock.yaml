@@ -193,9 +193,6 @@ devDependencies:
   svelte-check:
     specifier: ^3.0.1
     version: 3.0.3(postcss-load-config@4.0.1)(postcss@8.4.21)(svelte@3.55.1)
-  svelte-dnd-action:
-    specifier: github:gitbutlerapp/svelte-dnd-action#9912712394c26b971ef067674bdc871550940636
-    version: github.com/gitbutlerapp/svelte-dnd-action/9912712394c26b971ef067674bdc871550940636(svelte@3.55.1)
   svelte-floating-ui:
     specifier: ^1.5.2
     version: 1.5.2
@@ -5460,17 +5457,6 @@ packages:
   /yocto-queue@1.0.0:
     resolution: {integrity: sha512-9bnSc/HEW2uRy67wc+T8UwauLuPJVn28jb+GtJY16iiKWyvmYJRXVT4UamsAEGQfPohgr2q4Tq0sQbQlxTfi1g==}
     engines: {node: '>=12.20'}
-    dev: true
-
-  github.com/gitbutlerapp/svelte-dnd-action/9912712394c26b971ef067674bdc871550940636(svelte@3.55.1):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-dnd-action/tar.gz/9912712394c26b971ef067674bdc871550940636}
-    id: github.com/gitbutlerapp/svelte-dnd-action/9912712394c26b971ef067674bdc871550940636
-    name: svelte-dnd-action
-    version: 0.9.22
-    peerDependencies:
-      svelte: '>=3.23.0'
-    dependencies:
-      svelte: 3.55.1
     dev: true
 
   github.com/tauri-apps/tauri-plugin-log/21921031d74f871180381317a338559f588ad8e9:

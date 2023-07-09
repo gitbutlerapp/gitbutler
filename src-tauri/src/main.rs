@@ -938,6 +938,7 @@ fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
     tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
         .resizable(true)
         .title(app_title)
+        .disable_file_drop_handler()
         .min_inner_size(600.0, 300.0)
         .inner_size(800.0, 600.0)
         .build()
@@ -952,6 +953,7 @@ fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
         .min_inner_size(1024.0, 600.0)
         .inner_size(1024.0, 600.0)
         .hidden_title(true)
+        .disable_file_drop_handler()
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .build()
 }

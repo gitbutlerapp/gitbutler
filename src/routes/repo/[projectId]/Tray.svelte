@@ -12,6 +12,7 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import type { RemoteBranchOperations } from './remoteBranches';
 	import type { TargetOperations } from './targetData';
+	import type { SettingsStore } from '$lib/userSettings';
 
 	export let target: Target;
 	export let branches: Branch[];
@@ -19,6 +20,7 @@
 	export let targetOperations: TargetOperations;
 	export let remoteBranches: BranchData[];
 	export let remoteBranchOperations: RemoteBranchOperations;
+	export let userSettings: SettingsStore;
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
@@ -61,7 +63,11 @@
 
 		const resizeObserver = new ResizeObserver((entries) => {
 			const width = entries.at(0)?.borderBoxSize[0].inlineSize.toString();
-			if (width) localStorage.setItem(cacheKey, width + 'px');
+			if (width)
+				userSettings.update((s) => ({
+					...s,
+					trayWidth: width
+				}));
 		});
 		resizeObserver.observe(node);
 
@@ -75,34 +81,36 @@
 
 <div
 	use:rememberWidth
-	class="w-80 shrink-0 resize-x overflow-y-auto bg-white text-light-800 dark:bg-dark-900 dark:text-dark-100"
+	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto bg-white text-light-800 dark:bg-dark-900 dark:text-dark-100"
 >
 	<!-- Target branch -->
 	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Target branch</div>
 	<div
-		class="flex w-full flex-row items-center gap-x-4 border-b border-light-400 pl-2 pr-4 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
+		class="flex w-full flex-row items-center  justify-between border-b border-light-400 pl-2 pr-2 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
 	>
 		<div class="flex-grow text-lg font-bold" title={behindMessage}>{target.name}</div>
-		<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
-		<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
-			{#if target.behind == 0}
-				<button
-					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-					on:click={fetchTarget}
-					title="click to fetch"
-				>
-					<IconRefresh />
-				</button>
-			{:else}
-				<button
-					class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-					on:click={updateTargetModal.show}
-					disabled={target.behind == 0}
-					title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
-				>
-					<IconRefresh />
-				</button>
-			{/if}
+		<div class="flex items-center">
+			<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
+			<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
+				{#if target.behind == 0}
+					<button
+						class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+						on:click={fetchTarget}
+						title="click to fetch"
+					>
+						<IconRefresh />
+					</button>
+				{:else}
+					<button
+						class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+						on:click={updateTargetModal.show}
+						disabled={target.behind == 0}
+						title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
+					>
+						<IconRefresh />
+					</button>
+				{/if}
+			</div>
 		</div>
 	</div>
 
@@ -126,18 +134,18 @@
 			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 			<div
 				on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
-				class="border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
+				class="border-b border-light-400 p-2 dark:border-dark-600"
 				title={branch.name}
 			>
 				<div class="flex flex-row justify-between">
-					<div>
+					<div class="flex w-full">
 						<Checkbox
 							on:change={() => toggleBranch(branch.id, branch.active)}
 							bind:checked={branch.active}
 						/>
-						<span class="ml-2 cursor-pointer text-black dark:text-white">
+						<div class="ml-2 w-full cursor-pointer truncate text-black dark:text-white">
 							{branch.name}
-						</span>
+						</div>
 					</div>
 					{#if !branch.active}
 						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
@@ -196,7 +204,9 @@
 					{#if branch.lastCommitTs > 0}
 						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
 							<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
-							<div class="isolate flex -space-x-1 overflow-hidden">
+							<div
+								class="isolate flex -space-x-2 overflow-hidden  transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
+							>
 								{#each branch.authors as author}
 									<Gravatar
 										class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"

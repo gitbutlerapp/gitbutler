@@ -1,13 +1,14 @@
 import { building } from '$app/environment';
 import { writable, type Writable } from '@square/svelte-store';
 import { appWindow, type Theme } from '@tauri-apps/api/window';
+import type { SettingsStore } from './userSettings';
 
-const themeStorageKey = 'theme';
 export const theme: Writable<string> = writable('dark');
 
 let systemTheme: string | null;
+let selectedTheme: string | undefined;
 
-export function initTheme() {
+export function initTheme(userSettings: SettingsStore) {
 	if (building) return;
 	appWindow.theme().then((value: Theme | null) => {
 		systemTheme = value;
@@ -17,28 +18,19 @@ export function initTheme() {
 		systemTheme = e.payload;
 		updateDom();
 	});
-}
-
-export function setTheme(name: string) {
-	localStorage.setItem(themeStorageKey, name);
-	theme.set(name);
-	updateDom();
-}
-
-export function getTheme(): string | null {
-	return localStorage.getItem(themeStorageKey);
+	userSettings.subscribe((s) => {
+		selectedTheme = s.theme;
+		updateDom();
+	});
 }
 
 export function updateDom() {
 	const docEl = document.documentElement;
-	const selectedTheme = localStorage.getItem(themeStorageKey);
 	if (selectedTheme == 'dark' || (selectedTheme == 'system' && systemTheme == 'dark')) {
 		docEl.classList.add('dark');
 		docEl.style.colorScheme = 'dark';
-		theme.set('dark');
 	} else if (selectedTheme == 'light' || (selectedTheme == 'system' && systemTheme == 'light')) {
 		docEl.classList.remove('dark');
 		docEl.style.colorScheme = 'light';
-		theme.set('light');
 	}
 }

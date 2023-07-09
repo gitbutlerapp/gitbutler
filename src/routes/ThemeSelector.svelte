@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { theme, setTheme } from '$lib/theme';
+	import type { SettingsStore } from '$lib/userSettings';
 
-	function onThemeChange(e: Event & { currentTarget: HTMLSelectElement }) {
-		setTheme(e.currentTarget.value);
-	}
+	export let userSettings: SettingsStore;
 </script>
 
 <div>
-	<select bind:value={$theme} on:change={onThemeChange}>
+	<select
+		bind:value={$userSettings.theme}
+		on:change={(e) => userSettings.update((s) => ({ ...s, theme: e.currentTarget.value }))}
+	>
 		<option value="system">System preference</option>
 		<option value="light">Light</option>
 		<option value="dark">Dark</option>

@@ -791,13 +791,8 @@ pub fn list_virtual_branches(
                     id: file_path.clone(),
                     path: file_path.to_string(),
                     hunks: hunks.clone(),
+                    modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
                     conflicted: false,
-                    modified_at: hunks
-                        .iter()
-                        .map(|h| h.modified_at)
-                        .max()
-                        .unwrap_or(0)
-                        .into(),
                 })
                 .collect::<Vec<_>>();
         } else {
@@ -1039,8 +1034,6 @@ pub fn create_virtual_branch(
     gb_repository: &gb_repository::Repository,
     create: &BranchCreateRequest,
 ) -> Result<branch::Branch> {
-    println!("create virtual branch: {:?}", create);
-
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -1111,15 +1104,15 @@ pub fn create_virtual_branch(
         order,
     };
 
-    branch_writer
-        .write(&branch)
-        .context("failed to write branch")?;
-
     if let Some(ownership) = &create.ownership {
         let branch_reader = branch::Reader::new(&current_session_reader);
         set_ownership(&branch_reader, &branch_writer, &mut branch, ownership)
             .context("failed to set ownership")?;
     }
+
+    branch_writer
+        .write(&branch)
+        .context("failed to write branch")?;
 
     Ok(branch)
 }
@@ -1152,6 +1145,8 @@ pub fn update_branch(
     if let Some(order) = branch_update.order {
         branch.order = order;
     };
+
+    println!("branch: {:?}", branch);
 
     branch_writer
         .write(&branch)
@@ -1579,13 +1574,8 @@ pub fn get_status_by_branch(
                 id: file_path.clone(),
                 path: file_path,
                 hunks: hunks.clone(),
+                modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
                 conflicted: false,
-                modified_at: hunks
-                    .iter()
-                    .map(|h| h.modified_at)
-                    .max()
-                    .unwrap_or(0)
-                    .into(),
             })
             .collect::<Vec<_>>();
 
@@ -2172,6 +2162,73 @@ mod tests {
         let branch = &branches[0];
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.commits.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_branch_with_ownership() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            name: "origin".to_string(),
+            remote: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\n",
+        )
+        .unwrap();
+
+        let branch0 = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch");
+
+        get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+
+        let current_session = gb_repo.get_or_create_current_session().unwrap();
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session).unwrap();
+        let branch_reader = branch::Reader::new(&current_session_reader);
+        let branch0 = branch_reader.read(&branch0.id).unwrap();
+
+        let branch1 = create_virtual_branch(
+            &gb_repo,
+            &BranchCreateRequest {
+                ownership: Some(branch0.ownership),
+                ..Default::default()
+            },
+        )
+        .expect("failed to create virtual branch");
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+
+        let files_by_branch_id = statuses
+            .iter()
+            .map(|(branch, files)| (branch.id.clone(), files))
+            .collect::<HashMap<_, _>>();
+
+        println!("{:#?}", statuses);
+
+        assert_eq!(files_by_branch_id.len(), 2);
+        assert_eq!(files_by_branch_id[&branch0.id].len(), 0);
+        assert_eq!(files_by_branch_id[&branch1.id].len(), 1);
 
         Ok(())
     }
