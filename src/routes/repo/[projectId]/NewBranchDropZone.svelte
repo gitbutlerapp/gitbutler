@@ -42,12 +42,9 @@
 			</Button>
 		</div>
 	</div>
-	<div class="drag-zone-marker hidden flex-grow rounded border border-green-450 p-8">
+	<div class="drop-zone-marker hidden flex-grow rounded-lg border border-green-450 p-8">
 		<div class="flex flex-col items-center gap-y-3 self-center p-2">
-			<p>Drag changes or click button to create new virtual branch</p>
-			<Button color="purple" height="small" on:click={handleNewVirtualBranch}>
-				New virtual branch
-			</Button>
+			<p>Drop here to create new virtual branch</p>
 		</div>
 	</div>
 </div>
