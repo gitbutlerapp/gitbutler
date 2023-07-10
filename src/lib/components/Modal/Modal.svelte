@@ -38,7 +38,7 @@
 						<slot name="title" />
 					</h2>
 				</div>
-				<Button height="small" kind="plain" on:click={close} icon={IconClose}/>
+				<Button height="small" kind="plain" on:click={close} icon={IconClose} />
 			</div>
 		{/if}
 
