@@ -147,7 +147,7 @@
 	>
 		<div
 			on:dblclick={() => (maximized = !maximized)}
-			class="h-8 w-8 p-2  flex-grow-0 cursor-pointer text-light-600 dark:text-dark-200"
+			class="h-8 w-8 flex-grow-0  cursor-pointer p-2 text-light-600 dark:text-dark-200"
 		>
 			<IconBranch />
 		</div>
@@ -157,7 +157,7 @@
 				bind:value={name}
 				on:change={handleBranchNameChange}
 				title={name}
-				class="w-full font-bold truncate border-0 bg-light-200 text-light-900 dark:bg-dark-1000 dark:text-dark-100"
+				class="w-full truncate border-0 bg-light-200 font-bold text-light-900 dark:bg-dark-1000 dark:text-dark-100"
 			/>
 		</div>
 		<button
