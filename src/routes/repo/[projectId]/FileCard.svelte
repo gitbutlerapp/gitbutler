@@ -62,7 +62,7 @@
 	class="changed-file inner"
 >
 	<div
-		class="flex w-full flex-col justify-center gap-2 rounded-lg border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+		class="flex w-full flex-col justify-center gap-2 rounded border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 	>
 		<div class="flex px-2 pt-2">
 			<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap " title={filepath}>
@@ -95,7 +95,7 @@
 						class="changed-hunk "
 					>
 						<div
-							class="flex w-full flex-col rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
+							class="flex w-full flex-col rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900 overflow-hidden"
 						>
 							{#if $userSettings.aiSummariesEnabled}
 								<div class="truncate whitespace-normal p-2">
@@ -104,18 +104,18 @@
 									{/await}
 								</div>
 							{/if}
-							<div class="cursor-pointer overflow-clip text-sm">
+							<div class="cursor-pointer overflow-clip">
 								<!-- Disabling syntax highlighting for performance reasons -->
 								<HunkDiffViewer diff={hunk.diff} filePath="foo" linesShown={maximized ? 8 : 2} />
 							</div>
-							<div class="flex px-2 py-1 text-sm">
+							<div class="flex px-2 py-1">
 								<div class="flex flex-grow gap-1">
 									<div class="text-green-600">+{hunkSize(hunk.diff)[0]}</div>
 									{#if hunkSize(hunk.diff)[1] > 0}
 										<div class="text-red-600">-{hunkSize(hunk.diff)[1]}</div>
 									{/if}
 								</div>
-								<div class="text-right text-zinc-400">
+								<div class="text-right text-light-700 dark:text-dark-200">
 									{formatDistanceToNow(hunk.modifiedAt, { addSuffix: true })}
 								</div>
 							</div>
