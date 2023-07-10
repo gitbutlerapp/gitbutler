@@ -143,11 +143,11 @@
 	}}
 >
 	<div
-		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div
 			on:dblclick={() => (maximized = !maximized)}
-			class="flex-grow-0 cursor-pointer text-light-600 dark:text-dark-200"
+			class="h-8 w-8 flex-grow-0  cursor-pointer p-2 text-light-600 dark:text-dark-200"
 		>
 			<IconBranch />
 		</div>
@@ -157,12 +157,12 @@
 				bind:value={name}
 				on:change={handleBranchNameChange}
 				title={name}
-				class="w-full truncate border-0 bg-light-200 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+				class="w-full truncate border-0 bg-light-200 font-bold text-light-900 dark:bg-dark-1000 dark:text-dark-100"
 			/>
 		</div>
 		<button
 			bind:this={meatballButton}
-			class="flex-grow-0 p-2 text-light-600 dark:text-dark-200"
+			class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
 			on:keydown={() => popupMenu.openByElement(meatballButton, branchId)}
 			on:click={() => popupMenu.openByElement(meatballButton, branchId)}
 		>
@@ -183,12 +183,12 @@
 			{/if}
 		</PopupMenuItem>
 
-		<PopupMenuItem on:click={() => branchController.createBranch({ order: order + 1 })}>
-			Create branch after
-		</PopupMenuItem>
-
 		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
 			Create branch before
+		</PopupMenuItem>
+
+		<PopupMenuItem on:click={() => branchController.createBranch({ order: order + 1 })}>
+			Create branch after
 		</PopupMenuItem>
 	</PopupMenu>
 
@@ -203,7 +203,7 @@
 				rows={messageRows}
 			/>
 		</div>
-		<div class="mb-4 text-right">
+		<div class="mb-2 text-right">
 			<Button
 				height="small"
 				color="purple"
@@ -233,7 +233,12 @@
 			{/each}
 			{#if files.length == 0}
 				<!-- attention: these markers have custom css at the bottom of thise file -->
-				<div class="no-changes p-2" data-dnd-ignore>No uncommitted work on this branch.</div>
+				<div
+					class="no-changes rounded border border-zinc-200 p-2 text-center dark:border-zinc-700"
+					data-dnd-ignore
+				>
+					No changes made
+				</div>
 			{/if}
 		</div>
 	</div>
