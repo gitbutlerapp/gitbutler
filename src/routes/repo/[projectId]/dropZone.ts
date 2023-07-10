@@ -7,8 +7,8 @@ export interface DzOptions {
 }
 
 const defaultOptions: DzOptions = {
-	hover: 'drag-zone-hover',
-	active: 'drag-zone-active',
+	hover: 'drop-zone-hover',
+	active: 'drop-zone-active',
 	type: 'default'
 };
 

@@ -24,7 +24,7 @@
 	id="new-branch-dz"
 	class="h-42 ml-4 mt-16 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
 	bind:this={dropZone}
-	use:dzHighlight={{ type: 'text/hunk', hover: 'drag-zone-hover', active: 'drag-zone-active' }}
+	use:dzHighlight={{ type: 'text/hunk', hover: 'drop-zone-hover', active: 'drop-zone-active' }}
 	on:drop|stopPropagation={(e) => {
 		if (!e.dataTransfer) {
 			return;
@@ -42,7 +42,7 @@
 			>
 		</div>
 	</div>
-	<div class="drag-zone-marker hidden flex-grow rounded-lg border border-green-450 p-8">
+	<div class="drop-zone-marker hidden flex-grow rounded-lg border border-green-450 p-8">
 		<div class="flex flex-col items-center gap-y-3 self-center p-2">
 			<p>Drop here to add to virtual branch</p>
 		</div>

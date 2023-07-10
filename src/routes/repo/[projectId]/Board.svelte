@@ -89,9 +89,3 @@
 	{/each}
 	<NewBranchDropZone {branchController} />
 </div>
-
-<style lang="postcss">
-	:global(.drag-zone-hover *) {
-		@apply pointer-events-none;
-	}
-</style>
