@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use diffy::{apply_bytes, Patch};
+use diffy::{apply_bytes, merge, Patch};
 use serde::Serialize;
 
 pub use branch::Branch;
@@ -39,6 +39,7 @@ pub struct VirtualBranch {
     pub conflicted: bool,
     pub order: usize,
     pub upstream: String,
+    pub base_current: bool, // is this vbranch based on the current base branch?
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -299,13 +300,13 @@ pub fn apply_branch(
         .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
         .context("failed to merge trees")?;
 
-    // apply the branch
-    apply_branch.applied = true;
-    writer.write(&apply_branch)?;
-
     if merge_index.has_conflicts() {
         bail!("vbranch has conflicts with other applied branches, sorry bro.");
     } else {
+        // apply the branch
+        apply_branch.applied = true;
+        writer.write(&apply_branch)?;
+
         // checkout the merge index
         let mut checkout_options = git2::build::CheckoutBuilder::new();
         checkout_options.force();
@@ -346,6 +347,10 @@ pub fn unapply_branch(
     let mut target_branch = branch_reader
         .read(branch_id)
         .context("failed to read branch")?;
+
+    if !target_branch.applied {
+        bail!("branch is not applied");
+    }
 
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
@@ -546,7 +551,7 @@ pub fn remote_branches(
                 if branch_name == "HEAD" {
                     continue;
                 }
-                if branch_name == "gitbutler/temp" {
+                if branch_name == "gitbutler/integration" {
                     continue;
                 }
 
@@ -933,24 +938,32 @@ pub fn list_virtual_branches(
 
         let mut mergeable = true;
         let mut merge_conflicts = vec![];
+        let mut base_current = true;
         if !branch.applied {
-            let target_commit = repo
-                .find_commit(default_target.sha)
-                .context("failed to find target commit")?;
-            let branch_commit = repo
-                .find_commit(branch.head)
-                .context("failed to find branch commit")?;
-            if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
-                // determine if this tree is mergeable
-                let branch_tree = repo
-                    .find_tree(branch.tree)
-                    .context("failed to find branch tree")?;
-                (mergeable, merge_conflicts) =
-                    check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
-            } else {
-                // there is no common base
+            // determine if this branch is up to date with the target/base
+            let merge_base = repo.merge_base(default_target.sha, branch.head)?;
+            if merge_base != default_target.sha {
+                base_current = false;
                 mergeable = false;
-            };
+            } else {
+                let target_commit = repo
+                    .find_commit(default_target.sha)
+                    .context("failed to find target commit")?;
+                let branch_commit = repo
+                    .find_commit(branch.head)
+                    .context("failed to find branch commit")?;
+                if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
+                    // determine if this tree is mergeable
+                    let branch_tree = repo
+                        .find_tree(branch.tree)
+                        .context("failed to find branch tree")?;
+                    (mergeable, merge_conflicts) =
+                        check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
+                } else {
+                    // there is no common base
+                    mergeable = false;
+                };
+            }
         }
 
         let branch = VirtualBranch {
@@ -964,6 +977,7 @@ pub fn list_virtual_branches(
             merge_conflicts,
             upstream: branch.upstream.to_string().replace("refs/heads/", ""),
             conflicted: project_repository.is_conflicted(None)?,
+            base_current,
         };
         branches.push(branch);
     }
