@@ -21,5 +21,5 @@
  *  - Create the BranchController at the level of a specific project and inject it to components that need it.
  */
 export { Branch, File, Hunk, Commit, BranchData, Target } from './types';
-export { BranchStoresCache } from './BranchStoresCache';
-export { BranchController } from './BranchController';
+export { BranchStoresCache } from './branchStoresCache';
+export { BranchController } from './branchController';
