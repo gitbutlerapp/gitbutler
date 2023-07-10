@@ -14,10 +14,6 @@ export class BranchStoresCache {
 	remoteBranchStores: Map<string, Refreshable & Readable<Loadable<BranchData[]>>> = new Map();
 	targetBranchStores: Map<string, Refreshable & Readable<Loadable<Target>>> = new Map();
 
-	constructor() {
-		console.log('WHY IS THIS CALLED ALL THE TIME');
-	}
-
 	getVirtualBranchStore(projectId: string) {
 		const cachedStore = this.virtualBranchStores.get(projectId);
 		if (cachedStore) {
