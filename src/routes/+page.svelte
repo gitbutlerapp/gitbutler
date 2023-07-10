@@ -9,9 +9,9 @@
 </script>
 
 {#await projects.load()}
-	loading...
+	Loading...
 {:then}
-	<div class="flex h-full w-full flex-col bg-light-200 p-8 text-light-900 dark:bg-dark-1000">
+	<div class="flex h-full w-full flex-col bg-light-200 p-8 dark:bg-dark-1000">
 		<div class="mb-8 flex flex-row justify-between">
 			<div class="text-light-900 dark:text-dark-100">
 				<h1 class="mb-2 text-2xl">Your projects</h1>
@@ -29,7 +29,7 @@
 		</div>
 		{#if $projects.length == 0}
 			<div
-				class="mx-auto flex w-full flex-grow items-center justify-center border border-light-400 bg-light-200 p-8 text-light-900 dark:border-dark-500 dark:bg-dark-1000 dark:text-dark-100"
+				class="mx-auto flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000 "
 			>
 				<div class="inline-flex w-96 flex-col items-center gap-y-4 text-center">
 					<svg
@@ -50,7 +50,7 @@
 					</svg>
 
 					<h3 class="text-xl font-medium">Add project</h3>
-					<p>Get started by adding a project you're working on.</p>
+					<p class="text-light-700 dark:text-dark-200">Get started by adding a project you're working on.</p>
 					<Button color="purple" height="small" on:click={() => events.emit('openNewProjectModal')}>
 						Add Git project
 					</Button>
