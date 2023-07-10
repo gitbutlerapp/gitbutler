@@ -50,7 +50,9 @@
 					</svg>
 
 					<h3 class="text-xl font-medium">Add project</h3>
-					<p class="text-light-700 dark:text-dark-200">Get started by adding a project you're working on.</p>
+					<p class="text-light-700 dark:text-dark-200">
+						Get started by adding a project you're working on.
+					</p>
 					<Button color="purple" height="small" on:click={() => events.emit('openNewProjectModal')}>
 						Add Git project
 					</Button>

@@ -65,7 +65,10 @@
 		class="flex w-full flex-col justify-center gap-2 rounded border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 	>
 		<div class="flex px-2 pt-2">
-			<div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100" title={filepath}>
+			<div
+				class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
+				title={filepath}
+			>
 				{@html boldenFilename(filepath)}
 			</div>
 			<div
