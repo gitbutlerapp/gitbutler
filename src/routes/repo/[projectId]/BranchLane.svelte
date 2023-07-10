@@ -38,7 +38,7 @@
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
 
-	const hoverClass = 'drag-zone-hover';
+	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
 
 	function updateBranchOwnership() {
@@ -128,7 +128,7 @@
 	class:w-full={maximized}
 	class:w-96={!maximized}
 	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
-	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drag-zone-active' }}
+	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
 	on:dragend
 	on:drop|stopPropagation={(e) => {
@@ -213,7 +213,7 @@
 			>
 		</div>
 		<div class="flex flex-shrink flex-col gap-y-2">
-			<div class="drag-zone-marker hidden rounded-lg border p-6">
+			<div class="drop-zone-marker hidden rounded-lg border p-6">
 				Drop here to add to virtual branch
 			</div>
 			{#each files as file (file.id)}
