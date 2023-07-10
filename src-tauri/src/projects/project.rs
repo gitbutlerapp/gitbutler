@@ -42,10 +42,13 @@ impl FetchResult {
                 // if last fetch errored, wait 10 seconds * 2^attempt, up to 10 minutes
                 let last_fetch = time::UNIX_EPOCH
                     + time::Duration::from_millis(TryInto::<u64>::try_into(*timestamp_ms)?);
-                Ok(
-                    last_fetch + TEN_MINUTES.min(time::Duration::new(10 * 2u64.pow(*attempt), 0))
-                        < *now,
-                )
+                // 10 minutes = 600 seconds
+                // 2^10 = 1024
+                // so, attempts are capped at 10
+                if *attempt > 9 {
+                    return Ok(last_fetch + TEN_MINUTES < *now);
+                }
+                Ok(last_fetch + time::Duration::new(2u64.pow(*attempt), 0) < *now)
             }
             FetchResult::Fetched { timestamp_ms } => {
                 // if last fetch was successful, wait 10 minutes
