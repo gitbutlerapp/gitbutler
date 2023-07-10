@@ -1,4 +1,4 @@
-import type { Refreshable } from './BranchStoresCache';
+import type { Refreshable } from './branchStoresCache';
 import type { Readable } from '@square/svelte-store';
 import type { Loadable } from 'svelte-loadable-store';
 import type { Branch, BranchData, Target } from './types';
@@ -120,6 +120,7 @@ export class BranchController {
 			await ipc.updateBranchTarget({ projectId: this.projectId });
 			await this.remoteBranchStore.refresh();
 			await this.virtualBranchStore.refresh();
+			await this.targetBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
 			toasts.error('Failed to update target');
