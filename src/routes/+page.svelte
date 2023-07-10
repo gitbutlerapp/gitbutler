@@ -60,7 +60,7 @@
 			<div class="flex flex-wrap gap-4">
 				{#each $projects as project}
 					<a
-						class="w-96 overflow-hidden rounded-lg bg-white text-light-900 shadow dark:border dark:border-dark-600 dark:bg-black dark:text-light-200"
+						class="w-96 overflow-hidden rounded-lg bg-white text-light-900 shadow dark:border dark:border-dark-600 dark:bg-dark-900 dark:text-light-200"
 						href="/repo/{project.id}/"
 					>
 						<div class="p-4">
