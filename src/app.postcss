@@ -319,19 +319,19 @@ input[type='checkbox'].large {
 
 /* drag & drop */
 
-.drag-zone-hover * {
+.drop-zone-hover * {
 	@apply pointer-events-none;
 }
-.drag-zone-marker {
+.drop-zone-marker {
 	@apply border-green-450 bg-green-200 dark:bg-green-470;
 }
-.drag-zone-active.drag-zone-hover .drag-zone-marker {
+.drop-zone-active.drop-zone-hover .drop-zone-marker {
 	@apply border-green-500 bg-green-300 dark:bg-green-460;
 }
-.drag-zone-active .no-changes,
-.drag-zone-active .call-to-action {
+.drop-zone-active .no-changes,
+.drop-zone-active .call-to-action {
 	@apply hidden;
 }
-.drag-zone-active .drag-zone-marker {
+.drop-zone-active .drop-zone-marker {
 	@apply block;
 }
