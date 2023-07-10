@@ -89,7 +89,7 @@
 					use:dzTrigger={{ type: dzType }}
 					on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', id + ':' + hunk.id)}
 					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, hunk)}
-					class="changed-hunk flex w-full flex-col rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900 overflow-hidden"
+					class="changed-hunk flex w-full flex-col overflow-hidden rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
 				>
 					{#if $userSettings.aiSummariesEnabled}
 						<div class="truncate whitespace-normal p-2">

@@ -34,7 +34,7 @@
 	}}
 >
 	<div class="bg-green-300" />
-	<div class="call-to-action flex-grow rounded border border-light-500 dark:border-dark-500 p-8">
+	<div class="call-to-action flex-grow rounded border border-light-500 p-8 dark:border-dark-500">
 		<div class="flex flex-col items-center gap-y-3 self-center p-2">
 			<p>Drag changes or click button to create new virtual branch</p>
 			<Button color="purple" height="small" on:click={handleNewVirtualBranch}>
