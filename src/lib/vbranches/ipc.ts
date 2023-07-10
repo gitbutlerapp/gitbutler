@@ -4,7 +4,7 @@ import { Branch, BranchData, Target } from './types';
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
 	const result = await invoke<any[]>('list_virtual_branches', params);
-	return plainToInstance(Branch, result);
+	return sortBranches(plainToInstance(Branch, result));
 }
 
 export async function create(params: {
@@ -73,4 +73,17 @@ export async function createvBranchFromBranch(params: { projectId: string; branc
 
 export async function fetchFromTarget(params: { projectId: string }) {
 	return invoke<void>('fetch_from_target', params);
+}
+
+function sortBranches(branches: Branch[]): Branch[] {
+	branches.sort((a, b) => a.order - b.order);
+	branches.forEach((branch) => {
+		const files = branch.files;
+		files.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
+		files.forEach((file) => {
+			const hunks = file.hunks;
+			hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
+		});
+	});
+	return branches;
 }
