@@ -46,16 +46,51 @@ export function dzTrigger(node: HTMLElement, opts: Partial<DzOptions> | undefine
 	const options = { ...defaultOptions, ...opts };
 	const zones = getZones(options.type);
 
+	let clone: HTMLElement;
+
+	/**
+	 * The problem with the ghost element is that it gets clipped after rotation unless we enclose
+	 * it within a larger bounding box. This means we have an extra `<div>` in the html that is
+	 * only present to support the rotation
+	 */
 	function handleDragStart(e: DragEvent) {
+		// Start by cloning the node for the ghost element
+		clone = node.cloneNode(true) as HTMLElement;
+		clone.style.position = 'absolute';
+		clone.style.top = '-9999px'; // Element has to be in the DOM so we move it out of sight
+		clone.style.display = 'inline-block';
+		clone.style.padding = '30px'; // To prevent clipping of rotated element
+
+		// Style the inner node so it retains the shape and then rotate
+		const inner = clone.children[0] as HTMLElement;
+		inner.style.height = node.clientHeight + 'px';
+		inner.style.width = node.clientWidth + 'px';
+		inner.style.rotate = '5deg';
+		document.body.appendChild(clone);
+
+		// Dim the original element while dragging
+		node.style.opacity = '0.6';
+
+		e.dataTransfer?.setDragImage(clone, e.offsetX + 30, e.offsetY + 30); // Adds the padding
 		activateZones(zones, node, options.active);
 		e.stopPropagation();
 	}
 
+	function handleDragEnd(e: DragEvent) {
+		node.style.opacity = '1'; // Undo the dimming from `dragstart`
+		clone.remove(); // Remove temporary ghost element
+
+		e.stopPropagation();
+		inactivateZones(zones, options.active);
+	}
+
 	node.addEventListener('dragstart', handleDragStart);
+	node.addEventListener('dragend', handleDragEnd);
 
 	return {
 		destroy() {
 			node.removeEventListener('dragstart', handleDragStart);
+			node.removeEventListener('dragend', handleDragEnd);
 		}
 	};
 }
