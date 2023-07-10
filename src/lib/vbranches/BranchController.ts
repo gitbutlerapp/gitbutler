@@ -15,8 +15,7 @@ export class BranchController {
 
 	async setTarget(branch: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.setTarget({ projectId, branch });
+			await ipc.setTarget({ projectId: this.projectId, branch });
 			await this.virtualBranchStore.refresh();
 			await this.remoteBranchStore.refresh();
 		} catch (err) {
@@ -27,8 +26,7 @@ export class BranchController {
 
 	async createBranch(branch: { name?: string; ownership?: string; order?: number }) {
 		try {
-			const projectId = this.projectId;
-			await ipc.create({ projectId, branch });
+			await ipc.create({ projectId: this.projectId, branch });
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
@@ -38,8 +36,7 @@ export class BranchController {
 
 	async commitBranch(branch: string, message: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.commit({ projectId, branch, message });
+			await ipc.commit({ projectId: this.projectId, branch, message });
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
@@ -49,8 +46,7 @@ export class BranchController {
 
 	async updateBranchName(branchId: string, name: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.update({ projectId, branch: { id: branchId, name } });
+			await ipc.update({ projectId: this.projectId, branch: { id: branchId, name } });
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
@@ -60,8 +56,7 @@ export class BranchController {
 
 	async updateBranchOrder(branchId: string, order: number) {
 		try {
-			const projectId = this.projectId;
-			await ipc.update({ projectId, branch: { id: branchId, order } });
+			await ipc.update({ projectId: this.projectId, branch: { id: branchId, order } });
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
@@ -71,8 +66,7 @@ export class BranchController {
 
 	async applyBranch(branchId: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.apply({ projectId, branch: branchId });
+			await ipc.apply({ projectId: this.projectId, branch: branchId });
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
@@ -82,8 +76,7 @@ export class BranchController {
 
 	async unapplyBranch(branchId: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.unapply({ projectId, branch: branchId });
+			await ipc.unapply({ projectId: this.projectId, branch: branchId });
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
@@ -93,8 +86,7 @@ export class BranchController {
 
 	async updateBranchOwnership(branchId: string, ownership: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.update({ projectId, branch: { id: branchId, ownership } });
+			await ipc.update({ projectId: this.projectId, branch: { id: branchId, ownership } });
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
@@ -104,8 +96,7 @@ export class BranchController {
 
 	async pushBranch(branchId: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.push({ projectId, branchId });
+			await ipc.push({ projectId: this.projectId, branchId });
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
 			console.error(err);
@@ -115,8 +106,7 @@ export class BranchController {
 
 	async deleteBranch(branchId: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.delete({ projectId, branchId });
+			await ipc.delete({ projectId: this.projectId, branchId });
 			await this.virtualBranchStore.refresh();
 			await this.remoteBranchStore.refresh();
 		} catch (err) {
@@ -127,8 +117,7 @@ export class BranchController {
 
 	async updateBranchTarget() {
 		try {
-			const projectId = this.projectId;
-			await ipc.updateBranchTarget({ projectId });
+			await ipc.updateBranchTarget({ projectId: this.projectId });
 			await this.remoteBranchStore.refresh();
 			await this.virtualBranchStore.refresh();
 		} catch (err) {
@@ -139,8 +128,7 @@ export class BranchController {
 
 	async createvBranchFromBranch(branch: string) {
 		try {
-			const projectId = this.projectId;
-			await ipc.createvBranchFromBranch({ projectId, branch });
+			await ipc.createvBranchFromBranch({ projectId: this.projectId, branch });
 			await this.remoteBranchStore.refresh();
 			await this.targetBranchStore.refresh();
 		} catch (err) {
@@ -151,8 +139,7 @@ export class BranchController {
 
 	async fetchFromTarget() {
 		try {
-			const projectId = this.projectId;
-			await ipc.fetchFromTarget({ projectId });
+			await ipc.fetchFromTarget({ projectId: this.projectId });
 			await this.remoteBranchStore.refresh();
 			await this.targetBranchStore.refresh();
 		} catch (err) {
