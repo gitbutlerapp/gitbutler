@@ -1,7 +1,3 @@
-<script lang="ts" context="module">
-	const zones = new Set<HTMLDivElement>();
-</script>
-
 <script lang="ts">
 	import type { Commit, File, Hunk } from '$lib/api/ipc/vbranches';
 	import { createEventDispatcher, onMount } from 'svelte';
@@ -15,6 +11,7 @@
 	import type { VirtualBranchOperations } from './vbranches';
 	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
+	import { dzHighlight } from './dropZone';
 
 	const dispatch = createEventDispatcher<{
 		empty: never;
@@ -40,15 +37,9 @@
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
-	let dropZone: HTMLDivElement;
 
 	const hoverClass = 'drag-zone-hover';
-	const hunkType = 'text/hunk';
-
-	onMount(() => {
-		zones.add(dropZone);
-		return () => zones.delete(dropZone);
-	});
+	const dzType = 'text/hunk';
 
 	function updateBranchOwnership() {
 		const ownership = files
@@ -134,37 +125,17 @@
 
 <div
 	draggable="true"
-	bind:this={dropZone}
-	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	class:w-full={maximized}
 	class:w-96={!maximized}
+	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drag-zone-active' }}
 	on:dragstart
-	on:dragenter={(e) => {
-		if (!e.dataTransfer?.types.includes(hunkType)) {
-			return;
-		}
-		dropZone.classList.add(hoverClass);
-	}}
-	on:dragleave|stopPropagation={(e) => {
-		if (!e.dataTransfer?.types.includes(hunkType)) {
-			return;
-		}
-		if (!isChildOf(e.target, dropZone)) {
-			dropZone.classList.remove(hoverClass);
-		}
-	}}
-	on:dragover|stopPropagation={(e) => {
-		if (e.dataTransfer?.types.includes(hunkType)) e.preventDefault();
-	}}
-	on:dragend={(e) => {
-		dropZone.classList.remove(hoverClass);
-	}}
+	on:dragend
 	on:drop|stopPropagation={(e) => {
 		if (!e.dataTransfer) {
 			return;
 		}
-		dropZone.classList.remove(hoverClass);
-		const data = e.dataTransfer.getData(hunkType);
+		const data = e.dataTransfer.getData(dzType);
 		const ownership = files
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
@@ -251,22 +222,11 @@
 					filepath={file.path}
 					expanded={file.expanded}
 					hunks={file.hunks}
+					{dzType}
 					{maximized}
-					on:update={(e) => {
-						handleFileUpdate(file.id, e.detail);
-					}}
 					on:expanded={(e) => {
 						setExpandedWithCache(file, e.detail);
 						expandFromCache();
-					}}
-					on:drag={(e) => {
-						zones.forEach((zone) => {
-							if (zone != dropZone) {
-								e.detail
-									? zone.classList.add('drag-zone-active')
-									: zone.classList.remove('drag-zone-active');
-							}
-						});
 					}}
 					{projectPath}
 				/>
