@@ -65,7 +65,7 @@
 	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 >
 	<!-- Target branch -->
-	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Target branch</div>
+	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Base branch</div>
 	<div
 		class="flex w-full flex-row items-center  justify-between border-b border-light-400 pl-2 pr-2 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
 	>
@@ -97,11 +97,11 @@
 
 	<!-- Your branches -->
 	<div
-		class="flex items-center justify-between border-b border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
+		class="flex items-center justify-between border-b border-light-400 bg-light-100 py-1 px-2 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
 		<div class="font-bold">Your branches</div>
-		<div>
-			<button class="p-1" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
+		<div class="h-4 w-4 2-4 flex justify-around">
+			<button class="w-full h-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
 				{#if yourBranchesOpen}
 					<IconTriangleUp />
 				{:else}
@@ -142,11 +142,11 @@
 	<!-- Remote branches -->
 	{#if remoteBranches}
 		<div
-			class="flex items-center justify-between border-b border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
+			class="flex items-center justify-between border-b border-light-400 bg-light-100 py-1 px-2 pr-1 dark:border-dark-600 dark:bg-dark-800"
 		>
 			<div class="font-bold">Remote branches</div>
-			<div>
-				<button class="p-1" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
+			<div class="h-4 w-4 2-4 flex justify-around">
+				<button class="w-full h-full" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
 					{#if remoteBranchesOpen}
 						<IconTriangleUp />
 					{:else}
@@ -160,7 +160,7 @@
 			{#each remoteBranches as branch}
 				<div
 					on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
-					class="flex flex-col justify-between border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
+					class="flex flex-col gap-1 justify-between border-b border-light-400 py-1 px-2 pt-2 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
 						<div class="text-light-600 dark:text-dark-200">
