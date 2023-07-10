@@ -83,7 +83,7 @@ fn main() {
 
 fn run_clear(butler: ButlerCli) {
     // make sure there is a session
-    let current_session = butler
+    butler
         .gb_repository
         .get_or_create_current_session()
         .expect("failed to get or create currnt session");
@@ -187,7 +187,6 @@ fn run_commit(butler: ButlerCli) {
         &butler.project_repository(),
         &commit_branch,
         &message,
-        None,
     )
     .expect("failed to commit");
 }
