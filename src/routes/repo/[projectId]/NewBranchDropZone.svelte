@@ -22,7 +22,7 @@
 
 <div
 	id="new-branch-dz"
-	class="h-42 ml-4 mt-16 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
+	class="h-42 ml-4 mt-14 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
 	bind:this={dropZone}
 	use:dzHighlight={{ type: 'text/hunk', hover: 'drag-zone-hover', active: 'drag-zone-active' }}
 	on:drop|stopPropagation={(e) => {
@@ -34,17 +34,20 @@
 	}}
 >
 	<div class="bg-green-300" />
-	<div class="call-to-action flex-grow rounded-lg border border-dashed border-light-600 p-8">
+	<div class="call-to-action flex-grow rounded border border-light-500 dark:border-dark-500 p-8">
 		<div class="flex flex-col items-center gap-y-3 self-center p-2">
 			<p>Drag changes or click button to create new virtual branch</p>
-			<Button color="purple" height="small" on:click={handleNewVirtualBranch}
-				>New virtual branch</Button
-			>
+			<Button color="purple" height="small" on:click={handleNewVirtualBranch}>
+				New virtual branch
+			</Button>
 		</div>
 	</div>
-	<div class="drag-zone-marker hidden flex-grow rounded-lg border border-green-450 p-8">
+	<div class="drag-zone-marker hidden flex-grow rounded border border-green-450 p-8">
 		<div class="flex flex-col items-center gap-y-3 self-center p-2">
-			<p>Drop here to add to virtual branch</p>
+			<p>Drag changes or click button to create new virtual branch</p>
+			<Button color="purple" height="small" on:click={handleNewVirtualBranch}>
+				New virtual branch
+			</Button>
 		</div>
 	</div>
 </div>
