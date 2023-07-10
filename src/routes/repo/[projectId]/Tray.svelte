@@ -62,7 +62,7 @@
 
 <div
 	use:rememberWidth
-	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto bg-white text-light-800 dark:bg-dark-900 dark:text-dark-100"
+	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 >
 	<!-- Target branch -->
 	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Target branch</div>
