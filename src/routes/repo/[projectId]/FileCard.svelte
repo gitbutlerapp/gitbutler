@@ -125,6 +125,7 @@
 			{/if}
 		</div>
 	</div>
+
 	<PopupMenu bind:this={popupMenu} let:item={hunk}>
 		<PopupMenuItem
 			on:click={() =>

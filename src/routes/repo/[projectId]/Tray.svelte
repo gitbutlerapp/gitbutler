@@ -65,17 +65,17 @@
 	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 >
 	<!-- Target branch -->
-	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Target branch</div>
+	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Base branch</div>
 	<div
-		class="flex w-full flex-row items-center  justify-between border-b border-light-400 pl-2 pr-2 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
+		class="flex w-full flex-row items-center justify-between border-b border-light-400 pb-1 pl-2 pr-1 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
 	>
-		<div class="flex-grow text-lg font-bold" title={behindMessage}>{target.name}</div>
-		<div class="flex items-center">
-			<div>{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
+		<div class="flex-grow pb-1 font-bold" title={behindMessage}>{target.name}</div>
+		<div class="flex items-center gap-1">
+			<div class="pb-1">{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
 			<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
 				{#if target.behind == 0}
 					<button
-						class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+						class="p-0 hover:bg-light-200 disabled:text-light-300 dark:hover:bg-dark-800 disabled:dark:text-dark-300"
 						on:click={() => branchController.fetchFromTarget()}
 						title="click to fetch"
 					>
@@ -83,7 +83,7 @@
 					</button>
 				{:else}
 					<button
-						class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
+						class="p-0 disabled:text-light-300 disabled:dark:text-dark-300"
 						on:click={updateTargetModal.show}
 						disabled={target.behind == 0}
 						title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
@@ -97,11 +97,11 @@
 
 	<!-- Your branches -->
 	<div
-		class="flex items-center justify-between border-b border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
+		class="flex items-center justify-between border-b border-light-400 bg-light-100 py-1 px-2 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
 		<div class="font-bold">Your branches</div>
-		<div>
-			<button class="p-1" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
+		<div class="flex h-4 w-4 justify-around">
+			<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
 				{#if yourBranchesOpen}
 					<IconTriangleUp />
 				{:else}
@@ -142,11 +142,11 @@
 	<!-- Remote branches -->
 	{#if remoteBranches}
 		<div
-			class="flex items-center justify-between border-b border-light-400 bg-light-100 py-2 pl-2 pr-4 dark:border-dark-600 dark:bg-dark-800"
+			class="flex items-center justify-between border-b border-light-400 bg-light-100 py-1 px-2 pr-1 dark:border-dark-600 dark:bg-dark-800"
 		>
 			<div class="font-bold">Remote branches</div>
-			<div>
-				<button class="p-1" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
+			<div class="flex h-4 w-4 justify-around">
+				<button class="h-full w-full" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
 					{#if remoteBranchesOpen}
 						<IconTriangleUp />
 					{:else}
@@ -160,7 +160,7 @@
 			{#each remoteBranches as branch}
 				<div
 					on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
-					class="flex flex-col justify-between border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
+					class="flex flex-col justify-between gap-1 border-b border-light-400 py-1 px-2 pt-2 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
 						<div class="text-light-600 dark:text-dark-200">

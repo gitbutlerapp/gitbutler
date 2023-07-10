@@ -30,7 +30,7 @@
 	>
 		{#if $$slots.title}
 			<div
-				class="flex w-full items-center justify-between border-b border-light-400 px-4 pb-4 dark:border-dark-500"
+				class="flex w-full items-center justify-between border-b border-light-100 px-4 pr-2 pb-4 dark:border-dark-800"
 			>
 				<div class="flex items-center gap-2">
 					<svelte:component this={icon} class="h-5 w-5" />
@@ -45,7 +45,7 @@
 		<!-- TODO: Remove this props based way once all other modals have been updated -->
 		{#if title}
 			<div
-				class="flex w-full items-center justify-between border-b border-light-400 px-4 pb-4 dark:border-dark-500"
+				class="flex w-full items-center justify-between border-b border-light-100 px-4 pr-2 pb-4 dark:border-dark-800"
 			>
 				<div class="flex items-center gap-2">
 					<svelte:component this={icon} class="h-5 w-5" />
@@ -64,7 +64,7 @@
 		</div>
 
 		<div
-			class="flex w-full justify-end gap-4 border-t border-light-400 px-4 pt-4 dark:border-dark-500"
+			class="flex w-full justify-end gap-4 border-t border-light-100 px-4 pr-2 pt-4 dark:border-dark-800"
 		>
 			<slot name="controls" {item} {close}>
 				<Button kind="outlined" on:click={close}>Secondary action</Button>

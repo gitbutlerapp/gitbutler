@@ -45,7 +45,11 @@
 </script>
 
 {#if showMenu}
-	<div class="absolute top-0 left-0 z-50 h-full w-full" on:click={onDismiss} on:keydown={onDismiss}>
+	<div
+		class="absolute top-0 left-0 z-50 h-full w-full shadow-2xl"
+		on:click={onDismiss}
+		on:keydown={onDismiss}
+	>
 		<div
 			use:recordDimensions
 			on:mouseleave={onDismiss}
