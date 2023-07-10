@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Branch } from '$lib/api/ipc/vbranches';
 	import { Button } from '$lib/components';
+	import { dzHighlight } from './dropZone';
 	import type { VirtualBranchOperations } from './vbranches';
 
 	export let virtualBranches: VirtualBranchOperations;
@@ -23,20 +24,11 @@
 	id="new-branch-dz"
 	class="h-42 ml-4 mt-16 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
 	bind:this={dropZone}
-	on:dragover|stopPropagation={(e) => {
-		if (e.dataTransfer?.types.includes('text/hunk')) e.preventDefault();
-		dropZone.classList.add('drag-zone-hover');
-	}}
-	on:dragleave|stopPropagation={(e) => {
-		if (!isChildOf(e.target, dropZone)) {
-			dropZone.classList.remove('drag-zone-hover');
-		}
-	}}
+	use:dzHighlight={{ type: 'text/hunk', hover: 'drag-zone-hover', active: 'drag-zone-active' }}
 	on:drop|stopPropagation={(e) => {
 		if (!e.dataTransfer) {
 			return;
 		}
-		dropZone.classList.remove('drag-zone-hover');
 		const ownership = e.dataTransfer.getData('text/hunk');
 		virtualBranches.createBranch({ ownership });
 	}}

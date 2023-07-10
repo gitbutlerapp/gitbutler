@@ -5,6 +5,7 @@
 	import type { VirtualBranchOperations } from './vbranches';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { setContext } from 'svelte';
+	import { dzHighlight } from './dropZone';
 
 	export let projectId: string;
 	export let projectPath: string;
@@ -19,7 +20,7 @@
 	let priorPosition = 0;
 	let dropPosition = 0;
 
-	const hoverClass = 'drag-zone-hover';
+	const dzType = 'text/branch';
 
 	function handleEmpty() {
 		const emptyIndex = branches.findIndex((item) => !item.files || item.files.length == 0);
@@ -34,23 +35,8 @@
 	bind:this={dropZone}
 	id="branch-lanes"
 	class="flex max-w-full flex-shrink flex-grow snap-x items-start overflow-x-auto overflow-y-hidden bg-light-200 px-2 dark:bg-dark-1000"
-	on:dragenter={(e) => {
-		if (!e.dataTransfer?.types.includes('text/branch')) {
-			return;
-		}
-		dropZone.classList.add(hoverClass);
-	}}
-	on:dragend={(e) => {
-		if (!e.dataTransfer?.types.includes('text/branch')) {
-			return;
-		}
-		dropZone.classList.remove(hoverClass);
-	}}
+	use:dzHighlight={{ type: dzType }}
 	on:dragover={(e) => {
-		if (!e.dataTransfer?.types.includes('text/branch')) {
-			return;
-		}
-		e.preventDefault(); // Only when text/branch
 		const children = [...e.currentTarget.children];
 		dropPosition = 0;
 		for (let i = 0; i < children.length; i++) {
@@ -69,7 +55,6 @@
 		}
 	}}
 	on:drop={(e) => {
-		dropZone.classList.remove(hoverClass);
 		if (priorPosition != dropPosition) {
 			const el = branches.splice(priorPosition, 1);
 			branches.splice(dropPosition, 0, ...el);
@@ -85,7 +70,7 @@
 		<Lane
 			on:dragstart={(e) => {
 				if (!e.dataTransfer) return;
-				e.dataTransfer.setData('text/branch', id);
+				e.dataTransfer.setData(dzType, id);
 				dragged = e.currentTarget;
 				priorPosition = Array.from(dropZone.children).indexOf(dragged);
 			}}

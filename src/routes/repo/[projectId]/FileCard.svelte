@@ -10,6 +10,7 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
+	import { dzTrigger } from './dropZone';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -18,11 +19,10 @@
 	export let filepath: string;
 	export let hunks: Hunk[];
 	export let maximized: boolean;
+	export let dzType: string;
 
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;
-		update: Hunk[];
-		drag: boolean;
 	}>();
 	export let expanded: boolean | undefined;
 
@@ -49,19 +49,16 @@
 	function getFirstLineNumber(diff: string): number {
 		return parseInt(diff.split('\n')[0].split('@@')[1].trim().split(' ')[0].split(',')[0].slice(1));
 	}
+
+	function getAllHunksOwnership(): string {
+		return id + ':' + hunks.map((h) => h.id).join(',');
+	}
 </script>
 
 <div
 	draggable="true"
-	on:dragstart|stopPropagation={(e) => {
-		if (!e.dataTransfer) return;
-		e.dataTransfer.setData('text/hunk', id + ':' + hunks.map((h) => h.id).join(','));
-		dispatch('drag', true);
-		return true;
-	}}
-	on:dragend|stopPropagation={(e) => {
-		dispatch('drag', false);
-	}}
+	use:dzTrigger={{ type: dzType }}
+	on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', getAllHunksOwnership())}
 	class="changed-file flex w-full flex-col justify-center gap-2 rounded-lg border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 >
 	<div class="items-cente flex px-2 pt-2">
@@ -89,15 +86,8 @@
 			{#each hunks || [] as hunk (hunk.id)}
 				<div
 					draggable="true"
-					on:dragstart|stopPropagation={(e) => {
-						if (!e.dataTransfer) return;
-						e.dataTransfer.setData('text/hunk', id + ':' + hunk.id);
-						dispatch('drag', true);
-						return false;
-					}}
-					on:dragend|stopPropagation={(e) => {
-						dispatch('drag', false);
-					}}
+					use:dzTrigger={{ type: dzType }}
+					on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', id + ':' + hunk.id)}
 					on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, hunk)}
 					class="changed-hunk flex w-full flex-col rounded-lg border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
 				>

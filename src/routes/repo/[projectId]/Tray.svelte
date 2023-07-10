@@ -200,7 +200,7 @@
 						</div>
 						<div>{branch.ahead}/{branch.behind}</div>
 						{#if !branch.mergeable}
-							<div class="text-red-500 font-bold" title="Can't be merged">!</div>
+							<div class="font-bold text-red-500" title="Can't be merged">!</div>
 						{/if}
 					</div>
 					{#if branch.lastCommitTs > 0}
