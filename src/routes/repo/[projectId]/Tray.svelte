@@ -1,25 +1,20 @@
 <script lang="ts">
 	import { Button, Checkbox, Modal } from '$lib/components';
-	import type { BranchData, Target } from './types';
-	import type { Branch } from '$lib/api/ipc/vbranches';
+	import type { Branch, BranchData, Target } from '$lib/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
-	import type { VirtualBranchOperations } from './vbranches';
-	import { IconGitBranch, IconRemote, IconRefresh, IconAdd } from '$lib/icons';
+	import { IconGitBranch, IconRemote, IconRefresh } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
 	import Gravatar from '$lib/components/Gravatar/Gravatar.svelte';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
-	import type { RemoteBranchOperations } from './remoteBranches';
-	import type { TargetOperations } from './targetData';
 	import type { SettingsStore } from '$lib/userSettings';
+	import type { BranchController } from '$lib/vbranches';
 
 	export let target: Target;
 	export let branches: Branch[];
-	export let virtualBranches: VirtualBranchOperations;
-	export let targetOperations: TargetOperations;
+	export let branchController: BranchController;
 	export let remoteBranches: BranchData[];
-	export let remoteBranchOperations: RemoteBranchOperations;
 	export let userSettings: SettingsStore;
 
 	let yourBranchesOpen = true;
@@ -34,28 +29,14 @@
 
 	function toggleBranch(branchId: string, applied: boolean) {
 		if (applied) {
-			virtualBranches.unapplyBranch(branchId);
+			branchController.unapplyBranch(branchId);
 		} else {
-			virtualBranches.applyBranch(branchId);
+			branchController.applyBranch(branchId);
 		}
 	}
 
 	// store left tray width preference in localStorage
 	const cacheKey = 'config:tray-width';
-
-	function makeBranch(branch: string) {
-		remoteBranchOperations.createvBranchFromBranch(branch).then(() => {
-			virtualBranches.refresh();
-		});
-	}
-
-	function fetchTarget() {
-		remoteBranchOperations.fetchFromTarget().then(() => {
-			virtualBranches.refresh().then(() => {
-				targetOperations.refresh();
-			});
-		});
-	}
 
 	function rememberWidth(node: HTMLElement) {
 		const cachedWidth = localStorage.getItem(cacheKey);
@@ -81,7 +62,7 @@
 
 <div
 	use:rememberWidth
-	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto bg-white text-light-800 dark:bg-dark-900 dark:text-dark-100"
+	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 >
 	<!-- Target branch -->
 	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Target branch</div>
@@ -95,7 +76,7 @@
 				{#if target.behind == 0}
 					<button
 						class="p-1 disabled:text-light-300 disabled:dark:text-dark-300"
-						on:click={fetchTarget}
+						on:click={() => branchController.fetchFromTarget()}
 						title="click to fetch"
 					>
 						<IconRefresh />
@@ -182,7 +163,7 @@
 					class="flex flex-col justify-between border-b border-light-400 p-2 pl-2 pr-4 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
-						<div>
+						<div class="text-light-600 dark:text-dark-200">
 							{#if branch.branch.match('refs/remotes')}
 								<IconRemote class="h-4 w-4" />
 							{:else}
@@ -199,7 +180,9 @@
 								.replace('refs/heads/', '')}
 						</div>
 						<div>{branch.ahead}/{branch.behind}</div>
-						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+						{#if !branch.mergeable}
+							<div class="font-bold text-red-500" title="Can't be merged">!</div>
+						{/if}
 					</div>
 					{#if branch.lastCommitTs > 0}
 						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
@@ -236,7 +219,11 @@
 	<!-- Remote branches context menu -->
 	<PopupMenu bind:this={remoteBranchContextMenu} let:item>
 		{@const disabled = !remoteBranches.some((b) => b.sha == item.sha && b.mergeable)}
-		<PopupMenuItem {disabled} on:click={() => item && makeBranch(item.name)}>Apply</PopupMenuItem>
+		<PopupMenuItem
+			{disabled}
+			on:click={() => item && branchController.createvBranchFromBranch(item.name)}
+			>Apply</PopupMenuItem
+		>
 	</PopupMenu>
 
 	<!-- Confirm target update modal -->
@@ -250,9 +237,7 @@
 				height="small"
 				color="purple"
 				on:click={() => {
-					remoteBranchOperations.updateBranchTarget().then(() => {
-						virtualBranches.refresh();
-					});
+					branchController.updateBranchTarget();
 					close();
 				}}
 			>
@@ -274,9 +259,7 @@
 				height="small"
 				color="destructive"
 				on:click={() => {
-					virtualBranches.deleteBranch(item.id).then(() => {
-						remoteBranchOperations.refresh();
-					});
+					branchController.deleteBranch(item.id);
 					close();
 				}}
 			>

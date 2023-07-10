@@ -2,63 +2,52 @@
 	import Board from './Board.svelte';
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
-	import { getVirtualBranches } from './vbranches';
-	import { getTarget } from './targetData';
-	import { getRemoteBranches } from './remoteBranches';
 	import { Value } from 'svelte-loadable-store';
 	import { Button } from '$lib/components';
-	import { error } from '$lib/toasts';
+	import { BranchController } from '$lib/vbranches';
 
 	export let data: PageData;
-	let { projectId, remoteBranchNames, project, userSettings } = data;
-	const remoteBranchOperations = getRemoteBranches(projectId);
+	let {
+		projectId,
+		vbranchStore,
+		remoteBranchStore,
+		targetBranchStore,
+		remoteBranchNames,
+		project,
+		userSettings
+	} = data;
+
+	const branchController = new BranchController(
+		projectId,
+		vbranchStore,
+		remoteBranchStore,
+		targetBranchStore
+	);
+
 	$: remoteBranches =
-		!$remoteBranchOperations.isLoading && !Value.isError($remoteBranchOperations.value)
-			? $remoteBranchOperations.value
+		!$remoteBranchStore.isLoading && !Value.isError($remoteBranchStore.value)
+			? $remoteBranchStore.value
 			: [];
-	const targetOperations = getTarget(projectId);
 	$: target =
-		!$targetOperations.isLoading && !Value.isError($targetOperations.value)
-			? $targetOperations.value
+		!$targetBranchStore.isLoading && !Value.isError($targetBranchStore.value)
+			? $targetBranchStore.value
 			: undefined;
-	const virtualBranches = getVirtualBranches(projectId);
 	$: branches =
-		!$virtualBranches.isLoading && !Value.isError($virtualBranches.value)
-			? $virtualBranches.value
-			: [];
+		!$vbranchStore.isLoading && !Value.isError($vbranchStore.value) ? $vbranchStore.value : [];
 	let targetChoice: string | undefined;
 
 	function onSetTargetClick() {
 		if (!targetChoice) {
 			return;
 		}
-		virtualBranches
-			.setTarget(targetChoice)
-			.then((t) => {
-				if (t) {
-					target = t;
-				}
-				remoteBranchOperations.refresh();
-			})
-			.catch((e) => {
-				console.log('failed to set branch', e);
-				error('Failed to set target branch');
-			});
+		branchController.setTarget(targetChoice);
 	}
 </script>
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray
-			{branches}
-			{target}
-			{virtualBranches}
-			{targetOperations}
-			{remoteBranches}
-			{remoteBranchOperations}
-			{userSettings}
-		/>
-		<Board {branches} {projectId} projectPath={project.path} {virtualBranches} {userSettings} />
+		<Tray {branches} {target} {branchController} {remoteBranches} {userSettings} />
+		<Board {branches} {projectId} projectPath={project.path} {branchController} {userSettings} />
 	</div>
 {:else}
 	<div class="m-auto flex max-w-xs flex-col gap-y-4">

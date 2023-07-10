@@ -1,15 +1,16 @@
 <script lang="ts" async="true">
 	import Lane from './BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import type { Branch } from '$lib/api/ipc/vbranches';
-	import type { VirtualBranchOperations } from './vbranches';
+	import type { Branch } from '$lib/vbranches';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { setContext } from 'svelte';
+	import { dzHighlight } from './dropZone';
+	import type { BranchController } from '$lib/vbranches';
 
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
-	export let virtualBranches: VirtualBranchOperations;
+	export let branchController: BranchController;
 	export let userSettings: SettingsStore;
 
 	setContext(SETTINGS_CONTEXT, userSettings);
@@ -19,7 +20,7 @@
 	let priorPosition = 0;
 	let dropPosition = 0;
 
-	const hoverClass = 'drag-zone-hover';
+	const dzType = 'text/branch';
 
 	function handleEmpty() {
 		const emptyIndex = branches.findIndex((item) => !item.files || item.files.length == 0);
@@ -34,23 +35,8 @@
 	bind:this={dropZone}
 	id="branch-lanes"
 	class="flex max-w-full flex-shrink flex-grow snap-x items-start overflow-x-auto overflow-y-hidden bg-light-200 px-2 dark:bg-dark-1000"
-	on:dragenter={(e) => {
-		if (!e.dataTransfer?.types.includes('text/branch')) {
-			return;
-		}
-		dropZone.classList.add(hoverClass);
-	}}
-	on:dragend={(e) => {
-		if (!e.dataTransfer?.types.includes('text/branch')) {
-			return;
-		}
-		dropZone.classList.remove(hoverClass);
-	}}
+	use:dzHighlight={{ type: dzType }}
 	on:dragover={(e) => {
-		if (!e.dataTransfer?.types.includes('text/branch')) {
-			return;
-		}
-		e.preventDefault(); // Only when text/branch
 		const children = [...e.currentTarget.children];
 		dropPosition = 0;
 		for (let i = 0; i < children.length; i++) {
@@ -69,13 +55,12 @@
 		}
 	}}
 	on:drop={(e) => {
-		dropZone.classList.remove(hoverClass);
 		if (priorPosition != dropPosition) {
 			const el = branches.splice(priorPosition, 1);
 			branches.splice(dropPosition, 0, ...el);
 			branches.forEach((branch, i) => {
 				if (branch.order !== i) {
-					virtualBranches.updateBranchOrder(branch.id, i);
+					branchController.updateBranchOrder(branch.id, i);
 				}
 			});
 		}
@@ -85,7 +70,7 @@
 		<Lane
 			on:dragstart={(e) => {
 				if (!e.dataTransfer) return;
-				e.dataTransfer.setData('text/branch', id);
+				e.dataTransfer.setData(dzType, id);
 				dragged = e.currentTarget;
 				priorPosition = Array.from(dropZone.children).indexOf(dragged);
 			}}
@@ -98,11 +83,11 @@
 			{projectId}
 			{upstream}
 			branchId={id}
-			{virtualBranches}
+			{branchController}
 			{projectPath}
 		/>
 	{/each}
-	<NewBranchDropZone {virtualBranches} />
+	<NewBranchDropZone {branchController} />
 </div>
 
 <style lang="postcss">

@@ -1,4 +1,4 @@
-import type { BranchData } from './types';
+import type { BranchData } from '$lib/vbranches';
 import type { PageLoadEvent } from './$types';
 import { invoke } from '$lib/ipc';
 import { api } from '$lib';
@@ -12,11 +12,24 @@ function sortBranchData(branchData: BranchData[]): BranchData[] {
 	return branchData.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
 }
 
-export async function load(e: PageLoadEvent) {
-	const projectId = e.params.projectId;
+export async function load({ parent, params }: PageLoadEvent) {
+	const projectId = params.projectId;
 	const remoteBranchNames = await getRemoteBranches({ projectId });
 	const project = api.projects.get({ id: projectId });
-	return { projectId, remoteBranchNames, project };
+
+	const { branchStoresCache } = await parent();
+	const vbranchStore = branchStoresCache.getVirtualBranchStore(projectId);
+	const remoteBranchStore = branchStoresCache.getRemoteBranchStore(projectId);
+	const targetBranchStore = branchStoresCache.getTargetBranchStore(projectId);
+
+	return {
+		projectId,
+		remoteBranchNames,
+		project,
+		vbranchStore,
+		remoteBranchStore,
+		targetBranchStore
+	};
 }
 
 if (import.meta.vitest) {

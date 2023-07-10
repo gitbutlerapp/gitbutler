@@ -1,53 +1,8 @@
-import 'reflect-metadata';
 import { invoke } from '$lib/ipc';
-import { plainToInstance, Type, Transform } from 'class-transformer';
+import { plainToInstance } from 'class-transformer';
+import { Branch, BranchData, Target } from './types';
 
-export class Hunk {
-	id!: string;
-	name!: string;
-	diff!: string;
-	@Transform((obj) => {
-		return new Date(obj.value);
-	})
-	modifiedAt!: Date;
-	filePath!: string;
-}
-
-export class File {
-	id!: string;
-	path!: string;
-	@Type(() => Hunk)
-	hunks!: Hunk[];
-	expanded?: boolean;
-	@Transform((obj) => new Date(obj.value))
-	modifiedAt!: Date;
-}
-
-export class Branch {
-	id!: string;
-	name!: string;
-	active!: boolean;
-	@Type(() => File)
-	files!: File[];
-	commits!: Commit[];
-	description!: string;
-	mergeable!: boolean;
-	mergeConflicts!: string[];
-	order!: number;
-	upstream!: string;
-}
-
-export class Commit {
-	id!: string;
-	authorEmail!: string;
-	authorName!: string;
-	description!: string;
-	@Transform((obj) => new Date(obj.value))
-	createdAt!: Date;
-	isRemote!: boolean;
-}
-
-export async function list(params: { projectId: string }): Promise<Branch[]> {
+export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
 	const result = await invoke<any[]>('list_virtual_branches', params);
 	return plainToInstance(Branch, result);
 }
@@ -94,4 +49,28 @@ export async function apply(params: { projectId: string; branch: string }) {
 
 export async function unapply(params: { projectId: string; branch: string }) {
 	return await invoke<void>('unapply_branch', params);
+}
+
+export async function getRemoteBranchesData(params: { projectId: string }) {
+	return invoke<Array<BranchData>>('git_remote_branches_data', params);
+}
+
+export async function getTargetData(params: { projectId: string }) {
+	return invoke<Target>('get_target_data', params);
+}
+
+export async function setTarget(params: { projectId: string; branch: string }) {
+	return await invoke<Target>('set_target_branch', params);
+}
+
+export async function updateBranchTarget(params: { projectId: string }) {
+	return invoke<object>('update_branch_target', params);
+}
+
+export async function createvBranchFromBranch(params: { projectId: string; branch: string }) {
+	return invoke<string>('create_virtual_branch_from_branch', params);
+}
+
+export async function fetchFromTarget(params: { projectId: string }) {
+	return invoke<void>('fetch_from_target', params);
 }

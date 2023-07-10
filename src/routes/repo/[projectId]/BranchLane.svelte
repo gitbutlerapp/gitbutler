@@ -1,9 +1,5 @@
-<script lang="ts" context="module">
-	const zones = new Set<HTMLDivElement>();
-</script>
-
 <script lang="ts">
-	import type { Commit, File, Hunk } from '$lib/api/ipc/vbranches';
+	import type { Commit, File, Hunk } from '$lib/vbranches';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import FileCard from './FileCard.svelte';
 	import { IconBranch } from '$lib/icons';
@@ -12,9 +8,10 @@
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import type { VirtualBranchOperations } from './vbranches';
 	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
+	import { dzHighlight } from './dropZone';
+	import type { BranchController } from '$lib/vbranches';
 
 	const dispatch = createEventDispatcher<{
 		empty: never;
@@ -29,7 +26,7 @@
 	export let commits: Commit[];
 	export let projectId: string;
 	export let order: number;
-	export let virtualBranches: VirtualBranchOperations;
+	export let branchController: BranchController;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
@@ -40,22 +37,16 @@
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
-	let dropZone: HTMLDivElement;
 
 	const hoverClass = 'drag-zone-hover';
-	const hunkType = 'text/hunk';
-
-	onMount(() => {
-		zones.add(dropZone);
-		return () => zones.delete(dropZone);
-	});
+	const dzType = 'text/hunk';
 
 	function updateBranchOwnership() {
 		const ownership = files
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
 		console.log('updateBranchOwnership', branchId, ownership);
-		virtualBranches.updateBranchOwnership(branchId, ownership);
+		branchController.updateBranchOwnership(branchId, ownership);
 		if (files.length == 0) dispatch('empty');
 	}
 
@@ -77,14 +68,14 @@
 
 	function commit() {
 		console.log('commit', commitMessage, projectId, branchId);
-		virtualBranches.commitBranch(branchId, commitMessage);
+		branchController.commitBranch(branchId, commitMessage);
 	}
 
 	function push() {
 		if (localCommits[0]?.id) {
 			console.log(`pushing ${branchId}`);
 			isPushing = true;
-			virtualBranches.pushBranch(branchId).finally(() => (isPushing = false));
+			branchController.pushBranch(branchId).finally(() => (isPushing = false));
 		}
 	}
 
@@ -121,7 +112,7 @@
 
 	function handleBranchNameChange() {
 		console.log('branch name change:', name);
-		virtualBranches.updateBranchName(branchId, name);
+		branchController.updateBranchName(branchId, name);
 	}
 
 	function isChildOf(child: any, parent: HTMLElement): boolean {
@@ -134,49 +125,29 @@
 
 <div
 	draggable="true"
-	bind:this={dropZone}
-	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	class:w-full={maximized}
 	class:w-96={!maximized}
+	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drag-zone-active' }}
 	on:dragstart
-	on:dragenter={(e) => {
-		if (!e.dataTransfer?.types.includes(hunkType)) {
-			return;
-		}
-		dropZone.classList.add(hoverClass);
-	}}
-	on:dragleave|stopPropagation={(e) => {
-		if (!e.dataTransfer?.types.includes(hunkType)) {
-			return;
-		}
-		if (!isChildOf(e.target, dropZone)) {
-			dropZone.classList.remove(hoverClass);
-		}
-	}}
-	on:dragover|stopPropagation={(e) => {
-		if (e.dataTransfer?.types.includes(hunkType)) e.preventDefault();
-	}}
-	on:dragend={(e) => {
-		dropZone.classList.remove(hoverClass);
-	}}
+	on:dragend
 	on:drop|stopPropagation={(e) => {
 		if (!e.dataTransfer) {
 			return;
 		}
-		dropZone.classList.remove(hoverClass);
-		const data = e.dataTransfer.getData(hunkType);
+		const data = e.dataTransfer.getData(dzType);
 		const ownership = files
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
-		virtualBranches.updateBranchOwnership(branchId, (data + '\n' + ownership).trim());
+		branchController.updateBranchOwnership(branchId, (data + '\n' + ownership).trim());
 	}}
 >
 	<div
-		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg font-bold text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div
 			on:dblclick={() => (maximized = !maximized)}
-			class="flex-grow-0 cursor-pointer text-light-600 dark:text-dark-200"
+			class="h-8 w-8 flex-grow-0  cursor-pointer p-2 text-light-600 dark:text-dark-200"
 		>
 			<IconBranch />
 		</div>
@@ -186,12 +157,12 @@
 				bind:value={name}
 				on:change={handleBranchNameChange}
 				title={name}
-				class="w-full truncate border-0 bg-light-200 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+				class="w-full truncate border-0 bg-light-200 font-bold text-light-900 dark:bg-dark-1000 dark:text-dark-100"
 			/>
 		</div>
 		<button
 			bind:this={meatballButton}
-			class="flex-grow-0 p-2 text-light-600 dark:text-dark-200"
+			class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
 			on:keydown={() => popupMenu.openByElement(meatballButton, branchId)}
 			on:click={() => popupMenu.openByElement(meatballButton, branchId)}
 		>
@@ -200,7 +171,7 @@
 	</div>
 
 	<PopupMenu bind:this={popupMenu} let:item={branchId}>
-		<PopupMenuItem on:click={() => branchId && virtualBranches.unapplyBranch(branchId)}>
+		<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
 			Unapply
 		</PopupMenuItem>
 
@@ -212,12 +183,12 @@
 			{/if}
 		</PopupMenuItem>
 
-		<PopupMenuItem on:click={() => virtualBranches.createBranch({ order: order + 1 })}>
-			Create branch after
+		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
+			Create branch before
 		</PopupMenuItem>
 
-		<PopupMenuItem on:click={() => virtualBranches.createBranch({ order })}>
-			Create branch before
+		<PopupMenuItem on:click={() => branchController.createBranch({ order: order + 1 })}>
+			Create branch after
 		</PopupMenuItem>
 	</PopupMenu>
 
@@ -232,7 +203,7 @@
 				rows={messageRows}
 			/>
 		</div>
-		<div class="mb-4 text-right">
+		<div class="mb-2 text-right">
 			<Button
 				height="small"
 				color="purple"
@@ -251,29 +222,23 @@
 					filepath={file.path}
 					expanded={file.expanded}
 					hunks={file.hunks}
+					{dzType}
 					{maximized}
-					on:update={(e) => {
-						handleFileUpdate(file.id, e.detail);
-					}}
 					on:expanded={(e) => {
 						setExpandedWithCache(file, e.detail);
 						expandFromCache();
-					}}
-					on:drag={(e) => {
-						zones.forEach((zone) => {
-							if (zone != dropZone) {
-								e.detail
-									? zone.classList.add('drag-zone-active')
-									: zone.classList.remove('drag-zone-active');
-							}
-						});
 					}}
 					{projectPath}
 				/>
 			{/each}
 			{#if files.length == 0}
 				<!-- attention: these markers have custom css at the bottom of thise file -->
-				<div class="no-changes p-2" data-dnd-ignore>No uncommitted work on this branch.</div>
+				<div
+					class="no-changes rounded border border-zinc-200 p-2 text-center dark:border-zinc-700"
+					data-dnd-ignore
+				>
+					No changes made
+				</div>
 			{/if}
 		</div>
 	</div>
