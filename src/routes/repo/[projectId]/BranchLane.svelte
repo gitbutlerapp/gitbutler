@@ -154,6 +154,8 @@
 			{/if}
 		</PopupMenuItem>
 
+		<div class="w-full border-t border-light-300 dark:border-dark-500 my-2"></div>
+
 		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
 			Create branch before
 		</PopupMenuItem>
