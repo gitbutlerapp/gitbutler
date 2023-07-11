@@ -1,7 +1,6 @@
 import { invoke } from '$lib/ipc';
 import { plainToInstance } from 'class-transformer';
 import { Branch, BranchData, Target } from './types';
-import { getLinesFromChunkHeader } from '$lib/diff/utils';
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
 	const result = await invoke<any[]>('list_virtual_branches', params);
@@ -78,20 +77,5 @@ export async function fetchFromTarget(params: { projectId: string }) {
 
 function sortBranches(branches: Branch[]): Branch[] {
 	branches.sort((a, b) => a.order - b.order);
-	branches.forEach((branch) => {
-		const files = branch.files;
-		files.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-		files.forEach((file) => {
-			const hunks = file.hunks;
-			// Sort by line before sorting by to prevent random order for hunks
-			// with the same timestamp.
-			hunks.sort((a, b) => {
-				const aln = getLinesFromChunkHeader(a.diff);
-				const bln = getLinesFromChunkHeader(b.diff);
-				return aln.currentLineNumber - bln.currentLineNumber;
-			});
-			hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-		});
-	});
 	return branches;
 }
