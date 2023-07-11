@@ -2,6 +2,7 @@
 	import { buildDiffRows, documentMap, RowType, type Row } from '$lib/components/Differ/renderer';
 	import { line, type DiffArray } from '$lib/diff';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
+	import { getLinesFromChunkHeader } from '$lib/diff/utils';
 
 	export let diff: string;
 	export let filePath: string;
@@ -16,11 +17,7 @@
 		currentLineNumber: number;
 	} {
 		const diffLines = diff.split('\n');
-		const header = diffLines[0];
-
-		const lr = header.split('@@')[1].trim().split(' ');
-		const originalLineNumber = parseInt(lr[0].split(',')[0].slice(1));
-		const currentLineNumber = parseInt(lr[1].split(',')[0].slice(1));
+		const { originalLineNumber, currentLineNumber } = getLinesFromChunkHeader(diff);
 
 		const before = diffLines
 			.filter((line) => line.startsWith('-'))
