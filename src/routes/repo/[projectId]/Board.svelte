@@ -55,7 +55,7 @@
 				: children[dropPosition].after(dragged);
 		}
 	}}
-	on:drop={(e) => {
+	on:drop={() => {
 		if (priorPosition != dropPosition) {
 			const el = branches.splice(priorPosition, 1);
 			branches.splice(dropPosition, 0, ...el);

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Commit, File, Hunk } from '$lib/vbranches';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import type { Commit, File } from '$lib/vbranches';
+	import { onMount } from 'svelte';
 	import FileCard from './FileCard.svelte';
 	import { IconBranch } from '$lib/icons';
 	import { Button } from '$lib/components';
@@ -12,10 +12,6 @@
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
-
-	const dispatch = createEventDispatcher<{
-		empty: never;
-	}>();
 
 	export let branchId: string;
 	export let projectPath: string;
@@ -40,31 +36,6 @@
 
 	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
-
-	function updateBranchOwnership() {
-		const ownership = files
-			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
-			.join('\n');
-		console.log('updateBranchOwnership', branchId, ownership);
-		branchController.updateBranchOwnership(branchId, ownership);
-		if (files.length == 0) dispatch('empty');
-	}
-
-	function handleFileUpdate(fileId: string, hunks: Hunk[]) {
-		const fileIndex = files.findIndex((f) => f.id == fileId);
-		if (fileIndex == -1) {
-			return;
-		} else {
-			if (hunks.length === 0) {
-				files.splice(fileIndex, 1);
-			} else {
-				files[fileIndex].hunks = hunks;
-			}
-			files = files;
-			if (files.length === 0) dispatch('empty');
-			updateBranchOwnership();
-		}
-	}
 
 	function commit() {
 		console.log('commit', commitMessage, projectId, branchId);
@@ -113,13 +84,6 @@
 	function handleBranchNameChange() {
 		console.log('branch name change:', name);
 		branchController.updateBranchName(branchId, name);
-	}
-
-	function isChildOf(child: any, parent: HTMLElement): boolean {
-		if (parent === child) return false;
-		if (!child.parentElement) return false;
-		if (child.parentElement == parent) return true;
-		return isChildOf(child.parentElement, parent);
 	}
 </script>
 
