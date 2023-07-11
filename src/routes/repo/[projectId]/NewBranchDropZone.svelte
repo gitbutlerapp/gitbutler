@@ -1,29 +1,18 @@
 <script lang="ts">
-	import type { Branch } from '$lib/vbranches';
 	import { Button } from '$lib/components';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
 
 	export let branchController: BranchController;
-	let items: Branch[] = [];
-	let dropZone: HTMLDivElement;
 
 	function handleNewVirtualBranch() {
 		branchController.createBranch({});
-	}
-
-	function isChildOf(child: any, parent: HTMLElement): boolean {
-		if (parent === child) return false;
-		if (!child.parentElement) return false;
-		if (child.parentElement == parent) return true;
-		return isChildOf(child.parentElement, parent);
 	}
 </script>
 
 <div
 	id="new-branch-dz"
 	class="h-42 ml-4 mt-14 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
-	bind:this={dropZone}
 	use:dzHighlight={{ type: 'text/hunk', hover: 'drop-zone-hover', active: 'drop-zone-active' }}
 	on:drop|stopPropagation={(e) => {
 		if (!e.dataTransfer) {
