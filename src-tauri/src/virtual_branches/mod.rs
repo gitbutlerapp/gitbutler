@@ -409,8 +409,6 @@ pub fn remote_branches(
         .map(|branch| branch.upstream.replace("refs/heads/", ""))
         .collect::<HashSet<_>>();
 
-    println!("virtual branches: {:?}", virtual_branches);
-
     let mut branches: Vec<RemoteBranch> = Vec::new();
     let mut most_recent_branches_by_hash: HashMap<git2::Oid, (git2::Branch, u64)> = HashMap::new();
 
@@ -572,7 +570,6 @@ pub fn remote_branches(
                         let branch_tree = branch_commit.tree()?;
                         let (mergeable, merge_conflicts) =
                             check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
-                        println!("mergeable: {} {}", branch_name, mergeable);
 
                         branches.push(RemoteBranch {
                             sha: branch_oid.to_string(),
@@ -926,7 +923,6 @@ pub fn create_virtual_branch_from_branch(
     let merge_base = repo.merge_base(target_commit.id(), head_commit.id())?;
     let merge_tree = repo.find_commit(merge_base)?.tree()?;
     if merge_base != target_commit.id() {
-        println!("merge base is not target commit");
         let target_tree = target_commit.tree()?;
         let head_tree = head_commit.tree()?;
 
@@ -939,7 +935,6 @@ pub fn create_virtual_branch_from_branch(
         if merge_index.has_conflicts() {
             bail!("merge conflict");
         } else {
-            println!("merging target");
             let (author, committer) = gb_repository.git_signatures()?;
             let new_head_tree_oid = merge_index
                 .write_tree_to(repo)
@@ -1092,8 +1087,6 @@ pub fn update_branch(
     if let Some(order) = branch_update.order {
         branch.order = order;
     };
-
-    println!("branch: {:?}", branch);
 
     branch_writer
         .write(&branch)
@@ -1333,7 +1326,6 @@ pub fn get_status_by_branch(
     ) {
         Ok(Some(target)) => Ok(target),
         Ok(None) => {
-            println!("  no base sha set, run butler setup");
             return Ok(vec![]);
         }
         Err(e) => Err(e),
@@ -1579,14 +1571,9 @@ pub fn update_branch_target(
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.name))?;
     let new_target_oid = new_target_commit.id();
-    println!(
-        "update target from {:?} to {:?}",
-        target.sha, new_target_oid
-    );
-
+    //
     // if the target has not changed, do nothing
     if new_target_oid == target.sha {
-        println!("target is up to date");
         return Ok(());
     }
 
@@ -1641,11 +1628,6 @@ pub fn update_branch_target(
     // get commit object from target.sha
     let target_commit = repo.find_commit(target.sha)?;
 
-    // get current repo head for reference
-    let head = repo.head()?;
-    let prev_head = head.name().unwrap();
-    println!("prev head: {:?}", prev_head);
-
     // commit index to temp head for the merge
     repo.set_head(my_ref).context("failed to set head")?;
     let (author, committer) = gb_repository.git_signatures()?;
@@ -1697,7 +1679,6 @@ pub fn update_branch_target(
 
             // check index for conflicts
             if merge_index.has_conflicts() {
-                println!("conflicts");
                 // unapply branch for now
                 virtual_branch.applied = false;
                 writer.write(&virtual_branch)?;
@@ -1713,8 +1694,6 @@ pub fn update_branch_target(
 
                 // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                 // then the vbranch is fully merged, so delete it
-                println!("merge_tree_oid: {:?}", merge_tree_oid);
-                println!("new_target_tree.id(): {:?}", new_target_tree.id());
                 if merge_tree_oid == new_target_tree.id() && vbranch.files.is_empty() {
                     writer.delete(&virtual_branch)?;
                 } else {
@@ -1817,21 +1796,6 @@ fn write_tree(
     // now write out the tree
     let tree_oid = builder.create_updated(git_repository, &base_tree)?;
     Ok(tree_oid)
-}
-
-fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
-    println!("tree id: {:?}", tree.id());
-    for entry in tree.iter() {
-        println!("entry: {:?} {:?}", entry.name(), entry.id());
-        // get entry contents
-        let object = entry.to_object(repo).context("failed to get object")?;
-        let blob = object.as_blob().context("failed to get blob")?;
-        // convert content to string
-        let content =
-            std::str::from_utf8(blob.content()).context("failed to convert content to string")?;
-        println!("blob: {:?}", content);
-    }
-    Ok(())
 }
 
 pub fn commit(
@@ -2168,8 +2132,6 @@ mod tests {
             .iter()
             .map(|(branch, files)| (branch.id.clone(), files))
             .collect::<HashMap<_, _>>();
-
-        println!("{:#?}", statuses);
 
         assert_eq!(files_by_branch_id.len(), 2);
         assert_eq!(files_by_branch_id[&branch0.id].len(), 0);
