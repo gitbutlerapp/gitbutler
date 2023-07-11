@@ -200,8 +200,8 @@ devDependencies:
     specifier: ^1.0.3
     version: 1.0.3(svelte@3.55.1)
   svelte-loadable-store:
-    specifier: ^1.2.3
-    version: 1.2.3(svelte@3.55.1)
+    specifier: ^2.0.0
+    version: 2.0.0(svelte@3.55.1)
   svelte-outclick:
     specifier: ^3.5.0
     version: 3.5.0(svelte@3.55.1)
@@ -213,10 +213,10 @@ devDependencies:
     version: 3.2.4(postcss@8.4.21)
   tauri-plugin-log-api:
     specifier: github:tauri-apps/tauri-plugin-log
-    version: github.com/tauri-apps/tauri-plugin-log/21921031d74f871180381317a338559f588ad8e9
+    version: github.com/tauri-apps/tauri-plugin-log/fbbb126e6d7fba7a7e6772d33f99c0fb689f32b6
   tauri-plugin-websocket-api:
     specifier: github:tauri-apps/tauri-plugin-websocket
-    version: github.com/tauri-apps/tauri-plugin-websocket/7832cb121d2ecaf6b52c9bdee77df18fddaac5d9
+    version: github.com/tauri-apps/tauri-plugin-websocket/39b7ba2c0c27a9b0093b00120830ed23774f5403
   tinykeys:
     specifier: ^1.4.0
     version: 1.4.0
@@ -4717,8 +4717,8 @@ packages:
       svelte: 3.55.1
     dev: true
 
-  /svelte-loadable-store@1.2.3(svelte@3.55.1):
-    resolution: {integrity: sha512-efoCRCGLxzU+RE1D09cpnKKBO2CVXAzjUY0/RatOtPXSNPbb0/HeGcV/baH5davabwiDm7iWf2rqI9ogIRQ1Pw==}
+  /svelte-loadable-store@2.0.0(svelte@3.55.1):
+    resolution: {integrity: sha512-2mnbj99fnbQg4WwXW3WZWUqAbcaXkHacFFulb7r+VdSic9PkkKq/117V94lVeCrC9BxMR7KaOdESE7+JZTsWxg==}
     peerDependencies:
       svelte: ^3.0.0
     dependencies:
@@ -5459,16 +5459,16 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-log/21921031d74f871180381317a338559f588ad8e9:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/21921031d74f871180381317a338559f588ad8e9}
+  github.com/tauri-apps/tauri-plugin-log/fbbb126e6d7fba7a7e6772d33f99c0fb689f32b6:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/fbbb126e6d7fba7a7e6772d33f99c0fb689f32b6}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
       '@tauri-apps/api': 1.4.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/7832cb121d2ecaf6b52c9bdee77df18fddaac5d9:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/7832cb121d2ecaf6b52c9bdee77df18fddaac5d9}
+  github.com/tauri-apps/tauri-plugin-websocket/39b7ba2c0c27a9b0093b00120830ed23774f5403:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/39b7ba2c0c27a9b0093b00120830ed23774f5403}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:

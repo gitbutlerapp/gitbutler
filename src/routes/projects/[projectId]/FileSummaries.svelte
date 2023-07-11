@@ -2,7 +2,7 @@
 	import { format, startOfDay } from 'date-fns';
 	import type { Delta } from '$lib/api';
 	import { generateBuckets } from './histogram';
-	import { derived, Value } from 'svelte-loadable-store';
+	import { derived, Loaded } from 'svelte-loadable-store';
 	import FileActivity from './FileActivity.svelte';
 	import { page } from '$app/stores';
 	import { Link } from '$lib/components';
@@ -44,7 +44,7 @@
 				<h2 class="text-2xl font-bold text-zinc-400">Loading file changes...</h2>
 			</div>
 		</li>
-	{:else if Value.isError($deltasByDate.value) || Value.isError($buckets.value)}
+	{:else if Loaded.isError($deltasByDate) || Loaded.isError($buckets)}
 		<li class="flex flex-1 space-y-4 rounded-lg border border-dashed border-zinc-400">
 			<div class="flex flex-1 flex-col items-center justify-center gap-4">
 				<IconSparkle class="h-16 w-16 text-zinc-400 " />
