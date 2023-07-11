@@ -31,11 +31,14 @@ impl<'writer> TargetWriter<'writer> {
         }
 
         self.writer
-            .write_string("branches/target/name", &target.name)
-            .context("Failed to write default target name")?;
+            .write_string("branches/target/branch_name", &target.branch_name)
+            .context("Failed to write default target branch name")?;
         self.writer
-            .write_string("branches/target/remote", &target.remote)
-            .context("Failed to write default target remote")?;
+            .write_string("branches/target/remote_name", &target.remote_name)
+            .context("Failed to write default target remote name ")?;
+        self.writer
+            .write_string("branches/target/remote_url", &target.remote_url)
+            .context("Failed to write default target remote name ")?;
         self.writer
             .write_string("branches/target/sha", &target.sha.to_string())
             .context("Failed to write default target sha")?;
@@ -53,10 +56,22 @@ impl<'writer> TargetWriter<'writer> {
         }
 
         self.writer
-            .write_string(&format!("branches/{}/target/name", id), &target.name)
-            .context("Failed to write branch target name")?;
+            .write_string(
+                &format!("branches/{}/target/branch_name", id),
+                &target.branch_name,
+            )
+            .context("Failed to write branch target branch name")?;
         self.writer
-            .write_string(&format!("branches/{}/target/remote", id), &target.remote)
+            .write_string(
+                &format!("branches/{}/target/remote_name", id),
+                &target.remote_name,
+            )
+            .context("Failed to write branch target remote")?;
+        self.writer
+            .write_string(
+                &format!("branches/{}/target/remote_url", id),
+                &target.remote_url,
+            )
             .context("Failed to write branch target remote")?;
         self.writer
             .write_string(
@@ -143,8 +158,9 @@ mod tests {
 
         let branch = test_branch();
         let target = Target {
-            name: "target_name".to_string(),
-            remote: "target_remote".to_string(),
+            branch_name: "branch name".to_string(),
+            remote_name: "remote name".to_string(),
+            remote_url: "remote url".to_string(),
             sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
             behind: 0,
         };
@@ -163,14 +179,19 @@ mod tests {
             branch.name
         );
         assert_eq!(
-            fs::read_to_string(root.join("target").join("name").to_str().unwrap())
+            fs::read_to_string(root.join("target").join("branch_name").to_str().unwrap())
                 .context("Failed to read branch target name")?,
-            target.name
+            target.branch_name
         );
         assert_eq!(
-            fs::read_to_string(root.join("target").join("remote").to_str().unwrap())
-                .context("Failed to read branch target remote")?,
-            target.remote
+            fs::read_to_string(root.join("target").join("remote_name").to_str().unwrap())
+                .context("Failed to read branch target name name")?,
+            target.remote_name
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("target").join("remote_url").to_str().unwrap())
+                .context("Failed to read branch target remote url")?,
+            target.remote_url
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("sha").to_str().unwrap())
@@ -230,8 +251,9 @@ mod tests {
 
         let branch = test_branch();
         let target = Target {
-            name: "target_name".to_string(),
-            remote: "target_remote".to_string(),
+            remote_name: "remote name".to_string(),
+            branch_name: "branch name".to_string(),
+            remote_url: "remote url".to_string(),
             sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
             behind: 0,
         };
@@ -242,8 +264,9 @@ mod tests {
         target_writer.write(&branch.id, &target)?;
 
         let updated_target = Target {
-            name: "updated_target_name".to_string(),
-            remote: "updated_target_remote".to_string(),
+            remote_name: "updated remote name".to_string(),
+            branch_name: "updated branch name".to_string(),
+            remote_url: "updated remote url".to_string(),
             sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
             behind: 0,
         };
@@ -253,14 +276,20 @@ mod tests {
         let root = gb_repo.root().join("branches").join(&branch.id);
 
         assert_eq!(
-            fs::read_to_string(root.join("target").join("name").to_str().unwrap())
-                .context("Failed to read branch target name")?,
-            updated_target.name
+            fs::read_to_string(root.join("target").join("branch_name").to_str().unwrap())
+                .context("Failed to read branch target branch name")?,
+            updated_target.branch_name
+        );
+
+        assert_eq!(
+            fs::read_to_string(root.join("target").join("remote_name").to_str().unwrap())
+                .context("Failed to read branch target remote name")?,
+            updated_target.remote_name
         );
         assert_eq!(
-            fs::read_to_string(root.join("target").join("remote").to_str().unwrap())
-                .context("Failed to read branch target remote")?,
-            updated_target.remote
+            fs::read_to_string(root.join("target").join("remote_url").to_str().unwrap())
+                .context("Failed to read branch target remote url")?,
+            updated_target.remote_url
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("sha").to_str().unwrap())

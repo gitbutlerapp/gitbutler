@@ -752,7 +752,6 @@ pub fn list_virtual_branches(
         let mut upstream_commit = None;
         if !branch.upstream.is_empty() {
             // get the target remote
-            let remote_url = &default_target.remote;
             let remotes = repo.remotes()?;
             let mut upstream_remote = None;
             for remote_name in remotes.iter() {
@@ -767,7 +766,7 @@ pub fn list_virtual_branches(
                     None => continue,
                 };
 
-                if url == remote_url {
+                if url == default_target.remote_url {
                     upstream_remote = Some(remote);
                     break;
                 }
@@ -1564,12 +1563,12 @@ pub fn update_branch_target(
 
     let repo = &project_repository.git_repository;
     let branch = repo
-        .find_branch(&target.name, git2::BranchType::Remote)
-        .context(format!("failed to find branch {}", target.name))?;
-    let new_target_commit = branch
-        .get()
-        .peel_to_commit()
-        .context(format!("failed to peel branch {} to commit", target.name))?;
+        .find_branch(&target.branch_name, git2::BranchType::Remote)
+        .context(format!("failed to find branch {}", target.branch_name))?;
+    let new_target_commit = branch.get().peel_to_commit().context(format!(
+        "failed to peel branch {} to commit",
+        target.branch_name
+    ))?;
     let new_target_oid = new_target_commit.id();
     //
     // if the target has not changed, do nothing
@@ -1938,13 +1937,13 @@ pub fn get_target_data(
         Some(mut target) => {
             let repo = &project_repository.git_repository;
             let branch = repo
-                .find_branch(&target.name, git2::BranchType::Remote)
+                .find_branch(&target.branch_name, git2::BranchType::Remote)
                 .unwrap();
             let commit = branch.get().peel_to_commit().unwrap();
             let oid = commit.id();
             target.behind = project_repository
                 .behind(oid, target.sha)
-                .context(format!("failed to get behind for {}", target.name))?;
+                .context(format!("failed to get behind for {}", target.branch_name))?;
             Ok(Some(target))
         }
     }
@@ -2026,8 +2025,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            remote_name: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2093,8 +2093,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            remote_name: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2153,8 +2154,9 @@ mod tests {
             gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2200,8 +2202,9 @@ mod tests {
             gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2242,8 +2245,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2329,8 +2333,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2388,8 +2393,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2509,8 +2515,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2624,8 +2631,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2719,8 +2727,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2784,8 +2793,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2891,8 +2901,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2970,8 +2981,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3055,8 +3067,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3160,8 +3173,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3249,8 +3263,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3419,8 +3434,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "http://origin.com/project".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "http://origin.com/project".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3529,8 +3545,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "http://origin.com/project".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "http://origin.com/project".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3681,8 +3698,9 @@ mod tests {
         )?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "http://origin.com/project".to_string(),
+            remote_name: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_url: "http://origin.com/project".to_string(),
             sha: upstream_commit,
             behind: 0,
         })?;
@@ -3785,8 +3803,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3941,8 +3960,9 @@ mod tests {
         let commit1_oid = repository.head().unwrap().target().unwrap();
         let commit1 = repository.find_commit(commit1_oid).unwrap();
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: commit1_oid,
             behind: 0,
         })?;

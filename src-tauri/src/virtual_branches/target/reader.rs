@@ -33,6 +33,7 @@ impl<'reader> TargetReader<'reader> {
 
 #[cfg(test)]
 mod tests {
+    use crate::writer::Writer;
     use anyhow::Result;
     use tempfile::tempdir;
 
@@ -117,6 +118,54 @@ mod tests {
     }
 
     #[test]
+    fn test_read_deprecated_format() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo =
+            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+
+        let writer = crate::writer::DirWriter::open(gb_repo.root());
+        writer
+            .write_string("branches/target/name", "origin/master")
+            .unwrap();
+        writer
+            .write_string(
+                "branches/target/remote",
+                "git@github.com:gitbutlerapp/gitbutler-client.git",
+            )
+            .unwrap();
+        writer
+            .write_string(
+                "branches/target/sha",
+                "dd945831869e9593448aa622fa4342bbfb84813d",
+            )
+            .unwrap();
+
+        let session = gb_repo.get_or_create_current_session()?;
+        let session_reader = sessions::Reader::open(&gb_repo, &session)?;
+        let reader = TargetReader::new(&session_reader);
+
+        let read = reader.read_default().unwrap();
+        assert_eq!(read.branch_name, "origin/master");
+        assert_eq!(read.remote_name, "origin");
+        assert_eq!(
+            read.remote_url,
+            "git@github.com:gitbutlerapp/gitbutler-client.git"
+        );
+        assert_eq!(
+            read.sha,
+            git2::Oid::from_str("dd945831869e9593448aa622fa4342bbfb84813d").unwrap()
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_read_override_target() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
@@ -131,15 +180,17 @@ mod tests {
         let branch = test_branch();
 
         let target = Target {
-            name: "target".to_string(),
-            remote: "remote".to_string(),
+            remote_name: "remote".to_string(),
+            branch_name: "branch".to_string(),
+            remote_url: "remote url".to_string(),
             sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
             behind: 0,
         };
 
         let default_target = Target {
-            name: "default_target".to_string(),
-            remote: "default_remote".to_string(),
+            remote_name: "default remote".to_string(),
+            branch_name: "default branch".to_string(),
+            remote_url: "default remote url".to_string(),
             sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
             behind: 0,
         };
