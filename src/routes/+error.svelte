@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { log } from '$lib';
 
 	$: if ($page.error) {
-		log.error($page.url, $page.error);
+		console.error($page.url, $page.error);
 	} else {
-		log.error($page.url, $page.status);
+		console.log($page.url, $page.status);
 	}
 
 	$: message = $page.error

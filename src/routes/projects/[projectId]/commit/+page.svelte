@@ -9,7 +9,7 @@
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Modal } from '$lib/components';
-	import { log, hotkeys, stores } from '$lib';
+	import { hotkeys, stores } from '$lib';
 	import { IconChevronDown, IconChevronUp } from '$lib/icons';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
@@ -193,7 +193,7 @@
 				await project.update({ api: { ...$project.api, sync: true } });
 			}
 		} catch (e) {
-			log.error(`Failed to update project sync status: ${e}`);
+			console.error(`Failed to update project sync status: ${e}`);
 			error('Failed to update project sync status');
 		}
 	};

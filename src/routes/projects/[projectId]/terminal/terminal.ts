@@ -5,7 +5,6 @@ import { WebglAddon } from 'xterm-addon-webgl';
 import { FitAddon } from 'xterm-addon-fit';
 import { Unicode11Addon } from 'xterm-addon-unicode11';
 import WebSocket, { type Message } from 'tauri-plugin-websocket-api';
-import { log } from '$lib';
 import { dev } from '$app/environment';
 
 const isWebgl2Supported = (() => {
@@ -48,7 +47,7 @@ const newSession = async (params: { project: Project }) => {
 	return WebSocket.connect(`ws://localhost:${port}/${project.id}`).then((conn) => {
 		const sendMessage = (message: Message) => {
 			conn.send(message).catch((e: any) => {
-				log.error(`failed to send message to terminal: ${e}`);
+				console.error(`failed to send message to terminal: ${e}`);
 			});
 		};
 
