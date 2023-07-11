@@ -77,13 +77,5 @@ export async function fetchFromTarget(params: { projectId: string }) {
 
 function sortBranches(branches: Branch[]): Branch[] {
 	branches.sort((a, b) => a.order - b.order);
-	branches.forEach((branch) => {
-		const files = branch.files;
-		files.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-		files.forEach((file) => {
-			const hunks = file.hunks;
-			hunks.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-		});
-	});
 	return branches;
 }
