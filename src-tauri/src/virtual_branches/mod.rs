@@ -673,6 +673,7 @@ pub fn remote_branches(
                     if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
                         // determine if this tree is mergeable
                         let branch_tree = branch_commit.tree()?;
+                        println!("branch mergability: {}", branch_name);
                         let (mergeable, merge_conflicts) =
                             check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
                         println!("mergeable: {} {}", branch_name, mergeable);
@@ -750,6 +751,19 @@ fn check_mergeable(
     wd_tree: &git2::Tree,
 ) -> Result<(bool, Vec<String>)> {
     let mut merge_conflicts = Vec::new();
+
+    println!("base: {:?}", base_tree.id());
+    _print_tree(repo, &base_tree)?;
+    println!(" ");
+
+    println!("branch: {:?}", branch_tree.id());
+    _print_tree(repo, &branch_tree)?;
+    println!(" ");
+
+    println!("wd: {:?}", wd_tree.id());
+    _print_tree(repo, &wd_tree)?;
+    println!(" ");
+
     let merge_options = git2::MergeOptions::new();
     let merge_index = repo
         .merge_trees(base_tree, wd_tree, branch_tree, Some(&merge_options))
@@ -957,6 +971,7 @@ pub fn list_virtual_branches(
                     let branch_tree = repo
                         .find_tree(branch.tree)
                         .context("failed to find branch tree")?;
+                    println!("branch mergability: {}", &branch.name);
                     (mergeable, merge_conflicts) =
                         check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
                 } else {
@@ -3313,7 +3328,7 @@ mod tests {
         )?;
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path2),
-            "upstream\nline5\nline6\nline7\nline8\n",
+            "line5\nline6\nline7\nline8\n",
         )?;
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path3),
@@ -3363,6 +3378,15 @@ mod tests {
             std::path::Path::new(&project.path).join(file_path),
             "line1\nline2\nline3\nline4\nsit1.unapplied.conflict.uncommitted\n",
         )?;
+        // reset other files
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "file3\n",
+        )?;
         update_branch(
             &gb_repo,
             branch::BranchUpdateRequest {
@@ -3379,6 +3403,7 @@ mod tests {
             std::path::Path::new(&project.path).join(file_path),
             "line1\nline2\nline3\nline4\nsit2.unapplied.conflict.committed\n",
         )?;
+
         update_branch(
             &gb_repo,
             branch::BranchUpdateRequest {
@@ -3415,7 +3440,7 @@ mod tests {
         )?;
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path2),
-            "line5\nline6\nline7\nline8\nsit3.no-conflict\n",
+            "sit3.no-conflict\nline5\nline6\nline7\nline8\n",
         )?;
         update_branch(
             &gb_repo,
