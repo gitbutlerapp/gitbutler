@@ -38,7 +38,7 @@
 		const parts = filepath.split('/');
 		if (parts.length == 0) return '';
 		return (
-			parts.slice(0, -2).join('/') +
+			parts.slice(0, -1).join('/') +
 			'/<span class="font-bold text-light-800 dark:text-dark-50">' +
 			parts[parts.length - 1] +
 			'</span>'
