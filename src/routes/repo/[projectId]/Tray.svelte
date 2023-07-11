@@ -69,7 +69,7 @@
 	<div
 		class="flex w-full flex-row items-center justify-between border-b border-light-400 pb-1 pl-2 pr-1 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
 	>
-		<div class="flex-grow pb-1 font-bold" title={behindMessage}>{target.name}</div>
+		<div class="flex-grow pb-1 font-bold" title={behindMessage}>{target.branchName}</div>
 		<div class="flex items-center gap-1">
 			<div class="pb-1">{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
 			<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>

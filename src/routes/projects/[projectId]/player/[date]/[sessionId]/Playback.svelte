@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 	import { hotkeys } from '$lib';
 	import type { Readable } from '@square/svelte-store';
-	import { type Loadable, derived, Value } from 'svelte-loadable-store';
+	import { type Loadable, derived, Loaded } from 'svelte-loadable-store';
 
 	export let value: number;
 	export let context: number;
@@ -39,7 +39,7 @@
 
 	const gotoNextDelta = () => {
 		if ($maxDeltaIndex.isLoading) return;
-		if (Value.isError($maxDeltaIndex.value)) return;
+		if (Loaded.isError($maxDeltaIndex)) return;
 		if (value < $maxDeltaIndex.value) {
 			value += 1;
 		} else {

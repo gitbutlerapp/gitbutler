@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type LoginToken, CloudApi } from '$lib/api';
-	import { toasts, log, stores } from '$lib';
+	import { toasts, stores } from '$lib';
 	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import Button from './Button';
@@ -31,7 +31,7 @@
 			.then(cloud.login.token.create)
 			.then(token.set)
 			.catch((e) => {
-				log.error(e);
+				console.error(e);
 				toasts.error('Something went wrong');
 			})
 			.finally(() => (signUpOrLoginLoading = false));

@@ -1,7 +1,6 @@
 import { handleErrorWithSentry, init } from '@sentry/sveltekit';
 import type { NavigationEvent } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { log } from '$lib';
 
 init({
 	enabled: !dev,
@@ -10,7 +9,7 @@ init({
 	tracesSampleRate: 1.0
 });
 
-log.info(`sentry init`);
+console.log(`sentry init`);
 
 function myErrorHandler({ error, event }: { error: any; event: NavigationEvent }) {
 	console.error('An error occurred on the client side:', error, event);

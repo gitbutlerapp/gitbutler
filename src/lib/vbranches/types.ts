@@ -63,7 +63,8 @@ export class BranchData {
 
 export class Target {
 	sha!: string;
-	name!: string;
-	remote!: string;
+	branchName!: string;
+	remoteName!: string;
+	remoteUrl!: string;
 	behind!: number;
 }

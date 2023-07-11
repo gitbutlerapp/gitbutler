@@ -1,4 +1,4 @@
-import { writable, type Loadable, derived, Value } from 'svelte-loadable-store';
+import { writable, type Loadable, derived, Loaded } from 'svelte-loadable-store';
 import { bookmarks, type Bookmark } from '$lib/api';
 import { get as getValue, type Readable } from '@square/svelte-store';
 
@@ -12,7 +12,7 @@ export function list(params: { projectId: string }) {
 			const oldValue = getValue(store);
 			if (oldValue.isLoading) {
 				bookmarks.list(params).then(set);
-			} else if (Value.isError(oldValue.value)) {
+			} else if (Loaded.isError(oldValue)) {
 				bookmarks.list(params).then(set);
 			} else {
 				set(oldValue.value.filter((b) => b.timestampMs !== bookmark.timestampMs).concat(bookmark));

@@ -3,7 +3,7 @@
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import { get, writable } from '@square/svelte-store';
-	import { derived, Value } from 'svelte-loadable-store';
+	import { derived, Loaded } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
 	import { stores } from '$lib';
 	import Playback from './Playback.svelte';
@@ -55,7 +55,7 @@
 
 	richSessions?.subscribe((sessions) => {
 		if (sessions.isLoading) return;
-		if (Value.isError(sessions.value)) return;
+		if (Loaded.isError(sessions)) return;
 		if (sessions.value.length === 0) return;
 		if (!sessions.value.some((s) => s.id === $currentSessionId)) {
 			$currentSessionId = sessions.value[0].id;
@@ -74,7 +74,7 @@
 
 	$: {
 		// this hook updates player value if current page url has changed
-		if (!$richSessions.isLoading && Value.isValue($richSessions.value)) {
+		if (!$richSessions.isLoading && Loaded.isValue($richSessions)) {
 			const currentSessionIndex = $richSessions.value.findIndex(
 				(s) => s.id === $page.params.sessionId
 			);
@@ -83,7 +83,7 @@
 					.filter((_, index) => index < currentSessionIndex)
 					.reduce((acc, s) => {
 						const deltas = get(s.deltas);
-						if (!deltas.isLoading && Value.isValue(deltas.value)) {
+						if (!deltas.isLoading && Loaded.isValue(deltas)) {
 							return acc + deltas.value.length;
 						} else {
 							return acc;
@@ -100,7 +100,7 @@
 		/>
 		<h2 class="text-center text-2xl font-medium text-gray-500">Loading...</h2>
 	</div>
-{:else if Value.isError($richSessions.value)}
+{:else if Loaded.isError($richSessions)}
 	<div class="flex h-full flex-col items-center justify-center">
 		<h2 class="text-center text-2xl font-medium text-gray-500">Something went wrong</h2>
 	</div>

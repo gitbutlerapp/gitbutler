@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { stores, log, toasts } from '$lib';
+	import { stores, toasts } from '$lib';
 	import { CloudApi, type Project } from '$lib/api';
 	import { Login, Checkbox } from '$lib/components';
 	import { createEventDispatcher, onMount } from 'svelte';
@@ -37,7 +37,7 @@
 				}));
 			dispatch('updated', { ...project, api: { ...cloudProject, sync } });
 		} catch (error) {
-			log.error(`Failed to update project sync status: ${error}`);
+			console.error(`Failed to update project sync status: ${error}`);
 			toasts.error('Failed to update project sync status');
 		}
 	};

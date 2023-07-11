@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { stores, api } from '$lib';
 	import { format } from 'date-fns';
-	import { derived, Value } from 'svelte-loadable-store';
+	import { derived, Loaded } from 'svelte-loadable-store';
 
 	const sessions = stores.sessions({ projectId: $page.params.projectId });
 
@@ -32,7 +32,7 @@
 </script>
 
 <div id="player-page" class="flex h-full w-full flex-col">
-	{#if !$dates.isLoading && Value.isValue($dates.value)}
+	{#if !$dates.isLoading && Loaded.isValue($dates)}
 		{#if $dates.value.length === 0}
 			<div class="text-center">
 				<h2 class="text-2xl">I haven't seen any changes yet</h2>
