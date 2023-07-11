@@ -114,15 +114,15 @@
 	}}
 >
 	<div
-		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="mb-2 flex w-full shrink-0 items-center rounded bg-light-200 text-lg text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div
 			on:dblclick={() => (maximized = !maximized)}
-			class="h-8 w-8 flex-grow-0  cursor-pointer p-2 text-light-600 dark:text-dark-200"
+			class="h-8 w-8 flex-grow-0 cursor-pointer p-2 text-light-600 dark:text-dark-200"
 		>
 			<IconBranch />
 		</div>
-		<div class="flex-grow">
+		<div class="mr-1 flex-grow ">
 			<input
 				type="text"
 				bind:value={name}
@@ -154,7 +154,9 @@
 			{/if}
 		</PopupMenuItem>
 
-		<div class="w-full border-t border-light-300 dark:border-dark-500 my-2"></div>
+		<div class="mx-3">
+			<div class="my-2 h-[1px] w-full  bg-light-300 dark:bg-dark-500" />
+		</div>
 
 		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
 			Create branch before
@@ -231,10 +233,10 @@
 		<!-- Unpushed commits -->
 		{#each localCommits as commit (commit.id)}
 			<div class="flex w-full px-2 pb-4">
-				<div class="z-10 w-6 py-2">
+				<div class="z-10 ml-1 w-6 py-4">
 					<!-- Unpushed commit bubble -->
 					<div
-						class="h-4 w-4 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
+						class="h-2 w-2 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
 					/>
 				</div>
 				<div class="flex-grow">
@@ -249,9 +251,9 @@
 			<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
 			<!-- Section title for remote commits -->
 			<div class="flex w-full px-2 pb-4">
-				<div class="z-10 w-6">
+				<div class="z-10 ml-1 w-6 py-4">
 					<div
-						class="h-4 w-4 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
+						class="h-2 w-2 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
 					>
 						<!-- Target HEAD commit bubble -->
 						<IconGithub />
@@ -261,10 +263,10 @@
 			</div>
 			{#each remoteCommits as commit (commit.id)}
 				<div class="flex w-full px-2 pb-4">
-					<div class="z-10 w-6 py-2">
+					<div class="z-10 ml-1 w-6 py-4">
 						<!-- Pushed commit bubble -->
 						<div
-							class="rounded--b-sm h-4 w-4 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
+							class="rounded--b-sm h-2 w-2 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
 						/>
 					</div>
 					<CommitCard {commit} />
