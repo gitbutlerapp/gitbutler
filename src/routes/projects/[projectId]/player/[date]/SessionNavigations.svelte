@@ -8,7 +8,7 @@
 	import { unsubscribe } from '$lib/utils';
 	import type { Readable } from '@square/svelte-store';
 	import { onMount } from 'svelte';
-	import { Value, type Loadable } from 'svelte-loadable-store';
+	import { Loaded, type Loadable } from 'svelte-loadable-store';
 	import { derived } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
 
@@ -57,19 +57,11 @@
 	onMount(() =>
 		unsubscribe(
 			hotkeys.on('Shift+ArrowRight', () => {
-				if (
-					!$nextSessionId.isLoading &&
-					Value.isValue($nextSessionId.value) &&
-					$nextSessionId.value
-				)
+				if (!$nextSessionId.isLoading && Loaded.isValue($nextSessionId) && $nextSessionId.value)
 					goto(getSessionURI($nextSessionId.value));
 			}),
 			hotkeys.on('Shift+ArrowLeft', () => {
-				if (
-					!$prevSessionId.isLoading &&
-					Value.isValue($prevSessionId.value) &&
-					$prevSessionId.value
-				)
+				if (!$prevSessionId.isLoading && Loaded.isValue($prevSessionId) && $prevSessionId.value)
 					goto(getSessionURI($prevSessionId.value));
 			})
 		)
@@ -83,7 +75,7 @@
 </span>
 
 <div class="flex items-center gap-1">
-	{#if !$prevSessionId.isLoading && !$nextSessionId.isLoading && Value.isValue($prevSessionId.value) && Value.isValue($nextSessionId.value)}
+	{#if !$prevSessionId.isLoading && !$nextSessionId.isLoading && Loaded.isValue($prevSessionId) && Loaded.isValue($nextSessionId)}
 		<a
 			href={$prevSessionId.value && getSessionURI($prevSessionId.value)}
 			class="rounded border border-zinc-500 bg-zinc-600 p-0.5"

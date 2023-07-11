@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Bookmark, Delta } from '$lib/api';
-	import { derived, Value, type Loadable } from 'svelte-loadable-store';
+	import { derived, Loaded, type Loadable } from 'svelte-loadable-store';
 	import type { Readable } from '@square/svelte-store';
 	import { ModuleChapters, ModuleMarkers, type Marker } from './slider';
 	import { JSR, ModuleSlider } from 'mm-jsr';
@@ -89,7 +89,7 @@
 	};
 </script>
 
-{#if !$totalDeltas.isLoading && Value.isValue($totalDeltas.value) && !$chapters.isLoading && Value.isValue($chapters.value) && !$markers.isLoading && Value.isValue($markers.value)}
+{#if !$totalDeltas.isLoading && Loaded.isValue($totalDeltas) && !$chapters.isLoading && Loaded.isValue($chapters) && !$markers.isLoading && Loaded.isValue($markers)}
 	<div
 		use:jsrSlider={{
 			min: 0,

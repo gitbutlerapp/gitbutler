@@ -3,8 +3,8 @@
 	import { collapse } from '$lib/paths';
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { format } from 'date-fns';
-	import { Value } from 'svelte-loadable-store';
 	import { page } from '$app/stores';
+	import { Loaded } from 'svelte-loadable-store';
 
 	export let timestampMs: number;
 	export let filename: string;
@@ -13,7 +13,7 @@
 
 	const toggleBookmark = () => {
 		if ($bookmark.isLoading) return;
-		if (Value.isError($bookmark.value)) return;
+		if (Loaded.isError($bookmark)) return;
 		api.bookmarks.upsert(
 			!$bookmark.value
 				? {
@@ -30,7 +30,7 @@
 	};
 </script>
 
-{#if !$bookmark.isLoading && !Value.isError($bookmark.value)}
+{#if !$bookmark.isLoading && !Loaded.isError($bookmark)}
 	<div
 		class="flex max-w-[357px] flex-col gap-2 rounded-[18px] py-2 px-4 shadow"
 		style="border: 0.5px solid rgba(63, 63, 70, 0.5);

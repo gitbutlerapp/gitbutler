@@ -1,4 +1,4 @@
-import { writable, type Loadable, Value } from 'svelte-loadable-store';
+import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import type { Readable } from '@square/svelte-store';
 import { git } from '$lib/api/ipc';
 import { stores } from '$lib';
@@ -19,10 +19,11 @@ export class BranchStoresCache {
 		if (cachedStore) {
 			return cachedStore;
 		}
+
 		const writableStore = writable(ipc.listVirtualBranches({ projectId }), (set) => {
 			stores.sessions({ projectId }).subscribe((sessions) => {
 				if (sessions.isLoading) return;
-				if (Value.isError(sessions.value)) return;
+				if (Loaded.isError(sessions)) return;
 				const lastSession = sessions.value.at(-1);
 				if (!lastSession) return;
 				return stores.deltas({ projectId, sessionId: lastSession.id }).subscribe(() => {

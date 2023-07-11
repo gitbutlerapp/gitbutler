@@ -3,7 +3,7 @@
 	import type { Frame } from './frame';
 	import { DeltasViewer } from '$lib/components';
 	import type { Readable } from '@square/svelte-store';
-	import { Value, type Loadable } from 'svelte-loadable-store';
+	import { Loaded, type Loadable } from 'svelte-loadable-store';
 
 	export let context: number;
 	export let fullContext: boolean;
@@ -17,8 +17,8 @@
 		if (
 			!$deltas.isLoading &&
 			!$files.isLoading &&
-			Value.isValue($deltas.value) &&
-			Value.isValue($files.value)
+			Loaded.isValue($deltas) &&
+			Loaded.isValue($files)
 		) {
 			let i = value;
 			for (const j in $deltas.value) {

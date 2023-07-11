@@ -1,4 +1,4 @@
-import { derived, writable, type Loadable, Value } from 'svelte-loadable-store';
+import { derived, writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import { sessions, type Session } from '$lib/api';
 import { get, type Readable } from '@square/svelte-store';
 
@@ -13,7 +13,7 @@ export default (params: { projectId: string }) => {
 				const oldValue = get(store);
 				if (oldValue.isLoading) {
 					sessions.list(params).then(set);
-				} else if (Value.isError(oldValue.value)) {
+				} else if (Loaded.isError(oldValue)) {
 					sessions.list(params).then(set);
 				} else {
 					set(
