@@ -1,10 +1,27 @@
 import { invoke } from '$lib/ipc';
-import { plainToInstance } from 'class-transformer';
-import { Branch, BranchData, Target } from './types';
+import type { Branch, BranchData, Target } from './types';
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
-	const result = await invoke<any[]>('list_virtual_branches', params);
-	return sortBranches(plainToInstance(Branch, result));
+	const result = await invoke<Branch[]>('list_virtual_branches', params);
+	const resultWithDates = result.map((b) => {
+		const files = b.files.map((f) => {
+			const hunks = f.hunks.map((h) => {
+				h.modifiedAt = new Date(h.modifiedAt);
+				return h;
+			});
+			f.hunks = hunks;
+			f.modifiedAt = new Date(f.modifiedAt);
+			return f;
+		});
+		const commits = b.commits.map((c) => {
+			c.createdAt = new Date(c.createdAt);
+			return c;
+		});
+		b.files = files;
+		b.commits = commits;
+		return b;
+	});
+	return sortBranches(resultWithDates);
 }
 
 export async function create(params: {
