@@ -184,7 +184,7 @@
 			>
 		</div>
 		<div class="flex flex-shrink flex-col gap-y-2">
-			<div class="drop-zone-marker hidden rounded-lg border p-6">
+			<div class="drop-zone-marker hidden rounded border p-6 text-center">
 				Drop here to add to virtual branch
 			</div>
 			{#each files as file (file.id)}
