@@ -122,7 +122,7 @@
 		>
 			<IconBranch />
 		</div>
-		<div class="flex-grow mr-1 ">
+		<div class="mr-1 flex-grow ">
 			<input
 				type="text"
 				bind:value={name}
@@ -155,7 +155,7 @@
 		</PopupMenuItem>
 
 		<div class="mx-3">
-			<div class="my-2 h-[1px] w-full  bg-light-300 dark:bg-dark-500"></div>
+			<div class="my-2 h-[1px] w-full  bg-light-300 dark:bg-dark-500" />
 		</div>
 
 		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
@@ -233,7 +233,7 @@
 		<!-- Unpushed commits -->
 		{#each localCommits as commit (commit.id)}
 			<div class="flex w-full px-2 pb-4">
-				<div class="z-10 w-6 ml-1 py-4">
+				<div class="z-10 ml-1 w-6 py-4">
 					<!-- Unpushed commit bubble -->
 					<div
 						class="h-2 w-2 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
@@ -251,7 +251,7 @@
 			<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
 			<!-- Section title for remote commits -->
 			<div class="flex w-full px-2 pb-4">
-				<div class="z-10 w-6 ml-1 py-4">
+				<div class="z-10 ml-1 w-6 py-4">
 					<div
 						class="h-2 w-2 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
 					>
@@ -263,7 +263,7 @@
 			</div>
 			{#each remoteCommits as commit (commit.id)}
 				<div class="flex w-full px-2 pb-4">
-					<div class="z-10 w-6 ml-1 py-4">
+					<div class="z-10 ml-1 w-6 py-4">
 						<!-- Pushed commit bubble -->
 						<div
 							class="rounded--b-sm h-2 w-2 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
