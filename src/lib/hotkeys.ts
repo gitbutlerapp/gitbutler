@@ -1,9 +1,6 @@
-import { building } from '$app/environment';
 import { events } from '$lib';
 
 export async function on(combo: string, callback: (event: KeyboardEvent) => void) {
-	if (building) return () => {};
-
 	const comboContainsControlKeys =
 		combo.includes('Meta') || combo.includes('Alt') || combo.includes('Ctrl');
 

@@ -1,4 +1,3 @@
-import { building } from '$app/environment';
 import { writable, type Writable } from '@square/svelte-store';
 import { appWindow, type Theme } from '@tauri-apps/api/window';
 import type { SettingsStore } from './userSettings';
@@ -9,7 +8,6 @@ let systemTheme: string | null;
 let selectedTheme: string | undefined;
 
 export function initTheme(userSettings: SettingsStore) {
-	if (building) return;
 	appWindow.theme().then((value: Theme | null) => {
 		systemTheme = value;
 		updateDom();

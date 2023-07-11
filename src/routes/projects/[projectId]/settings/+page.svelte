@@ -2,7 +2,7 @@
 	import { Button, Modal } from '$lib/components';
 	import type { PageData } from './$types';
 	import { open } from '@tauri-apps/api/shell';
-	import { log, toasts, api, stores, events } from '$lib';
+	import { toasts, api, stores, events } from '$lib';
 	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
@@ -22,7 +22,7 @@
 			.then(() => api.projects.del({ id: $project?.id }))
 			.then(() => deleteConfirmationModal.close())
 			.catch((e) => {
-				log.error(e);
+				console.error(e);
 				toasts.error('Failed to delete project');
 			})
 			.then(() => goto('/'))

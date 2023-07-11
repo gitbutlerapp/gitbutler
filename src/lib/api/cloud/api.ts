@@ -1,6 +1,5 @@
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 import { PUBLIC_CHAIN_API } from '$env/static/public';
-import * as log from '$lib/log';
 import { nanoid } from 'nanoid';
 
 const apiUrl = new URL('/api/', new URL(PUBLIC_API_BASE_URL));
@@ -72,13 +71,13 @@ const withRequestId: FetchMiddleware = (fetch) => async (url, options) => {
 };
 
 const withLog: FetchMiddleware = (fetch) => async (url, options) => {
-	log.info('fetch', url, options);
+	console.log('fetch', url, options);
 	try {
 		const resp = await fetch(url, options);
-		log.info(resp);
+		console.log(resp);
 		return resp;
 	} catch (e: any) {
-		log.error('fetch', e);
+		console.error('fetch', e);
 		throw e;
 	}
 };

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { log, toasts, api } from '$lib';
+	import { toasts, api } from '$lib';
 	import { Button, Modal } from '$lib/components';
 	import { IconBookmarkFilled } from '$lib/icons';
 
@@ -47,7 +47,7 @@
 				modal.close();
 			})
 			.catch((err) => {
-				log.error(err);
+				console.error(err);
 				toasts.error('Failed to create bookmark');
 			})
 			.finally(() => (isCreating = false));
