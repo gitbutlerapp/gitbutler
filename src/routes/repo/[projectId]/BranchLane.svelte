@@ -100,6 +100,13 @@
 			return;
 		}
 		const data = e.dataTransfer.getData(dzType);
+		const [newFileId, newHunks] = data.split(':');
+		const existingHunkIds = files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
+		const newHunkIds = newHunks.split(',').filter((h) => !existingHunkIds.includes(h));
+		if (newHunkIds.length == 0) {
+			// don't allow dropping hunk to the line where it already is
+			return;
+		}
 		const ownership = files
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
