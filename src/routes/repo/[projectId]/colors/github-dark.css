@@ -1,0 +1,83 @@
+.token-variable {
+	color: #79c0ff;
+}
+.token-property {
+	color: #79c0ff;
+}
+.token-type {
+	color: #7ee787;
+}
+.token-variable-special {
+	color: #79c0ff;
+}
+.token-definition {
+	color: #ffa657;
+}
+/* .token-builtin {
+	color: #d3869b;
+} */
+
+.token-number {
+	color: #a5d6ff;
+}
+.token-string {
+	color: #79c0ff;
+}
+.token-string-special {
+	color: #a5d6ff;
+}
+/* .token-atom {
+	color: #0a3069;
+} */
+
+.token-keyword {
+	color: #ff7b72;
+}
+.token-comment {
+	color: #8b949e;
+}
+.token-meta {
+	color: #ffa657;
+}
+.token-invalid {
+	color: #ffa198;
+}
+
+.token-tag {
+	color: #7ee787;
+}
+.token-attribute {
+	color: #e6edf3;
+}
+.token-attribute-value {
+	color: var(--color-token-attribute-value);
+}
+
+.token-inserted {
+	color: #7ee787;
+}
+.token-deleted {
+	color: #ffa198;
+}
+
+.token-heading {
+	color: var(--color-token-variable-special);
+	font-weight: bold;
+}
+
+.token-link {
+	color: var(--color-token-variable-special);
+	text-decoration: underline;
+}
+
+.token-strikethrough {
+	text-decoration: strike-through;
+}
+
+.token-strong {
+	font-weight: bold;
+}
+
+.token-emphasis {
+	font-style: italic;
+}
