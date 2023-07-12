@@ -122,51 +122,13 @@ pub struct RemoteBranch {
     merge_conflicts: Vec<String>,
 }
 
-fn get_or_choose_default_target(
-    gb_repository: &gb_repository::Repository,
-    current_session_reader: &sessions::Reader,
-    project_repository: &project_repository::Repository,
-) -> Result<Option<target::Target>> {
+fn get_default_target(current_session_reader: &sessions::Reader) -> Result<Option<target::Target>> {
     let target_reader = target::Reader::new(current_session_reader);
     match target_reader.read_default() {
         Ok(target) => Ok(Some(target)),
-        Err(reader::Error::NotFound) => {
-            match choose_default_branch_name(project_repository)
-                .context("failed to choose default remote")?
-            {
-                None => Ok(None),
-                Some(branch_name) => {
-                    match gb_repository.set_target_branch(project_repository, &branch_name) {
-                        Ok(target) => Ok(Some(target)),
-                        Err(e) => {
-                            log::error!(
-                                "{}: failed to set assumed target branch: {:#}",
-                                gb_repository.project_id,
-                                e
-                            );
-                            Ok(None)
-                        }
-                    }
-                }
-            }
-        }
+        Err(reader::Error::NotFound) => Ok(None),
         Err(e) => Err(e).context("failed to read default target"),
     }
-}
-
-fn choose_default_branch_name(
-    project_repository: &project_repository::Repository,
-) -> Result<Option<String>> {
-    let names: HashSet<String> = project_repository
-        .git_remote_branches()?
-        .iter()
-        .cloned()
-        .collect();
-    let found = names
-        .get("origin/master")
-        .or(names.get("origin/main"))
-        .cloned();
-    Ok(found)
 }
 
 pub fn apply_branch(
@@ -184,12 +146,8 @@ pub fn apply_branch(
 
     let wd_tree = get_wd_tree(repo)?;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    )
-    .context("failed to get default target")?
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
     {
         Some(target) => target,
         None => return Ok(()),
@@ -257,12 +215,8 @@ pub fn unapply_branch(
         .context("failed to open current session")?;
     let project = project_repository.project;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    )
-    .context("failed to get default target")?
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
     {
         Some(target) => target,
         None => return Ok(()),
@@ -377,12 +331,8 @@ pub fn remote_branches(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    )
-    .context("failed to get default target")?
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
     {
         Some(target) => target,
         None => return Ok(vec![]),
@@ -638,12 +588,8 @@ pub fn list_virtual_branches(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session reader")?;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    )
-    .context("failed to get default target")?
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
     {
         Some(target) => target,
         None => return Ok(vec![]),
@@ -829,10 +775,9 @@ pub fn create_virtual_branch_from_branch(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target =
-        get_or_choose_default_target(gb_repository, &current_session_reader, project_repository)
-            .context("failed to get default target")?
-            .context("no default target found")?;
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+        .context("no default target found")?;
 
     let repo = &project_repository.git_repository;
     let head = repo.revparse_single(branch_ref)?;
@@ -1266,11 +1211,7 @@ pub fn get_status_by_branch(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    ) {
+    let default_target = match get_default_target(&current_session_reader) {
         Ok(Some(target)) => Ok(target),
         Ok(None) => {
             return Ok(vec![]);
@@ -1504,10 +1445,9 @@ pub fn update_branch_target(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
     // look up the target and see if there is a new oid
-    let mut target =
-        get_or_choose_default_target(gb_repository, &current_session_reader, project_repository)
-            .context("failed to get target")?
-            .context("no target found")?;
+    let mut target = get_default_target(&current_session_reader)
+        .context("failed to get target")?
+        .context("no target found")?;
 
     let repo = &project_repository.git_repository;
     let branch = repo
@@ -1679,10 +1619,9 @@ fn write_tree(
         .context("failed to get current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let default_target =
-        get_or_choose_default_target(gb_repository, &current_session_reader, project_repository)
-            .context("failed to get target")?
-            .context("no target found")?;
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to get target")?
+        .context("no target found")?;
 
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
@@ -1879,8 +1818,7 @@ pub fn get_target_data(
         .context("failed to get or create current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    match get_or_choose_default_target(gb_repository, &current_session_reader, project_repository)?
-    {
+    match get_default_target(&current_session_reader)? {
         None => Ok(None),
         Some(mut target) => {
             let repo = &project_repository.git_repository;
