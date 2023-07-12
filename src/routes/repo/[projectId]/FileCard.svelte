@@ -108,7 +108,11 @@
 								</div>
 							{/if}
 							<div class="cursor-pointer overflow-clip">
-								<HunkDiffViewer diff={hunk.diff} filePath={hunk.filePath} linesShown={maximized ? 8 : 2} />
+								<HunkDiffViewer
+									diff={hunk.diff}
+									filePath={hunk.filePath}
+									linesShown={maximized ? 8 : 2}
+								/>
 							</div>
 							<div class="flex px-2 py-1">
 								<div class="flex flex-grow gap-1">
