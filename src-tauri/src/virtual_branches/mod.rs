@@ -12,6 +12,7 @@ use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 
 pub use branch::Branch;
+use colored::Colorize;
 pub use iterator::BranchIterator as Iterator;
 use uuid::Uuid;
 
@@ -307,6 +308,8 @@ pub fn apply_branch(
         repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
     }
 
+    update_gitbutler_integration(&gb_repository, &project_repository)?;
+
     Ok(())
 }
 
@@ -361,7 +364,7 @@ pub fn unapply_branch(
     let target_tree = target_commit.tree().context("failed to get target tree")?;
 
     if let Ok((branch, files)) = status {
-        let tree = write_tree(gb_repository, project_repository, &branch.head, files)?;
+        let tree = write_tree(gb_repository, project_repository, files)?;
 
         // for each file, go through all the other applied branches and see if they have hunks of the file
         // if so, apply those hunks to the target file and write that back to the working directory
@@ -431,6 +434,8 @@ pub fn unapply_branch(
         target_branch.tree = tree;
         target_branch.applied = false;
         writer.write(&target_branch)?;
+
+        update_gitbutler_integration(&gb_repository, &project_repository)?;
     }
 
     Ok(())
@@ -667,10 +672,8 @@ pub fn remote_branches(
                     if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
                         // determine if this tree is mergeable
                         let branch_tree = branch_commit.tree()?;
-                        println!("branch mergability: {}", branch_name);
                         let (mergeable, merge_conflicts) =
                             check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
-                        println!("mergeable: {} {}", branch_name, mergeable);
 
                         branches.push(RemoteBranch {
                             sha: branch_oid.to_string(),
@@ -745,18 +748,6 @@ fn check_mergeable(
     wd_tree: &git2::Tree,
 ) -> Result<(bool, Vec<String>)> {
     let mut merge_conflicts = Vec::new();
-
-    println!("base: {:?}", base_tree.id());
-    _print_tree(repo, &base_tree)?;
-    println!(" ");
-
-    println!("branch: {:?}", branch_tree.id());
-    _print_tree(repo, &branch_tree)?;
-    println!(" ");
-
-    println!("wd: {:?}", wd_tree.id());
-    _print_tree(repo, &wd_tree)?;
-    println!(" ");
 
     let merge_options = git2::MergeOptions::new();
     let merge_index = repo
@@ -834,7 +825,7 @@ pub fn list_virtual_branches(
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
         if (default_target.sha != branch.head) && branch.applied {
-            let vtree = write_tree(gb_repository, project_repository, &branch.head, &files)?;
+            let vtree = write_tree(gb_repository, project_repository, &files)?;
             let repo = &project_repository.git_repository;
             // get the trees
             let commit_old = repo.find_commit(branch.head)?;
@@ -965,7 +956,6 @@ pub fn list_virtual_branches(
                     let branch_tree = repo
                         .find_tree(branch.tree)
                         .context("failed to find branch tree")?;
-                    println!("branch mergability: {}", &branch.name);
                     (mergeable, merge_conflicts) =
                         check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
                 } else {
@@ -1218,8 +1208,6 @@ pub fn update_branch(
         branch.order = order;
     };
 
-    println!("branch: {:?}", branch);
-
     branch_writer
         .write(&branch)
         .context("failed to write target branch")?;
@@ -1465,12 +1453,13 @@ pub fn get_status_by_branch(
     }
     .context("failed to read default target")?;
 
-    let diff = project_repository
-        .workdir_diff(&default_target.sha)
-        .context(format!(
-            "failed to get diff workdir with {}",
-            default_target.sha
-        ))?;
+    let head_commit = project_repository.get_head_commit()?;
+    let head_oid = head_commit.id();
+
+    let diff = project_repository.workdir_diff(&head_oid).context(format!(
+        "failed to get diff workdir with {}",
+        default_target.sha
+    ))?;
 
     let mut virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
@@ -1750,7 +1739,6 @@ pub fn update_branch_target(
 
     // update the heads of all our virtual branches
     for virtual_branch in &mut virtual_branches {
-        println!("checking: {}", virtual_branch.name);
         let mut virtual_branch = virtual_branch.clone();
         // get the matching vbranch
         let vbranch = vbranches
@@ -1760,16 +1748,9 @@ pub fn update_branch_target(
 
         let mut tree_oid = virtual_branch.tree;
         if virtual_branch.applied {
-            dbg!(&vbranch.files);
-            tree_oid = write_tree(
-                gb_repository,
-                project_repository,
-                &virtual_branch.head,
-                &vbranch.files,
-            )?;
+            tree_oid = write_tree(gb_repository, project_repository, &vbranch.files)?;
         }
         let branch_tree = repo.find_tree(tree_oid)?;
-        println!("tree oid: {}", tree_oid);
 
         // check for conflicts with this tree
         let mut merge_index = repo
@@ -1783,13 +1764,11 @@ pub fn update_branch_target(
 
         // check if the branch head has conflicts
         if merge_index.has_conflicts() {
-            println!("conflicts");
             // unapply branch for now
             if virtual_branch.applied {
                 unapply_branch(gb_repository, project_repository, &virtual_branch.id)?;
             }
             virtual_branch = branch_reader.read(&virtual_branch.id)?;
-            dbg!(&virtual_branch);
 
             if target.sha != virtual_branch.head {
                 // check if the head conflicts
@@ -1838,7 +1817,6 @@ pub fn update_branch_target(
         } else {
             // branch head does not have conflicts, so don't unapply it, but still try to merge it's head if there are commits
             // but also remove/archive it if the branch is fully integrated
-            println!("no conflicts");
             if target.sha == virtual_branch.head {
                 // there were no conflicts and no commits, so just update the head
                 virtual_branch.head = new_target_oid;
@@ -1846,13 +1824,10 @@ pub fn update_branch_target(
                 writer.write(&virtual_branch)?;
             } else {
                 // no conflicts, but there have been commits, so update head with a merge
-
-                // TODO: merge trees and commit and update head and tree here
-
                 // there are commits on this branch, so create a merge commit with the new tree
                 // get tree from virtual branch head
                 let head_commit = repo.find_commit(virtual_branch.head)?;
-                let head_tree = head_commit.tree()?;
+                let head_tree = repo.find_tree(virtual_branch.tree)?;
 
                 let mut merge_index = repo
                     .merge_trees(
@@ -1865,7 +1840,6 @@ pub fn update_branch_target(
 
                 // check index for conflicts
                 if merge_index.has_conflicts() {
-                    println!("conflicts");
                     // unapply branch for now
                     virtual_branch.applied = false;
                     writer.write(&virtual_branch)?;
@@ -1881,8 +1855,6 @@ pub fn update_branch_target(
 
                     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                     // then the vbranch is fully merged, so delete it
-                    println!("merge_tree_oid: {:?}", merge_tree_oid);
-                    println!("new_target_tree.id(): {:?}", new_target_tree.id());
                     if merge_tree_oid == new_target_tree.id() && vbranch.files.is_empty() {
                         writer.delete(&virtual_branch)?;
                     } else {
@@ -1907,12 +1879,6 @@ pub fn update_branch_target(
     // ok, now all the problematic branches have been unapplied, so we can try to merge the upstream branch into our current working directory
     // first, get a new wd tree
     let wd_tree = get_wd_tree(repo)?;
-    println!("new wd: ");
-    _print_tree(repo, &wd_tree)?;
-    println!("old target: ");
-    _print_tree(repo, &target_tree)?;
-    println!("new target: ");
-    _print_tree(repo, &new_target_tree)?;
 
     // and try to merge it
     let mut merge_index = repo
@@ -1985,7 +1951,7 @@ fn get_virtual_branches(
     Ok(applied_virtual_branches)
 }
 
-fn update_gitbutler_integration(
+pub fn update_gitbutler_integration(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
@@ -2008,7 +1974,6 @@ fn update_gitbutler_integration(
 
     // get all virtual branches, we need to try to update them all
     let applied_virtual_branches = get_virtual_branches(gb_repository, Some(true))?;
-    dbg!(&applied_virtual_branches);
 
     let merge_options = git2::MergeOptions::new();
     let base_tree = target_commit.tree()?;
@@ -2038,21 +2003,20 @@ fn update_gitbutler_integration(
     Ok(())
 }
 
+// this function takes a list of file ownership,
+// constructs a tree from those changes on top of the target
+// and writes it as a new tree for storage
 fn write_tree(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    head: &git2::Oid,
     files: &Vec<VirtualBranchFile>,
 ) -> Result<git2::Oid> {
     // read the base sha into an index
+    let target = get_target(gb_repository, project_repository)?;
     let git_repository = &project_repository.git_repository;
-    let base_commit = git_repository.find_commit(*head)?;
-    let base_tree = base_commit.tree()?;
 
-    // TODO: pass in the whole virtual branch and use the last commit as the base tree
-
-    println!("** base tree:");
-    _print_tree(git_repository, &base_tree)?;
+    let head_commit = project_repository.get_head_commit()?;
+    let base_tree = head_commit.tree().context("failed to get head tree")?;
 
     let mut builder = git2::build::TreeUpdateBuilder::new();
     let project = project_repository.project;
@@ -2084,8 +2048,6 @@ fn write_tree(
                 for hunk in hunks {
                     patch.push_str(&hunk.diff);
                 }
-
-                println!("patch: {}", patch);
 
                 // apply patch to blob_contents
                 let patch_bytes = patch.as_bytes();
@@ -2143,7 +2105,7 @@ pub fn commit(
 
     for (mut branch, files) in statuses {
         if branch.id == branch_id {
-            let tree_oid = write_tree(gb_repository, project_repository, &branch.head, &files)?;
+            let tree_oid = write_tree(gb_repository, project_repository, &files)?;
 
             let git_repository = &project_repository.git_repository;
             let parent_commit = git_repository.find_commit(branch.head).unwrap();
@@ -3362,6 +3324,10 @@ mod tests {
         )?;
         let project_repository = project_repository::Repository::open(&project)?;
 
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+
         // create a commit and set the target
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(
@@ -3386,6 +3352,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository);
 
         // add a commit to the target branch it's pointing to so there is something "upstream"
         std::fs::write(
@@ -3418,6 +3385,7 @@ mod tests {
         // 4. applied branch, uncommitted conflicts
         // 5. applied branch, committed conflicts but not uncommitted
         // 6. applied branch, no conflicts
+        // 7. applied branch with commits but everything is upstream, delete it
 
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
@@ -3438,6 +3406,32 @@ mod tests {
         let branch6_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
             .id;
+        let branch7_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch")
+            .id;
+
+        // situation 7: everything is upstream, delete it
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "line1\nline2\nfile3\n",
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch7_id.clone(),
+                name: Some("Situation 7".to_string()),
+                ownership: Some(Ownership::try_from("test.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch7_id,
+            "integrated commit",
+        )?;
+
+        unapply_branch(&gb_repo, &project_repository, &branch7_id)?;
 
         // situation 1: unapplied branch, uncommitted conflicts
         std::fs::write(
@@ -3449,10 +3443,7 @@ mod tests {
             std::path::Path::new(&project.path).join(file_path2),
             "line5\nline6\nline7\nline8\n",
         )?;
-        std::fs::write(
-            std::path::Path::new(&project.path).join(file_path3),
-            "line1\nline2\nfile3\n",
-        )?;
+
         update_branch(
             &gb_repo,
             branch::BranchUpdateRequest {
@@ -3582,14 +3573,28 @@ mod tests {
             },
         )?;
 
+        println!("{}", "-------------------------------------------".green());
+        println!("{}", "*******************************************".green());
+        println!("");
+        println!("");
+
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         dbg!(&branches);
 
         // update the target branch
         update_branch_target(&gb_repo, &project_repository)?;
 
+        println!(
+            "{}",
+            "******** BRANCH UPDATED *****************************".green()
+        );
+
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
         dbg!(&branches);
+
+        // branch7 was integrated and deleted
+        let branch7 = branch_reader.read(&branch7_id);
+        assert!(branch7.is_err());
 
         Ok(())
     }
