@@ -65,7 +65,7 @@ export function dzTrigger(node: HTMLElement, opts: Partial<DzOptions> | undefine
 		const inner = clone.children[0] as HTMLElement;
 		inner.style.height = node.clientHeight + 'px';
 		inner.style.width = node.clientWidth + 'px';
-		inner.style.rotate = '5deg';
+		inner.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
 		document.body.appendChild(clone);
 
 		// Dim the original element while dragging
