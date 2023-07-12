@@ -1,7 +1,19 @@
 name: "Publish"
 on:
+    workflow_run:
+      workflows: ["Nightly build"]
+      types:
+        - completed
+
     workflow_dispatch:
         inputs:
+            channel:
+                type: choice
+                required: true
+                description: channel
+                options:
+                  - release
+                  - nightly
             bump:
                 type: choice
                 required: true
@@ -67,9 +79,19 @@ jobs:
               with:
                 workspaces: src-tauri
 
+            - name: Set release channel = 'nightly'
+              if: ${{ !!github.event.workflow_run }}
+              run: |
+                echo "channel=nightly" >> $GITHUB_ENV
+
+            - name: Use input release channel
+              if: ${{ !!github.event.workflow_dispatch }}
+              run: |
+                echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_ENV
+
             - name: Set env variable with version
               run: |
-                  CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases" | jq -r '.version')"
+                  CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
                   NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ github.event.inputs.bump }}")
                   echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
@@ -77,6 +99,7 @@ jobs:
               run: |
                   ./scripts/release.sh \
                     --sign \
+                    --channel                    "${{ env.channel }}" \
                     --dist                       "./release" \
                     --version                    "${{ env.version }}" \
                     --tauri-private-key          "${{ secrets.TAURI_PRIVATE_KEY }}"  \
@@ -95,7 +118,7 @@ jobs:
                   aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
                   aws_bucket: "releases.gitbutler.com"
                   source_dir: "release/"
-                  destination_dir: "releases/${{ env.version }}-${{ github.run_number }}"
+                  destination_dir: "releases/${{ env.channel }}/${{ env.version }}-${{ github.run_number }}"
 
             # tell our server to update with the version number
             - name: Tell our server to update
@@ -105,4 +128,4 @@ jobs:
                     --request POST \
                     --header 'Content-Type: application/json' \
                     --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
-                    --data '{"version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
+                    --data '{"channel":"${{ env.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'

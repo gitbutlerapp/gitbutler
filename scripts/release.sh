@@ -6,6 +6,7 @@ set -o pipefail
 
 PWD="$(dirname $(readlink -f -- $0))"
 
+CHANNEL=""
 DO_SIGN="false"
 DO_BUNDLE_UPDATE="false"
 TAURI_PRIVATE_KEY=""
@@ -33,6 +34,7 @@ function help() {
 	echo "  --apple-id                    the apple id to use for signing." 1>&$to
 	echo "  --apple-password              the password for the apple id." 1>&$to
 	echo "  --sign                        if set, will sign the app." 1>&$to
+	echo "  --channel                     the channel to use for the release (release | nightly)." 1>&$to
 	echo "  --help                        display this message." 1>&$to
 }
 
@@ -137,6 +139,11 @@ while [[ $# -gt 0 ]]; do
 		DO_SIGN="true"
 		shift
 		;;
+	--channel)
+		CHANNEL="$2"
+		shift
+		shift
+		;;
 	*)
 		error "unknown flag $1"
 		;;
@@ -147,6 +154,10 @@ done
 
 [ -z "$TAURI_PRIVATE_KEY" ] && error "--tauri-private-key is not set"
 [ -z "$TAURI_KEY_PASSWORD" ] && error "--tauri-key-password is not set"
+
+if [ "$CHANNEL" != "release" ] && [ "$CHANNEL" != "nightly" ]; then
+	error "--channel must be either 'release' or 'nightly'"
+fi
 
 export TAURI_PRIVATE_KEY="$TAURI_PRIVATE_KEY"
 export TAURI_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
@@ -166,6 +177,7 @@ if [ "$DO_SIGN" = "true" ]; then
 fi
 
 info "building:"
+info "  channel: $CHANNEL"
 info "  version: $VERSION"
 info "  os: $OS"
 info "  arch: $ARCH"
@@ -174,13 +186,15 @@ info "  dist: $DIST"
 TMP_DIR="$(mktemp -d)"
 trap "rm -rf '$TMP_DIR'" exit
 
+CONFIG_PATH=$(readlink -f "$PWD/../src-tauri/tauri.conf.$CHANNEL.json")
+
 # update the version in the tauri release config
-jq '.package.version="'"$VERSION"'"' "$PWD/../src-tauri/tauri.conf.release.json" >"$TMP_DIR/tauri.conf.json"
+jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 # build the app with release config
 SENTRY_RELEASE="$VERSION" tauri build --config "$TMP_DIR/tauri.conf.json"
 
-BUNDLE_DIR="$PWD/../src-tauri/target/release/bundle"
+BUNDLE_DIR=$(readlink -f "$PWD/../src-tauri/target/release/bundle")
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
 MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
