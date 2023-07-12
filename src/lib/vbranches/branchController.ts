@@ -10,14 +10,17 @@ export class BranchController {
 		readonly projectId: string,
 		readonly virtualBranchStore: Refreshable & Readable<Loadable<Branch[]>>,
 		readonly remoteBranchStore: Refreshable & Readable<Loadable<BranchData[]>>,
-		readonly targetBranchStore: Refreshable & Readable<Loadable<Target>>
+		readonly targetBranchStore: Refreshable & Readable<Loadable<Target | null>>
 	) {}
 
 	async setTarget(branch: string) {
 		try {
 			await ipc.setTarget({ projectId: this.projectId, branch });
-			await this.virtualBranchStore.refresh();
-			await this.remoteBranchStore.refresh();
+			await Promise.all([
+				this.virtualBranchStore.refresh(),
+				this.remoteBranchStore.refresh(),
+				this.targetBranchStore.refresh()
+			]);
 		} catch (err) {
 			console.log(err);
 			toasts.error('Failed to set target');
@@ -118,9 +121,11 @@ export class BranchController {
 	async updateBranchTarget() {
 		try {
 			await ipc.updateBranchTarget({ projectId: this.projectId });
-			await this.remoteBranchStore.refresh();
-			await this.virtualBranchStore.refresh();
-			await this.targetBranchStore.refresh();
+			await Promise.all([
+				this.remoteBranchStore.refresh(),
+				this.virtualBranchStore.refresh(),
+				this.targetBranchStore.refresh()
+			]);
 		} catch (err) {
 			console.error(err);
 			toasts.error('Failed to update target');
@@ -130,8 +135,10 @@ export class BranchController {
 	async createvBranchFromBranch(branch: string) {
 		try {
 			await ipc.createvBranchFromBranch({ projectId: this.projectId, branch });
-			await this.remoteBranchStore.refresh();
-			await this.targetBranchStore.refresh();
+			await Promise.all([
+				await this.remoteBranchStore.refresh(),
+				await this.targetBranchStore.refresh()
+			]);
 		} catch (err) {
 			console.error(err);
 			toasts.error('Failed to create virtual branch from branch');
@@ -141,8 +148,10 @@ export class BranchController {
 	async fetchFromTarget() {
 		try {
 			await ipc.fetchFromTarget({ projectId: this.projectId });
-			await this.remoteBranchStore.refresh();
-			await this.targetBranchStore.refresh();
+			await Promise.all([
+				await this.remoteBranchStore.refresh(),
+				await this.targetBranchStore.refresh()
+			]);
 		} catch (err) {
 			console.error(err);
 			toasts.error('Failed to fetch from target');

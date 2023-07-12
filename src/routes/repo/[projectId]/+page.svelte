@@ -24,14 +24,8 @@
 		targetBranchStore
 	);
 
-	$: remoteBranches =
-		!$remoteBranchStore.isLoading && !Loaded.isError($remoteBranchStore)
-			? $remoteBranchStore.value
-			: [];
-	$: target =
-		!$targetBranchStore.isLoading && !Loaded.isError($targetBranchStore)
-			? $targetBranchStore.value
-			: undefined;
+	$: remoteBranches = Loaded.isValue($remoteBranchStore) ? $remoteBranchStore.value : [];
+	$: target = Loaded.isValue($targetBranchStore) ? $targetBranchStore.value : undefined;
 	$: branches =
 		!$vbranchStore.isLoading && !Loaded.isError($vbranchStore) ? $vbranchStore.value : [];
 	let targetChoice: string | undefined;
