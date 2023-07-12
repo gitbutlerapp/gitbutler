@@ -138,7 +138,7 @@
 			on:click={() =>
 				open(`vscode://file${projectPath}/${filepath}:${getFirstLineNumber(hunk.diff)}`)}
 		>
-			Open in VS Code
+			Open in Visual Studio Code
 		</PopupMenuItem>
 	</PopupMenu>
 </div>
