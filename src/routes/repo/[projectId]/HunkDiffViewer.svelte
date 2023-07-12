@@ -2,6 +2,14 @@
 	import { buildDiffRows, documentMap, RowType, type Row } from '$lib/components/Differ/renderer';
 	import { line, type DiffArray } from '$lib/diff';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
+	import type { SettingsStore } from '$lib/userSettings';
+
+	export let userSettings: SettingsStore;
+	$: if ($userSettings.theme) {
+		$userSettings.theme == 'dark'
+			? import('./colors/github-dark.css')
+			: import('./colors/github-light.css');
+	}
 
 	export let diff: string;
 	export let filePath: string;
