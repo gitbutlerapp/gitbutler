@@ -196,9 +196,9 @@
 		</div>
 		<div class="flex items-center">
 			<div class="flex-grow">
-				<p>Automatically generate AI hunk changes</p>
+				<p>Generate descriptions for code changes</p>
 				<p class="text-sm text-light-700 dark:text-dark-200">
-					GitButler AI will review your hunk changes and write a description of what happened
+					GitButler Cloud will generate descriptions for code hunks in your virtual branches board.
 				</p>
 			</div>
 			<div>
