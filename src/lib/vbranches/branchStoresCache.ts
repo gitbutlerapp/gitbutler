@@ -2,7 +2,7 @@ import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import type { Readable } from '@square/svelte-store';
 import { git } from '$lib/api/ipc';
 import { stores } from '$lib';
-import type { Branch, BranchData, Target } from './types';
+import type { Target, Branch, BranchData } from './types';
 import * as ipc from './ipc';
 
 export interface Refreshable {
@@ -12,7 +12,7 @@ export interface Refreshable {
 export class BranchStoresCache {
 	virtualBranchStores: Map<string, Refreshable & Readable<Loadable<Branch[]>>> = new Map();
 	remoteBranchStores: Map<string, Refreshable & Readable<Loadable<BranchData[]>>> = new Map();
-	targetBranchStores: Map<string, Refreshable & Readable<Loadable<Target>>> = new Map();
+	targetBranchStores: Map<string, Refreshable & Readable<Loadable<Target | null>>> = new Map();
 
 	getVirtualBranchStore(projectId: string) {
 		const cachedStore = this.virtualBranchStores.get(projectId);

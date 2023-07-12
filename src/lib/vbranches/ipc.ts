@@ -56,7 +56,7 @@ export async function getRemoteBranchesData(params: { projectId: string }) {
 }
 
 export async function getTargetData(params: { projectId: string }) {
-	return invoke<Target>('get_target_data', params);
+	return invoke<Target | null>('get_target_data', params);
 }
 
 export async function setTarget(params: { projectId: string; branch: string }) {
