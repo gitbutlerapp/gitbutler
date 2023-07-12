@@ -155,7 +155,7 @@
 		</PopupMenuItem>
 
 		<div class="mx-3">
-			<div class="my-2 h-[1px] w-full  bg-light-300 dark:bg-dark-500" />
+			<div class="my-2 h-[0.0625rem] w-full  bg-light-300 dark:bg-dark-500" />
 		</div>
 
 		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>

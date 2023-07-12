@@ -1,6 +1,7 @@
 <svg
 	on:click
 	on:keydown
+	class="h-1 w-4"
 	width="16"
 	height="4"
 	viewBox="0 0 16 4"
