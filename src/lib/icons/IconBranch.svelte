@@ -1,12 +1,7 @@
-<script lang="ts">
-	let className = '';
-	export { className as class };
-</script>
-
 <svg
-	class={className}
 	width="14"
 	height="16"
+	class="h-4 w-4"
 	viewBox="0 0 14 16"
 	fill="none"
 	xmlns="http://www.w3.org/2000/svg"
