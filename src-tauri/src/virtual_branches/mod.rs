@@ -363,80 +363,44 @@ pub fn unapply_branch(
         .context("failed to find target commit")?;
     let target_tree = target_commit.tree().context("failed to get target tree")?;
 
+    let repo = &project_repository.git_repository;
+    println!("{}", "UNAPPLY TREE 1".yellow());
+    _print_tree(repo, &target_tree)?;
+
     if let Ok((branch, files)) = status {
-        let tree = write_tree(gb_repository, project_repository, files)?;
+        let tree = write_tree(gb_repository, project_repository, &branch, files)?;
 
-        // for each file, go through all the other applied branches and see if they have hunks of the file
-        // if so, apply those hunks to the target file and write that back to the working directory
-        for file in files {
-            let full_path = std::path::Path::new(&project.path).join(&file.path);
-            let rel_path = std::path::Path::new(&file.path);
-
-            if let Ok(tree_entry) = target_tree.get_path(std::path::Path::new(rel_path)) {
-                // if there is a tree entry in the target, then we can have multiple branches with possible changes
-
-                // blob from tree_entry
-                let blob = &tree_entry
-                    .to_object(&gb_repository.git_repository)?
-                    .peel_to_blob()
-                    .expect("failed to get blob");
-
-                // get the base contents
-                let blob_contents = blob.content();
-                let mut all_hunks = Vec::new();
-
-                // ok, go through all the other branches and find every hunk anywhere else and push them all to `all_hunks`
-                for status in &statuses {
-                    let (status_branch, status_files) = status;
-                    if status_branch.id != branch.id {
-                        for status_file in status_files {
-                            if status_file.path == file.path {
-                                for hunk in &status_file.hunks {
-                                    all_hunks.push(hunk);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // now order all the hunks by start line and make one patch
-                let mut patch = "--- original\n+++ modified\n".to_string();
-                // let mut hunks = file.hunks.to_vec();
-                // hunks.sort_by_key(|hunk| hunk.start);
-                // for hunk in hunks {
-                //     patch.push_str(&hunk.diff);
-                // }
-
-                let mut all_diffs: Vec<String> = all_hunks
-                    .iter()
-                    .map(|s| s.diff.clone()) // extract the 'diff' field from each struct
-                    .collect(); // collect into a new vector
-                all_diffs.sort_by_key(|diff| {
-                    let index = all_hunks.iter().position(|s| s.diff == *diff).unwrap(); // unwrap is safe assuming diffs are always found
-                    all_hunks[index].start
-                });
-
-                for diff in all_diffs {
-                    patch.push_str(&diff.clone());
-                }
-
-                // apply patch to blob_contents
-                let patch_bytes = patch.as_bytes();
-                let patch = Patch::from_bytes(patch_bytes)?;
-                let new_content = apply_bytes(blob_contents, &patch)?;
-                std::fs::write(full_path, new_content)?;
-            } else {
-                // if there is no file in the target, then we can only have one branch with possible changes, which this branch owns
-                // so we can just delete the file
-                std::fs::remove_file(full_path)?;
-            }
-        }
         target_branch.tree = tree;
         target_branch.applied = false;
         writer.write(&target_branch)?;
-
-        update_gitbutler_integration(&gb_repository, &project_repository)?;
     }
+
+    // ok, update the wd with the union of the rest of the branches
+    let applied_virtual_branches = get_virtual_branches(gb_repository, Some(true))?;
+    let merge_options = git2::MergeOptions::new();
+    let base_tree = target_commit.tree()?;
+    let mut final_tree = target_commit.tree()?;
+    for branch in &applied_virtual_branches {
+        // merge this branches tree with our tree
+        let branch_head = repo.find_commit(branch.head)?;
+        let branch_tree = branch_head.tree()?;
+        if let Ok(mut result) =
+            repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
+        {
+            let final_tree_oid = result.write_tree_to(&repo)?;
+            final_tree = repo.find_tree(final_tree_oid)?;
+        }
+    }
+    // convert the final tree into an object
+    let final_tree_oid = final_tree.id();
+    let final_tree = repo.find_object(final_tree_oid, Some(git2::ObjectType::Tree))?;
+
+    // checkout final_tree into the working directory
+    let mut checkout_options = git2::build::CheckoutBuilder::new();
+    checkout_options.force();
+    repo.checkout_tree(&final_tree, Some(&mut checkout_options))?;
+
+    update_gitbutler_integration(&gb_repository, &project_repository)?;
 
     Ok(())
 }
@@ -825,7 +789,8 @@ pub fn list_virtual_branches(
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
         if (default_target.sha != branch.head) && branch.applied {
-            let vtree = write_tree(gb_repository, project_repository, &files)?;
+            // TODO: make sure this works
+            let vtree = write_tree(gb_repository, project_repository, branch, &files)?;
             let repo = &project_repository.git_repository;
             // get the trees
             let commit_old = repo.find_commit(branch.head)?;
@@ -1748,7 +1713,12 @@ pub fn update_branch_target(
 
         let mut tree_oid = virtual_branch.tree;
         if virtual_branch.applied {
-            tree_oid = write_tree(gb_repository, project_repository, &vbranch.files)?;
+            tree_oid = write_tree(
+                gb_repository,
+                project_repository,
+                &virtual_branch,
+                &vbranch.files,
+            )?;
         }
         let branch_tree = repo.find_tree(tree_oid)?;
 
@@ -2009,14 +1979,18 @@ pub fn update_gitbutler_integration(
 fn write_tree(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
+    vbranch: &branch::Branch,
     files: &Vec<VirtualBranchFile>,
 ) -> Result<git2::Oid> {
     // read the base sha into an index
     let target = get_target(gb_repository, project_repository)?;
     let git_repository = &project_repository.git_repository;
 
-    let head_commit = project_repository.get_head_commit()?;
-    let base_tree = head_commit.tree().context("failed to get head tree")?;
+    let head_commit = git_repository.find_commit(vbranch.head)?;
+    let base_tree = head_commit.tree()?;
+
+    println!("{}", "write tree: head tree".red());
+    _print_tree(git_repository, &base_tree);
 
     let mut builder = git2::build::TreeUpdateBuilder::new();
     let project = project_repository.project;
@@ -2028,6 +2002,7 @@ fn write_tree(
         let rel_path = std::path::Path::new(&file.path);
 
         // if file exists
+        println!("{}", rel_path.display().to_string().red());
         if full_path.exists() {
             // get the blob
             if let Ok(tree_entry) = base_tree.get_path(rel_path) {
@@ -2048,6 +2023,8 @@ fn write_tree(
                 for hunk in hunks {
                     patch.push_str(&hunk.diff);
                 }
+
+                println!("{}", patch.yellow());
 
                 // apply patch to blob_contents
                 let patch_bytes = patch.as_bytes();
@@ -2105,7 +2082,7 @@ pub fn commit(
 
     for (mut branch, files) in statuses {
         if branch.id == branch_id {
-            let tree_oid = write_tree(gb_repository, project_repository, &files)?;
+            let tree_oid = write_tree(gb_repository, project_repository, &branch, &files)?;
 
             let git_repository = &project_repository.git_repository;
             let parent_commit = git_repository.find_commit(branch.head).unwrap();
@@ -2330,6 +2307,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
@@ -2391,6 +2369,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(
@@ -2444,8 +2423,13 @@ mod tests {
         let user_store = users::Storage::new(storage.clone());
         let project_store = projects::Storage::new(storage);
         project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
             name: "origin".to_string(),
@@ -2453,6 +2437,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch");
@@ -2491,8 +2476,13 @@ mod tests {
         let user_store = users::Storage::new(storage.clone());
         let project_store = projects::Storage::new(storage);
         project_store.add_project(&project)?;
-        let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
             name: "origin".to_string(),
@@ -2500,6 +2490,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch");
@@ -2542,6 +2533,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(
@@ -2629,6 +2621,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(
@@ -2688,6 +2681,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
@@ -2809,6 +2803,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
@@ -2924,6 +2919,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -3019,6 +3015,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -3084,6 +3081,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
@@ -3185,6 +3183,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
@@ -3258,6 +3257,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // create a vbranch
         let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
@@ -3352,7 +3352,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
-        update_gitbutler_integration(&gb_repo, &project_repository);
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // add a commit to the target branch it's pointing to so there is something "upstream"
         std::fs::write(
@@ -3630,6 +3630,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -3735,6 +3736,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // rm file_path2, add file3
         std::fs::remove_file(std::path::Path::new(&project.path).join(file_path2))?;
@@ -3824,6 +3826,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -3861,6 +3864,9 @@ mod tests {
         unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
         unapply_branch(&gb_repo, &project_repository, &branch2_id)?;
 
+        repository.set_head("refs/heads/master")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
+
         // create an upstream remote conflicting commit
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -3895,6 +3901,9 @@ mod tests {
         )?;
         // remove file_path3
         std::fs::remove_file(std::path::Path::new(&project.path).join(file_path3))?;
+
+        repository.set_head("refs/heads/gitbutler/integration")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
         // create branches that conflict with our earlier branches
         create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
@@ -3943,6 +3952,7 @@ mod tests {
             .iter()
             .find(|b| b.branch == "refs/remotes/origin/remote_branch")
             .unwrap();
+        dbg!(&remote1);
         assert!(!remote1.mergeable);
         assert_eq!(remote1.ahead, 1);
         assert_eq!(remote1.merge_conflicts.len(), 1);
@@ -3994,6 +4004,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         let repo = &project_repository.git_repository;
         repo.remote("origin", "http://origin.com/project")?;
@@ -4097,6 +4108,7 @@ mod tests {
             behind: 0,
         })?;
         repository.remote("origin", "http://origin.com/project")?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -4249,6 +4261,7 @@ mod tests {
             behind: 0,
         })?;
         repository.remote("origin", "http://origin.com/project")?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // reset master to the base commit
         repository.reference("refs/heads/master", base_commit, true, "update target")?;
@@ -4352,6 +4365,7 @@ mod tests {
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch")
@@ -4410,12 +4424,14 @@ mod tests {
         let contents = commit_sha_to_contents(&repository, commit, "test.txt");
         assert_eq!(contents, "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n");
 
+        println!("{}", "************* UNAPPLY ***********************".red());
         // ok, now we're going to unapply branch1, which should remove the 1st and 3rd hunks
         unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
         // read contents of test.txt
         let contents =
             std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
         assert_eq!(contents, "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n");
+        println!("{}", "************* UNAPPLY ***********************".red());
 
         // ok, now we're going to re-apply branch1, which adds hunk 1 and 3, then unapply branch2, which should remove the middle hunk
         apply_branch(&gb_repo, &project_repository, &branch1_id)?;
@@ -4496,6 +4512,7 @@ mod tests {
             sha: commit1_oid,
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // remove file
         std::fs::remove_file(std::path::Path::new(&project.path).join(file_path2))?;
@@ -4590,6 +4607,7 @@ mod tests {
             behind: 0,
         })?;
         repository.remote("origin", "http://origin.com/project")?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // ok, pretend upstream was updated
         std::fs::write(
@@ -4730,6 +4748,7 @@ mod tests {
             behind: 0,
         })?;
         repository.remote("origin", "http://origin.com/project")?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // ok, pretend upstream was updated
         std::fs::write(
@@ -4897,6 +4916,7 @@ mod tests {
             sha: base_commit,
             behind: 0,
         })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
 
         // write new unapplied virtual branch with other changes
         std::fs::write(
