@@ -380,15 +380,19 @@ pub fn unapply_branch(
     let merge_options = git2::MergeOptions::new();
     let base_tree = target_commit.tree()?;
     let mut final_tree = target_commit.tree()?;
-    for branch in &applied_virtual_branches {
-        // merge this branches tree with our tree
-        let branch_head = repo.find_commit(branch.head)?;
-        let branch_tree = branch_head.tree()?;
-        if let Ok(mut result) =
-            repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
-        {
-            let final_tree_oid = result.write_tree_to(&repo)?;
-            final_tree = repo.find_tree(final_tree_oid)?;
+
+    // go through the other applied branches and merge them into the final tree
+    // then check that out into the working directory
+    for (branch, files) in statuses {
+        if branch.id != branch_id {
+            let tree_oid = write_tree(gb_repository, project_repository, &branch, &files)?;
+            let branch_tree = repo.find_tree(tree_oid)?;
+            if let Ok(mut result) =
+                repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
+            {
+                let final_tree_oid = result.write_tree_to(&repo)?;
+                final_tree = repo.find_tree(final_tree_oid)?;
+            }
         }
     }
     // convert the final tree into an object
@@ -3670,6 +3674,7 @@ mod tests {
         let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
         assert_eq!(branch.files.len(), 1);
         assert!(branch.active);
+        dbg!(&branches);
 
         unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
 
@@ -4110,6 +4115,9 @@ mod tests {
         repository.remote("origin", "http://origin.com/project")?;
         update_gitbutler_integration(&gb_repo, &project_repository)?;
 
+        repository.set_head("refs/heads/master")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
+
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
             "line1\nline2\nline3\nline4\nbranch\n",
@@ -4121,6 +4129,9 @@ mod tests {
             true,
             "update target",
         )?;
+
+        repository.set_head("refs/heads/gitbutler/integration")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
         // reset the first file
         std::fs::write(
@@ -4176,6 +4187,8 @@ mod tests {
         assert!(branch2.active);
         assert_eq!(branch2.commits.len(), 1);
 
+        unapply_branch(&gb_repo, &project_repository, &branch1_id);
+
         // add to the applied file in the same hunk so it adds to the second branch
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -4183,9 +4196,6 @@ mod tests {
         )?;
 
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
-        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-        assert_eq!(branch1.files.len(), 0);
-        assert!(branch1.active);
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
         assert_eq!(branch2.files.len(), 1);
         assert!(branch2.active);
@@ -4198,11 +4208,8 @@ mod tests {
         )?;
 
         let branches = list_virtual_branches(&gb_repo, &project_repository)?;
-        let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-        assert_eq!(branch1.files.len(), 1);
-        assert!(branch1.active);
         let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
-        assert_eq!(branch2.files.len(), 1);
+        assert_eq!(branch2.files.len(), 2);
         assert!(branch2.active);
 
         Ok(())
@@ -4263,6 +4270,9 @@ mod tests {
         repository.remote("origin", "http://origin.com/project")?;
         update_gitbutler_integration(&gb_repo, &project_repository)?;
 
+        repository.set_head("refs/heads/master")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
+
         // reset master to the base commit
         repository.reference("refs/heads/master", base_commit, true, "update target")?;
 
@@ -4283,6 +4293,9 @@ mod tests {
             true,
             "update target",
         )?;
+
+        repository.set_head("refs/heads/gitbutler/integration")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
         // reset wd
         std::fs::write(
@@ -4750,6 +4763,9 @@ mod tests {
         repository.remote("origin", "http://origin.com/project")?;
         update_gitbutler_integration(&gb_repo, &project_repository)?;
 
+        repository.set_head("refs/heads/master")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
+
         // ok, pretend upstream was updated
         std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -4780,6 +4796,9 @@ mod tests {
         commit_all(&repository)?;
         let branch_commit = repository.head().unwrap().target().unwrap();
         let branch_commit_obj = repository.find_commit(branch_commit)?;
+
+        repository.set_head("refs/heads/gitbutler/integration")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
         let mut branch = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
             .expect("failed to create virtual branch");
@@ -4817,6 +4836,8 @@ mod tests {
         let contents =
             std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
         assert_eq!(contents, "line1\nline2\nline3\nline4\n");
+
+        println!("{}", "updating target".red());
 
         // update target, this will update the wd and add an empty default branch
         update_branch_target(&gb_repo, &project_repository)?;
