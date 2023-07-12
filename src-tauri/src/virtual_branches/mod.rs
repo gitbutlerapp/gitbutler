@@ -400,7 +400,7 @@ pub fn remote_branches(
 
     let wd_tree = get_wd_tree(repo)?;
 
-    let virtual_branches = Iterator::new(&current_session_reader)
+    let virtual_branches_names = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
@@ -408,76 +408,67 @@ pub fn remote_branches(
         .filter(|branch| !branch.upstream.is_empty())
         .map(|branch| branch.upstream.replace("refs/heads/", ""))
         .collect::<HashSet<_>>();
-
-    let mut branches: Vec<RemoteBranch> = Vec::new();
     let mut most_recent_branches_by_hash: HashMap<git2::Oid, (git2::Branch, u64)> = HashMap::new();
 
-    for branch in repo.branches(None)? {
-        let (branch, _) = branch?;
-        match branch.get().target() {
-            Some(branch_oid) => {
-                // get the branch ref
-                let branch_commit = repo
-                    .find_commit(branch_oid)
-                    .context("failed to find branch commit")?;
-                let branch_time = branch_commit.time();
-                let seconds = branch_time
-                    .seconds()
-                    .try_into()
-                    .context("failed to convert seconds")?;
-                let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
-                let duration = current_time
-                    .duration_since(branch_time)
-                    .context("failed to get duration")?;
-                if duration > too_old {
-                    continue;
-                }
-
-                let branch_name = branch
-                    .name()
-                    .context("could not get branch name")?
-                    .context("could not get branch name")?
-                    .to_string();
-                let branch_name = branch_name.replace("origin/", "");
-
-                if virtual_branches.contains(&branch_name) {
-                    continue;
-                }
-                if branch_name == "HEAD" {
-                    continue;
-                }
-                if branch_name == "gitbutler/temp" {
-                    continue;
-                }
-
-                match most_recent_branches_by_hash.get(&branch_oid) {
-                    Some((_, existing_seconds)) => {
-                        let branch_name =
-                            branch.get().name().context("could not get branch name")?;
-                        if seconds < *existing_seconds {
-                            // this branch is older than the one we already have
-                            continue;
-                        }
-                        if seconds > *existing_seconds {
-                            most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                            continue;
-                        }
-                        if branch_name.starts_with("refs/remotes") {
-                            // this branch is a remote branch
-                            // we always prefer the remote branch if it is the same age as the local branch
-                            most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                            continue;
-                        }
-                    }
-                    None => {
-                        // this is the first time we've seen this branch
-                        // so we should add it to the list
-                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                    }
-                }
-            }
-            None => {
+    for (branch, _) in repo.branches(None)?.flatten() {
+        if let Some(branch_oid) = branch.get().target() {
+            // get the branch ref
+            let branch_commit = repo
+                .find_commit(branch_oid)
+                .context("failed to find branch commit")?;
+            let branch_time = branch_commit.time();
+            let seconds = branch_time
+                .seconds()
+                .try_into()
+                .context("failed to convert seconds")?;
+            let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
+            let duration = current_time
+                .duration_since(branch_time)
+                .context("failed to get duration")?;
+            if duration > too_old {
                 continue;
+            }
+
+            let branch_name = branch
+                .name()
+                .context("could not get branch name")?
+                .context("could not get branch name")?
+                .to_string();
+            let branch_name = branch_name.replace("origin/", "");
+
+            if virtual_branches_names.contains(&branch_name) {
+                continue;
+            }
+            if branch_name == "HEAD" {
+                continue;
+            }
+            if branch_name == "gitbutler/temp" {
+                continue;
+            }
+
+            match most_recent_branches_by_hash.get(&branch_oid) {
+                Some((_, existing_seconds)) => {
+                    let branch_name = branch.get().name().context("could not get branch name")?;
+                    if seconds < *existing_seconds {
+                        // this branch is older than the one we already have
+                        continue;
+                    }
+                    if seconds > *existing_seconds {
+                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                        continue;
+                    }
+                    if branch_name.starts_with("refs/remotes") {
+                        // this branch is a remote branch
+                        // we always prefer the remote branch if it is the same age as the local branch
+                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                        continue;
+                    }
+                }
+                None => {
+                    // this is the first time we've seen this branch
+                    // so we should add it to the list
+                    most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                }
             }
         }
     }
@@ -493,6 +484,7 @@ pub fn remote_branches(
         .collect();
     let top_branches = sorted_branches.into_iter().take(20).collect::<Vec<_>>(); // Take the first 20 entries.
 
+    let mut branches: Vec<RemoteBranch> = Vec::new();
     for branch in &top_branches {
         let branch_name = branch.get().name().context("could not get branch name")?;
         let upstream_branch = branch.upstream();
@@ -503,61 +495,20 @@ pub fn remote_branches(
                     .find_commit(branch_oid)
                     .context("failed to find branch commit")?;
 
-                let mut revwalk = repo.revwalk().context("failed to create revwalk")?;
-                revwalk
-                    .set_sorting(git2::Sort::TOPOLOGICAL)
-                    .context("failed to set sorting")?;
-                revwalk.push(main_oid).context("failed to push main oid")?;
-                revwalk
-                    .hide(branch_oid)
-                    .context("failed to hide branch oid")?;
+                let count_behind = project_repository
+                    .distance(main_oid, branch_oid)
+                    .context("failed to get behind count")?;
 
-                let mut count_behind = 0;
-                for oid in revwalk.flatten() {
-                    if oid == branch_oid {
-                        break;
-                    }
-                    count_behind += 1;
-                    if count_behind > 100 {
-                        break;
-                    }
-                }
+                let ahead = project_repository.log(branch_oid, main_oid)?;
+                let count_ahead = ahead.len();
 
-                let mut revwalk2 = repo.revwalk().context("failed to create revwalk")?;
-                revwalk2
-                    .set_sorting(git2::Sort::TOPOLOGICAL)
-                    .context("failed to set sorting")?;
-                revwalk2
-                    .push(branch_oid)
-                    .context("failed to push branch oid")?;
-                revwalk2.hide(main_oid).context("failed to hide main oid")?;
-
-                let mut min_time = None;
-                let mut max_time = None;
-                let mut count_ahead = 0;
-                let mut authors = HashSet::new();
-                for oid in revwalk2.flatten() {
-                    if oid == main_oid {
-                        break;
-                    }
-                    let commit = repo.find_commit(oid).context("failed to find commit")?;
-                    let timestamp = commit.time().seconds() as u128;
-
-                    if min_time.is_none() || timestamp < min_time.unwrap() {
-                        min_time = Some(timestamp);
-                    }
-
-                    if max_time.is_none() || timestamp > max_time.unwrap() {
-                        max_time = Some(timestamp);
-                    }
-
-                    // find the signature for this commit
-                    let commit = repo.find_commit(oid).context("failed to find commit")?;
-                    let signature = commit.author();
-                    authors.insert(signature.email().unwrap().to_string());
-
-                    count_ahead += 1;
-                }
+                let min_time = ahead.iter().map(|commit| commit.time().seconds()).min();
+                let max_time = ahead.iter().map(|commit| commit.time().seconds()).max();
+                let authors = ahead
+                    .iter()
+                    .map(|commit| commit.author())
+                    .filter_map(|signature| signature.email().map(|email| email.to_string()))
+                    .collect::<HashSet<_>>();
 
                 let upstream_branch_name = match upstream_branch {
                     Ok(upstream_branch) => upstream_branch.get().name().unwrap_or("").to_string(),
@@ -576,9 +527,17 @@ pub fn remote_branches(
                             branch: branch_name.to_string(),
                             name: branch_name.to_string(),
                             description: "".to_string(),
-                            last_commit_ts: max_time.unwrap_or(0),
-                            first_commit_ts: min_time.unwrap_or(0),
-                            ahead: count_ahead,
+                            last_commit_ts: max_time
+                                .unwrap_or(0)
+                                .try_into()
+                                .context("failed to convert i64 to u128")?,
+                            first_commit_ts: min_time
+                                .unwrap_or(0)
+                                .try_into()
+                                .context("failed to convert i64 to u128")?,
+                            ahead: count_ahead
+                                .try_into()
+                                .context("failed to convert usize to u32")?,
                             behind: count_behind,
                             upstream: upstream_branch_name,
                             authors: authors.into_iter().collect(),
@@ -787,33 +746,22 @@ pub fn list_virtual_branches(
         // find upstream commits if we found an upstream reference
         let mut upstream_commits = HashMap::new();
         if let Some(ref upstream) = upstream_commit {
-            let mut revwalk = repo.revwalk()?;
-            revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
-            revwalk.push(upstream.id())?;
-            // find merge base between upstream and default_target.sha
             let merge_base = repo.merge_base(upstream.id(), default_target.sha)?;
-            revwalk.hide(merge_base)?;
-            for oid in revwalk.flatten() {
+            for oid in project_repository.l(upstream.id(), merge_base)? {
                 upstream_commits.insert(oid, true);
             }
         }
 
         // find all commits on head that are not on target.sha
         let mut commits = vec![];
-        let mut revwalk = repo.revwalk()?;
-        revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
-        revwalk.push(branch.head)?;
-        revwalk.hide(default_target.sha)?;
-        for oid in revwalk {
-            let oid = oid?;
-            let commit = repo.find_commit(oid)?;
+        for commit in project_repository.log(branch.head, default_target.sha)? {
             let timestamp = commit.time().seconds() as u128;
             let signature = commit.author();
             let name = signature.name().unwrap().to_string();
             let email = signature.email().unwrap().to_string();
             let message = commit.message().unwrap().to_string();
-            let sha = oid.to_string();
-            let is_remote = upstream_commits.contains_key(&oid);
+            let sha = commit.id().to_string();
+            let is_remote = upstream_commits.contains_key(&commit.id());
 
             let commit = VirtualBranchCommit {
                 id: sha,
@@ -1942,7 +1890,7 @@ pub fn get_target_data(
             let commit = branch.get().peel_to_commit().unwrap();
             let oid = commit.id();
             target.behind = project_repository
-                .behind(oid, target.sha)
+                .distance(oid, target.sha)
                 .context(format!("failed to get behind for {}", target.branch_name))?;
             Ok(Some(target))
         }
