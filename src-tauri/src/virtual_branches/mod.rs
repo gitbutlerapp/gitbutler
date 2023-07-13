@@ -140,6 +140,9 @@ pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<()> {
+    if project_repository.is_conflicted(None)? {
+        bail!("cannot apply a branch, project is in a conflicted state");
+    }
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -277,6 +280,9 @@ pub fn unapply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<()> {
+    if project_repository.is_conflicted(None)? {
+        bail!("cannot unapply, project is in a conflicted state");
+    }
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;

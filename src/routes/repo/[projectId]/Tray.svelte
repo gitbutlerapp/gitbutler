@@ -123,13 +123,19 @@
 						<Checkbox
 							on:change={() => toggleBranch(branch.id, branch.active)}
 							bind:checked={branch.active}
+							disabled={!(branch.mergeable || !branch.baseCurrent)}
 						/>
 						<div class="ml-2 w-full cursor-pointer truncate text-black dark:text-white">
 							{branch.name}
 						</div>
 					</div>
 					{#if !branch.active}
-						<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+						{#if !branch.baseCurrent}
+							<!-- branch will cause merge conflicts if applied -->
+							<div class="text-blue-500">&#9679;</div>
+						{:else}
+							<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+						{/if}
 					{/if}
 				</div>
 				<div class="text-sm text-light-700 dark:text-dark-300">

@@ -11,12 +11,15 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
 	import { dzTrigger } from './dropZone';
+	import { invoke } from '@tauri-apps/api/tauri';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	export let id: string;
 	export let projectPath: string;
+	export let projectId: string;
 	export let filepath: string;
+	export let conflicted: boolean;
 	export let hunks: Hunk[];
 	export let maximized: boolean;
 	export let dzType: string;
@@ -27,6 +30,10 @@
 	export let expanded: boolean | undefined;
 
 	let popupMenu: PopupMenu;
+
+	function resolveConflict() {
+		return invoke<void>('mark_resolved', { projectId: projectId, path: filepath });
+	}
 
 	function hunkSize(hunk: string): number[] {
 		const linesAdded = hunk.split('\n').filter((line) => line.startsWith('+')).length;
@@ -86,6 +93,11 @@
 				{/if}
 			</div>
 		</div>
+
+		{#if conflicted}
+			<div class="mx-2 rounded bg-red-700 p-2 text-white">Conflicted</div>
+			<button on:click={resolveConflict}>Resolve</button>
+		{/if}
 
 		<div class="hunk-change-container flex flex-col gap-2 rounded px-2 pb-2">
 			{#if expanded}
