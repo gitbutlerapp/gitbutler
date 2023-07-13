@@ -92,6 +92,7 @@
 	class:w-full={maximized}
 	class:w-96={!maximized}
 	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
 	on:dragend
@@ -118,6 +119,8 @@
 	>
 		<div
 			on:dblclick={() => (maximized = !maximized)}
+			tabindex="0"
+			role="button"
 			class="h-8 w-8 flex-grow-0 cursor-pointer p-2 text-light-600 dark:text-dark-200"
 		>
 			<IconBranch />
@@ -179,9 +182,13 @@
 			/>
 		</div>
 		<div class="mb-2 text-right">
-			<Button height="small" color="purple" on:click={() => {
+			<Button
+				height="small"
+				color="purple"
+				on:click={() => {
 					commit();
-				}}>Commit</Button>
+				}}>Commit</Button
+			>
 		</div>
 		<div class="flex flex-shrink flex-col gap-y-2">
 			<div class="drop-zone-marker hidden rounded border p-6 text-center">

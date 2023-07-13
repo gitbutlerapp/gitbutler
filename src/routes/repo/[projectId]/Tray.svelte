@@ -114,6 +114,7 @@
 		{#each branches as branch (branch.id)}
 			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 			<div
+				role="listitem"
 				on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
 				class="border-b border-light-400 p-2 dark:border-dark-600"
 				title={branch.name}
@@ -159,6 +160,7 @@
 		<div class="dark:bg-dark-900" use:accordion={remoteBranchesOpen}>
 			{#each remoteBranches as branch}
 				<div
+					role="listitem"
 					on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
 					class="flex flex-col justify-between gap-1 border-b border-light-400 py-1 px-2 pt-2 dark:border-dark-600"
 				>

@@ -46,11 +46,15 @@
 
 {#if showMenu}
 	<div
+		role="menu"
+		tabindex="0"
 		class="absolute top-0 left-0 z-50 h-full w-full shadow-2xl"
 		on:click={onDismiss}
 		on:keydown={onDismiss}
 	>
 		<div
+			role="menu"
+			tabindex="0"
 			use:recordDimensions
 			on:mouseleave={onDismiss}
 			on:blur={onDismiss}

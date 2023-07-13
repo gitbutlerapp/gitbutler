@@ -12,6 +12,7 @@
 
 <div
 	id="new-branch-dz"
+	role="group"
 	class="h-42 ml-4 mt-14 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
 	use:dzHighlight={{ type: 'text/hunk', hover: 'drop-zone-hover', active: 'drop-zone-active' }}
 	on:drop|stopPropagation={(e) => {

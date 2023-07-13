@@ -59,6 +59,7 @@
 	draggable="true"
 	use:dzTrigger={{ type: dzType }}
 	on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', getAllHunksOwnership())}
+	role="group"
 	class="changed-file inner"
 >
 	<div
@@ -77,6 +78,8 @@
 					dispatch('expanded', expanded);
 				}}
 				on:keypress={() => (expanded = !expanded)}
+				role="button"
+				tabindex="0"
 				class="cursor-pointer p-2 text-light-600 dark:text-dark-200"
 			>
 				{#if expanded}
@@ -92,6 +95,8 @@
 				{#each hunks || [] as hunk (hunk.id)}
 					<div
 						draggable="true"
+						tabindex="0"
+						role="button"
 						use:dzTrigger={{ type: dzType }}
 						on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', id + ':' + hunk.id)}
 						on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, hunk)}

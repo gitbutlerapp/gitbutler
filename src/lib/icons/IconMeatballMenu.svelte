@@ -1,6 +1,8 @@
 <svg
 	on:click
 	on:keydown
+	role="button"
+	tabindex="0"
 	class="h-1 w-4"
 	width="16"
 	height="4"
