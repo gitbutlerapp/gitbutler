@@ -11,13 +11,14 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import type { BranchController } from '$lib/vbranches';
 	import { getContext } from 'svelte';
+	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
 	export let target: Target;
 	export let branches: Branch[];
-	export let branchController: BranchController;
 	export let remoteBranches: BranchData[];
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
@@ -25,15 +26,18 @@
 	let yourBranchContextMenu: PopupMenu;
 	let remoteBranchContextMenu: PopupMenu;
 	let updateTargetModal: Modal;
+	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
 
 	$: behindMessage = target.behind > 0 ? `behind ${target.behind}` : 'up-to-date';
 
-	function toggleBranch(branchId: string, applied: boolean) {
-		if (applied) {
-			branchController.unapplyBranch(branchId);
+	function toggleBranch(branch: Branch) {
+		if (branch.active) {
+			branchController.unapplyBranch(branch.id);
+		} else if (!branch.baseCurrent) {
+			applyConflictedModal.show(branch);
 		} else {
-			branchController.applyBranch(branchId);
+			branchController.applyBranch(branch.id);
 		}
 	}
 
@@ -124,9 +128,9 @@
 				<div class="flex flex-row justify-between">
 					<div class="flex w-full">
 						<Checkbox
-							on:change={() => toggleBranch(branch.id, branch.active)}
+							on:change={() => toggleBranch(branch)}
 							bind:checked={branch.active}
-							disabled={!(branch.mergeable || !branch.baseCurrent)}
+							disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
 						/>
 						<div class="ml-2 w-full cursor-pointer truncate text-black dark:text-white">
 							{branch.name}
@@ -232,6 +236,26 @@
 			>Apply</PopupMenuItem
 		>
 	</PopupMenu>
+
+	<!-- Apply conflicted branch modal -->
+
+	<Modal width="small" bind:this={applyConflictedModal}>
+		<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
+		<p>Applying this branch will introduce merge conflicts.</p>
+		<svelte:fragment slot="controls" let:item>
+			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+			<Button
+				height="small"
+				color="purple"
+				on:click={() => {
+					branchController.applyBranch(item.id);
+					close();
+				}}
+			>
+				Update
+			</Button>
+		</svelte:fragment>
+	</Modal>
 
 	<!-- Confirm target update modal -->
 

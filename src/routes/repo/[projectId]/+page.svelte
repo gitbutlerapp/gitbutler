@@ -5,6 +5,8 @@
 	import { Button } from '$lib/components';
 	import { BranchController } from '$lib/vbranches';
 	import { Loaded } from 'svelte-loadable-store';
+	import { setContext } from 'svelte';
+	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
 	export let data: PageData;
 	let {
@@ -22,6 +24,7 @@
 		remoteBranchStore,
 		targetBranchStore
 	);
+	setContext(BRANCH_CONTROLLER_KEY, branchController);
 
 	$: remoteBranches = Loaded.isValue($remoteBranchStore) ? $remoteBranchStore.value : [];
 	$: target = Loaded.isValue($targetBranchStore) ? $targetBranchStore.value : undefined;
@@ -39,8 +42,8 @@
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray {branches} {target} {branchController} {remoteBranches} />
-		<Board {branches} {projectId} projectPath={project.path} {branchController} />
+		<Tray {branches} {target} {remoteBranches} />
+		<Board {branches} {projectId} projectPath={project.path} />
 	</div>
 {:else}
 	<div class="m-auto flex max-w-xs flex-col gap-y-4">

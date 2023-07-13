@@ -2,8 +2,10 @@
 	import { Button } from '$lib/components';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
+	import { getContext } from 'svelte';
+	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
-	export let branchController: BranchController;
+	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	function handleNewVirtualBranch() {
 		branchController.createBranch({});

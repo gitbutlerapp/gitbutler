@@ -4,6 +4,9 @@ import type { Loadable } from 'svelte-loadable-store';
 import type { Branch, BranchData, Target } from './types';
 import { toasts } from '$lib';
 import * as ipc from './ipc';
+import { invoke } from '$lib/ipc';
+
+export const BRANCH_CONTROLLER_KEY = Symbol();
 
 export class BranchController {
 	constructor(
@@ -155,6 +158,16 @@ export class BranchController {
 		} catch (err) {
 			console.error(err);
 			toasts.error('Failed to fetch from target');
+		}
+	}
+
+	async markResolved(projectId: string, path: string) {
+		try {
+			await invoke<void>('mark_resolved', { projectId, path });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			console.error(err);
+			toasts.error(`Failed to mark file resolved`);
 		}
 	}
 }
