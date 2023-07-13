@@ -838,7 +838,7 @@ pub fn list_virtual_branches(
             mergeable,
             merge_conflicts,
             upstream: branch.upstream.to_string().replace("refs/heads/", ""),
-            conflicted: project_repository.is_conflicted(None)?,
+            conflicted: project_repository.resolving_conflict()?,
             base_current,
         };
         branches.push(branch);
