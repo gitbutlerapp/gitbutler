@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
-	import type { Hunk } from '$lib/vbranches';
+	import type { BranchController, Hunk } from '$lib/vbranches';
 	import HunkDiffViewer from './HunkDiffViewer.svelte';
 	import { summarizeHunk } from '$lib/summaries';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
@@ -11,9 +11,10 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
 	import { dzTrigger } from './dropZone';
-	import { invoke } from '@tauri-apps/api/tauri';
+	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	export let id: string;
 	export let projectPath: string;
@@ -30,10 +31,6 @@
 	export let expanded: boolean | undefined;
 
 	let popupMenu: PopupMenu;
-
-	function resolveConflict() {
-		return invoke<void>('mark_resolved', { projectId: projectId, path: filepath });
-	}
 
 	function hunkSize(hunk: string): number[] {
 		const linesAdded = hunk.split('\n').filter((line) => line.startsWith('+')).length;
@@ -100,7 +97,7 @@
 		{#if conflicted}
 			<div class="mx-2 rounded bg-red-700 p-2 text-white">
 				<div>Conflicted</div>
-				<button on:click={resolveConflict}>Resolve</button>
+				<button on:click={() => branchController.markResolved(projectId, filepath)}>Resolve</button>
 			</div>
 		{/if}
 
