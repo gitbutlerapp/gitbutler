@@ -5,6 +5,7 @@ import { sentrySvelteKit } from '@sentry/sveltekit';
 export default defineConfig({
 	plugins: [
 		sentrySvelteKit({
+			autoInstrument: false,
 			sourceMapsUploadOptions: {
 				dryRun: process.env.SENTRY_RELEASE === undefined,
 				org: 'gitbutler',

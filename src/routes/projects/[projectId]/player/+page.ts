@@ -1,11 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
 import { format, compareDesc } from 'date-fns';
 import type { PageLoad } from './$types';
-import { wrapLoadWithSentry } from '@sentry/sveltekit';
 import { stores } from '$lib';
 import { promisify } from 'svelte-loadable-store';
 
-export const load: PageLoad = wrapLoadWithSentry(async ({ url, params }) => {
+export const load: PageLoad = async ({ url, params }) => {
 	const sessions = await promisify(stores.sessions({ projectId: params.projectId }));
 	const latestDate = sessions
 		.map((session) => session.meta.startTimestampMs)
@@ -16,4 +15,4 @@ export const load: PageLoad = wrapLoadWithSentry(async ({ url, params }) => {
 		302,
 		`/projects/${params.projectId}/player/${format(latestDate, 'yyyy-MM-dd')}/${url.search}`
 	);
-});
+};
