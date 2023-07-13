@@ -95,8 +95,10 @@
 		</div>
 
 		{#if conflicted}
-			<div class="mx-2 rounded bg-red-700 p-2 text-white">Conflicted</div>
-			<button on:click={resolveConflict}>Resolve</button>
+			<div class="mx-2 rounded bg-red-700 p-2 text-white">
+				<div>Conflicted</div>
+				<button on:click={resolveConflict}>Resolve</button>
+			</div>
 		{/if}
 
 		<div class="hunk-change-container flex flex-col gap-2 rounded px-2 pb-2">

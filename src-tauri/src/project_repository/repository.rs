@@ -218,6 +218,19 @@ impl<'repository> Repository<'repository> {
         }
     }
 
+    // is this project still in a resolving conflict state?
+    // - could be that there are no more conflicts, but the state is not committed
+    pub fn resolving_conflict(&self) -> Result<bool> {
+        let merge_path = self.git_repository.path().join("base_merge_parent");
+        Ok(merge_path.exists())
+    }
+
+    pub fn clear_conflict(&self) -> Result<()> {
+        let merge_path = self.git_repository.path().join("base_merge_parent");
+        std::fs::remove_file(merge_path)?;
+        Ok(())
+    }
+
     // end merge conflict state stuff
 
     pub fn get_head_commit(&self) -> Result<git2::Commit> {
