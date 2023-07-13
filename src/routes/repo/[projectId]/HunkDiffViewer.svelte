@@ -2,14 +2,6 @@
 	import { buildDiffRows, documentMap, RowType, type Row } from '$lib/components/Differ/renderer';
 	import { line, type DiffArray } from '$lib/diff';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
-	import type { SettingsStore } from '$lib/userSettings';
-
-	export let userSettings: SettingsStore;
-	$: if ($userSettings.theme) {
-		$userSettings.theme == 'dark'
-			? import('./colors/github-dark.css')
-			: import('./colors/github-light.css');
-	}
 
 	export let diff: string;
 	export let filePath: string;
@@ -112,13 +104,13 @@
 				? String(row.currentLineNumber + currentLineNumber - 1)
 				: ''}
 		<span
-			class="min-w-[1rem] select-none border-r  border-light-400 bg-light-200 px-1 text-right text-light-800 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
+			class="min-w-[1rem] select-none border-r border-light-400 bg-light-200 px-1 text-right text-light-800 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
 		>
 			{baseNumber}
 		</span>
 
 		<span
-			class="min-w-[1rem] select-none border-r  border-light-400 bg-light-200 px-1 text-right text-light-800 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
+			class="min-w-[1rem] select-none border-r border-light-400 bg-light-200 px-1 text-right text-light-800 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
 		>
 			{curNumber}
 		</span>
@@ -132,3 +124,6 @@
 		</span>
 	{/each}
 </div>
+
+<style lang="postcss">
+</style>

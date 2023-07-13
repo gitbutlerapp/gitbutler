@@ -126,7 +126,6 @@
 									diff={hunk.diff}
 									filePath={hunk.filePath}
 									linesShown={maximized ? 8 : 2}
-									{userSettings}
 								/>
 							</div>
 							<div class="flex px-2 py-1">

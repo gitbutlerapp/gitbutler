@@ -1,5 +1,5 @@
 <script lang="ts">
-	import '../app.postcss';
+	import '../styles/main.postcss';
 
 	import { open } from '@tauri-apps/api/dialog';
 	import { toasts, Toaster, events, hotkeys, stores } from '$lib';
