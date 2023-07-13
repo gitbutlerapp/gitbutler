@@ -342,7 +342,7 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository, true)
     }
 
     pub async fn create_virtual_branch(
@@ -439,7 +439,17 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        virtual_branches::commit(&gb_repository, &project_repository, branch, message, None)?;
+        virtual_branches::commit(&gb_repository, &project_repository, branch, message)?;
+        Ok(())
+    }
+
+    pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        // mark file as resolved
+        project_repository.mark_resolved(path.to_string())?;
         Ok(())
     }
 

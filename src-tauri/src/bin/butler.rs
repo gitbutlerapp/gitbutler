@@ -83,7 +83,7 @@ fn main() {
 
 fn run_clear(butler: ButlerCli) {
     // make sure there is a session
-    let current_session = butler
+    butler
         .gb_repository
         .get_or_create_current_session()
         .expect("failed to get or create currnt session");
@@ -131,7 +131,7 @@ fn run_flush(butler: ButlerCli) {
 }
 
 fn run_branches(butler: ButlerCli) {
-    let branches = list_virtual_branches(&butler.gb_repository, &butler.project_repository())
+    let branches = list_virtual_branches(&butler.gb_repository, &butler.project_repository(), true)
         .expect("failed to list branches");
     for branch in branches {
         println!("{}", branch.id.red());
@@ -187,7 +187,6 @@ fn run_commit(butler: ButlerCli) {
         &butler.project_repository(),
         &commit_branch,
         &message,
-        None,
     )
     .expect("failed to commit");
 }
