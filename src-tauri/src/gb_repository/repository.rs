@@ -626,7 +626,7 @@ impl Repository {
             let branch = virtual_branches::branch::Branch {
                 id: Uuid::new_v4().to_string(),
                 order: max_order + 1,
-                name: "default branch".to_string(),
+                name: "Virtual branch".to_string(),
                 applied: true,
                 upstream: "".to_string(),
                 created_timestamp_ms: now,
