@@ -131,7 +131,7 @@ fn run_flush(butler: ButlerCli) {
 }
 
 fn run_branches(butler: ButlerCli) {
-    let branches = list_virtual_branches(&butler.gb_repository, &butler.project_repository())
+    let branches = list_virtual_branches(&butler.gb_repository, &butler.project_repository(), true)
         .expect("failed to list branches");
     for branch in branches {
         println!("{}", branch.id.red());
