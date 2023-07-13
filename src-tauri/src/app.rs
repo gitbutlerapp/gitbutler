@@ -443,6 +443,16 @@ impl App {
         Ok(())
     }
 
+    pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<()> {
+        let gb_repository = self.gb_repository(project_id)?;
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        // mark file as resolved
+        project_repository.mark_resolved(path.to_string())?;
+        Ok(())
+    }
+
     pub fn push_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<(), Error> {
         let gb_repository = self.gb_repository(project_id).map_err(Error::Other)?;
         let project = self.gb_project(project_id).map_err(Error::Other)?;
