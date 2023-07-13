@@ -1,1 +1,1 @@
-import './src/app.postcss';
+import './src/styles/main.postcss';
