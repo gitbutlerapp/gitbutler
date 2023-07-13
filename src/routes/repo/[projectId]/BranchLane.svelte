@@ -123,7 +123,7 @@
 		>
 			<IconBranch />
 		</div>
-		<div class="mr-1 flex-grow ">
+		<div class="mr-1 flex-grow">
 			<input
 				type="text"
 				bind:value={name}
@@ -160,7 +160,7 @@
 		</PopupMenuItem>
 
 		<div class="mx-3">
-			<div class="my-2 h-[0.0625rem] w-full  bg-light-300 dark:bg-dark-500" />
+			<div class="my-2 h-[0.0625rem] w-full bg-light-300 dark:bg-dark-500" />
 		</div>
 
 		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
@@ -184,13 +184,9 @@
 			/>
 		</div>
 		<div class="mb-2 text-right">
-			<Button
-				height="small"
-				color="purple"
-				on:click={() => {
+			<Button height="small" color="purple" on:click={() => {
 					commit();
-				}}>Commit</Button
-			>
+				}}>Commit</Button>
 		</div>
 		<div class="flex flex-shrink flex-col gap-y-2">
 			<div class="drop-zone-marker hidden rounded border p-6 text-center">

@@ -223,7 +223,7 @@
 				? String(row.currentLineNumber)
 				: ''}
 		<span
-			class="select-none border-r border-light-200  bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
+			class="select-none border-r border-light-200 bg-light-800 text-dark-300 dark:border-dark-800 dark:bg-dark-800 dark:text-light-300"
 		>
 			<div class="mx-1.5 text-right">
 				{baseNumber}

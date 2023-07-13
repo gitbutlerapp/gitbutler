@@ -77,7 +77,7 @@
 
 					{#each chatHistory as pair}
 						<div class="flex justify-end">
-							<div class="user-message ">
+							<div class="user-message">
 								{pair[0]}
 							</div>
 						</div>

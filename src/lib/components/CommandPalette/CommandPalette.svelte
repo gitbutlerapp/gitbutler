@@ -186,7 +186,7 @@
 <Overlay bind:this={modal}>
 	<div class="h-[400px]">
 		<div
-			class="command-palette modal modal-command-palette flex max-h-[400px] min-h-[40px] w-[680px] flex-col "
+			class="command-palette modal modal-command-palette flex max-h-[400px] min-h-[40px] w-[680px] flex-col"
 		>
 			<!-- Search input area -->
 			<header class="search-input-container flex items-center border-b border-zinc-400/20 py-2">
@@ -225,7 +225,7 @@
 				{#each $commandGroups as group, groupIdx}
 					{#await group then group}
 						<li
-							class="my-2 w-full cursor-default select-none px-2 "
+							class="my-2 w-full cursor-default select-none px-2"
 							class:hidden={group.commands.length === 0}
 						>
 							<header class="command-palette-section-header result-section-header">
@@ -244,7 +244,7 @@
 										<button
 											on:focus={() => ($selection = [groupIdx, commandIdx])}
 											on:click={() => trigger(command.action)}
-											class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2  outline-none"
+											class="text-color-500 flex w-full items-center gap-2 rounded-lg p-2 px-2 outline-none"
 										>
 											<svelte:component this={command.icon} class="icon h-5 w-5 text-zinc-500 " />
 											<span

@@ -56,7 +56,7 @@
 				>
 					{#each $dates.value as date}
 						{@const isToday = format(new Date(date), 'yyyy-MM-dd') === today}
-						<li class="date-card ">
+						<li class="date-card">
 							<a
 								href="/projects/{$page.params.projectId}/player/{date}{$page.url.search}"
 								class:bg-card-active={date === currentDate}

@@ -258,7 +258,7 @@
 
 <div id="commit-page" class="flex h-full w-full">
 	<div class="commit-panel-container side-panel flex flex-col">
-		<form on:submit|preventDefault={onCommit} class="flex h-full  flex-col gap-4 px-4">
+		<form on:submit|preventDefault={onCommit} class="flex h-full flex-col gap-4 px-4">
 			<h1 class="pt-2 text-2xl font-bold">Commit</h1>
 			<ul class="card flex h-full w-full flex-col overflow-auto">
 				<header class="flex w-full items-center rounded-tl rounded-tr bg-card-active p-2">
@@ -285,7 +285,7 @@
 								<div
 									class:bg-[#3356C2]={$selectedDiffPath === path}
 									class:hover:bg-divider={$selectedDiffPath !== path}
-									class="file-changed-item mx-1 mt-1 flex select-text  items-center gap-2 rounded bg-card-default px-1 py-1"
+									class="file-changed-item mx-1 mt-1 flex select-text items-center gap-2 rounded bg-card-default px-1 py-1"
 								>
 									<Checkbox
 										checked={Status.isStaged(status)}
@@ -342,10 +342,10 @@
 						<div
 							in:fly={{ y: 8, duration: 500 }}
 							out:fly={{ y: -8, duration: 500 }}
-							class="generating-commit absolute top-0 right-0 bottom-0 left-0 rounded border-2 border-[#502E5C] "
+							class="generating-commit absolute top-0 right-0 bottom-0 left-0 rounded border-2 border-[#502E5C]"
 						>
 							<div
-								class="generating-commit-message absolute  bottom-0 left-0 rounded-tr bg-[#782E94] bg-gradient-to-b from-[#623871] to-[#502E5C] py-1 px-2"
+								class="generating-commit-message absolute bottom-0 left-0 rounded-tr bg-[#782E94] bg-gradient-to-b from-[#623871] to-[#502E5C] py-1 px-2"
 							>
 								<span>✨ Summarizing changes</span>
 								<span class="dot-container">
@@ -393,7 +393,7 @@
 	</div>
 
 	<div class="main-content-container">
-		<div id="preview" class="card relative m-2 flex h-full flex-col overflow-auto ">
+		<div id="preview" class="card relative m-2 flex h-full flex-col overflow-auto">
 			{#await Promise.all([selectedDiffPath.load(), selectedDiff.load()])}
 				<div class="flex h-full w-full flex-col items-center justify-center">
 					<p class="text-lg">Loading...</p>
