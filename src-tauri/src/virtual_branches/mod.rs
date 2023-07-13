@@ -1646,10 +1646,8 @@ pub fn update_branch_target(
                     .context("failed to merge trees")?;
 
                 // check index for conflicts
-                if merge_index.has_conflicts() {
-                    // conflicts with head too, so abandon it for now
-                    println!("conflicts");
-                } else {
+                // if it has conflicts, we just ignore it
+                if !merge_index.has_conflicts() {
                     // does not conflict with head, so lets merge it and update the head
                     let merge_tree_oid = merge_index
                         .write_tree_to(repo)
@@ -4855,6 +4853,9 @@ mod tests {
 
         let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
         assert_eq!(branches.len(), 2); // added a default one
+        let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
+        assert_eq!(branch1.mergeable, false);
+        assert_eq!(branch1.base_current, false);
 
         // apply branch which is now out of date and conflicting
         apply_branch(&gb_repo, &project_repository, &branch_id)?;
@@ -4889,6 +4890,7 @@ mod tests {
         assert_eq!(branch1.files.first().unwrap().hunks.len(), 1);
         assert_eq!(branch1.files.first().unwrap().conflicted, false);
         assert_eq!(branch1.conflicted, false);
+        assert_eq!(branch1.active, true);
 
         // commit
         commit(&gb_repo, &project_repository, &branch_id, "resolve commit")?;
