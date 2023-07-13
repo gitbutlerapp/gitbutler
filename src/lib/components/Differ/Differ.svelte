@@ -3,7 +3,6 @@
 	import { buildDiffRows, documentMap, RowType, type Row } from './renderer';
 
 	import './diff.postcss';
-	import './colors/gruvbox-alternative.css';
 	import type { DiffArray } from '$lib/diff';
 
 	export let filepath: string;
