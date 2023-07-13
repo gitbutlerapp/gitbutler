@@ -59,12 +59,8 @@
 	{#if showPopover}
 		<div
 			role="dialog"
-			aria-labelledby="Title"
-			aria-describedby="Description"
-			aria-orientation="vertical"
 			in:fadeAndZoomIn={{ duration: 150 }}
 			out:fade={{ duration: 100 }}
-			on:mouseup={() => (showPopover = false)}
 			class="wrapper z-[999] min-w-[180px] max-w-[512px] rounded border border-zinc-700 bg-zinc-800 text-zinc-50 shadow-2xl"
 			style="--popover-top: {`${bottom}px`}; --popover-left: {`${left}px`}"
 		>

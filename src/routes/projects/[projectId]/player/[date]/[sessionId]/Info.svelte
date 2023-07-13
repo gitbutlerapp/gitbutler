@@ -55,6 +55,8 @@
 
 		{#if $bookmark.value && $bookmark.value.note.length && !$bookmark.value.deleted}
 			<div
+				role="button"
+				tabindex="0"
 				class="flex cursor-pointer flex-col gap-2"
 				on:click={() => events.emit('openBookmarkModal')}
 				on:keydown={() => events.emit('openBookmarkModal')}
