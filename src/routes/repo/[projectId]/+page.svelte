@@ -63,7 +63,7 @@
 				{/each}
 			</select>
 			<div>
-				<Button color="purple" height="small" on:click={onSetTargetClick}>Set Target</Button>
+				<Button color="purple" height="small" on:click={onSetTargetClick}>Set base branch</Button>
 			</div>
 		{/if}
 	</div>
