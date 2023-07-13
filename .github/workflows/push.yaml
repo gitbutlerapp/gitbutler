@@ -73,13 +73,25 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v3
+
+            # Filter on steps instead of on jobs, so that we can keep GitHub branch protection for this job
+            - name: Getting changes
+              id: changes
+              uses: dorny/paths-filter@v2
+              with:
+                filters: |
+                  rust:
+                    - 'src-tauri/**'
+
             - name: Install latest stable rust
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               uses: actions-rs/toolchain@v1
               with:
                 override: true
                 toolchain: stable
                 components: rustfmt
             - run: cargo fmt --check
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               working-directory: src-tauri
 
 
@@ -126,24 +138,37 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v3
 
+            # Filter on steps instead of on jobs, so that we can keep GitHub branch protection for this job
+            - name: Getting changes
+              id: changes
+              uses: dorny/paths-filter@v2
+              with:
+                filters: |
+                  rust:
+                    - 'src-tauri/**'
+
             - name: Setup node
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               uses: actions/setup-node@v3
               with:
                   node-version: 18
 
             - name: Install pnpm
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               uses: pnpm/action-setup@v2
               with:
                   version: 7.x.x
                   run_install: false
 
             - name: Get pnpm store directory
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               id: pnpm-cache
               shell: bash
               run: |
                 echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
             - uses: actions/cache@v3
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               name: Setup pnpm cache
               with:
                 path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
@@ -152,9 +177,11 @@ jobs:
                   ${{ runner.os }}-pnpm-store-
 
             - name: Install pnpm dependencies
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               run: pnpm install
 
             - name: Install latest stable rust
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               uses: actions-rs/toolchain@v1
               with:
                 override: true
@@ -162,6 +189,7 @@ jobs:
                 components: rustfmt, clippy
 
             - name: Cache rust dependencies
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               uses: Swatinem/rust-cache@v2
               with:
                 workspaces: src-tauri
@@ -176,14 +204,18 @@ jobs:
                   packages: libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
             - name: Build frontend
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               run: pnpm build
 
             - name: Install clippy
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               run: rustup component add clippy
 
             - run: cargo clippy --all-features
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               working-directory: src-tauri
 
             - name: Test rust
+              if: ${{ steps.changes.outputs.rust == 'true' }}
               working-directory: src-tauri
               run: cargo test
