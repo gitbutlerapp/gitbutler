@@ -20,6 +20,7 @@ export class File {
 	expanded?: boolean;
 	@Transform((obj) => new Date(obj.value))
 	modifiedAt!: Date;
+	conflicted!: boolean;
 }
 
 export class Branch {
@@ -34,6 +35,8 @@ export class Branch {
 	mergeConflicts!: string[];
 	order!: number;
 	upstream!: string;
+	conflicted!: boolean;
+	baseCurrent!: boolean;
 }
 
 export class Commit {

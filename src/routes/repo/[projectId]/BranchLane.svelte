@@ -22,6 +22,7 @@
 	export let commits: Commit[];
 	export let projectId: string;
 	export let order: number;
+	export let conflicted: boolean;
 	export let branchController: BranchController;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
@@ -141,6 +142,10 @@
 		</button>
 	</div>
 
+	{#if conflicted}
+		<div class="mb-2 rounded bg-red-700 p-2 text-white">Conflict Zone</div>
+	{/if}
+
 	<PopupMenu bind:this={popupMenu} let:item={branchId}>
 		<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
 			Unapply
@@ -197,8 +202,10 @@
 					filepath={file.path}
 					expanded={file.expanded}
 					hunks={file.hunks}
+					conflicted={file.conflicted}
 					{dzType}
 					{maximized}
+					{projectId}
 					on:expanded={(e) => {
 						setExpandedWithCache(file, e.detail);
 						expandFromCache();

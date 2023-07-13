@@ -67,7 +67,7 @@
 		}
 	}}
 >
-	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order, conflicted } (id)}
 		<Lane
 			on:dragstart={(e) => {
 				if (!e.dataTransfer) return;
@@ -79,6 +79,7 @@
 			commitMessage={description}
 			{files}
 			{commits}
+			{conflicted}
 			on:empty={handleEmpty}
 			{order}
 			{projectId}
