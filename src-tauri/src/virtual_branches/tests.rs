@@ -2748,7 +2748,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     assert_eq!(branch1.files.len(), 1);
     assert_eq!(branch1.files.first().unwrap().hunks.len(), 1);
     assert!(!branch1.files.first().unwrap().conflicted);
-    assert!(!branch1.conflicted);
+    assert!(branch1.conflicted);
     assert!(branch1.active);
 
     // commit
@@ -2759,6 +2759,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     let last_commit = branch1.commits.first().unwrap();
     let last_commit_oid = git2::Oid::from_str(&last_commit.id)?;
     let commit = gb_repo.git_repository.find_commit(last_commit_oid)?;
+    assert!(!branch1.conflicted);
     assert_eq!(commit.parent_count(), 2);
 
     Ok(())
