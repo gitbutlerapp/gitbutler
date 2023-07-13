@@ -13,7 +13,6 @@ use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 
 pub use branch::Branch;
-use colored::Colorize;
 pub use iterator::BranchIterator as Iterator;
 use uuid::Uuid;
 
@@ -149,8 +148,6 @@ pub fn apply_branch(
 
     let repo = &project_repository.git_repository;
 
-    let wd_tree = get_wd_tree(repo)?;
-
     let default_target = match get_default_target(&current_session_reader)
         .context("failed to get default target")?
     {
@@ -285,7 +282,6 @@ pub fn unapply_branch(
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let project = project_repository.project;
 
     let default_target = match get_default_target(&current_session_reader)
         .context("failed to get default target")?
@@ -295,8 +291,7 @@ pub fn unapply_branch(
     };
 
     let branch_reader = branch::Reader::new(&current_session_reader);
-
-    let writer = branch::Writer::new(gb_repository);
+    let branch_writer = branch::Writer::new(gb_repository);
 
     let mut target_branch = branch_reader
         .read(branch_id)
@@ -318,7 +313,6 @@ pub fn unapply_branch(
         .git_repository
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
-    let target_tree = target_commit.tree().context("failed to get target tree")?;
 
     let repo = &project_repository.git_repository;
 
@@ -327,11 +321,10 @@ pub fn unapply_branch(
 
         target_branch.tree = tree;
         target_branch.applied = false;
-        writer.write(&target_branch)?;
+        branch_writer.write(&target_branch)?;
     }
 
     // ok, update the wd with the union of the rest of the branches
-    let applied_virtual_branches = get_virtual_branches(gb_repository, Some(true))?;
     let merge_options = git2::MergeOptions::new();
     let base_tree = target_commit.tree()?;
     let mut final_tree = target_commit.tree()?;
@@ -1307,8 +1300,6 @@ pub fn get_status_by_branch(
     }
     .context("failed to read default target")?;
 
-    let repo = &project_repository.git_repository;
-
     let diff = project_repository
         .workdir_diff(&default_target.sha)
         .context(format!(
@@ -1714,7 +1705,6 @@ pub fn update_branch_target(
                     vbranches = list_virtual_branches(gb_repository, project_repository, false)?;
                     vbranches_commits =
                         list_virtual_branches(gb_repository, project_repository, true)?;
-                    virtual_branch = branch_reader.read(&virtual_branch.id)?;
                 } else {
                     // get the merge tree oid from writing the index out
                     let merge_tree_oid = merge_index
@@ -1781,10 +1771,7 @@ pub fn update_branch_target(
     Ok(())
 }
 
-fn get_target(
-    gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository,
-) -> Result<target::Target> {
+fn get_target(gb_repository: &gb_repository::Repository) -> Result<target::Target> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")?;
@@ -1820,7 +1807,7 @@ pub fn update_gitbutler_integration(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
-    let target = get_target(gb_repository, project_repository)?;
+    let target = get_target(gb_repository)?;
     let repo = &project_repository.git_repository;
 
     // write the currrent target sha to a temp branch as a parent
@@ -1932,7 +1919,7 @@ fn write_tree(
     files: &Vec<VirtualBranchFile>,
 ) -> Result<git2::Oid> {
     // read the base sha into an index
-    let target = get_target(gb_repository, project_repository)?;
+    let target = get_target(gb_repository)?;
     let git_repository = &project_repository.git_repository;
 
     let head_commit = git_repository.find_commit(target.sha)?;
@@ -4431,15 +4418,7 @@ mod tests {
         assert_eq!(branch2.files[0].hunks.len(), 1);
 
         // commit
-        println!(
-            "{}",
-            "************* COMMIT ONE ***********************".red()
-        );
         commit(&gb_repo, &project_repository, &branch1_id, "branch1 commit")?;
-        println!(
-            "{}",
-            "************* COMMIT TWO ***********************".red()
-        );
         commit(&gb_repo, &project_repository, &branch2_id, "branch2 commit")?;
 
         let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
@@ -4462,7 +4441,6 @@ mod tests {
         let contents =
             std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
         assert_eq!(contents, "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n");
-        println!("{}", "************* UNAPPLY ***********************".red());
 
         // ok, now we're going to re-apply branch1, which adds hunk 1 and 3, then unapply branch2, which should remove the middle hunk
         apply_branch(&gb_repo, &project_repository, &branch1_id)?;
@@ -4749,7 +4727,6 @@ mod tests {
         Ok(())
     }
 
-    /*
     #[test]
     fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         let repository = test_repository()?;
@@ -4782,8 +4759,9 @@ mod tests {
 
         let base_commit = repository.head().unwrap().target().unwrap();
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "http://origin.com/project".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "http://origin.com/project".to_string(),
             sha: base_commit,
             behind: 0,
         })?;
@@ -4864,8 +4842,6 @@ mod tests {
             std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
         assert_eq!(contents, "line1\nline2\nline3\nline4\n");
 
-        println!("{}", "updating target".red());
-
         // update target, this will update the wd and add an empty default branch
         update_branch_target(&gb_repo, &project_repository)?;
 
@@ -4926,7 +4902,6 @@ mod tests {
 
         Ok(())
     }
-    */
 
     #[test]
     fn test_apply_conflicting_vbranch() -> Result<()> {
