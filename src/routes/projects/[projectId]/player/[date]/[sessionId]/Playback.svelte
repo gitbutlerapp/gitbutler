@@ -99,7 +99,7 @@
 			{/if}
 		</div>
 
-		<div class="back-forward-button-container ">
+		<div class="back-forward-button-container">
 			<button
 				on:click={gotoPrevDelta}
 				class="player-button-back group duration-300 ease-in-out hover:scale-125"

@@ -53,7 +53,7 @@
 								placeholder="Search history"
 								bind:value={query}
 								aria-label="Search input"
-								class="block w-full min-w-0 flex-1 rounded border border-light-600 bg-light-800 p-[3px] px-2  pl-10 text-dark-200 placeholder:text-dark-300 dark:border-dark-600 dark:bg-dark-800 dark:text-light-200 dark:placeholder:text-light-300 sm:leading-6"
+								class="block w-full min-w-0 flex-1 rounded border border-light-600 bg-light-800 p-[3px] px-2 pl-10 text-dark-200 placeholder:text-dark-300 dark:border-dark-600 dark:bg-dark-800 dark:text-light-200 dark:placeholder:text-light-300 sm:leading-6"
 							/>
 						</form>
 					</div>
@@ -108,7 +108,7 @@
 			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
 				<Link href="/projects/{$project?.id}/settings">
 					{#if $project?.api?.sync}
-						<div class="flex flex-row items-center space-x-2 ">
+						<div class="flex flex-row items-center space-x-2">
 							<div class="h-2 w-2 rounded-full bg-green-700" />
 							<span>Backed up</span>
 						</div>

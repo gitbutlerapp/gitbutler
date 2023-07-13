@@ -31,10 +31,10 @@
 
 <div id="project-overview" class="flex h-full w-full flex-auto">
 	<div
-		class="work-in-progress-sidebar side-panel flex h-full w-[424px] flex-col border-r  border-light-300 dark:border-dark-600"
+		class="work-in-progress-sidebar side-panel flex h-full w-[424px] flex-col border-r border-light-300 dark:border-dark-600"
 	>
 		<div
-			class="recent-changes flex flex-col gap-4 border-b border-b-light-300 p-4 dark:border-b-dark-600 "
+			class="recent-changes flex flex-col gap-4 border-b border-b-light-300 p-4 dark:border-b-dark-600"
 		>
 			<h2 class="text-lg font-bold text-zinc-300">Work in Progress</h2>
 
@@ -66,7 +66,7 @@
 			{/await}
 		</div>
 
-		<div class="flex flex-auto flex-col overflow-auto ">
+		<div class="flex flex-auto flex-col overflow-auto">
 			<Chat project={$project} />
 		</div>
 	</div>

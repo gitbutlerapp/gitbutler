@@ -105,7 +105,7 @@
 				</li>
 			{/each}
 
-			<nav class="mx-auto flex  text-zinc-400">
+			<nav class="mx-auto flex text-zinc-400">
 				<button
 					on:click={openPrevPage}
 					disabled={!$results.havePrev}

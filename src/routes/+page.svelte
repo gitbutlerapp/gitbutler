@@ -29,7 +29,7 @@
 		</div>
 		{#if $projects.length == 0}
 			<div
-				class="mx-auto flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000 "
+				class="mx-auto flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
 			>
 				<div class="inline-flex w-96 flex-col items-center gap-y-4 text-center">
 					<svg

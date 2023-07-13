@@ -95,7 +95,7 @@
 						use:dzTrigger={{ type: dzType }}
 						on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', id + ':' + hunk.id)}
 						on:contextmenu|preventDefault={(e) => popupMenu.openByMouse(e, hunk)}
-						class="changed-hunk "
+						class="changed-hunk"
 					>
 						<div
 							class="flex w-full flex-col overflow-hidden rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"

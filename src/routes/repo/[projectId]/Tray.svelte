@@ -188,7 +188,7 @@
 						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
 							<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
 							<div
-								class="isolate flex -space-x-2 overflow-hidden  transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
+								class="isolate flex -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
 							>
 								{#each branch.authors as author}
 									<Gravatar
