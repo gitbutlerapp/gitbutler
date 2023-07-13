@@ -444,7 +444,6 @@ impl App {
     }
 
     pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;

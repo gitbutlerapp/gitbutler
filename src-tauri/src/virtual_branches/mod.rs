@@ -266,7 +266,7 @@ pub fn apply_branch(
         repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
     }
 
-    update_gitbutler_integration(&gb_repository, &project_repository)?;
+    update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(())
 }
@@ -317,7 +317,7 @@ pub fn unapply_branch(
     let repo = &project_repository.git_repository;
 
     if let Ok((branch, files)) = status {
-        let tree = write_tree(gb_repository, project_repository, &branch, files)?;
+        let tree = write_tree(gb_repository, project_repository, branch, files)?;
 
         target_branch.tree = tree;
         target_branch.applied = false;
@@ -338,7 +338,7 @@ pub fn unapply_branch(
             if let Ok(mut result) =
                 repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
             {
-                let final_tree_oid = result.write_tree_to(&repo)?;
+                let final_tree_oid = result.write_tree_to(repo)?;
                 final_tree = repo.find_tree(final_tree_oid)?;
             }
         }
@@ -352,7 +352,7 @@ pub fn unapply_branch(
     checkout_options.force();
     repo.checkout_tree(&final_tree, Some(&mut checkout_options))?;
 
-    update_gitbutler_integration(&gb_repository, &project_repository)?;
+    update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(())
 }
@@ -1483,7 +1483,7 @@ pub fn get_status_by_branch(
                 hunks: hunks.clone(),
                 modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
                 conflicted: project_repository
-                    .is_conflicted(Some(file_path.clone()))
+                    .is_conflicted(Some(file_path))
                     .unwrap_or(false),
             })
             .collect::<Vec<_>>();
@@ -1764,7 +1764,7 @@ pub fn update_branch_target(
     let target_writer = target::Writer::new(gb_repository);
     target_writer.write_default(&target)?;
 
-    update_gitbutler_integration(&gb_repository, &project_repository)?;
+    update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(())
 }
@@ -1825,7 +1825,7 @@ pub fn update_gitbutler_integration(
         // we are moving from a regular branch to our gitbutler integration branch, save the original
         // write a file to .git/integration with the previous head and name
         let mut file = std::fs::File::create(integration_file)?;
-        prev_head.push_str(":");
+        prev_head.push(':');
         prev_head.push_str(&prev_sha);
         file.write_all(prev_head.as_bytes())?;
     } else {
@@ -1857,7 +1857,7 @@ pub fn update_gitbutler_integration(
             repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
         {
             if !result.has_conflicts() {
-                let final_tree_oid = result.write_tree_to(&repo)?;
+                let final_tree_oid = result.write_tree_to(repo)?;
                 final_tree = repo.find_tree(final_tree_oid)?;
             }
         }
@@ -1882,11 +1882,11 @@ pub fn update_gitbutler_integration(
     for branch in &applied_virtual_branches {
         message.push_str(" - ");
         message.push_str(branch.name.as_str());
-        message.push_str("\n");
+        message.push('\n');
         for file in &branch.ownership.files {
             message.push_str("   - ");
             message.push_str(file.file_path.as_str());
-            message.push_str("\n");
+            message.push('\n');
         }
     }
     message.push_str("\nTo get back to where you were, run:\n\n");
@@ -2048,7 +2048,7 @@ pub fn commit(
             let writer = branch::Writer::new(gb_repository);
             writer.write(&branch)?;
 
-            update_gitbutler_integration(&gb_repository, &project_repository)?;
+            update_gitbutler_integration(gb_repository, project_repository)?;
         }
     }
     Ok(())
@@ -3553,38 +3553,38 @@ mod tests {
 
         // 1. unapplied branch, uncommitted conflicts
         let branch = branches.iter().find(|b| b.id == branch1_id).unwrap();
-        assert_eq!(branch.active, false);
-        assert_eq!(branch.mergeable, false);
-        assert_eq!(branch.base_current, false);
+        assert!(!branch.active);
+        assert!(!branch.mergeable);
+        assert!(!branch.base_current);
 
         // 2. unapplied branch, committed conflicts but not uncommitted
         let branch = branches.iter().find(|b| b.id == branch2_id).unwrap();
-        assert_eq!(branch.active, false);
-        assert_eq!(branch.mergeable, true);
-        assert_eq!(branch.base_current, true);
+        assert!(!branch.active);
+        assert!(branch.mergeable);
+        assert!(branch.base_current);
         assert_eq!(branch.commits.len(), 2);
 
         // 3. unapplied branch, no conflicts
         let branch = branches.iter().find(|b| b.id == branch3_id).unwrap();
-        assert_eq!(branch.active, false);
-        assert_eq!(branch.mergeable, true);
-        assert_eq!(branch.base_current, true);
+        assert!(!branch.active);
+        assert!(branch.mergeable);
+        assert!(branch.base_current);
 
         // 4. applied branch, uncommitted conflicts
         let branch = branches.iter().find(|b| b.id == branch4_id).unwrap();
-        assert_eq!(branch.active, false);
-        assert_eq!(branch.mergeable, false);
-        assert_eq!(branch.base_current, false);
+        assert!(!branch.active);
+        assert!(!branch.mergeable);
+        assert!(!branch.base_current);
 
         // 5. applied branch, committed conflicts but not uncommitted
         let branch = branches.iter().find(|b| b.id == branch5_id).unwrap();
-        assert_eq!(branch.active, false); // cannot merge history into new target
-        assert_eq!(branch.mergeable, false);
-        assert_eq!(branch.base_current, false);
+        assert!(!branch.active); // cannot merge history into new target
+        assert!(!branch.mergeable);
+        assert!(!branch.base_current);
 
         // 6. applied branch, no conflicts
         let branch = branches.iter().find(|b| b.id == branch6_id).unwrap();
-        assert_eq!(branch.active, true); // still applied
+        assert!(branch.active); // still applied
 
         // 7. applied branch with commits but everything is upstream, delete it
         // branch7 was integrated and deleted
@@ -4707,7 +4707,7 @@ mod tests {
 
         // apply branch which is now out of date
         // - it should merge the new target into it and update the wd and nothing is in files
-        apply_branch(&gb_repo, &project_repository, &branch_id)?;
+        apply_branch(&gb_repo, &project_repository, branch_id)?;
 
         let contents =
             std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
@@ -4854,11 +4854,11 @@ mod tests {
         let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
         assert_eq!(branches.len(), 2); // added a default one
         let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
-        assert_eq!(branch1.mergeable, false);
-        assert_eq!(branch1.base_current, false);
+        assert!(!branch1.mergeable);
+        assert!(!branch1.base_current);
 
         // apply branch which is now out of date and conflicting
-        apply_branch(&gb_repo, &project_repository, &branch_id)?;
+        apply_branch(&gb_repo, &project_repository, branch_id)?;
 
         assert!(project_repository.is_conflicted(None)?);
 
@@ -4866,9 +4866,9 @@ mod tests {
         let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
         assert_eq!(branch1.files.len(), 1);
         assert_eq!(branch1.files.first().unwrap().hunks.len(), 1);
-        assert_eq!(branch1.files.first().unwrap().conflicted, true);
+        assert!(branch1.files.first().unwrap().conflicted);
         assert_eq!(branch1.commits.len(), 1);
-        assert_eq!(branch1.conflicted, true);
+        assert!(branch1.conflicted);
 
         // fix the conflict and commit it
         std::fs::write(
@@ -4877,7 +4877,7 @@ mod tests {
         )?;
 
         // try to commit, fail
-        let result = commit(&gb_repo, &project_repository, &branch_id, "resolve commit");
+        let result = commit(&gb_repo, &project_repository, branch_id, "resolve commit");
         assert!(result.is_err());
 
         // mark file as resolved
@@ -4888,12 +4888,12 @@ mod tests {
         let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
         assert_eq!(branch1.files.len(), 1);
         assert_eq!(branch1.files.first().unwrap().hunks.len(), 1);
-        assert_eq!(branch1.files.first().unwrap().conflicted, false);
-        assert_eq!(branch1.conflicted, false);
-        assert_eq!(branch1.active, true);
+        assert!(!branch1.files.first().unwrap().conflicted);
+        assert!(!branch1.conflicted);
+        assert!(branch1.active);
 
         // commit
-        commit(&gb_repo, &project_repository, &branch_id, "resolve commit")?;
+        commit(&gb_repo, &project_repository, branch_id, "resolve commit")?;
 
         let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
         let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
@@ -4982,7 +4982,7 @@ mod tests {
         )?;
 
         // apply branch which is now out of date and conflicting, which fails
-        let result = apply_branch(&gb_repo, &project_repository, &branch_id);
+        let result = apply_branch(&gb_repo, &project_repository, branch_id);
         assert!(result.is_err());
 
         Ok(())
