@@ -7,21 +7,24 @@
 	import { Link } from '$lib/components';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
-	import { onMount } from 'svelte';
+	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { unsubscribe } from '$lib/utils';
 	import LinkProjectModal from './LinkProjectModal.svelte';
 	import Breadcrumbs from './Breadcrumbs.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
-	import { initTheme } from '$lib/theme';
 	import ThemeSelector from './ThemeSelector.svelte';
+	import { SETTINGS_CONTEXT, loadUserSettings, type SettingsStore } from '$lib/userSettings';
+	import { initTheme } from '$lib/theme';
 
 	export let data: LayoutData;
-	const { posthog, projects, sentry, cloud, userSettings } = data;
-
-	initTheme(userSettings);
+	const { posthog, projects, sentry, cloud } = data;
 
 	const user = stores.user;
+
+	const userSettings = loadUserSettings();
+	initTheme(userSettings);
+	setContext(SETTINGS_CONTEXT, userSettings);
 
 	const project = derived([page, projects], ([page, projects]) =>
 		projects?.find((project) => project.id === page.params.projectId)
@@ -77,7 +80,7 @@
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
-		<ThemeSelector {userSettings} />
+		<ThemeSelector />
 		<div class="mr-6">
 			{#await user.load() then}
 				<Link href="/user/">

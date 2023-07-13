@@ -4,12 +4,14 @@
 	import { stores, toasts } from '$lib';
 	import { deleteAllData } from '$lib/api';
 	import { goto } from '$app/navigation';
-	import Logo from '$lib/assets/logo-310x310.png';
 	import ThemeSelector from '../ThemeSelector.svelte';
+	import { getContext } from 'svelte';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 
 	export let data: PageData;
-	const { cloud, userSettings } = data;
+	const { cloud } = data;
 
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const user = stores.user;
 
 	$: saving = false;
@@ -205,7 +207,7 @@
 				<label class="relative inline-flex cursor-pointer items-center">
 					<input
 						type="checkbox"
-						bind:checked={$userSettings.aiSummariesEnabled}
+						checked={$userSettings.aiSummariesEnabled}
 						on:change={(e) =>
 							userSettings.update((s) => ({
 								...s,
@@ -226,7 +228,7 @@
 					Select or customize your interface theme.
 				</p>
 			</div>
-			<div><ThemeSelector {userSettings} /></div>
+			<div><ThemeSelector /></div>
 		</div>
 
 		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
