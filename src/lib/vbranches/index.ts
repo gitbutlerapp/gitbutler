@@ -9,7 +9,7 @@
  * The three types are obtained as reactive stores from the BranchStoresCache's methods:
  *  - getVirtualBranchStore - List of Branch (virtual branches)
  *  - getRemoteBranchStore - List of BranchData (remote branches)
- *  - getTargetBranchStore - Target (sinle target branch)
+ *  - getTargetBranchStore - Target (single target branch)
  *
  * BranchController is a class where all virtual branch operations are performed
  * This class gets the three stores injected at construction so that any related updates can be peformed

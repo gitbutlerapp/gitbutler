@@ -45,9 +45,9 @@
 	</div>
 {:else}
 	<div class="m-auto flex max-w-xs flex-col gap-y-4">
-		<h1 class="text-lg font-bold">Set your target</h1>
+		<h1 class="text-lg font-bold">Set your base branch</h1>
 		<p class="text-light-700 dark:text-dark-100">
-			You need to set your target before you can start working on your project.
+			You need to set your base branch before you can start working on your project.
 		</p>
 		<!-- select menu of remoteBranches -->
 		{#if remoteBranchNames.length === 0}

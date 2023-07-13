@@ -16,7 +16,7 @@
 			<div class="text-light-900 dark:text-dark-100">
 				<h1 class="mb-2 text-2xl">Your projects</h1>
 				<p class="text-lg text-light-700 dark:text-dark-200">
-					All the projects Tracked by GitButler
+					All the projects tracked by GitButler
 				</p>
 			</div>
 			{#if $projects.length > 0}
