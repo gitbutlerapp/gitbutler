@@ -2,8 +2,6 @@
 	import Lane from './BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { Branch } from '$lib/vbranches';
-	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
-	import { setContext } from 'svelte';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
 
@@ -11,9 +9,6 @@
 	export let projectPath: string;
 	export let branches: Branch[];
 	export let branchController: BranchController;
-	export let userSettings: SettingsStore;
-
-	setContext(SETTINGS_CONTEXT, userSettings);
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;

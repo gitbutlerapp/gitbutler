@@ -3,7 +3,6 @@ import { api } from '$lib';
 import Posthog from '$lib/posthog';
 import Sentry from '$lib/sentry';
 import { BranchStoresCache } from '$lib/vbranches';
-import { loadUserSettings } from '$lib/userSettings';
 
 export const ssr = false;
 export const prerender = false;
@@ -14,6 +13,5 @@ export const load: LayoutLoad = ({ fetch: realFetch }: { fetch: typeof fetch }) 
 	cloud: api.CloudApi({ fetch: realFetch }),
 	branchStoresCache: new BranchStoresCache(),
 	posthog: Posthog(),
-	sentry: Sentry(),
-	userSettings: loadUserSettings()
+	sentry: Sentry()
 });

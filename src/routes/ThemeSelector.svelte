@@ -1,12 +1,13 @@
 <script lang="ts">
-	import type { SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { getContext } from 'svelte';
 
-	export let userSettings: SettingsStore;
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 </script>
 
 <div>
 	<select
-		bind:value={$userSettings.theme}
+		value={$userSettings.theme}
 		on:change={(e) => userSettings.update((s) => ({ ...s, theme: e.currentTarget.value }))}
 	>
 		<option value="system">System preference</option>

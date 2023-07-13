@@ -13,8 +13,7 @@
 		remoteBranchStore,
 		targetBranchStore,
 		remoteBranchNames,
-		project,
-		userSettings
+		project
 	} = data;
 
 	const branchController = new BranchController(
@@ -40,8 +39,8 @@
 
 {#if target}
 	<div class="flex w-full max-w-full">
-		<Tray {branches} {target} {branchController} {remoteBranches} {userSettings} />
-		<Board {branches} {projectId} projectPath={project.path} {branchController} {userSettings} />
+		<Tray {branches} {target} {branchController} {remoteBranches} />
+		<Board {branches} {projectId} projectPath={project.path} {branchController} />
 	</div>
 {:else}
 	<div class="m-auto flex max-w-xs flex-col gap-y-4">

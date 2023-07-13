@@ -8,14 +8,16 @@
 	import Gravatar from '$lib/components/Gravatar/Gravatar.svelte';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
-	import type { SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import type { BranchController } from '$lib/vbranches';
+	import { getContext } from 'svelte';
 
 	export let target: Target;
 	export let branches: Branch[];
 	export let branchController: BranchController;
 	export let remoteBranches: BranchData[];
-	export let userSettings: SettingsStore;
+
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
