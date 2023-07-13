@@ -4,11 +4,14 @@
 	import type { Branch } from '$lib/vbranches';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
+	import { getContext } from 'svelte';
+	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
-	export let branchController: BranchController;
+
+	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -81,9 +84,8 @@
 			{projectId}
 			{upstream}
 			branchId={id}
-			{branchController}
 			{projectPath}
 		/>
 	{/each}
-	<NewBranchDropZone {branchController} />
+	<NewBranchDropZone />
 </div>

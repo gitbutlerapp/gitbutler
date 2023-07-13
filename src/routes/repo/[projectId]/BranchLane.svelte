@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Commit, File } from '$lib/vbranches';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import FileCard from './FileCard.svelte';
 	import { IconBranch } from '$lib/icons';
 	import { Button } from '$lib/components';
@@ -12,6 +12,7 @@
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
+	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
 	export let branchId: string;
 	export let projectPath: string;
@@ -23,7 +24,8 @@
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
-	export let branchController: BranchController;
+
+	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
