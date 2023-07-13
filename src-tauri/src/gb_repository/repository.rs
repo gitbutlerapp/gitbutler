@@ -638,7 +638,7 @@ impl Repository {
             branch_writer.write(&branch)?;
         }
 
-        virtual_branches::update_gitbutler_integration(self, &project_repository)?;
+        virtual_branches::update_gitbutler_integration(self, project_repository)?;
 
         Ok(target)
     }

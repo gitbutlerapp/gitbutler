@@ -143,7 +143,7 @@ impl<'repository> Repository<'repository> {
     // conflicts are removed as they are resolved, the conflicts file is removed when there are no more conflicts
     // the merge parent file is removed when the merge is complete
 
-    pub fn mark_conflicts(&self, paths: &Vec<String>, parent: Option<git2::Oid>) -> Result<()> {
+    pub fn mark_conflicts(&self, paths: &[String], parent: Option<git2::Oid>) -> Result<()> {
         let conflicts_path = self.git_repository.path().join("conflicts");
         // write all the file paths to a file on disk
         let mut file = std::fs::File::create(conflicts_path)?;
@@ -181,11 +181,9 @@ impl<'repository> Repository<'repository> {
         let file = std::fs::File::open(conflicts_path.clone())?;
         let reader = std::io::BufReader::new(file);
         let mut remaining = Vec::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                if line != path {
-                    remaining.push(line);
-                }
+        for line in reader.lines().flatten() {
+            if line != path {
+                remaining.push(line);
             }
         }
 
@@ -205,11 +203,9 @@ impl<'repository> Repository<'repository> {
             // check if pathname is one of the lines in conflicts_path file
             let file = std::fs::File::open(conflicts_path)?;
             let reader = std::io::BufReader::new(file);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    if line == pathname {
-                        return Ok(true);
-                    }
+            for line in reader.lines().flatten() {
+                if line == pathname {
+                    return Ok(true);
                 }
             }
             Ok(false)
