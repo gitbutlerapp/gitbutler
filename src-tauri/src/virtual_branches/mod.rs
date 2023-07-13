@@ -310,6 +310,8 @@ pub fn unapply_branch(
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
 
+    println!("unapply statuses: {:?}", statuses);
+
     let status = statuses
         .iter()
         .find(|(s, _)| s.id == branch_id)
@@ -1313,6 +1315,8 @@ pub fn get_status_by_branch(
             default_target.sha
         ))?;
 
+    let mut hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
+
     let mut virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
@@ -1321,8 +1325,11 @@ pub fn get_status_by_branch(
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    if virtual_branches.is_empty() {
-        // create an empty virtual branch
+    // sort by order, so that the default branch is first (left in the ui)
+    virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
+
+    if virtual_branches.is_empty() && !hunks_by_filepath.is_empty() {
+        // no virtual branches, but hunks: create default branch
         virtual_branches =
             vec![
                 create_virtual_branch(gb_repository, &BranchCreateRequest::default())
@@ -1330,13 +1337,9 @@ pub fn get_status_by_branch(
             ];
     }
 
-    // sort by order, so that the default branch is first (left in the ui)
-    virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
-
     // align branch ownership to the real hunks:
     // - update shifted hunks
     // - remove non existent hunks
-    let mut hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
 
     let mut hunks_by_branch_id: HashMap<String, Vec<VirtualBranchHunk>> = virtual_branches
         .iter()
@@ -2530,6 +2533,40 @@ mod tests {
         assert_eq!(files_by_branch_id.len(), 2);
         assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
         assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
+
+        let statuses =
+            get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
+
+        assert_eq!(statuses.len(), 0);
 
         Ok(())
     }
@@ -4341,8 +4378,7 @@ mod tests {
 
         let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
         let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-        // a default branch has been created
-        assert_eq!(branches.len(), 2);
+        assert_eq!(branches.len(), 1);
         // our branch still no hunks
         assert_eq!(branch1.files.len(), 0);
         assert_eq!(branch1.commits.len(), 2); // a merge commit too
@@ -4710,7 +4746,7 @@ mod tests {
         assert_eq!(contents, "file2\n");
 
         let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
-        assert_eq!(branches.len(), 2); // added a default one
+        assert_eq!(branches.len(), 1);
 
         // apply branch which is now out of date
         // - it should merge the new target into it and update the wd and nothing is in files
@@ -4724,7 +4760,7 @@ mod tests {
         assert_eq!(contents, "file2\nbranch");
 
         let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
-        assert_eq!(branches.len(), 2); // both are there still
+        assert_eq!(branches.len(), 1); // one is there still
         let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
         assert_eq!(branch1.files.len(), 0);
         assert_eq!(branch1.commits.len(), 2);
@@ -4859,7 +4895,7 @@ mod tests {
         assert_eq!(contents, "file2\n");
 
         let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
-        assert_eq!(branches.len(), 2); // added a default one
+        assert_eq!(branches.len(), 1);
         let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
         assert!(!branch1.mergeable);
         assert!(!branch1.base_current);
