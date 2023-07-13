@@ -2046,7 +2046,7 @@ pub fn commit(
                         )
                         .unwrap();
                     branch.head = commit_oid;
-                    project_repository.clear_conflict();
+                    project_repository.clear_conflict()?;
                 }
                 None => {
                     let commit_oid = git_repository
