@@ -22,3 +22,5 @@ yarn.lock
 /svelte.config.js
 /histoire.setup.ts
 /histoire.config.ts
+/postcss.config.cjs
+/tailwind.config.cjs
