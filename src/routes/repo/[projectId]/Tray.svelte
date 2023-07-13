@@ -227,7 +227,7 @@
 
 	<Modal width="small" bind:this={updateTargetModal}>
 		<svelte:fragment slot="title">Update target</svelte:fragment>
-		<p>You are about to update the target branch.</p>
+		<p>You are about to update the base branch.</p>
 		<svelte:fragment slot="controls" let:close>
 			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
 			<Button
