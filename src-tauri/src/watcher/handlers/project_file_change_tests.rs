@@ -12,8 +12,9 @@ static mut TEST_TARGET_INDEX: usize = 0;
 
 fn test_target() -> virtual_branches::target::Target {
     virtual_branches::target::Target {
-        name: format!("target_name_{}", unsafe { TEST_TARGET_INDEX }),
-        remote: format!("remote_{}", unsafe { TEST_TARGET_INDEX }),
+        branch_name: format!("branch name {}", unsafe { TEST_TARGET_INDEX }),
+        remote_name: format!("remote name {}", unsafe { TEST_TARGET_INDEX }),
+        remote_url: format!("remote url {}", unsafe { TEST_TARGET_INDEX }),
         sha: git2::Oid::from_str(&format!(
             "0123456789abcdef0123456789abcdef0123456{}",
             unsafe { TEST_TARGET_INDEX }

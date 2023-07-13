@@ -1,4 +1,4 @@
-import { writable, type Loadable, Value } from 'svelte-loadable-store';
+import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import { files } from '$lib/api';
 import { get, type Readable } from '@square/svelte-store';
 
@@ -13,7 +13,7 @@ export default (params: { projectId: string; sessionId: string }) => {
 			const oldValue = get(store);
 			if (oldValue.isLoading) {
 				files.list(params).then(set);
-			} else if (Value.isError(oldValue.value)) {
+			} else if (Loaded.isError(oldValue)) {
 				files.list(params).then(set);
 			} else {
 				set({

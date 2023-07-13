@@ -39,7 +39,8 @@
 	on:dragover={(e) => {
 		const children = [...e.currentTarget.children];
 		dropPosition = 0;
-		for (let i = 0; i < children.length; i++) {
+		// We account for the NewBranchDropZone by subtracting 2
+		for (let i = 0; i < children.length - 2; i++) {
 			const pos = children[i].getBoundingClientRect();
 			if (e.clientX > pos.left + pos.width) {
 				dropPosition = i + 1; // Note that this is declared in the <script>
@@ -54,7 +55,7 @@
 				: children[dropPosition].after(dragged);
 		}
 	}}
-	on:drop={(e) => {
+	on:drop={() => {
 		if (priorPosition != dropPosition) {
 			const el = branches.splice(priorPosition, 1);
 			branches.splice(dropPosition, 0, ...el);
@@ -89,9 +90,3 @@
 	{/each}
 	<NewBranchDropZone {branchController} />
 </div>
-
-<style lang="postcss">
-	:global(.drag-zone-hover *) {
-		@apply pointer-events-none;
-	}
-</style>

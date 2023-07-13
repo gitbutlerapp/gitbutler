@@ -1,4 +1,8 @@
 #!/usr/bin/env /usr/bin/python3
+# This file was used to generate test data before GitButler was able to work
+# with real user data. It is unused for now, but we'll keep it around for a
+# while in case it turns out to be useful for e.g. e2e testing.
+
 import subprocess
 import json
 import openai

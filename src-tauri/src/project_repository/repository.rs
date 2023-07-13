@@ -407,11 +407,34 @@ impl<'repository> Repository<'repository> {
         Ok(branches)
     }
 
-    pub fn behind(&self, sha1: git2::Oid, sha2: git2::Oid) -> Result<u32> {
-        let mut revwalk = self.git_repository.revwalk()?;
-        revwalk.push(sha1)?;
-        revwalk.hide(sha2)?;
-        Ok(revwalk.count().try_into()?)
+    // returns a list of commit oids from the first oid to the second oid
+    pub fn l(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>> {
+        let mut revwalk = self
+            .git_repository
+            .revwalk()
+            .context("failed to create revwalk")?;
+        revwalk
+            .push(from)
+            .context(format!("failed to push {}", from))?;
+        revwalk.hide(to).context(format!("failed to hide {}", to))?;
+        revwalk
+            .collect::<Result<Vec<_>, _>>()
+            .context("failed to collect revwalk into vec")
+    }
+
+    // returns a list of commits from the first oid to the second oid
+    pub fn log(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
+        self.l(from, to)?
+            .into_iter()
+            .map(|oid| self.git_repository.find_commit(oid))
+            .collect::<Result<Vec<_>, _>>()
+            .context("failed to collect commits")
+    }
+
+    // returns the number of commits between the first oid to the second oid
+    pub fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
+        let oids = self.l(from, to)?;
+        Ok(oids.len().try_into()?)
     }
 
     pub fn git_switch_branch(&self, branch: &str) -> Result<()> {

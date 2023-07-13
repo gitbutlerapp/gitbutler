@@ -2,9 +2,9 @@
 	import Board from './Board.svelte';
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
-	import { Value } from 'svelte-loadable-store';
 	import { Button } from '$lib/components';
 	import { BranchController } from '$lib/vbranches';
+	import { Loaded } from 'svelte-loadable-store';
 
 	export let data: PageData;
 	let {
@@ -24,16 +24,10 @@
 		targetBranchStore
 	);
 
-	$: remoteBranches =
-		!$remoteBranchStore.isLoading && !Value.isError($remoteBranchStore.value)
-			? $remoteBranchStore.value
-			: [];
-	$: target =
-		!$targetBranchStore.isLoading && !Value.isError($targetBranchStore.value)
-			? $targetBranchStore.value
-			: undefined;
+	$: remoteBranches = Loaded.isValue($remoteBranchStore) ? $remoteBranchStore.value : [];
+	$: target = Loaded.isValue($targetBranchStore) ? $targetBranchStore.value : undefined;
 	$: branches =
-		!$vbranchStore.isLoading && !Value.isError($vbranchStore.value) ? $vbranchStore.value : [];
+		!$vbranchStore.isLoading && !Loaded.isError($vbranchStore) ? $vbranchStore.value : [];
 	let targetChoice: string | undefined;
 
 	function onSetTargetClick() {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Commit, File, Hunk } from '$lib/vbranches';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import type { Commit, File } from '$lib/vbranches';
+	import { onMount } from 'svelte';
 	import FileCard from './FileCard.svelte';
 	import { IconBranch } from '$lib/icons';
 	import { Button } from '$lib/components';
@@ -12,10 +12,6 @@
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
-
-	const dispatch = createEventDispatcher<{
-		empty: never;
-	}>();
 
 	export let branchId: string;
 	export let projectPath: string;
@@ -38,33 +34,8 @@
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
 
-	const hoverClass = 'drag-zone-hover';
+	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
-
-	function updateBranchOwnership() {
-		const ownership = files
-			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
-			.join('\n');
-		console.log('updateBranchOwnership', branchId, ownership);
-		branchController.updateBranchOwnership(branchId, ownership);
-		if (files.length == 0) dispatch('empty');
-	}
-
-	function handleFileUpdate(fileId: string, hunks: Hunk[]) {
-		const fileIndex = files.findIndex((f) => f.id == fileId);
-		if (fileIndex == -1) {
-			return;
-		} else {
-			if (hunks.length === 0) {
-				files.splice(fileIndex, 1);
-			} else {
-				files[fileIndex].hunks = hunks;
-			}
-			files = files;
-			if (files.length === 0) dispatch('empty');
-			updateBranchOwnership();
-		}
-	}
 
 	function commit() {
 		console.log('commit', commitMessage, projectId, branchId);
@@ -114,13 +85,6 @@
 		console.log('branch name change:', name);
 		branchController.updateBranchName(branchId, name);
 	}
-
-	function isChildOf(child: any, parent: HTMLElement): boolean {
-		if (parent === child) return false;
-		if (!child.parentElement) return false;
-		if (child.parentElement == parent) return true;
-		return isChildOf(child.parentElement, parent);
-	}
 </script>
 
 <div
@@ -128,7 +92,7 @@
 	class:w-full={maximized}
 	class:w-96={!maximized}
 	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
-	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drag-zone-active' }}
+	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
 	on:dragend
 	on:drop|stopPropagation={(e) => {
@@ -136,6 +100,13 @@
 			return;
 		}
 		const data = e.dataTransfer.getData(dzType);
+		const [newFileId, newHunks] = data.split(':');
+		const existingHunkIds = files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
+		const newHunkIds = newHunks.split(',').filter((h) => !existingHunkIds.includes(h));
+		if (newHunkIds.length == 0) {
+			// don't allow dropping hunk to the line where it already is
+			return;
+		}
 		const ownership = files
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
@@ -143,15 +114,15 @@
 	}}
 >
 	<div
-		class="mb-2 flex w-full shrink-0 items-center gap-x-2 rounded-lg bg-light-200 text-lg text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="mb-2 flex w-full shrink-0 items-center rounded bg-light-200 text-lg text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div
 			on:dblclick={() => (maximized = !maximized)}
-			class="h-8 w-8 flex-grow-0  cursor-pointer p-2 text-light-600 dark:text-dark-200"
+			class="h-8 w-8 flex-grow-0 cursor-pointer p-2 text-light-600 dark:text-dark-200"
 		>
 			<IconBranch />
 		</div>
-		<div class="flex-grow">
+		<div class="mr-1 flex-grow ">
 			<input
 				type="text"
 				bind:value={name}
@@ -183,6 +154,10 @@
 			{/if}
 		</PopupMenuItem>
 
+		<div class="mx-3">
+			<div class="my-2 h-[0.0625rem] w-full  bg-light-300 dark:bg-dark-500" />
+		</div>
+
 		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
 			Create branch before
 		</PopupMenuItem>
@@ -213,7 +188,7 @@
 			>
 		</div>
 		<div class="flex flex-shrink flex-col gap-y-2">
-			<div class="drag-zone-marker hidden rounded-lg border p-6">
+			<div class="drop-zone-marker hidden rounded border p-6 text-center">
 				Drop here to add to virtual branch
 			</div>
 			{#each files as file (file.id)}
@@ -258,10 +233,10 @@
 		<!-- Unpushed commits -->
 		{#each localCommits as commit (commit.id)}
 			<div class="flex w-full px-2 pb-4">
-				<div class="z-10 w-6 py-2">
+				<div class="z-10 ml-1 w-6 py-4">
 					<!-- Unpushed commit bubble -->
 					<div
-						class="h-4 w-4 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
+						class="h-2 w-2 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
 					/>
 				</div>
 				<div class="flex-grow">
@@ -276,9 +251,9 @@
 			<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
 			<!-- Section title for remote commits -->
 			<div class="flex w-full px-2 pb-4">
-				<div class="z-10 w-6">
+				<div class="z-10 ml-1 w-6 py-4">
 					<div
-						class="h-4 w-4 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
+						class="h-2 w-2 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
 					>
 						<!-- Target HEAD commit bubble -->
 						<IconGithub />
@@ -288,10 +263,10 @@
 			</div>
 			{#each remoteCommits as commit (commit.id)}
 				<div class="flex w-full px-2 pb-4">
-					<div class="z-10 w-6 py-2">
+					<div class="z-10 ml-1 w-6 py-4">
 						<!-- Pushed commit bubble -->
 						<div
-							class="rounded--b-sm h-4 w-4 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
+							class="rounded--b-sm h-2 w-2 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
 						/>
 					</div>
 					<CommitCard {commit} />

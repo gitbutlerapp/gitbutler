@@ -45,6 +45,9 @@ export default defineConfig({
 		sourcemap: 'inline'
 	},
 	test: {
+		deps: {
+			inline: ['sorcery']
+		},
 		includeSource: ['src/**/*.{js,ts}']
 	}
 });

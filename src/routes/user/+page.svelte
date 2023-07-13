@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button, Modal, Login } from '$lib/components';
 	import type { PageData } from './$types';
-	import { log, stores, toasts } from '$lib';
+	import { stores, toasts } from '$lib';
 	import { deleteAllData } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import Logo from '$lib/assets/logo-310x310.png';
@@ -59,7 +59,7 @@
 			});
 			toasts.success('Profile updated');
 		} catch (e) {
-			log.error(e);
+			console.error(e);
 			toasts.error('Failed to update user');
 		}
 
@@ -78,7 +78,7 @@
 			.then(() => user.set(null))
 			.then(() => toasts.success('All data deleted'))
 			.catch((e) => {
-				log.error(e);
+				console.error(e);
 				toasts.error('Failed to delete project');
 			})
 			.then(() => deleteConfirmationModal.close())
@@ -196,9 +196,9 @@
 		</div>
 		<div class="flex items-center">
 			<div class="flex-grow">
-				<p>Automatically generate AI hunk changes</p>
+				<p>Generate descriptions for code changes</p>
 				<p class="text-sm text-light-700 dark:text-dark-200">
-					GitButler AI will review your hunk changes and write a description of what happened
+					GitButler Cloud will generate descriptions for code hunks in your virtual branches board.
 				</p>
 			</div>
 			<div>

@@ -563,9 +563,9 @@ impl Repository {
         // lookup a branch by name
         let branch = repo.find_branch(target_branch, git2::BranchType::Remote)?;
 
-        let remote = repo.branch_remote_name(branch.get().name().unwrap())?;
-        let remote_url = repo.find_remote(remote.as_str().unwrap())?;
-        let remote_url_str = remote_url.url().unwrap();
+        let remote_name = repo.branch_remote_name(branch.get().name().unwrap())?;
+        let remote = repo.find_remote(remote_name.as_str().unwrap())?;
+        let remote_url = remote.url().unwrap();
 
         // get a list of currently active virtual branches
 
@@ -604,8 +604,9 @@ impl Repository {
         }
 
         let target = virtual_branches::target::Target {
-            name: branch.name().unwrap().unwrap().to_string(),
-            remote: remote_url_str.to_string(),
+            branch_name: branch.name()?.unwrap().to_string(),
+            remote_name: remote.name().unwrap().to_string(),
+            remote_url: remote_url.to_string(),
             sha: commit_oid,
             behind: 0,
         };

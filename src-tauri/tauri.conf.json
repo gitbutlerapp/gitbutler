@@ -52,10 +52,7 @@
                 "icons/icon.icns",
                 "icons/icon.ico"
             ],
-            "targets": ["app", "dmg", "updater"],
-            "resources": [
-                "../scripts/branch_testdata.json"
-            ]
+            "targets": ["app", "dmg", "updater"]
         },
         "systemTray": {
             "iconPath": "icons/tray.png",

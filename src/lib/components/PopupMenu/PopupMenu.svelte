@@ -45,13 +45,17 @@
 </script>
 
 {#if showMenu}
-	<div class="absolute top-0 left-0 z-50 h-full w-full" on:click={onDismiss} on:keydown={onDismiss}>
+	<div
+		class="absolute top-0 left-0 z-50 h-full w-full shadow-2xl"
+		on:click={onDismiss}
+		on:keydown={onDismiss}
+	>
 		<div
 			use:recordDimensions
 			on:mouseleave={onDismiss}
 			on:blur={onDismiss}
 			style="position: absolute; top:{pos.y}px; left:{pos.x}px"
-			class="flex flex-col rounded border border-light-400 bg-white p-1 shadow dark:border-dark-500 dark:bg-dark-700"
+			class="flex flex-col rounded border border-light-400 bg-white p-1 drop-shadow-[0_10px_10px_rgba(0,0,0,0.30)] dark:border-dark-500 dark:bg-dark-700"
 		>
 			<slot {item} />
 		</div>

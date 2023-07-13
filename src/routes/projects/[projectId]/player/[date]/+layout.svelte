@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { page } from '$app/stores';
-	import { derived, Value } from 'svelte-loadable-store';
+	import { derived, Loaded } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { api, events, hotkeys, stores } from '$lib';
@@ -85,7 +85,7 @@
 			<IconLoading class="mb-4 h-12 w-12 animate-spin ease-linear" />
 			<h2 class="text-center text-2xl font-medium text-gray-500">Loading...</h2>
 		</div>
-	{:else if Value.isError($richSessions.value) || Value.isError($currentSession.value)}
+	{:else if Loaded.isError($richSessions) || Loaded.isError($currentSession)}
 		<div class="flex h-full flex-col items-center justify-center">
 			<h2 class="text-center text-2xl font-medium text-gray-500">Error</h2>
 		</div>
@@ -102,10 +102,10 @@
 	<header class="flex items-center gap-3 bg-card-active px-3 py-2">
 		{#if $currentSession.isLoading || $richSessions.isLoading}
 			<span>Loading...</span>
+		{:else if Loaded.isError($currentSession) || Loaded.isError($richSessions)}
+			<span>Error</span>
 		{:else if !$currentSession.value}
 			<span>No session found</span>
-		{:else if Value.isError($currentSession.value) || Value.isError($richSessions.value)}
-			<span>Error</span>
 		{:else}
 			<SessionNavigations currentSession={$currentSession.value} sessions={$richSessions.value} />
 		{/if}

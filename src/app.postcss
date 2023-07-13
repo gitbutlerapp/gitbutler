@@ -16,7 +16,7 @@ textarea {
 	outline: none;
 	@apply rounded border border-light-500 bg-white p-2 text-light-900 dark:border-dark-400 dark:bg-dark-600 dark:text-dark-100;
 	@apply hover:border-zinc-500/80;
-	@apply focus:ring-2 focus:ring-blue-600;
+	@apply focus:ring-2 focus:ring-purple-600;
 }
 
 /* OUTLINE REMOVAL  */
@@ -68,7 +68,7 @@ textarea {
 button.basic,
 button.primary,
 button.destructive {
-	line-height: 20px;
+	line-height: 1.25rem;
 }
 
 button.primary {
@@ -97,13 +97,13 @@ button {
 		w-fit
 		cursor-pointer
 		items-center
-		gap-[10px]
+		gap-0.5
 		whitespace-nowrap
 		rounded
 		py-2
 		text-base
 		font-medium
-		leading-[20px]
+		leading-5
 		underline
 		transition
 		duration-150
@@ -212,10 +212,6 @@ button:focus {
 }
 
 .filled {
-	border-top: 1px solid rgba(255, 255, 255, 0.2);
-	border-bottom: 1px solid rgba(0, 0, 0, 0.3);
-	border-left: 1px solid rgba(255, 255, 255, 0);
-	border-right: 1px solid rgba(255, 255, 255, 0);
 	text-shadow: 0px 2px #00000021;
 }
 
@@ -229,7 +225,7 @@ button:focus {
 }
 
 .small {
-	@apply h-[24px] py-[1px];
+	@apply h-6 py-[0.0625rem];
 }
 
 .full-width {
@@ -239,15 +235,15 @@ button:focus {
 input[type='checkbox'] {
 	appearance: none;
 	border: 0;
-	border-radius: 4px;
+	border-radius: 0.25rem;
 	display: inline-grid;
 	place-content: center;
 }
 
 input[type='checkbox']::before {
 	content: '';
-	width: 10px;
-	height: 8px;
+	width: 0.625rem;
+	height: 0.5rem;
 	transform: scale(0);
 	box-shadow: inset 1em 1em white;
 }
@@ -269,7 +265,7 @@ input[type='checkbox'] {
 }
 input[type='checkbox'].error {
 	background: #fff4f4;
-	border: 2px solid #d82c0d;
+	border: 0.125rem solid #d82c0d;
 }
 
 input[type='checkbox']:hover {
@@ -288,19 +284,19 @@ input[type='checkbox'].error:indeterminate {
 
 input[type='checkbox']:focus {
 	background: #ffffff;
-	border: 2px solid #58529f;
-	border-radius: 5px;
+	border: 0.125rem solid #58529f;
+	border-radius: 0.25rem;
 }
 input[type='checkbox']:checked:focus,
 input[type='checkbox']:indeterminate:focus {
-	border: 2px solid #458fff;
+	border: 0.125rem solid #458fff;
 	background: linear-gradient(180deg, #6b66aa 0%, #484383 100%);
-	border-radius: 5px;
+	border-radius: 0.25rem;
 }
 
 input[type='checkbox']:disabled {
 	background: #fafbfb;
-	border: 2px solid #d2d5d8;
+	border: 0.125rem solid #d2d5d8;
 }
 input[type='checkbox']:checked:disabled,
 input[type='checkbox']:indeterminate:disabled {
@@ -309,29 +305,29 @@ input[type='checkbox']:indeterminate:disabled {
 
 /* sizes */
 input[type='checkbox'] {
-	width: 16px;
-	height: 16px;
+	width: 1rem;
+	height: 1rem;
 }
 input[type='checkbox'].large {
-	width: 20px;
-	height: 20px;
+	width: 1.25rem;
+	height: 1.25rem;
 }
 
 /* drag & drop */
 
-.drag-zone-hover * {
+.drop-zone-hover * {
 	@apply pointer-events-none;
 }
-.drag-zone-marker {
+.drop-zone-marker {
 	@apply border-green-450 bg-green-200 dark:bg-green-470;
 }
-.drag-zone-active.drag-zone-hover .drag-zone-marker {
+.drop-zone-active.drop-zone-hover .drop-zone-marker {
 	@apply border-green-500 bg-green-300 dark:bg-green-460;
 }
-.drag-zone-active .no-changes,
-.drag-zone-active .call-to-action {
+.drop-zone-active .no-changes,
+.drop-zone-active .call-to-action {
 	@apply hidden;
 }
-.drag-zone-active .drag-zone-marker {
+.drop-zone-active .drop-zone-marker {
 	@apply block;
 }

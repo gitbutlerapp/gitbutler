@@ -127,51 +127,13 @@ pub struct RemoteBranch {
     merge_conflicts: Vec<String>,
 }
 
-fn get_or_choose_default_target(
-    gb_repository: &gb_repository::Repository,
-    current_session_reader: &sessions::Reader,
-    project_repository: &project_repository::Repository,
-) -> Result<Option<target::Target>> {
+fn get_default_target(current_session_reader: &sessions::Reader) -> Result<Option<target::Target>> {
     let target_reader = target::Reader::new(current_session_reader);
     match target_reader.read_default() {
         Ok(target) => Ok(Some(target)),
-        Err(reader::Error::NotFound) => {
-            match choose_default_branch_name(project_repository)
-                .context("failed to choose default remote")?
-            {
-                None => Ok(None),
-                Some(branch_name) => {
-                    match gb_repository.set_target_branch(project_repository, &branch_name) {
-                        Ok(target) => Ok(Some(target)),
-                        Err(e) => {
-                            log::error!(
-                                "{}: failed to set assumed target branch: {:#}",
-                                gb_repository.project_id,
-                                e
-                            );
-                            Ok(None)
-                        }
-                    }
-                }
-            }
-        }
+        Err(reader::Error::NotFound) => Ok(None),
         Err(e) => Err(e).context("failed to read default target"),
     }
-}
-
-fn choose_default_branch_name(
-    project_repository: &project_repository::Repository,
-) -> Result<Option<String>> {
-    let names: HashSet<String> = project_repository
-        .git_remote_branches()?
-        .iter()
-        .cloned()
-        .collect();
-    let found = names
-        .get("origin/master")
-        .or(names.get("origin/main"))
-        .cloned();
-    Ok(found)
 }
 
 pub fn apply_branch(
@@ -187,12 +149,10 @@ pub fn apply_branch(
 
     let repo = &project_repository.git_repository;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    )
-    .context("failed to get default target")?
+    let wd_tree = get_wd_tree(repo)?;
+
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
     {
         Some(target) => target,
         None => return Ok(()),
@@ -327,12 +287,8 @@ pub fn unapply_branch(
         .context("failed to open current session")?;
     let project = project_repository.project;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    )
-    .context("failed to get default target")?
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
     {
         Some(target) => target,
         None => return Ok(()),
@@ -446,12 +402,8 @@ pub fn remote_branches(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    )
-    .context("failed to get default target")?
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
     {
         Some(target) => target,
         None => return Ok(vec![]),
@@ -469,7 +421,7 @@ pub fn remote_branches(
 
     let wd_tree = get_wd_tree(repo)?;
 
-    let virtual_branches = Iterator::new(&current_session_reader)
+    let virtual_branches_names = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
@@ -477,78 +429,67 @@ pub fn remote_branches(
         .filter(|branch| !branch.upstream.is_empty())
         .map(|branch| branch.upstream.replace("refs/heads/", ""))
         .collect::<HashSet<_>>();
-
-    println!("virtual branches: {:?}", virtual_branches);
-
-    let mut branches: Vec<RemoteBranch> = Vec::new();
     let mut most_recent_branches_by_hash: HashMap<git2::Oid, (git2::Branch, u64)> = HashMap::new();
 
-    for branch in repo.branches(None)? {
-        let (branch, _) = branch?;
-        match branch.get().target() {
-            Some(branch_oid) => {
-                // get the branch ref
-                let branch_commit = repo
-                    .find_commit(branch_oid)
-                    .context("failed to find branch commit")?;
-                let branch_time = branch_commit.time();
-                let seconds = branch_time
-                    .seconds()
-                    .try_into()
-                    .context("failed to convert seconds")?;
-                let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
-                let duration = current_time
-                    .duration_since(branch_time)
-                    .context("failed to get duration")?;
-                if duration > too_old {
-                    continue;
-                }
-
-                let branch_name = branch
-                    .name()
-                    .context("could not get branch name")?
-                    .context("could not get branch name")?
-                    .to_string();
-                let branch_name = branch_name.replace("origin/", "");
-
-                if virtual_branches.contains(&branch_name) {
-                    continue;
-                }
-                if branch_name == "HEAD" {
-                    continue;
-                }
-                if branch_name == "gitbutler/integration" {
-                    continue;
-                }
-
-                match most_recent_branches_by_hash.get(&branch_oid) {
-                    Some((_, existing_seconds)) => {
-                        let branch_name =
-                            branch.get().name().context("could not get branch name")?;
-                        if seconds < *existing_seconds {
-                            // this branch is older than the one we already have
-                            continue;
-                        }
-                        if seconds > *existing_seconds {
-                            most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                            continue;
-                        }
-                        if branch_name.starts_with("refs/remotes") {
-                            // this branch is a remote branch
-                            // we always prefer the remote branch if it is the same age as the local branch
-                            most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                            continue;
-                        }
-                    }
-                    None => {
-                        // this is the first time we've seen this branch
-                        // so we should add it to the list
-                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
-                    }
-                }
-            }
-            None => {
+    for (branch, _) in repo.branches(None)?.flatten() {
+        if let Some(branch_oid) = branch.get().target() {
+            // get the branch ref
+            let branch_commit = repo
+                .find_commit(branch_oid)
+                .context("failed to find branch commit")?;
+            let branch_time = branch_commit.time();
+            let seconds = branch_time
+                .seconds()
+                .try_into()
+                .context("failed to convert seconds")?;
+            let branch_time = time::UNIX_EPOCH + time::Duration::from_secs(seconds);
+            let duration = current_time
+                .duration_since(branch_time)
+                .context("failed to get duration")?;
+            if duration > too_old {
                 continue;
+            }
+
+            let branch_name = branch
+                .name()
+                .context("could not get branch name")?
+                .context("could not get branch name")?
+                .to_string();
+            let branch_name = branch_name.replace("origin/", "");
+
+            if virtual_branches_names.contains(&branch_name) {
+                continue;
+            }
+            if branch_name == "HEAD" {
+                continue;
+            }
+            if branch_name == "gitbutler/integration" {
+                continue;
+            }
+
+            match most_recent_branches_by_hash.get(&branch_oid) {
+                Some((_, existing_seconds)) => {
+                    let branch_name = branch.get().name().context("could not get branch name")?;
+                    if seconds < *existing_seconds {
+                        // this branch is older than the one we already have
+                        continue;
+                    }
+                    if seconds > *existing_seconds {
+                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                        continue;
+                    }
+                    if branch_name.starts_with("refs/remotes") {
+                        // this branch is a remote branch
+                        // we always prefer the remote branch if it is the same age as the local branch
+                        most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                        continue;
+                    }
+                }
+                None => {
+                    // this is the first time we've seen this branch
+                    // so we should add it to the list
+                    most_recent_branches_by_hash.insert(branch_oid, (branch, seconds));
+                }
             }
         }
     }
@@ -564,6 +505,7 @@ pub fn remote_branches(
         .collect();
     let top_branches = sorted_branches.into_iter().take(20).collect::<Vec<_>>(); // Take the first 20 entries.
 
+    let mut branches: Vec<RemoteBranch> = Vec::new();
     for branch in &top_branches {
         let branch_name = branch.get().name().context("could not get branch name")?;
         let upstream_branch = branch.upstream();
@@ -574,61 +516,20 @@ pub fn remote_branches(
                     .find_commit(branch_oid)
                     .context("failed to find branch commit")?;
 
-                let mut revwalk = repo.revwalk().context("failed to create revwalk")?;
-                revwalk
-                    .set_sorting(git2::Sort::TOPOLOGICAL)
-                    .context("failed to set sorting")?;
-                revwalk.push(main_oid).context("failed to push main oid")?;
-                revwalk
-                    .hide(branch_oid)
-                    .context("failed to hide branch oid")?;
+                let count_behind = project_repository
+                    .distance(main_oid, branch_oid)
+                    .context("failed to get behind count")?;
 
-                let mut count_behind = 0;
-                for oid in revwalk.flatten() {
-                    if oid == branch_oid {
-                        break;
-                    }
-                    count_behind += 1;
-                    if count_behind > 100 {
-                        break;
-                    }
-                }
+                let ahead = project_repository.log(branch_oid, main_oid)?;
+                let count_ahead = ahead.len();
 
-                let mut revwalk2 = repo.revwalk().context("failed to create revwalk")?;
-                revwalk2
-                    .set_sorting(git2::Sort::TOPOLOGICAL)
-                    .context("failed to set sorting")?;
-                revwalk2
-                    .push(branch_oid)
-                    .context("failed to push branch oid")?;
-                revwalk2.hide(main_oid).context("failed to hide main oid")?;
-
-                let mut min_time = None;
-                let mut max_time = None;
-                let mut count_ahead = 0;
-                let mut authors = HashSet::new();
-                for oid in revwalk2.flatten() {
-                    if oid == main_oid {
-                        break;
-                    }
-                    let commit = repo.find_commit(oid).context("failed to find commit")?;
-                    let timestamp = commit.time().seconds() as u128;
-
-                    if min_time.is_none() || timestamp < min_time.unwrap() {
-                        min_time = Some(timestamp);
-                    }
-
-                    if max_time.is_none() || timestamp > max_time.unwrap() {
-                        max_time = Some(timestamp);
-                    }
-
-                    // find the signature for this commit
-                    let commit = repo.find_commit(oid).context("failed to find commit")?;
-                    let signature = commit.author();
-                    authors.insert(signature.email().unwrap().to_string());
-
-                    count_ahead += 1;
-                }
+                let min_time = ahead.iter().map(|commit| commit.time().seconds()).min();
+                let max_time = ahead.iter().map(|commit| commit.time().seconds()).max();
+                let authors = ahead
+                    .iter()
+                    .map(|commit| commit.author())
+                    .filter_map(|signature| signature.email().map(|email| email.to_string()))
+                    .collect::<HashSet<_>>();
 
                 let upstream_branch_name = match upstream_branch {
                     Ok(upstream_branch) => upstream_branch.get().name().unwrap_or("").to_string(),
@@ -647,9 +548,17 @@ pub fn remote_branches(
                             branch: branch_name.to_string(),
                             name: branch_name.to_string(),
                             description: "".to_string(),
-                            last_commit_ts: max_time.unwrap_or(0),
-                            first_commit_ts: min_time.unwrap_or(0),
-                            ahead: count_ahead,
+                            last_commit_ts: max_time
+                                .unwrap_or(0)
+                                .try_into()
+                                .context("failed to convert i64 to u128")?,
+                            first_commit_ts: min_time
+                                .unwrap_or(0)
+                                .try_into()
+                                .context("failed to convert i64 to u128")?,
+                            ahead: count_ahead
+                                .try_into()
+                                .context("failed to convert usize to u32")?,
                             behind: count_behind,
                             upstream: upstream_branch_name,
                             authors: authors.into_iter().collect(),
@@ -752,12 +661,8 @@ pub fn list_virtual_branches(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session reader")?;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    )
-    .context("failed to get default target")?
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
     {
         Some(target) => target,
         None => return Ok(vec![]),
@@ -829,7 +734,6 @@ pub fn list_virtual_branches(
         let mut upstream_commit = None;
         if !branch.upstream.is_empty() {
             // get the target remote
-            let remote_url = &default_target.remote;
             let remotes = repo.remotes()?;
             let mut upstream_remote = None;
             for remote_name in remotes.iter() {
@@ -844,7 +748,7 @@ pub fn list_virtual_branches(
                     None => continue,
                 };
 
-                if url == remote_url {
+                if url == default_target.remote_url {
                     upstream_remote = Some(remote);
                     break;
                 }
@@ -865,33 +769,22 @@ pub fn list_virtual_branches(
         // find upstream commits if we found an upstream reference
         let mut upstream_commits = HashMap::new();
         if let Some(ref upstream) = upstream_commit {
-            let mut revwalk = repo.revwalk()?;
-            revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
-            revwalk.push(upstream.id())?;
-            // find merge base between upstream and default_target.sha
             let merge_base = repo.merge_base(upstream.id(), default_target.sha)?;
-            revwalk.hide(merge_base)?;
-            for oid in revwalk.flatten() {
+            for oid in project_repository.l(upstream.id(), merge_base)? {
                 upstream_commits.insert(oid, true);
             }
         }
 
         // find all commits on head that are not on target.sha
         let mut commits = vec![];
-        let mut revwalk = repo.revwalk()?;
-        revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
-        revwalk.push(branch.head)?;
-        revwalk.hide(default_target.sha)?;
-        for oid in revwalk {
-            let oid = oid?;
-            let commit = repo.find_commit(oid)?;
+        for commit in project_repository.log(branch.head, default_target.sha)? {
             let timestamp = commit.time().seconds() as u128;
             let signature = commit.author();
             let name = signature.name().unwrap().to_string();
             let email = signature.email().unwrap().to_string();
             let message = commit.message().unwrap().to_string();
-            let sha = oid.to_string();
-            let is_remote = upstream_commits.contains_key(&oid);
+            let sha = commit.id().to_string();
+            let is_remote = upstream_commits.contains_key(&commit.id());
 
             let commit = VirtualBranchCommit {
                 id: sha,
@@ -969,10 +862,9 @@ pub fn create_virtual_branch_from_branch(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target =
-        get_or_choose_default_target(gb_repository, &current_session_reader, project_repository)
-            .context("failed to get default target")?
-            .context("no default target found")?;
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+        .context("no default target found")?;
 
     let repo = &project_repository.git_repository;
     let head = repo.revparse_single(branch_ref)?;
@@ -1010,7 +902,6 @@ pub fn create_virtual_branch_from_branch(
     let merge_base = repo.merge_base(target_commit.id(), head_commit.id())?;
     let merge_tree = repo.find_commit(merge_base)?.tree()?;
     if merge_base != target_commit.id() {
-        println!("merge base is not target commit");
         let target_tree = target_commit.tree()?;
         let head_tree = head_commit.tree()?;
 
@@ -1023,7 +914,6 @@ pub fn create_virtual_branch_from_branch(
         if merge_index.has_conflicts() {
             bail!("merge conflict");
         } else {
-            println!("merging target");
             let (author, committer) = gb_repository.git_signatures()?;
             let new_head_tree_oid = merge_index
                 .write_tree_to(repo)
@@ -1408,14 +1298,9 @@ pub fn get_status_by_branch(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    ) {
+    let default_target = match get_default_target(&current_session_reader) {
         Ok(Some(target)) => Ok(target),
         Ok(None) => {
-            println!("  no base sha set, run butler setup");
             return Ok(vec![]);
         }
         Err(e) => Err(e),
@@ -1652,22 +1537,21 @@ pub fn update_branch_target(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
     // look up the target and see if there is a new oid
-    let mut target =
-        get_or_choose_default_target(gb_repository, &current_session_reader, project_repository)
-            .context("failed to get target")?
-            .context("no target found")?;
+    let mut target = get_default_target(&current_session_reader)
+        .context("failed to get target")?
+        .context("no target found")?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
     let writer = branch::Writer::new(gb_repository);
 
     let repo = &project_repository.git_repository;
     let branch = repo
-        .find_branch(&target.name, git2::BranchType::Remote)
-        .context(format!("failed to find branch {}", target.name))?;
-    let new_target_commit = branch
-        .get()
-        .peel_to_commit()
-        .context(format!("failed to peel branch {} to commit", target.name))?;
+        .find_branch(&target.branch_name, git2::BranchType::Remote)
+        .context(format!("failed to find branch {}", target.branch_name))?;
+    let new_target_commit = branch.get().peel_to_commit().context(format!(
+        "failed to peel branch {} to commit",
+        target.branch_name
+    ))?;
     let new_target_oid = new_target_commit.id();
 
     // if the target has not changed, do nothing
@@ -1907,16 +1791,8 @@ fn get_target(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target = match get_or_choose_default_target(
-        gb_repository,
-        &current_session_reader,
-        project_repository,
-    ) {
-        Ok(Some(target)) => Ok(target),
-        Ok(None) => bail!("no default target"),
-        Err(e) => Err(e),
-    }
-    .context("failed to read default target")?;
+    let default_target =
+        get_default_target(&current_session_reader).context("failed to read default target")?;
     Ok(default_target)
 }
 
@@ -2273,19 +2149,18 @@ pub fn get_target_data(
         .context("failed to get or create current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    match get_or_choose_default_target(gb_repository, &current_session_reader, project_repository)?
-    {
+    match get_default_target(&current_session_reader)? {
         None => Ok(None),
         Some(mut target) => {
             let repo = &project_repository.git_repository;
             let branch = repo
-                .find_branch(&target.name, git2::BranchType::Remote)
+                .find_branch(&target.branch_name, git2::BranchType::Remote)
                 .unwrap();
             let commit = branch.get().peel_to_commit().unwrap();
             let oid = commit.id();
             target.behind = project_repository
-                .behind(oid, target.sha)
-                .context(format!("failed to get behind for {}", target.name))?;
+                .distance(oid, target.sha)
+                .context(format!("failed to get behind for {}", target.branch_name))?;
             Ok(Some(target))
         }
     }
@@ -2367,8 +2242,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            remote_name: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2429,8 +2305,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            remote_name: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2470,8 +2347,6 @@ mod tests {
             .map(|(branch, files)| (branch.id.clone(), files))
             .collect::<HashMap<_, _>>();
 
-        println!("{:#?}", statuses);
-
         assert_eq!(files_by_branch_id.len(), 2);
         assert_eq!(files_by_branch_id[&branch0.id].len(), 0);
         assert_eq!(files_by_branch_id[&branch1.id].len(), 1);
@@ -2497,8 +2372,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2550,8 +2426,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2593,8 +2470,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2681,8 +2559,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2741,8 +2620,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2863,8 +2743,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -2979,8 +2860,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3075,8 +2957,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3141,8 +3024,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3247,8 +3131,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3332,8 +3217,9 @@ mod tests {
         let project_repository = project_repository::Repository::open(&project)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3727,6 +3613,347 @@ mod tests {
     }
 
     #[test]
+    fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
+        let repository = test_repository()?;
+        let project = projects::Project::try_from(&repository)?;
+        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+        let storage = storage::Storage::from_path(tempdir()?.path());
+        let user_store = users::Storage::new(storage.clone());
+        let project_store = projects::Storage::new(storage);
+        project_store.add_project(&project)?;
+
+        let gb_repo = gb_repository::Repository::open(
+            gb_repo_path,
+            project.id.clone(),
+            project_store,
+            user_store,
+        )?;
+        let project_repository = project_repository::Repository::open(&project)?;
+
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let branch_reader = branch::Reader::new(&current_session_reader);
+
+        // create a commit and set the target
+        let file_path = std::path::Path::new("test.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        let file_path2 = std::path::Path::new("test2.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\n",
+        )?;
+        let file_path3 = std::path::Path::new("test3.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "line1\nline2\nfile3\n",
+        )?;
+        let file_path4 = std::path::Path::new("test3.txt");
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path4),
+            "line1\nline2\nfile3\n",
+        )?;
+        commit_all(&repository)?;
+
+        target::Writer::new(&gb_repo).write_default(&target::Target {
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
+            sha: repository.head().unwrap().target().unwrap(),
+            behind: 0,
+        })?;
+        update_gitbutler_integration(&gb_repo, &project_repository)?;
+
+        repository.set_head("refs/heads/master")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
+
+        // add a commit to the target branch it's pointing to so there is something "upstream"
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "line1\nline2\nfile3\nupstream\n",
+        )?;
+        commit_all(&repository)?;
+        let up_target = repository.head().unwrap().target().unwrap();
+
+        //update repo ref refs/remotes/origin/master to up_target oid
+        repository.reference(
+            "refs/remotes/origin/master",
+            up_target,
+            true,
+            "update target",
+        )?;
+
+        repository.set_head("refs/heads/gitbutler/integration")?;
+        repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
+
+        // add a commit to the target branch it's pointing to so there is something "upstream"
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "line1\nline2\nfile3\nupstream\n",
+        )?;
+
+        // test all our situations
+        // 1. unapplied branch, uncommitted conflicts
+        // 2. unapplied branch, committed conflicts but not uncommitted
+        // 3. unapplied branch, no conflicts
+        // 4. applied branch, uncommitted conflicts
+        // 5. applied branch, committed conflicts but not uncommitted
+        // 6. applied branch, no conflicts
+        // 7. applied branch with commits but everything is upstream, delete it
+
+        // create a vbranch
+        let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch")
+            .id;
+        let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch")
+            .id;
+        let branch3_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch")
+            .id;
+        let branch4_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch")
+            .id;
+        let branch5_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch")
+            .id;
+        let branch6_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch")
+            .id;
+        let branch7_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+            .expect("failed to create virtual branch")
+            .id;
+
+        // situation 7: everything is upstream, delete it
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "line1\nline2\nfile3\n",
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch7_id.clone(),
+                name: Some("Situation 7".to_string()),
+                ownership: Some(Ownership::try_from("test.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch7_id,
+            "integrated commit",
+        )?;
+
+        unapply_branch(&gb_repo, &project_repository, &branch7_id)?;
+
+        // situation 1: unapplied branch, uncommitted conflicts
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nsit1.unapplied.conflict.uncommitted\n",
+        )?;
+        // reset other files
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\n",
+        )?;
+
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch1_id.clone(),
+                name: Some("Situation 1".to_string()),
+                ownership: Some(Ownership::try_from("test.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
+        unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
+
+        // situation 2: unapplied branch, committed conflicts but not uncommitted
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nsit2.unapplied.conflict.committed\n",
+        )?;
+
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                name: Some("Situation 2".to_string()),
+                ownership: Some(Ownership::try_from("test.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch2_id,
+            "commit conflicts",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "sit2.fixed in uncomitted\nline1\nline2\nline3\nline4\nupstream\n",
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch2_id.clone(),
+                ownership: Some(Ownership::try_from("test.txt:1-6")?),
+                ..Default::default()
+            },
+        )?;
+        unapply_branch(&gb_repo, &project_repository, &branch2_id)?;
+
+        // situation 3: unapplied branch, no conflicts
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\n",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "sit3.no-conflict\nline5\nline6\nline7\nline8\n",
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch3_id.clone(),
+                name: Some("Situation 3".to_string()),
+                ownership: Some(Ownership::try_from("test2.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
+        unapply_branch(&gb_repo, &project_repository, &branch3_id)?;
+
+        // situation 5: applied branch, committed conflicts but not uncommitted
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "line1\nline2\nfile3\nsit5.applied.conflict.committed\n",
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch5_id.clone(),
+                name: Some("Situation 5".to_string()),
+                ownership: Some(Ownership::try_from("test3.txt:1-4")?),
+                ..Default::default()
+            },
+        )?;
+        commit(
+            &gb_repo,
+            &project_repository,
+            &branch5_id,
+            "broken, but will fix",
+        )?;
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path3),
+            "test\nline1\nline2\nfile3\nupstream\n",
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch5_id.clone(),
+                ownership: Some(Ownership::try_from("test3.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
+
+        // situation 4: applied branch, uncommitted conflicts
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nsit4.applied.conflict.uncommitted\n",
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch4_id.clone(),
+                name: Some("Situation 4".to_string()),
+                ownership: Some(Ownership::try_from("test.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
+
+        // situation 6: applied branch, no conflicts
+        std::fs::write(
+            std::path::Path::new(&project.path).join(file_path2),
+            "line5\nline6\nline7\nline8\nsit6.no-conflict.applied\n",
+        )?;
+        update_branch(
+            &gb_repo,
+            branch::BranchUpdateRequest {
+                id: branch6_id.clone(),
+                name: Some("Situation 6".to_string()),
+                ownership: Some(Ownership::try_from("test2.txt:1-5")?),
+                ..Default::default()
+            },
+        )?;
+
+        // update the target branch
+        update_branch_target(&gb_repo, &project_repository)?;
+
+        let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
+
+        // 1. unapplied branch, uncommitted conflicts
+        let branch = branches.iter().find(|b| b.id == branch1_id).unwrap();
+        assert_eq!(branch.active, false);
+        assert_eq!(branch.mergeable, false);
+        assert_eq!(branch.base_current, false);
+
+        // 2. unapplied branch, committed conflicts but not uncommitted
+        let branch = branches.iter().find(|b| b.id == branch2_id).unwrap();
+        assert_eq!(branch.active, false);
+        assert_eq!(branch.mergeable, true);
+        assert_eq!(branch.base_current, true);
+        assert_eq!(branch.commits.len(), 2);
+
+        // 3. unapplied branch, no conflicts
+        let branch = branches.iter().find(|b| b.id == branch3_id).unwrap();
+        assert_eq!(branch.active, false);
+        assert_eq!(branch.mergeable, true);
+        assert_eq!(branch.base_current, true);
+
+        // 4. applied branch, uncommitted conflicts
+        let branch = branches.iter().find(|b| b.id == branch4_id).unwrap();
+        assert_eq!(branch.active, false);
+        assert_eq!(branch.mergeable, false);
+        assert_eq!(branch.base_current, false);
+
+        // 5. applied branch, committed conflicts but not uncommitted
+        let branch = branches.iter().find(|b| b.id == branch5_id).unwrap();
+        assert_eq!(branch.active, false); // cannot merge history into new target
+        assert_eq!(branch.mergeable, false);
+        assert_eq!(branch.base_current, false);
+
+        // 6. applied branch, no conflicts
+        let branch = branches.iter().find(|b| b.id == branch6_id).unwrap();
+        assert_eq!(branch.active, true); // still applied
+
+        // 7. applied branch with commits but everything is upstream, delete it
+        // branch7 was integrated and deleted
+        let branch7 = branch_reader.read(&branch7_id);
+        assert!(branch7.is_err());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_apply_unapply_branch() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
@@ -3752,8 +3979,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin/master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3858,8 +4086,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -3948,8 +4177,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -4125,8 +4355,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "http://origin.com/project".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "http://origin.com/project".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -4228,8 +4459,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "http://origin.com/project".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "http://origin.com/project".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -4383,8 +4615,9 @@ mod tests {
         )?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin/master".to_string(),
-            remote: "http://origin.com/project".to_string(),
+            remote_name: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_url: "http://origin.com/project".to_string(),
             sha: upstream_commit,
             behind: 0,
         })?;
@@ -4494,8 +4727,9 @@ mod tests {
         commit_all(&repository)?;
 
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "origin".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: repository.head().unwrap().target().unwrap(),
             behind: 0,
         })?;
@@ -4648,8 +4882,9 @@ mod tests {
         let commit1_oid = repository.head().unwrap().target().unwrap();
         let commit1 = repository.find_commit(commit1_oid).unwrap();
         target::Writer::new(&gb_repo).write_default(&target::Target {
-            name: "origin".to_string(),
-            remote: "origin".to_string(),
+            branch_name: "master".to_string(),
+            remote_name: "origin".to_string(),
+            remote_url: "origin".to_string(),
             sha: commit1_oid,
             behind: 0,
         })?;
