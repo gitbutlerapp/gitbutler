@@ -190,6 +190,7 @@
 			<Button
 				height="small"
 				color="purple"
+				disabled={commitMessage ? false : true}
 				on:click={() => {
 					commit();
 				}}>Commit</Button
