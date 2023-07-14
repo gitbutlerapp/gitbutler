@@ -83,13 +83,20 @@ fn main() {
 
 fn run_clear(butler: ButlerCli) {
     // make sure there is a session
-    butler
+    let session = butler
         .gb_repository
         .get_or_create_current_session()
         .expect("failed to get or create currnt session");
-    let branch_path = butler.gb_repository.branches_path();
-    // delete 'butler' directory under path
-    std::fs::remove_dir_all(branch_path).unwrap();
+    let session_reader = sessions::Reader::open(&butler.gb_repository, &session)
+        .expect("failed to open current session reader");
+    let branch_writer = virtual_branches::branch::Writer::new(&butler.gb_repository);
+    let iterator =
+        virtual_branches::Iterator::new(&session_reader).expect("failed to read branches");
+    for branch in iterator.flatten() {
+        branch_writer
+            .delete(&branch)
+            .unwrap_or_else(|e| panic!("failed to delete branch: {:?}", e));
+    }
 }
 
 fn run_reset(butler: ButlerCli) {
