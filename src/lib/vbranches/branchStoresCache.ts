@@ -1,5 +1,6 @@
 import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
-import type { Session } from '$lib/api';
+import type { Session, Delta } from '$lib/api';
+import { Operation } from '$lib/api';
 import type { Readable } from '@square/svelte-store';
 import { git } from '$lib/api/ipc';
 import { stores } from '$lib';
@@ -114,16 +115,38 @@ async function branchesWithFileContent(projectId: string, sessionId: string, bra
 		.map((branch) => branch.files)
 		.flat()
 		.map((file) => file.path);
-	const fullFiles = await invoke<Record<string, string>>('list_session_files', {
+	const sessionFiles = await invoke<Record<string, string>>('list_session_files', {
+		projectId: projectId,
+		sessionId: sessionId,
+		paths: filePaths
+	});
+	const sessionDeltas = await invoke<Record<string, Delta[]>>('list_deltas', {
 		projectId: projectId,
 		sessionId: sessionId,
 		paths: filePaths
 	});
 	const branchesWithContnent = branches.map((branch) => {
 		branch.files.map((file) => {
-			file.content = fullFiles[file.path];
+			const contentAtSessionStart = sessionFiles[file.path];
+			const deltas = sessionDeltas[file.path];
+			file.content = applyDeltas(contentAtSessionStart, deltas);
 		});
 		return branch;
 	});
 	return branchesWithContnent;
+}
+
+function applyDeltas(text: string, deltas: Delta[]) {
+	if (!deltas) return text;
+	const operations = deltas.flatMap((delta) => delta.operations);
+	operations.forEach((operation) => {
+		if (Operation.isInsert(operation)) {
+			text =
+				text.slice(0, operation.insert[0]) + operation.insert[1] + text.slice(operation.insert[0]);
+		} else if (Operation.isDelete(operation)) {
+			text =
+				text.slice(0, operation.delete[0]) + text.slice(operation.delete[0] + operation.delete[1]);
+		}
+	});
+	return text;
 }
