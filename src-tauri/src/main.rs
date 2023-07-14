@@ -25,9 +25,10 @@ mod zip;
 #[macro_use]
 extern crate log;
 
+use std::{collections::HashMap, ops, path, time};
+
 use anyhow::{Context, Result};
 use serde::{ser::SerializeMap, Serialize};
-use std::{collections::HashMap, ops, time};
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
@@ -398,8 +399,8 @@ async fn git_status(
 async fn git_wd_diff(
     handle: tauri::AppHandle,
     project_id: &str,
-    context_lines: usize,
-) -> Result<HashMap<String, String>, Error> {
+    context_lines: u32,
+) -> Result<HashMap<path::PathBuf, String>, Error> {
     let app = handle.state::<app::App>();
     let diff = app
         .git_wd_diff(project_id, context_lines)

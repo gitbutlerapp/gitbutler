@@ -1227,7 +1227,12 @@ pub fn get_status_by_branch(
     }
     .context("failed to read default target")?;
 
-    let diff = diff::workdir(project_repository, &default_target.sha).context("failed to diff")?;
+    let diff = diff::workdir(
+        project_repository,
+        &default_target.sha,
+        &diff::Options::default(),
+    )
+    .context("failed to diff")?;
     let mut hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
     let mut virtual_branches = Iterator::new(&current_session_reader)
