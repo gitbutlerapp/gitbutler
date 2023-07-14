@@ -1,4 +1,5 @@
 import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
+import type { Session } from '$lib/api';
 import type { Readable } from '@square/svelte-store';
 import { git } from '$lib/api/ipc';
 import { stores } from '$lib';
@@ -28,7 +29,11 @@ export class BranchStoresCache {
 				const lastSession = sessions.value.at(-1);
 				if (!lastSession) return;
 				return stores.deltas({ projectId, sessionId: lastSession.id }).subscribe(() => {
-					listVirtualBranches({ projectId }).then(set);
+					listVirtualBranches({ projectId }).then((newBranches) => {
+						branchesWithFileContent(projectId, lastSession.id, newBranches).then((withContent) => {
+							set(withContent);
+						});
+					});
 				});
 			});
 		});
@@ -36,7 +41,13 @@ export class BranchStoresCache {
 			subscribe: writableStore.subscribe,
 			refresh: async () => {
 				const newBranches = await listVirtualBranches({ projectId });
-				return writableStore.set({ isLoading: false, value: newBranches });
+				const sessions = await invoke<Session[]>('list_sessions', { projectId });
+				const lastSession = sessions.at(-1);
+				if (!lastSession) {
+					return writableStore.set({ isLoading: false, value: newBranches });
+				}
+				const withContent = await branchesWithFileContent(projectId, lastSession.id, newBranches);
+				return writableStore.set({ isLoading: false, value: withContent });
 			}
 		};
 		this.virtualBranchStores.set(projectId, refreshableStore);
@@ -96,4 +107,23 @@ export async function getRemoteBranchesData(params: { projectId: string }): Prom
 
 export async function getTargetData(params: { projectId: string }): Promise<Target> {
 	return plainToInstance(Target, invoke<any>('get_target_data', params));
+}
+
+async function branchesWithFileContent(projectId: string, sessionId: string, branches: Branch[]) {
+	const filePaths = branches
+		.map((branch) => branch.files)
+		.flat()
+		.map((file) => file.path);
+	const fullFiles = await invoke<Record<string, string>>('list_session_files', {
+		projectId: projectId,
+		sessionId: sessionId,
+		paths: filePaths
+	});
+	const branchesWithContnent = branches.map((branch) => {
+		branch.files.map((file) => {
+			file.content = fullFiles[file.path];
+		});
+		return branch;
+	});
+	return branchesWithContnent;
 }
