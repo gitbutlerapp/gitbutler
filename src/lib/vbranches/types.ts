@@ -21,6 +21,7 @@ export class File {
 	@Transform((obj) => new Date(obj.value))
 	modifiedAt!: Date;
 	conflicted!: boolean;
+	content!: string;
 }
 
 export class Branch {
