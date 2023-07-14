@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{cell::Cell, collections::HashMap, env, io::Write, process::Command};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use git2::{CredentialType, Diff};
 use serde::Serialize;
 use std::io::BufRead;
@@ -228,20 +228,6 @@ impl<'repository> Repository<'repository> {
     }
 
     // end merge conflict state stuff
-
-    pub fn get_head_commit(&self) -> Result<git2::Commit> {
-        let repo = &self.git_repository;
-        let head = repo.head().context("failed to get head")?;
-        let name = head.name().unwrap();
-        if name != "refs/heads/gitbutler/integration" {
-            bail!("we are no longer on our integration branch");
-        }
-        let head_oid = head.target().context("failed to get head oid")?;
-        let head_commit = repo
-            .find_commit(head_oid)
-            .context("failed to find head commit")?;
-        Ok(head_commit)
-    }
 
     pub fn git_status(&self) -> Result<HashMap<String, FileStatus>> {
         let staged_statuses = self.staged_statuses()?;
