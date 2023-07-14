@@ -99,7 +99,6 @@ pub struct VirtualBranchFile {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
     pub id: String,
-    pub name: String,
     pub diff: String,
     pub modified_at: u128,
     pub file_path: path::PathBuf,
@@ -120,9 +119,7 @@ pub struct VirtualBranchHunk {
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
     sha: String,
-    branch: String,
     name: String,
-    description: String,
     last_commit_ts: u128,
     first_commit_ts: u128,
     ahead: u32,
@@ -557,9 +554,7 @@ pub fn remote_branches(
 
                         branches.push(RemoteBranch {
                             sha: branch_oid.to_string(),
-                            branch: branch_name.to_string(),
                             name: branch_name.to_string(),
-                            description: "".to_string(),
                             last_commit_ts: max_time
                                 .unwrap_or(0)
                                 .try_into()
@@ -584,9 +579,7 @@ pub fn remote_branches(
                 // this is a detached head
                 branches.push(RemoteBranch {
                     sha: "".to_string(),
-                    branch: branch_name.to_string(),
                     name: branch_name.to_string(),
-                    description: "".to_string(),
                     last_commit_ts: 0,
                     first_commit_ts: 0,
                     ahead: 0,
@@ -1193,7 +1186,6 @@ fn hunks_by_filepath(
                 .iter()
                 .map(|hunk| VirtualBranchHunk {
                     id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
-                    name: "".to_string(),
                     modified_at: get_mtime(&mut mtimes, &project_repository.path().join(file_path)),
                     file_path: file_path.clone(),
                     diff: hunk.diff.clone(),

@@ -103,7 +103,7 @@
 
 	<!-- Your branches -->
 	<div
-		class="flex items-center justify-between border-b border-light-400 bg-light-100 py-1 px-2 pr-1 dark:border-dark-600 dark:bg-dark-800"
+		class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
 		<div class="font-bold">Your branches</div>
 		<div class="flex h-4 w-4 justify-around">
@@ -155,7 +155,7 @@
 	<!-- Remote branches -->
 	{#if remoteBranches}
 		<div
-			class="flex items-center justify-between border-b border-light-400 bg-light-100 py-1 px-2 pr-1 dark:border-dark-600 dark:bg-dark-800"
+			class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 		>
 			<div class="font-bold">Remote branches</div>
 			<div class="flex h-4 w-4 justify-around">
@@ -174,11 +174,11 @@
 				<div
 					role="listitem"
 					on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
-					class="flex flex-col justify-between gap-1 border-b border-light-400 py-1 px-2 pt-2 dark:border-dark-600"
+					class="flex flex-col justify-between gap-1 border-b border-light-400 px-2 py-1 pt-2 dark:border-dark-600"
 				>
 					<div class="flex flex-row items-center gap-x-2">
 						<div class="text-light-600 dark:text-dark-200">
-							{#if branch.branch.match('refs/remotes')}
+							{#if branch.name.match('refs/remotes')}
 								<IconRemote class="h-4 w-4" />
 							{:else}
 								<IconGitBranch class="h-4 w-4" />
@@ -186,9 +186,9 @@
 						</div>
 						<div
 							class="flex-grow cursor-pointer truncate text-black dark:text-white"
-							title={branch.branch}
+							title={branch.name}
 						>
-							{branch.branch
+							{branch.name
 								.replace('refs/remotes/', '')
 								.replace('origin/', '')
 								.replace('refs/heads/', '')}
