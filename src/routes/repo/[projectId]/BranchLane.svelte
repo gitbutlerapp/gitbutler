@@ -36,6 +36,7 @@
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
+	let textAreaInput: HTMLTextAreaElement;
 
 	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
@@ -148,7 +149,14 @@
 	</div>
 
 	{#if conflicted}
-		<div class="mb-2 rounded bg-red-700 p-2 text-white">Conflict Zone</div>
+		<div class="mb-2 rounded bg-red-700 p-2 text-white">
+			{#if files.some((f) => f.conflicted)}
+				This virtual branch conflicts with upstream changes. Please resolve all conflicts and commit
+				before you can continue.
+			{:else}
+				Please commit your resolved conflicts to continue.
+			{/if}
+		</div>
 	{/if}
 
 	<PopupMenu bind:this={popupMenu} let:item={branchId}>
@@ -182,21 +190,22 @@
 	>
 		<div class="mb-2 flex items-center">
 			<textarea
+				bind:this={textAreaInput}
 				bind:value={commitMessage}
-				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-light-400 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300 dark:focus:border-dark-300"
+				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-light-400 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300 dark:focus:border-dark-300 focus:invalid:border-red-500"
 				placeholder="Your commit message here..."
 				rows={messageRows}
+				required
 			/>
 		</div>
 		<div class="mb-2 text-right">
 			<Button
 				height="small"
 				color="purple"
-				disabled={commitMessage ? false : true}
-				on:click={() => {
-					commit();
-				}}>Commit</Button
+				on:click={() => (commitMessage ? commit() : textAreaInput.focus())}
 			>
+				Commit
+			</Button>
 		</div>
 		<div class="flex flex-shrink flex-col gap-y-2">
 			<div class="drop-zone-marker hidden rounded border p-6 text-center">
