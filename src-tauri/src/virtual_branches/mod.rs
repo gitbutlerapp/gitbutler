@@ -19,7 +19,11 @@ pub use branch::Branch;
 pub use iterator::BranchIterator as Iterator;
 use uuid::Uuid;
 
-use crate::{gb_repository, project_repository, reader, sessions};
+use crate::{
+    gb_repository,
+    project_repository::{self, conflicts},
+    reader, sessions,
+};
 
 use self::branch::{BranchCreateRequest, FileOwnership, Hunk, Ownership};
 
@@ -143,7 +147,7 @@ pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<()> {
-    if project_repository.resolving_conflict()? {
+    if conflicts::is_resolving(project_repository) {
         bail!("cannot apply a branch, project is in a conflicted state");
     }
     let current_session = gb_repository
@@ -222,7 +226,11 @@ pub fn apply_branch(
                     merge_conflicts.push(path);
                 }
             }
-            project_repository.mark_conflicts(&merge_conflicts, Some(default_target.sha))?;
+            conflicts::mark(
+                project_repository,
+                &merge_conflicts,
+                Some(default_target.sha),
+            )?;
             return Ok(());
         } else {
             let head_commit = repo
@@ -283,7 +291,7 @@ pub fn unapply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<()> {
-    if project_repository.resolving_conflict()? {
+    if conflicts::is_resolving(project_repository) {
         bail!("cannot unapply, project is in a conflicted state");
     }
     let current_session = gb_repository
@@ -721,8 +729,7 @@ pub fn list_virtual_branches(
                     path: file_path.to_string(),
                     hunks: hunks.clone(),
                     modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
-                    conflicted: project_repository
-                        .is_conflicted(Some(file_path.to_string()))
+                    conflicted: conflicts::is_conflicting(project_repository, Some(file_path))
                         .unwrap_or(false),
                 })
                 .collect::<Vec<_>>();
@@ -841,7 +848,7 @@ pub fn list_virtual_branches(
             mergeable,
             merge_conflicts,
             upstream: branch.upstream.to_string().replace("refs/heads/", ""),
-            conflicted: project_repository.resolving_conflict()?,
+            conflicted: conflicts::is_resolving(project_repository),
             base_current,
         };
         branches.push(branch);
@@ -1494,8 +1501,7 @@ pub fn get_status_by_branch(
                 path: file_path.clone(),
                 hunks: hunks.clone(),
                 modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
-                conflicted: project_repository
-                    .is_conflicted(Some(file_path))
+                conflicted: conflicts::is_conflicting(project_repository, Some(&file_path))
                     .unwrap_or(false),
             })
             .collect::<Vec<_>>();
@@ -1936,13 +1942,11 @@ fn write_tree(
     let base_tree = head_commit.tree()?;
 
     let mut builder = git2::build::TreeUpdateBuilder::new();
-    let project = project_repository.project;
-
     // now update the index with content in the working directory for each file
     for file in files {
         // convert this string to a Path
-        let full_path = std::path::Path::new(&project.path).join(&file.path);
         let rel_path = std::path::Path::new(&file.path);
+        let full_path = project_repository.path().join(rel_path);
 
         // if file exists
         if full_path.exists() {
@@ -2012,7 +2016,7 @@ pub fn commit(
     branch_id: &str,
     message: &str,
 ) -> Result<()> {
-    if project_repository.is_conflicted(None)? {
+    if conflicts::is_conflicting(project_repository, None)? {
         bail!("cannot commit, project is in a conflicted state");
     }
 
@@ -2030,7 +2034,7 @@ pub fn commit(
 
             // now write a commit, using a merge parent if it exists
             let (author, committer) = gb_repository.git_signatures().unwrap();
-            let extra_merge_parent = project_repository.current_merge_parent()?;
+            let extra_merge_parent = conflicts::merge_parent(project_repository)?;
 
             match extra_merge_parent {
                 Some(merge_parent) => {
@@ -2046,12 +2050,17 @@ pub fn commit(
                         )
                         .unwrap();
                     branch.head = commit_oid;
-                    project_repository.clear_conflict()?;
+                    conflicts::clear(project_repository)?;
                 }
                 None => {
-                    let commit_oid = git_repository
-                        .commit(None, &author, &committer, message, &tree, &[&parent_commit])
-                        .unwrap();
+                    let commit_oid = git_repository.commit(
+                        None,
+                        &author,
+                        &committer,
+                        message,
+                        &tree,
+                        &[&parent_commit],
+                    )?;
                     branch.head = commit_oid;
                 }
             }
@@ -2152,10 +2161,8 @@ pub fn get_target_data(
         None => Ok(None),
         Some(mut target) => {
             let repo = &project_repository.git_repository;
-            let branch = repo
-                .find_branch(&target.branch_name, git2::BranchType::Remote)
-                .unwrap();
-            let commit = branch.get().peel_to_commit().unwrap();
+            let branch = repo.find_branch(&target.branch_name, git2::BranchType::Remote)?;
+            let commit = branch.get().peel_to_commit()?;
             let oid = commit.id();
             target.behind = project_repository
                 .distance(oid, target.sha)

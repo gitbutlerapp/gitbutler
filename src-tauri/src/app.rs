@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
-    project_repository::{self, activity},
+    project_repository::{self, activity, conflicts},
     projects, pty, search, sessions, storage, users, virtual_branches, watcher,
 };
 
@@ -448,7 +448,7 @@ impl App {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         // mark file as resolved
-        project_repository.mark_resolved(path.to_string())?;
+        conflicts::resolve(&project_repository, path)?;
         Ok(())
     }
 

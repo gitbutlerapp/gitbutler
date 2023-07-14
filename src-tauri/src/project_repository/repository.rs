@@ -1,10 +1,9 @@
 use core::fmt;
-use std::{cell::Cell, collections::HashMap, env, io::Write, process::Command};
+use std::{cell::Cell, collections::HashMap, env, path, process::Command};
 
 use anyhow::{Context, Result};
 use git2::{CredentialType, Diff};
 use serde::Serialize;
-use std::io::BufRead;
 use walkdir::WalkDir;
 
 use crate::{project_repository::activity, projects, reader};
@@ -29,10 +28,14 @@ impl fmt::Display for Error {
 
 pub struct Repository<'repository> {
     pub(crate) git_repository: git2::Repository,
-    pub(crate) project: &'repository projects::Project,
+    project: &'repository projects::Project,
 }
 
 impl<'repository> Repository<'repository> {
+    pub fn path(&self) -> &path::Path {
+        &path::Path::new(&self.project.path)
+    }
+
     pub fn open(project: &'repository projects::Project) -> Result<Self> {
         let git_repository = git2::Repository::open(&project.path)
             .with_context(|| format!("{}: failed to open git repository", project.path))?;
@@ -135,99 +138,6 @@ impl<'repository> Repository<'repository> {
 
         Ok(files)
     }
-
-    // stuff to manage merge conflict state
-    // this is the dumbest possible way to do this, but it is a placeholder
-    // conflicts are stored one path per line in .git/conflicts
-    // merge parent is stored in .git/base_merge_parent
-    // conflicts are removed as they are resolved, the conflicts file is removed when there are no more conflicts
-    // the merge parent file is removed when the merge is complete
-
-    pub fn mark_conflicts(&self, paths: &[String], parent: Option<git2::Oid>) -> Result<()> {
-        let conflicts_path = self.git_repository.path().join("conflicts");
-        // write all the file paths to a file on disk
-        let mut file = std::fs::File::create(conflicts_path)?;
-        paths.iter().for_each(|path| {
-            file.write_all(path.as_bytes()).unwrap();
-            file.write_all(b"\n").unwrap();
-        });
-
-        if let Some(parent) = parent {
-            let merge_path = self.git_repository.path().join("base_merge_parent");
-            // write all the file paths to a file on disk
-            let mut file = std::fs::File::create(merge_path)?;
-            file.write_all(parent.to_string().as_bytes())?;
-        }
-
-        Ok(())
-    }
-
-    pub fn current_merge_parent(&self) -> Result<Option<git2::Oid>> {
-        let merge_path = self.git_repository.path().join("base_merge_parent");
-        if !merge_path.exists() {
-            return Ok(None);
-        }
-
-        let file = std::fs::File::open(merge_path)?;
-        let reader = std::io::BufReader::new(file);
-        let mut lines = reader.lines();
-        let parent = lines.next().unwrap()?;
-        let parent = git2::Oid::from_str(&parent)?;
-        Ok(Some(parent))
-    }
-
-    pub fn mark_resolved(&self, path: String) -> Result<()> {
-        let conflicts_path = self.git_repository.path().join("conflicts");
-        let file = std::fs::File::open(conflicts_path.clone())?;
-        let reader = std::io::BufReader::new(file);
-        let mut remaining = Vec::new();
-        for line in reader.lines().flatten() {
-            if line != path {
-                remaining.push(line);
-            }
-        }
-
-        // remove file
-        std::fs::remove_file(conflicts_path)?;
-
-        // re-write file if needed
-        if !remaining.is_empty() {
-            self.mark_conflicts(&remaining, None)?;
-        }
-        Ok(())
-    }
-
-    pub fn is_conflicted(&self, path: Option<String>) -> Result<bool> {
-        let conflicts_path = self.git_repository.path().join("conflicts");
-        if let Some(pathname) = path {
-            // check if pathname is one of the lines in conflicts_path file
-            let file = std::fs::File::open(conflicts_path)?;
-            let reader = std::io::BufReader::new(file);
-            for line in reader.lines().flatten() {
-                if line == pathname {
-                    return Ok(true);
-                }
-            }
-            Ok(false)
-        } else {
-            Ok(conflicts_path.exists())
-        }
-    }
-
-    // is this project still in a resolving conflict state?
-    // - could be that there are no more conflicts, but the state is not committed
-    pub fn resolving_conflict(&self) -> Result<bool> {
-        let merge_path = self.git_repository.path().join("base_merge_parent");
-        Ok(merge_path.exists())
-    }
-
-    pub fn clear_conflict(&self) -> Result<()> {
-        let merge_path = self.git_repository.path().join("base_merge_parent");
-        std::fs::remove_file(merge_path)?;
-        Ok(())
-    }
-
-    // end merge conflict state stuff
 
     pub fn git_status(&self) -> Result<HashMap<String, FileStatus>> {
         let staged_statuses = self.staged_statuses()?;
