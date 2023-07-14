@@ -61,6 +61,8 @@ jobs:
                 override: true
 
             - name: Cache rust dependencies
+              # do not cache rust on our runners (internet in berlin is very slow)
+              if:  matrix.platform != 'macos-aarch64'
               uses: Swatinem/rust-cache@v2
               with:
                 workspaces: src-tauri
