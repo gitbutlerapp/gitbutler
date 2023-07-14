@@ -2,7 +2,7 @@ use core::fmt;
 use std::{cell::Cell, collections::HashMap, env, path, process::Command};
 
 use anyhow::{Context, Result};
-use git2::{CredentialType, Diff};
+use git2::CredentialType;
 use serde::Serialize;
 use walkdir::WalkDir;
 
@@ -33,7 +33,7 @@ pub struct Repository<'repository> {
 
 impl<'repository> Repository<'repository> {
     pub fn path(&self) -> &path::Path {
-        &path::Path::new(&self.project.path)
+        path::Path::new(&self.project.path)
     }
 
     pub fn open(project: &'repository projects::Project) -> Result<Self> {
@@ -171,23 +171,6 @@ impl<'repository> Repository<'repository> {
             });
 
         Ok(statuses)
-    }
-
-    pub fn workdir_diff(&self, commit_oid: &git2::Oid) -> Result<Diff> {
-        let commit = self
-            .git_repository
-            .find_commit(*commit_oid)
-            .context("failed to find commit")?;
-        let tree = commit.tree().context("failed to find tree")?;
-
-        let mut opts = git2::DiffOptions::new();
-        opts.recurse_untracked_dirs(true)
-            .include_untracked(true)
-            .show_untracked_content(true);
-        let diff = self
-            .git_repository
-            .diff_tree_to_workdir(Some(&tree), Some(&mut opts))?;
-        Ok(diff)
     }
 
     pub fn git_wd_diff(&self, context_lines: usize) -> Result<HashMap<String, String>> {

@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::{
     gb_repository,
-    project_repository::{self, conflicts},
+    project_repository::{self, conflicts, diff},
     reader, sessions,
 };
 
@@ -81,7 +81,7 @@ pub struct VirtualBranchCommit {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchFile {
     pub id: String,
-    pub path: String,
+    pub path: path::PathBuf,
     pub hunks: Vec<VirtualBranchHunk>,
     pub modified_at: u128,
     pub conflicted: bool,
@@ -102,7 +102,7 @@ pub struct VirtualBranchHunk {
     pub name: String,
     pub diff: String,
     pub modified_at: u128,
-    pub file_path: String,
+    pub file_path: path::PathBuf,
     pub hash: String,
     pub start: usize,
     pub end: usize,
@@ -719,18 +719,22 @@ pub fn list_virtual_branches(
             let vtree_tree = repo.find_tree(vtree)?;
 
             // do a diff between branch.head and the tree we _would_ commit
-            let diff = repo.diff_tree_to_tree(Some(&tree_old), Some(&vtree_tree), None)?;
-            let hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
+            let diff = diff::trees(project_repository, &tree_old, &vtree_tree)
+                .context("failed to diff trees")?;
+            let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
             vfiles = hunks_by_filepath
-                .iter()
+                .into_iter()
                 .map(|(file_path, hunks)| VirtualBranchFile {
-                    id: file_path.clone(),
-                    path: file_path.to_string(),
+                    id: file_path.display().to_string(),
+                    path: file_path.clone(),
                     hunks: hunks.clone(),
                     modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
-                    conflicted: conflicts::is_conflicting(project_repository, Some(file_path))
-                        .unwrap_or(false),
+                    conflicted: conflicts::is_conflicting(
+                        project_repository,
+                        Some(&file_path.display().to_string()),
+                    )
+                    .unwrap_or(false),
                 })
                 .collect::<Vec<_>>();
         } else {
@@ -947,14 +951,15 @@ pub fn create_virtual_branch_from_branch(
     }
 
     // do a diff between the head of this branch and the target base
-    let diff = repo.diff_tree_to_tree(Some(&merge_tree), Some(&tree), None)?;
-    let hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
+    let diff =
+        diff::trees(project_repository, &merge_tree, &tree).context("failed to diff trees")?;
+    let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
     // assign ownership to the branch
     for hunk in hunks_by_filepath.values().flatten() {
-        branch
-            .ownership
-            .put(&FileOwnership::try_from(format!("{}:{}", hunk.file_path, hunk.id)).unwrap());
+        branch.ownership.put(
+            &FileOwnership::try_from(format!("{}:{}", hunk.file_path.display(), hunk.id)).unwrap(),
+        );
     }
 
     let writer = branch::Writer::new(gb_repository);
@@ -1177,125 +1182,29 @@ fn diff_hash(diff: &str) -> String {
     format!("{:x}", md5::compute(addition))
 }
 
-fn diff_to_hunks_by_filepath(
-    diff: git2::Diff,
+fn hunks_by_filepath(
     project_repository: &project_repository::Repository,
-) -> Result<HashMap<String, Vec<VirtualBranchHunk>>> {
-    // find all the hunks
-    let mut hunks_by_filepath: HashMap<String, Vec<VirtualBranchHunk>> = HashMap::new();
-    let mut current_diff = String::new();
-
-    let mut current_file_path: Option<path::PathBuf> = None;
-    let mut current_hunk_id: Option<String> = None;
-    let mut current_start: Option<usize> = None;
-    let mut current_end: Option<usize> = None;
+    diff: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
+) -> HashMap<path::PathBuf, Vec<VirtualBranchHunk>> {
     let mut mtimes: HashMap<path::PathBuf, u128> = HashMap::new();
-
-    diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
-        let file_path = delta.new_file().path().unwrap_or_else(|| {
-            delta
-                .old_file()
-                .path()
-                .expect("failed to get file name from diff")
-        });
-
-        let (hunk_id, hunk_start, hunk_end) = if let Some(hunk) = hunk {
-            (
-                format!(
-                    "{}-{}",
-                    hunk.new_start(),
-                    hunk.new_start() + hunk.new_lines()
-                ),
-                hunk.new_start(),
-                hunk.new_start() + hunk.new_lines(),
-            )
-        } else {
-            return true;
-        };
-
-        let is_path_changed = if current_file_path.is_none() {
-            false
-        } else {
-            !file_path.eq(current_file_path.as_ref().unwrap())
-        };
-
-        let is_hunk_changed = if current_hunk_id.is_none() {
-            false
-        } else {
-            !hunk_id.eq(current_hunk_id.as_ref().unwrap())
-        };
-
-        let mtime = get_mtime(
-            &mut mtimes,
-            &project_repository
-                .git_repository
-                .workdir()
-                .unwrap()
-                .join(file_path),
-        );
-        if is_hunk_changed || is_path_changed {
-            let file_path = current_file_path
-                .as_ref()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string();
-            hunks_by_filepath
-                .entry(file_path.clone())
-                .or_default()
-                .push(VirtualBranchHunk {
-                    id: current_hunk_id.as_ref().unwrap().to_string(),
+    diff.iter()
+        .map(|(file_path, hunks)| {
+            let hunks = hunks
+                .iter()
+                .map(|hunk| VirtualBranchHunk {
+                    id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
                     name: "".to_string(),
-                    diff: current_diff.clone(),
-                    modified_at: mtime,
-                    file_path,
-                    start: current_start.unwrap(),
-                    end: current_end.unwrap(),
-                    hash: diff_hash(current_diff.as_str()),
-                });
-            current_diff = String::new();
-        }
-
-        match line.origin() {
-            '+' | '-' | ' ' => current_diff.push_str(&format!("{}", line.origin())),
-            _ => {}
-        }
-
-        current_diff.push_str(std::str::from_utf8(line.content()).unwrap());
-        current_file_path = Some(file_path.to_path_buf());
-        current_hunk_id = Some(hunk_id);
-        current_start = Some(hunk_start as usize);
-        current_end = Some(hunk_end as usize);
-
-        true
-    })
-    .context("failed to print diff")?;
-
-    if let Some(file_path) = current_file_path {
-        let mtime = get_mtime(
-            &mut mtimes,
-            &project_repository
-                .git_repository
-                .workdir()
-                .unwrap()
-                .join(&file_path),
-        );
-        let file_path = file_path.to_str().unwrap().to_string();
-        hunks_by_filepath
-            .entry(file_path.clone())
-            .or_default()
-            .push(VirtualBranchHunk {
-                id: current_hunk_id.as_ref().unwrap().to_string(),
-                name: "".to_string(),
-                modified_at: mtime,
-                file_path,
-                start: current_start.unwrap(),
-                end: current_end.unwrap(),
-                hash: diff_hash(current_diff.as_str()),
-                diff: current_diff,
-            });
-    }
-    Ok(hunks_by_filepath)
+                    modified_at: get_mtime(&mut mtimes, &project_repository.path().join(file_path)),
+                    file_path: file_path.clone(),
+                    diff: hunk.diff.clone(),
+                    start: hunk.new_start,
+                    end: hunk.new_start + hunk.new_lines,
+                    hash: diff_hash(&hunk.diff),
+                })
+                .collect::<Vec<_>>();
+            (file_path.clone(), hunks)
+        })
+        .collect::<HashMap<_, _>>()
 }
 
 // list the virtual branches and their file statuses (statusi?)
@@ -1318,14 +1227,8 @@ pub fn get_status_by_branch(
     }
     .context("failed to read default target")?;
 
-    let diff = project_repository
-        .workdir_diff(&default_target.sha)
-        .context(format!(
-            "failed to get diff workdir with {}",
-            default_target.sha
-        ))?;
-
-    let mut hunks_by_filepath = diff_to_hunks_by_filepath(diff, project_repository)?;
+    let diff = diff::workdir(project_repository, &default_target.sha).context("failed to diff")?;
+    let mut hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
     let mut virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
@@ -1461,7 +1364,11 @@ pub fn get_status_by_branch(
         virtual_branches[0].ownership.put(
             &FileOwnership::try_from(format!(
                 "{}:{}-{}-{}-{}",
-                hunk.file_path, hunk.start, hunk.end, hunk.hash, hunk.modified_at,
+                hunk.file_path.display(),
+                hunk.start,
+                hunk.end,
+                hunk.hash,
+                hunk.modified_at,
             ))
             .unwrap(),
         );
@@ -1489,7 +1396,7 @@ pub fn get_status_by_branch(
 
         let mut files = hunks
             .iter()
-            .fold(HashMap::<String, Vec<_>>::new(), |mut acc, hunk| {
+            .fold(HashMap::<path::PathBuf, Vec<_>>::new(), |mut acc, hunk| {
                 acc.entry(hunk.file_path.clone())
                     .or_default()
                     .push(hunk.clone());
@@ -1497,12 +1404,15 @@ pub fn get_status_by_branch(
             })
             .into_iter()
             .map(|(file_path, hunks)| VirtualBranchFile {
-                id: file_path.clone(),
+                id: file_path.display().to_string(),
                 path: file_path.clone(),
                 hunks: hunks.clone(),
                 modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
-                conflicted: conflicts::is_conflicting(project_repository, Some(&file_path))
-                    .unwrap_or(false),
+                conflicted: conflicts::is_conflicting(
+                    project_repository,
+                    Some(&file_path.display().to_string()),
+                )
+                .unwrap_or(false),
             })
             .collect::<Vec<_>>();
 
@@ -1903,7 +1813,7 @@ pub fn update_gitbutler_integration(
         message.push('\n');
         for file in &branch.ownership.files {
             message.push_str("   - ");
-            message.push_str(file.file_path.as_str());
+            message.push_str(&file.file_path.display().to_string());
             message.push('\n');
         }
     }

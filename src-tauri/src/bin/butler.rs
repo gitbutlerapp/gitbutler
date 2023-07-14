@@ -144,7 +144,7 @@ fn run_branches(butler: ButlerCli) {
         println!("{}", branch.id.red());
         println!("{}", branch.name.red());
         for file in branch.files {
-            println!("  {}", file.path.blue());
+            println!("  {}", file.path.display().to_string().blue());
             for hunk in file.hunks {
                 println!("--");
                 println!("    {}", hunk.diff.green());
@@ -333,7 +333,7 @@ fn run_status(butler: ButlerCli) {
             println!("applied: {}", branch.applied.to_string().green());
             println!(" files:");
             for file in files {
-                println!("        {}", file.path.yellow());
+                println!("        {}", file.path.display().to_string().yellow());
                 for hunk in file.hunks {
                     println!("          {}", hunk.id);
                 }

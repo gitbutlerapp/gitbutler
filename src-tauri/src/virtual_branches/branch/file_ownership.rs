@@ -1,4 +1,4 @@
-use std::{fmt, vec};
+use std::{fmt, path, vec};
 
 use anyhow::{Context, Result};
 
@@ -6,7 +6,7 @@ use super::hunk::Hunk;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FileOwnership {
-    pub file_path: String,
+    pub file_path: path::PathBuf,
     pub hunks: Vec<Hunk>,
 }
 
@@ -35,7 +35,7 @@ impl TryFrom<&str> for FileOwnership {
             Err(anyhow::anyhow!("ownership ranges cannot be empty"))?
         } else {
             Ok(Self {
-                file_path: file_path.to_string(),
+                file_path: file_path.into(),
                 hunks: ranges,
             })
         }
@@ -146,12 +146,12 @@ impl FileOwnership {
 impl fmt::Display for FileOwnership {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         if self.hunks.is_empty() {
-            write!(f, "{}", self.file_path)
+            write!(f, "{}", self.file_path.display())
         } else {
             write!(
                 f,
                 "{}:{}",
-                self.file_path,
+                self.file_path.display(),
                 self.hunks
                     .iter()
                     .map(|r| r.to_string())
@@ -172,7 +172,7 @@ mod tests {
         assert_eq!(
             ownership,
             FileOwnership {
-                file_path: "foo/bar.rs".to_string(),
+                file_path: "foo/bar.rs".into(),
                 hunks: vec![(1..=2).into(), (4..=5).into()]
             }
         );
@@ -186,7 +186,7 @@ mod tests {
     #[test]
     fn ownership_to_from_string() {
         let ownership = FileOwnership {
-            file_path: "foo/bar.rs".to_string(),
+            file_path: "foo/bar.rs".into(),
             hunks: vec![(1..=2).into(), (4..=5).into()],
         };
         assert_eq!(ownership.to_string(), "foo/bar.rs:1-2,4-5".to_string());
