@@ -163,9 +163,6 @@ devDependencies:
   postcss-load-config:
     specifier: ^4.0.1
     version: 4.0.1(postcss@8.4.25)
-  postcss-nested:
-    specifier: ^6.0.1
-    version: 6.0.1(postcss@8.4.25)
   posthog-js:
     specifier: ^1.70.2
     version: 1.70.2
