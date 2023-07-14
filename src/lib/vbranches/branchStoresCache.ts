@@ -2,8 +2,9 @@ import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import type { Readable } from '@square/svelte-store';
 import { git } from '$lib/api/ipc';
 import { stores } from '$lib';
-import type { Target, Branch, BranchData } from './types';
-import * as ipc from './ipc';
+import { Target, Branch, BranchData } from './types';
+import { plainToInstance } from 'class-transformer';
+import { invoke } from '$lib/ipc';
 
 export interface Refreshable {
 	refresh(): Promise<void | object>;
@@ -20,21 +21,21 @@ export class BranchStoresCache {
 			return cachedStore;
 		}
 
-		const writableStore = writable(ipc.listVirtualBranches({ projectId }), (set) => {
+		const writableStore = writable(listVirtualBranches({ projectId }), (set) => {
 			stores.sessions({ projectId }).subscribe((sessions) => {
 				if (sessions.isLoading) return;
 				if (Loaded.isError(sessions)) return;
 				const lastSession = sessions.value.at(-1);
 				if (!lastSession) return;
 				return stores.deltas({ projectId, sessionId: lastSession.id }).subscribe(() => {
-					ipc.listVirtualBranches({ projectId }).then(set);
+					listVirtualBranches({ projectId }).then(set);
 				});
 			});
 		});
 		const refreshableStore = {
 			subscribe: writableStore.subscribe,
 			refresh: async () => {
-				const newBranches = await ipc.listVirtualBranches({ projectId });
+				const newBranches = await listVirtualBranches({ projectId });
 				return writableStore.set({ isLoading: false, value: newBranches });
 			}
 		};
@@ -47,17 +48,15 @@ export class BranchStoresCache {
 		if (cachedStore) {
 			return cachedStore;
 		}
-		const writableStore = writable(ipc.getRemoteBranchesData({ projectId }), (set) => {
+		const writableStore = writable(getRemoteBranchesData({ projectId }), (set) => {
 			git.fetches.subscribe({ projectId }, () => {
-				ipc.getRemoteBranchesData({ projectId }).then((branches) => {
-					set(sortBranchData(branches));
-				});
+				getRemoteBranchesData({ projectId }).then(set);
 			});
 		});
 		const refreshableStore = {
 			subscribe: writableStore.subscribe,
 			refresh: async () => {
-				const newRemoteBranches = await ipc.getRemoteBranchesData({ projectId });
+				const newRemoteBranches = await getRemoteBranchesData({ projectId });
 				return writableStore.set({ isLoading: false, value: newRemoteBranches });
 			}
 		};
@@ -70,17 +69,15 @@ export class BranchStoresCache {
 		if (cachedStore) {
 			return cachedStore;
 		}
-		const writableStore = writable(ipc.getTargetData({ projectId }), (set) => {
+		const writableStore = writable(getTargetData({ projectId }), (set) => {
 			git.fetches.subscribe({ projectId }, () => {
-				ipc.getTargetData({ projectId }).then((newTarget) => {
-					set(newTarget);
-				});
+				getTargetData({ projectId }).then(set);
 			});
 		});
 		const refreshableStore = {
 			subscribe: writableStore.subscribe,
 			refresh: async () => {
-				const newTarget = await ipc.getTargetData({ projectId });
+				const newTarget = await getTargetData({ projectId });
 				return writableStore.set({ isLoading: false, value: newTarget });
 			}
 		};
@@ -89,6 +86,14 @@ export class BranchStoresCache {
 	}
 }
 
-function sortBranchData(branchData: BranchData[]): BranchData[] {
-	return branchData.sort((a, b) => b.lastCommitTs - a.lastCommitTs);
+export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
+	return plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
+}
+
+export async function getRemoteBranchesData(params: { projectId: string }): Promise<BranchData[]> {
+	return plainToInstance(BranchData, await invoke<any[]>('git_remote_branches_data', params));
+}
+
+export async function getTargetData(params: { projectId: string }): Promise<Target> {
+	return plainToInstance(Target, invoke<any>('get_target_data', params));
 }
