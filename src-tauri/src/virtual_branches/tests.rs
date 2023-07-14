@@ -2719,7 +2719,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     // apply branch which is now out of date and conflicting
     apply_branch(&gb_repo, &project_repository, branch_id)?;
 
-    assert!(project_repository.is_conflicted(None)?);
+    assert!(conflicts::is_conflicting(&project_repository, None)?);
 
     let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
     let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
@@ -2740,7 +2740,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     assert!(result.is_err());
 
     // mark file as resolved
-    project_repository.mark_resolved("test.txt".to_string())?;
+    conflicts::resolve(&project_repository, "test.txt")?;
 
     // make sure the branch has that commit and that the parent is the target
     let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;

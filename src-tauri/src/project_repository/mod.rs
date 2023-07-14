@@ -1,6 +1,5 @@
 pub mod activity;
-#[cfg(test)]
-mod activity_tests;
+pub mod conflicts;
 mod repository;
 
 pub use repository::{Error, FileStatus, Repository};
