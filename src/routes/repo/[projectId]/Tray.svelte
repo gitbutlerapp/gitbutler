@@ -242,7 +242,7 @@
 	<Modal width="small" bind:this={applyConflictedModal}>
 		<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
 		<p>Applying this branch will introduce merge conflicts.</p>
-		<svelte:fragment slot="controls" let:item>
+		<svelte:fragment slot="controls" let:item let:close>
 			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
 			<Button
 				height="small"
