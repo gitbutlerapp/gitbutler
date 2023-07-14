@@ -3,7 +3,6 @@ import { Type, Transform } from 'class-transformer';
 
 export class Hunk {
 	id!: string;
-	name!: string;
 	diff!: string;
 	@Transform((obj) => {
 		return new Date(obj.value);
@@ -52,9 +51,7 @@ export class Commit {
 
 export class BranchData {
 	sha!: string;
-	branch!: string;
 	name!: string;
-	description!: string;
 	lastCommitTs!: number;
 	firstCommitTs!: number;
 	ahead!: number;

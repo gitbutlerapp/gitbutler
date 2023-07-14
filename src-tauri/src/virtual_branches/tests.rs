@@ -1823,10 +1823,10 @@ fn test_detect_mergeable_branch() -> Result<()> {
     assert!(branch2.mergeable);
     assert_eq!(branch2.merge_conflicts.len(), 0);
 
-    let remotes = remote_branches(&gb_repo, &project_repository)?;
+    let remotes = remote_branches(&gb_repo, &project_repository).expect("failed to list remotes");
     let remote1 = &remotes
         .iter()
-        .find(|b| b.branch == "refs/remotes/origin/remote_branch")
+        .find(|b| b.name == "refs/remotes/origin/remote_branch")
         .unwrap();
     assert!(!remote1.mergeable);
     assert_eq!(remote1.ahead, 1);
@@ -1835,7 +1835,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     let remote2 = &remotes
         .iter()
-        .find(|b| b.branch == "refs/remotes/origin/remote_branch2")
+        .find(|b| b.name == "refs/remotes/origin/remote_branch2")
         .unwrap();
     assert!(remote2.mergeable);
     assert_eq!(remote2.ahead, 2);
