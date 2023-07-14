@@ -60,12 +60,11 @@ impl<'writer> BranchWriter<'writer> {
                 &branch.applied,
             )
             .context("Failed to write branch applied")?;
-        self.writer
-            .write_string(
-                &format!("branches/{}/meta/upstream", branch.id),
-                &branch.upstream,
-            )
-            .context("Failed to write branch upstream")?;
+        if let Some(upstream) = &branch.upstream {
+            self.writer
+                .write_string(&format!("branches/{}/meta/upstream", branch.id), upstream)
+                .context("Failed to write branch upstream")?;
+        };
         self.writer
             .write_string(
                 &format!("branches/{}/meta/tree", branch.id),
@@ -122,7 +121,7 @@ mod tests {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
             applied: true,
-            upstream: format!("upstream_{}", unsafe { TEST_INDEX }),
+            upstream: Some(format!("upstream_{}", unsafe { TEST_INDEX })),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
             head: git2::Oid::from_str(&format!(
@@ -195,7 +194,7 @@ mod tests {
         assert_eq!(
             fs::read_to_string(root.join("meta").join("upstream").to_str().unwrap())
                 .context("Failed to read branch upstream")?,
-            branch.upstream
+            branch.upstream.clone().unwrap()
         );
         assert_eq!(
             fs::read_to_string(
@@ -270,7 +269,7 @@ mod tests {
         let updated_branch = Branch {
             name: "updated_name".to_string(),
             applied: false,
-            upstream: "updated_upstream".to_string(),
+            upstream: Some("updated_upstream".to_string()),
             created_timestamp_ms: 2,
             updated_timestamp_ms: 3,
             ownership: branch::Ownership { files: vec![] },
@@ -295,7 +294,7 @@ mod tests {
         assert_eq!(
             fs::read_to_string(root.join("meta").join("upstream").to_str().unwrap())
                 .context("Failed to read branch upstream")?,
-            updated_branch.upstream
+            updated_branch.upstream.unwrap()
         );
         assert_eq!(
             fs::read_to_string(

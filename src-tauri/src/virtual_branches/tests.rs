@@ -1926,7 +1926,7 @@ fn test_detect_remote_commits() -> Result<()> {
     )?;
     // set the upstream reference
     branch_writer.write(&Branch {
-        upstream: "remote_branch".to_string(),
+        upstream: Some("remote_branch".to_string()),
         ..branch1
     })?;
 

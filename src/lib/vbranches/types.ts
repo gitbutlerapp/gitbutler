@@ -34,7 +34,7 @@ export class Branch {
 	mergeable!: boolean;
 	mergeConflicts!: string[];
 	order!: number;
-	upstream!: string;
+	upstream?: string;
 	conflicted!: boolean;
 	baseCurrent!: boolean;
 }
@@ -56,7 +56,7 @@ export class BranchData {
 	firstCommitTs!: number;
 	ahead!: number;
 	behind!: number;
-	upstream!: string;
+	upstream?: string;
 	authors!: string[];
 	mergeable!: boolean;
 	mergeConflicts!: string[];
