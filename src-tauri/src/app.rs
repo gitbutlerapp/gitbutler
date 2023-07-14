@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops, sync, time};
+use std::{collections::HashMap, ops, path, sync, time};
 
 use anyhow::{Context, Result};
 use tokio::sync::{mpsc, Semaphore};
@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
-    project_repository::{self, activity, conflicts},
+    project_repository::{self, activity, conflicts, diff},
     projects, pty, search, sessions, storage, users, virtual_branches, watcher,
 };
 
@@ -537,12 +537,37 @@ impl App {
     pub fn git_wd_diff(
         &self,
         project_id: &str,
-        context_lines: usize,
-    ) -> Result<HashMap<String, String>> {
+        context_lines: u32,
+    ) -> Result<HashMap<path::PathBuf, String>> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        project_repository.git_wd_diff(context_lines)
+
+        let diff = diff::workdir(
+            &project_repository,
+            &project_repository.get_head()?.peel_to_commit()?.id(),
+            &diff::Options {
+                context_lines,
+                ..Default::default()
+            },
+        )
+        .context("failed to diff")?;
+
+        let diff = diff
+            .into_iter()
+            .map(|(file_path, hunks)| {
+                (
+                    file_path,
+                    hunks
+                        .iter()
+                        .map(|hunk| hunk.diff.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        Ok(diff)
     }
 
     pub fn git_match_paths(&self, project_id: &str, pattern: &str) -> Result<Vec<String>> {

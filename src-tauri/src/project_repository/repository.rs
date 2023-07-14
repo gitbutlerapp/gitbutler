@@ -173,57 +173,6 @@ impl<'repository> Repository<'repository> {
         Ok(statuses)
     }
 
-    pub fn git_wd_diff(&self, context_lines: usize) -> Result<HashMap<String, String>> {
-        let head = self.git_repository.head()?;
-        let tree = head.peel_to_tree()?;
-
-        // Prepare our diff options based on the arguments given
-        let mut opts = git2::DiffOptions::new();
-        opts.recurse_untracked_dirs(true)
-            .include_untracked(true)
-            .show_untracked_content(true)
-            .context_lines(if context_lines == 0 {
-                3
-            } else {
-                context_lines.try_into()?
-            });
-
-        let diff = self
-            .git_repository
-            .diff_tree_to_workdir(Some(&tree), Some(&mut opts))?;
-
-        let mut result = HashMap::new();
-        let mut results = String::new();
-
-        let mut current_line_count = 0;
-        let mut last_path = String::new();
-
-        diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
-            let new_path = delta
-                .new_file()
-                .path()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string();
-            if new_path != last_path {
-                result.insert(last_path.clone(), results.clone());
-                results = String::new();
-                current_line_count = 0;
-                last_path = new_path;
-            }
-            match line.origin() {
-                '+' | '-' | ' ' => results.push_str(&format!("{}", line.origin())),
-                _ => {}
-            }
-            results.push_str(std::str::from_utf8(line.content()).unwrap());
-            current_line_count += 1;
-            true
-        })?;
-        result.insert(last_path, results);
-        Ok(result)
-    }
-
     pub fn git_match_paths(&self, pattern: &str) -> Result<Vec<String>> {
         let workdir = self
             .git_repository
