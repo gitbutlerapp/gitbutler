@@ -239,34 +239,39 @@
 			{/if}
 		</div>
 	</div>
-	<div class="relative">
-		<!-- Commit bubble track -->
-		<div class="absolute top-0 h-full w-0.5 bg-light-400 dark:bg-dark-500" style="left: 0.925rem" />
-		<div class="flex w-full p-2">
-			<div class="z-10 w-6" />
-			<div class="flex flex-grow gap-x-4 py-2">
-				{#if localCommits.length > 0}
-					<Button on:click={push} loading={isPushing} color="basic" height="small"
-						>Push Commits</Button
-					>
-				{/if}
+	{#if localCommits.length > 0}
+		<div class="relative">
+			<!-- Commit bubble track -->
+			<div
+				class="absolute top-0 h-full w-0.5 bg-light-400 dark:bg-dark-500"
+				style="left: 0.925rem"
+			/>
+			<div class="flex w-full p-2">
+				<div class="z-10 w-6" />
+				<div class="flex flex-grow gap-x-4 py-2">
+					{#if localCommits.length > 0}
+						<Button on:click={push} loading={isPushing} color="basic" height="small"
+							>Push Commits</Button
+						>
+					{/if}
+				</div>
 			</div>
+			<!-- Unpushed commits -->
+			{#each localCommits as commit (commit.id)}
+				<div class="flex w-full px-2 pb-4">
+					<div class="z-10 ml-1 w-6 py-4">
+						<!-- Unpushed commit bubble -->
+						<div
+							class="h-2 w-2 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
+						/>
+					</div>
+					<div class="flex-grow">
+						<CommitCard {commit} />
+					</div>
+				</div>
+			{/each}
 		</div>
-		<!-- Unpushed commits -->
-		{#each localCommits as commit (commit.id)}
-			<div class="flex w-full px-2 pb-4">
-				<div class="z-10 ml-1 w-6 py-4">
-					<!-- Unpushed commit bubble -->
-					<div
-						class="h-2 w-2 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
-					/>
-				</div>
-				<div class="flex-grow">
-					<CommitCard {commit} />
-				</div>
-			</div>
-		{/each}
-	</div>
+	{/if}
 	{#if remoteCommits.length > 0}
 		<div class="relative">
 			<!-- Commit bubble track -->
