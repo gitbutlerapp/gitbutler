@@ -18,7 +18,7 @@
 	export let projectPath: string;
 	export let name: string;
 	export let commitMessage: string;
-	export let upstream: string;
+	export let upstream: string | undefined;
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;

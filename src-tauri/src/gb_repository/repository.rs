@@ -624,7 +624,7 @@ impl Repository {
                 order: max_order + 1,
                 name: "Virtual branch".to_string(),
                 applied: true,
-                upstream: "".to_string(),
+                upstream: None,
                 created_timestamp_ms: now,
                 updated_timestamp_ms: now,
                 tree: commit.tree().unwrap().id(),

@@ -23,7 +23,7 @@ pub struct Branch {
     pub id: String,
     pub name: String,
     pub applied: bool,
-    pub upstream: String,
+    pub upstream: Option<String>,
     pub created_timestamp_ms: u128,
     pub updated_timestamp_ms: u128,
     // tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
@@ -87,12 +87,24 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
             ))
         })?;
 
-        let upstream = reader.read_string("meta/upstream").map_err(|e| {
+        let upstream = match reader.read_string("meta/upstream") {
+            Ok(upstream) => {
+                if upstream.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(upstream))
+                }
+            }
+            Err(crate::reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        }
+        .map_err(|e| {
             crate::reader::Error::IOError(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("meta/upstream: {}", e),
             ))
         })?;
+
         let tree = reader.read_string("meta/tree").map_err(|e| {
             crate::reader::Error::IOError(std::io::Error::new(
                 std::io::ErrorKind::Other,

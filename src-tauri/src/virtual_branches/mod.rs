@@ -15,7 +15,7 @@ use anyhow::{bail, Context, Result};
 use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 
-pub use branch::Branch;
+pub use branch::{Branch, BranchCreateRequest, FileOwnership, Hunk, Ownership};
 pub use iterator::BranchIterator as Iterator;
 use uuid::Uuid;
 
@@ -24,8 +24,6 @@ use crate::{
     project_repository::{self, conflicts, diff},
     reader, sessions,
 };
-
-use self::branch::{BranchCreateRequest, FileOwnership, Hunk, Ownership};
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -46,7 +44,7 @@ pub struct VirtualBranch {
     pub merge_conflicts: Vec<String>,
     pub conflicted: bool,
     pub order: usize,
-    pub upstream: String,
+    pub upstream: Option<String>,
     pub base_current: bool, // is this vbranch based on the current base branch?
 }
 
@@ -124,7 +122,7 @@ pub struct RemoteBranch {
     first_commit_ts: u128,
     ahead: u32,
     behind: u32,
-    upstream: String,
+    upstream: Option<String>,
     authors: Vec<String>,
     mergeable: bool,
     merge_conflicts: Vec<String>,
@@ -318,8 +316,6 @@ pub fn unapply_branch(
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
 
-    println!("unapply statuses: {:?}", statuses);
-
     let status = statuses
         .iter()
         .find(|(s, _)| s.id == branch_id)
@@ -373,7 +369,7 @@ pub fn unapply_branch(
     Ok(())
 }
 
-pub fn unapply_all_branches(
+fn unapply_all_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
@@ -435,8 +431,7 @@ pub fn remote_branches(
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
         .into_iter()
-        .filter(|branch| !branch.upstream.is_empty())
-        .map(|branch| branch.upstream.replace("refs/heads/", ""))
+        .filter_map(|branch| branch.upstream.map(|u| u.replace("refs/heads/", "")))
         .collect::<HashSet<_>>();
     let mut most_recent_branches_by_hash: HashMap<git2::Oid, (git2::Branch, u64)> = HashMap::new();
 
@@ -529,7 +524,9 @@ pub fn remote_branches(
                     .distance(main_oid, branch_oid)
                     .context("failed to get behind count")?;
 
-                let ahead = project_repository.log(branch_oid, main_oid)?;
+                let ahead = project_repository
+                    .log(branch_oid, main_oid)
+                    .context("failed to get ahead commits")?;
                 let count_ahead = ahead.len();
 
                 let min_time = ahead.iter().map(|commit| commit.time().seconds()).min();
@@ -540,9 +537,11 @@ pub fn remote_branches(
                     .filter_map(|signature| signature.email().map(|email| email.to_string()))
                     .collect::<HashSet<_>>();
 
-                let upstream_branch_name = match upstream_branch {
-                    Ok(upstream_branch) => upstream_branch.get().name().unwrap_or("").to_string(),
-                    Err(_) => "".to_string(),
+                let upstream = match upstream_branch {
+                    Ok(upstream_branch) => {
+                        upstream_branch.get().name().map(|name| name.to_string())
+                    }
+                    Err(_) => None,
                 };
 
                 if count_ahead > 0 {
@@ -555,6 +554,7 @@ pub fn remote_branches(
                         branches.push(RemoteBranch {
                             sha: branch_oid.to_string(),
                             name: branch_name.to_string(),
+                            upstream,
                             last_commit_ts: max_time
                                 .unwrap_or(0)
                                 .try_into()
@@ -567,7 +567,6 @@ pub fn remote_branches(
                                 .try_into()
                                 .context("failed to convert usize to u32")?,
                             behind: count_behind,
-                            upstream: upstream_branch_name,
                             authors: authors.into_iter().collect(),
                             mergeable,
                             merge_conflicts,
@@ -584,7 +583,7 @@ pub fn remote_branches(
                     first_commit_ts: 0,
                     ahead: 0,
                     behind: 0,
-                    upstream: "".to_string(),
+                    upstream: None,
                     authors: vec![],
                     mergeable: false,
                     merge_conflicts: vec![],
@@ -740,7 +739,7 @@ pub fn list_virtual_branches(
 
         // see if we can identify some upstream
         let mut upstream_commit = None;
-        if !branch.upstream.is_empty() {
+        if let Some(branch_upstream) = &branch.upstream {
             // get the target remote
             let remotes = repo.remotes()?;
             let mut upstream_remote = None;
@@ -763,7 +762,7 @@ pub fn list_virtual_branches(
             }
             if let Some(remote) = upstream_remote {
                 // remove "refs/heads/" from the branch name
-                let branch_name = branch.upstream.replace("refs/heads/", "");
+                let branch_name = branch_upstream.replace("refs/heads/", "");
                 let full_branch_name =
                     format!("refs/remotes/{}/{}", remote.name().unwrap(), branch_name);
                 if let Ok(upstream_oid) = repo.refname_to_id(&full_branch_name) {
@@ -777,7 +776,13 @@ pub fn list_virtual_branches(
         // find upstream commits if we found an upstream reference
         let mut upstream_commits = HashMap::new();
         if let Some(ref upstream) = upstream_commit {
-            let merge_base = repo.merge_base(upstream.id(), default_target.sha)?;
+            let merge_base =
+                repo.merge_base(upstream.id(), default_target.sha)
+                    .context(format!(
+                        "failed to find merge base between {} and {}",
+                        upstream.id(),
+                        default_target.sha
+                    ))?;
             for oid in project_repository.l(upstream.id(), merge_base)? {
                 upstream_commits.insert(oid, true);
             }
@@ -785,7 +790,10 @@ pub fn list_virtual_branches(
 
         // find all commits on head that are not on target.sha
         let mut commits = vec![];
-        for commit in project_repository.log(branch.head, default_target.sha)? {
+        for commit in project_repository
+            .log(branch.head, default_target.sha)
+            .context(format!("failed to get log for branch {}", branch.name))?
+        {
             let timestamp = commit.time().seconds() as u128;
             let signature = commit.author();
             let name = signature.name().unwrap().to_string();
@@ -827,7 +835,8 @@ pub fn list_virtual_branches(
                         .find_tree(branch.tree)
                         .context("failed to find branch tree")?;
                     (mergeable, merge_conflicts) =
-                        check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
+                        check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)
+                            .context("failed to check mergeable")?;
                 } else {
                     // there is no common base
                     mergeable = false;
@@ -844,7 +853,10 @@ pub fn list_virtual_branches(
             commits,
             mergeable,
             merge_conflicts,
-            upstream: branch.upstream.to_string().replace("refs/heads/", ""),
+            upstream: branch
+                .upstream
+                .as_ref()
+                .map(|u| u.replace("refs/heads/", "")),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
         };
@@ -863,7 +875,7 @@ pub fn create_virtual_branch_from_branch(
         .replace("refs/heads/", "")
         .replace("refs/remotes/", "")
         .replace("origin/", ""); // TODO: get this properly
-    let upstream = "refs/heads/".to_string() + &name;
+    let upstream = Some(format!("refs/heads/{}", &name));
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create current session")?;
@@ -1025,7 +1037,7 @@ pub fn create_virtual_branch(
         id: Uuid::new_v4().to_string(),
         name,
         applied: true,
-        upstream: "".to_string(),
+        upstream: None,
         tree: tree.id(),
         head: default_target.sha,
         created_timestamp_ms: now,
@@ -2030,11 +2042,9 @@ pub fn push(
         .context("failed to read branch")
         .map_err(Error::Other)?;
 
-    let upstream = if vbranch.upstream.is_empty() {
-        name_to_branch(&vbranch.name)
-    } else {
-        vbranch.upstream.clone()
-    };
+    let upstream = vbranch
+        .upstream
+        .unwrap_or_else(|| name_to_branch(&vbranch.name));
 
     match project_repository.push(&vbranch.head, &upstream) {
         Ok(_) => Ok(()),
@@ -2044,7 +2054,7 @@ pub fn push(
         Err(err) => Err(Error::Other(err.into())),
     }?;
 
-    vbranch.upstream = upstream;
+    vbranch.upstream = Some(upstream);
     branch_writer
         .write(&vbranch)
         .context("failed to write target branch after push")?;
