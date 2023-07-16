@@ -13,11 +13,11 @@ export type HunkHeader = {
 	afterLength: number;
 };
 
-export type HunkSection = {
-	hunk: Hunk;
-	header: HunkHeader;
-	subSections: Section[];
-};
+export class HunkSection {
+	hunk!: Hunk;
+	header!: HunkHeader;
+	subSections!: Section[];
+}
 
 export enum SectionType {
 	AddedLines,
@@ -25,11 +25,11 @@ export enum SectionType {
 	Context
 }
 
-export type Section = {
-	linesShown: number;
-	lines: Line[];
-	sectionType: SectionType;
-};
+export class Section {
+	linesShown!: number;
+	lines!: Line[];
+	sectionType!: SectionType;
+}
 
 export function parseHunkHeader(header: string | undefined): HunkHeader {
 	if (!header) {
@@ -100,9 +100,12 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 }
 
 export function parseFileSections(file: File): (Section | HunkSection)[] {
+	if (!file.content) return [];
+
 	const hunkSections = file.hunks
 		.map(parseHunkSection)
-		.filter((hunkSection) => hunkSection !== undefined);
+		.filter((hunkSection) => hunkSection !== undefined)
+		.sort((a, b) => a.header.beforeStart - b.header.beforeStart);
 
 	const lines = file.content.split('\n');
 	const sections: (Section | HunkSection)[] = [];
