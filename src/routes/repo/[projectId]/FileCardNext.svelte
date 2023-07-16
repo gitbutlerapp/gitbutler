@@ -17,7 +17,7 @@
 						style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
 					>
 						{#each subsection.lines.slice(0, subsection.linesShown) as line}
-							<RenderedLine {line} sectionType={subsection.sectionType} />
+							<RenderedLine {line} sectionType={subsection.sectionType} filePath={file.path} />
 						{/each}
 					</div>
 					{#if subsection.linesShown < subsection.lines.length}
@@ -39,7 +39,7 @@
 					style:grid-template-columns="minmax(auto, max-content) minmax(auto, max-content) 1fr"
 				>
 					{#each section.lines.slice(0, section.linesShown) as line}
-						<RenderedLine {line} sectionType={section.sectionType} />
+						<RenderedLine {line} sectionType={section.sectionType} filePath={file.path} />
 					{/each}
 				</div>
 			</div>

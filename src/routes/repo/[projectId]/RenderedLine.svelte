@@ -1,8 +1,29 @@
 <script lang="ts">
 	import { SectionType } from './fileSections';
 	import type { Line } from './fileSections';
+	import { create } from '$lib/components/Differ/CodeHighlighter';
 	export let line: Line;
 	export let sectionType: SectionType;
+	export let filePath: string;
+
+	function toTokens(codeString: string): string[] {
+		function sanitize(text: string) {
+			var element = document.createElement('div');
+			element.innerText = text;
+			return element.innerHTML;
+		}
+
+		let highlighter = create(codeString, filePath);
+		let tokens: string[] = [];
+		highlighter.highlight((text, classNames) => {
+			const token = classNames
+				? `<span class=${classNames}>${sanitize(text)}</span>`
+				: sanitize(text);
+
+			tokens.push(token);
+		});
+		return tokens;
+	}
 </script>
 
 <span
@@ -20,5 +41,5 @@
 	class:diff-line-deletion={sectionType === SectionType.RemovedLines}
 	class:diff-line-addition={sectionType === SectionType.AddedLines}
 >
-	{line.content}
+	{@html toTokens(line.content).join('')}
 </span>
