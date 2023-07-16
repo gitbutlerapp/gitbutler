@@ -479,7 +479,7 @@ test('parses file with one hunk with more added than removed', () => {
 	});
 });
 
-test('parses file with two hunks and context in the middle only', () => {
+test('parses file with two hunks ordered by position in file', () => {
 	const topHunk: Hunk = {
 		id: '1',
 		name: 'top',
@@ -497,7 +497,7 @@ test('parses file with two hunks and context in the middle only', () => {
 	const file: File = {
 		id: '1',
 		path: 'foo.py',
-		hunks: [topHunk, bottomHunk],
+		hunks: [bottomHunk, topHunk],
 		expanded: true,
 		modifiedAt: new Date(2021, 1, 1),
 		conflicted: false,
