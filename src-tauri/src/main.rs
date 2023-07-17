@@ -21,7 +21,6 @@ mod virtual_branches;
 mod watcher;
 mod writer;
 mod zip;
-mod assets;
 
 #[macro_use]
 extern crate log;
