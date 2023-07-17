@@ -34,3 +34,6 @@ export { default as IconTriangleDown } from './IconTriangleDown.svelte';
 export { default as IconRemote } from './IconRemote.svelte';
 export { default as IconRefresh } from './IconRefresh.svelte';
 export { default as IconAdd } from './IconAdd.svelte';
+export { default as IconExpandUpDown } from './IconExpandUpDown.svelte';
+export { default as IconExpandUp } from './IconExpandUp.svelte';
+export { default as IconExpandDown } from './IconExpandDown.svelte';
