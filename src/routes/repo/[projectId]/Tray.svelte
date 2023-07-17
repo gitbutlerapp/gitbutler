@@ -5,7 +5,6 @@
 	import { IconGitBranch, IconRemote, IconRefresh } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
-	import Gravatar from '$lib/components/Gravatar/Gravatar.svelte';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
@@ -205,9 +204,14 @@
 								class="isolate flex -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
 							>
 								{#each branch.authors as author}
-									<Gravatar
+									<img
 										class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
-										email={author}
+										title="Gravatar for {author.email}"
+										alt="Gravatar for {author.email}"
+										srcset="{author.gravatarUrl} 2x"
+										width="100"
+										height="100"
+										on:error
 									/>
 								{/each}
 							</div>

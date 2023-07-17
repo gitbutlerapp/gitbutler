@@ -123,9 +123,36 @@ pub struct RemoteBranch {
     pub ahead: u32,
     pub behind: u32,
     pub upstream: Option<String>,
-    pub authors: Vec<String>,
+    pub authors: Vec<Author>,
     pub mergeable: bool,
     pub merge_conflicts: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Hash, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Author {
+    pub name: String,
+    pub email: String,
+    pub gravatar_url: url::Url,
+}
+
+impl From<git2::Signature<'_>> for Author {
+    fn from(value: git2::Signature) -> Self {
+        let name = value.name().unwrap_or_default().to_string();
+        let email = value.email().unwrap_or_default().to_string();
+
+        let gravatar_url = url::Url::parse(&format!(
+            "https://www.gravatar.com/avatar/{:x}?s=100&r=g&d=retro",
+            md5::compute(email.to_lowercase())
+        ))
+        .unwrap();
+
+        Author {
+            name,
+            email,
+            gravatar_url,
+        }
+    }
 }
 
 fn get_default_target(current_session_reader: &sessions::Reader) -> Result<Option<target::Target>> {
@@ -534,7 +561,7 @@ pub fn remote_branches(
                 let authors = ahead
                     .iter()
                     .map(|commit| commit.author())
-                    .filter_map(|signature| signature.email().map(|email| email.to_string()))
+                    .map(Author::from)
                     .collect::<HashSet<_>>();
 
                 let upstream = match upstream_branch {
