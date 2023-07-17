@@ -3,7 +3,7 @@ use clap::Args;
 use colored::Colorize;
 use dialoguer::{console::Term, theme::ColorfulTheme, Select};
 
-use crate::cli::butler::app::App;
+use crate::app::App;
 
 #[derive(Debug, Args)]
 pub struct Setup {}
