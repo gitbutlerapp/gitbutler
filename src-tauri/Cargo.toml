@@ -58,6 +58,7 @@ colored = "2.0.0"
 dirs = "5.0.1"
 dialoguer = "0.10.4"
 diffy = "0.3.0"
+async-trait = "0.1.71"
 
 [features]
 # by default Tauri runs in production mode

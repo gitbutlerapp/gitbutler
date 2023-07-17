@@ -116,16 +116,16 @@ pub struct VirtualBranchHunk {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
-    sha: String,
-    name: String,
-    last_commit_ts: u128,
-    first_commit_ts: u128,
-    ahead: u32,
-    behind: u32,
-    upstream: Option<String>,
-    authors: Vec<String>,
-    mergeable: bool,
-    merge_conflicts: Vec<String>,
+    pub sha: String,
+    pub name: String,
+    pub last_commit_ts: u128,
+    pub first_commit_ts: u128,
+    pub ahead: u32,
+    pub behind: u32,
+    pub upstream: Option<String>,
+    pub authors: Vec<String>,
+    pub mergeable: bool,
+    pub merge_conflicts: Vec<String>,
 }
 
 fn get_default_target(current_session_reader: &sessions::Reader) -> Result<Option<target::Target>> {
