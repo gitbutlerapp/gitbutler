@@ -103,7 +103,6 @@
 
 		{#if expanded}
 			<div class="hunk-change-container flex flex-col gap-2 rounded px-2 pb-2">
-			
 				{#each hunks || [] as hunk (hunk.id)}
 					<div
 						draggable="true"
@@ -144,7 +143,7 @@
 							</div>
 						</div>
 					</div>
-				{/each}	
+				{/each}
 			</div>
 		{/if}
 	</div>
