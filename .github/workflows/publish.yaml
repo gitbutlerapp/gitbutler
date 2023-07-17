@@ -79,20 +79,22 @@ jobs:
               with:
                 workspaces: src-tauri
 
-            - name: Set release channel = 'nightly'
+            - name: Set nightly params
               if: ${{ !!github.event.workflow_run }}
               run: |
                 echo "channel=nightly" >> $GITHUB_ENV
+                echo "bump=patch" >> $GITHUB_ENV
 
-            - name: Use input release channel
+            - name: Use input params
               if: ${{ !!github.event.workflow_dispatch }}
               run: |
                 echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_ENV
+                echo "bump=${{ github.event.inputs.bump }}" >> $GITHUB_ENV
 
             - name: Set env variable with version
               run: |
                   CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
-                  NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ github.event.inputs.bump }}")
+                  NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
                   echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
             - name: Build binary

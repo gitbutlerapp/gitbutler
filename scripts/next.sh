@@ -45,10 +45,13 @@ minor)
 	PATCH="0"
 	echo "$MAJOR.$MINOR.$PATCH"
 	;;
-*)
+patch)
 	MAJOR="$(echo "$VERSION" | cut -d. -f1)"
 	MINOR="$(echo "$VERSION" | cut -d. -f2)"
 	PATCH="$(($(echo "$VERSION" | cut -d. -f3) + 1))"
 	echo "$MAJOR.$MINOR.$PATCH"
+	;;
+*)
+	error "invalid bump type: $BUMP"
 	;;
 esac
