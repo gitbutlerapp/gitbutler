@@ -41,7 +41,7 @@
 			<div class="flex items-center justify-between gap-2">
 				<Tooltip label={$head}>
 					<div
-						class="flex items-center gap-1 rounded border border-light-500 bg-light-700 py-2 px-4 text-dark-500 dark:border-dark-600 dark:bg-dark-700 dark:text-light-300"
+						class="flex items-center gap-1 rounded border border-light-500 bg-light-700 px-4 py-2 text-dark-500 dark:border-dark-600 dark:bg-dark-700 dark:text-light-300"
 					>
 						<IconGitBranch class="h-4 w-7 fill-zinc-400 stroke-none" />
 						<span title={$head} class="truncate font-mono text-dark-300 dark:text-light-300">
@@ -72,12 +72,12 @@
 	</div>
 
 	<div class="main-content-container flex w-2/3 flex-auto flex-col">
-		<h1 class="flex py-4 px-8 text-2xl text-dark-300 dark:text-light-300">
+		<h1 class="flex px-8 py-4 text-2xl text-dark-300 dark:text-light-300">
 			<span>{$project?.title}</span>
 			<span class="ml-2 text-dark-100 dark:text-light-600">Project</span>
 		</h1>
 
-		<h2 class="py-4 px-8 text-lg font-bold text-dark-300 dark:text-light-300">
+		<h2 class="px-8 py-4 text-lg font-bold text-dark-300 dark:text-light-300">
 			Recently changed files
 		</h2>
 

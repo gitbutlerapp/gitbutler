@@ -112,7 +112,7 @@
 >
 	{#await bookmarks.load() then}
 		{#if $bookmarks?.length > 0}
-			<div class="absolute top-0 right-5 flex gap-2 overflow-hidden text-bookmark-selected">
+			<div class="absolute right-5 top-0 flex gap-2 overflow-hidden text-bookmark-selected">
 				<IconBookmarkFilled class="-mt-1 h-4 w-4" />
 			</div>
 		{/if}

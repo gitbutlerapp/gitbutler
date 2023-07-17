@@ -30,7 +30,7 @@
 	>
 		{#if $$slots.title}
 			<div
-				class="flex w-full items-center justify-between border-b border-light-100 px-4 pr-2 pb-4 dark:border-dark-800"
+				class="flex w-full items-center justify-between border-b border-light-100 px-4 pb-4 pr-2 dark:border-dark-800"
 			>
 				<div class="flex items-center gap-2">
 					<svelte:component this={icon} class="h-5 w-5" />
@@ -45,7 +45,7 @@
 		<!-- TODO: Remove this props based way once all other modals have been updated -->
 		{#if title}
 			<div
-				class="flex w-full items-center justify-between border-b border-light-100 px-4 pr-2 pb-4 dark:border-dark-800"
+				class="flex w-full items-center justify-between border-b border-light-100 px-4 pb-4 pr-2 dark:border-dark-800"
 			>
 				<div class="flex items-center gap-2">
 					<svelte:component this={icon} class="h-5 w-5" />

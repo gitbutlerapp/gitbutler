@@ -10,7 +10,7 @@
 	<div
 		class="flex h-full flex-1 flex-col items-end justify-center gap-y-4 border-r border-light-400 dark:border-dark-500 dark:bg-dark-800"
 	>
-		<div class="mr-20 ml-8 flex w-80 max-w-lg flex-col items-center gap-y-4">
+		<div class="ml-8 mr-20 flex w-80 max-w-lg flex-col items-center gap-y-4">
 			<img alt="logo" class="inline-block h-32 w-32" src={Logo} />
 			<p class="text-2xl font-medium">Login to GitButler</p>
 			<Login width="full-width" />

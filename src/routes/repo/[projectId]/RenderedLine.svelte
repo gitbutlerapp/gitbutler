@@ -37,7 +37,7 @@
 	{line.afterLineNumber || ''}
 </span>
 <span
-	class="pl-1 overflow-hidden whitespace-nowrap"
+	class="overflow-hidden whitespace-nowrap pl-1"
 	class:diff-line-deletion={sectionType === SectionType.RemovedLines}
 	class:diff-line-addition={sectionType === SectionType.AddedLines}
 >

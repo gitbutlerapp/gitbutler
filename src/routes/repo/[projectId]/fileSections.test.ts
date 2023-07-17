@@ -92,7 +92,6 @@ const multiChangeHunk = `@@ -1,12 +1,11 @@
 test('parses a balanced hunk section', () => {
 	const balancedHunk: Hunk = {
 		id: '1',
-		name: 'test',
 		diff: balancedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'
@@ -170,7 +169,6 @@ test('parses a balanced hunk section', () => {
 test('parses hunk sections with more added', () => {
 	const balancedHunk: Hunk = {
 		id: '1',
-		name: 'test',
 		diff: moreAddedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'
@@ -256,7 +254,6 @@ test('parses hunk sections with more added', () => {
 test('parses a hunk with two changed places', () => {
 	const balancedHunk: Hunk = {
 		id: '1',
-		name: 'test',
 		diff: multiChangeHunk,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'
@@ -370,7 +367,6 @@ test('parses a hunk with two changed places', () => {
 test('parses file with one hunk and balanced add-remove', () => {
 	const hunk: Hunk = {
 		id: '1',
-		name: 'test',
 		diff: balancedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'
@@ -428,7 +424,6 @@ test('parses file with one hunk and balanced add-remove', () => {
 test('parses file with one hunk with more added than removed', () => {
 	const hunk: Hunk = {
 		id: '1',
-		name: 'test',
 		diff: moreAddedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'
@@ -482,14 +477,12 @@ test('parses file with one hunk with more added than removed', () => {
 test('parses file with two hunks ordered by position in file', () => {
 	const topHunk: Hunk = {
 		id: '1',
-		name: 'top',
 		diff: topOfFileHunk,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'
 	};
 	const bottomHunk: Hunk = {
 		id: '1',
-		name: 'bottom',
 		diff: bottomOfFileHunk,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'
@@ -561,7 +554,6 @@ test('parses file with two hunks ordered by position in file', () => {
 test('parses whole file deleted', () => {
 	const deleteHunk: Hunk = {
 		id: '1',
-		name: 'delete',
 		diff: delteWholeFile,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'
@@ -587,7 +579,6 @@ test('parses whole file deleted', () => {
 test('parses new file created', () => {
 	const newFileHunk: Hunk = {
 		id: '1',
-		name: 'new',
 		diff: addWholeFile,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py'

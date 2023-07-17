@@ -342,10 +342,10 @@
 						<div
 							in:fly={{ y: 8, duration: 500 }}
 							out:fly={{ y: -8, duration: 500 }}
-							class="generating-commit absolute top-0 right-0 bottom-0 left-0 rounded border-2 border-[#502E5C]"
+							class="generating-commit absolute bottom-0 left-0 right-0 top-0 rounded border-2 border-[#502E5C]"
 						>
 							<div
-								class="generating-commit-message absolute bottom-0 left-0 rounded-tr bg-[#782E94] bg-gradient-to-b from-[#623871] to-[#502E5C] py-1 px-2"
+								class="generating-commit-message absolute bottom-0 left-0 rounded-tr bg-[#782E94] bg-gradient-to-b from-[#623871] to-[#502E5C] px-2 py-1"
 							>
 								<span>✨ Summarizing changes</span>
 								<span class="dot-container">
@@ -445,7 +445,7 @@
 
 					<div
 						id="controls"
-						class="absolute bottom-0 flex w-full flex-col gap-4 overflow-hidden rounded-br rounded-bl border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
+						class="absolute bottom-0 flex w-full flex-col gap-4 overflow-hidden rounded-bl rounded-br border-t border-zinc-700 bg-[#2E2E32]/75 p-2 pt-4"
 						style="
 							border-width: 0.5px; 
 							-webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);

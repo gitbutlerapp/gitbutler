@@ -21,13 +21,13 @@
 	</div>
 {:else}
 	<div class="btn-group btn-group--segmented">
-		<button class="joined-base rounded-l-lg border-l border-t border-b" on:click={leftAction}>
+		<button class="joined-base rounded-l-lg border-b border-l border-t" on:click={leftAction}>
 			<span class="my-2 {width === 'full-width' ? 'mx-[31.5px]' : 'mx-[16px]'}">{leftLabel}</span>
 		</button>
 		<button class="joined-base border" on:click={middleAction}>
 			<span class="my-2 {width === 'full-width' ? 'mx-[31.5px]' : 'mx-[16px]'}">{middleLabel}</span>
 		</button>
-		<button class="joined-base rounded-r-lg border-r border-t border-b" on:click={rightAction}>
+		<button class="joined-base rounded-r-lg border-b border-r border-t" on:click={rightAction}>
 			<span class="my-2 {width === 'full-width' ? 'mx-[31.5px]' : 'mx-[16px]'}">{rightLabel}</span>
 		</button>
 	</div>

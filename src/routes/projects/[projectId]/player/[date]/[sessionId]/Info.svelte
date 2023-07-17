@@ -32,7 +32,7 @@
 
 {#if !$bookmark.isLoading && !Loaded.isError($bookmark)}
 	<div
-		class="flex max-w-[357px] flex-col gap-2 rounded-[18px] py-2 px-4 shadow"
+		class="flex max-w-[357px] flex-col gap-2 rounded-[18px] px-4 py-2 shadow"
 		style="border: 0.5px solid rgba(63, 63, 70, 0.5);
             -webkit-backdrop-filter: blur(5px) saturate(190%) contrast(70%) brightness(80%);
             background: #1B1B21;

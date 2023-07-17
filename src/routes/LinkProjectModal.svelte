@@ -67,7 +67,7 @@
 			<p>Would you like to link this project to any existing GitButler Cloud projects?</p>
 		</div>
 
-		<div class="-mt-4 -mr-4 -mb-4 flex w-1/2 flex-auto flex-col gap-2 bg-[#000000]/20 pt-4">
+		<div class="-mb-4 -mr-4 -mt-4 flex w-1/2 flex-auto flex-col gap-2 bg-[#000000]/20 pt-4">
 			{#await Promise.all([cloudProjects.load(), projects.load(), project?.load()])}
 				<IconLoading class="m-auto animate-spin" />
 			{:then}
