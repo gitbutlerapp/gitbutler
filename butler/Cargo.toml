@@ -1,0 +1,18 @@
+[package]
+name = "butler"
+version = "0.0.0"
+description = ""
+authors = [""]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.57"
+
+[dependencies]
+git2 = { version = "0.17.2", features = ["vendored-openssl", "vendored-libgit2"] }
+dirs = "5.0.1"
+colored = "2.0.0"
+clap = { version = "4.0", features = ["derive"] }
+dialoguer = "0.10.4"
+anyhow = "1.0.71"
+git-butler-tauri = { path = "../src-tauri" }

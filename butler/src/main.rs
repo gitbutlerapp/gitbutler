@@ -2,8 +2,10 @@ use std::process::ExitCode;
 
 use clap::Parser;
 
+mod commands;
+mod app;
 mod cli;
 
 fn main() -> ExitCode {
-    cli::Butler::parse().run()
+    cli::Cli::parse().run()
 }

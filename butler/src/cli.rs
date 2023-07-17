@@ -1,9 +1,6 @@
-mod app;
-mod commands;
-
 use std::process::ExitCode;
 
-use commands::RunCommand;
+use crate::commands::{self, RunCommand};
 
 use clap::{Parser, Subcommand};
 use colored::Colorize;

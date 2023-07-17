@@ -4,7 +4,7 @@ use dialoguer::{theme::ColorfulTheme, Input};
 
 use git_butler_tauri::virtual_branches;
 
-use crate::cli::butler::app::App;
+use crate::app::App;
 
 #[derive(Debug, Args)]
 pub struct New {}

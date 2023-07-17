@@ -4,7 +4,7 @@ use dialoguer::{console::Term, theme::ColorfulTheme, MultiSelect, Select};
 
 use git_butler_tauri::{reader, sessions, virtual_branches};
 
-use crate::cli::butler::app::App;
+use crate::app::App;
 
 #[derive(Debug, Args)]
 pub struct Move {}

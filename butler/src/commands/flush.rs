@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Args;
 
-use crate::cli::butler::app::App;
+use crate::app::App;
 
 #[derive(Debug, Args)]
 pub struct Flush {}
