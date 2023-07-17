@@ -2,6 +2,7 @@
 extern crate scopeguard;
 
 mod app;
+mod assets;
 mod bookmarks;
 mod database;
 mod deltas;
@@ -76,46 +77,6 @@ impl From<anyhow::Error> for Error {
 }
 
 const IS_DEV: bool = cfg!(debug_assertions);
-
-fn build_asset_url(path: &str) -> String {
-    format!("asset://localhost/{}", urlencoding::encode(path))
-}
-
-#[timed(duration(printer = "debug!"))]
-async fn proxy_image(handle: tauri::AppHandle, src: &str) -> Result<String> {
-    if src.starts_with("asset://") {
-        return Ok(src.to_string());
-    }
-
-    let images_dir = handle
-        .path_resolver()
-        .app_cache_dir()
-        .unwrap()
-        .join("images");
-
-    let hash = md5::compute(src);
-    let ext = src.split('.').last().unwrap_or("jpg");
-    let save_to = images_dir.join(format!("{:X}.{}", hash, ext));
-
-    if save_to.exists() {
-        return Ok(build_asset_url(&save_to.display().to_string()));
-    }
-
-    let resp = reqwest::get(src).await?;
-    if !resp.status().is_success() {
-        return Err(anyhow::anyhow!(
-            "Failed to download image {}: {}",
-            src,
-            resp.status()
-        ));
-    }
-
-    let bytes = resp.bytes().await?;
-    std::fs::create_dir_all(&images_dir)?;
-    std::fs::write(&save_to, bytes)?;
-
-    Ok(build_asset_url(&save_to.display().to_string()))
-}
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
@@ -217,19 +178,21 @@ async fn list_sessions(
 #[tauri::command(async)]
 async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let app = handle.state::<app::App>();
+    let proxy = handle.state::<assets::Proxy>();
 
     match app.get_user().context("failed to get user")? {
         Some(user) => {
-            let local_picture = match proxy_image(handle, &user.picture).await {
+            let remote_picture = url::Url::parse(&user.picture).context("invalid picture url")?;
+            let local_picture = match proxy.proxy(&remote_picture).await {
                 Ok(picture) => picture,
                 Err(e) => {
                     log::error!("{:#}", e);
-                    user.picture
+                    remote_picture
                 }
             };
 
             let user = users::User {
-                picture: local_picture,
+                picture: local_picture.to_string(),
                 ..user
             };
 
@@ -814,14 +777,12 @@ fn main() {
             // debug_test_consistency(&app_state, "fec3d50c-503f-4021-89fb-e7ec2433ceae")
             //     .expect("FAIL");
 
-            let zipper = zip::Zipper::new(
-                tauri_app
-                    .path_resolver()
-                    .app_cache_dir()
-                    .unwrap()
-                    .join("archives"),
-            );
+            let cache_dir = tauri_app.path_resolver().app_cache_dir().unwrap();
+            let zipper = zip::Zipper::new(cache_dir.join("archives"));
+            let proxy = assets::Proxy::new(cache_dir.join("images"));
+
             tauri_app.manage(zipper);
+            tauri_app.manage(proxy);
             tauri_app.manage(app);
 
             let app_handle = tauri_app.handle();

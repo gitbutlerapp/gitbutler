@@ -1520,6 +1520,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.18.0",
  "tokio-util",
+ "url",
  "urlencoding",
  "uuid",
  "walkdir",
