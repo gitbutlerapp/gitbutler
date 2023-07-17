@@ -21,6 +21,7 @@ mod virtual_branches;
 mod watcher;
 mod writer;
 mod zip;
+mod assets;
 
 #[macro_use]
 extern crate log;
@@ -128,13 +129,7 @@ async fn get_project_archive_path(
         .get_project(project_id)?
         .ok_or_else(|| Error::Message("Project not found".to_string()))?;
 
-    let zipper = zip::Zipper::new(
-        handle
-            .path_resolver()
-            .app_cache_dir()
-            .unwrap()
-            .join("archives"),
-    );
+    let zipper = handle.state::<zip::Zipper>();
     let zipped_logs = zipper.zip(project.path)?;
     Ok(zipped_logs.to_str().unwrap().to_string())
 }
@@ -820,6 +815,14 @@ fn main() {
             // debug_test_consistency(&app_state, "fec3d50c-503f-4021-89fb-e7ec2433ceae")
             //     .expect("FAIL");
 
+            let zipper = zip::Zipper::new(
+                tauri_app
+                    .path_resolver()
+                    .app_cache_dir()
+                    .unwrap()
+                    .join("archives"),
+            );
+            tauri_app.manage(zipper);
             tauri_app.manage(app);
 
             let app_handle = tauri_app.handle();
