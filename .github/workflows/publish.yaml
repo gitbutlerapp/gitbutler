@@ -118,7 +118,7 @@ jobs:
                   aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
                   aws_bucket: "releases.gitbutler.com"
                   source_dir: "release/"
-                  destination_dir: "releases/${{ env.version }}-${{ github.run_number }}"
+                  destination_dir: "releases/${{ env.channel }}/${{ env.version }}-${{ github.run_number }}"
 
             # tell our server to update with the version number
             - name: Tell our server to update
