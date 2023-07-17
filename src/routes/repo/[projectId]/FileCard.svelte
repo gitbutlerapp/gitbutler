@@ -67,9 +67,9 @@
 	class="changed-file inner"
 >
 	<div
-		class="flex w-full flex-col justify-center gap-2 rounded border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+		class="flex w-full flex-col justify-center rounded border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 	>
-		<div class="flex px-2 pt-2">
+		<div class="flex px-2 py-2">
 			<div
 				class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
 				title={filepath}
@@ -101,8 +101,9 @@
 			</div>
 		{/if}
 
-		<div class="hunk-change-container flex flex-col gap-2 rounded px-2 pb-2">
-			{#if expanded}
+		{#if expanded}
+			<div class="hunk-change-container flex flex-col gap-2 rounded px-2 pb-2">
+			
 				{#each hunks || [] as hunk (hunk.id)}
 					<div
 						draggable="true"
@@ -117,11 +118,11 @@
 							class="flex w-full flex-col overflow-hidden rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
 						>
 							{#if $userSettings.aiSummariesEnabled}
-								<div class="truncate whitespace-normal p-2">
-									{#await summarizeHunk(hunk.diff) then description}
+								{#await summarizeHunk(hunk.diff) then description}
+									<div class="truncate whitespace-normal p-2">
 										{description}
-									{/await}
-								</div>
+									</div>
+								{/await}
 							{/if}
 							<div class="cursor-pointer overflow-clip">
 								<HunkDiffViewer
@@ -143,9 +144,9 @@
 							</div>
 						</div>
 					</div>
-				{/each}
-			{/if}
-		</div>
+				{/each}	
+			</div>
+		{/if}
 	</div>
 
 	<PopupMenu bind:this={popupMenu} let:item={hunk}>
