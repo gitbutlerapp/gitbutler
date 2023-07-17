@@ -417,9 +417,43 @@ async fn git_remote_branches_data(
     project_id: &str,
 ) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
     let app = handle.state::<app::App>();
+    let proxy = handle.state::<assets::Proxy>();
     let branches = app
         .git_remote_branches_data(project_id)
         .with_context(|| format!("failed to get git branches for project {}", project_id))?;
+
+    let author_urls = branches
+        .iter()
+        .flat_map(|branch| {
+            branch
+                .authors
+                .iter()
+                .map(|author| author.gravatar_url.clone())
+        })
+        .collect::<Vec<_>>();
+
+    let mut proxy_map = HashMap::new();
+    for url in author_urls {
+        if !proxy_map.contains_key(&url) {
+            let proxied_url = proxy.proxy(&url).await?;
+            proxy_map.insert(url, proxied_url);
+        }
+    }
+
+    let branches = branches
+        .into_iter()
+        .map(|branch| virtual_branches::RemoteBranch {
+            authors: branch
+                .authors
+                .into_iter()
+                .map(|author| virtual_branches::Author {
+                    gravatar_url: proxy_map.get(&author.gravatar_url).unwrap().clone(),
+                    ..author
+                })
+                .collect(),
+            ..branch
+        })
+        .collect();
     Ok(branches)
 }
 

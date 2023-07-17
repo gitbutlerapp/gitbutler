@@ -28,7 +28,10 @@ impl Proxy {
 
         let hash = md5::compute(src.to_string());
         let path = path::Path::new(src.path());
-        let ext = path.extension().unwrap().to_str().unwrap();
+        let ext = path
+            .extension()
+            .map(|ext| ext.to_str().unwrap_or("jpg"))
+            .unwrap_or("jpg");
         let save_to = self.cache_dir.join(format!("{:X}.{}", hash, ext));
 
         if save_to.exists() {

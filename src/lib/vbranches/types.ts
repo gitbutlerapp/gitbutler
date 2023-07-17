@@ -49,6 +49,13 @@ export class Commit {
 	isRemote!: boolean;
 }
 
+export class Author {
+	email!: string;
+	name!: string;
+	@Transform((obj) => new Date(obj.value))
+	gravatarUrl!: URL;
+}
+
 export class BranchData {
 	sha!: string;
 	name!: string;
@@ -57,7 +64,7 @@ export class BranchData {
 	ahead!: number;
 	behind!: number;
 	upstream?: string;
-	authors!: string[];
+	authors!: Author[];
 	mergeable!: boolean;
 	mergeConflicts!: string[];
 }
