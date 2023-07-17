@@ -1,13 +1,55 @@
 <script lang="ts">
 	import { parseFileSections } from './fileSections';
+	import { createEventDispatcher } from 'svelte';
 	import type { File } from '$lib/vbranches';
 	import RenderedLine from './RenderedLine.svelte';
+	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	export let file: File;
 
+	const dispatch = createEventDispatcher<{
+		expanded: boolean;
+	}>();
+	export let expanded: boolean | undefined;
+	function boldenFilename(filepath: string): string {
+		const parts = filepath.split('/');
+		if (parts.length == 0) return '';
+		return (
+			parts.slice(0, -1).join('/') +
+			'/<span class="font-bold text-light-800 dark:text-dark-50">' +
+			parts[parts.length - 1] +
+			'</span>'
+		);
+	}
 	$: sections = parseFileSections(file);
 </script>
 
-<div>
+<div
+	class="flex w-full flex-col justify-center gap-2 rounded border border-light-300 bg-light-50 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+>
+	<div class="flex px-2 pt-2">
+		<div
+			class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
+			title={file.path}
+		>
+			{@html boldenFilename(file.path)}
+		</div>
+		<div
+			on:click={() => {
+				expanded = !expanded;
+				dispatch('expanded', expanded);
+			}}
+			on:keypress={() => (expanded = !expanded)}
+			role="button"
+			tabindex="0"
+			class="cursor-pointer p-2 text-light-600 dark:text-dark-200"
+		>
+			{#if expanded}
+				<IconTriangleUp />
+			{:else}
+				<IconTriangleDown />
+			{/if}
+		</div>
+	</div>
 	{#each sections as section}
 		{#if 'hunk' in section}
 			<div class="border border-dark-100">
