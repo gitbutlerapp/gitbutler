@@ -25,7 +25,7 @@
 <div class="flex h-full w-full flex-col">
 	{#if selection !== 'player'}
 		<nav
-			class="flex flex-none select-none items-center justify-between space-x-3 border-b border-light-100 py-1 px-2 text-dark-300 dark:border-dark-700 dark:text-light-300"
+			class="flex flex-none select-none items-center justify-between space-x-3 border-b border-light-100 px-2 py-1 text-dark-300 dark:border-dark-700 dark:text-light-300"
 		>
 			<div class="flex flex-row items-center space-x-2">
 				<form action="/projects/{$project?.id}/search" method="GET">

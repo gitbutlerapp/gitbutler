@@ -52,7 +52,7 @@
 <div class="h-full p-4">
 	<div class="relative flex h-full flex-col">
 		<div
-			class="content-header border-opacity-2 absolute top-0 left-0 right-0 z-10 flex justify-between gap-2 rounded-tr rounded-tl border-b border-light-100 bg-light-300 py-3 px-4 dark:border-dark-300 dark:bg-dark-300"
+			class="content-header border-opacity-2 absolute left-0 right-0 top-0 z-10 flex justify-between gap-2 rounded-tl rounded-tr border-b border-light-100 bg-light-300 px-4 py-3 dark:border-dark-300 dark:bg-dark-300"
 		>
 			<div class="flex gap-2 text-lg font-bold">Ask GitButler Chat</div>
 		</div>
@@ -150,7 +150,7 @@
 		</div>
 
 		<div
-			class="absolute bottom-0 flex w-full flex-col gap-2 rounded-br rounded-bl border-t border-light-300 p-4 dark:border-dark-300"
+			class="absolute bottom-0 flex w-full flex-col gap-2 rounded-bl rounded-br border-t border-light-300 p-4 dark:border-dark-300"
 		>
 			<div class="flex gap-2 pt-2">
 				<input
@@ -223,7 +223,7 @@
 		@apply bg-zinc-300;
 	}
 	.user-message {
-		@apply w-[fit-content] max-w-[80%] cursor-text select-text rounded-[18px] rounded-tr-md bg-blue-700 py-3 px-4 text-[14px] font-medium text-white;
+		@apply w-[fit-content] max-w-[80%] cursor-text select-text rounded-[18px] rounded-tr-md bg-blue-700 px-4 py-3 text-[14px] font-medium text-white;
 	}
 
 	/**

@@ -111,7 +111,7 @@
 					disabled={!$results.havePrev}
 					title="Back"
 					class:text-zinc-50={$results.havePrev}
-					class="h-9 w-9 rounded-tl-md rounded-bl-md border border-r-0 border-zinc-700 hover:bg-zinc-700"
+					class="h-9 w-9 rounded-bl-md rounded-tl-md border border-r-0 border-zinc-700 hover:bg-zinc-700"
 				>
 					<IconChevronLeft class="ml-1 h-5 w-6" />
 				</button>
@@ -120,7 +120,7 @@
 					disabled={!$results.haveNext}
 					title="Next"
 					class:text-zinc-50={$results.haveNext}
-					class="h-9 w-9 rounded-tr-md rounded-br-md border border-l border-zinc-700 hover:bg-zinc-700"
+					class="h-9 w-9 rounded-br-md rounded-tr-md border border-l border-zinc-700 hover:bg-zinc-700"
 				>
 					<IconChevronRight class="ml-1 h-5 w-6" />
 				</button>

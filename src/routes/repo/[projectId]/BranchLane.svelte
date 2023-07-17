@@ -95,7 +95,7 @@
 	draggable="true"
 	class:w-full={maximized}
 	class:w-96={!maximized}
-	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-auto bg-light-200 py-2 px-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-auto bg-light-200 px-3 py-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -192,7 +192,7 @@
 			<textarea
 				bind:this={textAreaInput}
 				bind:value={commitMessage}
-				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-light-400 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300 dark:focus:border-dark-300 focus:invalid:border-red-500"
+				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-light-400 focus:ring-0 focus:invalid:border-red-500 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300 dark:focus:border-dark-300"
 				placeholder="Your commit message here..."
 				rows={messageRows}
 				required

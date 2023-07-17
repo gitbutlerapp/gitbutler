@@ -44,7 +44,7 @@
 </header>
 
 <ul
-	class="mr-1 flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default pt-2 pb-2 pl-2 pr-1"
+	class="mr-1 flex h-full flex-col gap-2 overflow-auto rounded-b bg-card-default pb-2 pl-2 pr-1 pt-2"
 >
 	{#each visibleSessions as session, i}
 		{@const isCurrent = session.id === currentSession?.id}
