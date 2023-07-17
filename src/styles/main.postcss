@@ -94,33 +94,47 @@ button.active {
 }
 
 button {
-	@apply relative
-		inline-flex
-		w-fit
-		cursor-pointer
-		items-center
-		gap-0.5
-		whitespace-nowrap
-		rounded
-		py-2
-		text-base
-		font-medium
-		leading-5
-		underline
-		transition
-		duration-150
-		ease-in-out
-		hover:ease-in;
+	@apply relative inline-flex w-fit cursor-pointer items-center gap-0.5 whitespace-nowrap rounded py-2 text-base font-medium leading-5 underline transition duration-150 ease-in-out hover:ease-in;
 }
-
 button:focus {
 	@apply outline-none;
 }
 
-.basic {
+.disabled {
+	@apply pointer-events-none text-zinc-500;
 }
+
+.filled.disabled,
+.outlined.disabled {
+	@apply opacity-40;
+}
+
+.filled {
+	text-shadow: 0px 2px #00000021;
+}
+
+.filled,
+.outlined {
+	@apply text-light-900 dark:text-dark-100;
+}
+
+.outlined {
+	@apply border;
+}
+
+.small {
+	@apply h-6 py-[0.0625rem];
+}
+
+.full-width {
+	@apply w-full;
+}
+
 .basic:hover {
 	@apply bg-light-50 dark:bg-dark-500;
+}
+.link.basic:hover {
+	@apply bg-transparent;
 }
 .basic:active {
 	@apply bg-transparent no-underline;
@@ -192,7 +206,7 @@ button:focus {
 	@apply text-[#5852A0];
 }
 .purple.outlined {
-	@apply border-[#524C93] text-light-900 no-underline dark:text-dark-100;
+	@apply border-[#524C93] text-light-900 no-underline dark:text-[#524C93];
 }
 .purple.outlined:hover {
 	@apply bg-[#524C93]/20;
@@ -202,36 +216,6 @@ button:focus {
 }
 .purple.filled:hover {
 	@apply bg-[#423E7A];
-}
-
-.disabled {
-	@apply pointer-events-none text-zinc-500;
-}
-
-.filled.disabled,
-.outlined.disabled {
-	@apply opacity-40;
-}
-
-.filled {
-	text-shadow: 0px 2px #00000021;
-}
-
-.filled,
-.outlined {
-	@apply text-light-900 dark:text-dark-100;
-}
-
-.outlined {
-	@apply border;
-}
-
-.small {
-	@apply h-6 py-[0.0625rem];
-}
-
-.full-width {
-	@apply w-full;
 }
 
 input[type='checkbox'] {
