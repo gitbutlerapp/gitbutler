@@ -355,8 +355,8 @@ pub fn unapply_branch(
 
     let repo = &project_repository.git_repository;
 
-    if let Ok((branch, files)) = status {
-        let tree = write_tree(gb_repository, project_repository, branch, files)?;
+    if let Ok((_, files)) = status {
+        let tree = write_tree(gb_repository, project_repository, files)?;
 
         target_branch.tree = tree;
         target_branch.applied = false;
@@ -372,7 +372,7 @@ pub fn unapply_branch(
     // then check that out into the working directory
     for (branch, files) in statuses {
         if branch.id != branch_id {
-            let tree_oid = write_tree(gb_repository, project_repository, &branch, &files)?;
+            let tree_oid = write_tree(gb_repository, project_repository, &files)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             if let Ok(mut result) =
                 repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
@@ -714,7 +714,7 @@ pub fn list_virtual_branches(
     for branch in &virtual_branches {
         let branch_statuses = statuses.clone();
         let mut files: Vec<VirtualBranchFile> = vec![];
-        //let (branch, files) in &statuses
+
         // find the entry in statuses with this branch id
         let maybe_status = branch_statuses
             .into_iter()
@@ -730,7 +730,7 @@ pub fn list_virtual_branches(
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
         if (default_target.sha != branch.head) && branch.applied && with_commits {
             // TODO: make sure this works
-            let vtree = write_tree(gb_repository, project_repository, branch, &files)?;
+            let vtree = write_tree(gb_repository, project_repository, &files)?;
             let repo = &project_repository.git_repository;
             // get the trees
             let commit_old = repo.find_commit(branch.head)?;
@@ -1249,14 +1249,14 @@ pub fn get_status_by_branch(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
 
-    let default_target = match get_default_target(&current_session_reader) {
-        Ok(Some(target)) => Ok(target),
-        Ok(None) => {
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to read default target")?
+    {
+        Some(target) => target,
+        None => {
             return Ok(vec![]);
         }
-        Err(e) => Err(e),
-    }
-    .context("failed to read default target")?;
+    };
 
     let diff = diff::workdir(
         project_repository,
@@ -1563,12 +1563,7 @@ pub fn update_branch_target(
 
         let mut tree_oid = virtual_branch.tree;
         if virtual_branch.applied {
-            tree_oid = write_tree(
-                gb_repository,
-                project_repository,
-                &virtual_branch,
-                &vbranch.files,
-            )?;
+            tree_oid = write_tree(gb_repository, project_repository, &vbranch.files)?;
         }
         let branch_tree = repo.find_tree(tree_oid)?;
 
@@ -1877,7 +1872,6 @@ pub fn update_gitbutler_integration(
 fn write_tree(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    _vbranch: &branch::Branch,
     files: &Vec<VirtualBranchFile>,
 ) -> Result<git2::Oid> {
     // read the base sha into an index
@@ -1972,7 +1966,7 @@ pub fn commit(
 
     for (mut branch, files) in statuses {
         if branch.id == branch_id {
-            let tree_oid = write_tree(gb_repository, project_repository, &branch, &files)?;
+            let tree_oid = write_tree(gb_repository, project_repository, &files)?;
 
             let git_repository = &project_repository.git_repository;
             let parent_commit = git_repository.find_commit(branch.head).unwrap();
