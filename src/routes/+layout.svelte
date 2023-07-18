@@ -4,7 +4,10 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import { toasts, Toaster, events, hotkeys, stores } from '$lib';
 	import type { LayoutData } from './$types';
-	import { Link } from '$lib/components';
+	import { Button, Link, Tooltip } from '$lib/components';
+	import { IconEmail } from '$lib/icons';
+	import type { Project } from '$lib/api';
+	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
 	import { onMount, setContext } from 'svelte';
@@ -36,6 +39,9 @@
 	$: zoom = $userSettings.zoom || 1;
 	$: document.documentElement.style.fontSize = zoom + 'rem';
 	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
+
+	const projectUrl = (project: Project) =>
+		new URL(`/projects/${project.id}`, new URL(PUBLIC_API_BASE_URL)).toString();
 
 	onMount(() =>
 		unsubscribe(
@@ -106,4 +112,46 @@
 	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projects} />
 
 	<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />
+	<footer class="w-full text-sm font-medium">
+		<div
+			class="flex h-[22px] flex-shrink-0 select-none items-center border-t
+border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 dark:text-dark-100
+			 "
+		>
+			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
+				<div>
+					{#if $project}
+						<Link href="/projects/{$project?.id}/settings">
+							{#if $project?.api?.sync}
+								<div class="flex flex-row items-center space-x-2">
+									<div class="h-2 w-2 rounded-full bg-green-700" />
+									<span>Backed up</span>
+								</div>
+							{:else}
+								<div class="h-2 w-2 rounded-full bg-red-700" />
+								Offline
+							{/if}
+						</Link>
+					{/if}
+				</div>
+
+				<div class="flex gap-1">
+					<Tooltip label="Send feedback">
+						<Button
+							kind="plain"
+							height="small"
+							icon={IconEmail}
+							on:click={() => events.emit('openSendIssueModal')}
+						/>
+					</Tooltip>
+
+					{#if $project?.api?.sync}
+						<Link target="_blank" rel="noreferrer" href={projectUrl($project)}>
+							Open in GitButler Cloud
+						</Link>
+					{/if}
+				</div>
+			</div>
+		</div>
+	</footer>
 </div>
