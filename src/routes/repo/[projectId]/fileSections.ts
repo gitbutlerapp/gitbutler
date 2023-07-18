@@ -17,6 +17,7 @@ export class HunkSection {
 	hunk!: Hunk;
 	header!: HunkHeader;
 	subSections!: Section[];
+	hasConflictMarkers!: boolean;
 }
 
 export enum SectionType {
@@ -47,7 +48,11 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 	const hunkSection: HunkSection = {
 		hunk: hunk,
 		header: header,
-		subSections: []
+		subSections: [],
+		hasConflictMarkers:
+			hunk.diff.includes('<<<<<<<') &&
+			hunk.diff.includes('=======') &&
+			hunk.diff.includes('>>>>>>>')
 	};
 
 	let currentBeforeLineNumber = header.beforeStart;
