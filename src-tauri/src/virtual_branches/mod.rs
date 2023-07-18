@@ -10,6 +10,8 @@ use std::{
     collections::{HashMap, HashSet},
     fmt, path, time, vec,
 };
+use std::os::unix::fs::PermissionsExt;
+
 
 use anyhow::{bail, Context, Result};
 use diffy::{apply_bytes, Patch};
@@ -1878,6 +1880,15 @@ fn write_tree(
 
         // if file exists
         if full_path.exists() {
+            // if file is executable, use 755, otherwise 644
+            let mut filemode = git2::FileMode::Blob;
+            // check if full_path file is executable
+            if let Ok(metadata) = std::fs::metadata(&full_path) {
+                if metadata.permissions().mode() & 0o111 != 0 {
+                    filemode = git2::FileMode::BlobExecutable;
+                }
+            }
+
             // get the blob
             if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 // blob from tree_entry
@@ -1906,11 +1917,11 @@ fn write_tree(
                 // create a blob
                 let new_blob_oid = git_repository.blob(&new_content)?;
                 // upsert into the builder
-                builder.upsert(rel_path, new_blob_oid, git2::FileMode::Blob);
+                builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
                 // create a git blob from a file on disk
                 let blob_oid = git_repository.blob_path(&full_path)?;
-                builder.upsert(rel_path, blob_oid, git2::FileMode::Blob);
+                builder.upsert(rel_path, blob_oid, filemode);
             }
         } else {
             // remove file from index
