@@ -641,23 +641,25 @@ impl Repository {
 
     pub fn git_signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
         let user = self.users_store.get().context("failed to get user")?;
+        let committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
+
+        let mut author = match user {
+            None => committer.clone(),
+            Some(user) => git2::Signature::now(user.name.as_str(), user.email.as_str())?,
+        };
 
         let config = self
             .git_repository
             .config()
             .with_context(|| "failed to get config")?;
-        let name = config
-            .get_string("user.name")
-            .with_context(|| "failed to get user.name")?;
-        let email = config
-            .get_string("user.email")
-            .with_context(|| "failed to get user.email")?;
 
-        let committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
-        let author = match user {
-            None => git2::Signature::now(&name, &email).with_context(|| "failed to get signature")?,
-            Some(user) => git2::Signature::now(user.name.as_str(), user.email.as_str())?,
-        };
+        // if name and email are not errors, set author
+        let name = config.get_string("user.name");
+        let email = config.get_string("user.email");
+        if name.is_ok() && email.is_ok() {
+            author = git2::Signature::now(&name?, &email?)?;
+        }
+
         Ok((author, committer))
     }
 
