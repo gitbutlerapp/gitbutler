@@ -38,7 +38,7 @@ use tauri_plugin_log::{
 use thiserror::Error;
 use timed::timed;
 
-use crate::project_repository::activity;
+use crate::project_repository::{activity, branch};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -386,7 +386,7 @@ async fn git_match_paths(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<String>, Error> {
+async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<branch::LocalName>, Error> {
     let app = handle.state::<app::App>();
     let branches = app
         .git_branches(project_id)
@@ -399,7 +399,7 @@ async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<
 async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<Vec<String>, Error> {
+) -> Result<Vec<branch::RemoteName>, Error> {
     let app = handle.state::<app::App>();
     let branches = app.git_remote_branches(project_id).with_context(|| {
         format!(

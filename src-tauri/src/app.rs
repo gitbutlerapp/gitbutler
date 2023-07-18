@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
-    project_repository::{self, activity, conflicts, diff},
+    project_repository::{self, activity, conflicts, diff, branch},
     projects, pty, search, sessions, storage, users, virtual_branches, watcher,
 };
 
@@ -577,14 +577,14 @@ impl App {
         project_repository.git_match_paths(pattern)
     }
 
-    pub fn git_branches(&self, project_id: &str) -> Result<Vec<String>> {
+    pub fn git_branches(&self, project_id: &str) -> Result<Vec<branch::LocalName>> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_branches()
     }
 
-    pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<String>> {
+    pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<branch::RemoteName>> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;

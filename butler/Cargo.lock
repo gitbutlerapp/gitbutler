@@ -1655,13 +1655,8 @@ name = "git-butler-tauri"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "bytes",
- "clap",
- "colored 2.0.4",
- "dialoguer",
  "diffy",
- "dirs 5.0.1",
  "filetime",
  "fslock",
  "futures",
@@ -1696,6 +1691,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.18.0",
  "tokio-util",
+ "url",
  "urlencoding",
  "uuid",
  "walkdir",
