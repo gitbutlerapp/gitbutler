@@ -1144,6 +1144,9 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
         fs::list_files(&gb_repository.session_path()).context("failed to list session files")?
     {
         let file_path = std::path::Path::new(&file_path);
+        if file_path.starts_with("wd/") {
+            continue;
+        }
         add_file_to_index(
             gb_repository,
             &mut index,
