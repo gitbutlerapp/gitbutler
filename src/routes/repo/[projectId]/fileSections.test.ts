@@ -88,6 +88,19 @@ const multiChangeHunk = `@@ -1,12 +1,11 @@
                 <div style="display: contents">%sveltekit.body%</div>
         </body>
  </html>`;
+const conflitMarkersHunk = `@@ -3,7 +3,11 @@
+ 	<head>
+ 		<meta charset="utf-8" />
+ 		<meta name="viewport" content="width=device-width" />
+-		%sveltekit.head%
++<<<<<<< ours
++		%sveltekit.HEAD%
++=======
++		%Sveltekit.head%
++>>>>>>> theirs
+ 	</head>
+ 
+ 	<body`;
 
 test('parses a balanced hunk section', () => {
 	const balancedHunk: Hunk = {
@@ -99,6 +112,7 @@ test('parses a balanced hunk section', () => {
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
 	expect(hunkSection?.hunk).toBe(balancedHunk);
+	expect(hunkSection?.hasConflictMarkers).toBe(false);
 	expect(hunkSection?.header.beforeStart).toBe(3);
 	expect(hunkSection?.header.beforeLength).toBe(7);
 	expect(hunkSection?.header.afterStart).toBe(3);
@@ -164,6 +178,19 @@ test('parses a balanced hunk section', () => {
 			content: `       <body data-sveltekit-preload-data="hover" class="bg-[#212124] text-zinc-400">`
 		}
 	]);
+});
+
+test('parses a hunk with conflict markers', () => {
+	const balancedHunk: Hunk = {
+		id: '1',
+		diff: conflitMarkersHunk,
+		modifiedAt: new Date(2021, 1, 1),
+		filePath: 'foo.py'
+	};
+	const hunkSection = parseHunkSection(balancedHunk);
+	expect(hunkSection).toBeDefined();
+	expect(hunkSection?.hunk).toBe(balancedHunk);
+	expect(hunkSection?.hasConflictMarkers).toBe(true);
 });
 
 test('parses hunk sections with more added', () => {
