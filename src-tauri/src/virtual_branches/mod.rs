@@ -6,12 +6,11 @@ pub mod target;
 mod tests;
 
 use std::io::{Read, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::{
     collections::{HashMap, HashSet},
     fmt, path, time, vec,
 };
-use std::os::unix::fs::PermissionsExt;
-
 
 use anyhow::{bail, Context, Result};
 use diffy::{apply_bytes, Patch};
