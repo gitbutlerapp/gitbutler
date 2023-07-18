@@ -48,10 +48,6 @@ impl TryFrom<&str> for Ownership {
 
 impl Ownership {
     pub fn put(&mut self, ownership: &FileOwnership) {
-        if self.files.contains(ownership) {
-            return;
-        }
-
         let target = self
             .files
             .iter()
@@ -171,6 +167,22 @@ mod tests {
             FileOwnership::try_from("src/main.rs:0-100").unwrap()
         );
     }
+
+    #[test]
+    fn test_put_4() {
+        let mut ownership = Ownership::try_from("src/main.rs:0-100\nsrc/main2.rs:100-200").unwrap();
+        ownership.put(&FileOwnership::try_from("src/main2.rs:100-200").unwrap());
+        assert_eq!(ownership.files.len(), 2);
+        assert_eq!(
+            ownership.files[0],
+            FileOwnership::try_from("src/main2.rs:100-200").unwrap()
+        );
+        assert_eq!(
+            ownership.files[1],
+            FileOwnership::try_from("src/main.rs:0-100").unwrap()
+        );
+    }
+
 
     #[test]
     fn test_put_7() {
