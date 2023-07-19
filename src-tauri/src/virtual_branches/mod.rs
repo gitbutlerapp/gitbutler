@@ -108,6 +108,7 @@ pub struct VirtualBranchHunk {
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
+//
 // it holds data calculated for presentation purposes of one Git branch
 // with comparison data to the Target commit, determining if it is mergeable,
 // and how far ahead or behind the Target it is.
@@ -486,6 +487,25 @@ pub fn remote_branches(
             let branch_name = project_repository::branch::Name::try_from(&branch)
                 .context("could not get branch name")?;
 
+            // skip the default target branch (both local and remote)
+            match branch_name {
+                project_repository::branch::Name::Remote(ref remote_branch_name) => {
+                    if remote_branch_name.branch().eq(&default_target.branch_name) {
+                        continue;
+                    }
+                }
+                project_repository::branch::Name::Local(ref local_branch_name) => {
+                    if let Some(upstream_branch_name) = local_branch_name.remote() {
+                        if upstream_branch_name
+                            .branch()
+                            .eq(&default_target.branch_name)
+                        {
+                            continue;
+                        }
+                    }
+                }
+            }
+
             if virtual_branches_names.contains(branch_name.branch()) {
                 continue;
             }
@@ -765,34 +785,11 @@ pub fn list_virtual_branches(
         // see if we can identify some upstream
         let mut upstream_commit = None;
         if let Some(branch_upstream) = &branch.upstream {
-            // get the target remote
-            let remotes = repo.remotes()?;
-            let mut upstream_remote = None;
-            for remote_name in remotes.iter() {
-                let remote_name = match remote_name {
-                    Some(name) => name,
-                    None => continue,
-                };
-
-                let remote = repo.find_remote(remote_name)?;
-                let url = match remote.url() {
-                    Some(url) => url,
-                    None => continue,
-                };
-
-                if url == default_target.remote_url {
-                    upstream_remote = Some(remote);
-                    break;
-                }
-            }
-            if let Some(remote) = upstream_remote {
-                let branch_name = branch_upstream.branch();
-                let full_branch_name =
-                    format!("refs/remotes/{}/{}", remote.name().unwrap(), branch_name);
-                if let Ok(upstream_oid) = repo.refname_to_id(&full_branch_name) {
-                    if let Ok(upstream_commit_obj) = repo.find_commit(upstream_oid) {
-                        upstream_commit = Some(upstream_commit_obj);
-                    }
+            let branch_name = branch_upstream.branch();
+            let full_branch_name = format!("refs/remotes/{}", branch_name);
+            if let Ok(upstream_oid) = repo.refname_to_id(&full_branch_name) {
+                if let Ok(upstream_commit_obj) = repo.find_commit(upstream_oid) {
+                    upstream_commit = Some(upstream_commit_obj);
                 }
             }
         }
@@ -1009,28 +1006,34 @@ pub fn create_virtual_branch(
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
 
-    let mut virtual_branches = Iterator::new(&current_session_reader)
+    let all_virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
         .into_iter()
-        .filter(|branch| branch.applied)
         .collect::<Vec<branch::Branch>>();
-    virtual_branches.sort_by_key(|branch| branch.order);
+
+    let mut applied_virtual_branches = all_virtual_branches
+        .iter()
+        .filter(|branch| branch.applied)
+        .cloned()
+        .collect::<Vec<branch::Branch>>();
+
+    applied_virtual_branches.sort_by_key(|branch| branch.order);
 
     let order = if let Some(order) = create.order {
-        if order > virtual_branches.len() {
-            virtual_branches.len()
+        if order > applied_virtual_branches.len() {
+            applied_virtual_branches.len()
         } else {
             order
         }
     } else {
-        virtual_branches.len()
+        applied_virtual_branches.len()
     };
     let branch_writer = branch::Writer::new(gb_repository);
 
     // make space for the new branch
-    for branch in virtual_branches.iter().skip(order) {
+    for branch in applied_virtual_branches.iter().skip(order) {
         let mut branch = branch.clone();
         branch.order += 1;
         branch_writer
@@ -1047,7 +1050,7 @@ pub fn create_virtual_branch(
         .name
         .as_ref()
         .map(|name| name.to_string())
-        .unwrap_or_else(|| format!("Virtual branch {}", virtual_branches.len() + 1));
+        .unwrap_or_else(|| format!("Virtual branch {}", all_virtual_branches.len() + 1));
 
     let mut branch = Branch {
         id: Uuid::new_v4().to_string(),

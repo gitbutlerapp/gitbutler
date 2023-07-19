@@ -2,19 +2,23 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use super::{error::Error, remote};
+use super::{error::Error, RemoteName};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name {
     // contains name of the branch, e.x. "master" or "main"
     branch: String,
     // contains name of the remote branch, if the local branch is tracking a remote branch
-    remote: Option<remote::Name>,
+    remote: Option<RemoteName>,
 }
 
 impl Name {
     pub fn branch(&self) -> &str {
         &self.branch
+    }
+
+    pub fn remote(&self) -> Option<&RemoteName> {
+        self.remote.as_ref()
     }
 }
 
@@ -67,7 +71,7 @@ impl TryFrom<&git2::Branch<'_>> for Name {
             match value.upstream() {
                 Ok(upstream) => Ok(Self {
                     branch,
-                    remote: Some(remote::Name::try_from(&upstream)?),
+                    remote: Some(RemoteName::try_from(&upstream)?),
                 }),
                 Err(error) => {
                     if error.code() == git2::ErrorCode::NotFound {
