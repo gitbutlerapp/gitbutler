@@ -2,9 +2,12 @@
 	import { SectionType } from './fileSections';
 	import type { Line } from './fileSections';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
+
 	export let line: Line;
 	export let sectionType: SectionType;
 	export let filePath: string;
+	export let minWidth = 1.75;
+	export let maximized: boolean;
 
 	function toTokens(codeString: string): string[] {
 		function sanitize(text: string) {
@@ -26,20 +29,26 @@
 	}
 </script>
 
-<span
-	class="w-[1.5rem] select-none border-r border-light-400 bg-light-100 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
->
-	{line.beforeLineNumber || ''}
-</span>
-<span
-	class="w-[1.5rem] select-none border-r border-light-400 bg-light-100 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
->
-	{line.afterLineNumber || ''}
-</span>
-<span
-	class="overflow-hidden whitespace-nowrap pl-1"
-	class:diff-line-deletion={sectionType === SectionType.RemovedLines}
-	class:diff-line-addition={sectionType === SectionType.AddedLines}
->
-	{@html toTokens(line.content).join('')}
-</span>
+<div class="flex w-full font-mono text-sm" role="group" on:contextmenu|preventDefault>
+	<div
+		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
+		style:min-width={minWidth + 'rem'}
+	>
+		{line.beforeLineNumber || ''}
+	</div>
+	<div
+		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
+		style:min-width={minWidth + 'rem'}
+	>
+		{line.afterLineNumber || ''}
+	</div>
+	<div
+		class="flex-grow overflow-hidden"
+		class:whitespace-pre={maximized}
+		class:whitespace-nowrap={!maximized}
+		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
+		class:diff-line-addition={sectionType === SectionType.AddedLines}
+	>
+		{@html toTokens(line.content).join('')}
+	</div>
+</div>
