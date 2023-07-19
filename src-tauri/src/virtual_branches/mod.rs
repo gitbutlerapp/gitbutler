@@ -1196,8 +1196,8 @@ fn get_mtime(cache: &mut HashMap<path::PathBuf, u128>, file_path: &path::PathBuf
 fn diff_hash(diff: &str) -> String {
     let addition = diff
         .lines()
-        .skip(1)
-        .filter(|line| line.starts_with('+'))
+        .skip(1) // skip the first line which is the diff header
+        .filter(|line| line.starts_with('+') || line.starts_with('-')) // exclude context lines
         .collect::<Vec<_>>()
         .join("\n");
     format!("{:x}", md5::compute(addition))
