@@ -104,8 +104,13 @@ mod tests {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
             applied: true,
-            upstream: Some(format!("upstream_{}", unsafe { TEST_INDEX })),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
+            upstream: Some(
+                format!("refs/remotes/origin/upstream_{}", unsafe { TEST_INDEX })
+                    .as_str()
+                    .try_into()
+                    .unwrap(),
+            ),
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
             head: git2::Oid::from_str(&format!(
                 "0123456789abcdef0123456789abcdef0123456{}",
@@ -207,7 +212,7 @@ mod tests {
         assert_eq!(
             fs::read_to_string(root.join("meta").join("upstream").to_str().unwrap())
                 .context("Failed to read branch upstream")?,
-            branch.upstream.unwrap()
+            branch.upstream.unwrap().to_string()
         );
         assert_eq!(
             fs::read_to_string(
