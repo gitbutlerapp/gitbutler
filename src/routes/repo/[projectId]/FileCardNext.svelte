@@ -150,9 +150,9 @@
 										{/each}
 										{#if !subsection.expanded}
 											<div class="flex h-5 w-full">
-												<div class="bg-blue-200 text-center" style:min-width={`${2 * minWidth}rem`}>
+												<div class="bg-light-50 text-center border-r border-light-400" style:min-width={`${2 * minWidth}rem`}>
 													<button
-														class="px-4 py-0.5 text-sm text-light-700 dark:text-dark-300"
+														class="px-4 py-0.5 text-sm text-light-500 hover:text-light-700 dark:text-dark-300"
 														on:click={() => {
 															if ('expanded' in subsection) {
 																subsection.expanded = true;
@@ -168,7 +168,7 @@
 														{/if}
 													</button>
 												</div>
-												<div class="flex-grow bg-blue-100" />
+												<div class="flex-grow" />
 											</div>
 										{/if}
 									{/each}
@@ -201,7 +201,7 @@
 						{#if !section.expanded}
 							<div class="flex">
 								<button
-									class="px-2 py-1 text-sm text-light-700 dark:text-dark-300"
+									class="px-2 py-1 text-sm text-light-500 hover:text-light-700 dark:text-dark-300"
 									style:margin-left={`${minWidth - 1}rem`}
 									on:click={() => {
 										if ('expanded' in section) {

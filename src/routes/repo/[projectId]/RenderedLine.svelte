@@ -43,7 +43,7 @@
 		{line.afterLineNumber || ''}
 	</div>
 	<div
-		class="flex-grow overflow-hidden"
+		class="pl-1 flex-grow overflow-hidden"
 		class:whitespace-pre={maximized}
 		class:whitespace-nowrap={!maximized}
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
