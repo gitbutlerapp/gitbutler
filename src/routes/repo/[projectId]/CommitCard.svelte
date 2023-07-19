@@ -6,7 +6,7 @@
 </script>
 
 <div
-	class="flex-grow rounded-lg border border-light-400 bg-white p-2 dark:border-dark-600 dark:bg-dark-1000"
+	class="flex-grow rounded border border-light-300 bg-light-50 p-2 dark:border-dark-600 dark:bg-dark-900"
 >
 	<div>
 		{commit.description}
