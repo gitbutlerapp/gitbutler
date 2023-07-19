@@ -5,7 +5,7 @@ export const SETTINGS_CONTEXT = Symbol();
 
 export interface Settings {
 	aiSummariesEnabled?: boolean;
-	trayWidth?: string;
+	trayWidth?: number;
 	theme?: string;
 	zoom?: number;
 }

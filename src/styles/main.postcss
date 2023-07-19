@@ -16,7 +16,7 @@ button {
 input,
 textarea {
 	outline: none;
-	@apply rounded border border-light-500 bg-white p-2 text-light-900 dark:border-dark-400 dark:bg-dark-600 dark:text-dark-100;
+	@apply border border-light-500 bg-white p-2 text-light-900 dark:border-dark-400 dark:bg-dark-600 dark:text-dark-100;
 	@apply hover:border-zinc-500/80;
 	@apply focus:ring-2 focus:ring-purple-600;
 }
@@ -44,27 +44,57 @@ textarea {
 }
 
 /* SCROLL BAR STYLING */
+/* We style the tray scrollbar separately from the lanes for now */
 
-/* Firefox */
-/* {
-	scrollbar-width: thin;
-	scrollbar-color: var(--secondary) var(--primary);
-}*/
-/* Chrome, Edge, and Safari */
-*::-webkit-scrollbar {
-	width: 12px;
-	height: 12px;
+.tray-scroll::-webkit-scrollbar {
+	width: 0.75rem;
+	height: 0.5rem;
 }
 
-*::-webkit-scrollbar-track {
+.tray-scroll::-webkit-scrollbar-track {
+	@apply bg-light-200 dark:bg-dark-850;
 }
 
-*::-webkit-scrollbar-thumb {
-	background-color: #00000010;
+.tray-scroll::-webkit-scrollbar-thumb {
+	@apply bg-light-200 dark:bg-dark-800;
+	-webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
 }
 
-::-webkit-scrollbar-thumb:hover {
-	background-color: #00000020;
+.tray-scroll::-webkit-scrollbar-thumb:hover {
+	@apply bg-light-500 dark:bg-dark-700;
+}
+
+.dark .tray-scroll::-webkit-scrollbar-thumb {
+	-webkit-box-shadow: inset 0 0 6px rgba(255, 255255, 255, 0.2);
+}
+
+.dark .tray-scroll::-webkit-scrollbar-track {
+	-webkit-box-shadow: inset 0 0 1px rgba(255, 255255, 255, 0.2);
+}
+
+.lane-scroll::-webkit-scrollbar {
+	width: 0.75rem;
+	height: 8px;
+}
+
+.lane-scroll::-webkit-scrollbar-track {
+	@apply bg-light-200 dark:bg-dark-850;
+	-webkit-box-shadow: inset 0 0 0.0625rem rgba(0, 0, 0, 0.33);
+}
+
+.lane-scroll::-webkit-scrollbar-thumb {
+	-webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
+	@apply bg-light-300 dark:bg-dark-800;
+}
+
+.lane-scroll::-webkit-scrollbar-thumb:hover {
+	@apply bg-light-500 dark:bg-dark-700;
+}
+.dark .lane-scroll::-webkit-scrollbar-thumb {
+	-webkit-box-shadow: inset 0 0 6px rgba(255, 255255, 255, 0.1);
+}
+.dark .lane-scroll::-webkit-scrollbar-track {
+	-webkit-box-shadow: inset 0 0 1px rgba(255, 255255, 255, 0.2);
 }
 
 /* CARD STYLING */
@@ -116,7 +146,7 @@ button.active {
 }
 
 button {
-	@apply relative inline-flex w-fit cursor-pointer items-center gap-0.5 whitespace-nowrap rounded py-2 text-base font-medium leading-5 underline transition duration-150 ease-in-out hover:ease-in;
+	@apply relative inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded py-2 text-base font-medium leading-5 underline transition;
 }
 button:focus {
 	@apply outline-none;

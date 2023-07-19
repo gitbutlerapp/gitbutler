@@ -96,7 +96,7 @@
 	draggable="true"
 	class:w-full={maximized}
 	class:w-96={!maximized}
-	class="flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-scroll bg-light-200 py-2 pl-3 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	class="lane-scroll flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-default snap-center flex-col overflow-y-scroll overscroll-y-none bg-light-150 py-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -120,13 +120,13 @@
 	}}
 >
 	<div
-		class="mb-2 flex w-full shrink-0 items-center rounded bg-light-200 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="mb-2 flex w-full shrink-0 items-center rounded bg-light-150 px-1 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div
 			on:dblclick={() => (maximized = !maximized)}
 			tabindex="0"
 			role="button"
-			class="h-8 w-8 flex-grow-0 text-light-600 dark:text-dark-200"
+			class="flex h-8 w-8 flex-grow-0 items-center justify-center text-light-600 dark:text-dark-200"
 		>
 			<IconBranch />
 		</div>
@@ -136,7 +136,7 @@
 				bind:value={name}
 				on:change={handleBranchNameChange}
 				title={name}
-				class="w-full truncate border-0 bg-light-200 font-bold text-light-900 dark:bg-dark-1000 dark:text-dark-100"
+				class="w-full truncate border-0 bg-light-150 font-bold text-light-900 dark:bg-dark-1000 dark:text-dark-100"
 			/>
 		</div>
 		<button
@@ -191,13 +191,13 @@
 			<textarea
 				bind:this={textAreaInput}
 				bind:value={commitMessage}
-				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300"
-				placeholder="Your commit message here..."
+				class="font-mono shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 text-dark-700 outline-none hover:border-light-400 focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300"
+				placeholder="Your commit message here"
 				rows={messageRows}
 				required
 			/>
 		</div>
-		<div class="mb-2 text-right">
+		<div class="mb-2 mr-2 text-right">
 			<Button
 				height="small"
 				color="purple"
@@ -207,7 +207,7 @@
 			</Button>
 		</div>
 		<div class="flex flex-shrink flex-col gap-y-2">
-			<div class="drop-zone-marker hidden rounded border p-6 text-center">
+			<div class="drop-zone-marker hidden border p-6 text-center">
 				Drop here to add to virtual branch
 			</div>
 			{#each files as file (file.id)}

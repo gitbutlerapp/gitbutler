@@ -1,10 +1,5 @@
-<script lang="ts">
-	let className = '';
-	export { className as class };
-</script>
-
 <svg
-	class={className}
+	class="inline-block"
 	fill="none"
 	aria-hidden="true"
 	height="16"
