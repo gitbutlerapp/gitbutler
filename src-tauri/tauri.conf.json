@@ -46,11 +46,11 @@
             "category": "DeveloperTool",
             "copyright": "Copyright © 2023 GitButler. All rights reserved.",
             "icon": [
-                "icons/32x32.png",
-                "icons/128x128.png",
-                "icons/128x128@2x.png",
-                "icons/icon.icns",
-                "icons/icon.ico"
+                "icons/dev/32x32.png",
+                "icons/dev/128x128.png",
+                "icons/dev/128x128@2x.png",
+                "icons/dev/icon.icns",
+                "icons/dev/icon.ico"
             ],
             "targets": ["app", "dmg", "updater"]
         },
