@@ -40,15 +40,9 @@
 		}
 	}
 
-	// store left tray width preference in localStorage
-	const cacheKey = 'config:tray-width';
-
 	function rememberWidth(node: HTMLElement) {
-		const cachedWidth = localStorage.getItem(cacheKey);
-		if (cachedWidth) node.style.width = cachedWidth;
-
 		const resizeObserver = new ResizeObserver((entries) => {
-			const width = entries.at(0)?.borderBoxSize[0].inlineSize.toString();
+			const width = entries.at(0)?.borderBoxSize[0].inlineSize;
 			if (width)
 				userSettings.update((s) => ({
 					...s,
@@ -67,7 +61,8 @@
 
 <div
 	use:rememberWidth
-	class="w-80 min-w-[216px] max-w-lg shrink-0 resize-x overflow-y-auto border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
+	class="tray-scroll w-80 min-w-[216px] shrink-0 cursor-default resize-x overflow-y-scroll overscroll-y-none border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
+	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 >
 	<!-- Target branch -->
 	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Base branch</div>
@@ -131,7 +126,7 @@
 							bind:checked={branch.active}
 							disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
 						/>
-						<div class="ml-2 w-full cursor-pointer truncate text-black dark:text-white">
+						<div class="ml-2 w-full truncate text-black dark:text-white">
 							{branch.name}
 						</div>
 					</div>
@@ -183,10 +178,7 @@
 								<IconGitBranch class="h-4 w-4" />
 							{/if}
 						</div>
-						<div
-							class="flex-grow cursor-pointer truncate text-black dark:text-white"
-							title={branch.name}
-						>
+						<div class="flex-grow truncate text-black dark:text-white" title={branch.name}>
 							{branch.name
 								.replace('refs/remotes/', '')
 								.replace('origin/', '')

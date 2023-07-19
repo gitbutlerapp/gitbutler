@@ -72,6 +72,7 @@ const config = {
 				600: '#393939', // Commit card border
 				700: '#373737', // Commit message background
 				800: '#2C2C2C', // Tray and commit card background
+				850: '#282828', // Scrollbar
 				900: '#212121', // Header background
 				1000: '#1E1E1E' // Board and inactive tab background
 			},
@@ -79,6 +80,7 @@ const config = {
 				25: '#FAFAFB', // Active tab and file card background
 				50: '#F6F6F7', // Active tab and file card background
 				100: '#F4F4F5', // Branch background in tray
+				150: '#EAEAEB', // Branch background in tray
 				200: '#E4E4E7', // Board background and commit message border
 				300: '#DDDDDE', // File card border
 				400: '#D4D4D8', // Branch lane border and disabled text
@@ -126,7 +128,8 @@ const config = {
 				600: '#5852A0'
 			},
 			orange: {
-				200: '#fed7aa'
+				200: '#fed7aa',
+				700: '#CD6E02'
 			},
 			zinc: {
 				50: '#fafafa',

@@ -5,8 +5,9 @@
 	import { Button } from '$lib/components';
 	import { BranchController } from '$lib/vbranches';
 	import { Loaded } from 'svelte-loadable-store';
-	import { setContext } from 'svelte';
+	import { getContext, setContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 
 	export let data: PageData;
 	let {
@@ -17,6 +18,8 @@
 		remoteBranchNames,
 		project
 	} = data;
+
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	const branchController = new BranchController(
 		projectId,
@@ -41,8 +44,19 @@
 </script>
 
 {#if target}
-	<div class="flex w-full max-w-full">
+	<div class="flex w-full max-w-full" role="group" on:dragover|preventDefault>
 		<Tray {branches} {target} {remoteBranches} />
+		<div
+			class="w-[0.125rem] shrink-0 cursor-col-resize bg-light-300 dark:bg-dark-800 hover:bg-orange-200 dark:hover:bg-orange-700"
+			draggable="true"
+			role="separator"
+			on:drag={(e) => {
+				userSettings.update((s) => ({
+					...s,
+					trayWidth: e.clientX
+				}));
+			}}
+		/>
 		<Board {branches} {projectId} projectPath={project.path} />
 	</div>
 {:else}

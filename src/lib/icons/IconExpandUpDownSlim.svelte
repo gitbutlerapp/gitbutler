@@ -1,4 +1,5 @@
 <svg
+	class="inline-block"
 	width="16"
 	height="4"
 	style="height: 0.25rem; width: 1rem;"

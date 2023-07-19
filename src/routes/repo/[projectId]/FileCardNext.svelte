@@ -78,9 +78,9 @@
 	class="changed-file inner"
 >
 	<div
-		class="flex w-full flex-col justify-center gap-2 rounded border border-light-300 bg-light-50 py-1 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-400 bg-light-50 py-1 text-light-900 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 	>
-		<div class="flex px-2">
+		<div class="flex pl-2">
 			<div
 				class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
 				title={file.path}
@@ -118,7 +118,7 @@
 				{#each sections as section, idx}
 					{#if 'hunk' in section}
 						<div
-							class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
+							class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 bg-white dark:border-dark-400 dark:bg-dark-900"
 						>
 							<div
 								draggable="true"
@@ -157,11 +157,12 @@
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="bg-light-25 border-r border-light-200 text-center dark:border-dark-500 dark:bg-dark-800 dark:text-white"
+													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:border-dark-400 dark:bg-dark-500 dark:text-white"
 													style:min-width={`${2 * minWidth}rem`}
 												>
 													<button
-														class="px-2 py-0.5 text-sm text-light-500 dark:text-dark-200 hover:text-light-700 dark:hover:text-dark-100"
+														class="flex justify-center py-0.5 text-sm dark:text-dark-200 dark:hover:text-dark-100"
+														style:width={`${2 * minWidth}rem`}
 														on:click={() => {
 															if ('expanded' in subsection) {
 																subsection.expanded = true;
@@ -177,7 +178,7 @@
 														{/if}
 													</button>
 												</div>
-												<div class="flex-grow bg-white dark:bg-dark-900" />
+												<div class="flex-grow bg-white dark:bg-dark-600" />
 											</div>
 										{/if}
 									{/each}
@@ -210,7 +211,7 @@
 						{#if !section.expanded}
 							<div style:width={`${2 * minWidth}rem`} class="flex justify-center">
 								<button
-									class="px-2 py-0.5 text-sm text-light-600 hover:text-light-700 dark:text-dark-200 dark:hover:text-dark-100"
+									class="px-2 py-1.5 text-sm text-light-600 hover:text-light-700 dark:text-dark-200 dark:hover:text-dark-100"
 									on:click={() => {
 										if ('expanded' in section) {
 											section.expanded = true;
