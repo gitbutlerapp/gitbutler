@@ -386,7 +386,10 @@ async fn git_match_paths(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn git_branches(handle: tauri::AppHandle, project_id: &str) -> Result<Vec<branch::LocalName>, Error> {
+async fn git_branches(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Vec<branch::LocalName>, Error> {
     let app = handle.state::<app::App>();
     let branches = app
         .git_branches(project_id)

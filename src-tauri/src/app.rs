@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
-    project_repository::{self, activity, conflicts, diff, branch},
+    project_repository::{self, activity, branch, conflicts, diff},
     projects, pty, search, sessions, storage, users, virtual_branches, watcher,
 };
 
