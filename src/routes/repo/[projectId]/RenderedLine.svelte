@@ -31,13 +31,13 @@
 
 <div class="flex w-full font-mono text-sm" role="group" on:contextmenu|preventDefault>
 	<div
-		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
+		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 		style:min-width={minWidth + 'rem'}
 	>
 		{line.beforeLineNumber || ''}
 	</div>
 	<div
-		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
+		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 		style:min-width={minWidth + 'rem'}
 	>
 		{line.afterLineNumber || ''}

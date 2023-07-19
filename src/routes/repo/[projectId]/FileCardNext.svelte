@@ -150,14 +150,14 @@
 										{/each}
 										{#if !subsection.expanded}
 											<div
-												class="flex h-5 w-full border-light-200 dark:border-dark-300"
+												class="flex h-5 w-full border-light-200 dark:border-dark-400"
 												class:border-t={sidx == section.subSections.length - 1 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 												class:border-b={sidx == 0 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="bg-light-25 border-r border-light-200 text-center dark:border-dark-400 dark:bg-dark-500 dark:text-white"
+													class="bg-light-25 border-r border-light-200 text-center dark:border-dark-500 dark:bg-dark-800 dark:text-white"
 													style:min-width={`${2 * minWidth}rem`}
 												>
 													<button
@@ -177,7 +177,7 @@
 														{/if}
 													</button>
 												</div>
-												<div class="flex-grow bg-light-25 dark:bg-dark-600" />
+												<div class="flex-grow bg-white dark:bg-dark-900" />
 											</div>
 										{/if}
 									{/each}
