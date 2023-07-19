@@ -76,6 +76,7 @@ const config = {
 				1000: '#1E1E1E' // Board and inactive tab background
 			},
 			light: {
+				25: '#FAFAFB', // Active tab and file card background
 				50: '#F6F6F7', // Active tab and file card background
 				100: '#F4F4F5', // Branch background in tray
 				200: '#E4E4E7', // Board background and commit message border
@@ -88,7 +89,8 @@ const config = {
 				900: '#202223' // Normal text
 			},
 			blue: {
-				100: '#DEF4FF',
+				50: '#EFF4FF',
+				100: '#CBE2FE',
 				200: '#bfdbfe',
 				400: '#60a5fa',
 				500: '#3b82f6',

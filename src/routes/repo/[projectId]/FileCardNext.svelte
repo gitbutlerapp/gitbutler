@@ -132,7 +132,7 @@
 								on:dblclick
 								class="changed-hunk"
 							>
-								<div class="w-full overflow-hidden bg-white">
+								<div class="w-full overflow-hidden bg-white dark:bg-dark-900">
 									{#each section.subSections as subsection, sidx}
 										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 											<RenderedLine
@@ -149,10 +149,17 @@
 											/>
 										{/each}
 										{#if !subsection.expanded}
-											<div class="flex h-5 w-full">
-												<div class="bg-light-50 text-center border-r border-light-400" style:min-width={`${2 * minWidth}rem`}>
+											<div
+												class="flex h-5 w-full border-light-200 dark:border-dark-300"
+												class:border-t={sidx == section.subSections.length - 1}
+												class:border-b={sidx == 0}
+											>
+												<div
+													class="border-r border-light-200 bg-light-50 text-center dark:border-dark-400 dark:bg-dark-500 dark:text-white"
+													style:min-width={`${2 * minWidth}rem`}
+												>
 													<button
-														class="px-4 py-0.5 text-sm text-light-500 hover:text-light-700 dark:text-dark-300"
+														class="px-2 py-0.5 text-sm text-light-500 dark:text-dark-200 hover:text-light-700 dark:hover:text-dark-100"
 														on:click={() => {
 															if ('expanded' in subsection) {
 																subsection.expanded = true;
@@ -168,7 +175,7 @@
 														{/if}
 													</button>
 												</div>
-												<div class="flex-grow" />
+												<div class="flex-grow bg-light-25 dark:bg-dark-600" />
 											</div>
 										{/if}
 									{/each}
@@ -199,10 +206,9 @@
 							</div>
 						{/if}
 						{#if !section.expanded}
-							<div class="flex">
+							<div style:width={`${2 * minWidth}rem`} class="flex justify-center">
 								<button
-									class="px-2 py-1 text-sm text-light-500 hover:text-light-700 dark:text-dark-300"
-									style:margin-left={`${minWidth - 1}rem`}
+									class="px-2 py-0.5 text-sm text-light-500 dark:text-dark-200 hover:text-light-700 dark:hover:text-dark-100"
 									on:click={() => {
 										if ('expanded' in section) {
 											section.expanded = true;
