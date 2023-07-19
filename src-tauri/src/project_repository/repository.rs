@@ -357,18 +357,15 @@ impl<'repository> Repository<'repository> {
         allowed_types.get()
     }
 
-    pub fn push(&self, head: &git2::Oid, branch: &branch::Name) -> Result<(), Error> {
-        let upstream = match branch {
-            branch::Name::Local(_) => {
-                // TODO: no need to actually push to local branch
-                return Ok(());
-            }
-            branch::Name::Remote(upstream) => upstream,
-        };
-
+    pub fn push(
+        &self,
+        head: &git2::Oid,
+        remote_name: &str,
+        branch: &branch::Name,
+    ) -> Result<(), Error> {
         let mut remote = self
             .git_repository
-            .find_remote(upstream.remote())
+            .find_remote(remote_name)
             .context("failed to find remote")
             .map_err(Error::Other)?;
 
@@ -380,8 +377,8 @@ impl<'repository> Repository<'repository> {
 
         let output = Command::new("git")
             .arg("push")
-            .arg(upstream.remote())
-            .arg(format!("{}:{}", head, upstream.to_string()))
+            .arg(remote_name)
+            .arg(format!("{}:{}", head, branch))
             .current_dir(&self.project.path)
             .output()
             .context("failed to fork exec")
@@ -399,7 +396,7 @@ impl<'repository> Repository<'repository> {
             })
             .map_err(Error::Other)?;
 
-        log::info!("{}: pushed {} to {}", self.project.id, head, upstream);
+        log::info!("{}: pushed {} to {}", self.project.id, head, branch);
 
         Ok(())
     }

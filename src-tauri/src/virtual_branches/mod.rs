@@ -2055,12 +2055,23 @@ pub fn push(
         .context("failed to read branch")
         .map_err(Error::Other)?;
 
-    let upstream = vbranch
+    let remote_name = if let Some(project_repository::branch::Name::Remote(upstream_branch)) =
+        vbranch.upstream.as_ref()
+    {
+        upstream_branch.remote().to_string()
+    } else {
+        match get_default_target(&current_session_reader)? {
+            Some(target) => target.remote_name,
+            None => return Err(Error::Other(anyhow::anyhow!("no default target set"))),
+        }
+    };
+
+    let upstream_branch = vbranch
         .upstream
         .unwrap_or_else(|| project_repository::branch::Name::Local(name_to_branch(&vbranch.name)));
 
     project_repository
-        .push(&vbranch.head, &upstream)
+        .push(&vbranch.head, &remote_name, &upstream_branch)
         .map_err(|err| match err {
             project_repository::Error::UnsupportedAuthCredentials(cred_type) => {
                 Error::UnsupportedAuthCredentials(cred_type)
@@ -2068,7 +2079,7 @@ pub fn push(
             err => Error::Other(err.into()),
         })?;
 
-    vbranch.upstream = Some(upstream);
+    vbranch.upstream = Some(upstream_branch);
     branch_writer
         .write(&vbranch)
         .context("failed to write target branch after push")?;
