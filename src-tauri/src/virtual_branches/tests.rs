@@ -2180,11 +2180,8 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
     )?;
 
     // create a new virtual branch from the remote branch
-    let branch1_id = create_virtual_branch_from_branch(
-        &gb_repo,
-        &project_repository,
-        &remote_branch,
-    )?;
+    let branch1_id =
+        create_virtual_branch_from_branch(&gb_repo, &project_repository, &remote_branch)?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
