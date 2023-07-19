@@ -1918,15 +1918,12 @@ fn test_detect_remote_commits() -> Result<()> {
     // push the commit upstream
     let branch1 = branch_reader.read(&branch1_id)?;
     let up_target = branch1.head;
-    repository.reference(
-        "refs/remotes/origin/remote_branch",
-        up_target,
-        true,
-        "update target",
-    )?;
+    let remote_branch: project_repository::branch::Name =
+        "refs/remotes/origin/remote_branch".try_into().unwrap();
+    repository.reference(&remote_branch.to_string(), up_target, true, "update target")?;
     // set the upstream reference
     branch_writer.write(&Branch {
-        upstream: Some("remote_branch".to_string()),
+        upstream: Some(remote_branch),
         ..branch1
     })?;
 
@@ -1995,14 +1992,18 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
         "line1\nline2\nline3\nline4\nbranch\n",
     )?;
     commit_all(&repository)?;
+
+    let upstream: project_repository::branch::Name =
+        "refs/remotes/origin/branch1".try_into().unwrap();
+
     repository.reference(
-        "refs/remotes/branch1",
+        &upstream.to_string(),
         repository.head().unwrap().target().unwrap(),
         true,
         "update target",
     )?;
 
-    repository.set_head("refs/heads/gitbutler/integration")?;
+    repository.set_head(&upstream.to_string())?;
     repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
     // reset the first file
@@ -2021,8 +2022,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     assert_eq!(branches[0].files.len(), 0);
 
     // create a new virtual branch from the remote branch
-    let branch2_id =
-        create_virtual_branch_from_branch(&gb_repo, &project_repository, "refs/remotes/branch1")?;
+    let branch2_id = create_virtual_branch_from_branch(&gb_repo, &project_repository, &upstream)?;
 
     // shouldn't be anything on either of our branches
     let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
@@ -2157,8 +2157,10 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
     commit_all(&repository)?;
     let remote_commit = repository.head().unwrap().target().unwrap();
 
+    let remote_branch: project_repository::branch::Name =
+        "refs/remotes/origin/branch1".try_into().unwrap();
     repository.reference(
-        "refs/remotes/origin/branch1",
+        &remote_branch.to_string(),
         remote_commit,
         true,
         "update target",
@@ -2181,7 +2183,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
     let branch1_id = create_virtual_branch_from_branch(
         &gb_repo,
         &project_repository,
-        "refs/remotes/origin/branch1",
+        &remote_branch,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;

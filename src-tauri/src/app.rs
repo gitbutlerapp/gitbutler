@@ -365,7 +365,7 @@ impl App {
     pub async fn create_virtual_branch_from_branch(
         &self,
         project_id: &str,
-        branch: &str,
+        branch: &project_repository::branch::Name,
     ) -> Result<String> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;

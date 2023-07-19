@@ -44,7 +44,7 @@ pub struct VirtualBranch {
     pub merge_conflicts: Vec<String>,
     pub conflicted: bool,
     pub order: usize,
-    pub upstream: Option<String>,
+    pub upstream: Option<project_repository::branch::Name>,
     pub base_current: bool, // is this vbranch based on the current base branch?
 }
 
@@ -122,7 +122,7 @@ pub struct RemoteBranch {
     pub first_commit_ts: u128,
     pub ahead: u32,
     pub behind: u32,
-    pub upstream: Option<String>,
+    pub upstream: Option<project_repository::branch::RemoteName>,
     pub authors: Vec<Author>,
     pub mergeable: bool,
     pub merge_conflicts: Vec<String>,
@@ -458,7 +458,8 @@ pub fn remote_branches(
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
         .into_iter()
-        .filter_map(|branch| branch.upstream.map(|u| u.replace("refs/heads/", "")))
+        .filter_map(|branch| branch.upstream)
+        .map(|upstream| upstream.branch().to_string())
         .collect::<HashSet<_>>();
     let mut most_recent_branches_by_hash: HashMap<git2::Oid, (git2::Branch, u64)> = HashMap::new();
 
@@ -481,20 +482,17 @@ pub fn remote_branches(
                 continue;
             }
 
-            let branch_name = branch
-                .name()
-                .context("could not get branch name")?
-                .context("could not get branch name")?
-                .to_string();
-            let branch_name = branch_name.replace("origin/", "");
+            let branch_name = project_repository::branch::Name::try_from(&branch);
+            println!("branch_name: {:?}", branch_name);
+            let branch_name = branch_name.context("could not get branch name")?;
 
-            if virtual_branches_names.contains(&branch_name) {
+            if virtual_branches_names.contains(branch_name.branch()) {
                 continue;
             }
-            if branch_name == "HEAD" {
+            if branch_name.branch().eq("HEAD") {
                 continue;
             }
-            if branch_name == "gitbutler/integration" {
+            if branch_name.branch().eq("gitbutler/integration") {
                 continue;
             }
 
@@ -539,7 +537,6 @@ pub fn remote_branches(
     let mut branches: Vec<RemoteBranch> = Vec::new();
     for branch in &top_branches {
         let branch_name = branch.get().name().context("could not get branch name")?;
-        let upstream_branch = branch.upstream();
         match branch.get().target() {
             Some(branch_oid) => {
                 // get the branch ref
@@ -564,12 +561,13 @@ pub fn remote_branches(
                     .map(Author::from)
                     .collect::<HashSet<_>>();
 
-                let upstream = match upstream_branch {
-                    Ok(upstream_branch) => {
-                        upstream_branch.get().name().map(|name| name.to_string())
-                    }
-                    Err(_) => None,
-                };
+                let upstream = branch
+                    .upstream()
+                    .ok()
+                    .map(|upstream_branch| {
+                        project_repository::branch::RemoteName::try_from(&upstream_branch)
+                    })
+                    .transpose()?;
 
                 if count_ahead > 0 {
                     if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
@@ -788,8 +786,7 @@ pub fn list_virtual_branches(
                 }
             }
             if let Some(remote) = upstream_remote {
-                // remove "refs/heads/" from the branch name
-                let branch_name = branch_upstream.replace("refs/heads/", "");
+                let branch_name = branch_upstream.branch();
                 let full_branch_name =
                     format!("refs/remotes/{}/{}", remote.name().unwrap(), branch_name);
                 if let Ok(upstream_oid) = repo.refname_to_id(&full_branch_name) {
@@ -880,10 +877,7 @@ pub fn list_virtual_branches(
             commits,
             mergeable,
             merge_conflicts,
-            upstream: branch
-                .upstream
-                .as_ref()
-                .map(|u| u.replace("refs/heads/", "")),
+            upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
         };
@@ -896,13 +890,8 @@ pub fn list_virtual_branches(
 pub fn create_virtual_branch_from_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    branch_ref: &str,
+    upstream: &project_repository::branch::Name,
 ) -> Result<String> {
-    let name = branch_ref
-        .replace("refs/heads/", "")
-        .replace("refs/remotes/", "")
-        .replace("origin/", ""); // TODO: get this properly
-    let upstream = Some(format!("refs/heads/{}", &name));
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create current session")?;
@@ -914,7 +903,7 @@ pub fn create_virtual_branch_from_branch(
         .context("no default target found")?;
 
     let repo = &project_repository.git_repository;
-    let head = repo.revparse_single(branch_ref)?;
+    let head = repo.revparse_single(&upstream.to_string())?;
     let head_commit = head.peel_to_commit()?;
     let tree = head_commit.tree().context("failed to find tree")?;
 
@@ -933,9 +922,9 @@ pub fn create_virtual_branch_from_branch(
     let branch_id = Uuid::new_v4().to_string();
     let mut branch = Branch {
         id: branch_id.clone(),
-        name,
+        name: upstream.branch().to_string(),
         applied: false,
-        upstream,
+        upstream: Some(upstream.clone()),
         tree: tree.id(),
         head: head_commit.id(),
         created_timestamp_ms: now,
@@ -2015,13 +2004,17 @@ pub fn commit(
     }
     Ok(())
 }
-fn name_to_branch(name: &str) -> String {
+
+fn name_to_branch(name: &str) -> project_repository::branch::LocalName {
     let cleaned_name = name
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect::<String>();
 
     format!("refs/heads/{}", cleaned_name)
+        .as_str()
+        .try_into()
+        .unwrap()
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -2065,15 +2058,16 @@ pub fn push(
 
     let upstream = vbranch
         .upstream
-        .unwrap_or_else(|| name_to_branch(&vbranch.name));
+        .unwrap_or_else(|| project_repository::branch::Name::Local(name_to_branch(&vbranch.name)));
 
-    match project_repository.push(&vbranch.head, &upstream) {
-        Ok(_) => Ok(()),
-        Err(project_repository::Error::UnsupportedAuthCredentials(cred_type)) => {
-            return Err(Error::UnsupportedAuthCredentials(cred_type))
-        }
-        Err(err) => Err(Error::Other(err.into())),
-    }?;
+    project_repository
+        .push(&vbranch.head, &upstream)
+        .map_err(|err| match err {
+            project_repository::Error::UnsupportedAuthCredentials(cred_type) => {
+                Error::UnsupportedAuthCredentials(cred_type)
+            }
+            err => Error::Other(err.into()),
+        })?;
 
     vbranch.upstream = Some(upstream);
     branch_writer

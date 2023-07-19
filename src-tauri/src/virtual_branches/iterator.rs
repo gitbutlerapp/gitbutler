@@ -79,7 +79,12 @@ mod tests {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
             applied: true,
-            upstream: Some(format!("upstream_{}", unsafe { TEST_INDEX })),
+            upstream: Some(
+                format!("refs/remotes/origin/upstream_{}", unsafe { TEST_INDEX })
+                    .as_str()
+                    .try_into()
+                    .unwrap(),
+            ),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
             head: git2::Oid::from_str(&format!(
