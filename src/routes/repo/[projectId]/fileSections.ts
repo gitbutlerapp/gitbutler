@@ -1,4 +1,5 @@
 import type { File, Hunk } from '$lib/vbranches';
+import { plainToInstance } from 'class-transformer';
 
 export type Line = {
 	beforeLineNumber: number | undefined;
@@ -13,23 +14,44 @@ export type HunkHeader = {
 	afterLength: number;
 };
 
-export class HunkSection {
-	hunk!: Hunk;
-	header!: HunkHeader;
-	subSections!: Section[];
-	hasConflictMarkers!: boolean;
-}
-
 export enum SectionType {
 	AddedLines,
 	RemovedLines,
 	Context
 }
 
-export class Section {
-	linesShown!: number;
+export class HunkSection {
+	hunk!: Hunk;
+	header!: HunkHeader;
+	subSections!: ContentSection[];
+	hasConflictMarkers!: boolean;
+
+	get maxLineNumber(): number {
+		// if (section instanceof ContentSection) {
+		// 	return Math.max(
+		// 		section.lines[section.lines.length - 1].afterLineNumber || 0,
+		// 		section.lines[section.lines.length - 1].afterLineNumber || 0
+		// 	);
+		// }
+		const lastSection = this.subSections[this.subSections.length - 1];
+		return Math.max(
+			lastSection.lines[lastSection.lines.length - 1].afterLineNumber || 0,
+			lastSection.lines[lastSection.lines.length - 1].afterLineNumber || 0
+		);
+	}
+}
+
+export class ContentSection {
+	expanded!: boolean;
 	lines!: Line[];
 	sectionType!: SectionType;
+
+	get maxLineNumber(): number {
+		return Math.max(
+			this.lines[this.lines.length - 1].afterLineNumber || 0,
+			this.lines[this.lines.length - 1].afterLineNumber || 0
+		);
+	}
 }
 
 export function parseHunkHeader(header: string | undefined): HunkHeader {
@@ -45,7 +67,7 @@ export function parseHunkHeader(header: string | undefined): HunkHeader {
 export function parseHunkSection(hunk: Hunk): HunkSection {
 	const lines = hunk.diff.split('\n');
 	const header = parseHunkHeader(lines.shift());
-	const hunkSection: HunkSection = {
+	const hunkSection = plainToInstance(HunkSection, {
 		hunk: hunk,
 		header: header,
 		subSections: [],
@@ -53,19 +75,23 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 			hunk.diff.includes('<<<<<<<') &&
 			hunk.diff.includes('=======') &&
 			hunk.diff.includes('>>>>>>>')
-	};
+	});
 
 	let currentBeforeLineNumber = header.beforeStart;
 	let currentAfterLineNumber = header.afterStart;
 
-	let currentSection: Section | undefined;
+	let currentSection: ContentSection | undefined;
 	while (lines.length > 0) {
 		const line = lines.shift();
 		if (!line) break;
 		if (line.startsWith('-')) {
 			if (!currentSection || currentSection.sectionType != SectionType.RemovedLines) {
 				if (currentSection) hunkSection.subSections.push(currentSection);
-				currentSection = { linesShown: 1, lines: [], sectionType: SectionType.RemovedLines };
+				currentSection = plainToInstance(ContentSection, {
+					expanded: true,
+					lines: [],
+					sectionType: SectionType.RemovedLines
+				});
 			}
 			currentSection.lines.push({
 				beforeLineNumber: currentBeforeLineNumber,
@@ -76,7 +102,11 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 		} else if (line.startsWith('+')) {
 			if (!currentSection || currentSection.sectionType != SectionType.AddedLines) {
 				if (currentSection) hunkSection.subSections.push(currentSection);
-				currentSection = { linesShown: 1, lines: [], sectionType: SectionType.AddedLines };
+				currentSection = plainToInstance(ContentSection, {
+					expanded: true,
+					lines: [],
+					sectionType: SectionType.AddedLines
+				});
 			}
 			currentSection.lines.push({
 				beforeLineNumber: undefined,
@@ -87,7 +117,11 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 		} else {
 			if (!currentSection || currentSection.sectionType != SectionType.Context) {
 				if (currentSection) hunkSection.subSections.push(currentSection);
-				currentSection = { linesShown: 0, lines: [], sectionType: SectionType.Context };
+				currentSection = plainToInstance(ContentSection, {
+					expanded: false,
+					lines: [],
+					sectionType: SectionType.Context
+				});
 			}
 			currentSection.lines.push({
 				beforeLineNumber: currentBeforeLineNumber,
@@ -104,7 +138,7 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 	return hunkSection;
 }
 
-export function parseFileSections(file: File): (Section | HunkSection)[] {
+export function parseFileSections(file: File): (ContentSection | HunkSection)[] {
 	if (!file.content) return [];
 
 	const hunkSections = file.hunks
@@ -113,16 +147,20 @@ export function parseFileSections(file: File): (Section | HunkSection)[] {
 		.sort((a, b) => a.header.beforeStart - b.header.beforeStart);
 
 	const lines = file.content.split('\n');
-	const sections: (Section | HunkSection)[] = [];
+	const sections: (ContentSection | HunkSection)[] = [];
 
 	let currentBeforeLineNumber = 1;
 	let currentAfterLineNumber = 1;
-	let currentContext: Section | undefined = undefined;
+	let currentContext: ContentSection | undefined = undefined;
 
 	let i = 0;
 	while (i < lines.length) {
 		if (currentContext === undefined) {
-			currentContext = { linesShown: 0, lines: [], sectionType: SectionType.Context };
+			currentContext = plainToInstance(ContentSection, {
+				expanded: false,
+				lines: [],
+				sectionType: SectionType.Context
+			});
 		}
 		const nextHunk = hunkSections.at(0);
 		if (

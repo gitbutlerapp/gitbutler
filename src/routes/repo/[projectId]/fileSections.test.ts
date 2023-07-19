@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import type { File, Hunk } from '$lib/vbranches';
 import { parseHunkSection, parseFileSections, SectionType } from './fileSections';
-import type { Section, HunkSection } from './fileSections';
+import type { ContentSection, HunkSection } from './fileSections';
 
 const fileContent = `<!DOCTYPE html>
 <html lang="en">
@@ -111,8 +111,8 @@ test('parses a balanced hunk section', () => {
 	};
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
-	expect(hunkSection?.hunk).toBe(balancedHunk);
 	expect(hunkSection?.hasConflictMarkers).toBe(false);
+	expect(hunkSection?.hunk).toStrictEqual(balancedHunk);
 	expect(hunkSection?.header.beforeStart).toBe(3);
 	expect(hunkSection?.header.beforeLength).toBe(7);
 	expect(hunkSection?.header.afterStart).toBe(3);
@@ -120,7 +120,7 @@ test('parses a balanced hunk section', () => {
 	expect(hunkSection.subSections.length).toBe(4);
 	const firstContext = hunkSection.subSections[0];
 	expect(firstContext.sectionType).toBe(SectionType.Context);
-	expect(firstContext.linesShown).toBe(0);
+	expect(firstContext.expanded).toBeFalsy();
 	expect(firstContext.lines).toEqual([
 		{
 			beforeLineNumber: 3,
@@ -140,7 +140,7 @@ test('parses a balanced hunk section', () => {
 	]);
 	const removedLines = hunkSection.subSections[1];
 	expect(removedLines.sectionType).toBe(SectionType.RemovedLines);
-	expect(removedLines.linesShown).toBe(1);
+	expect(removedLines.expanded).toBeTruthy();
 	expect(removedLines.lines).toEqual([
 		{
 			beforeLineNumber: 6,
@@ -150,7 +150,7 @@ test('parses a balanced hunk section', () => {
 	]);
 	const addedLines = hunkSection.subSections[2];
 	expect(addedLines.sectionType).toBe(SectionType.AddedLines);
-	expect(addedLines.linesShown).toBe(1);
+	expect(addedLines.expanded).toBeTruthy();
 	expect(addedLines.lines).toEqual([
 		{
 			beforeLineNumber: undefined,
@@ -160,7 +160,7 @@ test('parses a balanced hunk section', () => {
 	]);
 	const secondContext = hunkSection.subSections[3];
 	expect(secondContext.sectionType).toBe(SectionType.Context);
-	expect(secondContext.linesShown).toBe(0);
+	expect(secondContext.expanded).toBeFalsy();
 	expect(secondContext.lines).toEqual([
 		{
 			beforeLineNumber: 7,
@@ -189,7 +189,7 @@ test('parses a hunk with conflict markers', () => {
 	};
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
-	expect(hunkSection?.hunk).toBe(balancedHunk);
+	expect(hunkSection?.hunk).toStrictEqual(balancedHunk);
 	expect(hunkSection?.hasConflictMarkers).toBe(true);
 });
 
@@ -202,7 +202,7 @@ test('parses hunk sections with more added', () => {
 	};
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
-	expect(hunkSection?.hunk).toBe(balancedHunk);
+	expect(hunkSection?.hunk).toStrictEqual(balancedHunk);
 	expect(hunkSection?.header.beforeStart).toBe(3);
 	expect(hunkSection?.header.beforeLength).toBe(7);
 	expect(hunkSection?.header.afterStart).toBe(3);
@@ -210,7 +210,7 @@ test('parses hunk sections with more added', () => {
 	expect(hunkSection.subSections.length).toBe(4);
 	const firstContext = hunkSection.subSections[0];
 	expect(firstContext.sectionType).toBe(SectionType.Context);
-	expect(firstContext.linesShown).toBe(0);
+	expect(firstContext.expanded).toBeFalsy();
 	expect(firstContext.lines).toEqual([
 		{
 			beforeLineNumber: 3,
@@ -231,7 +231,7 @@ test('parses hunk sections with more added', () => {
 
 	const removedLines = hunkSection.subSections[1];
 	expect(removedLines.sectionType).toBe(SectionType.RemovedLines);
-	expect(removedLines.linesShown).toBe(1);
+	expect(removedLines.expanded).toBeTruthy();
 	expect(removedLines.lines).toEqual([
 		{
 			beforeLineNumber: 6,
@@ -242,7 +242,7 @@ test('parses hunk sections with more added', () => {
 
 	const addedLines = hunkSection.subSections[2];
 	expect(addedLines.sectionType).toBe(SectionType.AddedLines);
-	expect(addedLines.linesShown).toBe(1);
+	expect(addedLines.expanded).toBeTruthy();
 	expect(addedLines.lines).toEqual([
 		{
 			beforeLineNumber: undefined,
@@ -258,7 +258,7 @@ test('parses hunk sections with more added', () => {
 
 	const secondContext = hunkSection.subSections[3];
 	expect(secondContext.sectionType).toBe(SectionType.Context);
-	expect(secondContext.linesShown).toBe(0);
+	expect(secondContext.expanded).toBeFalsy();
 	expect(secondContext.lines).toEqual([
 		{
 			beforeLineNumber: 7,
@@ -287,7 +287,7 @@ test('parses a hunk with two changed places', () => {
 	};
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
-	expect(hunkSection?.hunk).toBe(balancedHunk);
+	expect(hunkSection?.hunk).toStrictEqual(balancedHunk);
 	expect(hunkSection?.header.beforeStart).toBe(1);
 	expect(hunkSection?.header.beforeLength).toBe(12);
 	expect(hunkSection?.header.afterStart).toBe(1);
@@ -296,7 +296,7 @@ test('parses a hunk with two changed places', () => {
 
 	const firstContext = hunkSection.subSections[0];
 	expect(firstContext.sectionType).toBe(SectionType.Context);
-	expect(firstContext.linesShown).toBe(0);
+	expect(firstContext.expanded).toBeFalsy();
 	expect(firstContext.lines).toEqual([
 		{
 			beforeLineNumber: 1,
@@ -316,7 +316,7 @@ test('parses a hunk with two changed places', () => {
 	]);
 	const firstHunkSubsection = hunkSection.subSections[1];
 	expect(firstHunkSubsection.sectionType).toBe(SectionType.RemovedLines);
-	expect(firstHunkSubsection.linesShown).toBe(1);
+	expect(firstHunkSubsection.expanded).toBeTruthy();
 	expect(firstHunkSubsection.lines).toEqual([
 		{
 			beforeLineNumber: 4,
@@ -326,7 +326,7 @@ test('parses a hunk with two changed places', () => {
 	]);
 	const secondContext = hunkSection.subSections[2];
 	expect(secondContext.sectionType).toBe(SectionType.Context);
-	expect(secondContext.linesShown).toBe(0);
+	expect(secondContext.expanded).toBeFalsy();
 	expect(secondContext.lines).toEqual([
 		{
 			beforeLineNumber: 5,
@@ -351,7 +351,7 @@ test('parses a hunk with two changed places', () => {
 	]);
 	const secondHunkSubsection = hunkSection.subSections[3];
 	expect(secondHunkSubsection.sectionType).toBe(SectionType.RemovedLines);
-	expect(secondHunkSubsection.linesShown).toBe(1);
+	expect(secondHunkSubsection.expanded).toBeTruthy();
 	expect(secondHunkSubsection.lines).toEqual([
 		{
 			beforeLineNumber: 9,
@@ -361,7 +361,7 @@ test('parses a hunk with two changed places', () => {
 	]);
 	const thirdHunkScubsection = hunkSection.subSections[4];
 	expect(thirdHunkScubsection.sectionType).toBe(SectionType.AddedLines);
-	expect(thirdHunkScubsection.linesShown).toBe(1);
+	expect(thirdHunkScubsection.expanded).toBeTruthy();
 	expect(thirdHunkScubsection.lines).toEqual([
 		{
 			beforeLineNumber: undefined,
@@ -371,7 +371,7 @@ test('parses a hunk with two changed places', () => {
 	]);
 	const thirdContext = hunkSection.subSections[5];
 	expect(thirdContext.sectionType).toBe(SectionType.Context);
-	expect(thirdContext.linesShown).toBe(0);
+	expect(thirdContext.expanded).toBeFalsy();
 	expect(thirdContext.lines).toEqual([
 		{
 			beforeLineNumber: 10,
@@ -409,9 +409,9 @@ test('parses file with one hunk and balanced add-remove', () => {
 	};
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
-	const beforeSection = sections[0] as Section;
+	const beforeSection = sections[0] as ContentSection;
 	expect(beforeSection.sectionType).toBe(SectionType.Context);
-	expect(beforeSection.linesShown).toBe(0);
+	expect(beforeSection.expanded).toBeFalsy();
 	expect(beforeSection.lines.length).toBe(2);
 	expect(beforeSection.lines[0]).toEqual({
 		beforeLineNumber: 1,
@@ -425,11 +425,11 @@ test('parses file with one hunk and balanced add-remove', () => {
 	});
 
 	const hunkSection = sections[1] as HunkSection;
-	expect(hunkSection.hunk).toBe(hunk);
+	expect(hunkSection.hunk).toStrictEqual(hunk);
 
-	const afterSection = sections[2] as Section;
+	const afterSection = sections[2] as ContentSection;
 	expect(afterSection.sectionType).toBe(SectionType.Context);
-	expect(afterSection.linesShown).toBe(0);
+	expect(afterSection.expanded).toBeFalsy();
 	expect(afterSection.lines.length).toBe(3);
 	expect(afterSection.lines[0]).toEqual({
 		beforeLineNumber: 10,
@@ -466,7 +466,7 @@ test('parses file with one hunk with more added than removed', () => {
 	};
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
-	const beforeSection = sections[0] as Section;
+	const beforeSection = sections[0] as ContentSection;
 	expect(beforeSection.lines.length).toBe(2);
 	expect(beforeSection.lines[0]).toEqual({
 		beforeLineNumber: 1,
@@ -480,9 +480,9 @@ test('parses file with one hunk with more added than removed', () => {
 	});
 
 	const hunkSection = sections[1] as HunkSection;
-	expect(hunkSection.hunk).toBe(hunk);
+	expect(hunkSection.hunk).toStrictEqual(hunk);
 
-	const afterSection = sections[2] as Section;
+	const afterSection = sections[2] as ContentSection;
 	expect(afterSection.lines.length).toBe(3);
 	expect(afterSection.lines[0]).toEqual({
 		beforeLineNumber: 10,
@@ -526,8 +526,8 @@ test('parses file with two hunks ordered by position in file', () => {
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
 	const topHunkSection = sections[0] as HunkSection;
-	expect(topHunkSection.hunk).toBe(topHunk);
-	const middleSection = sections[1] as Section;
+	expect(topHunkSection.hunk).toStrictEqual(topHunk);
+	const middleSection = sections[1] as ContentSection;
 	expect(middleSection.lines.length).toBe(2);
 	expect(middleSection.lines[0]).toEqual({
 		beforeLineNumber: 6,
@@ -540,7 +540,7 @@ test('parses file with two hunks ordered by position in file', () => {
 		content: '		%sveltekit.head%'
 	});
 	const bottomHunkSection = sections[2] as HunkSection;
-	expect(bottomHunkSection.hunk).toBe(bottomHunk);
+	expect(bottomHunkSection.hunk).toStrictEqual(bottomHunk);
 	expect(bottomHunkSection.subSections[0].sectionType).toBe(SectionType.Context);
 	expect(bottomHunkSection.subSections[0].lines[0]).toEqual({
 		beforeLineNumber: 8,
@@ -597,7 +597,7 @@ test('parses whole file deleted', () => {
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(1);
 	const deleteHunkSection = sections[0] as HunkSection;
-	expect(deleteHunkSection.hunk).toBe(deleteHunk);
+	expect(deleteHunkSection.hunk).toStrictEqual(deleteHunk);
 	expect(deleteHunkSection.subSections.length).toBe(1);
 	expect(deleteHunkSection.subSections[0].sectionType).toBe(SectionType.RemovedLines);
 	expect(deleteHunkSection.subSections[0].lines.length).toBe(12);
@@ -622,7 +622,7 @@ test('parses new file created', () => {
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(1);
 	const deleteHunkSection = sections[0] as HunkSection;
-	expect(deleteHunkSection.hunk).toBe(newFileHunk);
+	expect(deleteHunkSection.hunk).toStrictEqual(newFileHunk);
 	expect(deleteHunkSection.subSections.length).toBe(1);
 	expect(deleteHunkSection.subSections[0].sectionType).toBe(SectionType.AddedLines);
 	expect(deleteHunkSection.subSections[0].lines.length).toBe(12);

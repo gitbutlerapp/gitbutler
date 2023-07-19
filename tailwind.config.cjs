@@ -88,6 +88,7 @@ const config = {
 				900: '#202223' // Normal text
 			},
 			blue: {
+				100: '#DEF4FF',
 				200: '#bfdbfe',
 				400: '#60a5fa',
 				500: '#3b82f6',
