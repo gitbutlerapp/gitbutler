@@ -1900,14 +1900,31 @@ fn write_tree(
             // if file is executable, use 755, otherwise 644
             let mut filemode = git2::FileMode::Blob;
             // check if full_path file is executable
-            if let Ok(metadata) = std::fs::metadata(&full_path) {
+            if let Ok(metadata) = std::fs::symlink_metadata(&full_path) {
                 if metadata.permissions().mode() & 0o111 != 0 {
                     filemode = git2::FileMode::BlobExecutable;
+                }
+                if metadata.file_type().is_symlink() {
+                    filemode = git2::FileMode::Link;
                 }
             }
 
             // get the blob
-            if let Ok(tree_entry) = base_tree.get_path(rel_path) {
+            if filemode == git2::FileMode::Link {
+                // it's a symlink, make the content the path of the link
+                let link_target = std::fs::read_link(&full_path)?;
+                // make link_target into a relative path
+                let link_target = link_target
+                    .strip_prefix(project_repository.path())
+                    .unwrap();
+                // create a blob where the content is that target path string
+                // make a [u8] out of the PathBuf
+                let path_str = link_target.to_str().unwrap();
+                let bytes: &[u8] = path_str.as_bytes();
+
+                let blob_oid = git_repository.blob(bytes)?;
+                builder.upsert(rel_path, blob_oid, filemode);
+            } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 // blob from tree_entry
                 let blob = tree_entry
                     .to_object(git_repository)

@@ -1,4 +1,6 @@
+use std::fs::{Permissions, self};
 use std::{thread, time::Duration};
+use std::os::unix::fs::symlink;
 
 use tempfile::tempdir;
 
@@ -2427,6 +2429,95 @@ fn test_commit_add_and_delete_files() -> Result<()> {
     Ok(())
 }
 
+
+#[test]
+fn test_commit_executable_and_symlinks() -> Result<()> {
+    let repository = test_repository()?;
+    let project = projects::Project::try_from(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store,
+        user_store,
+    )?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "file1\n",
+    )?;
+    let file_path2 = std::path::Path::new("test2.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "file2\n",
+    )?;
+    commit_all(&repository)?;
+
+    let commit1_oid = repository.head().unwrap().target().unwrap();
+    target::Writer::new(&gb_repo).write_default(&target::Target {
+        branch_name: "master".to_string(),
+        remote_name: "origin".to_string(),
+        remote_url: "origin".to_string(),
+        sha: commit1_oid,
+        behind: 0,
+    })?;
+    update_gitbutler_integration(&gb_repo, &project_repository)?;
+
+    // add symlinked file
+    let file_path3 = std::path::Path::new("test3.txt");
+    let src = std::path::Path::new(&project.path).join(file_path2);
+    let dst = std::path::Path::new(&project.path).join(file_path3);
+    symlink(src, dst)?;
+
+    // add executable
+    let file_path4 = std::path::Path::new("test4.bin");
+    let exec = std::path::Path::new(&project.path).join(file_path4);
+    std::fs::write(
+        &exec,
+        "exec\n",
+    )?;
+    let permissions = fs::metadata(&exec)?.permissions();
+    let new_permissions = Permissions::from_mode(permissions.mode() | 0o111); // Add execute permission
+    fs::set_permissions(&exec, new_permissions)?;
+
+    let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    // commit
+    commit(&gb_repo, &project_repository, &branch1_id, "branch1 commit")?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
+    let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+
+    let commit = &branch1.commits[0].id;
+    let commit = git2::Oid::from_str(commit).expect("failed to parse oid");
+    let commit = repository
+        .find_commit(commit)
+        .expect("failed to get commit object");
+
+    let tree = commit.tree().expect("failed to get tree");
+
+    let list = tree_to_entry_list(&repository, &tree).unwrap();
+    assert_eq!(list[0].0, "test.txt");
+    assert_eq!(list[0].1, "100644");
+    assert_eq!(list[1].0, "test2.txt");
+    assert_eq!(list[1].1, "100644");
+    assert_eq!(list[2].0, "test3.txt");
+    assert_eq!(list[2].1, "120000");
+    assert_eq!(list[2].2, "test2.txt");
+    assert_eq!(list[3].0, "test4.bin");
+    assert_eq!(list[3].1, "100755");
+
+    Ok(())
+}
+
 fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result<Vec<String>> {
     let mut file_list = Vec::new();
     for entry in tree.iter() {
@@ -2440,6 +2531,26 @@ fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
         }
+    }
+    Ok(file_list)
+}
+
+fn tree_to_entry_list(repository: &git2::Repository, tree: &git2::Tree) -> Result<Vec<(String, String, String)>> {
+    let mut file_list = Vec::new();
+    for entry in tree.iter() {
+        let path = entry.name().unwrap();
+        let entry = tree
+            .get_path(std::path::Path::new(path))
+            .context(format!("failed to get tree entry for path {}", path))?;
+        let object = entry
+            .to_object(repository)
+            .context(format!("failed to get object for tree entry {}", path))?;
+        let blob = object.as_blob().context("failed to get blob")?;
+        // convert content to string
+        let content =
+            std::str::from_utf8(blob.content()).context("failed to convert content to string")?;
+        let octal_mode = format!("{:o}", entry.filemode());
+        file_list.push((path.to_string(), octal_mode, content.to_string()));
     }
     Ok(file_list)
 }
