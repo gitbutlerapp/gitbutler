@@ -57,7 +57,7 @@
 	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
 
 	function getGutterMinWidth(max: number) {
-		if (max >= 1000) return 2;
+		if (max >= 1000) return 2.25;
 		if (max >= 100) return 1.75;
 		if (max >= 10) return 1.5;
 		return 1.25;
@@ -151,11 +151,13 @@
 										{#if !subsection.expanded}
 											<div
 												class="flex h-5 w-full border-light-200 dark:border-dark-300"
-												class:border-t={sidx == section.subSections.length - 1}
-												class:border-b={sidx == 0}
+												class:border-t={sidx == section.subSections.length - 1 ||
+													(sidx > 0 && sidx < section.subSections.length - 1)}
+												class:border-b={sidx == 0 ||
+													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="border-r border-light-200 bg-light-50 text-center dark:border-dark-400 dark:bg-dark-500 dark:text-white"
+													class="bg-light-25 border-r border-light-200 text-center dark:border-dark-400 dark:bg-dark-500 dark:text-white"
 													style:min-width={`${2 * minWidth}rem`}
 												>
 													<button
@@ -208,7 +210,7 @@
 						{#if !section.expanded}
 							<div style:width={`${2 * minWidth}rem`} class="flex justify-center">
 								<button
-									class="px-2 py-0.5 text-sm text-light-500 dark:text-dark-200 hover:text-light-700 dark:hover:text-dark-100"
+									class="px-2 py-0.5 text-sm text-light-600 hover:text-light-700 dark:text-dark-200 dark:hover:text-dark-100"
 									on:click={() => {
 										if ('expanded' in section) {
 											section.expanded = true;
