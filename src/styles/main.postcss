@@ -45,6 +45,28 @@ textarea {
 
 /* SCROLL BAR STYLING */
 
+/* Firefox */
+/* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--secondary) var(--primary);
+}*/
+/* Chrome, Edge, and Safari */
+*::-webkit-scrollbar {
+	width: 12px;
+	height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+}
+
+*::-webkit-scrollbar-thumb {
+	background-color: #00000010;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background-color: #00000020;
+}
+
 /* CARD STYLING */
 .card {
 	@apply rounded border-[0.5px] border-gb-700 bg-card-default shadow;
@@ -110,7 +132,6 @@ button:focus {
 }
 
 .filled {
-	text-shadow: 0px 2px #00000021;
 }
 
 .filled,
@@ -146,10 +167,10 @@ button:focus {
 	@apply bg-[#3F3F46]/20;
 }
 .basic.filled {
-	@apply bg-white text-light-700 no-underline dark:bg-dark-300 dark:text-dark-50;
+	@apply bg-light-50 border border-light-300 dark:border-dark-400 text-light-700 no-underline dark:bg-dark-700 dark:text-dark-50;
 }
 .basic.filled:hover {
-	@apply bg-[#35353B];
+	/* @apply bg-[#35353B]; */
 }
 
 .primary {

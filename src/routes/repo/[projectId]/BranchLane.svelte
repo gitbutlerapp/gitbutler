@@ -95,7 +95,7 @@
 	draggable="true"
 	class:w-full={maximized}
 	class:w-96={!maximized}
-	class="flex max-h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-auto bg-light-200 px-3 py-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	class="pl-[12px] flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-grabbing snap-center flex-col overflow-y-scroll bg-light-200 py-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -119,13 +119,13 @@
 	}}
 >
 	<div
-		class="mb-2 flex w-full shrink-0 items-center rounded bg-light-200 text-lg text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="mb-2 flex w-full shrink-0 items-center rounded bg-light-200 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div
 			on:dblclick={() => (maximized = !maximized)}
 			tabindex="0"
 			role="button"
-			class="h-8 w-8 flex-grow-0 cursor-pointer p-2 text-light-600 dark:text-dark-200"
+			class="h-8 w-8 flex-grow-0 cursor-pointer py-2 text-light-600 dark:text-dark-200"
 		>
 			<IconBranch />
 		</div>
@@ -185,9 +185,7 @@
 		</PopupMenuItem>
 	</PopupMenu>
 
-	<div
-		class="flex flex-col rounded bg-white p-2 shadow-lg dark:border dark:border-dark-600 dark:bg-dark-800"
-	>
+	<div class="flex flex-col pt-2">
 		<div class="mb-2 flex items-center">
 			<textarea
 				bind:this={textAreaInput}
@@ -243,7 +241,9 @@
 		<div class="relative">
 			<!-- Commit bubble track -->
 			<div
-				class="absolute top-0 h-full w-0.5 bg-light-400 dark:bg-dark-500"
+				class="absolute top-0 h-full w-0.5
+				bg-gradient-to-b from-light-400 dark:from-dark-500 to-transparent
+				"
 				style="left: 0.925rem"
 			/>
 			<div class="flex w-full p-2">
@@ -258,7 +258,7 @@
 			</div>
 			<!-- Unpushed commits -->
 			{#each localCommits as commit (commit.id)}
-				<div class="flex w-full px-2 pb-4">
+				<div class="flex w-full pb-4 px-1">
 					<div class="z-10 ml-1 w-6 py-4">
 						<!-- Unpushed commit bubble -->
 						<div
@@ -277,7 +277,7 @@
 			<!-- Commit bubble track -->
 			<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
 			<!-- Section title for remote commits -->
-			<div class="flex w-full px-2 pb-4">
+			<div class="flex w-full pb-4 px-1">
 				<div class="z-10 ml-1 w-6 py-4">
 					<div
 						class="h-2 w-2 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
