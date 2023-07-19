@@ -482,9 +482,8 @@ pub fn remote_branches(
                 continue;
             }
 
-            let branch_name = project_repository::branch::Name::try_from(&branch);
-            println!("branch_name: {:?}", branch_name);
-            let branch_name = branch_name.context("could not get branch name")?;
+            let branch_name = project_repository::branch::Name::try_from(&branch)
+                .context("could not get branch name")?;
 
             if virtual_branches_names.contains(branch_name.branch()) {
                 continue;
