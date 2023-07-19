@@ -719,8 +719,6 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     let project_store = projects::Storage::new(storage);
     project_store.add_project(&project)?;
 
-    println!("{}", gb_repo_path);
-
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(project_repo.root().join(file_path), "hello world")?;
     commit_all(&repository)?;
