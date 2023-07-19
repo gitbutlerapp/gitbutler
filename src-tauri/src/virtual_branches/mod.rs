@@ -1914,9 +1914,7 @@ fn write_tree(
                 // it's a symlink, make the content the path of the link
                 let link_target = std::fs::read_link(&full_path)?;
                 // make link_target into a relative path
-                let link_target = link_target
-                    .strip_prefix(project_repository.path())
-                    .unwrap();
+                let link_target = link_target.strip_prefix(project_repository.path()).unwrap();
                 // create a blob where the content is that target path string
                 // make a [u8] out of the PathBuf
                 let path_str = link_target.to_str().unwrap();

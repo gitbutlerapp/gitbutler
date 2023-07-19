@@ -1,6 +1,6 @@
-use std::fs::{Permissions, self};
-use std::{thread, time::Duration};
+use std::fs::{self, Permissions};
 use std::os::unix::fs::symlink;
+use std::{thread, time::Duration};
 
 use tempfile::tempdir;
 
@@ -2429,7 +2429,6 @@ fn test_commit_add_and_delete_files() -> Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn test_commit_executable_and_symlinks() -> Result<()> {
     let repository = test_repository()?;
@@ -2478,10 +2477,7 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     // add executable
     let file_path4 = std::path::Path::new("test4.bin");
     let exec = std::path::Path::new(&project.path).join(file_path4);
-    std::fs::write(
-        &exec,
-        "exec\n",
-    )?;
+    std::fs::write(&exec, "exec\n")?;
     let permissions = fs::metadata(&exec)?.permissions();
     let new_permissions = Permissions::from_mode(permissions.mode() | 0o111); // Add execute permission
     fs::set_permissions(&exec, new_permissions)?;
@@ -2535,7 +2531,10 @@ fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result
     Ok(file_list)
 }
 
-fn tree_to_entry_list(repository: &git2::Repository, tree: &git2::Tree) -> Result<Vec<(String, String, String)>> {
+fn tree_to_entry_list(
+    repository: &git2::Repository,
+    tree: &git2::Tree,
+) -> Result<Vec<(String, String, String)>> {
     let mut file_list = Vec::new();
     for entry in tree.iter() {
         let path = entry.name().unwrap();
