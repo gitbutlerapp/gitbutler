@@ -411,7 +411,6 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-
         virtual_branches::unapply_branch(&gb_repository, &project_repository, branch_id)?;
         Ok(())
     }
@@ -422,12 +421,11 @@ impl App {
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
 
-    let mut semaphores = self.vbranch_semaphores.lock().await;
+        let mut semaphores = self.vbranch_semaphores.lock().await;
         let semaphore = semaphores
             .entry(project_id.to_string())
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
-
 
         virtual_branches::apply_branch(&gb_repository, &project_repository, branch_id)?;
         Ok(())
@@ -450,7 +448,6 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-
         virtual_branches::commit(&gb_repository, &project_repository, branch, message)?;
         Ok(())
     }
@@ -464,7 +461,11 @@ impl App {
         Ok(())
     }
 
-    pub async fn push_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<(), Error> {
+    pub async fn push_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_id: &str,
+    ) -> Result<(), Error> {
         let gb_repository = self.gb_repository(project_id).map_err(Error::Other)?;
         let project = self.gb_project(project_id).map_err(Error::Other)?;
         let project_repository =
@@ -474,8 +475,11 @@ impl App {
         let semaphore = semaphores
             .entry(project_id.to_string())
             .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await.context("failed to acquire semaphore").
-            map_err(Error::Other)?;
+        let _permit = semaphore
+            .acquire()
+            .await
+            .context("failed to acquire semaphore")
+            .map_err(Error::Other)?;
 
         match virtual_branches::push(&project_repository, &gb_repository, branch_id) {
             Ok(_) => Ok(()),
