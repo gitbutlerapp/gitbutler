@@ -100,41 +100,4 @@
 	<div class="project-container h-100 flex-auto overflow-y-auto">
 		<slot />
 	</div>
-
-	<footer class="w-full text-sm font-medium">
-		<div
-			class="flex h-8 flex-shrink-0 select-none items-center border-t border-light-200 dark:border-dark-700"
-		>
-			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
-				<Link href="/projects/{$project?.id}/settings">
-					{#if $project?.api?.sync}
-						<div class="flex flex-row items-center space-x-2">
-							<div class="h-2 w-2 rounded-full bg-green-700" />
-							<span>Backed up</span>
-						</div>
-					{:else}
-						<div class="h-2 w-2 rounded-full bg-red-700" />
-						Offline
-					{/if}
-				</Link>
-
-				<div class="flex gap-1">
-					<Tooltip label="Send feedback">
-						<Button
-							kind="plain"
-							height="small"
-							icon={IconEmail}
-							on:click={() => events.emit('openSendIssueModal')}
-						/>
-					</Tooltip>
-
-					{#if $project?.api?.sync}
-						<Link target="_blank" rel="noreferrer" href={projectUrl($project)}>
-							Open in GitButler Cloud
-						</Link>
-					{/if}
-				</div>
-			</div>
-		</div>
-	</footer>
 </div>
