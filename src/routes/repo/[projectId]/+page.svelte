@@ -47,7 +47,7 @@
 	<div class="flex w-full max-w-full" role="group" on:dragover|preventDefault>
 		<Tray {branches} {target} {remoteBranches} />
 		<div
-			class="w-[0.125rem] shrink-0 cursor-col-resize bg-light-300 hover:bg-orange-200 dark:bg-dark-1000 dark:hover:bg-orange-700"
+			class="z-50 -ml-[0.250rem] w-[0.250rem] shrink-0 cursor-col-resize hover:bg-orange-200 dark:bg-dark-1000 dark:hover:bg-orange-700"
 			draggable="true"
 			role="separator"
 			on:drag={(e) => {
