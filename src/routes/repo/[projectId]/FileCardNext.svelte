@@ -18,6 +18,9 @@
 	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
+	import { vsiFileExtensionsToIcons, vsiFileNamesToIcons } from '$lib/ext-icons/vsi/typeMap';
+	import { vsiFileIcons } from '$lib/ext-icons';
+	import { getVSIFileIcon } from '$lib/ext-icons';
 
 	export let file: File;
 	export let conflicted: boolean;
@@ -85,6 +88,13 @@
 				class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
 				title={file.path}
 			>
+				<img
+					src={getVSIFileIcon(file.path)}
+					alt="js"
+					width="13"
+					style="width: 0.8125rem"
+					class="inline mr-1"
+				/>
 				{@html boldenFilename(file.path)}
 			</div>
 			<div
@@ -95,7 +105,7 @@
 				on:keypress={() => (expanded = !expanded)}
 				role="button"
 				tabindex="0"
-				class="cursor-pointer p-2 text-light-600 dark:text-dark-200"
+				class="cursor-pointer py-2 px-3 text-light-600 dark:text-dark-200"
 			>
 				{#if expanded}
 					<IconTriangleUp />
@@ -114,7 +124,7 @@
 		{/if}
 
 		{#if expanded}
-			<div class="hunk-change-container flex flex-col rounded px-2">
+			<div class="hunk-change-container flex flex-col rounded pl-2 pr-3">
 				{#each sections as section, idx}
 					{#if 'hunk' in section}
 						<div
@@ -157,7 +167,7 @@
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:border-dark-400 dark:bg-dark-500 dark:text-light-600 dark:hover:bg-dark-400 dark:hover:text-black"
+													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:hover:bg-dark-400 dark:hover:text-black dark:border-dark-400 dark:bg-dark-500 dark:text-light-600"
 													style:min-width={`${2 * minWidth}rem`}
 												>
 													<button

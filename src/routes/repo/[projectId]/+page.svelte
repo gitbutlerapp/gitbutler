@@ -71,10 +71,11 @@
 		{:else}
 			<select bind:value={targetChoice}>
 				{#each remoteBranchNames as branch}
-					{#if branch == 'origin/master' || branch == 'origin/main'}
-						<option value={branch} selected>{branch}</option>
+					{@const strippedBranch = branch.substring(13)}
+					{#if strippedBranch == 'origin/master' || strippedBranch == 'origin/main'}
+						<option value={strippedBranch} selected>{strippedBranch}</option>
 					{:else}
-						<option value={branch}>{branch}</option>
+						<option value={strippedBranch}>{strippedBranch}</option>
 					{/if}
 				{/each}
 			</select>
