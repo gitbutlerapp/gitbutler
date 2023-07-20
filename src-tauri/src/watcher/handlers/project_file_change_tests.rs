@@ -1,3 +1,5 @@
+use std::path;
+
 use anyhow::Result;
 use tempfile::tempdir;
 
@@ -113,10 +115,10 @@ fn test_register_existing_commited_file() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     std::fs::write(project_repo.root().join(file_path), "test2")?;
@@ -157,10 +159,10 @@ fn test_register_must_init_current_session() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let file_path = std::path::Path::new("test.txt");
@@ -190,10 +192,10 @@ fn test_register_must_not_override_current_session() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let file_path = std::path::Path::new("test.txt");
@@ -228,10 +230,10 @@ fn test_register_new_file() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let file_path = std::path::Path::new("test.txt");
@@ -274,10 +276,10 @@ fn test_register_new_file_twice() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let file_path = std::path::Path::new("test.txt");
@@ -339,10 +341,10 @@ fn test_register_file_delted() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let file_path = std::path::Path::new("test.txt");
@@ -396,10 +398,10 @@ fn test_flow_with_commits() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let size = 10;
@@ -493,10 +495,10 @@ fn test_flow_no_commits() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let size = 10;
@@ -589,10 +591,10 @@ fn test_flow_signle_session() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let size = 10;
@@ -661,10 +663,10 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
@@ -730,10 +732,10 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
         user_store.clone(),
     )?;
     let listener = Handler::new(
-        gb_repo_path.into(),
-        project.id.clone(),
-        project_store,
-        user_store,
+        path::Path::new(&gb_repo_path),
+        &project.id,
+        &project_store,
+        &user_store,
     );
 
     let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
