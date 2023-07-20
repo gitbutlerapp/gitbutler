@@ -1920,7 +1920,7 @@ fn test_detect_remote_commits() -> Result<()> {
     // push the commit upstream
     let branch1 = branch_reader.read(&branch1_id)?;
     let up_target = branch1.head;
-    let remote_branch: project_repository::branch::Name =
+    let remote_branch: project_repository::branch::RemoteName =
         "refs/remotes/origin/remote_branch".try_into().unwrap();
     repository.reference(&remote_branch.to_string(), up_target, true, "update target")?;
     // set the upstream reference

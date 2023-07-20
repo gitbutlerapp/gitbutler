@@ -357,15 +357,10 @@ impl<'repository> Repository<'repository> {
         allowed_types.get()
     }
 
-    pub fn push(
-        &self,
-        head: &git2::Oid,
-        remote_name: &str,
-        branch: &branch::Name,
-    ) -> Result<(), Error> {
+    pub fn push(&self, head: &git2::Oid, branch: &branch::RemoteName) -> Result<(), Error> {
         let mut remote = self
             .git_repository
-            .find_remote(remote_name)
+            .find_remote(branch.remote())
             .context("failed to find remote")
             .map_err(Error::Other)?;
 
@@ -375,10 +370,18 @@ impl<'repository> Repository<'repository> {
             return Err(Error::UnsupportedAuthCredentials(allowed_credentials));
         }
 
+        log::info!(
+            "{}: git push {} {}:refs/heads/{}",
+            self.project.id,
+            branch.remote(),
+            head,
+            branch.branch()
+        );
+
         let output = Command::new("git")
             .arg("push")
-            .arg(remote_name)
-            .arg(format!("{}:{}", head, branch))
+            .arg(branch.remote())
+            .arg(format!("{}:refs/heads/{}", head, branch.branch()))
             .current_dir(&self.project.path)
             .output()
             .context("failed to fork exec")
@@ -395,8 +398,6 @@ impl<'repository> Repository<'repository> {
                 )
             })
             .map_err(Error::Other)?;
-
-        log::info!("{}: pushed {} to {}", self.project.id, head, branch);
 
         Ok(())
     }
