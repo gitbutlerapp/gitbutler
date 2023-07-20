@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Modal, Login } from '$lib/components';
+	import { Button, Modal, Login, Link } from '$lib/components';
 	import type { PageData } from './$types';
 	import { stores, toasts } from '$lib';
 	import { deleteAllData } from '$lib/api';
@@ -7,6 +7,7 @@
 	import ThemeSelector from '../ThemeSelector.svelte';
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { invoke } from '@tauri-apps/api/tauri';
 
 	export let data: PageData;
 	const { cloud } = data;
@@ -72,6 +73,28 @@
 
 	let isDeleting = false;
 	let deleteConfirmationModal: Modal;
+
+	export function git_get_config(params: { key: string }) {
+		return invoke<string>('git_get_global_config', params);
+	}
+
+	export function git_set_config(params: { key: string; value: string }) {
+		return invoke<string>('git_set_global_config', params);
+	}
+
+	const setCommitterSetting = (value: boolean) => {
+		annotateCommits = value;
+		git_set_config({
+			key: 'gitbutler.utmostDiscretion',
+			value: value ? '0' : '1'
+		});
+	};
+
+	$: annotateCommits = true;
+
+	git_get_config({ key: 'gitbutler.utmostDiscretion' }).then((value) => {
+		annotateCommits = value ? value === '0' : true;
+	});
 
 	const onDeleteClicked = () =>
 		Promise.resolve()
@@ -192,6 +215,44 @@
 		{:else}
 			<Login />
 		{/if}
+		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div>
+			<h2 class="mb-2 text-lg font-medium">Git Stuff</h2>
+		</div>
+		<div class="flex items-center">
+			<div class="flex-grow">
+				<p>Credit GitButler as the Committer</p>
+				<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
+					<div>
+						By default, everything in the GitButler client is free to use, but we credit ourselves
+						as the committer in your virtual branch commits. Community members and supporters of
+						GitButler can turn this off.
+					</div>
+					<Link
+						target="_blank"
+						rel="noreferrer"
+						href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
+					>
+						Learn more
+					</Link>
+				</div>
+			</div>
+			<div>
+				<label class="relative inline-flex cursor-pointer items-center">
+					<input
+						type="checkbox"
+						disabled={!$user?.supporter}
+						checked={annotateCommits}
+						on:change={(e) => setCommitterSetting(!!e.currentTarget?.checked)}
+						class="peer sr-only"
+					/>
+					<div
+						class="peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 dark:border-gray-600 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4"
+					/>
+				</label>
+			</div>
+		</div>
+
 		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Appearance</h2>

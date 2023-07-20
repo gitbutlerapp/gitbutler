@@ -747,6 +747,54 @@ async fn mark_resolved(
     Ok(())
 }
 
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn git_set_config(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    key: &str,
+    value: &str,
+) -> Result<String, Error> {
+    let app = handle.state::<app::App>();
+    let result = app.git_set_config(project_id, key, value)?;
+    Ok(result)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn git_get_config(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    key: &str,
+) -> Result<Option<String>, Error> {
+    let app = handle.state::<app::App>();
+    let result = app.git_get_config(project_id, key)?;
+    Ok(result)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn git_set_global_config(
+    handle: tauri::AppHandle,
+    key: &str,
+    value: &str,
+) -> Result<String, Error> {
+    let app = handle.state::<app::App>();
+    let result = app.git_set_global_config(key, value)?;
+    Ok(result)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+async fn git_get_global_config(
+    handle: tauri::AppHandle,
+    key: &str,
+) -> Result<Option<String>, Error> {
+    let app = handle.state::<app::App>();
+    let result = app.git_get_global_config(key)?;
+    Ok(result)
+}
+
 fn main() {
     let tauri_context = generate_context!();
 
@@ -905,6 +953,10 @@ fn main() {
             create_virtual_branch_from_branch,
             fetch_from_target,
             mark_resolved,
+            git_set_config,
+            git_get_config,
+            git_set_global_config,
+            git_get_global_config,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")
