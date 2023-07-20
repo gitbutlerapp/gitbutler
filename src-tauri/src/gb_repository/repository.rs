@@ -661,7 +661,6 @@ impl Repository {
         }
 
         let no_commiter_mark = config.get_string("gitbutler.utmostDiscretion");
-        dbg!(&no_commiter_mark);
         if no_commiter_mark.is_ok() && no_commiter_mark? == "1" {
             committer = author.clone();
         }
