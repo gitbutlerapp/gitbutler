@@ -19,7 +19,7 @@
             },
             "shell": {
                 "all": false,
-                "open": "^((https://)|(mailto:)|(vscode://)).+"
+                "open": "^((https://)|(http://)|(mailto:)|(vscode://)).+"
             },
             "dialog": {
                 "all": false,
