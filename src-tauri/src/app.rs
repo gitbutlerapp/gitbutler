@@ -128,7 +128,10 @@ impl App {
         if let Some(watcher) = watchers.get(project_id) {
             watcher.post(event).context("failed to post event")
         } else {
-            Err(anyhow::anyhow!("watcher for project {} not found", project_id))
+            Err(anyhow::anyhow!(
+                "watcher for project {} not found",
+                project_id
+            ))
         }
     }
 
@@ -445,7 +448,10 @@ impl App {
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
         writer.write(bookmark).context("failed to write bookmark")?;
 
-        if let Err(e) = self.send_event(&bookmark.project_id, watcher::Event::Bookmark(bookmark.clone())) {
+        if let Err(e) = self.send_event(
+            &bookmark.project_id,
+            watcher::Event::Bookmark(bookmark.clone()),
+        ) {
             log::error!("failed to send session event: {:#}", e);
         }
         Ok(())
@@ -503,9 +509,7 @@ impl App {
         let diff = diff::workdir(
             &project_repository,
             &project_repository.get_head()?.peel_to_commit()?.id(),
-            &diff::Options {
-                context_lines,
-            },
+            &diff::Options { context_lines },
         )
         .context("failed to diff")?;
 
