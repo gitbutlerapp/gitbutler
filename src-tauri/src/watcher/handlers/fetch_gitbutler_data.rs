@@ -16,16 +16,16 @@ pub struct Handler {
 
 impl Handler {
     pub fn new(
-        local_data_dir: path::PathBuf,
-        project_id: String,
-        project_storage: projects::Storage,
-        user_storage: users::Storage,
+        local_data_dir: &path::Path,
+        project_id: &str,
+        project_storage: &projects::Storage,
+        user_storage: &users::Storage,
     ) -> Self {
         Self {
-            project_id,
-            project_storage,
-            user_storage,
-            local_data_dir,
+            project_id: project_id.to_string(),
+            project_storage: project_storage.clone(),
+            user_storage: user_storage.clone(),
+            local_data_dir: local_data_dir.to_path_buf(),
         }
     }
 
