@@ -83,7 +83,15 @@
 	<div
 		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-400 bg-light-50 py-1 text-light-900 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
 	>
-		<div class="flex pl-2">
+		<div
+			class="flex pl-2 cursor-default"
+			role="button"
+			tabindex="0"
+			on:dblclick={() => {
+				expanded = !expanded;
+				dispatch('expanded', expanded);
+			}}
+		>
 			<div
 				class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
 				title={file.path}
@@ -99,7 +107,7 @@
 				{@html boldenFilename(file.path)}
 			</div>
 			<div
-				on:click={() => {
+				on:click|stopPropagation={() => {
 					expanded = !expanded;
 					dispatch('expanded', expanded);
 				}}
