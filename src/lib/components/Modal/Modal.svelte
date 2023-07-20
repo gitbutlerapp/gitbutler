@@ -33,7 +33,7 @@
 				class="flex w-full items-center justify-between border-b border-light-100 px-4 pb-4 pr-2 dark:border-dark-800"
 			>
 				<div class="flex items-center gap-2">
-					<svelte:component this={icon} class="h-5 w-5" />
+					<svelte:component this={icon} class="h-4 w-4 text-light-600 dark:text-dark-200" />
 					<h2 class="text-lg font-medium">
 						<slot name="title" />
 					</h2>
