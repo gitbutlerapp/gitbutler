@@ -93,8 +93,9 @@
 					alt="js"
 					width="13"
 					style="width: 0.8125rem"
-					class="inline mr-1"
+					class="mr-1 inline"
 				/>
+
 				{@html boldenFilename(file.path)}
 			</div>
 			<div
@@ -105,7 +106,7 @@
 				on:keypress={() => (expanded = !expanded)}
 				role="button"
 				tabindex="0"
-				class="cursor-pointer py-2 px-3 text-light-600 dark:text-dark-200"
+				class="cursor-pointer px-3 py-2 text-light-600 dark:text-dark-200"
 			>
 				{#if expanded}
 					<IconTriangleUp />
@@ -167,7 +168,7 @@
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:hover:bg-dark-400 dark:hover:text-black dark:border-dark-400 dark:bg-dark-500 dark:text-light-600"
+													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:border-dark-400 dark:bg-dark-500 dark:text-light-600 dark:hover:bg-dark-400 dark:hover:text-black"
 													style:min-width={`${2 * minWidth}rem`}
 												>
 													<button
