@@ -231,7 +231,7 @@
 					<Link
 						target="_blank"
 						rel="noreferrer"
-						href="https://docs.gitbutler.com/overview/why-gitbutler"
+						href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
 					>
 						Learn more
 					</Link>
