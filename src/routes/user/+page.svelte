@@ -86,14 +86,14 @@
 		annotateCommits = value;
 		git_set_config({
 			key: 'gitbutler.utmostDiscretion',
-			value: value ? '1' : '0'
+			value: value ? '0' : '1'
 		});
 	};
 
-	$: annotateCommits = false;
+	$: annotateCommits = true;
 
 	git_get_config({ key: 'gitbutler.utmostDiscretion' }).then((value) => {
-		annotateCommits = value === '1';
+		annotateCommits = value ? value === '0' : true;
 	});
 
 	const onDeleteClicked = () =>
