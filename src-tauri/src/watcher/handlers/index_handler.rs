@@ -25,26 +25,26 @@ pub struct Handler {
 impl Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        local_data_dir: path::PathBuf,
-        project_id: String,
-        project_store: projects::Storage,
-        user_store: users::Storage,
-        deltas_searcher: search::Searcher,
-        files_database: files::Database,
-        sessions_database: sessions::Database,
-        deltas_database: deltas::Database,
-        bookmarks_database: bookmarks::Database,
+        local_data_dir: &path::Path,
+        project_id: &str,
+        project_store: &projects::Storage,
+        user_store: &users::Storage,
+        deltas_searcher: &search::Searcher,
+        files_database: &files::Database,
+        sessions_database: &sessions::Database,
+        deltas_database: &deltas::Database,
+        bookmarks_database: &bookmarks::Database,
     ) -> Self {
         Self {
-            local_data_dir,
-            project_id,
-            project_store,
-            user_store,
-            deltas_searcher,
-            files_database,
-            sessions_database,
-            deltas_database,
-            bookmarks_database,
+            local_data_dir: local_data_dir.to_path_buf(),
+            project_id: project_id.to_string(),
+            project_store: project_store.clone(),
+            user_store: user_store.clone(),
+            deltas_searcher: deltas_searcher.clone(),
+            files_database: files_database.clone(),
+            sessions_database: sessions_database.clone(),
+            deltas_database: deltas_database.clone(),
+            bookmarks_database: bookmarks_database.clone(),
         }
     }
 

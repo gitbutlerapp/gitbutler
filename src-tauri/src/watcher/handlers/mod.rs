@@ -12,7 +12,7 @@ mod check_current_session_tests;
 #[cfg(test)]
 mod project_file_change_tests;
 
-use std::path::PathBuf;
+use std::path;
 
 use anyhow::{Context, Result};
 
@@ -39,53 +39,53 @@ pub struct Handler {
 impl<'handler> Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        local_data_dir: PathBuf,
-        project_id: String,
-        project_store: projects::Storage,
-        user_store: users::Storage,
-        searcher: search::Searcher,
-        events_sender: app_events::Sender,
-        sessions_database: sessions::Database,
-        deltas_database: deltas::Database,
-        files_database: files::Database,
-        bookmarks_database: bookmarks::Database,
+        local_data_dir: &path::Path,
+        project_id: &str,
+        project_store: &projects::Storage,
+        user_store: &users::Storage,
+        searcher: &search::Searcher,
+        events_sender: &app_events::Sender,
+        sessions_database: &sessions::Database,
+        deltas_database: &deltas::Database,
+        files_database: &files::Database,
+        bookmarks_database: &bookmarks::Database,
     ) -> Self {
         Self {
-            project_id: project_id.clone(),
-            events_sender,
+            project_id: project_id.to_string(),
+            events_sender: events_sender.clone(),
 
             file_change_handler: file_change::Handler::new(),
             project_file_handler: project_file_change::Handler::new(
-                local_data_dir.clone(),
-                project_id.clone(),
-                project_store.clone(),
-                user_store.clone(),
+                local_data_dir,
+                project_id,
+                project_store,
+                user_store,
             ),
             check_current_session_handler: check_current_session::Handler::new(
-                local_data_dir.clone(),
-                project_id.clone(),
-                project_store.clone(),
-                user_store.clone(),
+                local_data_dir,
+                project_id,
+                project_store,
+                user_store,
             ),
             git_file_change_handler: git_file_change::Handler::new(
-                project_id.clone(),
-                project_store.clone(),
+                project_id,
+                project_store,
             ),
             flush_session_handler: flush_session::Handler::new(
-                local_data_dir.clone(),
-                project_id.clone(),
-                project_store.clone(),
-                user_store.clone(),
+                local_data_dir,
+                project_id,
+                project_store,
+                user_store,
             ),
             fetch_project_handler: fetch_project_data::Handler::new(
-                project_id.clone(),
-                project_store.clone(),
+                project_id,
+                project_store,
             ),
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::new(
-                local_data_dir.clone(),
-                project_id.clone(),
-                project_store.clone(),
-                user_store.clone(),
+                local_data_dir,
+                project_id,
+                project_store,
+                user_store,
             ),
             index_handler: index_handler::Handler::new(
                 local_data_dir,
