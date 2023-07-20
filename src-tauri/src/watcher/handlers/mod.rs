@@ -67,20 +67,14 @@ impl<'handler> Handler {
                 project_store,
                 user_store,
             ),
-            git_file_change_handler: git_file_change::Handler::new(
-                project_id,
-                project_store,
-            ),
+            git_file_change_handler: git_file_change::Handler::new(project_id, project_store),
             flush_session_handler: flush_session::Handler::new(
                 local_data_dir,
                 project_id,
                 project_store,
                 user_store,
             ),
-            fetch_project_handler: fetch_project_data::Handler::new(
-                project_id,
-                project_store,
-            ),
+            fetch_project_handler: fetch_project_data::Handler::new(project_id, project_store),
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::new(
                 local_data_dir,
                 project_id,
