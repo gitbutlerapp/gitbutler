@@ -17,9 +17,21 @@
 	$: isExternal = href?.startsWith('http');
 </script>
 
-<a {href} {target} {rel} class="link {role}" bind:this={element} class:disabled on:click>
-	<slot />
-	{#if isExternal}
-		<IconExternalLink class="h-4 w-4" />
-	{/if}
+<a
+	{href}
+	{target}
+	{rel}
+	class="link flex items-center {role}"
+	bind:this={element}
+	class:disabled
+	on:click
+>
+	<div>
+		<slot />
+	</div>
+	<div>
+		{#if isExternal}
+			<IconExternalLink class="h-4 w-4" />
+		{/if}
+	</div>
 </a>

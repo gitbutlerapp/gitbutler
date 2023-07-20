@@ -129,7 +129,7 @@ border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 d
 								</div>
 							{:else}
 								<div class="h-2 w-2 rounded-full bg-red-700" />
-								Offline
+								<span>Offline</span>
 							{/if}
 						</Link>
 					{/if}
