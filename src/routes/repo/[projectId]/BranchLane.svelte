@@ -3,7 +3,7 @@
 	import { getContext, onMount } from 'svelte';
 	import FileCard from './FileCard.svelte';
 	import { IconBranch } from '$lib/icons';
-	import { Button } from '$lib/components';
+	import { Button, Link } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -11,7 +11,7 @@
 	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
-	import type { BranchController } from '$lib/vbranches';
+	import type { BranchController, Target } from '$lib/vbranches';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import FileCardNext from './FileCardNext.svelte';
 
@@ -25,6 +25,7 @@
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
+	export let target: Target;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -90,13 +91,30 @@
 		console.log('branch name change:', name);
 		branchController.updateBranchName(branchId, name);
 	}
+
+	function nameToBranch(name: string): string {
+		const isAsciiAlphanumeric = (c: string): boolean => /^[A-Za-z0-9]$/.test(c);
+		return name
+			.split('')
+			.map((c) => (isAsciiAlphanumeric(c) ? c : '-'))
+			.join('');
+	}
+
+	function url(target: Target, branchName: string) {
+		const baseBranchName = target.branchName.split('/')[1];
+		const repoBaseUrl = target.remoteUrl
+			.replace(':', '/')
+			.replace('git@', 'https://')
+			.replace('.git', '');
+		return `${repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
+	}
 </script>
 
 <div
 	draggable="true"
 	class:w-full={maximized}
 	class:w-96={!maximized}
-	class="lane-scroll flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-default snap-center flex-col overflow-y-scroll overscroll-y-none bg-light-150 py-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	class="lane-scroll flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-default snap-center flex-col overflow-y-scroll overscroll-y-none bg-light-150 pt-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -198,6 +216,11 @@
 			/>
 		</div>
 		<div class="mb-2 mr-2 text-right">
+			{#if localCommits.length > 0}
+				<Button on:click={push} loading={isPushing} kind="outlined" color="purple" height="small">
+					<span class="purple">Push</span>
+				</Button>
+			{/if}
 			<Button
 				height="small"
 				color="purple"
@@ -229,40 +252,51 @@
 			{#if files.length == 0}
 				<!-- attention: these markers have custom css at the bottom of thise file -->
 				<div
-					class="no-changes rounded border border-zinc-200 p-2 text-center dark:border-zinc-700"
+					class="no-changes rounded p-2 text-center font-mono text-light-700 dark:border-zinc-700"
 					data-dnd-ignore
 				>
-					No changes made
+					No uncomitted changes
 				</div>
 			{/if}
 		</div>
 	</div>
-	{#if localCommits.length > 0}
-		<div class="relative">
-			<!-- Commit bubble track -->
+	<div class="flex h-full">
+		<div class="relative z-30 h-full">
 			<div
-				class="absolute top-0 h-full w-0.5
-				bg-gradient-to-b from-light-400 to-transparent dark:from-dark-500
-				"
-				style="left: 0.925rem"
+				class="absolute top-0 z-30 ml-[20px] h-full w-px
+			bg-gradient-to-b from-transparent via-light-400 dark:via-dark-600
+			"
 			/>
-			<div class="flex w-full p-2">
-				<div class="z-10 w-6" />
-				<div class="flex flex-grow gap-x-4 py-2">
-					{#if localCommits.length > 0}
-						<Button on:click={push} loading={isPushing} color="basic" height="small"
-							>Push Commits</Button
-						>
-					{/if}
-				</div>
-			</div>
-			<!-- Unpushed commits -->
-			{#each localCommits as commit (commit.id)}
-				<div class="flex w-full px-1 pb-4">
-					<div class="z-10 ml-1 w-6 py-4">
-						<!-- Unpushed commit bubble -->
+		</div>
+		<div class="z-40 mt-4 flex w-full flex-col gap-2">
+			{#each commits.filter((c) => !c.isRemote) as commit (commit.id)}
+				<div class="flex w-full items-center pb-2 pr-2">
+					<div class="ml-4 w-6">
 						<div
-							class="h-2 w-2 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
+							class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-500 dark:bg-dark-1000"
+						/>
+					</div>
+					<div class="flex-grow">
+						<CommitCard {commit} />
+					</div>
+				</div>
+			{/each}
+			{#if remoteCommits.length > 0}
+				<div class="ml-12 flex items-center font-mono text-sm">
+					<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
+						<span class="text-sm font-bold">
+							{target.remoteName}/{nameToBranch(name)}
+						</span>
+					</Link>
+				</div>
+			{/if}
+			{#each commits.filter((c) => c.isRemote) as commit (commit.id)}
+				<div class="flex w-full items-center pb-2 pr-2">
+					<div class="ml-4 w-6">
+						<div
+							class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-500 dark:border-dark-500 dark:bg-dark-500"
+							class:bg-light-500={commit.isRemote}
+							class:dark:bg-dark-500={commit.isRemote}
 						/>
 					</div>
 					<div class="flex-grow">
@@ -271,34 +305,5 @@
 				</div>
 			{/each}
 		</div>
-	{/if}
-	{#if remoteCommits.length > 0}
-		<div class="relative">
-			<!-- Commit bubble track -->
-			<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
-			<!-- Section title for remote commits -->
-			<div class="flex w-full px-1 pb-4">
-				<div class="z-10 ml-1 w-6 py-4">
-					<div
-						class="h-2 w-2 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
-					>
-						<!-- Target HEAD commit bubble -->
-						<IconGithub />
-					</div>
-				</div>
-				<div class="flex-grow">Pushed to {upstream}</div>
-			</div>
-			{#each remoteCommits as commit (commit.id)}
-				<div class="flex w-full px-2 pb-4">
-					<div class="z-10 ml-1 w-6 py-4">
-						<!-- Pushed commit bubble -->
-						<div
-							class="rounded--b-sm h-2 w-2 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
-						/>
-					</div>
-					<CommitCard {commit} />
-				</div>
-			{/each}
-		</div>
-	{/if}
+	</div>
 </div>

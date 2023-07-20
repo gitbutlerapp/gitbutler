@@ -1,7 +1,7 @@
 <script lang="ts" async="true">
 	import Lane from './BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import type { Branch } from '$lib/vbranches';
+	import type { Branch, Target } from '$lib/vbranches';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
 	import { getContext } from 'svelte';
@@ -10,6 +10,7 @@
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
+	export let target: Target;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -32,7 +33,7 @@
 <div
 	bind:this={dropZone}
 	id="branch-lanes"
-	class="lane-scroll flex max-w-full flex-shrink flex-grow snap-x items-start overflow-x-auto overflow-y-hidden bg-light-150 dark:bg-dark-1000"
+	class="flex max-w-full flex-shrink flex-grow items-start overflow-x-auto overflow-y-hidden bg-light-150 dark:bg-dark-1000"
 	role="group"
 	use:dzHighlight={{ type: dzType }}
 	on:dragover={(e) => {
@@ -85,6 +86,7 @@
 			{upstream}
 			branchId={id}
 			{projectPath}
+			{target}
 		/>
 	{/each}
 	<NewBranchDropZone />
