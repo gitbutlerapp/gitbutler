@@ -272,7 +272,7 @@ impl App {
         virtual_branches::get_target_data(&gb_repository, &project_repository)
     }
 
-    pub fn set_target_branch(
+    pub async fn set_target_branch(
         &self,
         project_id: &str,
         target_branch: &str,
@@ -281,15 +281,29 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         let target = gb_repository.set_target_branch(&project_repository, target_branch)?;
         Ok(Some(target))
     }
 
-    pub fn update_branch_target(&self, project_id: &str) -> Result<()> {
+    pub async fn update_branch_target(&self, project_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         virtual_branches::update_branch_target(&gb_repository, &project_repository)?;
         Ok(())
     }
@@ -338,6 +352,13 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         let branch_id = virtual_branches::create_virtual_branch_from_branch(
             &gb_repository,
             &project_repository,
@@ -378,25 +399,41 @@ impl App {
         Ok(())
     }
 
-    pub fn unapply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
+    pub async fn unapply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+
         virtual_branches::unapply_branch(&gb_repository, &project_repository, branch_id)?;
         Ok(())
     }
 
-    pub fn apply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
+    pub async fn apply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+    let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+
         virtual_branches::apply_branch(&gb_repository, &project_repository, branch_id)?;
         Ok(())
     }
 
-    pub fn commit_virtual_branch(
+    pub async fn commit_virtual_branch(
         &self,
         project_id: &str,
         branch: &str,
@@ -406,6 +443,14 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+
         virtual_branches::commit(&gb_repository, &project_repository, branch, message)?;
         Ok(())
     }
@@ -419,11 +464,19 @@ impl App {
         Ok(())
     }
 
-    pub fn push_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<(), Error> {
+    pub async fn push_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<(), Error> {
         let gb_repository = self.gb_repository(project_id).map_err(Error::Other)?;
         let project = self.gb_project(project_id).map_err(Error::Other)?;
         let project_repository =
             project_repository::Repository::open(&project).map_err(Error::Other)?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await.context("failed to acquire semaphore").
+            map_err(Error::Other)?;
+
         match virtual_branches::push(&project_repository, &gb_repository, branch_id) {
             Ok(_) => Ok(()),
             Err(virtual_branches::Error::UnsupportedAuthCredentials(_)) => Err(Error::Message(
