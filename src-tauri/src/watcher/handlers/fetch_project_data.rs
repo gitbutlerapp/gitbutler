@@ -13,10 +13,10 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn new(project_id: String, project_storage: projects::Storage) -> Self {
+    pub fn new(project_id: &str, project_storage: &projects::Storage) -> Self {
         Self {
-            project_id,
-            project_storage,
+            project_id: project_id.to_string(),
+            project_storage: project_storage.clone(),
         }
     }
 
