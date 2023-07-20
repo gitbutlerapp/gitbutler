@@ -641,7 +641,7 @@ impl Repository {
 
     pub fn git_signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
         let user = self.users_store.get().context("failed to get user")?;
-        let committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
+        let mut committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
 
         let mut author = match user {
             None => committer.clone(),
@@ -660,6 +660,11 @@ impl Repository {
             author = git2::Signature::now(&name?, &email?)?;
         }
 
+        let no_commiter_mark = config.get_string("gitbutler.utmostDiscretion");
+        dbg!(&no_commiter_mark);
+        if no_commiter_mark.is_ok() && no_commiter_mark? == "1" {
+            committer = author.clone();
+        }
         Ok((author, committer))
     }
 

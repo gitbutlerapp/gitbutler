@@ -34,6 +34,7 @@ export type User = {
 	created_at: string;
 	updated_at: string;
 	access_token: string;
+	supporter: boolean;
 };
 
 export type Project = {

@@ -610,6 +610,38 @@ impl App {
         Ok(head.name().unwrap().to_string())
     }
 
+    pub fn git_set_config(&self, project_id: &str, key: &str, value: &str) -> Result<String> {
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+        let repo = &project_repository.git_repository;
+        let mut config = repo.config()?;
+        config.open_level(git2::ConfigLevel::Local)?;
+        config.set_str(key, value)?;
+        Ok(value.to_string())
+    }
+
+    pub fn git_get_config(&self, project_id: &str, key: &str) -> Result<Option<String>> {
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        let repo = &project_repository.git_repository;
+        let config = repo.config()?;
+        let value = config.get_string(key)?;
+        Ok(Some(value))
+    }
+
+    pub fn git_set_global_config(&self, key: &str, value: &str) -> Result<String> {
+        let mut config = git2::Config::open_default()?;
+        config.set_str(key, value)?;
+        Ok(value.to_string())
+    }
+
+    pub fn git_get_global_config(&self, key: &str) -> Result<Option<String>> {
+        let config = git2::Config::open_default()?;
+        let value = config.get_string(key)?;
+        Ok(Some(value))
+    }
+
     pub fn git_switch_branch(&self, project_id: &str, branch: &str) -> Result<()> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
