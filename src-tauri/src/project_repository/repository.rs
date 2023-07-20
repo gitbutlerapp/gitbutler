@@ -375,10 +375,20 @@ impl<'repository> Repository<'repository> {
             return Err(Error::UnsupportedAuthCredentials(allowed_credentials));
         }
 
+        let branch_name = branch.branch().replace(remote_name, "");
+
+        log::info!(
+            "{}: git push {} {}:{}",
+            self.project.id,
+            remote_name,
+            head,
+            branch_name
+        );
+
         let output = Command::new("git")
             .arg("push")
             .arg(remote_name)
-            .arg(format!("{}:{}", head, branch))
+            .arg(format!("{}:{}", head, branch_name))
             .current_dir(&self.project.path)
             .output()
             .context("failed to fork exec")
@@ -395,8 +405,6 @@ impl<'repository> Repository<'repository> {
                 )
             })
             .map_err(Error::Other)?;
-
-        log::info!("{}: pushed {} to {}", self.project.id, head, branch);
 
         Ok(())
     }
