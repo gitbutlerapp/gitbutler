@@ -8,6 +8,7 @@ pub use writer::TargetWriter as Writer;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {
+    // TODO: use project_repository::branch::RemoteName here.
     pub branch_name: String,
     pub remote_name: String,
     pub remote_url: String,
