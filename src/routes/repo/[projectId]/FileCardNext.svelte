@@ -21,6 +21,7 @@
 	import { vsiFileExtensionsToIcons, vsiFileNamesToIcons } from '$lib/ext-icons/vsi/typeMap';
 	import { vsiFileIcons } from '$lib/ext-icons';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { slide } from 'svelte/transition';
 
 	export let file: File;
 	export let conflicted: boolean;
@@ -135,7 +136,10 @@
 		{/if}
 
 		{#if expanded}
-			<div class="hunk-change-container flex flex-col rounded pl-2 pr-3">
+			<div
+				class="hunk-change-container flex flex-col rounded pl-2 pr-3"
+				transition:slide={{ duration: 150 }}
+			>
 				{#each sections as section, idx}
 					{#if 'hunk' in section}
 						<div
