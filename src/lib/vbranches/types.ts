@@ -21,6 +21,7 @@ export class File {
 	modifiedAt!: Date;
 	conflicted!: boolean;
 	content!: string;
+	binary!: boolean;
 }
 
 export class Branch {
