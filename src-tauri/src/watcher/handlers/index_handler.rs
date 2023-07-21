@@ -57,12 +57,7 @@ impl Handler {
         self.deltas_database
             .insert(&self.project_id, session_id, file_path, deltas)
             .context("failed to insert deltas into database")?;
-        Ok(vec![events::Event::Emit(app_events::Event::deltas(
-            &self.project_id,
-            session_id,
-            deltas,
-            path::Path::new(file_path),
-        ))])
+        Ok(vec![])
     }
 
     pub fn index_file(
@@ -74,12 +69,7 @@ impl Handler {
         self.files_database
             .insert(&self.project_id, session_id, file_path, content)
             .context("failed to insert file into database")?;
-        Ok(vec![events::Event::Emit(app_events::Event::file(
-            &self.project_id,
-            session_id,
-            file_path,
-            content,
-        ))])
+        Ok(vec![])
     }
 
     pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {

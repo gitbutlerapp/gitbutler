@@ -2,7 +2,7 @@ import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import type { Session, Delta } from '$lib/api';
 import { Operation } from '$lib/api';
 import type { Readable } from '@square/svelte-store';
-import { git } from '$lib/api/ipc';
+import { deltas, git } from '$lib/api/ipc';
 import { stores } from '$lib';
 import { Target, Branch, BranchData } from './types';
 import { plainToInstance } from 'class-transformer';
@@ -24,12 +24,22 @@ export class BranchStoresCache {
 		}
 
 		const writableStore = writable(listVirtualBranches({ projectId }), (set) => {
-			stores.sessions({ projectId }).subscribe((sessions) => {
+			return stores.sessions({ projectId }).subscribe((sessions) => {
 				if (sessions.isLoading) return;
 				if (Loaded.isError(sessions)) return;
 				const lastSession = sessions.value.at(-1);
 				if (!lastSession) return;
-				return stores.deltas({ projectId, sessionId: lastSession.id }).subscribe(() => {
+				if (lastSession.hash) return;
+
+				// new current session detected. refresh branches + subscribe to delta updates.
+				listVirtualBranches({ projectId }).then((newBranches) => {
+					branchesWithFileContent(projectId, lastSession.id, newBranches).then((withContent) => {
+						set(withContent);
+					});
+				});
+
+				return deltas.subscribe({ projectId, sessionId: lastSession.id }, () => {
+					// new delta detected. refresh branches.
 					listVirtualBranches({ projectId }).then((newBranches) => {
 						branchesWithFileContent(projectId, lastSession.id, newBranches).then((withContent) => {
 							set(withContent);
