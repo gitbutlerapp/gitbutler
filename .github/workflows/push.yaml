@@ -25,7 +25,7 @@ jobs:
                 pnpm lint-ci
 
     check-frontend:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v3
