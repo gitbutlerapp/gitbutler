@@ -191,7 +191,7 @@
 	<div
 		class="flex w-full shrink-0 flex-col items-center
 		border-b
-		border-r border-light-400 bg-light-200 text-light-900 dark:border-dark-600 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		border-r border-light-400 bg-light-200 text-light-900 dark:border-dark-600 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
 	>
 		<div class="flex w-full items-center px-5 py-1">
 			<button
@@ -208,7 +208,7 @@
 					bind:value={name}
 					on:change={handleBranchNameChange}
 					title={name}
-					class=" w-full truncate border-0 bg-light-150 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-1000 dark:text-dark-100"
+					class=" w-full truncate border-0 bg-light-200 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-800 dark:text-dark-100"
 				/>
 			</div>
 			<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
@@ -373,14 +373,14 @@
 					transition:slide={{ duration: 150 }}
 				>
 					<div
-						class="dark:form-dark-600 via-90% absolute top-4
-						ml-[20px] w-px bg-gradient-to-b from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600"
+						class="dark:form-dark-600 absolute top-4 ml-[20px]
+						w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
 						style={remoteCommits.length == 0 ? 'height: calc(100% - 1rem);' : 'height: 100%;'}
 					/>
 
 					<div class="relative flex flex-col gap-2">
 						<div
-							class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600"
+							class="dark:form-dark-600 absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
 						/>
 						<div class="ml-10 mr-2 flex items-center py-2">
 							<div
@@ -423,13 +423,13 @@
 			{#if remoteCommits.length > 0}
 				<div class="relative h-full">
 					<div
-						class="dark:form-dark-600 via-90% absolute top-4
-						ml-[20px] h-full w-px bg-gradient-to-b from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+						class="dark:form-dark-600 absolute top-4 ml-[20px]
+						h-full w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 					/>
 
 					<div class="relative flex flex-col gap-2">
 						<div
-							class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+							class="dark:form-dark-600 absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
 						/>
 
 						<div class="ml-12 flex items-center py-2 font-mono text-sm">
