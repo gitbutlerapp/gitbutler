@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use notify::{Config, Event, RecommendedWatcher, Watcher};
 use tokio::sync::mpsc;
 
-use crate::{watcher::events, projects};
+use crate::{projects, watcher::events};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
