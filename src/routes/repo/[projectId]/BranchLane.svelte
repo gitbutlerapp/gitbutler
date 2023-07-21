@@ -15,7 +15,7 @@
 	import FileCardNext from './FileCardNext.svelte';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
-	import { crossfade } from 'svelte/transition';
+	import { crossfade, fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { invoke } from '@tauri-apps/api/tauri';
 
@@ -143,6 +143,10 @@
 
 	let commitDialogShown = false;
 
+	$: if (commitDialogShown && files.length === 0) {
+		commitDialogShown = false;
+	}
+
 	export function git_get_config(params: { key: string }) {
 		return invoke<string>('git_get_global_config', params);
 	}
@@ -161,7 +165,7 @@
 	draggable="true"
 	class:w-full={maximized}
 	class:w-96={!maximized}
-	class="lane-scroll flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-default snap-center flex-col overflow-y-scroll overscroll-y-none bg-light-150 pt-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	class="flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-default snap-center flex-col bg-light-150 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -185,90 +189,51 @@
 	}}
 >
 	<div
-		class="mb-2 flex w-full shrink-0 items-center rounded bg-light-150 px-1 text-light-900 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="flex w-full shrink-0 flex-col items-center
+		border-b
+		border-r border-light-400 bg-light-150 text-light-900 dark:border-dark-600 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
-		<div
-			on:dblclick={() => (maximized = !maximized)}
-			tabindex="0"
-			role="button"
-			class="flex h-8 w-8 flex-grow-0 items-center justify-center text-light-600 dark:text-dark-200"
-		>
-			<IconBranch class="h-4 w-4" />
-		</div>
-		<div class="mr-1 flex-grow">
-			<input
-				type="text"
-				bind:value={name}
-				on:change={handleBranchNameChange}
-				title={name}
-				class="w-full truncate border-0 bg-light-150 font-bold text-light-900 dark:bg-dark-1000 dark:text-dark-100"
-			/>
-		</div>
-		<button
-			bind:this={meatballButton}
-			class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
-			on:keydown={() => popupMenu.openByElement(meatballButton, branchId)}
-			on:click={() => popupMenu.openByElement(meatballButton, branchId)}
-		>
-			<IconMeatballMenu />
-		</button>
-	</div>
-
-	{#if conflicted}
-		<div class="mb-2 rounded bg-red-700 p-2 text-white">
-			{#if files.some((f) => f.conflicted)}
-				This virtual branch conflicts with upstream changes. Please resolve all conflicts and commit
-				before you can continue.
-			{:else}
-				Please commit your resolved conflicts to continue.
-			{/if}
-		</div>
-	{/if}
-
-	<PopupMenu bind:this={popupMenu} let:item={branchId}>
-		<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
-			Unapply
-		</PopupMenuItem>
-
-		<PopupMenuItem on:click={handleToggleExpandAll}>
-			{#if allExpanded}
-				Collapse all
-			{:else}
-				Expand all
-			{/if}
-		</PopupMenuItem>
-
-		<div class="mx-3">
-			<div class="my-2 h-[0.0625rem] w-full bg-light-300 dark:bg-dark-500" />
-		</div>
-
-		<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
-			Create branch before
-		</PopupMenuItem>
-
-		<PopupMenuItem on:click={() => branchController.createBranch({ order: order + 1 })}>
-			Create branch after
-		</PopupMenuItem>
-	</PopupMenu>
-
-	<div class="flex flex-col">
-		<div class="mb-4 mr-2 flex justify-end gap-2 text-right">
-			<Button
-				class="w-20"
-				height="small"
-				color="purple"
-				on:click={() => (commitDialogShown = !commitDialogShown)}
+		<div class="flex w-full items-center px-5 py-1">
+			<button
+				bind:this={meatballButton}
+				class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
+				on:keydown={() => popupMenu.openByElement(meatballButton, branchId)}
+				on:click={() => popupMenu.openByElement(meatballButton, branchId)}
 			>
-				{#if !commitDialogShown}
-					Commit
-				{:else}
-					Cancel
-				{/if}
-			</Button>
+				<IconMeatballMenu />
+			</button>
+			<div class="flex-grow">
+				<input
+					type="text"
+					bind:value={name}
+					on:change={handleBranchNameChange}
+					title={name}
+					class=" w-full truncate border-0 bg-light-150 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-1000 dark:text-dark-100"
+				/>
+			</div>
+			<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
+				<Button
+					class="w-20"
+					height="small"
+					kind="outlined"
+					color="purple"
+					disabled={files.length == 0}
+					on:click={() => (commitDialogShown = !commitDialogShown)}
+				>
+					<span class="purple">
+						{#if !commitDialogShown}
+							Commit
+						{:else}
+							Cancel
+						{/if}
+					</span>
+				</Button>
+			</div>
 		</div>
+
 		{#if commitDialogShown}
 			<div
-				class="mb-2 border-t border-light-400 py-4 dark:border-dark-400"
+				class="flex w-full flex-col border-t border-light-400 bg-light-200 dark:border-dark-400 dark:bg-dark-800"
 				transition:slide={{ duration: 150 }}
 			>
 				{#if annotateCommits}
@@ -283,7 +248,7 @@
 						>
 					</div>
 				{/if}
-				<div class="mb-2 flex items-center">
+				<div class="flex items-center">
 					<textarea
 						bind:this={textAreaInput}
 						bind:value={commitMessage}
@@ -291,13 +256,13 @@
 							commitTitle = commitMessage?.split('\n')?.at(0) || '';
 							commitDescription = commitMessage?.split('\n')?.slice(1)?.join('\n').trim() || '';
 						}}
-						class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none hover:border-light-400 focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300"
+						class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 						placeholder="Your commit message here"
 						rows={messageRows}
 						required
 					/>
 				</div>
-				<div class="flex flex-grow justify-end gap-2 px-2">
+				<div class="flex flex-grow justify-end gap-2 p-3 px-5">
 					<Button
 						tabindex={-1}
 						kind="outlined"
@@ -311,6 +276,7 @@
 					<Button
 						class="w-20"
 						height="small"
+						color="purple"
 						on:click={() => {
 							if (commitMessage) commit();
 							commitDialogShown = false;
@@ -321,137 +287,180 @@
 				</div>
 			</div>
 		{/if}
-		<div class="flex flex-shrink flex-col gap-y-2">
-			<div class="drop-zone-marker hidden border p-6 text-center">
-				Drop here to add to virtual branch
+	</div>
+
+	<div class="lane-scroll flex flex-grow flex-col overflow-y-scroll overscroll-y-none">
+		{#if conflicted}
+			<div class="mb-2 rounded bg-red-700 p-2 text-white">
+				{#if files.some((f) => f.conflicted)}
+					This virtual branch conflicts with upstream changes. Please resolve all conflicts and
+					commit before you can continue.
+				{:else}
+					Please commit your resolved conflicts to continue.
+				{/if}
 			</div>
-			{#if files.length > 0}
-				<div transition:slide={{ duration: 150 }}>
-					{#each files as file (file.id)}
-						<FileCardNext
-							expanded={file.expanded}
-							conflicted={file.conflicted}
-							{file}
-							{dzType}
-							{projectId}
-							{projectPath}
-							{maximized}
-							on:dblclick={() => (maximized = !maximized)}
-							on:expanded={(e) => {
-								setExpandedWithCache(file, e.detail);
-								expandFromCache();
-							}}
+		{/if}
+
+		<PopupMenu bind:this={popupMenu} let:item={branchId}>
+			<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
+				Unapply
+			</PopupMenuItem>
+
+			<PopupMenuItem on:click={handleToggleExpandAll}>
+				{#if allExpanded}
+					Collapse all
+				{:else}
+					Expand all
+				{/if}
+			</PopupMenuItem>
+
+			<div class="mx-3">
+				<div class="my-2 h-[0.0625rem] w-full bg-light-300 dark:bg-dark-500" />
+			</div>
+
+			<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
+				Create branch before
+			</PopupMenuItem>
+
+			<PopupMenuItem on:click={() => branchController.createBranch({ order: order + 1 })}>
+				Create branch after
+			</PopupMenuItem>
+		</PopupMenu>
+
+		<div class="flex flex-col">
+			<div class="flex flex-shrink flex-col gap-y-2 py-6">
+				<div class="drop-zone-marker hidden border p-6 text-center">
+					Drop here to add to virtual branch
+				</div>
+				{#if files.length > 0}
+					<div transition:slide={{ duration: 150 }}>
+						{#each files as file (file.id)}
+							<FileCardNext
+								expanded={file.expanded}
+								conflicted={file.conflicted}
+								{file}
+								{dzType}
+								{projectId}
+								{projectPath}
+								{maximized}
+								on:dblclick={() => (maximized = !maximized)}
+								on:expanded={(e) => {
+									setExpandedWithCache(file, e.detail);
+									expandFromCache();
+								}}
+							/>
+						{/each}
+					</div>
+				{/if}
+				{#if files.length == 0}
+					<!-- attention: these markers have custom css at the bottom of thise file -->
+					<div
+						class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
+						data-dnd-ignore
+					>
+						No uncomitted changes
+					</div>
+				{/if}
+			</div>
+		</div>
+		<div
+			class="flex w-full flex-grow flex-col gap-2 border-t border-light-400 dark:border-dark-500"
+		>
+			{#if localCommits.length > 0}
+				<div
+					class="relative"
+					class:flex-grow={remoteCommits.length == 0}
+					transition:slide={{ duration: 150 }}
+				>
+					<div
+						class="dark:form-dark-600 via-90% absolute top-4
+						ml-[20px] w-px bg-gradient-to-b from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600"
+						style={remoteCommits.length == 0 ? 'height: calc(100% - 1rem);' : 'height: 100%;'}
+					/>
+
+					<div class="relative flex flex-col gap-2">
+						<div
+							class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600"
 						/>
-					{/each}
+						<div class="ml-10 mr-2 flex items-center py-2">
+							<div
+								class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
+							>
+								local
+							</div>
+							<Button
+								class="w-20"
+								height="small"
+								kind="outlined"
+								color="purple"
+								loading={isPushing}
+								on:click={push}
+							>
+								<span class="purple">Push</span>
+							</Button>
+						</div>
+
+						{#each localCommits as commit (commit.id)}
+							<div
+								class="flex w-full items-center pb-2 pr-2"
+								in:receive={{ key: commit.id }}
+								out:send={{ key: commit.id }}
+								animate:flip
+							>
+								<div class="ml-4 w-6">
+									<div
+										class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
+									/>
+								</div>
+								<div class="flex-grow">
+									<CommitCard {commit} />
+								</div>
+							</div>
+						{/each}
+					</div>
 				</div>
 			{/if}
-			{#if files.length == 0}
-				<!-- attention: these markers have custom css at the bottom of thise file -->
-				<div
-					class="no-changes rounded p-2 text-center font-mono text-light-700 dark:border-zinc-700"
-					data-dnd-ignore
-				>
-					No uncomitted changes
+			{#if remoteCommits.length > 0}
+				<div class="relative h-full">
+					<div
+						class="dark:form-dark-600 via-90% absolute top-4
+						ml-[20px] h-full w-px bg-gradient-to-b from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+					/>
+
+					<div class="relative flex flex-col gap-2">
+						<div
+							class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+						/>
+
+						<div class="ml-12 flex items-center py-2 font-mono text-sm">
+							<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
+								<span class="text-sm font-bold">
+									{target.remoteName}/{nameToBranch(name)}
+								</span>
+							</Link>
+						</div>
+						{#each remoteCommits as commit (commit.id)}
+							<div
+								class="flex w-full items-center pb-2 pr-2"
+								in:receive={{ key: commit.id }}
+								out:send={{ key: commit.id }}
+								animate:flip
+							>
+								<div class="ml-4 w-6">
+									<div
+										class="h-2.5 w-2.5 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+										class:bg-light-500={commit.isRemote}
+										class:dark:bg-dark-500={commit.isRemote}
+									/>
+								</div>
+								<div class="flex-grow">
+									<CommitCard {commit} />
+								</div>
+							</div>
+						{/each}
+					</div>
 				</div>
 			{/if}
 		</div>
-	</div>
-	<div
-		class="mt-6 flex h-full w-full flex-col gap-2 border-t border-light-400 dark:border-dark-500"
-	>
-		{#if localCommits.length > 0}
-			<div
-				class="relative"
-				class:h-full={remoteCommits.length == 0}
-				transition:slide={{ duration: 150 }}
-			>
-				<div
-					class="dark:form-dark-600 via-90% absolute top-4
-						ml-[20px] h-full w-px bg-gradient-to-b from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600"
-				/>
-
-				<div class="relative flex flex-col gap-2">
-					<div
-						class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600"
-					/>
-					<div class="ml-10 mr-2 flex items-center py-2">
-						<div
-							class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
-						>
-							local
-						</div>
-						<Button
-							class="w-20"
-							height="small"
-							kind="outlined"
-							color="purple"
-							loading={isPushing}
-							on:click={push}
-						>
-							<span class="purple">Push</span>
-						</Button>
-					</div>
-
-					{#each localCommits as commit (commit.id)}
-						<div
-							class="flex w-full items-center pb-2 pr-2"
-							in:receive={{ key: commit.id }}
-							out:send={{ key: commit.id }}
-							animate:flip
-						>
-							<div class="ml-4 w-6">
-								<div
-									class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
-								/>
-							</div>
-							<div class="flex-grow">
-								<CommitCard {commit} />
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
-		{#if remoteCommits.length > 0}
-			<div class="relative h-full">
-				<div
-					class="dark:form-dark-600 via-90% absolute top-4
-						ml-[20px] h-full w-px bg-gradient-to-b from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
-				/>
-
-				<div class="relative flex flex-col gap-2">
-					<div
-						class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
-					/>
-
-					<div class="ml-12 flex items-center py-2 font-mono text-sm">
-						<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
-							<span class="text-sm font-bold">
-								{target.remoteName}/{nameToBranch(name)}
-							</span>
-						</Link>
-					</div>
-					{#each remoteCommits as commit (commit.id)}
-						<div
-							class="flex w-full items-center pb-2 pr-2"
-							in:receive={{ key: commit.id }}
-							out:send={{ key: commit.id }}
-							animate:flip
-						>
-							<div class="ml-4 w-6">
-								<div
-									class="h-2.5 w-2.5 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
-									class:bg-light-500={commit.isRemote}
-									class:dark:bg-dark-500={commit.isRemote}
-								/>
-							</div>
-							<div class="flex-grow">
-								<CommitCard {commit} />
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
 	</div>
 </div>
