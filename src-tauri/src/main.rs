@@ -681,25 +681,25 @@ async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn get_target_data(
+async fn get_base_branch_data(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<Option<virtual_branches::target::Target>, Error> {
+) -> Result<Option<virtual_branches::BaseBranch>, Error> {
     let app = handle.state::<app::App>();
-    let target = app.get_target_data(project_id)?;
+    let target = app.get_base_branch_data(project_id)?;
     Ok(target)
 }
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn set_target_branch(
+async fn set_base_branch(
     handle: tauri::AppHandle,
     project_id: &str,
     branch: &str,
-) -> Result<virtual_branches::target::Target, Error> {
+) -> Result<virtual_branches::BaseBranch, Error> {
     let app = handle.state::<app::App>();
     let target = app
-        .set_target_branch(project_id, branch)
+        .set_base_branch(project_id, branch)
         .await?
         .context("failed to get target data")?;
     Ok(target)
@@ -707,9 +707,9 @@ async fn set_target_branch(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn update_branch_target(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
+async fn update_base_branch(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.update_branch_target(project_id).await?;
+    app.update_base_branch(project_id).await?;
     Ok(())
 }
 
@@ -944,9 +944,9 @@ fn main() {
             list_virtual_branches,
             create_virtual_branch,
             commit_virtual_branch,
-            get_target_data,
-            set_target_branch,
-            update_branch_target,
+            get_base_branch_data,
+            set_base_branch,
+            update_base_branch,
             update_virtual_branch,
             delete_virtual_branch,
             apply_branch,

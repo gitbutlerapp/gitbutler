@@ -11,7 +11,10 @@ use filetime::FileTime;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::{fs, projects, users, virtual_branches};
+use crate::{
+    fs, projects, users,
+    virtual_branches::{self},
+};
 
 use crate::{
     project_repository,
@@ -549,11 +552,11 @@ impl Repository {
         self.session_path().join("wd")
     }
 
-    pub fn set_target_branch(
+    pub fn set_base_branch(
         &self,
         project_repository: &project_repository::Repository,
         target_branch: &str,
-    ) -> Result<virtual_branches::target::Target> {
+    ) -> Result<virtual_branches::BaseBranch> {
         let repo = &project_repository.git_repository;
 
         // lookup a branch by name
@@ -604,7 +607,6 @@ impl Repository {
             remote_name: remote.name().unwrap().to_string(),
             remote_url: remote_url.to_string(),
             sha: commit_oid,
-            behind: 0,
         };
 
         let target_writer = virtual_branches::target::Writer::new(self);
@@ -635,8 +637,8 @@ impl Repository {
         }
 
         virtual_branches::update_gitbutler_integration(self, project_repository)?;
-
-        Ok(target)
+        let base = virtual_branches::target_to_base_branch(project_repository, &target)?;
+        Ok(base)
     }
 
     pub fn git_signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {

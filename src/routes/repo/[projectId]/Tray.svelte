@@ -30,6 +30,8 @@
 
 	$: behindMessage = target.behind > 0 ? `behind ${target.behind}` : 'up-to-date';
 
+	$: console.log(target);
+
 	function toggleBranch(branch: Branch) {
 		if (branch.active) {
 			branchController.unapplyBranch(branch.id);
@@ -264,7 +266,7 @@
 				height="small"
 				color="purple"
 				on:click={() => {
-					branchController.updateBranchTarget();
+					branchController.updateBaseBranch();
 					close();
 				}}
 			>

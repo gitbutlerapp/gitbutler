@@ -70,10 +70,12 @@ export class BranchData {
 	mergeConflicts!: string[];
 }
 
-export class Target {
-	sha!: string;
+export class BaseBranch {
 	branchName!: string;
 	remoteName!: string;
 	remoteUrl!: string;
+	baseSha!: string;
+	currentSha!: string;
 	behind!: number;
+	upstreamCommits!: Commit[];
 }

@@ -12,12 +12,12 @@ export class BranchController {
 		readonly projectId: string,
 		readonly virtualBranchStore: Refreshable & Readable<Loadable<Branch[]>>,
 		readonly remoteBranchStore: Refreshable & Readable<Loadable<BranchData[]>>,
-		readonly targetBranchStore: Refreshable & Readable<Loadable<Target | null>>
+		readonly targetBranchStore: Refreshable & Readable<Loadable<BaseBranch | null>>
 	) {}
 
 	async setTarget(branch: string) {
 		try {
-			await invoke<Target>('set_target_branch', { projectId: this.projectId, branch });
+			await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
 			await Promise.all([
 				this.virtualBranchStore.refresh(),
 				this.remoteBranchStore.refresh(),
@@ -119,9 +119,9 @@ export class BranchController {
 		}
 	}
 
-	async updateBranchTarget() {
+	async updateBaseBranch() {
 		try {
-			await invoke<object>('update_branch_target', { projectId: this.projectId });
+			await invoke<object>('update_base_branch', { projectId: this.projectId });
 			await Promise.all([
 				this.remoteBranchStore.refresh(),
 				this.virtualBranchStore.refresh(),

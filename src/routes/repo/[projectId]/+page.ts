@@ -14,7 +14,7 @@ export async function load({ parent, params }: PageLoadEvent) {
 	const { branchStoresCache } = await parent();
 	const vbranchStore = branchStoresCache.getVirtualBranchStore(projectId);
 	const remoteBranchStore = branchStoresCache.getRemoteBranchStore(projectId);
-	const targetBranchStore = branchStoresCache.getTargetBranchStore(projectId);
+	const targetBranchStore = branchStoresCache.getBaseBranchStore(projectId);
 
 	return {
 		projectId,
