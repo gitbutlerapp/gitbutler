@@ -46,8 +46,9 @@ impl Searcher {
 
         index.tokenizers().register(
             "ngram2_3",
-            tokenizer::TextAnalyzer::from(tokenizer::NgramTokenizer::all_ngrams(2, 3))
-                .filter(tokenizer::LowerCaser),
+            tokenizer::TextAnalyzer::builder(tokenizer::NgramTokenizer::all_ngrams(2, 3))
+                .filter(tokenizer::LowerCaser)
+                .build(),
         );
 
         let reader = index.reader()?;
@@ -66,7 +67,6 @@ impl Searcher {
         let project_id_field = self.index.schema().get_field("project_id").unwrap();
         let diff_field = self.index.schema().get_field("diff").unwrap();
         let file_path_field = self.index.schema().get_field("file_path").unwrap();
-        let timestamp_ns_field = self.index.schema().get_field("timestamp_ms").unwrap();
         let note_field = self.index.schema().get_field("note").unwrap();
 
         let version_term_query = Box::new(TermQuery::new(
@@ -96,7 +96,7 @@ impl Searcher {
         let top_docs_handle = collectors.add_collector(
             collector::TopDocs::with_limit(q.limit)
                 .and_offset(q.offset.unwrap_or(0))
-                .order_by_u64_field(timestamp_ns_field),
+                .order_by_u64_field("timestamp_ms"),
         );
         let count_handle = collectors.add_collector(collector::Count);
 
