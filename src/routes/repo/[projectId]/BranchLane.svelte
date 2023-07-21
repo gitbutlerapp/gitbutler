@@ -191,7 +191,7 @@
 	<div
 		class="flex w-full shrink-0 flex-col items-center
 		border-b
-		border-r border-light-400 bg-light-150 text-light-900 dark:border-dark-600 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		border-r border-light-400 bg-light-200 text-light-900 dark:border-dark-600 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div class="flex w-full items-center px-5 py-1">
 			<button
