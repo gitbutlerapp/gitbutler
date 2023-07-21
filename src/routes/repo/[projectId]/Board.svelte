@@ -1,5 +1,6 @@
 <script lang="ts" async="true">
 	import Lane from './BranchLane.svelte';
+	import UpstreamBranchLane from './UpstreamBranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { Branch, BaseBranch } from '$lib/vbranches';
 	import { dzHighlight } from './dropZone';
@@ -67,6 +68,7 @@
 		}
 	}}
 >
+	<UpstreamBranchLane baseBranch={target} />
 	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order, conflicted } (id)}
 		<Lane
 			on:dragstart={(e) => {
