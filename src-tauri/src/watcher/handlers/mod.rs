@@ -49,7 +49,7 @@ impl<'handler> Handler {
             project_id: project_id.to_string(),
             events_sender: events_sender.clone(),
 
-            file_change_handler: file_change::Handler::new(project_id),
+            file_change_handler: file_change::Handler::new(),
             project_file_handler: project_file_change::Handler::new(
                 local_data_dir,
                 project_id,
