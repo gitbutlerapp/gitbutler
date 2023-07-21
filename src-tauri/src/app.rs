@@ -261,22 +261,22 @@ impl App {
             .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub fn get_target_data(
+    pub fn get_base_branch_data(
         &self,
         project_id: &str,
-    ) -> Result<Option<virtual_branches::target::Target>> {
+    ) -> Result<Option<virtual_branches::BaseBranch>> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        virtual_branches::get_target_data(&gb_repository, &project_repository)
+        virtual_branches::get_base_branch_data(&gb_repository, &project_repository)
     }
 
-    pub async fn set_target_branch(
+    pub async fn set_base_branch(
         &self,
         project_id: &str,
         target_branch: &str,
-    ) -> Result<Option<virtual_branches::target::Target>> {
+    ) -> Result<Option<virtual_branches::BaseBranch>> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
@@ -288,11 +288,11 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-        let target = gb_repository.set_target_branch(&project_repository, target_branch)?;
+        let target = gb_repository.set_base_branch(&project_repository, target_branch)?;
         Ok(Some(target))
     }
 
-    pub async fn update_branch_target(&self, project_id: &str) -> Result<()> {
+    pub async fn update_base_branch(&self, project_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
@@ -304,7 +304,7 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-        virtual_branches::update_branch_target(&gb_repository, &project_repository)?;
+        virtual_branches::update_base_branch(&gb_repository, &project_repository)?;
         Ok(())
     }
 

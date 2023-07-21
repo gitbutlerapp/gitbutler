@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Button, Checkbox, Modal } from '$lib/components';
-	import type { Branch, BranchData, Target } from '$lib/vbranches';
+	import type { Branch, BranchData, BaseBranch } from '$lib/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
-	import { IconGitBranch, IconRemote, IconRefresh } from '$lib/icons';
+	import { IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
@@ -12,7 +12,6 @@
 	import { getContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
-	export let target: Target;
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
 
@@ -24,11 +23,8 @@
 
 	let yourBranchContextMenu: PopupMenu;
 	let remoteBranchContextMenu: PopupMenu;
-	let updateTargetModal: Modal;
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
-
-	$: behindMessage = target.behind > 0 ? `behind ${target.behind}` : 'up-to-date';
 
 	function toggleBranch(branch: Branch) {
 		if (branch.active) {
@@ -64,37 +60,6 @@
 	class="tray-scroll w-80 min-w-[216px] shrink-0 cursor-default resize-x overflow-y-scroll overscroll-y-none border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 >
-	<!-- Target branch -->
-	<div class="pl-2 pr-4 pt-2 text-light-700 dark:bg-dark-700 dark:text-dark-200">Base branch</div>
-	<div
-		class="flex w-full flex-row items-center justify-between border-b border-light-400 pb-1 pl-2 pr-1 text-light-900 dark:border-dark-500 dark:bg-dark-700 dark:text-dark-100"
-	>
-		<div class="flex-grow pb-1 font-bold" title={behindMessage}>{target.branchName}</div>
-		<div class="flex items-center gap-1">
-			<div class="pb-1">{target.behind > 0 ? `behind ${target.behind}` : 'up-to-date'}</div>
-			<div class="flex-shrink-0 text-light-700 dark:text-dark-100" title={behindMessage}>
-				{#if target.behind == 0}
-					<button
-						class="p-0 hover:bg-light-200 disabled:text-light-300 dark:hover:bg-dark-800 disabled:dark:text-dark-300"
-						on:click={() => branchController.fetchFromTarget()}
-						title="click to fetch"
-					>
-						<IconRefresh />
-					</button>
-				{:else}
-					<button
-						class="p-0 disabled:text-light-300 disabled:dark:text-dark-300"
-						on:click={updateTargetModal.show}
-						disabled={target.behind == 0}
-						title={target.behind > 0 ? 'click to update target' : 'already up-to-date'}
-					>
-						<IconRefresh />
-					</button>
-				{/if}
-			</div>
-		</div>
-	</div>
-
 	<!-- Your branches -->
 	<div
 		class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
@@ -245,26 +210,6 @@
 				color="purple"
 				on:click={() => {
 					branchController.applyBranch(item.id);
-					close();
-				}}
-			>
-				Update
-			</Button>
-		</svelte:fragment>
-	</Modal>
-
-	<!-- Confirm target update modal -->
-
-	<Modal width="small" bind:this={updateTargetModal}>
-		<svelte:fragment slot="title">Update target</svelte:fragment>
-		<p>You are about to update the base branch.</p>
-		<svelte:fragment slot="controls" let:close>
-			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
-			<Button
-				height="small"
-				color="purple"
-				on:click={() => {
-					branchController.updateBranchTarget();
 					close();
 				}}
 			>

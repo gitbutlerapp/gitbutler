@@ -63,8 +63,7 @@ pub struct VirtualBranchCommit {
     pub id: String,
     pub description: String,
     pub created_at: u128,
-    pub author_name: String,
-    pub author_email: String,
+    pub author: Author,
     pub is_remote: bool,
 }
 
@@ -132,7 +131,19 @@ pub struct RemoteBranch {
     pub merge_conflicts: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BaseBranch {
+    pub branch_name: String,
+    pub remote_name: String,
+    pub remote_url: String,
+    pub base_sha: String,
+    pub current_sha: String,
+    pub behind: u32,
+    pub upstream_commits: Vec<VirtualBranchCommit>,
+}
+
+#[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Author {
     pub name: String,
@@ -825,22 +836,7 @@ pub fn list_virtual_branches(
             .log(branch.head, default_target.sha)
             .context(format!("failed to get log for branch {}", branch.name))?
         {
-            let timestamp = commit.time().seconds() as u128;
-            let signature = commit.author();
-            let name = signature.name().unwrap().to_string();
-            let email = signature.email().unwrap().to_string();
-            let message = commit.message().unwrap().to_string();
-            let sha = commit.id().to_string();
-            let is_remote = upstream_commits.contains_key(&commit.id());
-
-            let commit = VirtualBranchCommit {
-                id: sha,
-                created_at: timestamp * 1000,
-                author_name: name,
-                author_email: email,
-                description: message,
-                is_remote,
-            };
+            let commit = commit_to_vbranch_commit(&commit, Some(&upstream_commits))?;
             commits.push(commit);
         }
 
@@ -892,6 +888,31 @@ pub fn list_virtual_branches(
     }
     branches.sort_by(|a, b| a.order.cmp(&b.order));
     Ok(branches)
+}
+
+pub fn commit_to_vbranch_commit(
+    commit: &git2::Commit,
+    upstream_commits: Option<&HashMap<git2::Oid, bool>>,
+) -> Result<VirtualBranchCommit> {
+    let timestamp = commit.time().seconds() as u128;
+    let signature = commit.author();
+    let message = commit.message().unwrap().to_string();
+    let sha = commit.id().to_string();
+
+    let is_remote = match upstream_commits {
+        Some(commits) => commits.contains_key(&commit.id()),
+        None => true,
+    };
+
+    let commit = VirtualBranchCommit {
+        id: sha,
+        created_at: timestamp * 1000,
+        author: Author::from(signature),
+        description: message,
+        is_remote,
+    };
+
+    Ok(commit)
 }
 
 pub fn create_virtual_branch_from_branch(
@@ -1499,7 +1520,7 @@ pub fn get_status_by_branch(
 // determine if what the target branch is now pointing to is mergeable with our current working directory
 // merge the target branch into our current working directory
 // update the target sha
-pub fn update_branch_target(
+pub fn update_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
@@ -2154,10 +2175,10 @@ pub fn push(
         .map_err(Error::Other)
 }
 
-pub fn get_target_data(
+pub fn get_base_branch_data(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<Option<target::Target>> {
+) -> Result<Option<BaseBranch>> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create current session")?;
@@ -2165,15 +2186,39 @@ pub fn get_target_data(
         .context("failed to open current session")?;
     match get_default_target(&current_session_reader)? {
         None => Ok(None),
-        Some(mut target) => {
-            let repo = &project_repository.git_repository;
-            let branch = repo.find_branch(&target.branch_name, git2::BranchType::Remote)?;
-            let commit = branch.get().peel_to_commit()?;
-            let oid = commit.id();
-            target.behind = project_repository
-                .distance(oid, target.sha)
-                .context(format!("failed to get behind for {}", target.branch_name))?;
-            Ok(Some(target))
+        Some(target) => {
+            let base = target_to_base_branch(&project_repository, &target)?;
+            Ok(Some(base))
         }
     }
+}
+
+pub fn target_to_base_branch(
+    project_repository: &project_repository::Repository,
+    target: &target::Target,
+) -> Result<BaseBranch> {
+    let repo = &project_repository.git_repository;
+    let branch = repo.find_branch(&target.branch_name, git2::BranchType::Remote)?;
+    let commit = branch.get().peel_to_commit()?;
+    let oid = commit.id();
+
+    // gather a list of commits between oid and target.sha
+    let mut upstream_commits = vec![];
+    for commit in project_repository
+        .log(oid, target.sha)
+        .context(format!("failed to get log for branch {:?}", branch.name()?))?
+    {
+        let commit = commit_to_vbranch_commit(&commit, None)?;
+        upstream_commits.push(commit);
+    }
+    let base = BaseBranch {
+        branch_name: target.branch_name.clone(),
+        remote_name: target.remote_name.clone(),
+        remote_url: target.remote_url.clone(),
+        base_sha: target.sha.to_string(),
+        current_sha: oid.to_string(),
+        behind: upstream_commits.len() as u32,
+        upstream_commits,
+    };
+    Ok(base)
 }

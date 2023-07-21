@@ -12,7 +12,7 @@
 		{commit.description}
 	</div>
 	<div class="flex text-light-700">
-		<div class="flex-grow">{commit.authorName}</div>
+		<div class="flex-grow">{commit.author.name}</div>
 		<div>{formatDistanceToNow(commit.createdAt)} ago</div>
 	</div>
 </div>

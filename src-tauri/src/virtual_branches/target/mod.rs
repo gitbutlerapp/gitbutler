@@ -13,7 +13,6 @@ pub struct Target {
     pub remote_name: String,
     pub remote_url: String,
     pub sha: git2::Oid,
-    pub behind: u32,
 }
 
 impl Serialize for Target {
@@ -25,7 +24,6 @@ impl Serialize for Target {
         state.serialize_field("branchName", &self.branch_name)?;
         state.serialize_field("remoteName", &self.remote_name)?;
         state.serialize_field("remoteUrl", &self.remote_url)?;
-        state.serialize_field("behind", &self.behind)?;
         state.serialize_field("sha", &self.sha.to_string())?;
         state.end()
     }
@@ -97,7 +95,6 @@ impl TryFrom<&dyn crate::reader::Reader> for Target {
             remote_name,
             remote_url,
             sha,
-            behind: 0,
         })
     }
 }

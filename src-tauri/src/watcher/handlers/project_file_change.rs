@@ -221,7 +221,6 @@ mod test {
                 unsafe { TEST_TARGET_INDEX }
             ))
             .unwrap(),
-            behind: 0,
         }
     }
 

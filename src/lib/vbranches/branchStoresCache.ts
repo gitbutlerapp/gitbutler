@@ -4,7 +4,7 @@ import { Operation } from '$lib/api';
 import type { Readable } from '@square/svelte-store';
 import { deltas, git } from '$lib/api/ipc';
 import { stores } from '$lib';
-import { Target, Branch, BranchData } from './types';
+import { BaseBranch, Branch, BranchData } from './types';
 import { plainToInstance } from 'class-transformer';
 import { invoke } from '$lib/ipc';
 
@@ -15,7 +15,7 @@ export interface Refreshable {
 export class BranchStoresCache {
 	virtualBranchStores: Map<string, Refreshable & Readable<Loadable<Branch[]>>> = new Map();
 	remoteBranchStores: Map<string, Refreshable & Readable<Loadable<BranchData[]>>> = new Map();
-	targetBranchStores: Map<string, Refreshable & Readable<Loadable<Target | null>>> = new Map();
+	targetBranchStores: Map<string, Refreshable & Readable<Loadable<BaseBranch | null>>> = new Map();
 
 	getVirtualBranchStore(projectId: string) {
 		const cachedStore = this.virtualBranchStores.get(projectId);
@@ -86,21 +86,21 @@ export class BranchStoresCache {
 		return refreshableStore;
 	}
 
-	getTargetBranchStore(projectId: string) {
+	getBaseBranchStore(projectId: string) {
 		const cachedStore = this.targetBranchStores.get(projectId);
 		if (cachedStore) {
 			return cachedStore;
 		}
-		const writableStore = writable(getTargetData({ projectId }), (set) => {
+		const writableStore = writable(getBaseBranchData({ projectId }), (set) => {
 			git.fetches.subscribe({ projectId }, () => {
-				getTargetData({ projectId }).then(set);
+				getBaseBranchData({ projectId }).then(set);
 			});
 		});
 		const refreshableStore = {
 			subscribe: writableStore.subscribe,
 			refresh: async () => {
-				const newTarget = await getTargetData({ projectId });
-				return writableStore.set({ isLoading: false, value: newTarget });
+				const newBaseBranch = await getBaseBranchData({ projectId });
+				return writableStore.set({ isLoading: false, value: newBaseBranch });
 			}
 		};
 		this.targetBranchStores.set(projectId, refreshableStore);
@@ -116,8 +116,8 @@ export async function getRemoteBranchesData(params: { projectId: string }): Prom
 	return plainToInstance(BranchData, await invoke<any[]>('git_remote_branches_data', params));
 }
 
-export async function getTargetData(params: { projectId: string }): Promise<Target> {
-	return plainToInstance(Target, invoke<any>('get_target_data', params));
+export async function getBaseBranchData(params: { projectId: string }): Promise<BaseBranch> {
+	return plainToInstance(BaseBranch, invoke<any>('get_base_branch_data', params));
 }
 
 async function branchesWithFileContent(projectId: string, sessionId: string, branches: Branch[]) {

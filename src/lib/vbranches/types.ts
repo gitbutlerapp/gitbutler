@@ -42,8 +42,7 @@ export class Branch {
 
 export class Commit {
 	id!: string;
-	authorEmail!: string;
-	authorName!: string;
+	author!: Author;
 	description!: string;
 	@Transform((obj) => new Date(obj.value))
 	createdAt!: Date;
@@ -70,10 +69,12 @@ export class BranchData {
 	mergeConflicts!: string[];
 }
 
-export class Target {
-	sha!: string;
+export class BaseBranch {
 	branchName!: string;
 	remoteName!: string;
 	remoteUrl!: string;
+	baseSha!: string;
+	currentSha!: string;
 	behind!: number;
+	upstreamCommits!: Commit[];
 }
