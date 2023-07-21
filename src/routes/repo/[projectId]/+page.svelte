@@ -59,7 +59,7 @@
 			}}
 		/>
 		<div class="flex w-full flex-col overflow-x-hidden">
-			<Board {branches} {projectId} projectPath={project.path} {target} />
+			<Board {branches} {projectId} projectPath={$project?.path} {target} />
 			<BottomPanel {target} />
 		</div>
 	</div>

@@ -7,7 +7,6 @@
 	export let sectionType: SectionType;
 	export let filePath: string;
 	export let minWidth = 1.75;
-	export let maximized: boolean;
 
 	function toTokens(codeString: string): string[] {
 		function sanitize(text: string) {
