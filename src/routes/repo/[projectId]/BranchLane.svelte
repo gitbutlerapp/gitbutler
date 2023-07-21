@@ -171,8 +171,8 @@
 	}}
 >
 	<div
-		class="flex w-full shrink-0 flex-col items-center overflow-y-scroll
-		overscroll-y-none border-b
+		class="flex w-full shrink-0 flex-col items-center
+		border-b
 		border-r border-light-400 bg-light-150 text-light-900 dark:border-dark-600 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
 	>
 		<div class="flex w-full items-center px-5 py-1">
@@ -257,7 +257,7 @@
 		{/if}
 	</div>
 
-	<div class="lane-scroll h-full overflow-y-scroll overscroll-y-none">
+	<div class="lane-scroll flex flex-grow flex-col overflow-y-scroll overscroll-y-none">
 		{#if conflicted}
 			<div class="mb-2 rounded bg-red-700 p-2 text-white">
 				{#if files.some((f) => f.conflicted)}
@@ -331,16 +331,19 @@
 				{/if}
 			</div>
 		</div>
-		<div class="flex h-full w-full flex-col gap-2 border-t border-light-400 dark:border-dark-500">
+		<div
+			class="flex w-full flex-grow flex-col gap-2 border-t border-light-400 dark:border-dark-500"
+		>
 			{#if localCommits.length > 0}
 				<div
 					class="relative"
-					class:h-full={remoteCommits.length == 0}
+					class:flex-grow={remoteCommits.length == 0}
 					transition:slide={{ duration: 150 }}
 				>
 					<div
 						class="dark:form-dark-600 absolute top-4 ml-[20px]
-						h-full w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+						w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+						style="height: calc(100% - 1rem);"
 					/>
 
 					<div class="relative flex flex-col gap-2">
@@ -386,10 +389,11 @@
 				</div>
 			{/if}
 			{#if remoteCommits.length > 0}
-				<div class="relative h-full">
+				<div class="relative flex-grow">
 					<div
 						class="dark:form-dark-600 absolute top-4 ml-[20px]
-						h-full w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+						style="height: calc(100% - 1rem);"
 					/>
 
 					<div class="relative flex flex-col gap-2">
