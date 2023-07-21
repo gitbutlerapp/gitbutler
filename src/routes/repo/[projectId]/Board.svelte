@@ -1,7 +1,7 @@
 <script lang="ts" async="true">
 	import Lane from './BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import type { Branch, Target } from '$lib/vbranches';
+	import type { Branch, BaseBranch } from '$lib/vbranches';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
 	import { getContext } from 'svelte';
@@ -10,7 +10,7 @@
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
-	export let target: Target;
+	export let target: BaseBranch;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 

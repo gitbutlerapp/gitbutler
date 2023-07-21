@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Checkbox, Modal } from '$lib/components';
-	import type { Branch, BranchData, Target } from '$lib/vbranches';
+	import type { Branch, BranchData, BaseBranch } from '$lib/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
 	import { IconGitBranch, IconRemote, IconRefresh } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
@@ -12,7 +12,7 @@
 	import { getContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
-	export let target: Target;
+	export let target: BaseBranch;
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
 

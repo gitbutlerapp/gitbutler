@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { toasts } from '$lib';
-	import type { Commit, File, Target } from '$lib/vbranches';
+	import type { Commit, File, BaseBranch } from '$lib/vbranches';
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles, IconBranch } from '$lib/icons';
 	import { Button, Link, Modal } from '$lib/components';
@@ -24,7 +24,7 @@
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
-	export let target: Target;
+	export let target: BaseBranch;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -109,7 +109,7 @@
 			.join('');
 	}
 
-	function url(target: Target, branchName: string) {
+	function url(target: BaseBranch, branchName: string) {
 		const baseBranchName = target.branchName.split('/')[1];
 		const repoBaseUrl = target.remoteUrl
 			.replace(':', '/')

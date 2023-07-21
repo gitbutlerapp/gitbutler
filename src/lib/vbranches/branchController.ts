@@ -1,7 +1,7 @@
 import type { Refreshable } from './branchStoresCache';
 import type { Readable } from '@square/svelte-store';
 import type { Loadable } from 'svelte-loadable-store';
-import type { Branch, BranchData, Target } from './types';
+import type { Branch, BranchData, BaseBranch } from './types';
 import { toasts } from '$lib';
 import { invoke } from '$lib/ipc';
 
