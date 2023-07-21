@@ -17,6 +17,7 @@
 	import { quintOut } from 'svelte/easing';
 	import { crossfade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
+	import { invoke } from '@tauri-apps/api/tauri';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -141,6 +142,19 @@
 	}
 
 	let commitDialogShown = false;
+
+	export function git_get_config(params: { key: string }) {
+		return invoke<string>('git_get_global_config', params);
+	}
+
+	let annotateCommits = true;
+
+	function checkCommitsAnnotated() {
+		git_get_config({ key: 'gitbutler.utmostDiscretion' }).then((value) => {
+			annotateCommits = value ? value === '0' : true;
+		});
+	}
+	$: checkCommitsAnnotated();
 </script>
 
 <div
@@ -257,6 +271,18 @@
 				class="mb-2 border-t border-light-400 py-4 dark:border-dark-400"
 				transition:slide={{ duration: 150 }}
 			>
+				{#if annotateCommits}
+					<div class="bg-blue-400 p-2 text-sm text-white">
+						GitButler will be the "committer" of this commit.
+						<a
+							target="_blank"
+							rel="noreferrer"
+							class="font-bold"
+							href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
+							>Learn more</a
+						>
+					</div>
+				{/if}
 				<div class="mb-2 flex items-center">
 					<textarea
 						bind:this={textAreaInput}
@@ -340,13 +366,13 @@
 				transition:slide={{ duration: 150 }}
 			>
 				<div
-					class="dark:form-dark-600 absolute top-4 ml-[20px]
-						h-full w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+					class="dark:form-dark-600 via-90% absolute top-4
+						ml-[20px] h-full w-px bg-gradient-to-b from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600"
 				/>
 
 				<div class="relative flex flex-col gap-2">
 					<div
-						class="dark:form-dark-600 absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+						class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600"
 					/>
 					<div class="ml-10 mr-2 flex items-center py-2">
 						<div
@@ -389,13 +415,13 @@
 		{#if remoteCommits.length > 0}
 			<div class="relative h-full">
 				<div
-					class="dark:form-dark-600 absolute top-4 ml-[20px]
-						h-full w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+					class="dark:form-dark-600 via-90% absolute top-4
+						ml-[20px] h-full w-px bg-gradient-to-b from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
 				/>
 
 				<div class="relative flex flex-col gap-2">
 					<div
-						class="dark:form-dark-600 absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+						class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
 					/>
 
 					<div class="ml-12 flex items-center py-2 font-mono text-sm">
