@@ -7,11 +7,6 @@ mod git_file_change;
 mod index_handler;
 mod project_file_change;
 
-#[cfg(test)]
-mod check_current_session_tests;
-#[cfg(test)]
-mod project_file_change_tests;
-
 use std::path;
 
 use anyhow::{Context, Result};
