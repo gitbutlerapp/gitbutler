@@ -122,15 +122,15 @@ border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 d
 				<div>
 					{#if $project}
 						<Link href="/projects/{$project?.id}/settings">
-							{#if $project?.api?.sync}
-								<div class="flex flex-row items-center space-x-2">
+							<div class="flex flex-row items-center space-x-2">
+								{#if $project?.api?.sync}
 									<div class="h-2 w-2 rounded-full bg-green-700" />
 									<span>Backed up</span>
-								</div>
-							{:else}
-								<div class="h-2 w-2 rounded-full bg-red-700" />
-								Offline
-							{/if}
+								{:else}
+									<div class="h-2 w-2 rounded-full bg-red-700" />
+									<span>Offline</span>
+								{/if}
+							</div>
 						</Link>
 					{/if}
 				</div>

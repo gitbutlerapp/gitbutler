@@ -2,6 +2,8 @@
 	import { onMount, type ComponentType } from 'svelte';
 	import { IconLoading } from '../../icons';
 
+	let classes = '';
+	export { classes as class };
 	export let color: 'basic' | 'primary' | 'destructive' | 'purple' = 'basic';
 	export let kind: 'plain' | 'filled' | 'outlined' = 'filled';
 	export let disabled = false;
@@ -11,6 +13,7 @@
 	export let align: 'left' | 'center' | 'right' = 'center';
 	export let icon: ComponentType | undefined = undefined;
 	export let loading = false;
+	export let tabindex = 0;
 
 	$: filled = kind === 'filled';
 	$: outlined = kind === 'outlined';
@@ -23,7 +26,7 @@
 </script>
 
 <button
-	class={color}
+	class={color + ' ' + classes}
 	class:small={height === 'small'}
 	class:full-width={width === 'full-width'}
 	class:pointer-events-none={loading}
@@ -39,6 +42,7 @@
 	class:justify-end={align == 'right'}
 	class:px-4={!!$$slots.default}
 	class:px-2={!$$slots.default}
+	{tabindex}
 >
 	{#if loading}
 		{#if icon}

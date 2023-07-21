@@ -41,10 +41,10 @@
 		const parts = filepath.split('/');
 		if (parts.length == 0) return '';
 		return (
-			parts.slice(0, -1).join('/') +
-			'/<span class="font-bold text-light-800 dark:text-dark-50">' +
+			'<span class="font-bold text-light-800 dark:text-dark-50 mr-1">' +
 			parts[parts.length - 1] +
-			'</span>'
+			'</span>/' +
+			parts.slice(0, -1).join('/')
 		);
 	}
 
@@ -83,7 +83,15 @@
 	<div
 		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-400 bg-light-50 py-1 text-light-900 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
 	>
-		<div class="flex pl-2">
+		<div
+			class="flex pl-2 cursor-default"
+			role="button"
+			tabindex="0"
+			on:dblclick={() => {
+				expanded = !expanded;
+				dispatch('expanded', expanded);
+			}}
+		>
 			<div
 				class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
 				title={file.path}
@@ -95,17 +103,18 @@
 					style="width: 0.8125rem"
 					class="mr-1 inline"
 				/>
+
 				{@html boldenFilename(file.path)}
 			</div>
 			<div
-				on:click={() => {
+				on:click|stopPropagation={() => {
 					expanded = !expanded;
 					dispatch('expanded', expanded);
 				}}
 				on:keypress={() => (expanded = !expanded)}
 				role="button"
 				tabindex="0"
-				class="cursor-pointer py-2 px-3 text-light-600 dark:text-dark-200"
+				class="cursor-pointer px-3 py-2 text-light-600 dark:text-dark-200"
 			>
 				{#if expanded}
 					<IconTriangleUp />

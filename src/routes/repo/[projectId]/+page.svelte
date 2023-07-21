@@ -8,6 +8,7 @@
 	import { getContext, setContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import BottomPanel from './BottomPanel.svelte';
 
 	export let data: PageData;
 	let {
@@ -57,7 +58,10 @@
 				}));
 			}}
 		/>
-		<Board {branches} {projectId} projectPath={project.path} />
+		<div class="flex w-full flex-col overflow-x-hidden">
+			<Board {branches} {projectId} projectPath={project.path} {target} />
+			<BottomPanel />
+		</div>
 	</div>
 {:else}
 	<div class="m-auto flex max-w-xs flex-col gap-y-4">

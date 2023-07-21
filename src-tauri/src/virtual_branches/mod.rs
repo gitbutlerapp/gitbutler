@@ -45,7 +45,7 @@ pub struct VirtualBranch {
     pub merge_conflicts: Vec<String>,
     pub conflicted: bool,
     pub order: usize,
-    pub upstream: Option<project_repository::branch::Name>,
+    pub upstream: Option<project_repository::branch::RemoteName>,
     pub base_current: bool, // is this vbranch based on the current base branch?
 }
 
@@ -788,9 +788,7 @@ pub fn list_virtual_branches(
         // see if we can identify some upstream
         let mut upstream_commit = None;
         if let Some(branch_upstream) = &branch.upstream {
-            let branch_name = branch_upstream.branch();
-            let full_branch_name = format!("refs/remotes/{}", branch_name);
-            if let Ok(upstream_oid) = repo.refname_to_id(&full_branch_name) {
+            if let Ok(upstream_oid) = repo.refname_to_id(&branch_upstream.to_string()) {
                 if let Ok(upstream_commit_obj) = repo.find_commit(upstream_oid) {
                     upstream_commit = Some(upstream_commit_obj);
                 }
@@ -924,7 +922,20 @@ pub fn create_virtual_branch_from_branch(
         id: branch_id.clone(),
         name: upstream.branch().to_string(),
         applied: false,
-        upstream: Some(upstream.clone()),
+        upstream: Some(match upstream {
+            project_repository::branch::Name::Remote(remote) => remote.clone(),
+            project_repository::branch::Name::Local(local) => {
+                project_repository::branch::RemoteName::try_from(
+                    format!(
+                        "refs/remotes/{}/{}",
+                        default_target.remote_name,
+                        local.branch()
+                    )
+                    .as_str(),
+                )
+                .unwrap()
+            }
+        }),
         tree: tree.id(),
         head: head_commit.id(),
         created_timestamp_ms: now,
@@ -2052,16 +2063,10 @@ pub fn commit(
     Ok(())
 }
 
-fn name_to_branch(name: &str) -> project_repository::branch::LocalName {
-    let cleaned_name = name
-        .chars()
+fn name_to_branch(name: &str) -> String {
+    name.chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect::<String>();
-
-    format!("refs/heads/{}", cleaned_name)
-        .as_str()
-        .try_into()
-        .unwrap()
+        .collect::<String>()
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -2103,23 +2108,25 @@ pub fn push(
         .context("failed to read branch")
         .map_err(Error::Other)?;
 
-    let remote_name = if let Some(project_repository::branch::Name::Remote(upstream_branch)) =
-        vbranch.upstream.as_ref()
-    {
-        upstream_branch.remote().to_string()
+    let remote_branch = if let Some(upstream_branch) = vbranch.upstream.as_ref() {
+        upstream_branch.clone()
     } else {
         match get_default_target(&current_session_reader)? {
-            Some(target) => target.remote_name,
+            Some(target) => project_repository::branch::RemoteName::try_from(
+                format!(
+                    "refs/remotes/{}/{}",
+                    target.remote_name,
+                    name_to_branch(&vbranch.name)
+                )
+                .as_str(),
+            )
+            .unwrap(),
             None => return Err(Error::Other(anyhow::anyhow!("no default target set"))),
         }
     };
 
-    let upstream_branch = vbranch
-        .upstream
-        .unwrap_or_else(|| project_repository::branch::Name::Local(name_to_branch(&vbranch.name)));
-
     project_repository
-        .push(&vbranch.head, &remote_name, &upstream_branch)
+        .push(&vbranch.head, &remote_branch)
         .map_err(|err| match err {
             project_repository::Error::UnsupportedAuthCredentials(cred_type) => {
                 Error::UnsupportedAuthCredentials(cred_type)
@@ -2127,7 +2134,7 @@ pub fn push(
             err => Error::Other(err.into()),
         })?;
 
-    vbranch.upstream = Some(upstream_branch);
+    vbranch.upstream = Some(remote_branch);
     branch_writer
         .write(&vbranch)
         .context("failed to write target branch after push")?;

@@ -8,7 +8,7 @@ use super::error::Error;
 pub struct Name {
     // contains name of the remote, e.x. "origin" or "upstream"
     remote: String,
-    // contains name of the branch, e.x. "origin/master" or "upstream/main"
+    // contains name of the branch, e.x. "master" or "main"
     branch: String,
 }
 
@@ -24,7 +24,7 @@ impl Name {
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "refs/remotes/{}", self.branch)
+        write!(f, "refs/remotes/{}/{}", self.remote, self.branch)
     }
 }
 
@@ -51,10 +51,10 @@ impl TryFrom<&str> for Name {
 
         let value = value.strip_prefix("refs/remotes/").unwrap();
 
-        if let Some((remote, _)) = value.split_once('/') {
+        if let Some((remote, branch)) = value.split_once('/') {
             Ok(Self {
                 remote: remote.to_string(),
-                branch: value.to_string(),
+                branch: branch.to_string(),
             })
         } else {
             Err(Error::InvalidName(value.to_string()))

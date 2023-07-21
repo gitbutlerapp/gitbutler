@@ -1,12 +1,11 @@
 <script lang="ts">
-	import type { Commit, File } from '$lib/vbranches';
+	import { toasts } from '$lib';
+	import type { Commit, File, Target } from '$lib/vbranches';
 	import { getContext, onMount } from 'svelte';
-	import FileCard from './FileCard.svelte';
-	import { IconBranch } from '$lib/icons';
-	import { Button } from '$lib/components';
+	import { IconAISparkles, IconBranch } from '$lib/icons';
+	import { Button, Link, Modal } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
-	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
 	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
@@ -25,6 +24,7 @@
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
+	export let target: Target;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -32,12 +32,22 @@
 	$: localCommits = commits.filter((c) => !c.isRemote);
 	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
 
+	let commitTitle: string;
+	let commitDescription: string;
+	$: descriptionRows = Math.min(
+		Math.max(commitDescription ? commitDescription.split('\n').length : 0, 1),
+		10
+	);
+
 	let allExpanded: boolean | undefined;
 	let maximized = false;
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
 	let textAreaInput: HTMLTextAreaElement;
+	let commitTiteInput: HTMLInputElement;
+	let descriptionTextArea: HTMLTextAreaElement;
+	let commitBranchModal: Modal;
 
 	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
@@ -90,13 +100,34 @@
 		console.log('branch name change:', name);
 		branchController.updateBranchName(branchId, name);
 	}
+
+	function nameToBranch(name: string): string {
+		const isAsciiAlphanumeric = (c: string): boolean => /^[A-Za-z0-9]$/.test(c);
+		return name
+			.split('')
+			.map((c) => (isAsciiAlphanumeric(c) ? c : '-'))
+			.join('');
+	}
+
+	function url(target: Target, branchName: string) {
+		const baseBranchName = target.branchName.split('/')[1];
+		const repoBaseUrl = target.remoteUrl
+			.replace(':', '/')
+			.replace('git@', 'https://')
+			.replace('.git', '');
+		return `${repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
+	}
+
+	function onUpdateFromModal() {
+		commitMessage = commitTiteInput.value + '\n\n' + commitDescription;
+	}
 </script>
 
 <div
 	draggable="true"
 	class:w-full={maximized}
 	class:w-96={!maximized}
-	class="lane-scroll flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-default snap-center flex-col overflow-y-scroll overscroll-y-none bg-light-150 py-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	class="lane-scroll flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-default snap-center flex-col overflow-y-scroll overscroll-y-none bg-light-150 pt-2 transition-width dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -128,7 +159,7 @@
 			role="button"
 			class="flex h-8 w-8 flex-grow-0 items-center justify-center text-light-600 dark:text-dark-200"
 		>
-			<IconBranch />
+			<IconBranch class="h-4 w-4" />
 		</div>
 		<div class="mr-1 flex-grow">
 			<input
@@ -191,6 +222,10 @@
 			<textarea
 				bind:this={textAreaInput}
 				bind:value={commitMessage}
+				on:change={() => {
+					commitTitle = commitMessage?.split('\n')?.at(0) || '';
+					commitDescription = commitMessage?.split('\n')?.slice(1)?.join('\n').trim() || '';
+				}}
 				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none hover:border-light-400 focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300"
 				placeholder="Your commit message here"
 				rows={messageRows}
@@ -198,11 +233,12 @@
 			/>
 		</div>
 		<div class="mb-2 mr-2 text-right">
-			<Button
-				height="small"
-				color="purple"
-				on:click={() => (commitMessage ? commit() : textAreaInput.focus())}
-			>
+			{#if localCommits.length > 0}
+				<Button on:click={push} loading={isPushing} kind="outlined" color="purple" height="small">
+					<span class="purple">Push</span>
+				</Button>
+			{/if}
+			<Button height="small" color="purple" on:click={() => commitBranchModal.show()}>
 				Commit
 			</Button>
 		</div>
@@ -229,40 +265,51 @@
 			{#if files.length == 0}
 				<!-- attention: these markers have custom css at the bottom of thise file -->
 				<div
-					class="no-changes rounded border border-zinc-200 p-2 text-center dark:border-zinc-700"
+					class="no-changes rounded p-2 text-center font-mono text-light-700 dark:border-zinc-700"
 					data-dnd-ignore
 				>
-					No changes made
+					No uncomitted changes
 				</div>
 			{/if}
 		</div>
 	</div>
-	{#if localCommits.length > 0}
-		<div class="relative">
-			<!-- Commit bubble track -->
+	<div class="flex h-full">
+		<div class="relative z-30 h-full">
 			<div
-				class="absolute top-0 h-full w-0.5
-				bg-gradient-to-b from-light-400 to-transparent dark:from-dark-500
-				"
-				style="left: 0.925rem"
+				class="absolute top-0 z-30 ml-[20px] h-full w-px
+			bg-gradient-to-b from-transparent via-light-400 dark:via-dark-600
+			"
 			/>
-			<div class="flex w-full p-2">
-				<div class="z-10 w-6" />
-				<div class="flex flex-grow gap-x-4 py-2">
-					{#if localCommits.length > 0}
-						<Button on:click={push} loading={isPushing} color="basic" height="small"
-							>Push Commits</Button
-						>
-					{/if}
-				</div>
-			</div>
-			<!-- Unpushed commits -->
-			{#each localCommits as commit (commit.id)}
-				<div class="flex w-full px-1 pb-4">
-					<div class="z-10 ml-1 w-6 py-4">
-						<!-- Unpushed commit bubble -->
+		</div>
+		<div class="z-40 mt-4 flex w-full flex-col gap-2">
+			{#each commits.filter((c) => !c.isRemote) as commit (commit.id)}
+				<div class="flex w-full items-center pb-2 pr-2">
+					<div class="ml-4 w-6">
 						<div
-							class="h-2 w-2 rounded-full border-2 border-light-600 bg-light-200 dark:border-dark-200 dark:bg-dark-1000"
+							class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-500 dark:bg-dark-1000"
+						/>
+					</div>
+					<div class="flex-grow">
+						<CommitCard {commit} />
+					</div>
+				</div>
+			{/each}
+			{#if remoteCommits.length > 0}
+				<div class="ml-12 flex items-center font-mono text-sm">
+					<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
+						<span class="text-sm font-bold">
+							{target.remoteName}/{nameToBranch(name)}
+						</span>
+					</Link>
+				</div>
+			{/if}
+			{#each commits.filter((c) => c.isRemote) as commit (commit.id)}
+				<div class="flex w-full items-center pb-2 pr-2">
+					<div class="ml-4 w-6">
+						<div
+							class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-500 dark:border-dark-500 dark:bg-dark-500"
+							class:bg-light-500={commit.isRemote}
+							class:dark:bg-dark-500={commit.isRemote}
 						/>
 					</div>
 					<div class="flex-grow">
@@ -271,34 +318,58 @@
 				</div>
 			{/each}
 		</div>
-	{/if}
-	{#if remoteCommits.length > 0}
-		<div class="relative">
-			<!-- Commit bubble track -->
-			<div class="absolute top-0 h-full w-0.5 bg-light-600" style="left: 0.925rem" />
-			<!-- Section title for remote commits -->
-			<div class="flex w-full px-1 pb-4">
-				<div class="z-10 ml-1 w-6 py-4">
-					<div
-						class="h-2 w-2 rounded-full border-2 border-light-200 bg-light-200 text-black dark:border-dark-200 dark:bg-dark-200 dark:text-white"
-					>
-						<!-- Target HEAD commit bubble -->
-						<IconGithub />
-					</div>
-				</div>
-				<div class="flex-grow">Pushed to {upstream}</div>
+	</div>
+
+	<!-- Commit modal -->
+
+	<Modal icon={IconBranch} bind:this={commitBranchModal}>
+		<svelte:fragment slot="title">{name}</svelte:fragment>
+
+		<div class="flex w-full flex-col gap-y-2">
+			<div class="flex items-center gap-x-2">
+				<input
+					bind:this={commitTiteInput}
+					bind:value={commitTitle}
+					on:change={onUpdateFromModal}
+					on:keydown={(e) => {
+						if (e.key == 'Enter') descriptionTextArea.focus();
+					}}
+					class="h-6 shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border-0 bg-white p-0 font-mono text-xl text-dark-700 outline-none focus:ring-0 dark:bg-dark-1000 dark:text-white"
+					placeholder="Your commit title"
+					required
+				/>
+				<Button
+					tabindex={-1}
+					kind="outlined"
+					class="text-light-500"
+					height="small"
+					icon={IconAISparkles}
+					on:click={() => toasts.error('Not implemented yet')}
+				/>
 			</div>
-			{#each remoteCommits as commit (commit.id)}
-				<div class="flex w-full px-2 pb-4">
-					<div class="z-10 ml-1 w-6 py-4">
-						<!-- Pushed commit bubble -->
-						<div
-							class="rounded--b-sm h-2 w-2 rounded-full border-2 border-light-200 bg-light-600 dark:border-dark-200 dark:bg-dark-200"
-						/>
-					</div>
-					<CommitCard {commit} />
-				</div>
-			{/each}
+
+			<textarea
+				bind:this={descriptionTextArea}
+				bind:value={commitDescription}
+				on:change={onUpdateFromModal}
+				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border-0 bg-white p-0 font-mono text-light-800 outline-none focus:ring-0 dark:bg-dark-1000 dark:text-dark-50"
+				placeholder="Your commit message here"
+				rows={descriptionRows}
+				required
+			/>
 		</div>
-	{/if}
+		<svelte:fragment slot="controls" let:close>
+			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+			<Button
+				height="small"
+				color="purple"
+				on:click={() => {
+					if (commitMessage) commit();
+					close();
+				}}
+			>
+				Commit
+			</Button>
+		</svelte:fragment>
+	</Modal>
 </div>

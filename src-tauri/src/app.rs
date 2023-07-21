@@ -1,8 +1,7 @@
 use std::{collections::HashMap, ops, path, sync, time};
 
 use anyhow::{Context, Result};
-use tokio::sync::{mpsc, Semaphore};
-use tokio_util::sync::CancellationToken;
+use tokio::sync::Semaphore;
 
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
@@ -20,8 +19,7 @@ pub struct App {
     searcher: search::Searcher,
     events_sender: events::Sender,
 
-    stop_watchers: sync::Arc<sync::Mutex<HashMap<String, CancellationToken>>>,
-    proxy_watchers: sync::Arc<sync::Mutex<HashMap<String, mpsc::UnboundedSender<watcher::Event>>>>,
+    watchers: sync::Arc<sync::Mutex<HashMap<String, watcher::Watcher>>>,
 
     sessions_database: sessions::Database,
     files_database: files::Database,
@@ -55,8 +53,7 @@ impl App {
             projects_storage: projects::Storage::new(storage.clone()),
             users_storage: users::Storage::new(storage),
             searcher: deltas_searcher,
-            stop_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
-            proxy_watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
+            watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
             sessions_database: sessions::Database::new(database.clone()),
             deltas_database: deltas::Database::new(database.clone()),
             files_database: files::Database::new(database.clone()),
@@ -93,84 +90,54 @@ impl App {
             if let Err(e) = self.init_project(&project) {
                 log::error!("failed to init project {}: {:#}", project.id, e);
             }
-
-            if let Err(e) = self
-                .proxy_watchers
-                .lock()
-                .unwrap()
-                .get(&project.id)
-                .unwrap()
-                .send(watcher::Event::IndexAll)
-            {
-                log::error!("failed to send session event: {:#}", e);
-            }
         }
         Ok(())
     }
 
     fn start_watcher(&self, project: &projects::Project) -> Result<()> {
-        let project = project.clone();
-        let users_storage = self.users_storage.clone();
-        let projects_storage = self.projects_storage.clone();
-        let local_data_dir = self.local_data_dir.clone();
-        let deltas_searcher = self.searcher.clone();
-        let events_sender = self.events_sender.clone();
-        let sessions_database = self.sessions_database.clone();
-        let files_database = self.files_database.clone();
-        let deltas_database = self.deltas_database.clone();
-        let bookmarks_database = self.bookmarks_database.clone();
+        let watcher = watcher::Watcher::new(
+            &self.local_data_dir,
+            project,
+            &self.projects_storage,
+            &self.users_storage,
+            &self.searcher,
+            &self.events_sender,
+            &self.sessions_database,
+            &self.deltas_database,
+            &self.files_database,
+            &self.bookmarks_database,
+        );
 
-        let cancellation_token = CancellationToken::new();
-        self.stop_watchers
-            .lock()
-            .unwrap()
-            .insert(project.id.clone(), cancellation_token.clone());
-
-        let (proxy_tx, proxy_rx) = mpsc::unbounded_channel();
-        self.proxy_watchers
-            .lock()
-            .unwrap()
-            .insert(project.id.clone(), proxy_tx);
-
+        let c_watcher = watcher.clone();
         tauri::async_runtime::spawn(async move {
-            let project = project;
-            let watcher = watcher::Watcher::new(
-                local_data_dir,
-                &project,
-                projects_storage,
-                users_storage,
-                deltas_searcher,
-                cancellation_token,
-                events_sender,
-                sessions_database,
-                deltas_database,
-                files_database,
-                bookmarks_database,
-            )
-            .expect("failed to create watcher");
-
-            watcher
-                .start(proxy_rx)
-                .await
-                .expect("failed to init watcher");
+            if let Err(e) = c_watcher.start().await {
+                log::error!("watcher error: {:#}", e);
+            }
         });
+
+        self.watchers
+            .lock()
+            .unwrap()
+            .insert(project.id.clone(), watcher.clone());
 
         Ok(())
     }
 
     fn send_event(&self, project_id: &str, event: watcher::Event) -> Result<()> {
-        self.proxy_watchers
-            .lock()
-            .unwrap()
-            .get(project_id)
-            .unwrap()
-            .send(event)
-            .context("failed to send event to proxy")
+        let watchers = self.watchers.lock().unwrap();
+        if let Some(watcher) = watchers.get(project_id) {
+            watcher.post(event).context("failed to post event")
+        } else {
+            Err(anyhow::anyhow!(
+                "watcher for project {} not found",
+                project_id
+            ))
+        }
     }
 
     fn stop_watcher(&self, project_id: &str) -> Result<()> {
-        if let Some((_, token)) = self.stop_watchers.lock().unwrap().remove_entry(project_id) {
-            token.cancel();
+        if let Some((_, watcher)) = self.watchers.lock().unwrap().remove_entry(project_id) {
+            watcher.stop()?;
         };
         Ok(())
     }
@@ -305,7 +272,7 @@ impl App {
         virtual_branches::get_target_data(&gb_repository, &project_repository)
     }
 
-    pub fn set_target_branch(
+    pub async fn set_target_branch(
         &self,
         project_id: &str,
         target_branch: &str,
@@ -314,15 +281,29 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         let target = gb_repository.set_target_branch(&project_repository, target_branch)?;
         Ok(Some(target))
     }
 
-    pub fn update_branch_target(&self, project_id: &str) -> Result<()> {
+    pub async fn update_branch_target(&self, project_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         virtual_branches::update_branch_target(&gb_repository, &project_repository)?;
         Ok(())
     }
@@ -371,6 +352,13 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         let branch_id = virtual_branches::create_virtual_branch_from_branch(
             &gb_repository,
             &project_repository,
@@ -411,25 +399,39 @@ impl App {
         Ok(())
     }
 
-    pub fn unapply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
+    pub async fn unapply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         virtual_branches::unapply_branch(&gb_repository, &project_repository, branch_id)?;
         Ok(())
     }
 
-    pub fn apply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
+    pub async fn apply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         virtual_branches::apply_branch(&gb_repository, &project_repository, branch_id)?;
         Ok(())
     }
 
-    pub fn commit_virtual_branch(
+    pub async fn commit_virtual_branch(
         &self,
         project_id: &str,
         branch: &str,
@@ -439,6 +441,13 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
         virtual_branches::commit(&gb_repository, &project_repository, branch, message)?;
         Ok(())
     }
@@ -452,11 +461,26 @@ impl App {
         Ok(())
     }
 
-    pub fn push_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<(), Error> {
+    pub async fn push_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_id: &str,
+    ) -> Result<(), Error> {
         let gb_repository = self.gb_repository(project_id).map_err(Error::Other)?;
         let project = self.gb_project(project_id).map_err(Error::Other)?;
         let project_repository =
             project_repository::Repository::open(&project).map_err(Error::Other)?;
+
+        let mut semaphores = self.vbranch_semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore
+            .acquire()
+            .await
+            .context("failed to acquire semaphore")
+            .map_err(Error::Other)?;
+
         match virtual_branches::push(&project_repository, &gb_repository, branch_id) {
             Ok(_) => Ok(()),
             Err(virtual_branches::Error::UnsupportedAuthCredentials(_)) => Err(Error::Message(
@@ -481,14 +505,10 @@ impl App {
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
         writer.write(bookmark).context("failed to write bookmark")?;
 
-        if let Err(e) = self
-            .proxy_watchers
-            .lock()
-            .unwrap()
-            .get(&bookmark.project_id)
-            .unwrap()
-            .send(watcher::Event::Bookmark(bookmark.clone()))
-        {
+        if let Err(e) = self.send_event(
+            &bookmark.project_id,
+            watcher::Event::Bookmark(bookmark.clone()),
+        ) {
             log::error!("failed to send session event: {:#}", e);
         }
         Ok(())
@@ -546,10 +566,7 @@ impl App {
         let diff = diff::workdir(
             &project_repository,
             &project_repository.get_head()?.peel_to_commit()?.id(),
-            &diff::Options {
-                context_lines,
-                ..Default::default()
-            },
+            &diff::Options { context_lines },
         )
         .context("failed to diff")?;
 
