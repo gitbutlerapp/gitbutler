@@ -49,7 +49,7 @@ impl<'handler> Handler {
             project_id: project_id.to_string(),
             events_sender: events_sender.clone(),
 
-            file_change_handler: file_change::Handler::new(),
+            file_change_handler: file_change::Handler::new(project_id),
             project_file_handler: project_file_change::Handler::new(
                 local_data_dir,
                 project_id,
@@ -165,20 +165,40 @@ impl<'handler> Handler {
                 .handle(&session)
                 .context("failed to handle flush session event"),
 
-            events::Event::SessionFile((session_id, file_path, contents)) => self
-                .index_handler
-                .index_file(&session_id, file_path.to_str().unwrap(), &contents)
-                .context("failed to index file"),
+            events::Event::SessionFile((session_id, file_path, contents)) => {
+                let mut events = self
+                    .index_handler
+                    .index_file(&session_id, file_path.to_str().unwrap(), &contents)
+                    .context("failed to index file")?;
+                events.push(events::Event::Emit(app_events::Event::file(
+                    &self.project_id,
+                    &session_id,
+                    &file_path.display().to_string(),
+                    &contents,
+                )));
+                Ok(events)
+            }
 
             events::Event::Session(session) => self
                 .index_handler
                 .index_session(&session)
                 .context("failed to index session"),
 
-            events::Event::SessionDelta((session_id, path, delta)) => self
-                .index_handler
-                .index_deltas(&session_id, path.to_str().unwrap(), &vec![delta])
-                .context("failed to index deltas"),
+            events::Event::SessionDelta((session_id, path, delta)) => {
+                let mut events = self
+                    .index_handler
+                    .index_deltas(&session_id, path.to_str().unwrap(), &vec![delta.clone()])
+                    .context("failed to index deltas")?;
+
+                events.push(events::Event::Emit(app_events::Event::deltas(
+                    &self.project_id,
+                    &session_id,
+                    &vec![delta],
+                    &path,
+                )));
+
+                Ok(events)
+            }
 
             events::Event::Bookmark(bookmark) => self
                 .index_handler

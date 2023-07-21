@@ -489,9 +489,6 @@ pub fn list_remote_branches(
             let branch_name = project_repository::branch::Name::try_from(&branch)
                 .context("could not get branch name")?;
 
-            println!("branch_name: {:?}", branch_name);
-            println!("virtual_branches_names: {:?}", default_target.branch_name);
-
             // skip the default target branch (both local and remote)
             match branch_name {
                 project_repository::branch::Name::Remote(ref remote_branch_name) => {

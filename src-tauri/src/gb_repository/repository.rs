@@ -976,11 +976,6 @@ fn add_wd_path(
             && entry.mode == metadata.mode()
         {
             index.add(&entry).unwrap();
-            log::debug!(
-                "{}: added existing entry for {}",
-                gb_repository.project_id,
-                file_path.display()
-            );
             return Ok(());
         }
     }
@@ -991,7 +986,7 @@ fn add_wd_path(
     // insert a pointer as the blob content instead
     // TODO: size limit should be configurable
     let blob = if metadata.len() > 100_000_000 {
-        log::debug!(
+        log::warn!(
             "{}: file too big: {}",
             gb_repository.project_id,
             file_path.display()
@@ -1042,12 +1037,6 @@ fn add_wd_path(
             id: blob,
         })
         .with_context(|| format!("failed to add index entry for {}", rel_file_path.display()))?;
-
-    log::debug!(
-        "{}: created index entry for {}",
-        gb_repository.project_id,
-        rel_file_path.display()
-    );
 
     Ok(())
 }
@@ -1149,8 +1138,6 @@ fn add_log_path(
         id: gb_repository.git_repository.blob_path(&file_path)?,
     })?;
 
-    log::debug!("added log path: {}", file_path.display());
-
     Ok(())
 }
 
@@ -1210,8 +1197,6 @@ fn add_file_to_index(
             id: blob,
         })
         .with_context(|| format!("Failed to add file to index: {}", abs_file_path.display()))?;
-
-    log::debug!("added path: {}", abs_file_path.display());
 
     Ok(())
 }
