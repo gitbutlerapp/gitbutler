@@ -77,4 +77,5 @@ export class BaseBranch {
 	currentSha!: string;
 	behind!: number;
 	upstreamCommits!: Commit[];
+	recentCommits!: Commit[];
 }

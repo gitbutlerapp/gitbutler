@@ -141,6 +141,7 @@ pub struct BaseBranch {
     pub current_sha: String,
     pub behind: u32,
     pub upstream_commits: Vec<VirtualBranchCommit>,
+    pub recent_commits: Vec<VirtualBranchCommit>,
 }
 
 #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
@@ -2211,6 +2212,20 @@ pub fn target_to_base_branch(
         let commit = commit_to_vbranch_commit(&commit, None)?;
         upstream_commits.push(commit);
     }
+
+    // get some recent commits
+    let mut revwalk = repo.revwalk().context("failed to create revwalk")?;
+    revwalk
+        .push(target.sha)
+        .context(format!("failed to push {}", target.sha))?;
+    let mut recent_commits = vec![];
+    for oid in revwalk.take(10) {
+        let oid = oid.context("failed to get oid")?;
+        let commit = repo.find_commit(oid).context("failed to find commit")?;
+        let commit = commit_to_vbranch_commit(&commit, None)?;
+        recent_commits.push(commit);
+    }
+
     let base = BaseBranch {
         branch_name: target.branch_name.clone(),
         remote_name: target.remote_name.clone(),
@@ -2219,6 +2234,7 @@ pub fn target_to_base_branch(
         current_sha: oid.to_string(),
         behind: upstream_commits.len() as u32,
         upstream_commits,
+        recent_commits,
     };
     Ok(base)
 }
