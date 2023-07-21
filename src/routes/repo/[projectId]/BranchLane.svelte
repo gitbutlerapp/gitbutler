@@ -13,6 +13,7 @@
 	import type { BranchController } from '$lib/vbranches';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import FileCardNext from './FileCardNext.svelte';
+	import { slide } from 'svelte/transition';
 
 	export let branchId: string;
 	export let projectPath: string;
@@ -118,9 +119,7 @@
 		return `${repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
 	}
 
-	function onUpdateFromModal() {
-		commitMessage = commitTiteInput.value + '\n\n' + commitDescription;
-	}
+	let commitDialogShown = false;
 </script>
 
 <div
@@ -217,31 +216,69 @@
 		</PopupMenuItem>
 	</PopupMenu>
 
-	<div class="flex flex-col pt-2">
-		<div class="mb-2 flex items-center">
-			<textarea
-				bind:this={textAreaInput}
-				bind:value={commitMessage}
-				on:change={() => {
-					commitTitle = commitMessage?.split('\n')?.at(0) || '';
-					commitDescription = commitMessage?.split('\n')?.slice(1)?.join('\n').trim() || '';
-				}}
-				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none hover:border-light-400 focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300"
-				placeholder="Your commit message here"
-				rows={messageRows}
-				required
-			/>
-		</div>
-		<div class="mb-2 mr-2 text-right">
+	<div class="flex flex-col">
+		<div class="mb-4 mr-2 flex justify-end gap-2 text-right">
 			{#if localCommits.length > 0}
-				<Button on:click={push} loading={isPushing} kind="outlined" color="purple" height="small">
-					<span class="purple">Push</span>
+				<Button class="w-20" on:click={push} loading={isPushing} color="purple" height="small">
+					Push
 				</Button>
 			{/if}
-			<Button height="small" color="purple" on:click={() => commitBranchModal.show()}>
-				Commit
+			<Button
+				class="w-20"
+				height="small"
+				color="purple"
+				on:click={() => (commitDialogShown = !commitDialogShown)}
+			>
+				{#if !commitDialogShown}
+					Commit
+				{:else}
+					Cancel
+				{/if}
 			</Button>
 		</div>
+		{#if commitDialogShown}
+			<div
+				class="mb-2 border-t border-light-400 py-4 dark:border-dark-400"
+				transition:slide={{ duration: 150 }}
+			>
+				<div class="mb-2 flex items-center">
+					<textarea
+						bind:this={textAreaInput}
+						bind:value={commitMessage}
+						on:change={() => {
+							commitTitle = commitMessage?.split('\n')?.at(0) || '';
+							commitDescription = commitMessage?.split('\n')?.slice(1)?.join('\n').trim() || '';
+						}}
+						class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none hover:border-light-400 focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300"
+						placeholder="Your commit message here"
+						rows={messageRows}
+						required
+					/>
+				</div>
+				<div class="flex flex-grow justify-end gap-2 px-2">
+					<Button
+						tabindex={-1}
+						kind="outlined"
+						class="text-light-500"
+						height="small"
+						icon={IconAISparkles}
+						on:click={() => toasts.error('Not implemented yet')}
+					>
+						Generate message
+					</Button>
+					<Button
+						class="w-20"
+						height="small"
+						on:click={() => {
+							if (commitMessage) commit();
+							commitDialogShown = false;
+						}}
+					>
+						Commit
+					</Button>
+				</div>
+			</div>
+		{/if}
 		<div class="flex flex-shrink flex-col gap-y-2">
 			<div class="drop-zone-marker hidden border p-6 text-center">
 				Drop here to add to virtual branch
@@ -319,57 +356,4 @@
 			{/each}
 		</div>
 	</div>
-
-	<!-- Commit modal -->
-
-	<Modal icon={IconBranch} bind:this={commitBranchModal}>
-		<svelte:fragment slot="title">{name}</svelte:fragment>
-
-		<div class="flex w-full flex-col gap-y-2">
-			<div class="flex items-center gap-x-2">
-				<input
-					bind:this={commitTiteInput}
-					bind:value={commitTitle}
-					on:change={onUpdateFromModal}
-					on:keydown={(e) => {
-						if (e.key == 'Enter') descriptionTextArea.focus();
-					}}
-					class="h-6 shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border-0 bg-white p-0 font-mono text-xl text-dark-700 outline-none focus:ring-0 dark:bg-dark-1000 dark:text-white"
-					placeholder="Your commit title"
-					required
-				/>
-				<Button
-					tabindex={-1}
-					kind="outlined"
-					class="text-light-500"
-					height="small"
-					icon={IconAISparkles}
-					on:click={() => toasts.error('Not implemented yet')}
-				/>
-			</div>
-
-			<textarea
-				bind:this={descriptionTextArea}
-				bind:value={commitDescription}
-				on:change={onUpdateFromModal}
-				class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto rounded border-0 bg-white p-0 font-mono text-light-800 outline-none focus:ring-0 dark:bg-dark-1000 dark:text-dark-50"
-				placeholder="Your commit message here"
-				rows={descriptionRows}
-				required
-			/>
-		</div>
-		<svelte:fragment slot="controls" let:close>
-			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
-			<Button
-				height="small"
-				color="purple"
-				on:click={() => {
-					if (commitMessage) commit();
-					close();
-				}}
-			>
-				Commit
-			</Button>
-		</svelte:fragment>
-	</Modal>
 </div>
