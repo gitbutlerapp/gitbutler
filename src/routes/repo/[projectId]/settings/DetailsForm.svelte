@@ -5,8 +5,8 @@
 
 	export let project: Project;
 
-	let title = project.title;
-	let description = project.description;
+	let title = project?.title;
+	let description = project?.description;
 
 	const onTitleInput = debounce((e: InputEvent) => {
 		project.title = (e.target as HTMLInputElement).value;

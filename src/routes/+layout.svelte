@@ -121,14 +121,14 @@ border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 d
 			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
 				<div>
 					{#if $project}
-						<Link href="/projects/{$project?.id}/settings">
+						<Link href="/repo/{$project?.id}/settings">
 							<div class="flex flex-row items-center space-x-2">
 								{#if $project?.api?.sync}
 									<div class="h-2 w-2 rounded-full bg-green-700" />
-									<span>Backed up</span>
+									<span>backed up</span>
 								{:else}
 									<div class="h-2 w-2 rounded-full bg-red-700" />
-									<span>Offline</span>
+									<span class="text-light-600 dark:text-dark-200">offline</span>
 								{/if}
 							</div>
 						</Link>
