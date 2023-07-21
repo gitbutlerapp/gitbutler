@@ -4,12 +4,14 @@ use anyhow::{Context, Result};
 
 use super::Repository;
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Hunk {
     pub old_start: usize,
     pub old_lines: usize,
     pub new_start: usize,
     pub new_lines: usize,
     pub diff: String,
+    pub binary: bool,
 }
 
 pub struct Options {
@@ -37,15 +39,15 @@ pub fn workdir(
     diff_opts
         .recurse_untracked_dirs(true)
         .include_untracked(true)
+        .show_binary(true)
         .show_untracked_content(true);
 
     diff_opts.context_lines(opts.context_lines);
 
-    let diff = repository
-        .git_repository
-        .diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
+    let repo = &repository.git_repository;
+    let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
 
-    hunks_by_filepath(&diff)
+    hunks_by_filepath(repo, &diff)
 }
 
 pub fn trees(
@@ -56,17 +58,19 @@ pub fn trees(
     let mut opts = git2::DiffOptions::new();
     opts.recurse_untracked_dirs(true)
         .include_untracked(true)
+        .show_binary(true)
         .show_untracked_content(true);
 
-    let diff =
-        repository
-            .git_repository
-            .diff_tree_to_tree(Some(&old_tree), Some(&new_tree), None)?;
+    let repo = &repository.git_repository;
+    let diff = repo.diff_tree_to_tree(Some(&old_tree), Some(&new_tree), None)?;
 
-    hunks_by_filepath(&diff)
+    hunks_by_filepath(repo, &diff)
 }
 
-fn hunks_by_filepath(diff: &git2::Diff) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
+fn hunks_by_filepath(
+    repo: &git2::Repository,
+    diff: &git2::Diff,
+) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     // find all the hunks
     let mut hunks_by_filepath: HashMap<path::PathBuf, Vec<Hunk>> = HashMap::new();
     let mut current_diff = String::new();
@@ -77,6 +81,7 @@ fn hunks_by_filepath(diff: &git2::Diff) -> Result<HashMap<path::PathBuf, Vec<Hun
     let mut current_new_lines: Option<usize> = None;
     let mut current_old_start: Option<usize> = None;
     let mut current_old_lines: Option<usize> = None;
+    let mut current_binary = false;
 
     diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
         let file_path = delta.new_file().path().unwrap_or_else(|| {
@@ -101,7 +106,12 @@ fn hunks_by_filepath(diff: &git2::Diff) -> Result<HashMap<path::PathBuf, Vec<Hun
                 hunk.old_lines(),
             )
         } else {
-            return true;
+            if line.origin() == 'B' {
+                let hunk_id = format!("{:?}:{}", file_path.as_os_str(), delta.new_file().id());
+                (hunk_id.clone(), 0, 0, 0, 0)
+            } else {
+                return true;
+            }
         };
 
         let is_path_changed = if current_file_path.is_none() {
@@ -124,6 +134,7 @@ fn hunks_by_filepath(diff: &git2::Diff) -> Result<HashMap<path::PathBuf, Vec<Hun
                 new_start: current_new_start.unwrap(),
                 new_lines: current_new_lines.unwrap(),
                 diff: current_diff.clone(),
+                binary: current_binary,
             });
             current_diff = String::new();
         }
@@ -133,7 +144,27 @@ fn hunks_by_filepath(diff: &git2::Diff) -> Result<HashMap<path::PathBuf, Vec<Hun
             _ => {}
         }
 
-        current_diff.push_str(std::str::from_utf8(line.content()).unwrap());
+        // is this a binary patch or a hunk?
+        match line.origin() {
+            'B' => {
+                // save the file_path to the odb
+                if !delta.new_file().id().is_zero() {
+                    // the binary file wasnt deleted
+                    let full_path = repo.workdir().unwrap().join(file_path);
+                    let blob_oid = repo.blob_path(full_path.as_path()).unwrap();
+                    if blob_oid != delta.new_file().id() {
+                        return false;
+                    }
+                }
+                current_diff.push_str(&format!("{}", delta.new_file().id()));
+                current_binary = true;
+            }
+            _ => {
+                current_diff.push_str(std::str::from_utf8(line.content()).unwrap());
+                current_binary = false;
+            }
+        }
+
         current_file_path = Some(file_path.to_path_buf());
         current_hunk_id = Some(hunk_id);
         current_new_start = Some(new_start as usize);
@@ -153,6 +184,7 @@ fn hunks_by_filepath(diff: &git2::Diff) -> Result<HashMap<path::PathBuf, Vec<Hun
             new_start: current_new_start.unwrap(),
             new_lines: current_new_lines.unwrap(),
             diff: current_diff,
+            binary: current_binary,
         });
     }
 

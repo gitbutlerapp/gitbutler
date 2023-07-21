@@ -27,6 +27,7 @@ fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
+    //dbg!(&path);
     let repository = git2::Repository::init(path)?;
     repository.remote_add_fetch("origin/master", "master")?;
     let mut index = repository.index()?;
@@ -115,6 +116,124 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 1);
+
+    Ok(())
+}
+
+#[test]
+fn test_track_binary_files() -> Result<()> {
+    let repository = test_repository()?;
+    let project = projects::Project::try_from(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path,
+        project.id.clone(),
+        project_store,
+        user_store,
+    )?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\n",
+    )?;
+    let file_path2 = std::path::Path::new("test2.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "line5\nline6\nline7\nline8\n",
+    )?;
+    // add a binary file
+    let image_data: [u8; 12] = [
+        255, 0, 0, // Red pixel
+        0, 0, 255, // Blue pixel
+        255, 255, 0, // Yellow pixel
+        0, 255, 0, // Green pixel
+    ];
+    let mut file = fs::File::create(std::path::Path::new(&project.path).join("image.bin"))?;
+    file.write_all(&image_data)?;
+    commit_all(&repository)?;
+
+    target::Writer::new(&gb_repo).write_default(&target::Target {
+        remote_name: "origin".to_string(),
+        branch_name: "master".to_string(),
+        remote_url: "origin".to_string(),
+        sha: repository.head().unwrap().target().unwrap(),
+        behind: 0,
+    })?;
+    update_gitbutler_integration(&gb_repo, &project_repository)?;
+
+    let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    // test file change
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "line5\nline6\nline7\nline8\nline9\n",
+    )?;
+
+    // add a binary file
+    let image_data: [u8; 12] = [
+        255, 0, 0, // Red pixel
+        0, 255, 0, // Green pixel
+        0, 0, 255, // Blue pixel
+        255, 255, 0, // Yellow pixel
+    ];
+    let mut file = fs::File::create(std::path::Path::new(&project.path).join("image.bin"))?;
+    file.write_all(&image_data)?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
+    let branch = &branches[0];
+    assert_eq!(branch.files.len(), 2);
+    let img_file = &branch
+        .files
+        .iter()
+        .find(|b| b.path.as_os_str() == "image.bin")
+        .unwrap();
+    assert_eq!(img_file.binary, true);
+    assert_eq!(
+        img_file.hunks[0].diff,
+        "944996dd82015a616247c72b251e41661e528ae1"
+    );
+
+    // commit
+    commit(&gb_repo, &project_repository, &branch1_id, "test commit")?;
+
+    // status (no files)
+    let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
+    let commit_id = &branches[0].commits[0].id;
+    let commit_obj = repository.find_commit(git2::Oid::from_str(commit_id).unwrap())?;
+    let tree = commit_obj.tree()?;
+    let files = tree_to_entry_list(&repository, &tree)?;
+    assert_eq!(files[0].0, "image.bin");
+    assert_eq!(files[0].3, "944996dd82015a616247c72b251e41661e528ae1");
+
+    let image_data: [u8; 12] = [
+        0, 255, 0, // Green pixel
+        255, 0, 0, // Red pixel
+        255, 255, 0, // Yellow pixel
+        0, 0, 255, // Blue pixel
+    ];
+    let mut file = fs::File::create(std::path::Path::new(&project.path).join("image.bin"))?;
+    file.write_all(&image_data)?;
+
+    // commit
+    commit(&gb_repo, &project_repository, &branch1_id, "test commit")?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
+    let commit_id = &branches[0].commits[0].id;
+    // get tree from commit_id
+    let commit_obj = repository.find_commit(git2::Oid::from_str(commit_id).unwrap())?;
+    let tree = commit_obj.tree()?;
+    let files = tree_to_entry_list(&repository, &tree)?;
+
+    assert_eq!(files[0].0, "image.bin");
+    assert_eq!(files[0].3, "ea6901a04d1eed6ebf6822f4360bda9f008fa317");
 
     Ok(())
 }
@@ -2533,7 +2652,7 @@ fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result
 fn tree_to_entry_list(
     repository: &git2::Repository,
     tree: &git2::Tree,
-) -> Result<Vec<(String, String, String)>> {
+) -> Result<Vec<(String, String, String, String)>> {
     let mut file_list = Vec::new();
     for entry in tree.iter() {
         let path = entry.name().unwrap();
@@ -2545,10 +2664,24 @@ fn tree_to_entry_list(
             .context(format!("failed to get object for tree entry {}", path))?;
         let blob = object.as_blob().context("failed to get blob")?;
         // convert content to string
-        let content =
-            std::str::from_utf8(blob.content()).context("failed to convert content to string")?;
         let octal_mode = format!("{:o}", entry.filemode());
-        file_list.push((path.to_string(), octal_mode, content.to_string()));
+        if let Ok(content) =
+            std::str::from_utf8(blob.content()).context("failed to convert content to string")
+        {
+            file_list.push((
+                path.to_string(),
+                octal_mode,
+                content.to_string(),
+                blob.id().to_string(),
+            ));
+        } else {
+            file_list.push((
+                path.to_string(),
+                octal_mode,
+                "BINARY".to_string(),
+                blob.id().to_string(),
+            ));
+        }
     }
     Ok(file_list)
 }

@@ -84,6 +84,7 @@ pub struct VirtualBranchFile {
     pub hunks: Vec<VirtualBranchHunk>,
     pub modified_at: u128,
     pub conflicted: bool,
+    pub binary: bool,
 }
 
 // this struct is a mapping to the view `Hunk` type in Typescript
@@ -104,6 +105,7 @@ pub struct VirtualBranchHunk {
     pub hash: String,
     pub start: usize,
     pub end: usize,
+    pub binary: bool,
 }
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
@@ -766,6 +768,7 @@ pub fn list_virtual_branches(
                     id: file_path.display().to_string(),
                     path: file_path.clone(),
                     hunks: hunks.clone(),
+                    binary: hunks.iter().any(|h| h.binary),
                     modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
                     conflicted: conflicts::is_conflicting(
                         project_repository,
@@ -1233,6 +1236,7 @@ fn hunks_by_filepath(
                     diff: hunk.diff.clone(),
                     start: hunk.new_start,
                     end: hunk.new_start + hunk.new_lines,
+                    binary: hunk.binary,
                     hash: diff_hash(&hunk.diff),
                 })
                 .collect::<Vec<_>>();
@@ -1446,6 +1450,7 @@ pub fn get_status_by_branch(
                 id: file_path.display().to_string(),
                 path: file_path.clone(),
                 hunks: hunks.clone(),
+                binary: hunks.iter().any(|h| h.binary),
                 modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
                 conflicted: conflicts::is_conflicting(
                     project_repository,
@@ -1925,33 +1930,40 @@ fn write_tree(
                 let blob_oid = git_repository.blob(bytes)?;
                 builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
-                // blob from tree_entry
-                let blob = tree_entry
-                    .to_object(git_repository)
-                    .unwrap()
-                    .peel_to_blob()
-                    .context("failed to get blob")?;
+                if file.binary {
+                    let new_blob_oid = &file.hunks[0].diff;
+                    // convert string to Oid
+                    let new_blob_oid = git2::Oid::from_str(&new_blob_oid)?;
+                    builder.upsert(rel_path, new_blob_oid, filemode);
+                } else {
+                    // blob from tree_entry
+                    let blob = tree_entry
+                        .to_object(git_repository)
+                        .unwrap()
+                        .peel_to_blob()
+                        .context("failed to get blob")?;
 
-                // get the contents
-                let blob_contents = blob.content();
+                    // get the contents
+                    let blob_contents = blob.content();
 
-                let mut patch = "--- original\n+++ modified\n".to_string();
+                    let mut patch = "--- original\n+++ modified\n".to_string();
 
-                let mut hunks = file.hunks.to_vec();
-                hunks.sort_by_key(|hunk| hunk.start);
-                for hunk in hunks {
-                    patch.push_str(&hunk.diff);
+                    let mut hunks = file.hunks.to_vec();
+                    hunks.sort_by_key(|hunk| hunk.start);
+                    for hunk in hunks {
+                        patch.push_str(&hunk.diff);
+                    }
+
+                    // apply patch to blob_contents
+                    let patch_bytes = patch.as_bytes();
+                    let patch = Patch::from_bytes(patch_bytes)?;
+                    let new_content = apply_bytes(blob_contents, &patch)?;
+
+                    // create a blob
+                    let new_blob_oid = git_repository.blob(&new_content)?;
+                    // upsert into the builder
+                    builder.upsert(rel_path, new_blob_oid, filemode);
                 }
-
-                // apply patch to blob_contents
-                let patch_bytes = patch.as_bytes();
-                let patch = Patch::from_bytes(patch_bytes)?;
-                let new_content = apply_bytes(blob_contents, &patch)?;
-
-                // create a blob
-                let new_blob_oid = git_repository.blob(&new_content)?;
-                // upsert into the builder
-                builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
                 // create a git blob from a file on disk
                 let blob_oid = git_repository.blob_path(&full_path)?;
@@ -1976,9 +1988,11 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
         let object = entry.to_object(repo).context("failed to get object")?;
         let blob = object.as_blob().context("failed to get blob")?;
         // convert content to string
-        let content =
-            std::str::from_utf8(blob.content()).context("failed to convert content to string")?;
-        println!("    blob: {:?}", content);
+        if let Ok(content) = std::str::from_utf8(blob.content()) {
+            println!("    blob: {:?}", content);
+        } else {
+            println!("    blob: BINARY");
+        }
     }
     Ok(())
 }

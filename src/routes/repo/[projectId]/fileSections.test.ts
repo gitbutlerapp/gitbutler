@@ -405,7 +405,8 @@ test('parses file with one hunk and balanced add-remove', () => {
 		expanded: true,
 		modifiedAt: new Date(2021, 1, 1),
 		conflicted: false,
-		content: fileContent
+		content: fileContent,
+		binary: false
 	};
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
@@ -462,7 +463,8 @@ test('parses file with one hunk with more added than removed', () => {
 		expanded: true,
 		modifiedAt: new Date(2021, 1, 1),
 		conflicted: false,
-		content: fileContent
+		content: fileContent,
+		binary: false
 	};
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
@@ -521,7 +523,8 @@ test('parses file with two hunks ordered by position in file', () => {
 		expanded: true,
 		modifiedAt: new Date(2021, 1, 1),
 		conflicted: false,
-		content: fileContent
+		content: fileContent,
+		binary: false
 	};
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
@@ -592,7 +595,8 @@ test('parses whole file deleted', () => {
 		expanded: true,
 		modifiedAt: new Date(2021, 1, 1),
 		conflicted: false,
-		content: fileContent
+		content: fileContent,
+		binary: false
 	};
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(1);
@@ -617,7 +621,8 @@ test('parses new file created', () => {
 		expanded: true,
 		modifiedAt: new Date(2021, 1, 1),
 		conflicted: false,
-		content: fileContent
+		content: fileContent,
+		binary: false
 	};
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(1);

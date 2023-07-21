@@ -84,7 +84,7 @@
 		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-400 bg-light-50 py-1 text-light-900 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
 	>
 		<div
-			class="flex pl-2 cursor-default"
+			class="flex cursor-default pl-2"
 			role="button"
 			tabindex="0"
 			on:dblclick={() => {
@@ -116,10 +116,12 @@
 				tabindex="0"
 				class="cursor-pointer px-3 py-2 text-light-600 dark:text-dark-200"
 			>
-				{#if expanded}
-					<IconTriangleUp />
-				{:else}
-					<IconTriangleDown />
+				{#if !file.binary}
+					{#if expanded}
+						<IconTriangleUp />
+					{:else}
+						<IconTriangleDown />
+					{/if}
 				{/if}
 			</div>
 		</div>
