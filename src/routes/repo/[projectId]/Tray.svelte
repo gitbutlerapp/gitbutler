@@ -35,29 +35,10 @@
 			branchController.applyBranch(branch.id);
 		}
 	}
-
-	function rememberWidth(node: HTMLElement) {
-		const resizeObserver = new ResizeObserver((entries) => {
-			const width = entries.at(0)?.borderBoxSize[0].inlineSize;
-			if (width)
-				userSettings.update((s) => ({
-					...s,
-					trayWidth: width
-				}));
-		});
-		resizeObserver.observe(node);
-
-		return {
-			destroy: () => {
-				resizeObserver.unobserve(node);
-			}
-		};
-	}
 </script>
 
 <div
-	use:rememberWidth
-	class="tray-scroll w-80 min-w-[216px] shrink-0 cursor-default resize-x overflow-y-scroll overscroll-y-none border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
+	class="tray-scroll w-80 min-w-[216px] shrink-0 cursor-default overflow-y-scroll overscroll-y-none border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 >
 	<!-- Your branches -->

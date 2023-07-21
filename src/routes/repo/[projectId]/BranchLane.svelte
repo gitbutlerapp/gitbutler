@@ -41,13 +41,12 @@
 	export let projectPath: string;
 	export let name: string;
 	export let commitMessage: string;
-	export let upstream: string | undefined;
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
-	export let target: BaseBranch;
+	export let target: BaseBranch | undefined;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -132,7 +131,8 @@
 			.join('');
 	}
 
-	function url(target: BaseBranch, branchName: string) {
+	function url(target: BaseBranch | undefined, branchName: string) {
+		if (!target) return undefined;
 		const baseBranchName = target.branchName.split('/')[1];
 		const repoBaseUrl = target.remoteUrl
 			.replace(':', '/')
@@ -342,7 +342,6 @@
 								{dzType}
 								{projectId}
 								{projectPath}
-								{maximized}
 								on:dblclick={() => (maximized = !maximized)}
 								on:expanded={(e) => {
 									setExpandedWithCache(file, e.detail);
@@ -435,7 +434,7 @@
 						<div class="ml-12 flex items-center py-2 font-mono text-sm">
 							<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
 								<span class="text-sm font-bold">
-									{target.remoteName}/{nameToBranch(name)}
+									{target?.remoteName}/{nameToBranch(name)}
 								</span>
 							</Link>
 						</div>

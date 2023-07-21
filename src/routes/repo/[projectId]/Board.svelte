@@ -11,7 +11,7 @@
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
-	export let target: BaseBranch;
+	export let target: BaseBranch | undefined;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -68,8 +68,10 @@
 		}
 	}}
 >
-	<UpstreamBranchLane baseBranch={target} />
-	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order, conflicted } (id)}
+	{#if target}
+		<UpstreamBranchLane baseBranch={target} />
+	{/if}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, description, order, conflicted } (id)}
 		<Lane
 			on:dragstart={(e) => {
 				if (!e.dataTransfer) return;
@@ -85,7 +87,6 @@
 			on:empty={handleEmpty}
 			{order}
 			{projectId}
-			{upstream}
 			branchId={id}
 			{projectPath}
 			{target}
