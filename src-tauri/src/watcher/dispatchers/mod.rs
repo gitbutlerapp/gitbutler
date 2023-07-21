@@ -1,11 +1,13 @@
 mod file_change;
 mod tick;
 
-use std::{path, time};
+use std::time;
 
 use anyhow::Result;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
+
+use crate::projects;
 
 use super::events;
 
@@ -18,11 +20,11 @@ pub struct Dispatcher {
 }
 
 impl Dispatcher {
-    pub fn new<P: AsRef<path::Path>>(project_id: String, path: P) -> Self {
+    pub fn new(project: &projects::Project) -> Self {
         Self {
-            project_id: project_id.clone(),
-            tick_dispatcher: tick::Dispatcher::new(project_id.clone()),
-            file_change_dispatcher: file_change::Dispatcher::new(project_id, path),
+            project_id: project.id.clone(),
+            tick_dispatcher: tick::Dispatcher::new(&project.id),
+            file_change_dispatcher: file_change::Dispatcher::new(project),
             cancellation_token: CancellationToken::new(),
         }
     }

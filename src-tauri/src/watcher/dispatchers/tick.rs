@@ -13,9 +13,9 @@ pub struct Dispatcher {
 }
 
 impl Dispatcher {
-    pub fn new(project_id: String) -> Self {
+    pub fn new(project_id: &str) -> Self {
         Self {
-            project_id,
+            project_id: project_id.to_string(),
             cancellation_token: CancellationToken::new(),
         }
     }
@@ -58,7 +58,7 @@ mod tests {
     #[tokio::test]
     async fn test_ticker() {
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let dispatcher = Dispatcher::new("test".to_string());
+        let dispatcher = Dispatcher::new("test");
         let dispatcher2 = dispatcher.clone();
         let handle = tokio::spawn(async move {
             dispatcher2

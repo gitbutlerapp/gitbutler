@@ -88,7 +88,7 @@ impl<'watcher> InnerWatcher {
     ) -> Self {
         Self {
             project_id: project.id.clone(),
-            dispatcher: dispatchers::Dispatcher::new(project.id.clone(), project.path.clone()),
+            dispatcher: dispatchers::Dispatcher::new(project),
             handler: handlers::Handler::new(
                 local_data_dir,
                 &project.id,

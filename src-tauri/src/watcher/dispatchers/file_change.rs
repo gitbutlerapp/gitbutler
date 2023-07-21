@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path,
     sync::{Arc, Mutex},
 };
 
@@ -7,21 +7,21 @@ use anyhow::{Context, Result};
 use notify::{Config, Event, RecommendedWatcher, Watcher};
 use tokio::sync::mpsc;
 
-use crate::watcher::events;
+use crate::{watcher::events, projects};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     watcher: Arc<Mutex<Option<RecommendedWatcher>>>,
-    project_path: PathBuf,
+    project_path: path::PathBuf,
     project_id: String,
 }
 
 impl Dispatcher {
-    pub fn new<P: AsRef<std::path::Path>>(project_id: String, path: P) -> Self {
+    pub fn new(project: &projects::Project) -> Self {
         Self {
             watcher: Arc::new(Mutex::new(None)),
-            project_path: path.as_ref().to_path_buf(),
-            project_id,
+            project_path: path::PathBuf::from(&project.path),
+            project_id: project.id.clone(),
         }
     }
 
