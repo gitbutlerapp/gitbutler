@@ -189,7 +189,6 @@ mod tests {
             branch_name: "branch".to_string(),
             remote_url: "remote url".to_string(),
             sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
-            behind: 0,
         };
 
         let default_target = Target {
@@ -197,7 +196,6 @@ mod tests {
             branch_name: "default branch".to_string(),
             remote_url: "default remote url".to_string(),
             sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
-            behind: 0,
         };
 
         let branch_writer = branch::Writer::new(&gb_repo);

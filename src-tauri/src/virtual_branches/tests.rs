@@ -966,7 +966,7 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
 }
 
 #[test]
-fn test_update_branch_target_base() -> Result<()> {
+fn test_update_base_branch_base() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -1059,7 +1059,7 @@ fn test_update_branch_target_base() -> Result<()> {
     // update the target branch
     // this should leave the work on file2, but update the contents of file1
     // and the branch diff should only be on file2
-    update_branch_target(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository)?;
 
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
     assert_eq!(
@@ -1077,7 +1077,7 @@ fn test_update_branch_target_base() -> Result<()> {
 }
 
 #[test]
-fn test_update_branch_target_detect_integrated_branches() -> Result<()> {
+fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -1152,7 +1152,7 @@ fn test_update_branch_target_detect_integrated_branches() -> Result<()> {
 
     // update the target branch
     // this should notice that the trees are the same after the merge, so it should unapply the branch
-    update_branch_target(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository)?;
 
     // integrated branch should be deleted
     let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
@@ -1162,7 +1162,7 @@ fn test_update_branch_target_detect_integrated_branches() -> Result<()> {
 }
 
 #[test]
-fn test_update_branch_target_detect_integrated_branches_with_more_work() -> Result<()> {
+fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
@@ -1231,7 +1231,7 @@ fn test_update_branch_target_detect_integrated_branches_with_more_work() -> Resu
 
     // update the target branch
     // this should notice that the trees are the same after the merge, but there are files on the branch, so do a merge and then leave the files there
-    update_branch_target(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository)?;
 
     // there should be a new vbranch created, but nothing is on it
     let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
@@ -1530,7 +1530,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
 
     // update the target branch
-    update_branch_target(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository)?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository, true)?;
 
@@ -2775,7 +2775,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
     assert_eq!(contents, "line1\nline2\nline3\nline4\n");
 
     // update target, this will update the wd and add an empty default branch
-    update_branch_target(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository)?;
 
     // updated the file
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
@@ -2918,7 +2918,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     assert_eq!(contents, "line1\nline2\nline3\nline4\n");
 
     // update target, this will update the wd and add an empty default branch
-    update_branch_target(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository)?;
 
     // updated the file
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
