@@ -100,7 +100,7 @@ impl IndexDocument {
     }
 }
 
-pub const VERSION: u64 = 6; // should not decrease
+pub const VERSION: u64 = 7; // should not decrease
 
 pub fn build_schema() -> schema::Schema {
     let mut schema_builder = schema::Schema::builder();
