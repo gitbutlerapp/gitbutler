@@ -29,7 +29,6 @@ export class BranchStoresCache {
 				if (Loaded.isError(sessions)) return;
 				const lastSession = sessions.value.at(-1);
 				if (!lastSession) return;
-				if (lastSession.hash) return;
 
 				// new current session detected. refresh branches + subscribe to delta updates.
 				listVirtualBranches({ projectId }).then((newBranches) => {
