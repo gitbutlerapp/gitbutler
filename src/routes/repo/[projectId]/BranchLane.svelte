@@ -15,7 +15,7 @@
 	import FileCardNext from './FileCardNext.svelte';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
-	import { crossfade } from 'svelte/transition';
+	import { crossfade, fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 
 	const [send, receive] = crossfade({
@@ -141,6 +141,10 @@
 	}
 
 	let commitDialogShown = false;
+
+	$: if (commitDialogShown && files.length === 0) {
+		commitDialogShown = false;
+	}
 </script>
 
 <div
@@ -193,27 +197,29 @@
 					class=" w-full truncate border-0 bg-light-150 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-1000 dark:text-dark-100"
 				/>
 			</div>
-			<Button
-				class="w-20"
-				height="small"
-				kind="outlined"
-				color="purple"
-				disabled={files.length == 0}
-				on:click={() => (commitDialogShown = !commitDialogShown)}
-			>
-				<span class="purple">
-					{#if !commitDialogShown}
-						Commit
-					{:else}
-						Cancel
-					{/if}
-				</span>
-			</Button>
+			<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
+				<Button
+					class="w-20"
+					height="small"
+					kind="outlined"
+					color="purple"
+					disabled={files.length == 0}
+					on:click={() => (commitDialogShown = !commitDialogShown)}
+				>
+					<span class="purple">
+						{#if !commitDialogShown}
+							Commit
+						{:else}
+							Cancel
+						{/if}
+					</span>
+				</Button>
+			</div>
 		</div>
 
 		{#if commitDialogShown}
 			<div
-				class="flex w-full flex-col gap-4 border-t border-light-400 bg-light-300 py-4 dark:border-dark-400 dark:bg-dark-800"
+				class="flex w-full flex-col gap-4 border-t border-light-400 bg-light-200 py-4 dark:border-dark-400 dark:bg-dark-800"
 				transition:slide={{ duration: 150 }}
 			>
 				<div class="flex items-center">
@@ -224,7 +230,7 @@
 							commitTitle = commitMessage?.split('\n')?.at(0) || '';
 							commitDescription = commitMessage?.split('\n')?.slice(1)?.join('\n').trim() || '';
 						}}
-						class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none hover:border-light-400 focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 dark:hover:border-dark-300"
+						class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 						placeholder="Your commit message here"
 						rows={messageRows}
 						required
@@ -343,7 +349,7 @@
 					<div
 						class="dark:form-dark-600 absolute top-4 ml-[20px]
 						w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
-						style="height: calc(100% - 1rem);"
+						style={remoteCommits.length == 0 ? 'height: calc(100% - 1rem);' : 'height: 100%;'}
 					/>
 
 					<div class="relative flex flex-col gap-2">
