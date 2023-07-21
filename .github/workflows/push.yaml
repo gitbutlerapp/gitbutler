@@ -3,7 +3,7 @@ on: [push]
 
 jobs:
     lint-frontend:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v3
@@ -47,7 +47,7 @@ jobs:
                 pnpm check
 
     unittest-frontend:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v3
@@ -69,7 +69,7 @@ jobs:
                 pnpm test
 
     lint-rust:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v3
@@ -96,7 +96,7 @@ jobs:
 
 
     story:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v3
@@ -133,7 +133,7 @@ jobs:
               run: pnpm story:build
 
     test:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v3
