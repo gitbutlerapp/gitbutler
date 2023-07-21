@@ -191,8 +191,17 @@ CONFIG_PATH=$(readlink -f "$PWD/../src-tauri/tauri.conf.$CHANNEL.json")
 # update the version in the tauri release config
 jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
+
+FEATURES=""
+
+if [ "$CHANNEL" == "nightly" ]; then
+    FEATURES="$FEATURES devtools"
+fi
+
 # build the app with release config
-SENTRY_RELEASE="$VERSION" tauri build --verbose --config "$TMP_DIR/tauri.conf.json"
+SENTRY_RELEASE="$VERSION" tauri build \
+    --features "$FEATURES" \
+    --config "$TMP_DIR/tauri.conf.json"
 
 BUNDLE_DIR=$(readlink -f "$PWD/../src-tauri/target/release/bundle")
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
