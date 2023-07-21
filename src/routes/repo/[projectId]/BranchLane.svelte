@@ -14,6 +14,27 @@
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import FileCardNext from './FileCardNext.svelte';
 	import { slide } from 'svelte/transition';
+	import { quintOut } from 'svelte/easing';
+	import { crossfade } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
+
+	const [send, receive] = crossfade({
+		duration: (d) => Math.sqrt(d * 200),
+
+		fallback(node, params) {
+			const style = getComputedStyle(node);
+			const transform = style.transform === 'none' ? '' : style.transform;
+
+			return {
+				duration: 600,
+				easing: quintOut,
+				css: (t) => `
+					transform: ${transform} scale(${t});
+					opacity: ${t}
+				`
+			};
+		}
+	});
 
 	export let branchId: string;
 	export let projectPath: string;
@@ -278,22 +299,26 @@
 			<div class="drop-zone-marker hidden border p-6 text-center">
 				Drop here to add to virtual branch
 			</div>
-			{#each files as file (file.id)}
-				<FileCardNext
-					expanded={file.expanded}
-					conflicted={file.conflicted}
-					{file}
-					{dzType}
-					{projectId}
-					{projectPath}
-					{maximized}
-					on:dblclick={() => (maximized = !maximized)}
-					on:expanded={(e) => {
-						setExpandedWithCache(file, e.detail);
-						expandFromCache();
-					}}
-				/>
-			{/each}
+			{#if files.length > 0}
+				<div transition:slide={{ duration: 150 }}>
+					{#each files as file (file.id)}
+						<FileCardNext
+							expanded={file.expanded}
+							conflicted={file.conflicted}
+							{file}
+							{dzType}
+							{projectId}
+							{projectPath}
+							{maximized}
+							on:dblclick={() => (maximized = !maximized)}
+							on:expanded={(e) => {
+								setExpandedWithCache(file, e.detail);
+								expandFromCache();
+							}}
+						/>
+					{/each}
+				</div>
+			{/if}
 			{#if files.length == 0}
 				<!-- attention: these markers have custom css at the bottom of thise file -->
 				<div
@@ -309,7 +334,11 @@
 		class="mt-6 flex h-full w-full flex-col gap-2 border-t border-light-400 dark:border-dark-500"
 	>
 		{#if localCommits.length > 0}
-			<div class="relative" class:h-full={remoteCommits.length == 0}>
+			<div
+				class="relative"
+				class:h-full={remoteCommits.length == 0}
+				transition:slide={{ duration: 150 }}
+			>
 				<div
 					class="dark:form-dark-600 absolute top-4 ml-[20px]
 						h-full w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
@@ -337,8 +366,13 @@
 						</Button>
 					</div>
 
-					{#each commits.filter((c) => !c.isRemote) as commit (commit.id)}
-						<div class="flex w-full items-center pb-2 pr-2">
+					{#each localCommits as commit (commit.id)}
+						<div
+							class="flex w-full items-center pb-2 pr-2"
+							in:receive={{ key: commit.id }}
+							out:send={{ key: commit.id }}
+							animate:flip
+						>
 							<div class="ml-4 w-6">
 								<div
 									class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
@@ -371,8 +405,13 @@
 							</span>
 						</Link>
 					</div>
-					{#each commits.filter((c) => c.isRemote) as commit (commit.id)}
-						<div class="flex w-full items-center pb-2 pr-2">
+					{#each remoteCommits as commit (commit.id)}
+						<div
+							class="flex w-full items-center pb-2 pr-2"
+							in:receive={{ key: commit.id }}
+							out:send={{ key: commit.id }}
+							animate:flip
+						>
 							<div class="ml-4 w-6">
 								<div
 									class="h-2.5 w-2.5 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
