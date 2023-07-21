@@ -218,11 +218,6 @@
 
 	<div class="flex flex-col">
 		<div class="mb-4 mr-2 flex justify-end gap-2 text-right">
-			{#if localCommits.length > 0}
-				<Button class="w-20" on:click={push} loading={isPushing} color="purple" height="small">
-					Push
-				</Button>
-			{/if}
 			<Button
 				class="w-20"
 				height="small"
@@ -310,50 +305,88 @@
 			{/if}
 		</div>
 	</div>
-	<div class="flex h-full">
-		<div class="relative z-30 h-full">
-			<div
-				class="absolute top-0 z-30 ml-[20px] h-full w-px
-			bg-gradient-to-b from-transparent via-light-400 dark:via-dark-600
-			"
-			/>
-		</div>
-		<div class="z-40 mt-4 flex w-full flex-col gap-2">
-			{#each commits.filter((c) => !c.isRemote) as commit (commit.id)}
-				<div class="flex w-full items-center pb-2 pr-2">
-					<div class="ml-4 w-6">
+	<div
+		class="mt-6 flex h-full w-full flex-col gap-2 border-t border-light-400 dark:border-dark-500"
+	>
+		{#if localCommits.length > 0}
+			<div class="relative" class:h-full={remoteCommits.length == 0}>
+				<div
+					class="dark:form-dark-600 absolute top-4 ml-[20px]
+						h-full w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+				/>
+
+				<div class="relative flex flex-col gap-2">
+					<div
+						class="dark:form-dark-600 absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+					/>
+					<div class="ml-10 mr-2 flex items-center py-2">
 						<div
-							class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-500 dark:bg-dark-1000"
-						/>
+							class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
+						>
+							local
+						</div>
+						<Button
+							class="w-20"
+							height="small"
+							kind="outlined"
+							color="purple"
+							loading={isPushing}
+							on:click={push}
+						>
+							<span class="purple">Push</span>
+						</Button>
 					</div>
-					<div class="flex-grow">
-						<CommitCard {commit} />
-					</div>
+
+					{#each commits.filter((c) => !c.isRemote) as commit (commit.id)}
+						<div class="flex w-full items-center pb-2 pr-2">
+							<div class="ml-4 w-6">
+								<div
+									class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
+								/>
+							</div>
+							<div class="flex-grow">
+								<CommitCard {commit} />
+							</div>
+						</div>
+					{/each}
 				</div>
-			{/each}
-			{#if remoteCommits.length > 0}
-				<div class="ml-12 flex items-center font-mono text-sm">
-					<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
-						<span class="text-sm font-bold">
-							{target.remoteName}/{nameToBranch(name)}
-						</span>
-					</Link>
-				</div>
-			{/if}
-			{#each commits.filter((c) => c.isRemote) as commit (commit.id)}
-				<div class="flex w-full items-center pb-2 pr-2">
-					<div class="ml-4 w-6">
-						<div
-							class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-500 dark:border-dark-500 dark:bg-dark-500"
-							class:bg-light-500={commit.isRemote}
-							class:dark:bg-dark-500={commit.isRemote}
-						/>
+			</div>
+		{/if}
+		{#if remoteCommits.length > 0}
+			<div class="relative h-full">
+				<div
+					class="dark:form-dark-600 absolute top-4 ml-[20px]
+						h-full w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+				/>
+
+				<div class="relative flex flex-col gap-2">
+					<div
+						class="dark:form-dark-600 absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+					/>
+
+					<div class="ml-12 flex items-center py-2 font-mono text-sm">
+						<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
+							<span class="text-sm font-bold">
+								{target.remoteName}/{nameToBranch(name)}
+							</span>
+						</Link>
 					</div>
-					<div class="flex-grow">
-						<CommitCard {commit} />
-					</div>
+					{#each commits.filter((c) => c.isRemote) as commit (commit.id)}
+						<div class="flex w-full items-center pb-2 pr-2">
+							<div class="ml-4 w-6">
+								<div
+									class="h-2.5 w-2.5 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+									class:bg-light-500={commit.isRemote}
+									class:dark:bg-dark-500={commit.isRemote}
+								/>
+							</div>
+							<div class="flex-grow">
+								<CommitCard {commit} />
+							</div>
+						</div>
+					{/each}
 				</div>
-			{/each}
-		</div>
+			</div>
+		{/if}
 	</div>
 </div>
