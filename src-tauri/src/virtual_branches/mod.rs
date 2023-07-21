@@ -427,7 +427,7 @@ fn unapply_all_branches(
     Ok(())
 }
 
-pub fn remote_branches(
+pub fn list_remote_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<Vec<RemoteBranch>> {
@@ -489,18 +489,30 @@ pub fn remote_branches(
             let branch_name = project_repository::branch::Name::try_from(&branch)
                 .context("could not get branch name")?;
 
+            println!("branch_name: {:?}", branch_name);
+            println!("virtual_branches_names: {:?}", default_target.branch_name);
+
             // skip the default target branch (both local and remote)
             match branch_name {
                 project_repository::branch::Name::Remote(ref remote_branch_name) => {
-                    if remote_branch_name.branch().eq(&default_target.branch_name) {
+                    if format!(
+                        "{}/{}",
+                        remote_branch_name.remote(),
+                        remote_branch_name.branch()
+                    )
+                    .eq(&default_target.branch_name)
+                    {
                         continue;
                     }
                 }
                 project_repository::branch::Name::Local(ref local_branch_name) => {
                     if let Some(upstream_branch_name) = local_branch_name.remote() {
-                        if upstream_branch_name
-                            .branch()
-                            .eq(&default_target.branch_name)
+                        if format!(
+                            "{}/{}",
+                            upstream_branch_name.remote(),
+                            upstream_branch_name.branch()
+                        )
+                        .eq(&default_target.branch_name)
                         {
                             continue;
                         }

@@ -616,7 +616,7 @@ impl App {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        virtual_branches::remote_branches(&gb_repository, &project_repository)
+        virtual_branches::list_remote_branches(&gb_repository, &project_repository)
     }
 
     pub fn git_head(&self, project_id: &str) -> Result<String> {
