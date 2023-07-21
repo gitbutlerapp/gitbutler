@@ -63,8 +63,7 @@ pub struct VirtualBranchCommit {
     pub id: String,
     pub description: String,
     pub created_at: u128,
-    pub author_name: String,
-    pub author_email: String,
+    pub author: Author,
     pub is_remote: bool,
 }
 
@@ -144,7 +143,7 @@ pub struct BaseBranch {
     pub upstream_commits: Vec<VirtualBranchCommit>,
 }
 
-#[derive(Debug, Serialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Author {
     pub name: String,
@@ -900,8 +899,6 @@ pub fn commit_to_vbranch_commit(
 ) -> Result<VirtualBranchCommit> {
     let timestamp = commit.time().seconds() as u128;
     let signature = commit.author();
-    let name = signature.name().unwrap().to_string();
-    let email = signature.email().unwrap().to_string();
     let message = commit.message().unwrap().to_string();
     let sha = commit.id().to_string();
 
@@ -913,8 +910,7 @@ pub fn commit_to_vbranch_commit(
     let commit = VirtualBranchCommit {
         id: sha,
         created_at: timestamp * 1000,
-        author_name: name,
-        author_email: email,
+        author: Author::from(signature),
         description: message,
         is_remote,
     };

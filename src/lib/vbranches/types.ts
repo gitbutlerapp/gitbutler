@@ -42,8 +42,7 @@ export class Branch {
 
 export class Commit {
 	id!: string;
-	authorEmail!: string;
-	authorName!: string;
+	author!: Author;
 	description!: string;
 	@Transform((obj) => new Date(obj.value))
 	createdAt!: Date;
