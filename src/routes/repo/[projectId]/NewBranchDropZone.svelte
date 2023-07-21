@@ -15,7 +15,7 @@
 <div
 	id="new-branch-dz"
 	role="group"
-	class="h-42 mt-14 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
+	class="h-full pt-6 flex w-[22.5rem] shrink-0 justify-center text-center text-light-800 dark:text-dark-100"
 	use:dzHighlight={{ type: 'text/hunk', hover: 'drop-zone-hover', active: 'drop-zone-active' }}
 	on:drop|stopPropagation={(e) => {
 		if (!e.dataTransfer) {
@@ -25,7 +25,7 @@
 		branchController.createBranch({ ownership });
 	}}
 >
-	<div class="call-to-action flex-grow p-8">
+	<div class="call-to-action h-36 p-8">
 		<div class="flex flex-col items-center gap-y-3 self-center p-2">
 			<p>Drag changes or click button to create new virtual branch</p>
 			<Button color="purple" height="small" on:click={handleNewVirtualBranch}>
@@ -33,8 +33,8 @@
 			</Button>
 		</div>
 	</div>
-	<div class="drop-zone-marker hidden flex-grow border border-green-450 p-8">
-		<div class="flex flex-col items-center gap-y-3 self-center p-2">
+	<div class="drop-zone-marker h-36 hidden border border-green-450 p-8">
+		<div class="flex h-full flex-col items-center self-center p-2">
 			<p>Drop here to create new virtual branch</p>
 		</div>
 	</div>
