@@ -41,10 +41,10 @@
 		const parts = filepath.split('/');
 		if (parts.length == 0) return '';
 		return (
-			parts.slice(0, -1).join('/') +
-			'/<span class="font-bold text-light-800 dark:text-dark-50">' +
+			'<span class="font-bold text-light-800 dark:text-dark-50 mr-1">' +
 			parts[parts.length - 1] +
-			'</span>'
+			'</span>/' +
+			parts.slice(0, -1).join('/')
 		);
 	}
 
