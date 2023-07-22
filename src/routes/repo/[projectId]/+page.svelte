@@ -60,8 +60,8 @@
 				}));
 			}}
 		/>
-		<div class="flex w-full flex-col overflow-x-hidden">
-			<div class="flex flex-grow overflow-hidden">
+		<div class="flex w-full flex-col overflow-hidden">
+			<div class="flex flex-grow overflow-hidden overscroll-y-none">
 				{#if target}
 					<UpstreamBranchLane baseBranch={target} />
 				{/if}

@@ -85,7 +85,7 @@
 			class="flex cursor-default pl-2"
 			role="button"
 			tabindex="0"
-			on:dblclick={() => {
+			on:dblclick|stopPropagation={() => {
 				expanded = !expanded;
 				dispatch('expanded', expanded);
 			}}
