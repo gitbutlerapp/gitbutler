@@ -343,7 +343,7 @@
 					Drop here to add to virtual branch
 				</div>
 				{#if files.length > 0}
-					<div transition:slide={{ duration: 150 }}>
+					<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
 						{#each files as file (file.id)}
 							<FileCardNext
 								expanded={file.expanded}
