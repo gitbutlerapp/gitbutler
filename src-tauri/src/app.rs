@@ -643,8 +643,17 @@ impl App {
         let project_repository = project_repository::Repository::open(&project)?;
         let repo = &project_repository.git_repository;
         let config = repo.config()?;
-        let value = config.get_string(key)?;
-        Ok(Some(value))
+        let value = config.get_string(key);
+        match value {
+            Ok(value) => Ok(Some(value)),
+            Err(e) => {
+                if e.code() == git2::ErrorCode::NotFound {
+                    Ok(None)
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
     }
 
     pub fn git_set_global_config(&self, key: &str, value: &str) -> Result<String> {
@@ -655,8 +664,17 @@ impl App {
 
     pub fn git_get_global_config(&self, key: &str) -> Result<Option<String>> {
         let config = git2::Config::open_default()?;
-        let value = config.get_string(key)?;
-        Ok(Some(value))
+        let value = config.get_string(key);
+        match value {
+            Ok(value) => Ok(Some(value)),
+            Err(e) => {
+                if e.code() == git2::ErrorCode::NotFound {
+                    Ok(None)
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
     }
 
     pub fn git_switch_branch(&self, project_id: &str, branch: &str) -> Result<()> {
