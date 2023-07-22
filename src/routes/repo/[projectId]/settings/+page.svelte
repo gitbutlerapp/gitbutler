@@ -52,10 +52,6 @@
 	<div class="flex flex-col gap-y-8">
 		<div class="flex w-full justify-between">
 			<h2 class="text-2xl font-medium">Project settings</h2>
-			{#if $user}
-				<!-- TODO: Separate logout from login button -->
-				<Login />
-			{/if}
 		</div>
 		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 		<CloudForm project={$project} on:updated={onCloudUpdated} />
