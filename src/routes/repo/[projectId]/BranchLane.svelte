@@ -461,14 +461,12 @@
 								out:send={{ key: commit.id }}
 								animate:flip
 							>
-								<div class="ml-4 w-6">
+								<div class="ml-4 mr-2 w-6">
 									<div
 										class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
 									/>
 								</div>
-								<div class="flex-grow">
-									<CommitCard {commit} />
-								</div>
+								<CommitCard {commit} />
 							</div>
 						{/each}
 					</div>
@@ -502,16 +500,14 @@
 								out:send={{ key: commit.id }}
 								animate:flip
 							>
-								<div class="ml-4 w-6">
+								<div class="ml-4 mr-2 w-6">
 									<div
 										class="h-2.5 w-2.5 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
 										class:bg-light-500={commit.isRemote}
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
 								</div>
-								<div class="flex-grow">
-									<CommitCard {commit} />
-								</div>
+								<CommitCard {commit} />
 							</div>
 						{/each}
 					</div>
