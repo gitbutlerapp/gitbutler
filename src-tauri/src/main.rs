@@ -688,19 +688,19 @@ async fn get_base_branch_data(
     let app = handle.state::<app::App>();
     let target = app.get_base_branch_data(project_id)?;
 
-    let out = match target {
+    match target {
         None => Ok(target),
-        Some(t) => {
+        Some(target) => {
             let proxy = handle.state::<assets::Proxy>();
             let mut proxy_map = HashMap::new();
-            let recent_commits_author_urls = t
+            let recent_commits_author_urls = target
                 .clone()
                 .recent_commits
                 .into_iter()
                 .map(|commit| commit.author.gravatar_url.clone())
                 .collect::<Vec<_>>();
 
-            let upstream_commits_author_urls = t
+            let upstream_commits_author_urls = target
                 .clone()
                 .upstream_commits
                 .into_iter()
@@ -720,7 +720,7 @@ async fn get_base_branch_data(
             }
 
             let target = Some(virtual_branches::BaseBranch {
-                recent_commits: t
+                recent_commits: target
                     .clone()
                     .recent_commits
                     .into_iter()
@@ -735,7 +735,7 @@ async fn get_base_branch_data(
                         ..commit
                     })
                     .collect(),
-                upstream_commits: t
+                upstream_commits: target
                     .clone()
                     .upstream_commits
                     .into_iter()
@@ -750,14 +750,12 @@ async fn get_base_branch_data(
                         ..commit
                     })
                     .collect(),
-                ..t
+                ..target
             });
 
             Ok(target)
         }
-    };
-    return out;
-    // Ok(target)
+    }
 }
 
 #[timed(duration(printer = "debug!"))]
