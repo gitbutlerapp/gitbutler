@@ -19,7 +19,7 @@
 		targetBranchStore,
 		remoteBranchNames,
 		project,
-		cloud,
+		cloud
 	} = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -60,18 +60,20 @@
 				}));
 			}}
 		/>
-		{#if target}
-			<UpstreamBranchLane baseBranch={target} />
-		{/if}
 		<div class="flex w-full flex-col overflow-x-hidden">
-			<Board
-				{branches}
-				{projectId}
-				projectPath={$project?.path}
-				{target}
-				cloudEnabled={$project?.api?.sync || false}
-				{cloud}
-			/>
+			<div class="flex flex-grow overflow-hidden">
+				{#if target}
+					<UpstreamBranchLane baseBranch={target} />
+				{/if}
+				<Board
+					{branches}
+					{projectId}
+					projectPath={$project?.path}
+					{target}
+					cloudEnabled={$project?.api?.sync || false}
+					{cloud}
+				/>
+			</div>
 			<BottomPanel {target} />
 		</div>
 	</div>
