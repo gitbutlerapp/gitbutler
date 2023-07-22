@@ -78,4 +78,8 @@ export class BaseBranch {
 	behind!: number;
 	upstreamCommits!: Commit[];
 	recentCommits!: Commit[];
+
+	get repoBaseUrl(): string {
+		return this.remoteUrl.replace(':', '/').replace('git@', 'https://').replace('.git', '');
+	}
 }

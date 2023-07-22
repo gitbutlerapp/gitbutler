@@ -135,11 +135,7 @@
 	function url(target: BaseBranch | undefined, branchName: string) {
 		if (!target) return undefined;
 		const baseBranchName = target.branchName.split('/')[1];
-		const repoBaseUrl = target.remoteUrl
-			.replace(':', '/')
-			.replace('git@', 'https://')
-			.replace('.git', '');
-		return `${repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
+		return `${target.repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
 	}
 
 	let commitDialogShown = false;
@@ -449,6 +445,7 @@
 								</span>
 							</Link>
 						</div>
+
 						{#each remoteCommits as commit (commit.id)}
 							<div
 								class="flex w-full items-center pb-2 pr-2"
