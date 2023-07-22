@@ -4,14 +4,13 @@ use std::{thread, time::Duration};
 
 use tempfile::tempdir;
 
-use crate::projects::Project;
 use crate::{projects, storage, users};
 
 use super::*;
 
 pub struct TestDeps {
     repository: git2::Repository,
-    project: Project,
+    project: projects::Project,
     gb_repo: gb_repository::Repository,
     gb_repo_path: String,
     user_store: users::Storage,
