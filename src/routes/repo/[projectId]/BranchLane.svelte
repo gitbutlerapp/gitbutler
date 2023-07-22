@@ -420,10 +420,11 @@
 				</div>
 			{/if}
 			{#if remoteCommits.length > 0}
-				<div class="relative h-full">
+				<div class="relative flex-grow">
 					<div
 						class="dark:form-dark-600 absolute top-4 ml-[20px]
-						h-full w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+						style="height: calc(100% - 1rem);"
 					/>
 
 					<div class="relative flex flex-col gap-2">
