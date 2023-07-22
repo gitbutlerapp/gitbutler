@@ -220,6 +220,7 @@
 			.join('\n');
 		branchController.updateBranchOwnership(branchId, (data + '\n' + ownership).trim());
 	}}
+	on:dblclick={() => (maximized = !maximized)}
 >
 	<div
 		class="flex w-full shrink-0 flex-col items-center
@@ -397,7 +398,6 @@
 								{dzType}
 								{projectId}
 								{projectPath}
-								on:dblclick={() => (maximized = !maximized)}
 								on:expanded={(e) => {
 									setExpandedWithCache(file, e.detail);
 									expandFromCache();
