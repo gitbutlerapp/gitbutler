@@ -6,7 +6,7 @@
 </script>
 
 <div
-	class="flex-grow rounded border border-light-400 bg-light-50 p-2 dark:border-dark-600 dark:bg-dark-900"
+	class="flex-grow overflow-x-hidden rounded border border-light-400 bg-light-50 p-2 dark:border-dark-600 dark:bg-dark-900"
 >
 	<div class="mb-1 truncate">
 		{commit.description}
