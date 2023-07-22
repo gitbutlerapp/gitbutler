@@ -223,11 +223,9 @@
 	on:dblclick={() => (maximized = !maximized)}
 >
 	<div
-		class="flex w-full shrink-0 flex-col items-center
-		border-b
-		border-r border-light-400 bg-light-200 text-light-900 dark:border-dark-600 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
+		class="flex w-full shrink-0 flex-col items-center border-b border-r border-light-400 bg-light-200 text-light-900 dark:border-dark-600 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
 	>
-		<div class="flex w-full items-center px-5 py-1">
+		<div class="flex w-full items-center py-1 pl-2 pr-4">
 			<button
 				bind:this={meatballButton}
 				class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
@@ -345,7 +343,7 @@
 		{/if}
 	</div>
 
-	<div class="lane-scroll flex flex-grow flex-col overflow-y-scroll overscroll-y-none">
+	<div class="lane-scroll flex flex-grow flex-col overflow-y-scroll pb-8">
 		{#if conflicted}
 			<div class="mb-2 rounded bg-red-700 p-2 text-white">
 				{#if files.some((f) => f.conflicted)}
@@ -383,39 +381,37 @@
 			</PopupMenuItem>
 		</PopupMenu>
 
-		<div class="flex flex-col">
-			<div class="flex flex-shrink flex-col gap-y-2 py-6">
-				<div class="drop-zone-marker hidden border p-6 text-center">
-					Drop here to add to virtual branch
-				</div>
-				{#if files.length > 0}
-					<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
-						{#each files as file (file.id)}
-							<FileCardNext
-								expanded={file.expanded}
-								conflicted={file.conflicted}
-								{file}
-								{dzType}
-								{projectId}
-								{projectPath}
-								on:expanded={(e) => {
-									setExpandedWithCache(file, e.detail);
-									expandFromCache();
-								}}
-							/>
-						{/each}
-					</div>
-				{/if}
-				{#if files.length == 0}
-					<!-- attention: these markers have custom css at the bottom of thise file -->
-					<div
-						class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
-						data-dnd-ignore
-					>
-						No uncomitted changes
-					</div>
-				{/if}
+		<div class="flex flex-col py-2">
+			<div class="drop-zone-marker hidden border p-6 text-center">
+				Drop here to add to virtual branch
 			</div>
+			{#if files.length > 0}
+				<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
+					{#each files as file (file.id)}
+						<FileCardNext
+							expanded={file.expanded}
+							conflicted={file.conflicted}
+							{file}
+							{dzType}
+							{projectId}
+							{projectPath}
+							on:expanded={(e) => {
+								setExpandedWithCache(file, e.detail);
+								expandFromCache();
+							}}
+						/>
+					{/each}
+				</div>
+			{/if}
+			{#if files.length == 0}
+				<!-- attention: these markers have custom css at the bottom of thise file -->
+				<div
+					class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
+					data-dnd-ignore
+				>
+					No uncomitted changes
+				</div>
+			{/if}
 		</div>
 		<div
 			class="flex w-full flex-grow flex-col gap-2 border-t border-light-400 dark:border-dark-500"
@@ -427,14 +423,14 @@
 					transition:slide={{ duration: 150 }}
 				>
 					<div
-						class="dark:form-dark-600 absolute top-4 ml-[20px]
+						class="dark:form-dark-600 absolute top-4 ml-5
 						w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
 						style={remoteCommits.length == 0 ? 'height: calc(100% - 1rem);' : 'height: 100%;'}
 					/>
 
 					<div class="relative flex flex-col gap-2">
 						<div
-							class="dark:form-dark-600 absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+							class="dark:form-dark-600 absolute top-4 ml-5 h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
 						/>
 						<div class="ml-10 mr-2 flex items-center py-2">
 							<div
@@ -461,9 +457,9 @@
 								out:send={{ key: commit.id }}
 								animate:flip
 							>
-								<div class="ml-4 mr-2">
+								<div class="ml-[0.875rem] mr-2">
 									<div
-										class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
+										class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
 									/>
 								</div>
 								<CommitCard {commit} />
@@ -475,14 +471,14 @@
 			{#if remoteCommits.length > 0}
 				<div class="relative flex-grow">
 					<div
-						class="dark:form-dark-600 absolute top-4 ml-[20px]
+						class="dark:form-dark-600 absolute top-4 ml-5
 						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 						style="height: calc(100% - 1rem);"
 					/>
 
 					<div class="relative flex flex-col gap-2">
 						<div
-							class="dark:form-dark-600 absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+							class="dark:form-dark-600 absolute top-4 ml-5 h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
 						/>
 
 						<div class="ml-12 flex items-center py-2 font-mono text-sm">
@@ -500,9 +496,9 @@
 								out:send={{ key: commit.id }}
 								animate:flip
 							>
-								<div class="ml-4 mr-2">
+								<div class="ml-3 mr-2">
 									<div
-										class="h-2.5 w-2.5 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+										class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
 										class:bg-light-500={commit.isRemote}
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
