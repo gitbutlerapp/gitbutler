@@ -2563,7 +2563,9 @@ fn tree_to_entry_list(
         let blob = object.as_blob().context("failed to get blob")?;
         // convert content to string
         let octal_mode = format!("{:o}", entry.filemode());
-        if let Ok(content) = std::str::from_utf8(blob.content()) {
+        if let Ok(content) =
+            std::str::from_utf8(blob.content()).context("failed to convert content to string")
+        {
             file_list.push((
                 path.to_string(),
                 octal_mode,
