@@ -34,9 +34,9 @@ impl super::RunCommand for Setup {
 
         match selection {
             Some(index) => {
-                println!("Setting target to: {}", items[index].red());
+                println!("Setting target to: {}", items[index].to_string().red());
                 app.gb_repository()
-                    .set_base_branch(&app.project_repository(), &items[index])
+                    .set_base_branch(&app.project_repository(), &items[index].branch())
                     .context("failed to set target branch")?;
             }
             None => println!("User did not select anything"),
