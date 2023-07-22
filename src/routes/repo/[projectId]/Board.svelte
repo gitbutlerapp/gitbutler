@@ -12,6 +12,7 @@
 	export let projectPath: string;
 	export let branches: Branch[];
 	export let target: BaseBranch | undefined;
+	export let cloudEnabled: boolean;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -90,6 +91,7 @@
 			branchId={id}
 			{projectPath}
 			{target}
+			{cloudEnabled}	
 		/>
 	{/each}
 	<NewBranchDropZone />

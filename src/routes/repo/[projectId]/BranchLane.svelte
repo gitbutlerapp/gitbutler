@@ -3,7 +3,7 @@
 	import type { Commit, File, BaseBranch } from '$lib/vbranches';
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles, IconBranch } from '$lib/icons';
-	import { Button, Link, Modal } from '$lib/components';
+	import { Button, Link, Modal, Tooltip } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
@@ -47,6 +47,7 @@
 	export let order: number;
 	export let conflicted: boolean;
 	export let target: BaseBranch | undefined;
+	export let cloudEnabled: boolean;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -263,16 +264,25 @@
 					/>
 				</div>
 				<div class="flex flex-grow justify-end gap-2 p-3 px-5">
-					<Button
-						tabindex={-1}
-						kind="outlined"
-						class="text-light-500"
-						height="small"
-						icon={IconAISparkles}
-						on:click={() => toasts.error('Not implemented yet')}
-					>
-						Generate message
-					</Button>
+					<div>
+						<Tooltip
+							label={cloudEnabled
+								? 'Generate commit message based on the changes in this virtual branch'
+								: 'Summary generation requres that you are logged in and have cloud sync enabled'}
+						>
+							<Button
+								disabled={!cloudEnabled}
+								tabindex={-1}
+								kind="outlined"
+								class="text-light-500"
+								height="small"
+								icon={IconAISparkles}
+								on:click={() => toasts.error('Not implemented yet')}
+							>
+								Generate message
+							</Button>
+						</Tooltip>
+					</div>
 					<Button
 						class="w-20"
 						height="small"
