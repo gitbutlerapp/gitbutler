@@ -18,7 +18,8 @@
 		remoteBranchStore,
 		targetBranchStore,
 		remoteBranchNames,
-		project
+		project,
+		cloud,
 	} = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -69,6 +70,7 @@
 				projectPath={$project?.path}
 				{target}
 				cloudEnabled={$project?.api?.sync || false}
+				{cloud}
 			/>
 			<BottomPanel {target} />
 		</div>

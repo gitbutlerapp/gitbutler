@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toasts } from '$lib';
+	import { toasts, stores } from '$lib';
 	import type { Commit, File, BaseBranch } from '$lib/vbranches';
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles, IconBranch } from '$lib/icons';
@@ -18,6 +18,8 @@
 	import { crossfade, fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { invoke } from '@tauri-apps/api/tauri';
+	import type { CloudApi } from '$lib/api';
+	import is from 'date-fns/locale/is';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -48,8 +50,10 @@
 	export let conflicted: boolean;
 	export let target: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
+	export let cloud: ReturnType<typeof CloudApi>;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
+	const user = stores.user;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
@@ -156,6 +160,38 @@
 		});
 	}
 	$: checkCommitsAnnotated();
+
+	let isGeneratingCommigMessage = false;
+	async function generateCommitMessage(files: File[]) {
+		const diff = files
+			.map((f) => f.hunks)
+			.flat()
+			.map((h) => h.diff)
+			.flat()
+			.join('\n')
+			.slice(0, 5000);
+
+		if ($user === null) return;
+
+		isGeneratingCommigMessage = true;
+		cloud.summarize
+			.commit($user.access_token, {
+				diff,
+				uid: projectId
+			})
+			.then(({ message }) => {
+				const firstNewLine = message.indexOf('\n');
+				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
+				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
+				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
+			})
+			.catch(() => {
+				toasts.error('Failed to generate commit message');
+			})
+			.finally(() => {
+				isGeneratingCommigMessage = false;
+			});
+	}
 </script>
 
 <div
@@ -261,23 +297,36 @@
 				</div>
 				<div class="flex flex-grow justify-end gap-2 p-3 px-5">
 					<div>
-						<Tooltip
-							label={cloudEnabled
-								? 'Generate commit message based on the changes in this virtual branch'
-								: 'Summary generation requres that you are logged in and have cloud sync enabled'}
-						>
+						{#if cloudEnabled && $user}
 							<Button
-								disabled={!cloudEnabled}
+								disabled={isGeneratingCommigMessage}
 								tabindex={-1}
 								kind="outlined"
 								class="text-light-500"
 								height="small"
 								icon={IconAISparkles}
-								on:click={() => toasts.error('Not implemented yet')}
+								loading={isGeneratingCommigMessage}
+								on:click={() => generateCommitMessage(files)}
 							>
-								Generate message
+								<span class="text-light-700">Generate message</span>
 							</Button>
-						</Tooltip>
+						{:else}
+							<Tooltip
+								label="Summary generation requres that you are logged in and have cloud sync enabled"
+							>
+								<Button
+									disabled={true}
+									tabindex={-1}
+									kind="outlined"
+									class="text-light-500"
+									height="small"
+									icon={IconAISparkles}
+									loading={isGeneratingCommigMessage}
+								>
+									<span class="text-light-700">Generate message</span>
+								</Button>
+							</Tooltip>
+						{/if}
 					</div>
 					<Button
 						class="w-20"

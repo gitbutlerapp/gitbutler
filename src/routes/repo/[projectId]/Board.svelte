@@ -6,12 +6,14 @@
 	import type { BranchController } from '$lib/vbranches';
 	import { getContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
+	import type { CloudApi } from '$lib/api';
 
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
 	export let target: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
+	export let cloud: ReturnType<typeof CloudApi>;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -88,6 +90,7 @@
 			{projectPath}
 			{target}
 			{cloudEnabled}
+			{cloud}
 		/>
 	{/each}
 	<NewBranchDropZone />
