@@ -46,11 +46,13 @@
 >
 	{#if loading}
 		{#if icon}
-			<IconLoading class="h-5 w-5 animate-spin" />
+			<IconLoading class="h-4 w-4 animate-spin fill-purple-600 text-light-500 dark:text-dark-500" />
 			<slot />
 		{:else}
 			<div class="items-around absolute flex w-full justify-center">
-				<IconLoading class="h-5 w-5 animate-spin" />
+				<IconLoading
+					class="h-4 w-4 animate-spin fill-purple-600 text-light-500 dark:text-dark-500"
+				/>
 			</div>
 			<div class="opacity-0">
 				<slot />
