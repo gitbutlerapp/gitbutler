@@ -36,7 +36,7 @@
 <div
 	bind:this={dropZone}
 	id="branch-lanes"
-	class="flex max-w-full flex-shrink flex-grow items-start overflow-x-auto overflow-y-hidden bg-light-150 dark:bg-dark-1000"
+	class="flex flex-shrink flex-grow items-start bg-light-150 dark:bg-dark-1000"
 	role="group"
 	use:dzHighlight={{ type: dzType }}
 	on:dragover={(e) => {
