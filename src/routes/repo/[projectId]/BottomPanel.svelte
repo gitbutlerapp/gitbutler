@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
-	import type { BaseBranch } from '$lib/vbranches';
+	import type { BaseBranch, Commit } from '$lib/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
 
 	export let target: BaseBranch;
 
-	$: console.log(target);
 	let shown = false;
+
+	export function createCommitUrl(commit: Commit): string | undefined {
+		if (!target) return undefined;
+		return `${target.repoBaseUrl}/commit/${commit.id}`;
+	}
 </script>
 
 <div class="flex border-t border-light-400 dark:border-dark-600">
@@ -58,7 +62,15 @@
 								<div>{commit.author.name}</div>
 							</div>
 							<div class="flex-grow truncate">{commit.description.substring(0, 200)}</div>
-							<div class="flex-shrink font-mono text-light-600">{commit.id.substring(0, 8)}</div>
+							<div class="flex-shrink pr-4 font-mono text-light-600">
+								<a
+									href={createCommitUrl(commit)}
+									target="_blank"
+									class="hover:text-blue-500 hover:underline"
+								>
+									{commit.id.substring(0, 8)}
+								</a>
+							</div>
 						</div>
 					{/each}
 				</div>

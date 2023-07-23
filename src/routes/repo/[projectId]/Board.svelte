@@ -1,17 +1,19 @@
 <script lang="ts" async="true">
 	import Lane from './BranchLane.svelte';
-	import UpstreamBranchLane from './UpstreamBranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { Branch, BaseBranch } from '$lib/vbranches';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches';
 	import { getContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
+	import type { CloudApi } from '$lib/api';
 
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
-	export let target: BaseBranch;
+	export let target: BaseBranch | undefined;
+	export let cloudEnabled: boolean;
+	export let cloud: ReturnType<typeof CloudApi>;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
@@ -68,8 +70,7 @@
 		}
 	}}
 >
-	<UpstreamBranchLane baseBranch={target} />
-	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order, conflicted, upstreamCommits } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, description, order, conflicted, upstreamCommits } (id)}
 		<Lane
 			on:dragstart={(e) => {
 				if (!e.dataTransfer) return;
@@ -85,11 +86,12 @@
 			on:empty={handleEmpty}
 			{order}
 			{projectId}
-			{upstream}
 			{upstreamCommits}
 			branchId={id}
 			{projectPath}
 			{target}
+			{cloudEnabled}
+			{cloud}
 		/>
 	{/each}
 	<NewBranchDropZone />

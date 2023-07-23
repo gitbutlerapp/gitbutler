@@ -700,7 +700,75 @@ async fn get_base_branch_data(
 ) -> Result<Option<virtual_branches::BaseBranch>, Error> {
     let app = handle.state::<app::App>();
     let target = app.get_base_branch_data(project_id)?;
-    Ok(target)
+
+    match target {
+        None => Ok(target),
+        Some(target) => {
+            let proxy = handle.state::<assets::Proxy>();
+            let mut proxy_map = HashMap::new();
+            let recent_commits_author_urls = target
+                .clone()
+                .recent_commits
+                .into_iter()
+                .map(|commit| commit.author.gravatar_url.clone())
+                .collect::<Vec<_>>();
+
+            let upstream_commits_author_urls = target
+                .clone()
+                .upstream_commits
+                .into_iter()
+                .map(|commit| commit.author.gravatar_url.clone())
+                .collect::<Vec<_>>();
+
+            let author_urls = recent_commits_author_urls
+                .into_iter()
+                .chain(upstream_commits_author_urls.into_iter())
+                .collect::<Vec<_>>();
+
+            for url in author_urls {
+                if !proxy_map.contains_key(&url) {
+                    let proxied_url = proxy.proxy(&url).await?;
+                    proxy_map.insert(url, proxied_url);
+                }
+            }
+
+            let target = Some(virtual_branches::BaseBranch {
+                recent_commits: target
+                    .clone()
+                    .recent_commits
+                    .into_iter()
+                    .map(|commit| virtual_branches::VirtualBranchCommit {
+                        author: virtual_branches::Author {
+                            gravatar_url: proxy_map
+                                .get(&commit.author.gravatar_url)
+                                .unwrap()
+                                .clone(),
+                            ..commit.author
+                        },
+                        ..commit
+                    })
+                    .collect(),
+                upstream_commits: target
+                    .clone()
+                    .upstream_commits
+                    .into_iter()
+                    .map(|commit| virtual_branches::VirtualBranchCommit {
+                        author: virtual_branches::Author {
+                            gravatar_url: proxy_map
+                                .get(&commit.author.gravatar_url)
+                                .unwrap()
+                                .clone(),
+                            ..commit.author
+                        },
+                        ..commit
+                    })
+                    .collect(),
+                ..target
+            });
+
+            Ok(target)
+        }
+    }
 }
 
 #[timed(duration(printer = "debug!"))]

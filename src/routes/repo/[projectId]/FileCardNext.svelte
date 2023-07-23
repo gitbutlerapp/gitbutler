@@ -18,8 +18,6 @@
 	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
-	import { vsiFileExtensionsToIcons, vsiFileNamesToIcons } from '$lib/ext-icons/vsi/typeMap';
-	import { vsiFileIcons } from '$lib/ext-icons';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { slide } from 'svelte/transition';
 
@@ -27,7 +25,6 @@
 	export let conflicted: boolean;
 	export let projectId: string;
 	export let dzType: string;
-	export let maximized: boolean;
 	export let projectPath: string;
 	export let expanded: boolean | undefined;
 
@@ -88,7 +85,7 @@
 			class="flex cursor-default pl-2"
 			role="button"
 			tabindex="0"
-			on:dblclick={() => {
+			on:dblclick|stopPropagation={() => {
 				expanded = !expanded;
 				dispatch('expanded', expanded);
 			}}
@@ -163,7 +160,6 @@
 											<RenderedLine
 												{line}
 												{minWidth}
-												{maximized}
 												sectionType={subsection.sectionType}
 												filePath={file.path}
 												on:contextmenu={(e) =>
@@ -221,7 +217,6 @@
 									<RenderedLine
 										{line}
 										{minWidth}
-										{maximized}
 										sectionType={section.sectionType}
 										filePath={file.path}
 										on:contextmenu={(e) =>

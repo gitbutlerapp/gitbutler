@@ -9,6 +9,7 @@
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import BottomPanel from './BottomPanel.svelte';
+	import UpstreamBranchLane from './UpstreamBranchLane.svelte';
 
 	export let data: PageData;
 	let {
@@ -17,7 +18,8 @@
 		remoteBranchStore,
 		targetBranchStore,
 		remoteBranchNames,
-		project
+		project,
+		cloud
 	} = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -58,8 +60,20 @@
 				}));
 			}}
 		/>
-		<div class="flex w-full flex-col overflow-x-hidden">
-			<Board {branches} {projectId} projectPath={project.path} {target} />
+		<div class="flex w-full flex-col overflow-hidden">
+			<div class="flex flex-grow overflow-hidden overscroll-y-none">
+				{#if target}
+					<UpstreamBranchLane baseBranch={target} />
+				{/if}
+				<Board
+					{branches}
+					{projectId}
+					projectPath={$project?.path}
+					{target}
+					cloudEnabled={$project?.api?.sync || false}
+					{cloud}
+				/>
+			</div>
 			<BottomPanel {target} />
 		</div>
 	</div>

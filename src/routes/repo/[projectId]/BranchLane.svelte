@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { toasts } from '$lib';
+	import { toasts, stores } from '$lib';
 	import type { Commit, File, BaseBranch } from '$lib/vbranches';
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
-	import { Button, Link, Modal } from '$lib/components';
+	import { Button, Link, Modal, Tooltip } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
@@ -18,6 +18,8 @@
 	import { crossfade, fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { invoke } from '@tauri-apps/api/tauri';
+	import type { CloudApi } from '$lib/api';
+	import is from 'date-fns/locale/is';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -47,9 +49,12 @@
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
-	export let target: BaseBranch;
+	export let target: BaseBranch | undefined;
+	export let cloudEnabled: boolean;
+	export let cloud: ReturnType<typeof CloudApi>;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
+	const user = stores.user;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);
@@ -136,13 +141,10 @@
 			.join('');
 	}
 
-	function url(target: BaseBranch, branchName: string) {
+	function url(target: BaseBranch | undefined, branchName: string) {
+		if (!target) return undefined;
 		const baseBranchName = target.branchName.split('/')[1];
-		const repoBaseUrl = target.remoteUrl
-			.replace(':', '/')
-			.replace('git@', 'https://')
-			.replace('.git', '');
-		return `${repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
+		return `${target.repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
 	}
 
 	let commitDialogShown = false;
@@ -168,6 +170,38 @@
 		});
 	}
 	$: checkCommitsAnnotated();
+
+	let isGeneratingCommigMessage = false;
+	async function generateCommitMessage(files: File[]) {
+		const diff = files
+			.map((f) => f.hunks)
+			.flat()
+			.map((h) => h.diff)
+			.flat()
+			.join('\n')
+			.slice(0, 5000);
+
+		if ($user === null) return;
+
+		isGeneratingCommigMessage = true;
+		cloud.summarize
+			.commit($user.access_token, {
+				diff,
+				uid: projectId
+			})
+			.then(({ message }) => {
+				const firstNewLine = message.indexOf('\n');
+				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
+				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
+				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
+			})
+			.catch(() => {
+				toasts.error('Failed to generate commit message');
+			})
+			.finally(() => {
+				isGeneratingCommigMessage = false;
+			});
+	}
 </script>
 
 <div
@@ -196,13 +230,12 @@
 			.join('\n');
 		branchController.updateBranchOwnership(branchId, (data + '\n' + ownership).trim());
 	}}
+	on:dblclick={() => (maximized = !maximized)}
 >
 	<div
-		class="flex w-full shrink-0 flex-col items-center
-		border-b
-		border-r border-light-400 bg-light-150 text-light-900 dark:border-dark-600 dark:bg-dark-1000 dark:font-normal dark:text-dark-100"
+		class="flex w-full shrink-0 flex-col items-center border-b border-r border-light-400 bg-light-200 text-light-900 dark:border-dark-600 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
 	>
-		<div class="flex w-full items-center px-5 py-1">
+		<div class="flex w-full items-center py-1 pl-2 pr-4">
 			<button
 				bind:this={meatballButton}
 				class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
@@ -217,7 +250,7 @@
 					bind:value={name}
 					on:change={handleBranchNameChange}
 					title={name}
-					class=" w-full truncate border-0 bg-light-150 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-1000 dark:text-dark-100"
+					class=" w-full truncate border-0 bg-light-200 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-800 dark:text-dark-100"
 				/>
 			</div>
 			<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
@@ -272,16 +305,38 @@
 					/>
 				</div>
 				<div class="flex flex-grow justify-end gap-2 p-3 px-5">
-					<Button
-						tabindex={-1}
-						kind="outlined"
-						class="text-light-500"
-						height="small"
-						icon={IconAISparkles}
-						on:click={() => toasts.error('Not implemented yet')}
-					>
-						Generate message
-					</Button>
+					<div>
+						{#if cloudEnabled && $user}
+							<Button
+								disabled={isGeneratingCommigMessage}
+								tabindex={-1}
+								kind="outlined"
+								class="text-light-500"
+								height="small"
+								icon={IconAISparkles}
+								loading={isGeneratingCommigMessage}
+								on:click={() => generateCommitMessage(files)}
+							>
+								<span class="text-light-700">Generate message</span>
+							</Button>
+						{:else}
+							<Tooltip
+								label="Summary generation requres that you are logged in and have cloud sync enabled"
+							>
+								<Button
+									disabled={true}
+									tabindex={-1}
+									kind="outlined"
+									class="text-light-500"
+									height="small"
+									icon={IconAISparkles}
+									loading={isGeneratingCommigMessage}
+								>
+									<span class="text-light-700">Generate message</span>
+								</Button>
+							</Tooltip>
+						{/if}
+					</div>
 					<Button
 						class="w-20"
 						height="small"
@@ -298,7 +353,7 @@
 		{/if}
 	</div>
 
-	<div class="lane-scroll flex flex-grow flex-col overflow-y-scroll overscroll-y-none">
+	<div class="lane-scroll flex flex-grow flex-col overflow-y-scroll pb-8">
 		{#if upstreamCommits.length > 0}
 			<div class="bg-zinc-300 p-2 dark:bg-zinc-800">
 				<div class="flex flex-row justify-between">
@@ -377,41 +432,37 @@
 			</PopupMenuItem>
 		</PopupMenu>
 
-		<div class="flex flex-col">
-			<div class="flex flex-shrink flex-col gap-y-2 py-6">
-				<div class="drop-zone-marker hidden border p-6 text-center">
-					Drop here to add to virtual branch
-				</div>
-				{#if files.length > 0}
-					<div transition:slide={{ duration: 150 }}>
-						{#each files as file (file.id)}
-							<FileCardNext
-								expanded={file.expanded}
-								conflicted={file.conflicted}
-								{file}
-								{dzType}
-								{projectId}
-								{projectPath}
-								{maximized}
-								on:dblclick={() => (maximized = !maximized)}
-								on:expanded={(e) => {
-									setExpandedWithCache(file, e.detail);
-									expandFromCache();
-								}}
-							/>
-						{/each}
-					</div>
-				{/if}
-				{#if files.length == 0}
-					<!-- attention: these markers have custom css at the bottom of thise file -->
-					<div
-						class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
-						data-dnd-ignore
-					>
-						No uncomitted changes
-					</div>
-				{/if}
+		<div class="flex flex-col py-2">
+			<div class="drop-zone-marker hidden border p-6 text-center">
+				Drop here to add to virtual branch
 			</div>
+			{#if files.length > 0}
+				<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
+					{#each files as file (file.id)}
+						<FileCardNext
+							expanded={file.expanded}
+							conflicted={file.conflicted}
+							{file}
+							{dzType}
+							{projectId}
+							{projectPath}
+							on:expanded={(e) => {
+								setExpandedWithCache(file, e.detail);
+								expandFromCache();
+							}}
+						/>
+					{/each}
+				</div>
+			{/if}
+			{#if files.length == 0}
+				<!-- attention: these markers have custom css at the bottom of thise file -->
+				<div
+					class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
+					data-dnd-ignore
+				>
+					No uncomitted changes
+				</div>
+			{/if}
 		</div>
 		<div
 			class="flex w-full flex-grow flex-col gap-2 border-t border-light-400 dark:border-dark-500"
@@ -423,14 +474,13 @@
 					transition:slide={{ duration: 150 }}
 				>
 					<div
-						class="dark:form-dark-600 via-90% absolute top-4
-						ml-[20px] w-px bg-gradient-to-b from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600"
+						class="dark:form-dark-600 via-90% absolute top-4 ml-[1.0625rem] w-px bg-gradient-to-b from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600"
 						style={remoteCommits.length == 0 ? 'height: calc(100% - 1rem);' : 'height: 100%;'}
 					/>
 
 					<div class="relative flex flex-col gap-2">
 						<div
-							class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600"
+							class="dark:form-dark-600 via-10% absolute top-4 ml-[1.0625rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600"
 						/>
 						<div class="ml-10 mr-2 flex items-center py-2">
 							<div
@@ -457,38 +507,38 @@
 								out:send={{ key: commit.id }}
 								animate:flip
 							>
-								<div class="ml-4 w-6">
+								<div class="ml-[0.875rem] mr-2">
 									<div
-										class="h-2.5 w-2.5 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
+										class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
 									/>
 								</div>
-								<div class="flex-grow">
-									<CommitCard {commit} />
-								</div>
+								<CommitCard {commit} />
 							</div>
 						{/each}
 					</div>
 				</div>
 			{/if}
 			{#if remoteCommits.length > 0}
-				<div class="relative h-full">
+				<div class="relative flex-grow">
 					<div
 						class="dark:form-dark-600 via-90% absolute top-4
-						ml-[20px] h-full w-px bg-gradient-to-b from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+						ml-[1.0625rem] w-px bg-gradient-to-b from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+						style="height: calc(100% - 1rem);"
 					/>
 
 					<div class="relative flex flex-col gap-2">
 						<div
-							class="dark:form-dark-600 via-10% absolute top-4 ml-[20px] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+							class="dark:form-dark-600 via-10% absolute top-4 ml-[1.0625rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
 						/>
 
 						<div class="ml-12 flex items-center py-2 font-mono text-sm">
 							<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
 								<span class="text-sm font-bold">
-									{target.remoteName}/{nameToBranch(name)}
+									{target?.remoteName}/{nameToBranch(name)}
 								</span>
 							</Link>
 						</div>
+
 						{#each remoteCommits as commit (commit.id)}
 							<div
 								class="flex w-full items-center pb-2 pr-2"
@@ -496,16 +546,14 @@
 								out:send={{ key: commit.id }}
 								animate:flip
 							>
-								<div class="ml-4 w-6">
+								<div class="ml-3 mr-2">
 									<div
-										class="h-2.5 w-2.5 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+										class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
 										class:bg-light-500={commit.isRemote}
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
 								</div>
-								<div class="flex-grow">
-									<CommitCard {commit} />
-								</div>
+								<CommitCard {commit} />
 							</div>
 						{/each}
 					</div>

@@ -8,6 +8,39 @@ use crate::{projects, storage, users};
 
 use super::*;
 
+pub struct TestDeps {
+    repository: git2::Repository,
+    project: projects::Project,
+    gb_repo: gb_repository::Repository,
+    gb_repo_path: String,
+    user_store: users::Storage,
+    project_store: projects::Storage,
+}
+
+fn new_test_deps() -> Result<TestDeps> {
+    let repository = test_repository()?;
+    let project = projects::Project::try_from(&repository)?;
+    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
+    let storage = storage::Storage::from_path(tempdir()?.path());
+    let user_store = users::Storage::new(storage.clone());
+    let project_store = projects::Storage::new(storage);
+    project_store.add_project(&project)?;
+    let gb_repo = gb_repository::Repository::open(
+        gb_repo_path.clone(),
+        project.id.clone(),
+        project_store.clone(),
+        user_store.clone(),
+    )?;
+    Ok(TestDeps {
+        repository,
+        project,
+        gb_repo,
+        gb_repo_path,
+        user_store,
+        project_store,
+    })
+}
+
 fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
     let mut index = repository.index()?;
     index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
@@ -46,13 +79,14 @@ fn test_repository() -> Result<git2::Repository> {
 
 #[test]
 fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
@@ -121,19 +155,12 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
 
 #[test]
 fn test_track_binary_files() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     let file_path = std::path::Path::new("test.txt");
@@ -238,19 +265,12 @@ fn test_track_binary_files() -> Result<()> {
 
 #[test]
 fn test_create_branch_with_ownership() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -304,19 +324,12 @@ fn test_create_branch_with_ownership() -> Result<()> {
 
 #[test]
 fn test_create_branch_in_the_middle() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -357,19 +370,12 @@ fn test_create_branch_in_the_middle() -> Result<()> {
 
 #[test]
 fn test_create_branch_no_arguments() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -400,19 +406,12 @@ fn test_create_branch_no_arguments() -> Result<()> {
 
 #[test]
 fn test_hunk_expantion() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -488,19 +487,12 @@ fn test_hunk_expantion() -> Result<()> {
 
 #[test]
 fn test_get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -521,19 +513,12 @@ fn test_get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
 
 #[test]
 fn test_get_status_files_by_branch() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -573,13 +558,14 @@ fn test_get_status_files_by_branch() -> Result<()> {
 
 #[test]
 fn test_updated_ownership_should_bubble_up() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
@@ -695,13 +681,14 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
 
 #[test]
 fn test_move_hunks_multiple_sources() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
@@ -810,13 +797,14 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
 
 #[test]
 fn test_move_hunks_partial_explicitly() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
@@ -906,13 +894,14 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
 
 #[test]
 fn test_add_new_hunk_to_the_end() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
@@ -967,13 +956,14 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
 
 #[test]
 fn test_update_base_branch_base() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
 
     // create a commit and set the target
     let file_path = std::path::Path::new("test.txt");
@@ -1078,13 +1068,14 @@ fn test_update_base_branch_base() -> Result<()> {
 
 #[test]
 fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
 
     // create a commit and set the target
     let file_path = std::path::Path::new("test.txt");
@@ -1163,13 +1154,14 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
 
 #[test]
 fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
 
     // create a commit and set the target
     let file_path = std::path::Path::new("test.txt");
@@ -1244,20 +1236,13 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
 
 #[test]
 fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
@@ -1579,19 +1564,12 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 
 #[test]
 fn test_apply_unapply_branch() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -1680,19 +1658,12 @@ fn test_apply_unapply_branch() -> Result<()> {
 
 #[test]
 fn test_apply_unapply_added_deleted_files() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -1775,19 +1746,12 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
 
 #[test]
 fn test_detect_mergeable_branch() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -1949,19 +1913,12 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
 #[test]
 fn test_detect_remote_commits() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
     let current_session = gb_repo.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
@@ -2053,19 +2010,12 @@ fn test_detect_remote_commits() -> Result<()> {
 
 #[test]
 fn test_create_vbranch_from_remote_branch() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -2187,19 +2137,12 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
 
 #[test]
 fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -2314,19 +2257,12 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
 
 #[test]
 fn test_partial_commit() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     let file_path = std::path::Path::new("test.txt");
@@ -2449,19 +2385,12 @@ fn commit_sha_to_contents(repository: &git2::Repository, commit: &str, path: &st
 
 #[test]
 fn test_commit_add_and_delete_files() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     let file_path = std::path::Path::new("test.txt");
@@ -2526,19 +2455,12 @@ fn test_commit_add_and_delete_files() -> Result<()> {
 
 #[test]
 fn test_commit_executable_and_symlinks() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     let file_path = std::path::Path::new("test.txt");
@@ -2664,19 +2586,12 @@ fn tree_to_entry_list(
 
 #[test]
 fn test_apply_out_of_date_vbranch() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -2806,19 +2721,12 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
 
 #[test]
 fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -2983,19 +2891,12 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
 
 #[test]
 fn test_apply_conflicting_vbranch() -> Result<()> {
-    let repository = test_repository()?;
-    let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
-    project_store.add_project(&project)?;
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
