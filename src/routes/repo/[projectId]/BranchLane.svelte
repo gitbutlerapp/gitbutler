@@ -241,6 +241,7 @@
 					on:change={handleBranchNameChange}
 					title={name}
 					class=" w-full truncate border-0 bg-light-200 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-800 dark:text-dark-100"
+					on:dblclick|stopPropagation
 				/>
 			</div>
 			<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
