@@ -269,6 +269,7 @@
 					<textarea
 						bind:this={textAreaInput}
 						bind:value={commitMessage}
+						on:dblclick|stopPropagation
 						class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 						placeholder="Your commit message here"
 						rows={messageRows}
