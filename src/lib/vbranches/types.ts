@@ -36,6 +36,7 @@ export class Branch {
 	mergeConflicts!: string[];
 	order!: number;
 	upstream?: string;
+	upstreamCommits!: Commit[];
 	conflicted!: boolean;
 	baseCurrent!: boolean;
 }

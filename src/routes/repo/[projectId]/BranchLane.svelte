@@ -2,7 +2,7 @@
 	import { toasts } from '$lib';
 	import type { Commit, File, BaseBranch } from '$lib/vbranches';
 	import { getContext, onMount } from 'svelte';
-	import { IconAISparkles, IconBranch } from '$lib/icons';
+	import { IconAISparkles } from '$lib/icons';
 	import { Button, Link, Modal } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
@@ -41,7 +41,7 @@
 	export let projectPath: string;
 	export let name: string;
 	export let commitMessage: string;
-	export let upstream: string | undefined;
+	export let upstreamCommits: Commit[];
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;
@@ -55,7 +55,6 @@
 	$: localCommits = commits.filter((c) => !c.isRemote);
 	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
 
-	let commitTitle: string;
 	let commitDescription: string;
 	$: descriptionRows = Math.min(
 		Math.max(commitDescription ? commitDescription.split('\n').length : 0, 1),
@@ -86,6 +85,11 @@
 			isPushing = true;
 			branchController.pushBranch(branchId).finally(() => (isPushing = false));
 		}
+	}
+
+	function merge() {
+		console.log(`merge ${branchId}`);
+		branchController.mergeUpstream(branchId);
 	}
 
 	onMount(() => {
@@ -142,9 +146,14 @@
 	}
 
 	let commitDialogShown = false;
+	let upstreamCommitsShown = false;
 
 	$: if (commitDialogShown && files.length === 0) {
 		commitDialogShown = false;
+	}
+
+	$: if (upstreamCommitsShown && upstreamCommits.length === 0) {
+		upstreamCommitsShown = false;
 	}
 
 	export function git_get_config(params: { key: string }) {
@@ -290,6 +299,47 @@
 	</div>
 
 	<div class="lane-scroll flex flex-grow flex-col overflow-y-scroll overscroll-y-none">
+		{#if upstreamCommits.length > 0}
+			<div class="bg-zinc-300 p-2 dark:bg-zinc-800">
+				<div class="flex flex-row justify-between">
+					<div class="text-purple-700 p-1">
+						{upstreamCommits.length}
+						upstream {upstreamCommits.length > 1 ? 'commits' : 'commit'}
+					</div>
+					<Button
+						class="w-20"
+						height="small"
+						kind="outlined"
+						color="purple"
+						on:click={() => (upstreamCommitsShown = !upstreamCommitsShown)}
+					>
+						<span class="purple">
+							{#if !upstreamCommitsShown}
+								View
+							{:else}
+								Cancel
+							{/if}
+						</span>
+					</Button>
+				</div>
+			</div>
+			{#if upstreamCommitsShown}
+				<div
+					class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
+					id="upstreamCommits"
+				>
+					<div class="bg-light-100">
+						{#each upstreamCommits as commit (commit.id)}
+							<CommitCard {commit} />
+						{/each}
+					</div>
+					<div class="flex justify-end p-2">
+						<Button class="w-20" height="small" color="purple" on:click={merge}>Merge</Button>
+					</div>
+				</div>
+			{/if}
+		{/if}
+
 		{#if conflicted}
 			<div class="mb-2 rounded bg-red-700 p-2 text-white">
 				{#if files.some((f) => f.conflicted)}

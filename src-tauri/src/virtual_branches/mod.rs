@@ -47,6 +47,7 @@ pub struct VirtualBranch {
     pub order: usize,
     pub upstream: Option<project_repository::branch::RemoteName>,
     pub base_current: bool, // is this vbranch based on the current base branch?
+    pub upstream_commits: Vec<VirtualBranchCommit>,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -817,7 +818,8 @@ pub fn list_virtual_branches(
         }
 
         // find upstream commits if we found an upstream reference
-        let mut upstream_commits = HashMap::new();
+        let mut upstream_commits = vec![];
+        let mut pushed_commits = HashMap::new();
         if let Some(ref upstream) = upstream_commit {
             let merge_base =
                 repo.merge_base(upstream.id(), default_target.sha)
@@ -827,7 +829,19 @@ pub fn list_virtual_branches(
                         default_target.sha
                     ))?;
             for oid in project_repository.l(upstream.id(), merge_base)? {
-                upstream_commits.insert(oid, true);
+                pushed_commits.insert(oid, true);
+            }
+
+            // find any commits on the upstream that aren't in our branch (someone else pushed to our branch)
+            for commit in project_repository
+                .log(upstream.id(), branch.head)
+                .context(format!(
+                    "failed to get upstream log for branch {}",
+                    branch.name
+                ))?
+            {
+                let commit = commit_to_vbranch_commit(&commit, None)?;
+                upstream_commits.push(commit);
             }
         }
 
@@ -837,7 +851,7 @@ pub fn list_virtual_branches(
             .log(branch.head, default_target.sha)
             .context(format!("failed to get log for branch {}", branch.name))?
         {
-            let commit = commit_to_vbranch_commit(&commit, Some(&upstream_commits))?;
+            let commit = commit_to_vbranch_commit(&commit, Some(&pushed_commits))?;
             commits.push(commit);
         }
 
@@ -884,6 +898,7 @@ pub fn list_virtual_branches(
             upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
+            upstream_commits,
         };
         branches.push(branch);
     }
@@ -2091,6 +2106,89 @@ pub fn commit(
             update_gitbutler_integration(gb_repository, project_repository)?;
         }
     }
+    Ok(())
+}
+
+pub fn merge_upstream(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+) -> Result<()> {
+    if conflicts::is_conflicting(project_repository, None)? {
+        bail!("cannot merge upstream, project is in a conflicted state");
+    }
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get current session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    // get the branch
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch = branch_reader
+        .read(branch_id)
+        .context("failed to read branch")?;
+
+    // check if the branch upstream can be merged into the wd cleanly
+    let repo = &project_repository.git_repository;
+    // get wd tree
+    let wd_tree = get_wd_tree(repo)?;
+
+    // get upstream from the branch and find the remote branch
+    let mut upstream_commit = None;
+    let upstream_branch = branch
+        .upstream
+        .as_ref()
+        .context("no upstream branch found")?;
+    if let Ok(upstream_oid) = repo.refname_to_id(&upstream_branch.to_string()) {
+        if let Ok(upstream_commit_obj) = repo.find_commit(upstream_oid) {
+            upstream_commit = Some(upstream_commit_obj);
+        }
+    }
+
+    // if there is no upstream commit, then there is nothing to do
+    if upstream_commit.is_none() {
+        // no upstream commit, no merge to be done
+        return Ok(());
+    }
+
+    // there is an upstream commit, so lets check it out
+    let upstream_commit = upstream_commit.unwrap();
+    let remote_tree = upstream_commit.tree()?;
+
+    if upstream_commit.id() == branch.head {
+        // upstream is already merged, nothing to do
+        return Ok(());
+    }
+
+    // look up the target to figure out a merge base
+    let target = get_default_target(&current_session_reader)
+        .context("failed to get target")?
+        .context("no target found")?;
+
+    // get merge base from remote branch commit and target commit
+    let merge_base = repo
+        .merge_base(upstream_commit.id(), target.sha)
+        .context("failed to find merge base")?;
+    let merge_tree = repo.find_commit(merge_base)?.tree()?;
+
+    // try to merge our wd tree with the upstream tree
+    let merge_options = git2::MergeOptions::new();
+    let merge_index = repo
+        .merge_trees(&merge_tree, &wd_tree, &remote_tree, Some(&merge_options))
+        .context("failed to merge trees")?;
+
+    // three scenarios:
+    // - clean merge, clean wd, upstream is a fast forward, just fast forward it
+    // - clean merge, upstream is not a fast forward, merge it
+    // - upstream is not a fast forward, and cannot be merged cleanly
+    //   - unapply all other branches, create the merge conflicts in the wd
+
+    if merge_index.has_conflicts() {
+        bail!("cannot merge upstream, conflicts found");
+    }
+
+    update_gitbutler_integration(gb_repository, project_repository)?;
     Ok(())
 }
 

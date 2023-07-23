@@ -46,6 +46,15 @@ export class BranchController {
 		}
 	}
 
+	async mergeUpstream(branch: string) {
+		try {
+			await invoke<void>('merge_virtual_branch_upstream', { projectId: this.projectId, branch });
+			await this.virtualBranchStore.refresh();
+		} catch (err) {
+			toasts.error('Failed to merge upstream branch');
+		}
+	}
+
 	async updateBranchName(branchId: string, name: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {

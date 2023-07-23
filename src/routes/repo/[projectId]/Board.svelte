@@ -69,7 +69,7 @@
 	}}
 >
 	<UpstreamBranchLane baseBranch={target} />
-	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order, conflicted } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, upstream, description, order, conflicted, upstreamCommits } (id)}
 		<Lane
 			on:dragstart={(e) => {
 				if (!e.dataTransfer) return;
@@ -86,6 +86,7 @@
 			{order}
 			{projectId}
 			{upstream}
+			{upstreamCommits}
 			branchId={id}
 			{projectPath}
 			{target}

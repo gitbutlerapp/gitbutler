@@ -661,6 +661,19 @@ async fn commit_virtual_branch(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+async fn merge_virtual_branch_upstream(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<(), Error> {
+    let app = handle.state::<app::App>();
+    app.merge_virtual_branch_upstream(project_id, branch)
+        .await?;
+    Ok(())
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
 async fn push_virtual_branch(
     handle: tauri::AppHandle,
     project_id: &str,
