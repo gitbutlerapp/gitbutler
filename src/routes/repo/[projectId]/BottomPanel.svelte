@@ -3,54 +3,77 @@
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import type { BaseBranch, Commit } from '$lib/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
+	import type { SettingsStore } from '$lib/userSettings';
 
 	export let target: BaseBranch;
+	export let userSettings: SettingsStore;
 
 	let shown = false;
 
-	export function createCommitUrl(commit: Commit): string | undefined {
+	export function createCommitUrl(id: string): string | undefined {
 		if (!target) return undefined;
-		return `${target.repoBaseUrl}/commit/${commit.id}`;
+		return `${target.repoBaseUrl}/commit/${id}`;
+	}
+
+	function toggleExpanded() {
+		const expanded = $userSettings.bottomPanelExpanded;
+		userSettings.update((s) => ({ ...s, bottomPanelExpanded: !expanded }));
 	}
 </script>
 
 <div class="flex w-full flex-col border-t border-light-400 dark:border-dark-600">
 	<div
-		role="button"
-		tabindex="0"
 		class="flex h-5 items-center gap-2 text-light-700 hover:text-light-900 dark:text-dark-200 dark:hover:text-dark-100"
-		on:click={() => (shown = !shown)}
-		on:keypress={() => (shown = !shown)}
 	>
-		{#if shown}
-			<IconTriangleDown />
-		{:else}
-			<IconTriangleUp />
-		{/if}
-		<div class="flex w-full flex-row justify-between space-x-2">
-			<div class="flex flex-row space-x-2">
+		<div class="flex w-full flex-row space-x-2">
+			<div
+				class="flex flex-grow flex-row items-center gap-x-2 px-2"
+				role="button"
+				tabindex="0"
+				on:click={toggleExpanded}
+				on:keypress={toggleExpanded}
+			>
 				<div class="text-sm font-bold uppercase">Common base</div>
 				{#if target.behind == 0}
 					<div class="text-sm">{target.branchName}</div>
 				{/if}
+				{#if $userSettings.bottomPanelExpanded}
+					<IconTriangleDown />
+				{:else}
+					<IconTriangleUp />
+				{/if}
 			</div>
-			{#if !shown}
+			{#if !$userSettings.bottomPanelExpanded}
 				<div class="pr-4 font-mono text-xs text-light-600">
-					{target.baseSha.substring(0, 8)}
+					<a
+						class="underline hover:text-blue-500"
+						target="_blank"
+						href={createCommitUrl(target.baseSha)}
+					>
+						{target.baseSha.substring(0, 8)}
+					</a>
 				</div>
 			{/if}
 		</div>
 	</div>
-	{#if shown}
-		<div class="h-64 py-2" transition:slide={{ duration: 150 }}>
-			<h1 class="mb-2 font-bold">Recent Commits</h1>
-			<div class="flex w-full flex-col space-y-1 pr-6">
+	{#if $userSettings.bottomPanelExpanded}
+		<div class="h-64" transition:slide={{ duration: 150 }}>
+			<h1
+				class="border-b border-t border-light-400 px-2 text-sm font-bold text-light-700 dark:border-dark-600"
+			>
+				Recent commits
+			</h1>
+			<div
+				class="lane-scroll flex w-full flex-col gap-y-1 overflow-y-auto bg-white dark:bg-dark-1100"
+			>
 				{#each target.recentCommits as commit}
-					<div class="flex flex-row space-x-1 text-light-700">
+					<div
+						class="flex flex-row items-center gap-x-1 border-b border-light-300 px-2 text-light-700 dark:border-dark-700 dark:text-dark-200"
+					>
 						<div class="w-24 shrink-0 truncate">{formatDistanceToNow(commit.createdAt)} ago</div>
-						<div class="flex w-32 shrink-0 flex-row space-x-1 truncate">
+						<div class="flex w-32 shrink-0 flex-row items-center gap-x-1 truncate">
 							<img
-								class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
+								class="relative z-30 inline h-3 w-3 rounded-full ring-1 ring-white dark:ring-black"
 								title="Gravatar for {commit.author.email}"
 								alt="Gravatar for {commit.author.email}"
 								srcset="{commit.author.gravatarUrl} 2x"
@@ -61,9 +84,9 @@
 							<div>{commit.author.name}</div>
 						</div>
 						<div class="grow truncate">{commit.description.substring(0, 100)}</div>
-						<div class="flex-shrink pr-4 font-mono text-light-600">
+						<div class="flex-shrink pr-4 font-mono text-sm text-light-600">
 							<a
-								href={createCommitUrl(commit)}
+								href={createCommitUrl(commit.id)}
 								rel="noreferrer"
 								target="_blank"
 								class="hover:text-blue-500 hover:underline"
