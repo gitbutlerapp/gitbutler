@@ -28,7 +28,11 @@
 	}
 </script>
 
-<div class="flex w-full font-mono text-sm" role="group" on:contextmenu|preventDefault>
+<div
+	class="flex w-full bg-light-50 pl-[1px] font-mono text-sm dark:bg-dark-700"
+	role="group"
+	on:contextmenu|preventDefault
+>
 	<div
 		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 		style:min-width={minWidth + 'rem'}
