@@ -171,7 +171,7 @@
 										{/each}
 										{#if !subsection.expanded}
 											<div
-												class="flex h-5 w-full border-light-200 dark:border-dark-400"
+												class="flex w-full border-light-200 dark:border-dark-400"
 												class:border-t={sidx == section.subSections.length - 1 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 												class:border-b={sidx == 0 ||
