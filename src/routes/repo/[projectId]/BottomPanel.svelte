@@ -48,8 +48,8 @@
 				<div class="flex w-full flex-col space-y-1 pr-6">
 					{#each target.recentCommits as commit}
 						<div class="flex flex-row space-x-1 text-light-700">
-							<div class="w-24 truncate">{formatDistanceToNow(commit.createdAt)} ago</div>
-							<div class="flex w-32 flex-row space-x-1 truncate">
+							<div class="w-24 shrink-0 truncate">{formatDistanceToNow(commit.createdAt)} ago</div>
+							<div class="flex w-32 shrink-0 flex-row space-x-1 truncate">
 								<img
 									class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
 									title="Gravatar for {commit.author.email}"
@@ -61,10 +61,11 @@
 								/>
 								<div>{commit.author.name}</div>
 							</div>
-							<div class="flex-grow truncate">{commit.description.substring(0, 200)}</div>
+							<div class="grow truncate">{commit.description.substring(0, 100)}</div>
 							<div class="flex-shrink pr-4 font-mono text-light-600">
 								<a
 									href={createCommitUrl(commit)}
+									rel="noreferrer"
 									target="_blank"
 									class="hover:text-blue-500 hover:underline"
 								>
