@@ -8,6 +8,7 @@ export interface Settings {
 	trayWidth?: number;
 	theme?: string;
 	zoom?: number;
+	bottomPanelExpanded?: boolean;
 }
 
 export type SettingsStore = Writable<Settings>;

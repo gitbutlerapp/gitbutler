@@ -61,7 +61,7 @@
 			}}
 		/>
 		<div class="flex w-full flex-col overflow-hidden">
-			<div class="flex flex-grow overflow-x-auto overflow-y-hidden overscroll-y-none">
+			<div class="lane-scroll flex flex-grow overflow-x-auto overflow-y-hidden overscroll-y-none">
 				{#if target}
 					<UpstreamBranchLane baseBranch={target} />
 				{/if}
@@ -74,7 +74,7 @@
 					{cloud}
 				/>
 			</div>
-			<BottomPanel {target} />
+			<BottomPanel {target} {userSettings} />
 		</div>
 	</div>
 {:else}

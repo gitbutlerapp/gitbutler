@@ -74,7 +74,8 @@ const config = {
 				800: '#2C2C2C', // Tray and commit card background
 				850: '#282828', // Scrollbar
 				900: '#212121', // Header background
-				1000: '#1E1E1E' // Board and inactive tab background
+				1000: '#1E1E1E', // Board and inactive tab background
+				1100: '#181818' // Git log background
 			},
 			light: {
 				25: '#FAFAFB', // Active tab and file card background
