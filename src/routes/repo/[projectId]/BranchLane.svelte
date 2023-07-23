@@ -225,6 +225,7 @@
 					on:change={handleBranchNameChange}
 					title={name}
 					class=" w-full truncate border-0 bg-light-200 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-800 dark:text-dark-100"
+					on:dblclick|stopPropagation
 				/>
 			</div>
 			<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
@@ -268,6 +269,7 @@
 					<textarea
 						bind:this={textAreaInput}
 						bind:value={commitMessage}
+						on:dblclick|stopPropagation
 						class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 						placeholder="Your commit message here"
 						rows={messageRows}
