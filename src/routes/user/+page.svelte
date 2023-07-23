@@ -17,15 +17,6 @@
 
 	$: saving = false;
 
-	let userNameInput = $user?.name;
-	let pictureChanged = false;
-	user.subscribe((user) => {
-		if (user) {
-			userNameInput = user.name;
-		}
-	});
-	$: canTriggerUpdate = (userNameInput !== $user?.name || pictureChanged) && userNameInput;
-
 	$: userPicture = $user?.picture;
 
 	const fileTypes = ['image/jpeg', 'image/png'];
@@ -40,12 +31,24 @@
 
 		if (file && validFileType(file)) {
 			userPicture = URL.createObjectURL(file);
-			pictureChanged = true;
 		} else {
 			userPicture = $user?.picture;
 			toasts.error('Please use a valid image file');
 		}
 	};
+
+	let newGivenName = '';
+	let newFamilyName = '';
+
+	let loaded = false;
+	$: if ($user && !loaded) {
+		loaded = true;
+		cloud.user.get($user?.access_token).then((cloudUser) => {
+			$user = cloudUser;
+		});
+		newGivenName = $user?.given_name || $user?.name;
+		newFamilyName = $user?.family_name || '';
+	}
 
 	const onSubmit = async (e: SubmitEvent) => {
 		if (!$user) return;
@@ -57,7 +60,8 @@
 
 		try {
 			$user = await cloud.user.update($user.access_token, {
-				name: userNameInput,
+				given_name: newGivenName,
+				family_name: newFamilyName,
 				picture: picture
 			});
 			toasts.success('Profile updated');
@@ -65,9 +69,6 @@
 			console.error(e);
 			toasts.error('Failed to update user');
 		}
-
-		userNameInput = $user?.name;
-		pictureChanged = false;
 		saving = false;
 	};
 
@@ -172,7 +173,7 @@
 							autocorrect="off"
 							spellcheck="false"
 							name="firstName"
-							bind:value={$user.name}
+							bind:value={newGivenName}
 							type="text"
 							class="w-full"
 							placeholder="First name can't be empty"
@@ -186,6 +187,7 @@
 							autocorrect="off"
 							spellcheck="false"
 							name="lastName"
+							bind:value={newFamilyName}
 							type="text"
 							class="w-full"
 							placeholder="Last name can't be empty"

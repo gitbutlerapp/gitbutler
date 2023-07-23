@@ -28,6 +28,8 @@ export type LoginToken = {
 export type User = {
 	id: number;
 	name: string;
+	given_name: string | undefined;
+	family_name: string | undefined;
 	email: string;
 	picture: string;
 	locale: string;
@@ -151,10 +153,16 @@ export default (
 						'X-Auth-Token': token
 					}
 				}).then(parseResponseJSON),
-			update: async (token: string, params: { name?: string; picture?: File }) => {
+			update: async (
+				token: string,
+				params: { given_name?: string; family_name?: string; picture?: File }
+			) => {
 				const formData = new FormData();
-				if (params.name) {
-					formData.append('name', params.name);
+				if (params.given_name) {
+					formData.append('given_name', params.given_name);
+				}
+				if (params.family_name) {
+					formData.append('family_name', params.family_name);
 				}
 				if (params.picture) {
 					formData.append('avatar', params.picture);
