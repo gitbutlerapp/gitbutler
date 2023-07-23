@@ -51,6 +51,7 @@
 	export let target: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof CloudApi>;
+	export let upstream: string | undefined;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 	const user = stores.user;
@@ -128,17 +129,11 @@
 		branchController.updateBranchName(branchId, name);
 	}
 
-	function nameToBranch(name: string): string {
-		const isAsciiAlphanumeric = (c: string): boolean => /^[A-Za-z0-9]$/.test(c);
-		return name
-			.split('')
-			.map((c) => (isAsciiAlphanumeric(c) ? c : '-'))
-			.join('');
-	}
-
-	function url(target: BaseBranch | undefined, branchName: string) {
+	function url(target: BaseBranch | undefined, upstreamBranchName: string) {
 		if (!target) return undefined;
 		const baseBranchName = target.branchName.split('/')[1];
+		const parts = upstreamBranchName.split('/');
+		const branchName = parts[parts.length - 1];
 		return `${target.repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
 	}
 
@@ -481,11 +476,13 @@
 						/>
 
 						<div class="ml-12 flex items-center py-2 font-mono text-sm">
-							<Link target="_blank" rel="noreferrer" href={url(target, nameToBranch(name))}>
-								<span class="text-sm font-bold">
-									{target?.remoteName}/{nameToBranch(name)}
-								</span>
-							</Link>
+							{#if upstream}
+								<Link target="_blank" rel="noreferrer" href={url(target, upstream)}>
+									<span class="text-sm font-bold">
+										{upstream.split('refs/remotes/')[1]}
+									</span>
+								</Link>
+							{/if}
 						</div>
 
 						{#each remoteCommits as commit (commit.id)}

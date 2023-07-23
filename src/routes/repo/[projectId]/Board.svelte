@@ -7,6 +7,7 @@
 	import { getContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import type { CloudApi } from '$lib/api';
+	import { helpers } from 'mm-jsr';
 
 	export let projectId: string;
 	export let projectPath: string;
@@ -70,7 +71,7 @@
 		}
 	}}
 >
-	{#each branches.filter((c) => c.active) as { id, name, files, commits, description, order, conflicted } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, description, order, conflicted, upstream } (id)}
 		<Lane
 			on:dragstart={(e) => {
 				if (!e.dataTransfer) return;
@@ -91,6 +92,7 @@
 			{target}
 			{cloudEnabled}
 			{cloud}
+			{upstream}
 		/>
 	{/each}
 	<NewBranchDropZone />
