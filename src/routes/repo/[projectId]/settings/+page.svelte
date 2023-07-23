@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { Button, Login, Modal } from '$lib/components';
-	import { open } from '@tauri-apps/api/shell';
-	import { toasts, api, stores, events } from '$lib';
+	import { Button, Modal } from '$lib/components';
+	import { toasts, api, stores } from '$lib';
 	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';

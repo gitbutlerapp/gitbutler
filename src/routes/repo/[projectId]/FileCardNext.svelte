@@ -11,7 +11,7 @@
 		IconExpandUp,
 		IconExpandDown
 	} from '$lib/icons';
-	import type { BranchController, Hunk } from '$lib/vbranches';
+	import type { BranchController } from '$lib/vbranches';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
 	import { dzTrigger } from './dropZone';
@@ -137,7 +137,7 @@
 				class="hunk-change-container flex flex-col rounded pl-2 pr-3"
 				transition:slide={{ duration: 150 }}
 			>
-				{#each sections as section, idx}
+				{#each sections as section}
 					{#if 'hunk' in section}
 						<div
 							class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 bg-white dark:border-dark-400 dark:bg-dark-900"
