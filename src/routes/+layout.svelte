@@ -17,7 +17,7 @@
 	import Breadcrumbs from './Breadcrumbs.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import ThemeSelector from './ThemeSelector.svelte';
-	import { SETTINGS_CONTEXT, loadUserSettings, type SettingsStore } from '$lib/userSettings';
+	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/userSettings';
 	import { initTheme } from '$lib/theme';
 
 	export let data: LayoutData;

@@ -2,8 +2,8 @@
 	import { toasts, stores } from '$lib';
 	import type { Commit, File, BaseBranch } from '$lib/vbranches';
 	import { getContext, onMount } from 'svelte';
-	import { IconAISparkles, IconBranch } from '$lib/icons';
-	import { Button, Link, Modal, Tooltip } from '$lib/components';
+	import { IconAISparkles } from '$lib/icons';
+	import { Button, Link, Tooltip } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
@@ -19,12 +19,11 @@
 	import { flip } from 'svelte/animate';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { CloudApi } from '$lib/api';
-	import is from 'date-fns/locale/is';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
 
-		fallback(node, params) {
+		fallback(node) {
 			const style = getComputedStyle(node);
 			const transform = style.transform === 'none' ? '' : style.transform;
 
@@ -60,22 +59,12 @@
 	$: localCommits = commits.filter((c) => !c.isRemote);
 	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
 
-	let commitTitle: string;
-	let commitDescription: string;
-	$: descriptionRows = Math.min(
-		Math.max(commitDescription ? commitDescription.split('\n').length : 0, 1),
-		10
-	);
-
 	let allExpanded: boolean | undefined;
 	let maximized = false;
 	let isPushing = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
 	let textAreaInput: HTMLTextAreaElement;
-	let commitTiteInput: HTMLInputElement;
-	let descriptionTextArea: HTMLTextAreaElement;
-	let commitBranchModal: Modal;
 
 	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
@@ -279,10 +268,6 @@
 					<textarea
 						bind:this={textAreaInput}
 						bind:value={commitMessage}
-						on:change={() => {
-							commitTitle = commitMessage?.split('\n')?.at(0) || '';
-							commitDescription = commitMessage?.split('\n')?.slice(1)?.join('\n').trim() || '';
-						}}
 						class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
 						placeholder="Your commit message here"
 						rows={messageRows}
