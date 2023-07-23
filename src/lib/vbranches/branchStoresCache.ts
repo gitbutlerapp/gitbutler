@@ -108,7 +108,11 @@ export class BranchStoresCache {
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
-	return plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
+	const result = plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
+	result.forEach((branch) => {
+		branch.files.sort((a) => (a.conflicted ? -1 : 0));
+	});
+	return result;
 }
 
 export async function getRemoteBranchesData(params: { projectId: string }): Promise<BranchData[]> {
