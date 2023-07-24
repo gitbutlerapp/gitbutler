@@ -80,7 +80,7 @@
 						{#if !branch.baseCurrent}
 							<!-- branch will cause merge conflicts if applied -->
 							<Tooltip label="Will introduce merge conflicts if applied">
-								<div class="text-blue-500">&#9679;</div>
+								<div class="text-yellow-500">&#9679;</div>
 							</Tooltip>
 						{:else if branch.mergeable}
 							<Tooltip label="Can be applied cleanly">
