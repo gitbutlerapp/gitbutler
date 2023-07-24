@@ -72,14 +72,19 @@
 	function getAllHunksOwnership(): string {
 		return file.id + ':' + file.hunks.map((h) => h.id).join(',');
 	}
+
+	$: isFileLocked = sections
+		.filter((section): section is HunkSection => section instanceof HunkSection)
+		.some((section) => section.hunk.locked);
 </script>
 
 <div
-	draggable="true"
+	draggable={!isFileLocked}
 	use:dzTrigger={{ type: dzType }}
 	on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', getAllHunksOwnership())}
 	role="group"
 	class="changed-file inner"
+	class:opacity-60={isFileLocked}
 >
 	<div
 		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-400 bg-light-50 py-1 text-light-900 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
@@ -155,7 +160,7 @@
 							class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 bg-white dark:border-dark-400 dark:bg-dark-900"
 						>
 							<div
-								draggable="true"
+								draggable={!section.hunk.locked}
 								tabindex="0"
 								role="cell"
 								use:dzTrigger={{ type: dzType }}
@@ -165,6 +170,7 @@
 								}}
 								on:dblclick
 								class="changed-hunk"
+								class:opacity-60={section.hunk.locked && !isFileLocked}
 							>
 								<div class="w-full overflow-hidden bg-white dark:bg-dark-900">
 									{#each section.subSections as subsection, sidx}

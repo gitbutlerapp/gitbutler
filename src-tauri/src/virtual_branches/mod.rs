@@ -105,6 +105,7 @@ pub struct VirtualBranchHunk {
     pub start: usize,
     pub end: usize,
     pub binary: bool,
+    pub locked: bool,
 }
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
@@ -754,56 +755,74 @@ pub fn list_virtual_branches(
     let wd_tree = get_wd_tree(repo)?;
 
     for branch in &virtual_branches {
-        let branch_statuses = statuses.clone();
-        let mut files: Vec<VirtualBranchFile> = vec![];
+        let files: Vec<VirtualBranchFile> = statuses
+            .iter()
+            .find(|(vbranch, _)| vbranch.id == branch.id)
+            .map(|(_, files)| files.clone())
+            .unwrap_or(vec![]);
 
-        // find the entry in statuses with this branch id
-        let maybe_status = branch_statuses
-            .into_iter()
-            .find(|(vbranch, _)| vbranch.id == branch.id);
-
-        if let Some((_vbranch, sfiles)) = maybe_status {
-            files = sfiles.clone();
-        }
-
-        let mut vfiles = vec![];
+        let all_hunks = files
+            .iter()
+            .map(|file| {
+                (
+                    file.path.clone(),
+                    file.hunks
+                        .iter()
+                        .map(|hunk| hunk.hash.clone())
+                        .collect::<HashSet<_>>(),
+                )
+            })
+            .collect::<HashMap<_, _>>();
 
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
-        if (default_target.sha != branch.head) && branch.applied && with_commits {
+        let vfiles = if (default_target.sha != branch.head) && branch.applied && with_commits {
             // TODO: make sure this works
             let vtree = write_tree(gb_repository, project_repository, &files)?;
             let repo = &project_repository.git_repository;
             // get the trees
-            let commit_old = repo.find_commit(branch.head)?;
-            let tree_old = commit_old.tree()?;
+            let tree_old = repo.find_commit(branch.head)?.tree()?;
             let vtree_tree = repo.find_tree(vtree)?;
 
             // do a diff between branch.head and the tree we _would_ commit
             let diff = diff::trees(project_repository, &tree_old, &vtree_tree)
                 .context("failed to diff trees")?;
-            let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
+            let non_commited_hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
-            vfiles = hunks_by_filepath
+            non_commited_hunks_by_filepath
                 .into_iter()
-                .map(|(file_path, hunks)| VirtualBranchFile {
+                .map(|(file_path, non_commited_hunks)| VirtualBranchFile {
                     id: file_path.display().to_string(),
                     path: file_path.clone(),
-                    hunks: hunks.clone(),
-                    binary: hunks.iter().any(|h| h.binary),
-                    modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
+                    binary: non_commited_hunks.iter().any(|h| h.binary),
+                    modified_at: non_commited_hunks
+                        .iter()
+                        .map(|h| h.modified_at)
+                        .max()
+                        .unwrap_or(0),
+                    hunks: non_commited_hunks
+                        .into_iter()
+                        .map(|hunk| VirtualBranchHunk {
+                            // we consider a hunk to be locked if it's not seen verbatim
+                            // non-commited. reason beging - we can't partialy move hunks between
+                            // branches just yet.
+                            locked: all_hunks
+                                .get(&file_path)
+                                .map(|h| !h.contains(&hunk.hash))
+                                .unwrap_or(false),
+                            ..hunk
+                        })
+                        .collect::<Vec<_>>(),
                     conflicted: conflicts::is_conflicting(
                         project_repository,
                         Some(&file_path.display().to_string()),
                     )
                     .unwrap_or(false),
                 })
-                .collect::<Vec<_>>();
+                .collect::<Vec<_>>()
         } else {
-            for file in files {
-                vfiles.push(file.clone());
-            }
-        }
+            files
+        };
 
         let repo = &project_repository.git_repository;
 
@@ -1270,6 +1289,7 @@ fn hunks_by_filepath(
                     end: hunk.new_start + hunk.new_lines,
                     binary: hunk.binary,
                     hash: diff_hash(&hunk.diff),
+                    locked: false,
                 })
                 .collect::<Vec<_>>();
             (file_path.clone(), hunks)
@@ -1973,7 +1993,7 @@ fn write_tree(
                 if file.binary {
                     let new_blob_oid = &file.hunks[0].diff;
                     // convert string to Oid
-                    let new_blob_oid = git2::Oid::from_str(&new_blob_oid)?;
+                    let new_blob_oid = git2::Oid::from_str(new_blob_oid)?;
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 } else {
                     // blob from tree_entry
@@ -2197,7 +2217,7 @@ pub fn get_base_branch_data(
     match get_default_target(&current_session_reader)? {
         None => Ok(None),
         Some(target) => {
-            let base = target_to_base_branch(&project_repository, &target)?;
+            let base = target_to_base_branch(project_repository, &target)?;
             Ok(Some(base))
         }
     }
