@@ -52,22 +52,10 @@
 	</header>
 
 	{#if $user}
-		<div class="flex flex-row items-center justify-between rounded-lg border border-zinc-600 p-2">
+		<div
+			class="flex flex-row items-center justify-between rounded-lg border border-light-400 p-2 dark:border-dark-500"
+		>
 			<div class="flex flex-row space-x-3">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-					stroke="white"
-					class="h-6 w-6"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
-					/>
-				</svg>
 				<div class="flex flex-row">
 					<form class="flex items-center gap-1">
 						<Checkbox
@@ -76,7 +64,7 @@
 							checked={project.api?.sync || false}
 							on:change={onSyncChange}
 						/>
-						<label for="sync">Enable GitButler Cloud</label>
+						<label class="ml-2" for="sync">Enable GitButler Cloud</label>
 					</form>
 				</div>
 			</div>
