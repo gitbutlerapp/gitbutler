@@ -7,7 +7,7 @@
 
 <div>
 	<select
-		value={$userSettings.theme}
+		value={$userSettings.theme || 'system'}
 		on:change={(e) => userSettings.update((s) => ({ ...s, theme: e.currentTarget.value }))}
 	>
 		<option value="system">System preference</option>
