@@ -405,6 +405,7 @@ pub fn unapply_branch(
     // checkout final_tree into the working directory
     let mut checkout_options = git2::build::CheckoutBuilder::new();
     checkout_options.force();
+    checkout_options.remove_untracked(true);
     repo.checkout_tree(&final_tree, Some(&mut checkout_options))?;
 
     update_gitbutler_integration(gb_repository, project_repository)?;
