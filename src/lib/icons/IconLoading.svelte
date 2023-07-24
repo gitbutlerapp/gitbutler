@@ -17,7 +17,7 @@
 	/>
 </svg> -->
 
-	<!-- class="animate-spin fill-blue-600 text-light-600" -->
+<!-- class="animate-spin fill-blue-600 text-light-600" -->
 <svg
 	class={className}
 	width="20"
