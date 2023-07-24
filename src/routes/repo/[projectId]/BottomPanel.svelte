@@ -5,14 +5,12 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import type { SettingsStore } from '$lib/userSettings';
 
-	export let target: BaseBranch;
+	export let base: BaseBranch;
 	export let userSettings: SettingsStore;
 
-	let shown = false;
-
 	export function createCommitUrl(id: string): string | undefined {
-		if (!target) return undefined;
-		return `${target.repoBaseUrl}/commit/${id}`;
+		if (!base) return undefined;
+		return base.commitUrl(id);
 	}
 
 	function toggleExpanded() {
@@ -34,8 +32,8 @@
 				on:keypress={toggleExpanded}
 			>
 				<div class="text-sm font-bold uppercase">Common base</div>
-				{#if target.behind == 0}
-					<div class="text-sm">{target.branchName}</div>
+				{#if base.behind == 0}
+					<div class="text-sm">{base.branchName}</div>
 				{/if}
 				{#if $userSettings.bottomPanelExpanded}
 					<IconTriangleDown />
@@ -48,9 +46,9 @@
 					<a
 						class="underline hover:text-blue-500"
 						target="_blank"
-						href={createCommitUrl(target.baseSha)}
+						href={createCommitUrl(base.baseSha)}
 					>
-						{target.baseSha.substring(0, 8)}
+						{base.baseSha.substring(0, 8)}
 					</a>
 				</div>
 			{/if}
@@ -66,7 +64,7 @@
 			<div
 				class="lane-scroll flex w-full flex-col gap-y-1 overflow-y-auto bg-white dark:bg-dark-1100"
 			>
-				{#each target.recentCommits as commit}
+				{#each base.recentCommits as commit}
 					<div
 						class="flex flex-row items-center gap-x-1 border-b border-light-300 px-2 text-light-700 dark:border-dark-700 dark:text-dark-200"
 					>

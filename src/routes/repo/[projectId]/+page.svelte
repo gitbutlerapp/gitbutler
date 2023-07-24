@@ -34,7 +34,7 @@
 	setContext(BRANCH_CONTROLLER_KEY, branchController);
 
 	$: remoteBranches = Loaded.isValue($remoteBranchStore) ? $remoteBranchStore.value : [];
-	$: target = Loaded.isValue($targetBranchStore) ? $targetBranchStore.value : undefined;
+	$: base = Loaded.isValue($targetBranchStore) ? $targetBranchStore.value : undefined;
 	$: branches =
 		!$vbranchStore.isLoading && !Loaded.isError($vbranchStore) ? $vbranchStore.value : [];
 	let targetChoice: string | undefined;
@@ -47,7 +47,7 @@
 	}
 </script>
 
-{#if target}
+{#if base}
 	<div class="flex w-full max-w-full" role="group" on:dragover|preventDefault>
 		<Tray {branches} {remoteBranches} />
 		<div
@@ -63,19 +63,19 @@
 		/>
 		<div class="flex w-full flex-col overflow-hidden">
 			<div class="lane-scroll flex flex-grow overflow-x-auto overflow-y-hidden overscroll-y-none">
-				{#if target}
-					<UpstreamBranchLane baseBranch={target} />
+				{#if base}
+					<UpstreamBranchLane {base} />
 				{/if}
 				<Board
 					{branches}
 					{projectId}
 					projectPath={$project?.path}
-					{target}
+					{base}
 					cloudEnabled={$project?.api?.sync || false}
 					{cloud}
 				/>
 			</div>
-			<BottomPanel {target} {userSettings} />
+			<BottomPanel {base} {userSettings} />
 		</div>
 	</div>
 {:else}

@@ -47,7 +47,7 @@
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
-	export let target: BaseBranch | undefined;
+	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof CloudApi>;
 	export let upstream: string | undefined;
@@ -443,7 +443,7 @@
 										class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
 									/>
 								</div>
-								<CommitCard {commit} />
+								<CommitCard {commit} {base} />
 							</div>
 						{/each}
 					</div>
@@ -464,7 +464,7 @@
 
 						<div class="ml-12 flex items-center py-2 font-mono text-sm">
 							{#if upstream}
-								<Link target="_blank" rel="noreferrer" href={url(target, upstream)}>
+								<Link target="_blank" rel="noreferrer" href={url(base, upstream)}>
 									<span class="text-sm font-bold">
 										{upstream.split('refs/remotes/')[1]}
 									</span>
@@ -486,7 +486,7 @@
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
 								</div>
-								<CommitCard {commit} />
+								<CommitCard {commit} {base} />
 							</div>
 						{/each}
 					</div>
