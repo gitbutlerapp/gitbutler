@@ -1861,8 +1861,6 @@ pub fn update_gitbutler_integration(
         }
     }
 
-    let (author, committer) = gb_repository.git_signatures()?;
-
     // message that says how to get back to where they were
     let mut message = "GitButler Integration Commit".to_string();
     message.push_str("\n\n");
@@ -1912,6 +1910,11 @@ pub fn update_gitbutler_integration(
         &final_tree,
         &[&target_commit],
     )?;
+
+    // write final_tree as the current index
+    let mut index = repo.index()?;
+    index.read_tree(&final_tree)?;
+
     Ok(())
 }
 
