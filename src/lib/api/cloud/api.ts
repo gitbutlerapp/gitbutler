@@ -153,16 +153,10 @@ export default (
 						'X-Auth-Token': token
 					}
 				}).then(parseResponseJSON),
-			update: async (
-				token: string,
-				params: { given_name?: string; family_name?: string; picture?: File }
-			) => {
+			update: async (token: string, params: { name?: string; picture?: File }) => {
 				const formData = new FormData();
-				if (params.given_name) {
-					formData.append('given_name', params.given_name);
-				}
-				if (params.family_name) {
-					formData.append('family_name', params.family_name);
+				if (params.name) {
+					formData.append('name', params.name);
 				}
 				if (params.picture) {
 					formData.append('avatar', params.picture);
