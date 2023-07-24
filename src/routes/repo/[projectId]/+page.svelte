@@ -98,7 +98,7 @@
 						target="_blank"
 						rel="noreferrer"
 						class="font-bold"
-						href="https://docs.gitbutler.com/features/virtual-branches/base-branch">Learn more</a
+						href="https://docs.gitbutler.com/features/virtual-branches/butler-flow">Learn more</a
 					>
 				</p>
 			{:else}
