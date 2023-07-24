@@ -133,31 +133,13 @@
 			<div class="font-bold">Base Branch</div>
 			<p class="text-light-700 dark:text-dark-100">
 				With virtual branches, you are not working off of local main or master branches. Everything
-				that you do is on a virtual branch, automatically.
+				that you do is on a virtual branch, automatically. These are all based off of a main
+				"base branch".
 			</p>
+			<div class="font-bold">Multiple Virtual Branches</div>
 			<p class="text-light-700 dark:text-dark-100">
-				This works by specifying a "base branch" that represents the state of production, normally
-				something like "origin/master". All of your virtual branches are based off of this branch
-				and need to be kept up to date with this branch to ensure they are working with the latest
-				code.
-			</p>
-			<div class="font-bold">Ownership, Committing and Pushing</div>
-			<p class="text-light-700 dark:text-dark-100">
-				Each virtual branch "owns" parts of the files that are seen as changed. If you commit on
-				that branch, only the parts that are owned by that branch are actually recorded in the
-				commits on that branch.
-			</p>
-			<p class="text-light-700 dark:text-dark-100">
-				When you push a virtual branch, it will create a branch name based on your branch title,
-				push that branch to your remote with just the changes committed to that branch, not
-				everything in your working directory.
-			</p>
-			<div class="font-bold">Applying and Unapplying</div>
-			<p class="text-light-700 dark:text-dark-100">
-				You can have many virtual branches applied at the same time, but they cannot conflict with
-				each other currently. Unapplying a virtual branch will take all of the changes that it owns
-				and remove them from your working directory. Applying the branch will add those changes back
-				in.
+				You can have many virtual branches applied at the same time and you can
+				apply and unapply them at any time.
 			</p>
 			<div class="flex flex-row place-content-center content-center space-x-2 pt-4 text-blue-600">
 				<a
