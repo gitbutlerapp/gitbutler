@@ -33,6 +33,7 @@ export class BranchStoresCache {
 				// new current session detected. refresh branches + subscribe to delta updates.
 				listVirtualBranches({ projectId }).then((newBranches) => {
 					branchesWithFileContent(projectId, lastSession.id, newBranches).then((withContent) => {
+                        console.log('set', withContent);
 						set(withContent);
 					});
 				});

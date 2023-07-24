@@ -107,7 +107,8 @@ test('parses a balanced hunk section', () => {
 		id: '1',
 		diff: balancedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
@@ -185,7 +186,8 @@ test('parses a hunk with conflict markers', () => {
 		id: '1',
 		diff: conflitMarkersHunk,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
@@ -198,7 +200,8 @@ test('parses hunk sections with more added', () => {
 		id: '1',
 		diff: moreAddedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
@@ -283,7 +286,8 @@ test('parses a hunk with two changed places', () => {
 		id: '1',
 		diff: multiChangeHunk,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
@@ -396,7 +400,8 @@ test('parses file with one hunk and balanced add-remove', () => {
 		id: '1',
 		diff: balancedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const file: File = {
 		id: '1',
@@ -454,7 +459,8 @@ test('parses file with one hunk with more added than removed', () => {
 		id: '1',
 		diff: moreAddedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const file: File = {
 		id: '1',
@@ -508,13 +514,15 @@ test('parses file with two hunks ordered by position in file', () => {
 		id: '1',
 		diff: topOfFileHunk,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const bottomHunk: Hunk = {
 		id: '1',
 		diff: bottomOfFileHunk,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const file: File = {
 		id: '1',
@@ -586,7 +594,8 @@ test('parses whole file deleted', () => {
 		id: '1',
 		diff: delteWholeFile,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const file: File = {
 		id: '1',
@@ -612,7 +621,8 @@ test('parses new file created', () => {
 		id: '1',
 		diff: addWholeFile,
 		modifiedAt: new Date(2021, 1, 1),
-		filePath: 'foo.py'
+		filePath: 'foo.py',
+		locked: false
 	};
 	const file: File = {
 		id: '1',
