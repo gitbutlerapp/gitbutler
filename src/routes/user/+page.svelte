@@ -37,8 +37,7 @@
 		}
 	};
 
-	let newGivenName = '';
-	let newFamilyName = '';
+	let newName = '';
 
 	let loaded = false;
 	$: if ($user && !loaded) {
@@ -46,8 +45,7 @@
 		cloud.user.get($user?.access_token).then((cloudUser) => {
 			$user = cloudUser;
 		});
-		newGivenName = $user?.given_name || $user?.name;
-		newFamilyName = $user?.family_name || '';
+		newName = $user?.name || '';
 	}
 
 	const onSubmit = async (e: SubmitEvent) => {
@@ -60,8 +58,7 @@
 
 		try {
 			$user = await cloud.user.update($user.access_token, {
-				given_name: newGivenName,
-				family_name: newFamilyName,
+				name: newName,
 				picture: picture
 			});
 			toasts.success('Profile updated');
@@ -166,31 +163,17 @@
 				</div>
 
 				<div id="contact-info" class="flex flex-1 flex-wrap">
-					<div class="basis-1/2 pr-4">
-						<label for="firstName" class="text-zinc-400">First name</label>
+					<div class="basis-full pr-4">
+						<label for="fullName" class="text-zinc-400">Full name</label>
 						<input
 							autocomplete="off"
 							autocorrect="off"
 							spellcheck="false"
 							name="firstName"
-							bind:value={newGivenName}
+							bind:value={newName}
 							type="text"
 							class="w-full"
-							placeholder="First name can't be empty"
-							required
-						/>
-					</div>
-					<div class="basis-1/2 pr-4">
-						<label for="lastName" class="text-zinc-400">Last name</label>
-						<input
-							autocomplete="off"
-							autocorrect="off"
-							spellcheck="false"
-							name="lastName"
-							bind:value={newFamilyName}
-							type="text"
-							class="w-full"
-							placeholder="Last name can't be empty"
+							placeholder="Name can't be empty"
 							required
 						/>
 					</div>
