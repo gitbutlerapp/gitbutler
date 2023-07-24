@@ -142,12 +142,6 @@
 					<Tooltip label="Send feedback">
 						<IconEmail class="h-4 w-4" on:click={() => events.emit('openSendIssueModal')} />
 					</Tooltip>
-
-					{#if $project?.api?.sync}
-						<Link target="_blank" rel="noreferrer" href={projectUrl($project)}>
-							Open in GitButler Cloud
-						</Link>
-					{/if}
 				</div>
 			</div>
 		</div>
