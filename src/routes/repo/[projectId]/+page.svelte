@@ -10,6 +10,7 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import BottomPanel from './BottomPanel.svelte';
 	import UpstreamBranchLane from './UpstreamBranchLane.svelte';
+	import { IconExternalLink } from '$lib/icons';
 
 	export let data: PageData;
 	let {
@@ -78,28 +79,93 @@
 		</div>
 	</div>
 {:else}
-	<div class="m-auto flex max-w-xs flex-col gap-y-4">
-		<h1 class="text-lg font-bold">Set your base branch</h1>
-		<p class="text-light-700 dark:text-dark-100">
-			You need to set your base branch before you can start working on your project.
-		</p>
-		<!-- select menu of remoteBranches -->
-		{#if remoteBranchNames.length === 0}
-			<p class="text-gray-500">You don't have any remote branches.</p>
-		{:else}
-			<select bind:value={targetChoice}>
-				{#each remoteBranchNames as branch}
-					{@const strippedBranch = branch.substring(13)}
-					{#if strippedBranch == 'origin/master' || strippedBranch == 'origin/main'}
-						<option value={strippedBranch} selected>{strippedBranch}</option>
-					{:else}
-						<option value={strippedBranch}>{strippedBranch}</option>
-					{/if}
-				{/each}
-			</select>
-			<div>
-				<Button color="purple" height="small" on:click={onSetTargetClick}>Set base branch</Button>
+	<div class="content-stretch grid h-full w-full grid-cols-2 items-stretch justify-items-stretch">
+		<div class="grid h-full place-items-center bg-light-400 p-12 text-xl dark:bg-dark-700">
+			<div id="vb-data" class="m-auto space-y-4">
+				<div class="font-bold">Set your Base Branch</div>
+				<p class="text-light-700 dark:text-dark-100">
+					You need to set your base branch before you can start working on your project.
+				</p>
+				<!-- select menu of remoteBranches -->
+				{#if remoteBranchNames.length === 0}
+					<p class="mt-6 text-red-500">You don't have any remote branches.</p>
+					<p class="mt-6 text-sm text-light-700">
+						Currently, GitButler requires a remote branch to base it's virtual branch work on. To
+						use virtual branches, please push your code to a remote branch to use as a base.
+						<a
+							target="_blank"
+							rel="noreferrer"
+							class="font-bold"
+							href="https://docs.gitbutler.com/features/virtual-branches/base-branch">Learn more</a
+						>
+					</p>
+				{:else}
+					<select bind:value={targetChoice}>
+						{#each remoteBranchNames as branch}
+							{@const strippedBranch = branch.substring(13)}
+							{#if strippedBranch == 'origin/master' || strippedBranch == 'origin/main'}
+								<option value={strippedBranch} selected>{strippedBranch}</option>
+							{:else}
+								<option value={strippedBranch}>{strippedBranch}</option>
+							{/if}
+						{/each}
+					</select>
+					<p class="text-base text-light-700 dark:text-dark-100">
+						This is the branch that you consider "production", normally something like
+						"origin/master" or "origin/main".
+					</p>
+					<div>
+						<Button color="purple" height="small" on:click={onSetTargetClick}
+							>Set Base Branch</Button
+						>
+					</div>
+				{/if}
 			</div>
-		{/if}
+		</div>
+		<div id="vb-data" class="m-auto flex h-full flex-col space-y-3 overflow-auto p-12 text-lg">
+			<h1 class="text-xl font-bold">Getting Started with Virtual Branches</h1>
+			<p class="text-xl text-light-700 dark:text-dark-100">
+				Virtual branches are just like normal Git branches, except that you can work on several of
+				them at the same time.
+			</p>
+			<div class="font-bold">Base Branch</div>
+			<p class="text-light-700 dark:text-dark-100">
+				With virtual branches, you are not working off of local main or master branches. Everything
+				that you do is on a virtual branch, automatically.
+			</p>
+			<p class="text-light-700 dark:text-dark-100">
+				This works by specifying a "base branch" that represents the state of production, normally
+				something like "origin/master". All of your virtual branches are based off of this branch
+				and need to be kept up to date with this branch to ensure they are working with the latest
+				code.
+			</p>
+			<div class="font-bold">Ownership, Committing and Pushing</div>
+			<p class="text-light-700 dark:text-dark-100">
+				Each virtual branch "owns" parts of the files that are seen as changed. If you commit on
+				that branch, only the parts that are owned by that branch are actually recorded in the
+				commits on that branch.
+			</p>
+			<p class="text-light-700 dark:text-dark-100">
+				When you push a virtual branch, it will create a branch name based on your branch title,
+				push that branch to your remote with just the changes committed to that branch, not
+				everything in your working directory.
+			</p>
+			<div class="font-bold">Applying and Unapplying</div>
+			<p class="text-light-700 dark:text-dark-100">
+				You can have many virtual branches applied at the same time, but they cannot conflict with
+				each other currently. Unapplying a virtual branch will take all of the changes that it owns
+				and remove them from your working directory. Applying the branch will add those changes back
+				in.
+			</p>
+			<div class="flex flex-row place-content-center content-center space-x-2 pt-4 text-blue-600">
+				<a
+					target="_blank"
+					rel="noreferrer"
+					class="font-bold"
+					href="https://docs.gitbutler.com/features/virtual-branches">Learn more</a
+				>
+				<IconExternalLink class="h-4 w-4" />
+			</div>
+		</div>
 	</div>
 {/if}
