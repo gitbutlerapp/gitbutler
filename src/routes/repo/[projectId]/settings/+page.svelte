@@ -9,8 +9,6 @@
 
 	export let data: PageData;
 	const { projects, project, cloud } = data;
-
-	console.log($project);
 	const user = stores.user;
 
 	let deleteConfirmationModal: Modal;

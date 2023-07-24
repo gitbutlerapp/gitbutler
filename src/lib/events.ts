@@ -14,15 +14,12 @@ type Events = {
 const events = createNanoEvents<Events>();
 
 export function on<K extends keyof Events>(event: K, callback: Events[K]) {
-	console.debug('subscribe', event);
 	const unsubscribe = events.on(event, callback);
 	return () => {
-		console.debug('unsubscribe', event);
 		unsubscribe();
 	};
 }
 
 export function emit<K extends keyof Events>(event: K, ...args: Parameters<Events[K]>) {
-	console.debug('event', event, args);
 	events.emit(event, ...args);
 }

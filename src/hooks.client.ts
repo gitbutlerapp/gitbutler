@@ -10,8 +10,6 @@ init({
 	tracesSampleRate: 1.0
 });
 
-console.log(`sentry init`);
-
 function myErrorHandler({ error, event }: { error: any; event: NavigationEvent }) {
 	console.error('An error occurred on the client side:', error, event);
 }
