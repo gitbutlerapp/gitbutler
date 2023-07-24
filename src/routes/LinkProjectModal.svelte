@@ -24,7 +24,6 @@
 		await user.load();
 		await cloudProjects.load();
 		if ($user === null) return;
-		if ($cloudProjects?.length === 0) return;
 		project = api.projects.Project({ id });
 		modal.show();
 	}
@@ -59,26 +58,45 @@
 			.finally(() => (isLinking = false));
 </script>
 
-<Modal bind:this={modal} title="Sync with existing GitButler project">
+<Modal bind:this={modal} title="GitButler Cloud">
 	<div class="-mt-4 flex flex-auto grid-cols-2 pt-4">
-		<div class="flex w-1/2 flex-col gap-2 pr-10 pt-4">
-			<h3 class="text-lg font-medium">GitButler Cloud projects</h3>
-			<p>Syncing projects will save working directory to GitButler Cloud.</p>
-			<p>Would you like to link this project to any existing GitButler Cloud projects?</p>
-		</div>
+		<ul class="flex w-1/2 flex-col gap-2 pr-10 pt-4">
+			<p>Connect to GitButler Cloud to enable Cloud features such as:</p>
 
-		<div class="-mb-4 -mr-4 -mt-4 flex w-1/2 flex-auto flex-col gap-2 bg-[#000000]/20 pt-4">
+			<li>
+				<h4 class="font-semibold">✨ AI generated commit messages</h4>
+				<p class="p-1">Instead of writing commit messages yourself, let GitButler do it for you.</p>
+			</li>
+
+			<li>
+				<h4 class="font-semibold">🤖 AI hunk summarization</h4>
+				<p class="p-1">
+					GitButler will display a short summary of the changed you've made for an easier overview.
+				</p>
+			</li>
+
+			<li>
+				<h4 class="font-semibold">☁️ Clients Syncronization</h4>
+				<p class="p-1">All your projects will be synced across all your devices.</p>
+			</li>
+
+			<li>
+				<h4 class="font-semibold">🗓️ More to come...</h4>
+			</li>
+		</ul>
+
+		<div class="-mb-4 -mr-4 -mt-4 flex w-1/2 flex-col gap-2 bg-[#000000]/20 pt-4">
 			{#await Promise.all([cloudProjects.load(), projects.load(), project?.load()])}
 				<IconLoading class="m-auto animate-spin" />
 			{:then}
 				<ul class="flex flex-auto flex-col gap-2 overflow-y-scroll px-4 pb-4">
 					<button
-						class="hover:bg-card-hover flex gap-[10px] rounded bg-card-default p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer"
+						class="hover:bg-card-hover flex w-full items-start gap-[10px] rounded bg-card-default p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer"
 						class:bg-card-active={selectedRepositoryId === null}
 						on:click={() => (selectedRepositoryId = null)}
 					>
 						<IconFolderPlus class="text-blue-500" />
-						<div class="flex flex-col gap-1">
+						<div class="flex flex-col">
 							<span class="text-text-default">Create new project</span>
 							<span class="text-xs text-text-subdued"> Syncing will begin after first save </span>
 						</div>
@@ -96,13 +114,13 @@
 						.sort((a, b) => (a.disabled === b.disabled ? 0 : a.disabled ? 1 : -1)) as project}
 						<button
 							disabled={project.disabled}
-							class="hover:bg-card-hover flex gap-[10px] rounded bg-card-default p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer"
+							class="hover:bg-card-hover flex w-full items-start gap-[10px] rounded bg-card-default p-2 text-left shadow-sm transition-colors duration-200 hover:cursor-pointer"
 							class:opacity-40={project.disabled}
 							class:bg-card-active={selectedRepositoryId === project.repository_id}
 							on:click={() => (selectedRepositoryId = project.repository_id)}
 						>
 							<IconFolder class="text-blue-500" />
-							<div class="flex flex-col gap-1">
+							<div class="flex flex-col">
 								<span class="text-text-default">{project.name}</span>
 								<span class="text-xs text-text-subdued">
 									Last updated: {formatDistanceToNow(new Date(project.updated_at))} ago
@@ -117,6 +135,8 @@
 
 	<svelte:fragment slot="controls" let:close>
 		<Button kind="outlined" on:click={close}>Not Now</Button>
-		<Button color="purple" loading={isLinking} on:click={onLinkClicked}>Select project</Button>
+		<Button color="purple" loading={isLinking} on:click={onLinkClicked}>
+			{#if selectedRepositoryId === null}Create{:else}Link{/if}
+		</Button>
 	</svelte:fragment>
 </Modal>
