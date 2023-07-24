@@ -112,11 +112,9 @@
 	<LinkProjectModal bind:this={linkProjectModal} {cloud} {projects} />
 
 	<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />
-	<footer class="w-full text-sm font-medium">
+	<footer class="w-full text-sm font-medium text-light-700 dark:text-dark-100">
 		<div
-			class="flex h-[22px] flex-shrink-0 select-none items-center border-t
-border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 dark:text-dark-100
-			 "
+			class="flex h-[1.375rem] flex-shrink-0 select-none items-center border-t border-light-300 bg-white dark:border-dark-500 dark:bg-dark-900"
 		>
 			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
 				<div>
@@ -135,14 +133,9 @@ border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 d
 					{/if}
 				</div>
 
-				<div class="flex gap-1">
+				<div class="flex items-center gap-1">
 					<Tooltip label="Send feedback">
-						<Button
-							kind="plain"
-							height="small"
-							icon={IconEmail}
-							on:click={() => events.emit('openSendIssueModal')}
-						/>
+						<IconEmail class="h-4 w-4" on:click={() => events.emit('openSendIssueModal')} />
 					</Tooltip>
 
 					{#if $project?.api?.sync}
