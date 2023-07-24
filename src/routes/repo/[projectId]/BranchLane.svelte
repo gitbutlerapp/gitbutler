@@ -327,7 +327,7 @@
 
 	<div class="lane-scroll flex flex-grow flex-col overflow-y-scroll pb-8">
 		{#if conflicted}
-			<div class="mb-2 rounded bg-red-700 p-2 text-white">
+			<div class="mb-2 bg-red-500 p-2 font-bold text-white">
 				{#if files.some((f) => f.conflicted)}
 					This virtual branch conflicts with upstream changes. Please resolve all conflicts and
 					commit before you can continue.
