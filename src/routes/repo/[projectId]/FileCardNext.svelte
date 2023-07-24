@@ -22,6 +22,7 @@
 	import { slide } from 'svelte/transition';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { summarizeHunk } from '$lib/summaries';
+	import { Button } from '$lib/components';
 
 	export let file: File;
 	export let conflicted: boolean;
@@ -133,10 +134,13 @@
 		</div>
 
 		{#if conflicted}
-			<div class="mx-2 rounded bg-red-700 p-2 text-white">
-				<div>Conflicted</div>
-				<button on:click={() => branchController.markResolved(projectId, file.path)}>Resolve</button
+			<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
+				<button
+					class="font-bold text-white"
+					on:click={() => branchController.markResolved(projectId, file.path)}
 				>
+					Mark resolved
+				</button>
 			</div>
 		{/if}
 
