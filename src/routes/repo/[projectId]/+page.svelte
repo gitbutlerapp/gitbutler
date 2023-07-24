@@ -79,50 +79,52 @@
 		</div>
 	</div>
 {:else}
-	<div class="content-stretch grid h-full w-full grid-cols-2 items-stretch justify-items-stretch">
-		<div class="grid h-full place-items-center bg-light-400 p-12 text-xl dark:bg-dark-700">
-			<div id="vb-data" class="m-auto space-y-4">
-				<div class="font-bold">Set your Base Branch</div>
-				<p class="text-light-700 dark:text-dark-100">
-					You need to set your base branch before you can start working on your project.
+	<div class="grid h-full w-full grid-cols-2 items-center justify-items-stretch">
+		<div
+			id="vb-data"
+			class="flex h-full flex-col justify-center gap-y-4 self-center bg-light-400 p-12 text-lg dark:bg-dark-700"
+		>
+			<div class="font-bold">Set your Base Branch</div>
+			<p class="text-light-700 dark:text-dark-100">
+				You need to set your base branch before you can start working on your project.
+			</p>
+			<!-- select menu of remoteBranches -->
+			{#if remoteBranchNames.length === 0}
+				<p class="mt-6 text-red-500">You don't have any remote branches.</p>
+				<p class="mt-6 text-sm text-light-700">
+					Currently, GitButler requires a remote branch to base it's virtual branch work on. To use
+					virtual branches, please push your code to a remote branch to use as a base.
+					<a
+						target="_blank"
+						rel="noreferrer"
+						class="font-bold"
+						href="https://docs.gitbutler.com/features/virtual-branches/base-branch">Learn more</a
+					>
 				</p>
-				<!-- select menu of remoteBranches -->
-				{#if remoteBranchNames.length === 0}
-					<p class="mt-6 text-red-500">You don't have any remote branches.</p>
-					<p class="mt-6 text-sm text-light-700">
-						Currently, GitButler requires a remote branch to base it's virtual branch work on. To
-						use virtual branches, please push your code to a remote branch to use as a base.
-						<a
-							target="_blank"
-							rel="noreferrer"
-							class="font-bold"
-							href="https://docs.gitbutler.com/features/virtual-branches/base-branch">Learn more</a
-						>
-					</p>
-				{:else}
-					<select bind:value={targetChoice}>
-						{#each remoteBranchNames as branch}
-							{@const strippedBranch = branch.substring(13)}
-							{#if strippedBranch == 'origin/master' || strippedBranch == 'origin/main'}
-								<option value={strippedBranch} selected>{strippedBranch}</option>
-							{:else}
-								<option value={strippedBranch}>{strippedBranch}</option>
-							{/if}
-						{/each}
-					</select>
-					<p class="text-base text-light-700 dark:text-dark-100">
-						This is the branch that you consider "production", normally something like
-						"origin/master" or "origin/main".
-					</p>
-					<div>
-						<Button color="purple" height="small" on:click={onSetTargetClick}
-							>Set Base Branch</Button
-						>
-					</div>
-				{/if}
-			</div>
+			{:else}
+				<select bind:value={targetChoice}>
+					{#each remoteBranchNames as branch}
+						{@const strippedBranch = branch.substring(13)}
+						{#if strippedBranch == 'origin/master' || strippedBranch == 'origin/main'}
+							<option value={strippedBranch} selected>{strippedBranch}</option>
+						{:else}
+							<option value={strippedBranch}>{strippedBranch}</option>
+						{/if}
+					{/each}
+				</select>
+				<p class="text-base text-light-700 dark:text-dark-100">
+					This is the branch that you consider "production", normally something like "origin/master"
+					or "origin/main".
+				</p>
+				<div>
+					<Button color="purple" height="small" on:click={onSetTargetClick}>Set Base Branch</Button>
+				</div>
+			{/if}
 		</div>
-		<div id="vb-data" class="m-auto flex h-full flex-col space-y-3 overflow-auto p-12 text-lg">
+		<div
+			id="vb-data"
+			class="flex h-full flex-col justify-center gap-y-3 overflow-y-auto p-12 text-lg"
+		>
 			<h1 class="text-xl font-bold">Getting Started with Virtual Branches</h1>
 			<p class="text-xl text-light-700 dark:text-dark-100">
 				Virtual branches are just like normal Git branches, except that you can work on several of
