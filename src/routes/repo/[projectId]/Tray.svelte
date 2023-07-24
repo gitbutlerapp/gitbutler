@@ -11,6 +11,7 @@
 	import type { BranchController } from '$lib/vbranches';
 	import { getContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
+	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
@@ -63,7 +64,6 @@
 				role="listitem"
 				on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
 				class="border-b border-light-400 p-2 dark:border-dark-600"
-				title={branch.name}
 			>
 				<div class="flex flex-row justify-between">
 					<div class="flex w-full">
@@ -79,9 +79,17 @@
 					{#if !branch.active}
 						{#if !branch.baseCurrent}
 							<!-- branch will cause merge conflicts if applied -->
-							<div class="text-blue-500">&#9679;</div>
+							<Tooltip label="Will introduce merge conflicts if applied">
+								<div class="text-blue-500">&#9679;</div>
+							</Tooltip>
+						{:else if branch.mergeable}
+							<Tooltip label="Can be applied cleanly">
+								<div class="text-green-500">&#9679;</div>
+							</Tooltip>
 						{:else}
-							<div class={branch.mergeable ? 'text-green-500' : 'text-red-500'}>&#9679;</div>
+							<Tooltip label="Canflicts with changes in your working directory, cannot be applied">
+								<div class="text-red-500">&#9679;</div>
+							</Tooltip>
 						{/if}
 					{/if}
 				</div>
