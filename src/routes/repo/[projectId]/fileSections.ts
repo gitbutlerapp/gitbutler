@@ -139,12 +139,12 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 }
 
 export function parseFileSections(file: File): (ContentSection | HunkSection)[] {
-	if (!file.content) return [];
-
 	const hunkSections = file.hunks
 		.map(parseHunkSection)
 		.filter((hunkSection) => hunkSection !== undefined)
 		.sort((a, b) => a.header.beforeStart - b.header.beforeStart);
+
+	if (!file.content) return hunkSections;
 
 	const lines = file.content.split('\n');
 	const sections: (ContentSection | HunkSection)[] = [];
