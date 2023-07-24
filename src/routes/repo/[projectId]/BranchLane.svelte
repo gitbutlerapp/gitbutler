@@ -70,13 +70,11 @@
 	const dzType = 'text/hunk';
 
 	function commit() {
-		console.log('commit', commitMessage, projectId, branchId);
 		branchController.commitBranch(branchId, commitMessage);
 	}
 
 	function push() {
 		if (localCommits[0]?.id) {
-			console.log(`pushing ${branchId}`);
 			isPushing = true;
 			branchController.pushBranch(branchId).finally(() => (isPushing = false));
 		}
@@ -114,7 +112,6 @@
 	}
 
 	function handleBranchNameChange() {
-		console.log('branch name change:', name);
 		branchController.updateBranchName(branchId, name);
 	}
 
