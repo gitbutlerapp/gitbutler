@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { IconBranch, IconRefresh } from '$lib/icons';
-	import { Button, Modal } from '$lib/components';
+	import { IconBranch, IconRefresh, IconGithub } from '$lib/icons';
+	import { Button, Modal, Tooltip } from '$lib/components';
 	import type { BaseBranch } from '$lib/vbranches';
 	import CommitCard from './CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
+	import { base } from '$app/paths';
 
 	export let baseBranch: BaseBranch;
 
@@ -15,14 +16,35 @@
 
 	$: behind = baseBranch.behind > 0;
 	$: behindMessage = baseBranch.behind > 0 ? `behind ${baseBranch.behind}` : 'up-to-date';
+
+	let fetching = false;
+	$: expanded = baseBranch.behind > 0;
 </script>
 
 <div
 	class:w-64={behind}
 	class:w-16={!behind}
-	class="flex h-full shrink-0 cursor-default snap-center flex-col overflow-y-scroll overscroll-y-none border-r border-r-blue-200 bg-light-200 pt-2 transition-width dark:border-r-light-800 dark:bg-dark-1000 dark:text-dark-100"
+	class="flex h-full shrink-0 cursor-default snap-center flex-col overflow-y-scroll overscroll-y-none
+	border-r border-light-600 bg-light-400 pt-2
+	transition-width dark:border-r-light-800 dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 >
+	<div class="flex">
+		<Tooltip label={baseBranch.branchName}>
+			<div class="flex items-center px-2">
+				{#if baseBranch.remoteUrl.includes('github.com')}
+					<IconGithub class="h-4 w-4" />
+				{:else}
+					<IconBranch class="h-4 w-4" />
+				{/if}
+			</div>
+		</Tooltip>
+		{#if expanded}
+			<div class="font-mono font-bold">
+				{baseBranch.branchName}
+			</div>
+		{/if}
+	</div>
 	{#if behind}
 		<div class="p-2">
 			<div class="flex flex-row justify-between px-2 pb-2">
@@ -59,13 +81,22 @@
 	{:else}
 		<div class="p-2">
 			<div class="text-light-600">Up to date</div>
-			<button
-				class="p-0 text-light-600 hover:bg-light-200 disabled:text-light-300 dark:hover:bg-dark-800 disabled:dark:text-dark-300"
-				on:click={() => branchController.fetchFromTarget()}
-				title="click to fetch"
-			>
-				<IconRefresh />
-			</button>
+			<Tooltip label="Fetch the latest from remote">
+				<div
+					class="flex h-5 w-5 items-center justify-center rounded p-3 text-light-600 hover:bg-light-200 disabled:text-light-300 dark:hover:bg-dark-800 disabled:dark:text-dark-300"
+				>
+					<button
+						class:animate-spin={fetching}
+						on:click={() => {
+							fetching = true;
+							branchController.fetchFromTarget().finally(() => (fetching = false));
+						}}
+						title="click to fetch"
+					>
+						<IconRefresh />
+					</button>
+				</div>
+			</Tooltip>
 		</div>
 	{/if}
 </div>
