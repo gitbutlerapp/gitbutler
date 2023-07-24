@@ -29,6 +29,7 @@ extern crate log;
 use std::{collections::HashMap, ops, path, time};
 
 use anyhow::{Context, Result};
+use futures::future::join_all;
 use serde::{ser::SerializeMap, Serialize};
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
@@ -420,43 +421,50 @@ async fn git_remote_branches_data(
     project_id: &str,
 ) -> Result<Vec<virtual_branches::RemoteBranch>, Error> {
     let app = handle.state::<app::App>();
-    let proxy = handle.state::<assets::Proxy>();
     let branches = app
         .git_remote_branches_data(project_id)
         .with_context(|| format!("failed to get git branches for project {}", project_id))?;
 
-    let author_urls = branches
-        .iter()
-        .flat_map(|branch| {
-            branch
-                .authors
-                .iter()
-                .map(|author| author.gravatar_url.clone())
-        })
-        .collect::<Vec<_>>();
-
-    let mut proxy_map = HashMap::new();
-    for url in author_urls {
-        if !proxy_map.contains_key(&url) {
-            let proxied_url = proxy.proxy(&url).await?;
-            proxy_map.insert(url, proxied_url);
-        }
-    }
-
-    let branches = branches
-        .into_iter()
-        .map(|branch| virtual_branches::RemoteBranch {
-            authors: branch
-                .authors
-                .into_iter()
-                .map(|author| virtual_branches::Author {
-                    gravatar_url: proxy_map.get(&author.gravatar_url).unwrap().clone(),
-                    ..author
-                })
-                .collect(),
-            ..branch
-        })
-        .collect();
+    let branches = join_all(
+        branches
+            .into_iter()
+            .map(|branch| {
+                let proxy = handle.state::<assets::Proxy>();
+                async move {
+                    virtual_branches::RemoteBranch {
+                        authors: join_all(
+                            branch
+                                .authors
+                                .into_iter()
+                                .map(|author| {
+                                    let proxy = proxy.clone();
+                                    async move {
+                                        virtual_branches::Author {
+                                            gravatar_url: proxy
+                                                .proxy(&author.gravatar_url)
+                                                .await
+                                                .unwrap_or_else(|e| {
+                                                    log::error!(
+                                                        "failed to proxy gravatar url {}: {:#}",
+                                                        author.gravatar_url,
+                                                        e
+                                                    );
+                                                    author.gravatar_url
+                                                }),
+                                            ..author
+                                        }
+                                    }
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .await,
+                        ..branch
+                    }
+                }
+            })
+            .collect::<Vec<_>>(),
+    )
+    .await;
     Ok(branches)
 }
 
@@ -686,76 +694,68 @@ async fn get_base_branch_data(
     project_id: &str,
 ) -> Result<Option<virtual_branches::BaseBranch>, Error> {
     let app = handle.state::<app::App>();
-    let target = app.get_base_branch_data(project_id)?;
+    let target = match app.get_base_branch_data(project_id)? {
+        None => return Ok(None),
+        Some(target) => target,
+    };
 
-    match target {
-        None => Ok(target),
-        Some(target) => {
-            let proxy = handle.state::<assets::Proxy>();
-            let mut proxy_map = HashMap::new();
-            let recent_commits_author_urls = target
+    let target = Some(virtual_branches::BaseBranch {
+        recent_commits: join_all(
+            target
                 .clone()
                 .recent_commits
                 .into_iter()
-                .map(|commit| commit.author.gravatar_url.clone())
-                .collect::<Vec<_>>();
-
-            let upstream_commits_author_urls = target
+                .map(|commit| {
+                    let proxy = handle.state::<assets::Proxy>();
+                    async move {
+                        virtual_branches::VirtualBranchCommit {
+                            author: virtual_branches::Author {
+                                gravatar_url: proxy
+                                    .proxy(&commit.author.gravatar_url)
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        log::error!("failed to proxy gravatar url: {:#}", e);
+                                        commit.author.gravatar_url
+                                    }),
+                                ..commit.author
+                            },
+                            ..commit
+                        }
+                    }
+                })
+                .collect::<Vec<_>>(),
+        )
+        .await,
+        upstream_commits: join_all(
+            target
                 .clone()
                 .upstream_commits
                 .into_iter()
-                .map(|commit| commit.author.gravatar_url.clone())
-                .collect::<Vec<_>>();
+                .map(|commit| {
+                    let proxy = handle.state::<assets::Proxy>();
+                    async move {
+                        virtual_branches::VirtualBranchCommit {
+                            author: virtual_branches::Author {
+                                gravatar_url: proxy
+                                    .proxy(&commit.author.gravatar_url)
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        log::error!("failed to proxy gravatar url: {:#}", e);
+                                        commit.author.gravatar_url
+                                    }),
+                                ..commit.author
+                            },
+                            ..commit
+                        }
+                    }
+                })
+                .collect::<Vec<_>>(),
+        )
+        .await,
+        ..target
+    });
 
-            let author_urls = recent_commits_author_urls
-                .into_iter()
-                .chain(upstream_commits_author_urls.into_iter())
-                .collect::<Vec<_>>();
-
-            for url in author_urls {
-                if !proxy_map.contains_key(&url) {
-                    let proxied_url = proxy.proxy(&url).await?;
-                    proxy_map.insert(url, proxied_url);
-                }
-            }
-
-            let target = Some(virtual_branches::BaseBranch {
-                recent_commits: target
-                    .clone()
-                    .recent_commits
-                    .into_iter()
-                    .map(|commit| virtual_branches::VirtualBranchCommit {
-                        author: virtual_branches::Author {
-                            gravatar_url: proxy_map
-                                .get(&commit.author.gravatar_url)
-                                .unwrap()
-                                .clone(),
-                            ..commit.author
-                        },
-                        ..commit
-                    })
-                    .collect(),
-                upstream_commits: target
-                    .clone()
-                    .upstream_commits
-                    .into_iter()
-                    .map(|commit| virtual_branches::VirtualBranchCommit {
-                        author: virtual_branches::Author {
-                            gravatar_url: proxy_map
-                                .get(&commit.author.gravatar_url)
-                                .unwrap()
-                                .clone(),
-                            ..commit.author
-                        },
-                        ..commit
-                    })
-                    .collect(),
-                ..target
-            });
-
-            Ok(target)
-        }
-    }
+    Ok(target)
 }
 
 #[timed(duration(printer = "debug!"))]

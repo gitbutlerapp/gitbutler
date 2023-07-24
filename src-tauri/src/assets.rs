@@ -4,6 +4,7 @@ use anyhow::Result;
 use tokio::sync::Semaphore;
 use url::Url;
 
+#[derive(Clone)]
 pub struct Proxy {
     cache_dir: path::PathBuf,
 
