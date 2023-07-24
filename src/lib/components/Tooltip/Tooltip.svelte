@@ -38,7 +38,7 @@
 
 <div
 	role="tooltip"
-	class="h-fit w-fit flex-auto overflow-auto"
+	class="h-fit flex-auto overflow-auto"
 	on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
 	on:mouseleave={() => {
 		clearTimeout(timeout);
@@ -64,7 +64,7 @@
     "
 		use:floatingContent
 	>
-		<span class="whitespace-nowrap">{label}</span>
+		<span>{label}</span>
 		<div
 			class="
                 absolute
