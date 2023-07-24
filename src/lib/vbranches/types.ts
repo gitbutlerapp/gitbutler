@@ -9,7 +9,7 @@ export class Hunk {
 	})
 	modifiedAt!: Date;
 	filePath!: string;
-    locked!: boolean;
+	locked!: boolean;
 }
 
 export class File {
@@ -82,5 +82,9 @@ export class BaseBranch {
 
 	get repoBaseUrl(): string {
 		return this.remoteUrl.replace(':', '/').replace('git@', 'https://').replace('.git', '');
+	}
+
+	commitUrl(commitId: string): string | undefined {
+		return `${this.repoBaseUrl}/commit/${commitId}`;
 	}
 }

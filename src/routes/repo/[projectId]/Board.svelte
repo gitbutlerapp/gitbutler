@@ -11,7 +11,7 @@
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
-	export let target: BaseBranch | undefined;
+	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof CloudApi>;
 
@@ -88,7 +88,7 @@
 			{projectId}
 			branchId={id}
 			{projectPath}
-			{target}
+			{base}
 			{cloudEnabled}
 			{cloud}
 			{upstream}

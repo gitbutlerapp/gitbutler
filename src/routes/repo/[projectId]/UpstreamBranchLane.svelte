@@ -7,17 +7,17 @@
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
 
-	export let baseBranch: BaseBranch;
+	export let base: BaseBranch;
 
 	let updateTargetModal: Modal;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	// $: behind = baseBranch.behind > 0;
-	$: behindMessage = baseBranch.behind > 0 ? `behind ${baseBranch.behind}` : 'up-to-date';
+	$: behindMessage = base.behind > 0 ? `behind ${base.behind}` : 'up-to-date';
 
 	let fetching = false;
-	$: expanded = baseBranch.behind > 0;
+	$: expanded = base.behind > 0;
 	let buttonHovered = false;
 </script>
 
@@ -30,7 +30,7 @@
 	role="group"
 >
 	<div class="flex w-full items-center gap-4 border-b border-light-500 px-2 dark:border-dark-500">
-		<Tooltip label={'Fetch ' + baseBranch.branchName}>
+		<Tooltip label={'Fetch ' + base.branchName}>
 			<!-- svelte-ignore a11y-mouse-events-have-key-events -->
 			<button
 				on:mouseover={() => (buttonHovered = true)}
@@ -47,7 +47,7 @@
 						<div class:animate-spin={fetching}>
 							<IconRefresh class="h-4 w-4" />
 						</div>
-					{:else if baseBranch.remoteUrl.includes('github.com')}
+					{:else if base.remoteUrl.includes('github.com')}
 						<IconGithub class="h-4 w-4" />
 					{:else}
 						<IconBranch class="h-4 w-4" />
@@ -56,7 +56,7 @@
 			</button>
 		</Tooltip>
 		{#if expanded}
-			<div class="flex-grow font-mono font-bold">{baseBranch.branchName}</div>
+			<div class="flex-grow font-mono font-bold">{base.branchName}</div>
 		{/if}
 	</div>
 
@@ -75,7 +75,7 @@
 				<div class="ml-4">
 					<Tooltip
 						label={'Merges the commits from ' +
-							baseBranch.branchName +
+							base.branchName +
 							' into the base of all applied virtual branches'}
 					>
 						<Button
@@ -90,7 +90,7 @@
 				</div>
 				<div class="-ml-[18px] flex h-full">
 					<div class="z-40 mt-4 flex w-full flex-col gap-2">
-						{#each baseBranch.upstreamCommits as commit}
+						{#each base.upstreamCommits as commit}
 							<div class="flex w-full items-center pb-2">
 								<div class="ml-3 mr-2">
 									<div
@@ -99,7 +99,7 @@
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
 								</div>
-								<CommitCard {commit} />
+								<CommitCard {commit} {base} />
 							</div>
 						{/each}
 					</div>
