@@ -789,7 +789,7 @@ pub fn list_virtual_branches(
                 .context("failed to diff trees")?;
             let non_commited_hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
-            non_commited_hunks_by_filepath
+            let mut vfiles = non_commited_hunks_by_filepath
                 .into_iter()
                 .map(|(file_path, non_commited_hunks)| VirtualBranchFile {
                     id: file_path.display().to_string(),
@@ -819,7 +819,16 @@ pub fn list_virtual_branches(
                     )
                     .unwrap_or(false),
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+
+            // stable files sort using virtual files position
+            vfiles.sort_by(|a, b| {
+                let pos_a = files.iter().position(|f| f.id == a.id).unwrap_or(0);
+                let pos_b = files.iter().position(|f| f.id == b.id).unwrap_or(0);
+                pos_a.cmp(&pos_b)
+            });
+
+            vfiles
         } else {
             files
         };
