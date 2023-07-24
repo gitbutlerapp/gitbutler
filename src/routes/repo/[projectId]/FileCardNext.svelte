@@ -20,6 +20,8 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { slide } from 'svelte/transition';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import { summarizeHunk } from '$lib/summaries';
 
 	export let file: File;
 	export let conflicted: boolean;
@@ -28,6 +30,7 @@
 	export let projectPath: string;
 	export let expanded: boolean | undefined;
 
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;
@@ -139,6 +142,15 @@
 			>
 				{#each sections as section}
 					{#if 'hunk' in section}
+						{#if $userSettings.aiSummariesEnabled}
+							{#await summarizeHunk(section.hunk.diff) then description}
+								<div
+									class="truncate whitespace-normal pb-1 pl-1 pt-2 text-light-700 dark:text-dark-200"
+								>
+									{description}
+								</div>
+							{/await}
+						{/if}
 						<div
 							class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 bg-white dark:border-dark-400 dark:bg-dark-900"
 						>

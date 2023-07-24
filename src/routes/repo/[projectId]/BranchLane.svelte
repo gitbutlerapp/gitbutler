@@ -405,13 +405,13 @@
 					transition:slide={{ duration: 150 }}
 				>
 					<div
-						class="dark:form-dark-600 via-90% absolute top-4 ml-[1.0625rem] w-px bg-gradient-to-b from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600"
+						class="dark:form-dark-600 absolute top-4 ml-[1.0625rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
 						style={remoteCommits.length == 0 ? 'height: calc(100% - 1rem);' : 'height: 100%;'}
 					/>
 
 					<div class="relative flex flex-col gap-2">
 						<div
-							class="dark:form-dark-600 via-10% absolute top-4 ml-[1.0625rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600"
+							class="dark:form-dark-600 absolute top-4 ml-[1.0625rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
 						/>
 						<div class="ml-10 mr-2 flex items-center py-2">
 							<div
@@ -452,14 +452,14 @@
 			{#if remoteCommits.length > 0}
 				<div class="relative flex-grow">
 					<div
-						class="dark:form-dark-600 via-90% absolute top-4
-						ml-[1.0625rem] w-px bg-gradient-to-b from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+						class="dark:form-dark-600 absolute top-4 ml-[1.0625rem]
+						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 						style="height: calc(100% - 1rem);"
 					/>
 
 					<div class="relative flex flex-col gap-2">
 						<div
-							class="dark:form-dark-600 via-10% absolute top-4 ml-[1.0625rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400"
+							class="dark:form-dark-600 absolute top-4 ml-[1.0625rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
 						/>
 
 						<div class="ml-12 flex items-center py-2 font-mono text-sm">
