@@ -69,6 +69,12 @@
 			hotkeys.on('Meta+Equal', () => (zoom = Math.min(zoom + 0.0625, 3))),
 			hotkeys.on('Meta+Minus', () => (zoom = Math.max(zoom - 0.0625, 0.375))),
 			hotkeys.on('Meta+Digit0', () => (zoom = 1)),
+			hotkeys.on('Meta+T', () => {
+				userSettings.update((s) => ({
+					...s,
+					theme: $userSettings.theme == 'light' ? 'dark' : 'light'
+				}));
+			}),
 
 			user.subscribe(posthog.identify),
 			user.subscribe(sentry.identify)
@@ -86,7 +92,6 @@
 			<Breadcrumbs project={$project} />
 		</div>
 		<div class="flex-grow" />
-		<ThemeSelector />
 		<div class="mr-6">
 			{#await user.load() then}
 				<Link href="/user/">
