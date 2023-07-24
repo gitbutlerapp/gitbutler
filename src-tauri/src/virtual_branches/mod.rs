@@ -1914,6 +1914,7 @@ pub fn update_gitbutler_integration(
     // write final_tree as the current index
     let mut index = repo.index()?;
     index.read_tree(&final_tree)?;
+    index.write()?;
 
     Ok(())
 }
