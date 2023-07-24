@@ -187,7 +187,7 @@
 												on:contextmenu={(e) =>
 													popupMenu.openByMouse(e, {
 														section: subsection,
-														lineNumber: line.afterLineNumber
+														lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
 													})}
 											/>
 										{/each}
