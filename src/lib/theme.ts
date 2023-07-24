@@ -24,10 +24,18 @@ export function initTheme(userSettings: SettingsStore) {
 
 export function updateDom() {
 	const docEl = document.documentElement;
-	if (selectedTheme == 'dark' || (selectedTheme == 'system' && systemTheme == 'dark')) {
+	if (
+		selectedTheme == 'dark' ||
+		(selectedTheme == 'system' && systemTheme == 'dark') ||
+		(selectedTheme == undefined && systemTheme == 'dark')
+	) {
 		docEl.classList.add('dark');
 		docEl.style.colorScheme = 'dark';
-	} else if (selectedTheme == 'light' || (selectedTheme == 'system' && systemTheme == 'light')) {
+	} else if (
+		selectedTheme == 'light' ||
+		(selectedTheme == 'system' && systemTheme == 'light') ||
+		(selectedTheme == undefined && systemTheme == 'light')
+	) {
 		docEl.classList.remove('dark');
 		docEl.style.colorScheme = 'light';
 	}
