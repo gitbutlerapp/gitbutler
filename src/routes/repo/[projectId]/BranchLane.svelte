@@ -298,7 +298,7 @@
 							</Button>
 						{:else}
 							<Tooltip
-								label="Summary generation requres that you are logged in and have cloud sync enabled"
+								label="Summary generation requres that you are logged in and have cloud sync enabled for the project"
 							>
 								<Button
 									disabled={true}
