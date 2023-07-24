@@ -146,6 +146,11 @@
 	$: checkCommitsAnnotated();
 
 	let isGeneratingCommigMessage = false;
+	function trimNonLetters(input: string): string {
+		const regex = /^[^a-zA-Z]+|[^a-zA-Z]+$/g;
+		const trimmedString = input.replace(regex, '');
+		return trimmedString;
+	}
 	async function generateCommitMessage(files: File[]) {
 		const diff = files
 			.map((f) => f.hunks)
@@ -167,7 +172,7 @@
 				const firstNewLine = message.indexOf('\n');
 				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
 				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
-				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
+				commitMessage = trimNonLetters(description.length > 0 ? `${summary}\n\n${description}` : summary);
 			})
 			.catch(() => {
 				toasts.error('Failed to generate commit message');
