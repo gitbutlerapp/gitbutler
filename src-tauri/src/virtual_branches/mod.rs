@@ -1867,14 +1867,14 @@ pub fn update_gitbutler_integration(
     let mut message = "GitButler Integration Commit".to_string();
     message.push_str("\n\n");
     message.push_str(
-        "This is an integration commit for the virtual branches that GitButler is tracking.\n",
+        "This is an integration commit for the virtual branches that GitButler is tracking.\n\n",
     );
     message.push_str(
         "Due to GitButler managing multiple virtual branches, you cannot switch back and\n",
     );
-    message.push_str(
-        "forth easily. If you switch to another branch, GitButler will need to be reinitialized.\n",
-    );
+    message.push_str("forth between git branches and virtual branches easily. \n\n");
+
+    message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
     message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
     message.push_str("Here are the branches that are currently applied:\n");
     for branch in &applied_virtual_branches {
@@ -1893,16 +1893,20 @@ pub fn update_gitbutler_integration(
             message.push('\n');
         }
     }
-    message.push_str("\nTo get back to where you were, run:\n\n");
-    message.push_str("git checkout ");
+    message.push_str("\nYour previous branch was: ");
     message.push_str(&prev_head);
     message.push_str("\n\n");
     message.push_str("The sha for that commit was: ");
     message.push_str(&prev_sha);
+    message.push_str("\n\n");
+    message.push_str("For more information about what we're doing here, check out our docs:\n");
+    message.push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
+
+    let committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
 
     repo.commit(
         Some("HEAD"),
-        &author,
+        &committer,
         &committer,
         &message,
         &final_tree,
