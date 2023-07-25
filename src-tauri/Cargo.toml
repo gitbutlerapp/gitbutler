@@ -55,7 +55,6 @@ sha1 = "0.10.5"
 tokio-util = "0.7.8"
 diffy = "0.3.0"
 url = "2.4.0"
-chrono = "0.4.26"
 
 [features]
 # by default Tauri runs in production mode
