@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Checkbox, Modal } from '$lib/components';
-	import type { Branch, BranchData } from '$lib/vbranches';
+	import type { Branch, BranchData, Hunk } from '$lib/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
 	import { IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
@@ -36,6 +36,19 @@
 			branchController.applyBranch(branch.id);
 		}
 	}
+
+	function sumBranchLinesAddedRemoved(branch: Branch) {
+		return branch.files
+			.flatMap((f) => f.hunks)
+			.map((h) => h.diff.split('\n'))
+			.reduce(
+				(acc, lines) => ({
+					added: acc.added + lines.filter((l) => l.startsWith('+')).length,
+					removed: acc.removed + lines.filter((l) => l.startsWith('-')).length
+				}),
+				{ added: 0, removed: 0 }
+			);
+	}
 </script>
 
 <div
@@ -59,6 +72,7 @@
 	</div>
 	<div class="flex flex-col dark:bg-dark-900" use:accordion={yourBranchesOpen}>
 		{#each branches as branch (branch.id)}
+			{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
 			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 			<div
 				role="listitem"
@@ -66,7 +80,7 @@
 				class="border-b border-light-400 p-2 dark:border-dark-600"
 			>
 				<div class="flex flex-row justify-between">
-					<div class="flex w-full">
+					<div class="flex w-full items-center">
 						<Checkbox
 							on:change={() => toggleBranch(branch)}
 							bind:checked={branch.active}
@@ -93,8 +107,18 @@
 						{/if}
 					{/if}
 				</div>
-				<div class="text-sm text-light-700 dark:text-dark-300">
-					{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
+				<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
+					<div class="flex-grow">
+						{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
+					</div>
+					<div class="flex gap-1 font-mono text-sm font-bold">
+						<span class="text-green-500">
+							+{added}
+						</span>
+						<span class="text-red-500">
+							-{removed}
+						</span>
+					</div>
 				</div>
 			</div>
 		{/each}
