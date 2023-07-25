@@ -1,14 +1,18 @@
 use std::collections::HashSet;
 
+pub fn dedup(existing: &[&str], new: &str) -> String {
+    dedup_fmt(existing, new, " ")
+}
+
 // dedup makes sure that _new_ is not in _existing_ by adding a number to it.
 // the number is increased until the name is unique.
-pub fn dedup(existing: &[&str], new: &str) -> String {
+pub fn dedup_fmt(existing: &[&str], new: &str, separator: &str) -> String {
     let used_numbers = existing
         .iter()
         .filter(|x| x.starts_with(new))
         .filter_map(|x| {
             x.strip_prefix(new)
-                .map(|x| x.trim_start())
+                .and_then(|x| x.strip_prefix(separator).or(Some(x)))
                 .map(|x| x.parse::<i32>().unwrap_or(-1))
         })
         .collect::<HashSet<_>>();
@@ -20,7 +24,7 @@ pub fn dedup(existing: &[&str], new: &str) -> String {
         while used_numbers.contains(&number) {
             number += 1;
         }
-        format!("{} {}", new, number)
+        format!("{}{}{}", new, separator, number)
     }
 }
 

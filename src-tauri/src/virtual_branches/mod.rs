@@ -20,6 +20,7 @@ pub use branch::{Branch, BranchCreateRequest, FileOwnership, Hunk, Ownership};
 pub use iterator::BranchIterator as Iterator;
 use uuid::Uuid;
 
+use crate::dedup::dedup_fmt;
 use crate::{
     dedup::dedup,
     gb_repository,
@@ -2217,13 +2218,15 @@ pub fn push(
     };
 
     let remote_branches = project_repository.git_remote_branches()?;
-    let existing_branches = remote_branches.iter().collect::<HashSet<_>>();
-    let remote_branch = if existing_branches.contains(&remote_branch) {
-        let now = chrono::Utc::now().format("%Y%m%d%H%M%S");
-        remote_branch.with_branch(&format!("{}-{}", remote_branch.branch(), now))
-    } else {
-        remote_branch
-    };
+    let existing_branches = remote_branches
+        .iter()
+        .map(|name| name.branch())
+        .collect::<Vec<_>>();
+    let remote_branch = remote_branch.with_branch(&name_to_branch(&dedup_fmt(
+        &existing_branches,
+        remote_branch.branch(),
+        "-",
+    )));
 
     project_repository
         .push(&vbranch.head, &remote_branch)
