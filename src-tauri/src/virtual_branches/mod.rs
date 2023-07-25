@@ -761,12 +761,18 @@ pub fn list_virtual_branches(
             .map(|(_, files)| files.clone())
             .unwrap_or(vec![]);
 
-        let all_hunks = files
+        let file_hunks = files
             .iter()
-            .map(|file| {
+            .cloned()
+            .map(|file| (file.path, file.hunks))
+            .collect::<HashMap<_, _>>();
+
+        let file_hunk_hashes = file_hunks
+            .iter()
+            .map(|(path, hunks)| {
                 (
-                    file.path.clone(),
-                    file.hunks
+                    path,
+                    hunks
                         .iter()
                         .map(|hunk| hunk.hash.clone())
                         .collect::<HashSet<_>>(),
@@ -791,42 +797,49 @@ pub fn list_virtual_branches(
 
             let mut vfiles = non_commited_hunks_by_filepath
                 .into_iter()
-                .map(|(file_path, non_commited_hunks)| VirtualBranchFile {
-                    id: file_path.display().to_string(),
-                    path: file_path.clone(),
-                    binary: non_commited_hunks.iter().any(|h| h.binary),
-                    modified_at: non_commited_hunks
-                        .iter()
-                        .map(|h| h.modified_at)
-                        .max()
-                        .unwrap_or(0),
-                    hunks: non_commited_hunks
-                        .into_iter()
-                        .map(|hunk| VirtualBranchHunk {
-                            // we consider a hunk to be locked if it's not seen verbatim
-                            // non-commited. reason beging - we can't partialy move hunks between
-                            // branches just yet.
-                            locked: all_hunks
-                                .get(&file_path)
-                                .map(|h| !h.contains(&hunk.hash))
-                                .unwrap_or(false),
-                            ..hunk
+                .map(|(file_path, mut non_commited_hunks)| {
+                    // sort non commited hunks the same way as the real hunks are sorted
+                    non_commited_hunks.sort_by_key(|h| {
+                        file_hunks[&file_path].iter().position(|h2| {
+                            let h_range = [h.start..=h.end];
+                            let h2_range = [h2.start..=h2.end];
+                            h2_range.iter().any(|line| h_range.contains(line))
                         })
-                        .collect::<Vec<_>>(),
-                    conflicted: conflicts::is_conflicting(
-                        project_repository,
-                        Some(&file_path.display().to_string()),
-                    )
-                    .unwrap_or(false),
+                    });
+
+                    VirtualBranchFile {
+                        id: file_path.display().to_string(),
+                        path: file_path.clone(),
+                        binary: non_commited_hunks.iter().any(|h| h.binary),
+                        modified_at: non_commited_hunks
+                            .iter()
+                            .map(|h| h.modified_at)
+                            .max()
+                            .unwrap_or(0),
+                        hunks: non_commited_hunks
+                            .into_iter()
+                            .map(|hunk| VirtualBranchHunk {
+                                // we consider a hunk to be locked if it's not seen verbatim
+                                // non-commited. reason beging - we can't partialy move hunks between
+                                // branches just yet.
+                                locked: file_hunk_hashes
+                                    .get(&file_path)
+                                    .map(|h| !h.contains(&hunk.hash))
+                                    .unwrap_or(false),
+                                ..hunk
+                            })
+                            .collect::<Vec<_>>(),
+                        conflicted: conflicts::is_conflicting(
+                            project_repository,
+                            Some(&file_path.display().to_string()),
+                        )
+                        .unwrap_or(false),
+                    }
                 })
                 .collect::<Vec<_>>();
 
             // stable files sort using virtual files position
-            vfiles.sort_by(|a, b| {
-                let pos_a = files.iter().position(|f| f.id == a.id).unwrap_or(0);
-                let pos_b = files.iter().position(|f| f.id == b.id).unwrap_or(0);
-                pos_a.cmp(&pos_b)
-            });
+            vfiles.sort_by_key(|a| files.iter().position(|f| f.id == a.id).unwrap_or(0));
 
             vfiles
         } else {
