@@ -361,9 +361,9 @@ fn test_create_branch_in_the_middle() -> Result<()> {
         .expect("failed to read branches");
     branches.sort_by_key(|b| b.order);
     assert_eq!(branches.len(), 3);
-    assert_eq!(branches[0].name, "Virtual branch 1");
-    assert_eq!(branches[1].name, "Virtual branch 3");
-    assert_eq!(branches[2].name, "Virtual branch 2");
+    assert_eq!(branches[0].name, "Virtual branch");
+    assert_eq!(branches[1].name, "Virtual branch 2");
+    assert_eq!(branches[2].name, "Virtual branch 1");
 
     Ok(())
 }
@@ -396,7 +396,7 @@ fn test_create_branch_no_arguments() -> Result<()> {
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .expect("failed to read branches");
     assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].name, "Virtual branch 1");
+    assert_eq!(branches[0].name, "Virtual branch");
     assert!(branches[0].applied);
     assert_eq!(branches[0].ownership, Ownership::default());
     assert_eq!(branches[0].order, 0);
