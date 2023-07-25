@@ -1,6 +1,7 @@
 #[macro_use(defer)]
 extern crate scopeguard;
 
+mod dedup;
 mod app;
 mod assets;
 mod bookmarks;

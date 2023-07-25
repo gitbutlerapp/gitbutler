@@ -21,6 +21,7 @@ pub use iterator::BranchIterator as Iterator;
 use uuid::Uuid;
 
 use crate::{
+    dedup::dedup,
     gb_repository,
     project_repository::{self, conflicts, diff},
     reader, sessions,
@@ -1137,7 +1138,15 @@ pub fn create_virtual_branch(
         .name
         .as_ref()
         .map(|name| name.to_string())
-        .unwrap_or_else(|| format!("Virtual branch {}", all_virtual_branches.len() + 1));
+        .unwrap_or_else(|| {
+            dedup(
+                &all_virtual_branches
+                    .iter()
+                    .map(|b| b.name.as_str())
+                    .collect::<Vec<_>>(),
+                "Virtual branch",
+            )
+        });
 
     let mut branch = Branch {
         id: Uuid::new_v4().to_string(),
