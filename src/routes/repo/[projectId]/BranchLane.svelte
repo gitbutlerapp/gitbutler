@@ -169,7 +169,9 @@
 				const firstNewLine = message.indexOf('\n');
 				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
 				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
-				commitMessage = trimNonLetters(description.length > 0 ? `${summary}\n\n${description}` : summary);
+				commitMessage = trimNonLetters(
+					description.length > 0 ? `${summary}\n\n${description}` : summary
+				);
 			})
 			.catch(() => {
 				toasts.error('Failed to generate commit message');
@@ -445,7 +447,7 @@
 										class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
 									/>
 								</div>
-								<CommitCard {commit} {base} />
+								<CommitCard {commit} />
 							</div>
 						{/each}
 					</div>
@@ -488,7 +490,7 @@
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
 								</div>
-								<CommitCard {commit} {base} />
+								<CommitCard {commit} url={base?.commitUrl(commit.id)} />
 							</div>
 						{/each}
 					</div>

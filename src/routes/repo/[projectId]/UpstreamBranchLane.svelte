@@ -99,7 +99,7 @@
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
 								</div>
-								<CommitCard {commit} {base} />
+								<CommitCard {commit} url={base.commitUrl(commit.id)} />
 							</div>
 						{/each}
 					</div>
