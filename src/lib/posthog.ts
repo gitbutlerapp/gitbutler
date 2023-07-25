@@ -7,6 +7,7 @@ export default () => {
 		api_host: 'https://eu.posthog.com',
 		capture_performance: false,
 		request_batching: true,
+		secure_cookie: false,
 		on_xhr_error: () => {
 			// noop
 		}
