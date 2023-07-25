@@ -218,4 +218,4 @@ jobs:
             - name: Test rust
               if: ${{ steps.changes.outputs.rust == 'true' }}
               working-directory: src-tauri
-              run: cargo test
+              run: cargo test --locked
