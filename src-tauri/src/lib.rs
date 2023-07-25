@@ -4,6 +4,7 @@ extern crate scopeguard;
 pub mod app;
 pub mod bookmarks;
 pub mod database;
+pub mod dedup;
 pub mod deltas;
 pub mod events;
 pub mod files;
