@@ -141,8 +141,7 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 export function parseFileSections(file: File): (ContentSection | HunkSection)[] {
 	const hunkSections = file.hunks
 		.map(parseHunkSection)
-		.filter((hunkSection) => hunkSection !== undefined)
-		.sort((a, b) => a.header.beforeStart - b.header.beforeStart);
+		.filter((hunkSection) => hunkSection !== undefined);
 
 	if (!file.content) return hunkSections;
 
