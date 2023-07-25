@@ -41,7 +41,6 @@
 	export let branchId: string;
 	export let projectPath: string;
 	export let name: string;
-	export let commitMessage: string;
 	export let files: File[];
 	export let commits: Commit[];
 	export let projectId: string;
@@ -54,6 +53,7 @@
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 	const user = stores.user;
+	let commitMessage: string;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
 	$: localCommits = commits.filter((c) => !c.isRemote);

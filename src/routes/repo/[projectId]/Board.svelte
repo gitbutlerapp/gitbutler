@@ -70,7 +70,7 @@
 		}
 	}}
 >
-	{#each branches.filter((c) => c.active) as { id, name, files, commits, description, order, conflicted, upstream } (id)}
+	{#each branches.filter((c) => c.active) as { id, name, files, commits, order, conflicted, upstream } (id)}
 		<Lane
 			on:dragstart={(e) => {
 				if (!e.dataTransfer) return;
@@ -79,7 +79,6 @@
 				priorPosition = Array.from(dropZone.children).indexOf(dragged);
 			}}
 			{name}
-			commitMessage={description}
 			{files}
 			{commits}
 			{conflicted}
