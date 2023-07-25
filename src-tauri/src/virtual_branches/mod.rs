@@ -2207,6 +2207,15 @@ pub fn push(
         }
     };
 
+    let remote_branches = project_repository.git_remote_branches()?;
+    let existing_branches = remote_branches.iter().collect::<HashSet<_>>();
+    let remote_branch = if existing_branches.contains(&remote_branch) {
+        let now = chrono::Utc::now().format("%Y%m%d%H%M%S");
+        remote_branch.with_branch(&format!("{}-{}", remote_branch.branch(), now))
+    } else {
+        remote_branch
+    };
+
     project_repository
         .push(&vbranch.head, &remote_branch)
         .map_err(|err| match err {
