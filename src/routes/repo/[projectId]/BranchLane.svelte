@@ -19,6 +19,7 @@
 	import { flip } from 'svelte/animate';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { CloudApi } from '$lib/api';
+	import LinkedCommitCard from './LinkedCommitCard.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -445,7 +446,7 @@
 										class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
 									/>
 								</div>
-								<CommitCard {commit} {base} />
+								<CommitCard {commit} />
 							</div>
 						{/each}
 					</div>
@@ -488,7 +489,7 @@
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
 								</div>
-								<CommitCard {commit} {base} />
+								<LinkedCommitCard {commit} url={base?.commitUrl(commit.id)} />
 							</div>
 						{/each}
 					</div>

@@ -2,10 +2,10 @@
 	import { IconBranch, IconRefresh, IconGithub } from '$lib/icons';
 	import { Button, Modal, Tooltip } from '$lib/components';
 	import type { BaseBranch } from '$lib/vbranches';
-	import CommitCard from './CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
+	import LinkedCommitCard from './LinkedCommitCard.svelte';
 
 	export let base: BaseBranch;
 
@@ -99,7 +99,7 @@
 										class:dark:bg-dark-500={commit.isRemote}
 									/>
 								</div>
-								<CommitCard {commit} {base} />
+								<LinkedCommitCard {commit} url={base.commitUrl(commit.id)} />
 							</div>
 						{/each}
 					</div>
