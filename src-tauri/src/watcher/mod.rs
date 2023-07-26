@@ -10,6 +10,7 @@ use std::{
 pub use events::Event;
 
 use anyhow::{Context, Result};
+use tauri::async_runtime;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -140,28 +141,38 @@ impl<'watcher> InnerWatcher {
 
         tx.send(Event::IndexAll).context("failed to send event")?;
 
-        loop {
-            tokio::select! {
-                Some(event) = rx.recv() => {
-                    let project_id = self.project_id.clone();
-                    let handler = self.handler.clone();
-                    match handler.handle(event).await {
-                        Ok(events) => {
-                            for event in events {
-                                if let Err(e) = tx.send(event) {
-                                    log::error!("{}: failed to post event: {:#}", project_id, e);
+        let handler = self.handler.clone();
+        let dispatcher = self.dispatcher.clone();
+        let project_id = self.project_id.clone();
+        let cancellation_token = self.cancellation_token.clone();
+        let handler_handle = async_runtime::spawn(async move {
+            loop {
+                tokio::select! {
+                    Some(event) = rx.recv() => {
+                        match handler.handle(event).await {
+                            Ok(events) => {
+                                for event in events {
+                                    if let Err(e) = tx.send(event) {
+                                        log::error!("{}: failed to post event: {:#}", project_id, e);
+                                    }
                                 }
-                            }
-                        },
-                        Err(err) => log::error!("{}: failed to handle event: {:#}", project_id, err),
+                            },
+                            Err(err) => log::error!("{}: failed to handle event: {:#}", project_id, err),
+                        }
+                    },
+                    _ = cancellation_token.cancelled() => {
+                        if let Err(error) = dispatcher.stop() {
+                            log::error!("{}: failed to stop dispatcher: {:#}", project_id, error);
+                        }
+                        break;
                     }
-                },
-                _ = self.cancellation_token.cancelled() => {
-                    self.dispatcher.stop()?;
-                    dispatcher_handle.await?;
-                    return Ok(())
                 }
             }
-        }
+        });
+
+        tokio::try_join!(dispatcher_handle, handler_handle)
+            .context("failed to join dispatcher and handler")?;
+
+        Ok(())
     }
 }
