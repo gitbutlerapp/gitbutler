@@ -58,8 +58,8 @@ impl Watcher {
         self.inner.post(event)
     }
 
-    pub async fn start(&self) -> Result<()> {
-        self.inner.start().await
+    pub async fn run(&self) -> Result<()> {
+        self.inner.run().await
     }
 }
 
@@ -124,7 +124,7 @@ impl<'watcher> InnerWatcher {
         }
     }
 
-    pub async fn start(&self) -> Result<()> {
+    pub async fn run(&self) -> Result<()> {
         let dispatcher = self.dispatcher.clone();
         let project_id = self.project_id.clone();
 
@@ -133,7 +133,7 @@ impl<'watcher> InnerWatcher {
 
         let c_tx = tx.clone();
         let dispatcher_handle = tauri::async_runtime::spawn(async move {
-            if let Err(e) = dispatcher.start(c_tx).await {
+            if let Err(e) = dispatcher.run(c_tx).await {
                 log::error!("{}: failed to start dispatcher: {:#}", project_id, e);
             }
         });

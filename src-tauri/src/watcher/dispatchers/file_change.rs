@@ -37,7 +37,7 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub async fn start(&self, rtx: mpsc::UnboundedSender<events::Event>) -> Result<()> {
+    pub async fn run(&self, rtx: mpsc::UnboundedSender<events::Event>) -> Result<()> {
         let (mut watcher, mut rx) = async_watcher()?;
         watcher
             .watch(

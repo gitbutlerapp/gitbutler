@@ -25,7 +25,7 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub async fn start(
+    pub async fn run(
         &self,
         interval: time::Duration,
         rtx: mpsc::UnboundedSender<events::Event>,
@@ -62,7 +62,7 @@ mod tests {
         let dispatcher2 = dispatcher.clone();
         let handle = tokio::spawn(async move {
             dispatcher2
-                .start(Duration::from_millis(10), tx)
+                .run(Duration::from_millis(10), tx)
                 .await
                 .unwrap();
         });
