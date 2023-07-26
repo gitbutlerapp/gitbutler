@@ -1634,17 +1634,24 @@ pub fn update_base_branch(
     // 6. unapplied branch, no conflicts
 
     let mut vbranches = get_status_by_branch(gb_repository, project_repository)?;
+    let mut vbranches_commits = list_virtual_branches(gb_repository, project_repository)?;
     // update the heads of all our virtual branches
     for virtual_branch in &mut virtual_branches {
         let mut virtual_branch = virtual_branch.clone();
 
-        let (_, files) = vbranches
+        let all_files = vbranches
             .iter()
             .find(|(vbranch, _)| vbranch.id == virtual_branch.id)
-            .unwrap();
+            .map(|(_, files)| files);
+
+        let non_commited_files = vbranches_commits
+            .iter()
+            .find(|vbranch| vbranch.id == virtual_branch.id)
+            .map(|vbranch| vbranch.files.clone())
+            .unwrap_or_default();
 
         let tree_oid = if virtual_branch.applied {
-            write_tree(project_repository, &target, files).context(format!(
+            write_tree(project_repository, &target, all_files.unwrap()).context(format!(
                 "failed to write tree for branch {}",
                 virtual_branch.id
             ))?
@@ -1673,6 +1680,7 @@ pub fn update_base_branch(
                 // this changes the wd, and thus the hunks, so we need to re-run the active branch listing
                 unapply_branch(gb_repository, project_repository, &virtual_branch.id)?;
                 vbranches = get_status_by_branch(gb_repository, project_repository)?;
+                vbranches_commits = list_virtual_branches(gb_repository, project_repository)?;
             }
             virtual_branch = branch_reader.read(&virtual_branch.id)?;
 
@@ -1749,6 +1757,7 @@ pub fn update_base_branch(
                     // this changes the wd, and thus the hunks, so we need to re-run the active branch listing
                     unapply_branch(gb_repository, project_repository, &virtual_branch.id)?;
                     vbranches = get_status_by_branch(gb_repository, project_repository)?;
+                    vbranches_commits = list_virtual_branches(gb_repository, project_repository)?;
                 } else {
                     // get the merge tree oid from writing the index out
                     let merge_tree_oid = merge_index
@@ -1761,7 +1770,7 @@ pub fn update_base_branch(
 
                     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                     // then the vbranch is fully merged, so delete it
-                    if merge_tree_oid == new_target_tree.id() && files.is_empty() {
+                    if merge_tree_oid == new_target_tree.id() && non_commited_files.is_empty() {
                         branch_writer.delete(&virtual_branch)?;
                     } else {
                         let (author, committer) = gb_repository.git_signatures()?;
