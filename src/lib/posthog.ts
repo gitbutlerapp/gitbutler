@@ -3,7 +3,11 @@ import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
 import type { User } from '$lib/api';
 import { getVersion, getName } from '@tauri-apps/api/app';
 
-export default async function () {
+interface PostHogClient {
+	identify: (user: User | null) => void;
+}
+
+export default async function (): Promise<PostHogClient> {
 	const [appName, appVersion] = await Promise.all([getName(), getVersion()]);
 	return new Promise((resolve, _reject) => {
 		posthog.init(PUBLIC_POSTHOG_API_KEY, {
