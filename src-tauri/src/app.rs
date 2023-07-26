@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops, path, sync, time};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use tokio::sync::Semaphore;
 
 use crate::{
@@ -333,6 +333,14 @@ impl App {
         create: &virtual_branches::branch::BranchCreateRequest,
     ) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
+
+        let project = self.gb_project(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)
+            .context("failed to open project repository")?;
+
+        if conflicts::is_resolving(&project_repository) {
+            bail!("cannot create a branch, project is in a conflicted state");
+        }
 
         let mut semaphores = self.vbranch_semaphores.lock().await;
         let semaphore = semaphores
