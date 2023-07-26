@@ -32,7 +32,7 @@ impl Display for Event {
             Event::Tick(ts) => write!(f, "Tick({:?})", ts),
             Event::FetchGitbutlerData(ts) => write!(f, "FetchGitbutlerData({:?})", ts),
             Event::Flush(session) => write!(f, "Flush({})", session.id),
-            Event::FileChange(_) => write!(f, "FileChange"),
+            Event::FileChange(path) => write!(f, "FileChange({})", path.display()),
             Event::GitFileChange(_) => write!(f, "GitFileChange"),
             Event::ProjectFileChange(path) => write!(f, "ProjectFileChange({})", path.display()),
             Event::Session(session) => write!(f, "Session({})", session.id),
