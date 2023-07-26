@@ -72,7 +72,6 @@
 	</div>
 	<div class="flex flex-col dark:bg-dark-900" use:accordion={yourBranchesOpen}>
 		{#each branches as branch (branch.id)}
-			{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
 			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 			<div
 				role="listitem"
@@ -110,14 +109,6 @@
 				<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
 					<div class="flex-grow">
 						{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
-					</div>
-					<div class="flex gap-1 font-mono text-sm font-bold">
-						<span class="text-green-500">
-							+{added}
-						</span>
-						<span class="text-red-500">
-							-{removed}
-						</span>
 					</div>
 				</div>
 			</div>
