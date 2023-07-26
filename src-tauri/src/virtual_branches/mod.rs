@@ -727,7 +727,6 @@ fn check_mergeable(
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    with_commits: bool,
 ) -> Result<Vec<VirtualBranch>> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
     let current_session = gb_repository
@@ -784,7 +783,7 @@ pub fn list_virtual_branches(
 
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
-        let vfiles = if (default_target.sha != branch.head) && branch.applied && with_commits {
+        let vfiles = if (default_target.sha != branch.head) && branch.applied {
             // TODO: make sure this works
             let vtree = write_tree(project_repository, &default_target, &files)?;
             let repo = &project_repository.git_repository;
@@ -795,6 +794,7 @@ pub fn list_virtual_branches(
             // do a diff between branch.head and the tree we _would_ commit
             let diff = diff::trees(project_repository, &tree_old, &vtree_tree)
                 .context("failed to diff trees")?;
+
             let non_commited_hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
             let mut vfiles = non_commited_hunks_by_filepath
@@ -1583,26 +1583,28 @@ pub fn update_base_branch(
         .context("failed to get current session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
+
     // look up the target and see if there is a new oid
     let target = get_default_target(&current_session_reader)
         .context("failed to get target")?
         .context("no target found")?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
-    let writer = branch::Writer::new(gb_repository);
+    let branch_writer = branch::Writer::new(gb_repository);
 
     let repo = &project_repository.git_repository;
-    let branch = repo
+    let target_branch = repo
         .find_branch(&target.branch_name, git2::BranchType::Remote)
         .context(format!("failed to find branch {}", target.branch_name))?;
-    let new_target_commit = branch.get().peel_to_commit().context(format!(
+
+    let new_target_commit = target_branch.get().peel_to_commit().context(format!(
         "failed to peel branch {} to commit",
         target.branch_name
     ))?;
-    let new_target_oid = new_target_commit.id();
+    let new_target_commit_oid = new_target_commit.id();
 
     // if the target has not changed, do nothing
-    if new_target_oid == target.sha {
+    if new_target_commit_oid == target.sha {
         return Ok(());
     }
 
@@ -1616,17 +1618,12 @@ pub fn update_base_branch(
         .into_iter()
         .collect::<Vec<_>>();
 
-    let merge_options = git2::MergeOptions::new();
-
     // get tree from new target
-    let new_target_commit = repo.find_commit(new_target_oid)?;
     let new_target_tree = new_target_commit.tree()?;
 
     // get tree from target.sha
-    let target_commit = repo.find_commit(target.sha)?;
-    let target_tree = target_commit.tree()?;
-
-    let (author, committer) = gb_repository.git_signatures()?;
+    let old_target_commit = repo.find_commit(target.sha)?;
+    let old_target_tree = old_target_commit.tree()?;
 
     // ok, now we need to deal with a number of situations
     // 1. applied branch, uncommitted conflicts
@@ -1636,38 +1633,38 @@ pub fn update_base_branch(
     // 5. unapplied branch, committed conflicts but not uncommitted
     // 6. unapplied branch, no conflicts
 
-    let mut vbranches = list_virtual_branches(gb_repository, project_repository, false)?;
-    let mut vbranches_commits = list_virtual_branches(gb_repository, project_repository, true)?;
+    let mut vbranches = get_status_by_branch(gb_repository, project_repository)?;
     // update the heads of all our virtual branches
     for virtual_branch in &mut virtual_branches {
         let mut virtual_branch = virtual_branch.clone();
 
-        // get the matching vbranch
-        let vbranch = vbranches
+        let (_, files) = vbranches
             .iter()
-            .find(|vbranch| vbranch.id == virtual_branch.id)
+            .find(|(vbranch, _)| vbranch.id == virtual_branch.id)
             .unwrap();
 
-        let vbranch_commits = vbranches_commits
-            .iter()
-            .find(|vbranch| vbranch.id == virtual_branch.id)
-            .unwrap();
-
-        let mut tree_oid = virtual_branch.tree;
-        if virtual_branch.applied {
-            tree_oid = write_tree(project_repository, &target, &vbranch.files)?;
-        }
+        let tree_oid = if virtual_branch.applied {
+            write_tree(project_repository, &target, files).context(format!(
+                "failed to write tree for branch {}",
+                virtual_branch.id
+            ))?
+        } else {
+            virtual_branch.tree
+        };
         let branch_tree = repo.find_tree(tree_oid)?;
 
         // check for conflicts with this tree
         let merge_index = repo
             .merge_trees(
-                &target_tree,
+                &old_target_tree,
                 &branch_tree,
                 &new_target_tree,
-                Some(&merge_options),
+                Some(&git2::MergeOptions::new()),
             )
-            .context("failed to merge trees")?;
+            .context(format!(
+                "failed to merge trees for branch {}",
+                virtual_branch.id
+            ))?;
 
         // check if the branch head has conflicts
         if merge_index.has_conflicts() {
@@ -1675,8 +1672,7 @@ pub fn update_base_branch(
             if virtual_branch.applied {
                 // this changes the wd, and thus the hunks, so we need to re-run the active branch listing
                 unapply_branch(gb_repository, project_repository, &virtual_branch.id)?;
-                vbranches = list_virtual_branches(gb_repository, project_repository, false)?;
-                vbranches_commits = list_virtual_branches(gb_repository, project_repository, true)?;
+                vbranches = get_status_by_branch(gb_repository, project_repository)?;
             }
             virtual_branch = branch_reader.read(&virtual_branch.id)?;
 
@@ -1689,10 +1685,10 @@ pub fn update_base_branch(
 
                 let mut merge_index = repo
                     .merge_trees(
-                        &target_tree,
+                        &old_target_tree,
                         &head_tree,
                         &new_target_tree,
-                        Some(&merge_options),
+                        Some(&git2::MergeOptions::new()),
                     )
                     .context("failed to merge trees")?;
 
@@ -1708,6 +1704,7 @@ pub fn update_base_branch(
                         .find_tree(merge_tree_oid)
                         .context("failed to find tree")?;
 
+                    let (author, committer) = gb_repository.git_signatures()?;
                     // commit the merge tree oid
                     let new_branch_head = repo.commit(
                         None,
@@ -1719,7 +1716,7 @@ pub fn update_base_branch(
                     )?;
                     virtual_branch.head = new_branch_head;
                     virtual_branch.tree = merge_tree_oid;
-                    writer.write(&virtual_branch)?;
+                    branch_writer.write(&virtual_branch)?;
                 }
             }
         } else {
@@ -1727,9 +1724,9 @@ pub fn update_base_branch(
             // but also remove/archive it if the branch is fully integrated
             if target.sha == virtual_branch.head {
                 // there were no conflicts and no commits, so just update the head
-                virtual_branch.head = new_target_oid;
+                virtual_branch.head = new_target_commit_oid;
                 virtual_branch.tree = tree_oid;
-                writer.write(&virtual_branch)?;
+                branch_writer.write(&virtual_branch)?;
             } else {
                 // no conflicts, but there have been commits, so update head with a merge
                 // there are commits on this branch, so create a merge commit with the new tree
@@ -1739,10 +1736,10 @@ pub fn update_base_branch(
 
                 let mut merge_index = repo
                     .merge_trees(
-                        &target_tree,
+                        &old_target_tree,
                         &head_tree,
                         &new_target_tree,
-                        Some(&merge_options),
+                        Some(&git2::MergeOptions::new()),
                     )
                     .context("failed to merge trees")?;
 
@@ -1751,9 +1748,7 @@ pub fn update_base_branch(
                     // unapply branch for now
                     // this changes the wd, and thus the hunks, so we need to re-run the active branch listing
                     unapply_branch(gb_repository, project_repository, &virtual_branch.id)?;
-                    vbranches = list_virtual_branches(gb_repository, project_repository, false)?;
-                    vbranches_commits =
-                        list_virtual_branches(gb_repository, project_repository, true)?;
+                    vbranches = get_status_by_branch(gb_repository, project_repository)?;
                 } else {
                     // get the merge tree oid from writing the index out
                     let merge_tree_oid = merge_index
@@ -1766,9 +1761,10 @@ pub fn update_base_branch(
 
                     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                     // then the vbranch is fully merged, so delete it
-                    if merge_tree_oid == new_target_tree.id() && vbranch_commits.files.is_empty() {
-                        writer.delete(&virtual_branch)?;
+                    if merge_tree_oid == new_target_tree.id() && files.is_empty() {
+                        branch_writer.delete(&virtual_branch)?;
                     } else {
+                        let (author, committer) = gb_repository.git_signatures()?;
                         // commit the merge tree oid
                         let new_branch_head = repo.commit(
                             None,
@@ -1780,7 +1776,7 @@ pub fn update_base_branch(
                         )?;
                         virtual_branch.head = new_branch_head;
                         virtual_branch.tree = merge_tree_oid;
-                        writer.write(&virtual_branch)?;
+                        branch_writer.write(&virtual_branch)?;
                     }
                 }
             }
@@ -1794,10 +1790,10 @@ pub fn update_base_branch(
     // and try to merge it
     let mut merge_index = repo
         .merge_trees(
-            &target_tree,
+            &old_target_tree,
             &wd_tree,
             &new_target_tree,
-            Some(&merge_options),
+            Some(&git2::MergeOptions::new()),
         )
         .context("failed to merge trees")?;
 
@@ -1813,7 +1809,7 @@ pub fn update_base_branch(
     // write new target oid
     let target_writer = target::Writer::new(gb_repository);
     target_writer.write_default(&target::Target {
-        sha: new_target_oid,
+        sha: new_target_commit_oid,
         ..target
     })?;
 
