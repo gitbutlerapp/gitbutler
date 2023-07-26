@@ -88,7 +88,7 @@
 	class:opacity-60={isFileLocked}
 >
 	<div
-		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-400 bg-light-50 py-1 text-light-900 dark:border-dark-400 dark:bg-dark-800 dark:text-light-300"
+		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-300 bg-light-50 py-1 text-light-900 dark:border-dark-500 dark:bg-dark-800 dark:text-light-300"
 	>
 		<div
 			class="flex cursor-default pl-2"
@@ -187,7 +187,9 @@
 												on:contextmenu={(e) =>
 													popupMenu.openByMouse(e, {
 														section: subsection,
-														lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
+														lineNumber: line.afterLineNumber
+															? line.afterLineNumber
+															: line.beforeLineNumber
 													})}
 											/>
 										{/each}

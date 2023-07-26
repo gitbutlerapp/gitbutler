@@ -360,3 +360,16 @@ input[type='checkbox'].large {
 .drop-zone-active .drop-zone-marker {
 	@apply block;
 }
+
+/* scrollbars */
+
+.hide-native-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+	overflow: scroll;
+}
+
+.hide-native-scrollbar::-webkit-scrollbar {
+	/* hide scrollbar */
+	display: none;
+}
