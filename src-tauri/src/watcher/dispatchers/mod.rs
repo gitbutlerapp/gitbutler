@@ -34,13 +34,13 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub async fn start(&self, sender: mpsc::UnboundedSender<events::Event>) -> Result<()> {
+    pub async fn run(&self, sender: mpsc::UnboundedSender<events::Event>) -> Result<()> {
         let tick_dispatcher = self.tick_dispatcher.clone();
         let s1 = sender.clone();
         let project_id = self.project_id.clone();
         tauri::async_runtime::spawn(async move {
             if let Err(e) = tick_dispatcher
-                .start(time::Duration::from_secs(10), s1)
+                .run(time::Duration::from_secs(10), s1)
                 .await
             {
                 log::error!("{}: failed to start ticker: {:#}", project_id, e);
@@ -51,7 +51,7 @@ impl Dispatcher {
         let project_id = self.project_id.clone();
         let s2 = sender.clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(e) = file_change_dispatcher.start(s2).await {
+            if let Err(e) = file_change_dispatcher.run(s2).await {
                 log::error!("{}: failed to start file watcher: {:#}", project_id, e);
             }
         });

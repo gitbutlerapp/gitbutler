@@ -110,9 +110,10 @@ impl App {
 
         let c_watcher = watcher.clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(e) = c_watcher.start().await {
+            if let Err(e) = c_watcher.run().await {
                 log::error!("watcher error: {:#}", e);
             }
+            log::info!("watcher stopped");
         });
 
         self.watchers
