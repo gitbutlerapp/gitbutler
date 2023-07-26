@@ -20,20 +20,24 @@
 	$: behindMessage = base.behind > 0 ? `behind ${base.behind}` : 'up-to-date';
 
 	let fetching = false;
-	$: expanded = base.behind > 0;
+	$: expanded = true;
 	let buttonHovered = false;
 </script>
 
 <div
 	class="flex h-full shrink-0 cursor-default snap-center flex-col overflow-y-hidden
 	overscroll-y-none border-light-600
-	bg-light-200
+	bg-light-150
 	dark:border-l
 	dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
 	role="group"
 >
-	<div class="flex w-full">
-		<div class="flex flex-grow items-center border-b border-light-500 pl-2 dark:border-dark-500">
+	<div class="flex w-full bg-light-200">
+		<div
+			class="flex flex-grow items-center border-b border-light-500 pl-1 dark:border-dark-500"
+			class:border-r={!expanded}
+			class:pr-1={!expanded}
+		>
 			<Tooltip label={'Fetch ' + base.branchName}>
 				<!-- svelte-ignore a11y-mouse-events-have-key-events -->
 				<button
@@ -72,7 +76,6 @@
 
 	<div class="relative flex flex-grow justify-center overflow-hidden">
 		<div class="flex-grow" />
-
 		{#if expanded}
 			<div
 				class="relative flex h-full w-60 shrink-0 flex-grow cursor-default snap-center flex-col overflow-y-hidden overscroll-y-none border-light-300 bg-light-200 pr-2 dark:border-l dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
@@ -82,7 +85,7 @@
 					class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8 pt-2"
 				>
 					<div bind:this={contents}>
-						<div class="ml-7">
+						<div class="ml-8">
 							<Tooltip
 								label={'Merges the commits from ' +
 									base.branchName +
@@ -102,7 +105,7 @@
 							<div class="z-40 mt-2 flex w-full flex-col gap-2">
 								{#each base.upstreamCommits as commit}
 									<div class="flex w-full items-center">
-										<div class="ml-3 mr-2">
+										<div class="ml-3 mr-3">
 											<div
 												class="h-2 w-2 rounded-full border-2 border-light-500 bg-light-500 dark:border-dark-400 dark:bg-dark-400"
 												class:bg-light-500={commit.isRemote}
@@ -117,15 +120,15 @@
 					</div>
 				</div>
 			</div>
-			<div
-				class="absolute left-4 h-full w-px bg-gradient-to-b from-transparent via-light-600 dark:from-dark-400 dark:via-dark-400"
-			/>
 			<div class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300">
 				<Scrollbar {viewport} {contents} width="0.75rem" opacity="0.1" />
 			</div>
 		{:else}
 			<div class="w-5" />
 		{/if}
+		<div
+			class="absolute left-[1rem] h-full w-px bg-gradient-to-b from-transparent via-light-600 dark:from-dark-400 dark:via-dark-400"
+		/>
 	</div>
 </div>
 
