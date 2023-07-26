@@ -28,6 +28,10 @@ pub struct Event {
 }
 
 impl Event {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn git_index(project_id: &str) -> Self {
         Event {
             name: format!("project://{}/git/index", project_id),

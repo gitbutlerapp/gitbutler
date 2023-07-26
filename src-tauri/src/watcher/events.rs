@@ -27,7 +27,7 @@ pub enum Event {
 impl Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Event::Emit(event) => write!(f, "Emit({:?})", event),
+            Event::Emit(event) => write!(f, "Emit({})", event.name()),
             Event::IndexAll => write!(f, "IndexAll"),
             Event::Tick(ts) => write!(f, "Tick({:?})", ts),
             Event::FetchGitbutlerData(ts) => write!(f, "FetchGitbutlerData({:?})", ts),
