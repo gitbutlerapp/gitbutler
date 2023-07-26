@@ -964,6 +964,7 @@ pub fn create_virtual_branch_from_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     upstream: &project_repository::branch::Name,
+    applied: Option<bool>,
 ) -> Result<String> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -996,7 +997,7 @@ pub fn create_virtual_branch_from_branch(
     let mut branch = Branch {
         id: branch_id.clone(),
         name: upstream.branch().to_string(),
-        applied: false,
+        applied: applied.unwrap_or(false),
         upstream: Some(match upstream {
             project_repository::branch::Name::Remote(remote) => remote.clone(),
             project_repository::branch::Name::Local(local) => {

@@ -372,6 +372,7 @@ impl App {
             &gb_repository,
             &project_repository,
             branch,
+            None,
         )?;
         // also apply the branch
         virtual_branches::apply_branch(&gb_repository, &project_repository, &branch_id)?;
