@@ -1513,60 +1513,76 @@ pub fn get_status_by_branch(
             .context(format!("failed to write virtual branch {}", vranch.name))?;
     }
 
-    let mut statuses: Vec<(branch::Branch, Vec<VirtualBranchFile>)> = vec![];
-    for (branch_id, hunks) in hunks_by_branch_id {
-        let branch = virtual_branches
-            .iter()
-            .find(|b| b.id.eq(&branch_id))
-            .unwrap()
-            .clone();
+    let hunks_by_branch = hunks_by_branch_id
+        .into_iter()
+        .map(|(branch_id, hunks)| {
+            (
+                virtual_branches
+                    .iter()
+                    .find(|b| b.id.eq(&branch_id))
+                    .unwrap()
+                    .clone(),
+                hunks,
+            )
+        })
+        .collect::<Vec<_>>();
 
-        let mut files = hunks
-            .iter()
-            .fold(HashMap::<path::PathBuf, Vec<_>>::new(), |mut acc, hunk| {
-                acc.entry(hunk.file_path.clone())
-                    .or_default()
-                    .push(hunk.clone());
-                acc
-            })
-            .into_iter()
-            .map(|(file_path, hunks)| VirtualBranchFile {
-                id: file_path.display().to_string(),
-                path: file_path.clone(),
-                hunks: hunks.clone(),
-                binary: hunks.iter().any(|h| h.binary),
-                modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
-                conflicted: conflicts::is_conflicting(
-                    project_repository,
-                    Some(&file_path.display().to_string()),
-                )
-                .unwrap_or(false),
-            })
-            .collect::<Vec<_>>();
+    let mut files_by_branch = group_virtual_hunks(project_repository, &hunks_by_branch);
+    files_by_branch.sort_by(|a, b| a.0.order.cmp(&b.0.order));
 
-        files.sort_by(|a, b| {
-            branch
-                .ownership
-                .files
+    Ok(files_by_branch)
+}
+
+fn group_virtual_hunks(
+    project_repository: &project_repository::Repository,
+    hunks_by_branch: &[(branch::Branch, Vec<VirtualBranchHunk>)],
+) -> Vec<(branch::Branch, Vec<VirtualBranchFile>)> {
+    hunks_by_branch
+        .iter()
+        .map(|(branch, hunks)| {
+            let mut files = hunks
                 .iter()
-                .position(|o| o.file_path.eq(&a.path))
-                .unwrap_or(999)
-                .cmp(
-                    &branch
-                        .ownership
-                        .files
-                        .iter()
-                        .position(|id| id.file_path.eq(&b.path))
-                        .unwrap_or(999),
-                )
-        });
+                .fold(HashMap::<path::PathBuf, Vec<_>>::new(), |mut acc, hunk| {
+                    acc.entry(hunk.file_path.clone())
+                        .or_default()
+                        .push(hunk.clone());
+                    acc
+                })
+                .into_iter()
+                .map(|(file_path, hunks)| VirtualBranchFile {
+                    id: file_path.display().to_string(),
+                    path: file_path.clone(),
+                    hunks: hunks.clone(),
+                    binary: hunks.iter().any(|h| h.binary),
+                    modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
+                    conflicted: conflicts::is_conflicting(
+                        project_repository,
+                        Some(&file_path.display().to_string()),
+                    )
+                    .unwrap_or(false),
+                })
+                .collect::<Vec<_>>();
 
-        statuses.push((branch, files));
-    }
+            files.sort_by(|a, b| {
+                branch
+                    .ownership
+                    .files
+                    .iter()
+                    .position(|o| o.file_path.eq(&a.path))
+                    .unwrap_or(999)
+                    .cmp(
+                        &branch
+                            .ownership
+                            .files
+                            .iter()
+                            .position(|id| id.file_path.eq(&b.path))
+                            .unwrap_or(999),
+                    )
+            });
 
-    statuses.sort_by(|a, b| a.0.order.cmp(&b.0.order));
-
-    Ok(statuses)
+            (branch.clone(), files)
+        })
+        .collect::<Vec<_>>()
 }
 
 // try to update the target branch
