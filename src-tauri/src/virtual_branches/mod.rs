@@ -2203,7 +2203,7 @@ pub fn push(
     let remote_branch = if let Some(upstream_branch) = vbranch.upstream.as_ref() {
         upstream_branch.clone()
     } else {
-        match get_default_target(&current_session_reader)? {
+        let remote_branch = match get_default_target(&current_session_reader)? {
             Some(target) => project_repository::branch::RemoteName::try_from(
                 format!(
                     "refs/remotes/{}/{}",
@@ -2214,19 +2214,18 @@ pub fn push(
             )
             .unwrap(),
             None => return Err(Error::Other(anyhow::anyhow!("no default target set"))),
-        }
+        };
+        let remote_branches = project_repository.git_remote_branches()?;
+        let existing_branches = remote_branches
+            .iter()
+            .map(|name| name.branch())
+            .collect::<Vec<_>>();
+        remote_branch.with_branch(&name_to_branch(&dedup_fmt(
+            &existing_branches,
+            remote_branch.branch(),
+            "-",
+        )))
     };
-
-    let remote_branches = project_repository.git_remote_branches()?;
-    let existing_branches = remote_branches
-        .iter()
-        .map(|name| name.branch())
-        .collect::<Vec<_>>();
-    let remote_branch = remote_branch.with_branch(&name_to_branch(&dedup_fmt(
-        &existing_branches,
-        remote_branch.branch(),
-        "-",
-    )));
 
     project_repository
         .push(&vbranch.head, &remote_branch)
