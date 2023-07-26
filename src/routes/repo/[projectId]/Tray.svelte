@@ -12,6 +12,7 @@
 	import { getContext } from 'svelte';
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
 
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
@@ -26,6 +27,11 @@
 	let remoteBranchContextMenu: PopupMenu;
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
+
+	let vbViewport: HTMLElement;
+	let vbContents: HTMLElement;
+	let rbViewport: HTMLElement;
+	let rbContents: HTMLElement;
 
 	function toggleBranch(branch: Branch) {
 		if (branch.active) {
@@ -52,7 +58,7 @@
 </script>
 
 <div
-	class="tray-scroll w-80 min-w-[216px] shrink-0 cursor-default overflow-y-scroll overscroll-y-none border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
+	class="flex w-80 min-w-[216px] shrink-0 flex-col border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 >
 	<!-- Your branches -->
@@ -70,49 +76,59 @@
 			</button>
 		</div>
 	</div>
-	<div class="flex flex-col dark:bg-dark-900" use:accordion={yourBranchesOpen}>
-		{#each branches as branch (branch.id)}
-			{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
-			<div
-				role="listitem"
-				on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
-				class="border-b border-light-400 p-2 dark:border-dark-600"
-			>
-				<div class="flex flex-row justify-between">
-					<div class="flex w-full items-center">
-						<Checkbox
-							on:change={() => toggleBranch(branch)}
-							bind:checked={branch.active}
-							disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
-						/>
-						<div class="ml-2 w-full truncate text-black dark:text-white">
-							{branch.name}
+	<div class="relative" use:accordion={yourBranchesOpen}>
+		<div
+			bind:this={vbViewport}
+			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
+		>
+			<div bind:this={vbContents}>
+				{#each branches as branch (branch.id)}
+					{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
+					<div
+						role="listitem"
+						on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
+						class="border-b border-light-400 p-2 dark:border-dark-600"
+					>
+						<div class="flex flex-row justify-between">
+							<div class="flex w-full items-center">
+								<Checkbox
+									on:change={() => toggleBranch(branch)}
+									bind:checked={branch.active}
+									disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
+								/>
+								<div class="ml-2 w-full truncate text-black dark:text-white">
+									{branch.name}
+								</div>
+							</div>
+							{#if !branch.active}
+								{#if !branch.baseCurrent}
+									<!-- branch will cause merge conflicts if applied -->
+									<Tooltip label="Will introduce merge conflicts if applied">
+										<div class="text-yellow-500">&#9679;</div>
+									</Tooltip>
+								{:else if branch.mergeable}
+									<Tooltip label="Can be applied cleanly">
+										<div class="text-green-500">&#9679;</div>
+									</Tooltip>
+								{:else}
+									<Tooltip
+										label="Canflicts with changes in your working directory, cannot be applied"
+									>
+										<div class="text-red-500">&#9679;</div>
+									</Tooltip>
+								{/if}
+							{/if}
+						</div>
+						<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
+							<div class="flex-grow">
+								{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
+							</div>
 						</div>
 					</div>
-					{#if !branch.active}
-						{#if !branch.baseCurrent}
-							<!-- branch will cause merge conflicts if applied -->
-							<Tooltip label="Will introduce merge conflicts if applied">
-								<div class="text-yellow-500">&#9679;</div>
-							</Tooltip>
-						{:else if branch.mergeable}
-							<Tooltip label="Can be applied cleanly">
-								<div class="text-green-500">&#9679;</div>
-							</Tooltip>
-						{:else}
-							<Tooltip label="Canflicts with changes in your working directory, cannot be applied">
-								<div class="text-red-500">&#9679;</div>
-							</Tooltip>
-						{/if}
-					{/if}
-				</div>
-				<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
-					<div class="flex-grow">
-						{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
-					</div>
-				</div>
+				{/each}
 			</div>
-		{/each}
+		</div>
+		<Scrollbar viewport={vbViewport} contents={vbContents} width="0.5rem" />
 	</div>
 
 	<!-- Remote branches -->
@@ -132,54 +148,60 @@
 			</div>
 		</div>
 
-		<div class="dark:bg-dark-900" use:accordion={remoteBranchesOpen}>
-			{#each remoteBranches as branch}
-				<div
-					role="listitem"
-					on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
-					class="flex flex-col justify-between gap-1 border-b border-light-400 px-2 py-1 pt-2 dark:border-dark-600"
-				>
-					<div class="flex flex-row items-center gap-x-2">
-						<div class="text-light-600 dark:text-dark-200">
-							{#if branch.name.match('refs/remotes')}
-								<IconRemote class="h-4 w-4" />
-							{:else}
-								<IconGitBranch class="h-4 w-4" />
-							{/if}
-						</div>
-						<div class="flex-grow truncate text-black dark:text-white" title={branch.name}>
-							{branch.name
-								.replace('refs/remotes/', '')
-								.replace('origin/', '')
-								.replace('refs/heads/', '')}
-						</div>
-						<div>{branch.ahead}/{branch.behind}</div>
-						{#if !branch.mergeable}
-							<div class="font-bold text-red-500" title="Can't be merged">!</div>
-						{/if}
-					</div>
-					{#if branch.lastCommitTs > 0}
-						<div class="flex flex-row justify-between text-light-700 dark:text-dark-300">
-							<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
-							<div
-								class="isolate flex -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
-							>
-								{#each branch.authors as author}
-									<img
-										class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
-										title="Gravatar for {author.email}"
-										alt="Gravatar for {author.email}"
-										srcset="{author.gravatarUrl} 2x"
-										width="100"
-										height="100"
-										on:error
-									/>
-								{/each}
+		<div class="relative overflow-y-hidden" use:accordion={remoteBranchesOpen}>
+			<div
+				bind:this={rbViewport}
+				class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
+			>
+				<div bind:this={rbContents}>
+					{#each remoteBranches as branch}
+						<div
+							role="listitem"
+							on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
+							class="flex flex-col justify-between gap-1 border-b border-light-400 px-2 py-1 pt-2 dark:border-dark-600"
+						>
+							<div class="flex flex-row items-center gap-x-2 pr-1">
+								<div class="text-light-600 dark:text-dark-200">
+									{#if branch.name.match('refs/remotes')}
+										<IconRemote class="h-4 w-4" />
+									{:else}
+										<IconGitBranch class="h-4 w-4" />
+									{/if}
+								</div>
+								<div class="flex-grow truncate text-black dark:text-white" title={branch.name}>
+									{branch.name
+										.replace('refs/remotes/', '')
+										.replace('origin/', '')
+										.replace('refs/heads/', '')}
+								</div>
+								<div>{branch.ahead}/{branch.behind}</div>
+								{#if !branch.mergeable}
+									<div class="font-bold text-red-500" title="Can't be merged">!</div>
+								{/if}
+							</div>
+							<div class="flex flex-row justify-between pr-1 text-light-700 dark:text-dark-300">
+								<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
+								<div
+									class="isolate flex -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
+								>
+									{#each branch.authors as author}
+										<img
+											class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
+											title="Gravatar for {author.email}"
+											alt="Gravatar for {author.email}"
+											srcset="{author.gravatarUrl} 2x"
+											width="100"
+											height="100"
+											on:error
+										/>
+									{/each}
+								</div>
 							</div>
 						</div>
-					{/if}
+					{/each}
 				</div>
-			{/each}
+			</div>
+			<Scrollbar viewport={rbViewport} contents={rbContents} width="0.5rem" />
 		</div>
 	{/if}
 
