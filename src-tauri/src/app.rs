@@ -324,7 +324,7 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-        virtual_branches::list_virtual_branches(&gb_repository, &project_repository, true)
+        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)
     }
 
     pub async fn create_virtual_branch(

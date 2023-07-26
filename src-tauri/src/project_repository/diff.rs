@@ -40,9 +40,8 @@ pub fn workdir(
         .recurse_untracked_dirs(true)
         .include_untracked(true)
         .show_binary(true)
-        .show_untracked_content(true);
-
-    diff_opts.context_lines(opts.context_lines);
+        .show_untracked_content(true)
+        .context_lines(opts.context_lines);
 
     let repo = &repository.git_repository;
     let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
@@ -55,14 +54,15 @@ pub fn trees(
     old_tree: &git2::Tree,
     new_tree: &git2::Tree,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
-    let mut opts = git2::DiffOptions::new();
-    opts.recurse_untracked_dirs(true)
+    let mut diff_opts = git2::DiffOptions::new();
+    diff_opts
+        .recurse_untracked_dirs(true)
         .include_untracked(true)
         .show_binary(true)
         .show_untracked_content(true);
 
     let repo = &repository.git_repository;
-    let diff = repo.diff_tree_to_tree(Some(&old_tree), Some(&new_tree), None)?;
+    let diff = repo.diff_tree_to_tree(Some(old_tree), Some(new_tree), None)?;
 
     hunks_by_filepath(repo, &diff)
 }
