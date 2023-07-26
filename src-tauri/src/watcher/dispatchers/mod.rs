@@ -39,10 +39,7 @@ impl Dispatcher {
         let s1 = sender.clone();
         let project_id = self.project_id.clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(e) = tick_dispatcher
-                .run(time::Duration::from_secs(10), s1)
-                .await
-            {
+            if let Err(e) = tick_dispatcher.run(time::Duration::from_secs(10), s1).await {
                 log::error!("{}: failed to start ticker: {:#}", project_id, e);
             }
         });
