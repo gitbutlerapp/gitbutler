@@ -2106,21 +2106,31 @@ pub fn commit(
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
 
-    for (mut branch, files) in statuses {
-        if branch.id == branch_id {
-            let tree_oid = write_tree(project_repository, &default_target, &files)?;
+    match statuses.iter().find(|(branch, _)| branch.id == branch_id) {
+        None => bail!("branch {} not found", branch_id),
+        Some((branch, files)) => {
+            let tree_oid = write_tree(project_repository, &default_target, files)?;
 
             let git_repository = &project_repository.git_repository;
-            let parent_commit = git_repository.find_commit(branch.head).unwrap();
-            let tree = git_repository.find_tree(tree_oid).unwrap();
+            let parent_commit = git_repository
+                .find_commit(branch.head)
+                .context(format!("failed to find commit {:?}", branch.head))?;
+            let tree = git_repository
+                .find_tree(tree_oid)
+                .context(format!("failed to find tree {:?}", tree_oid))?;
 
             // now write a commit, using a merge parent if it exists
-            let (author, committer) = gb_repository.git_signatures().unwrap();
-            let extra_merge_parent = conflicts::merge_parent(project_repository)?;
+            let (author, committer) = gb_repository
+                .git_signatures()
+                .context("failed to get git signatures")?;
+            let extra_merge_parent = conflicts::merge_parent(project_repository)
+                .context("failed to get merge parent")?;
 
-            match extra_merge_parent {
+            let commit_oid = match extra_merge_parent {
                 Some(merge_parent) => {
-                    let merge_parent = git_repository.find_commit(merge_parent).unwrap();
+                    let merge_parent = git_repository
+                        .find_commit(merge_parent)
+                        .context(format!("failed to find merge parent {:?}", merge_parent))?;
                     let commit_oid = git_repository
                         .commit(
                             None,
@@ -2130,32 +2140,36 @@ pub fn commit(
                             &tree,
                             &[&parent_commit, &merge_parent],
                         )
-                        .unwrap();
-                    branch.head = commit_oid;
-                    conflicts::clear(project_repository)?;
+                        .context("failed to commit")?;
+                    conflicts::clear(project_repository).context("failed to clear conflicts")?;
+                    commit_oid
                 }
-                None => {
-                    let commit_oid = git_repository.commit(
-                        None,
-                        &author,
-                        &committer,
-                        message,
-                        &tree,
-                        &[&parent_commit],
-                    )?;
-                    branch.head = commit_oid;
-                }
-            }
+                None => git_repository.commit(
+                    None,
+                    &author,
+                    &committer,
+                    message,
+                    &tree,
+                    &[&parent_commit],
+                )?,
+            };
 
             // update the virtual branch head
-            branch.tree = tree_oid;
             let writer = branch::Writer::new(gb_repository);
-            writer.write(&branch)?;
+            writer
+                .write(&Branch {
+                    tree: tree_oid,
+                    head: commit_oid,
+                    ..branch.clone()
+                })
+                .context("failed to write branch")?;
 
-            update_gitbutler_integration(gb_repository, project_repository)?;
+            update_gitbutler_integration(gb_repository, project_repository)
+                .context("failed to update gitbutler integration")?;
+
+            Ok(())
         }
     }
-    Ok(())
 }
 
 fn name_to_branch(name: &str) -> String {
