@@ -375,7 +375,7 @@ pub fn unapply_branch(
     let repo = &project_repository.git_repository;
 
     if let Ok((_, files)) = status {
-        let tree = write_tree(gb_repository, project_repository, files)?;
+        let tree = write_tree(project_repository, &default_target, files)?;
 
         target_branch.tree = tree;
         target_branch.applied = false;
@@ -391,7 +391,7 @@ pub fn unapply_branch(
     // then check that out into the working directory
     for (branch, files) in statuses {
         if branch.id != branch_id {
-            let tree_oid = write_tree(gb_repository, project_repository, &files)?;
+            let tree_oid = write_tree(project_repository, &default_target, &files)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             if let Ok(mut result) =
                 repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
@@ -786,7 +786,7 @@ pub fn list_virtual_branches(
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
         let vfiles = if (default_target.sha != branch.head) && branch.applied && with_commits {
             // TODO: make sure this works
-            let vtree = write_tree(gb_repository, project_repository, &files)?;
+            let vtree = write_tree(project_repository, &default_target, &files)?;
             let repo = &project_repository.git_repository;
             // get the trees
             let tree_old = repo.find_commit(branch.head)?.tree()?;
@@ -1584,7 +1584,7 @@ pub fn update_base_branch(
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
     // look up the target and see if there is a new oid
-    let mut target = get_default_target(&current_session_reader)
+    let target = get_default_target(&current_session_reader)
         .context("failed to get target")?
         .context("no target found")?;
 
@@ -1655,7 +1655,7 @@ pub fn update_base_branch(
 
         let mut tree_oid = virtual_branch.tree;
         if virtual_branch.applied {
-            tree_oid = write_tree(gb_repository, project_repository, &vbranch.files)?;
+            tree_oid = write_tree(project_repository, &target, &vbranch.files)?;
         }
         let branch_tree = repo.find_tree(tree_oid)?;
 
@@ -1811,9 +1811,11 @@ pub fn update_base_branch(
     repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
 
     // write new target oid
-    target.sha = new_target_oid;
     let target_writer = target::Writer::new(gb_repository);
-    target_writer.write_default(&target)?;
+    target_writer.write_default(&target::Target {
+        sha: new_target_oid,
+        ..target
+    })?;
 
     update_gitbutler_integration(gb_repository, project_repository)?;
 
@@ -1976,12 +1978,11 @@ pub fn update_gitbutler_integration(
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
 fn write_tree(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
+    target: &target::Target,
     files: &Vec<VirtualBranchFile>,
 ) -> Result<git2::Oid> {
     // read the base sha into an index
-    let target = get_target(gb_repository)?;
     let git_repository = &project_repository.git_repository;
 
     let head_commit = git_repository.find_commit(target.sha)?;
@@ -2099,13 +2100,15 @@ pub fn commit(
         bail!("cannot commit, project is in a conflicted state");
     }
 
+    let default_target = get_target(gb_repository).context("failed to get default target")?;
+
     // get the files to commit
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
 
     for (mut branch, files) in statuses {
         if branch.id == branch_id {
-            let tree_oid = write_tree(gb_repository, project_repository, &files)?;
+            let tree_oid = write_tree(project_repository, &default_target, &files)?;
 
             let git_repository = &project_repository.git_repository;
             let parent_commit = git_repository.find_commit(branch.head).unwrap();
