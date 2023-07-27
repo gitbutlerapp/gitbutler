@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use notify::{Config, Event, RecommendedWatcher, Watcher};
+use tauri::async_runtime;
 use tokio::sync::mpsc;
 
 use crate::{projects, watcher::events};
@@ -101,17 +102,16 @@ fn is_interesting_event(kind: &notify::EventKind) -> bool {
     )
 }
 
-fn async_watcher() -> notify::Result<(
-    RecommendedWatcher,
-    mpsc::UnboundedReceiver<notify::Result<Event>>,
-)> {
-    let (tx, rx) = mpsc::unbounded_channel();
+fn async_watcher() -> notify::Result<(RecommendedWatcher, mpsc::Receiver<notify::Result<Event>>)> {
+    let (tx, rx) = mpsc::channel(1);
 
     let watcher = RecommendedWatcher::new(
         move |res| {
-            if let Err(err) = tx.send(res) {
-                log::error!("failed to send file change event: {:#}", err);
-            }
+            async_runtime::block_on(async {
+                if let Err(err) = tx.send(res).await {
+                    log::error!("failed to send file change event: {:#}", err);
+                }
+            });
         },
         Config::default(),
     )?;
