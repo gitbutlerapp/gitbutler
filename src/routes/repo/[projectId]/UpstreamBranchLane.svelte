@@ -20,7 +20,7 @@
 	$: behindMessage = base.behind > 0 ? `behind ${base.behind}` : 'up-to-date';
 
 	let fetching = false;
-	$: expanded = true;
+	$: expanded = base.behind > 0;
 	let buttonHovered = false;
 </script>
 
