@@ -486,7 +486,9 @@
 				{/if}
 			</div>
 		</div>
-		<div class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300">
+		<div
+			class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:border-dark-600 dark:bg-dark-500"
+		>
 			<Scrollbar {viewport} {contents} width="0.75rem" opacity="0.1" />
 		</div>
 	</div>
