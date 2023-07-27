@@ -332,7 +332,7 @@
 				</div>
 			{/if}
 		</div>
-		<div class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300" />
+		<div class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:bg-dark-500 dark:border-dark-600" />
 	</div>
 
 	<div class="relative flex flex-grow overflow-y-hidden">
