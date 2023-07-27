@@ -1,7 +1,7 @@
 mod file_change;
 mod tick;
 
-use std::{thread, time};
+use std::time;
 
 use anyhow::Result;
 use tokio::sync::mpsc;
@@ -47,12 +47,10 @@ impl Dispatcher {
         let file_change_dispatcher = self.file_change_dispatcher.clone();
         let project_id = self.project_id.clone();
         let s2 = sender.clone();
-        thread::spawn(move || {
-            futures::executor::block_on(async {
-                if let Err(e) = file_change_dispatcher.run(s2).await {
-                    log::error!("{}: failed to start file watcher: {:#}", project_id, e);
-                }
-            });
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = file_change_dispatcher.run(s2).await {
+                log::error!("{}: failed to start file watcher: {:#}", project_id, e);
+            }
             log::info!("{}: file watcher stopped", project_id);
         });
 
