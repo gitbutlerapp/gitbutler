@@ -32,7 +32,7 @@
 	dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
 	role="group"
 >
-	<div class="flex w-full bg-light-200">
+	<div class="flex w-full bg-light-200 dark:bg-dark-800">
 		<div
 			class="flex flex-grow items-center border-b border-light-500 pl-1 dark:border-dark-500"
 			class:border-r={!expanded}
@@ -70,7 +70,9 @@
 			{/if}
 		</div>
 		{#if expanded}
-			<div class="h-full w-3 shrink-0 border-l border-r border-light-400 bg-light-300" />
+			<div
+				class="h-full w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:bg-dark-500 dark:border-dark-600"
+			/>
 		{/if}
 	</div>
 
@@ -120,7 +122,9 @@
 					</div>
 				</div>
 			</div>
-			<div class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300">
+			<div
+				class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:border-dark-500 dark:bg-dark-500"
+			>
 				<Scrollbar {viewport} {contents} width="0.75rem" opacity="0.1" />
 			</div>
 		{:else}
