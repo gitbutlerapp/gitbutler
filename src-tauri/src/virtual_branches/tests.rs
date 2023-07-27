@@ -1636,7 +1636,7 @@ fn test_apply_unapply_branch() -> Result<()> {
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-    assert_eq!(branch.files.len(), 0);
+    assert_eq!(branch.files.len(), 1);
     assert!(!branch.active);
 
     apply_branch(&gb_repo, &project_repository, &branch1_id)?;

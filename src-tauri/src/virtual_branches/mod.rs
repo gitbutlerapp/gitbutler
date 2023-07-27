@@ -206,15 +206,12 @@ pub fn apply_branch(
         None => return Ok(()),
     };
 
-    let virtual_branches = get_virtual_branches(gb_repository, Some(false))?;
-
     let writer = branch::Writer::new(gb_repository);
 
-    let mut apply_branch = virtual_branches
-        .iter()
-        .find(|b| b.id == branch_id)
-        .context("failed to find target branch")?
-        .clone();
+    let mut apply_branch = branch::Reader::new(&current_session_reader)
+        .read(branch_id)
+        .context(format!("failed to read branch {}", branch_id))?;
+
     let target_commit = repo
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
@@ -359,10 +356,23 @@ pub fn unapply_branch(
         bail!("branch is not applied");
     }
 
-    let statuses = get_status_by_branch(gb_repository, project_repository)
-        .context("failed to get status by branch")?;
+    let applied_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
 
-    let status = statuses
+    let applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches,
+    )
+    .context("failed to get status by branch")?;
+
+    let status = applied_statuses
         .iter()
         .find(|(s, _)| s.id == branch_id)
         .context("failed to find status for branch");
@@ -389,7 +399,7 @@ pub fn unapply_branch(
 
     // go through the other applied branches and merge them into the final tree
     // then check that out into the working directory
-    for (branch, files) in statuses {
+    for (branch, files) in applied_statuses {
         if branch.id != branch_id {
             let tree_oid = write_tree(project_repository, &default_target, &files)?;
             let branch_tree = repo.find_tree(tree_oid)?;
@@ -783,8 +793,9 @@ pub fn list_virtual_branches(
 
         // check if head tree does not match target tree
         // if so, we diff the head tree and the new write_tree output to see what is new and filter the hunks to just those
-        let vfiles = if (default_target.sha != branch.head) && branch.applied {
-            // TODO: make sure this works
+        //
+        // TODO: refactor this to instead have branch.commits[].files[] structure
+        let vfiles = if default_target.sha != branch.head {
             let vtree = write_tree(project_repository, &default_target, &files)?;
             let repo = &project_repository.git_repository;
             // get the trees
@@ -1349,21 +1360,103 @@ pub fn get_status_by_branch(
         }
     };
 
+    let virtual_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?;
+
+    let applied_virtual_branches = virtual_branches
+        .iter()
+        .filter(|branch| branch.applied)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let applied_status = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_virtual_branches,
+    )?;
+
+    let non_applied_virtual_branches = virtual_branches
+        .into_iter()
+        .filter(|branch| !branch.applied)
+        .collect::<Vec<_>>();
+
+    let non_applied_status = get_non_applied_status(
+        project_repository,
+        &default_target,
+        non_applied_virtual_branches,
+    )?;
+
+    Ok(applied_status
+        .into_iter()
+        .chain(non_applied_status.into_iter())
+        .collect())
+}
+
+// given a list of non applied virtual branches, return the status of each file, comparing the default target with
+// virtual branch latest tree
+//
+// ownerships are not taken into account here, as they are not relevant for non applied branches
+fn get_non_applied_status(
+    project_repository: &project_repository::Repository<'_>,
+    default_target: &target::Target,
+    virtual_branches: Vec<branch::Branch>,
+) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
+    let hunks_by_branch = virtual_branches
+        .into_iter()
+        .map(
+            |branch| -> Result<(branch::Branch, Vec<VirtualBranchHunk>)> {
+                if branch.applied {
+                    bail!("branch {} is applied", branch.name);
+                }
+                let branch_tree = project_repository
+                    .git_repository
+                    .find_tree(branch.tree)
+                    .context(format!("failed to find tree {}", branch.tree))?;
+                let target_tree = project_repository
+                    .git_repository
+                    .find_commit(default_target.sha)
+                    .context("failed to find target commit")?
+                    .tree()
+                    .context("failed to find target tree")?;
+
+                let diff = diff::trees(project_repository, &target_tree, &branch_tree)?;
+                let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
+                Ok((
+                    branch,
+                    hunks_by_filepath
+                        .values()
+                        .flatten()
+                        .cloned()
+                        .collect::<Vec<_>>(),
+                ))
+            },
+        )
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(group_virtual_hunks(project_repository, &hunks_by_branch))
+}
+
+// given a list of applied virtual branches, return the status of each file, comparing the default target with
+// the working directory
+//
+// ownerships are updated if nessessary
+fn get_applied_status(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository<'_>,
+    default_target: &target::Target,
+    mut virtual_branches: Vec<branch::Branch>,
+) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
     let diff = diff::workdir(
         project_repository,
         &default_target.sha,
         &diff::Options::default(),
     )
     .context("failed to diff")?;
-    let mut hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
-    let mut virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
+    let mut hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -1387,6 +1480,10 @@ pub fn get_status_by_branch(
         .collect();
 
     for branch in &mut virtual_branches {
+        if !branch.applied {
+            bail!("branch {} is not applied", branch.name);
+        }
+
         let mut updated: Vec<_> = vec![];
         branch.ownership = Ownership {
             files: branch
