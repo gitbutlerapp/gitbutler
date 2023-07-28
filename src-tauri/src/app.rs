@@ -166,6 +166,10 @@ impl App {
     }
 
     fn stop_watcher(&self, project: &projects::Project) -> Result<()> {
+        if let Some((_, watcher)) = self.watchers.lock().unwrap().remove_entry(&project.id) {
+            watcher.stop().context("failed to stop watcher")?;
+        };
+
         if let Some((_, watcher)) = self.watcher_addrs.lock().unwrap().remove_entry(&project.id) {
             block_on(watcher.send(actors_watcher::UnwatchMessage::from(project)))
                 .context("failed to send unwatch message")?
