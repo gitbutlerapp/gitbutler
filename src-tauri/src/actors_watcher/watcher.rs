@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     path,
-    sync::{Arc, Mutex}
+    sync::{Arc, Mutex},
 };
 
 use actix::{Actor, Context, Handler, Message};

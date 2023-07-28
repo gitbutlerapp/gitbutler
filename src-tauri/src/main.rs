@@ -31,7 +31,7 @@ extern crate log;
 use std::{collections::HashMap, ops, path, time};
 
 use anyhow::{Context, Result};
-use futures::{future::join_all, executor::block_on};
+use futures::{executor::block_on, future::join_all};
 use serde::{ser::SerializeMap, Serialize};
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
@@ -885,8 +885,6 @@ fn main() {
     let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
     let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
-
-
     tauri::Builder::default()
         .system_tray(tray)
         .on_system_tray_event(|app_handle, event| {
@@ -932,8 +930,6 @@ fn main() {
                 events::Sender::new(tauri_app.handle()),
             )
             .expect("failed to initialize app");
-
-
 
             // TODO: REMOVE THIS
             // debug_test_consistency(&app_state, "fec3d50c-503f-4021-89fb-e7ec2433ceae")

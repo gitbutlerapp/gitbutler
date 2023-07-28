@@ -1,9 +1,9 @@
-use std::{collections::HashMap, ops, path, sync, time, thread};
+use std::{collections::HashMap, ops, path, sync, thread, time};
 
 use actix::Actor;
 use anyhow::{Context, Result};
 use tauri::async_runtime::block_on;
-use tokio::sync::{Semaphore, oneshot};
+use tokio::sync::{oneshot, Semaphore};
 
 use crate::{
     actors_watcher, bookmarks, database, deltas, events, files, gb_repository,
@@ -13,7 +13,8 @@ use crate::{
 
 #[derive(Clone)]
 pub struct App {
-    watcher_addrs: sync::Arc<sync::Mutex<HashMap<String, actix::Addr<actors_watcher::BackgroundWatcher>>>>,
+    watcher_addrs:
+        sync::Arc<sync::Mutex<HashMap<String, actix::Addr<actors_watcher::BackgroundWatcher>>>>,
 
     local_data_dir: std::path::PathBuf,
 
@@ -79,7 +80,7 @@ impl App {
     }
 
     pub fn init_project(&self, project: &projects::Project) -> Result<()> {
-         self.start_watcher(project).with_context(|| {
+        self.start_watcher(project).with_context(|| {
             format!("failed to start watcher for project {}", project.id.clone())
         })?;
 
@@ -91,12 +92,18 @@ impl App {
             rt.block_on(async {
                 let addr = actors_watcher::BackgroundWatcher::default().start();
                 tx.send(addr.clone()).expect("failed to send addr");
-                addr.send(actors_watcher::WatchMessage::from(&c_project)).await.expect("failed to send watch message").expect("failed to watch project"); 
+                addr.send(actors_watcher::WatchMessage::from(&c_project))
+                    .await
+                    .expect("failed to send watch message")
+                    .expect("failed to watch project");
             })
         });
 
         let addr = block_on(rx).expect("failed to receive addr");
-        self.watcher_addrs.lock().unwrap().insert(project.id.clone(), addr);
+        self.watcher_addrs
+            .lock()
+            .unwrap()
+            .insert(project.id.clone(), addr);
 
         Ok(())
     }
