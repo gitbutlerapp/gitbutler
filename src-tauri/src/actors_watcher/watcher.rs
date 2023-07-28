@@ -1,13 +1,13 @@
 use std::{
     collections::HashMap,
     path,
-    sync::{Arc, Mutex}, time::Duration, 
+    sync::{Arc, Mutex}
 };
 
 use actix::{Actor, Context, Handler, Message};
 use futures::executor::block_on;
 use notify::{RecommendedWatcher, Watcher};
-use tokio::{select, sync::mpsc::channel, time::interval};
+use tokio::{select, sync::mpsc::channel};
 
 use crate::projects;
 
@@ -85,12 +85,8 @@ impl Handler<WatchMessage> for BackgroundWatcher {
         self.file_watchers.lock().unwrap().insert(msg.0.id, watcher);
 
         block_on(async move {
-            let mut ticker = interval(Duration::from_secs(1));
             loop {
                 select! {
-                    instant =  ticker.tick() => {
-                        println!("tick: {:?}", instant);
-                    },
                     path = rx.recv() => {
                         if let Some(path) = path {
                             log::info!("file changed: {:?}", path);

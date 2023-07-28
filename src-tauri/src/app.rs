@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops, path, sync, time};
+use std::{collections::HashMap, ops, path, sync, time, thread};
 
 use actix::Actor;
 use anyhow::{Context, Result};
@@ -22,6 +22,8 @@ pub struct App {
 
     searcher: search::Searcher,
     events_sender: events::Sender,
+
+    watchers: sync::Arc<sync::Mutex<HashMap<String, watcher::Watcher>>>,
 
     sessions_database: sessions::Database,
     files_database: files::Database,
@@ -56,6 +58,7 @@ impl App {
             projects_storage: projects::Storage::new(storage.clone()),
             users_storage: users::Storage::new(storage),
             searcher: deltas_searcher,
+            watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
             sessions_database: sessions::Database::new(database.clone()),
             deltas_database: deltas::Database::new(database.clone()),
             files_database: files::Database::new(database.clone()),
@@ -76,6 +79,10 @@ impl App {
     }
 
     pub fn init_project(&self, project: &projects::Project) -> Result<()> {
+         self.start_watcher(project).with_context(|| {
+            format!("failed to start watcher for project {}", project.id.clone())
+        })?;
+
         let c_project = project.clone();
 
         let (tx, rx) = oneshot::channel();
@@ -107,17 +114,48 @@ impl App {
         Ok(())
     }
 
-    fn send_event(&self, project_id: &str, event: watcher::Event) -> Result<()> {
-        // let watchers = self.watchers.lock().unwrap();
-        // if let Some(watcher) = watchers.get(project_id) {
-        //     watcher.post(event).context("failed to post event")
-        // } else {
-        //     Err(anyhow::anyhow!(
-        //         "watcher for project {} not found",
-        //         project_id
-        //     ))
-        // }
+    fn start_watcher(&self, project: &projects::Project) -> Result<()> {
+        let watcher = watcher::Watcher::new(
+            &self.local_data_dir,
+            project,
+            &self.projects_storage,
+            &self.users_storage,
+            &self.searcher,
+            &self.events_sender,
+            &self.sessions_database,
+            &self.deltas_database,
+            &self.files_database,
+            &self.bookmarks_database,
+        );
+
+        let c_watcher = watcher.clone();
+        thread::spawn(move || {
+            futures::executor::block_on(async move {
+                if let Err(e) = c_watcher.run().await {
+                    log::error!("watcher error: {:#}", e);
+                }
+            });
+            log::info!("watcher stopped");
+        });
+
+        self.watchers
+            .lock()
+            .unwrap()
+            .insert(project.id.clone(), watcher.clone());
+
         Ok(())
+    }
+
+    fn send_event(&self, project_id: &str, event: watcher::Event) -> Result<()> {
+        let watchers = self.watchers.lock().unwrap();
+        if let Some(watcher) = watchers.get(project_id) {
+            watcher.post(event).context("failed to post event")
+        } else {
+            Err(anyhow::anyhow!(
+                "watcher for project {} not found",
+                project_id
+            ))
+        }
     }
 
     fn stop_watcher(&self, project: &projects::Project) -> Result<()> {
