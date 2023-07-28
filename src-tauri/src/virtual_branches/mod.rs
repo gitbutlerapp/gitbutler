@@ -813,11 +813,16 @@ pub fn list_virtual_branches(
                 .map(|(file_path, mut non_commited_hunks)| {
                     // sort non commited hunks the same way as the real hunks are sorted
                     non_commited_hunks.sort_by_key(|h| {
-                        file_hunks[&file_path].iter().position(|h2| {
-                            let h_range = [h.start..=h.end];
-                            let h2_range = [h2.start..=h2.end];
-                            h2_range.iter().any(|line| h_range.contains(line))
-                        })
+                        file_hunks
+                            .get(&file_path)
+                            .map(|hunks| {
+                                hunks.iter().position(|h2| {
+                                    let h_range = [h.start..=h.end];
+                                    let h2_range = [h2.start..=h2.end];
+                                    h2_range.iter().any(|line| h_range.contains(line))
+                                })
+                            })
+                            .unwrap_or(Some(0))
                     });
 
                     VirtualBranchFile {
@@ -2180,14 +2185,20 @@ fn write_tree(
                 let blob_oid = git_repository.blob_path(&full_path)?;
                 builder.upsert(rel_path, blob_oid, filemode);
             }
-        } else {
-            // remove file from index
+        } else if base_tree.get_path(rel_path).is_ok() {
+            // remove file from index if it exists in the base tree
             builder.remove(rel_path);
+        } else {
+            // file not in index or base tree, do nothing
+            // this is the
         }
     }
 
     // now write out the tree
-    let tree_oid = builder.create_updated(git_repository, &base_tree)?;
+    let tree_oid = builder
+        .create_updated(git_repository, &base_tree)
+        .context("failed to create updated tree")?;
+
     Ok(tree_oid)
 }
 
