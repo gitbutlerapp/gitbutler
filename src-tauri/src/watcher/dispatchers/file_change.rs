@@ -4,7 +4,8 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use notify::{Config, Event, RecommendedWatcher, Watcher};
+use notify::{Config, RecommendedWatcher, Watcher};
+use tauri::async_runtime;
 use tokio::sync::mpsc;
 
 use crate::{projects, watcher::events};
@@ -54,34 +55,24 @@ impl Dispatcher {
 
         log::info!("{}: file watcher started", self.project_id);
 
-        while let Some(res) = rx.recv().await {
-            match res {
-                Ok(event) => {
-                    if !is_interesting_event(&event.kind) {
-                        continue;
-                    }
-                    for file_path in event.paths {
-                        match file_path.strip_prefix(&self.project_path) {
-                            Ok(relative_file_path) => {
-                                if let Err(e) = rtx.send(events::Event::FileChange(
-                                    relative_file_path.to_path_buf(),
-                                )) {
-                                    log::error!(
-                                        "{}: failed to send file change event: {:#}",
-                                        self.project_id,
-                                        e
-                                    );
-                                }
-                            }
-                            Err(err) => log::error!(
-                                "{}: failed to strip prefix: {:#}",
+        while let Some(event) = rx.recv().await {
+            for file_path in event.paths {
+                match file_path.strip_prefix(&self.project_path) {
+                    Ok(relative_file_path) => {
+                        if let Err(e) =
+                            rtx.send(events::Event::FileChange(relative_file_path.to_path_buf()))
+                        {
+                            log::error!(
+                                "{}: failed to send file change event: {:#}",
                                 self.project_id,
-                                err
-                            ),
+                                e
+                            );
                         }
                     }
+                    Err(err) => {
+                        log::error!("{}: failed to strip prefix: {:#}", self.project_id, err)
+                    }
                 }
-                Err(e) => log::error!("{}: file watcher error: {:#}", self.project_id, e),
             }
         }
 
@@ -89,6 +80,28 @@ impl Dispatcher {
 
         Ok(())
     }
+}
+
+fn async_watcher() -> notify::Result<(RecommendedWatcher, mpsc::Receiver<notify::Event>)> {
+    let (tx, rx) = mpsc::channel(1);
+
+    let watcher = RecommendedWatcher::new(
+        move |res: notify::Result<notify::Event>| match res {
+            Ok(event) => {
+                if is_interesting_event(&event.kind) {
+                    async_runtime::block_on(async {
+                        if let Err(error) = tx.send(event).await {
+                            log::error!("failed to send file change event: {:#}", error);
+                        }
+                    });
+                }
+            }
+            Err(error) => log::error!("file watcher error: {:#}", error),
+        },
+        Config::default(),
+    )?;
+
+    Ok((watcher, rx))
 }
 
 fn is_interesting_event(kind: &notify::EventKind) -> bool {
@@ -99,22 +112,4 @@ fn is_interesting_event(kind: &notify::EventKind) -> bool {
             | notify::EventKind::Modify(notify::event::ModifyKind::Name(_))
             | notify::EventKind::Remove(notify::event::RemoveKind::File)
     )
-}
-
-fn async_watcher() -> notify::Result<(
-    RecommendedWatcher,
-    mpsc::UnboundedReceiver<notify::Result<Event>>,
-)> {
-    let (tx, rx) = mpsc::unbounded_channel();
-
-    let watcher = RecommendedWatcher::new(
-        move |res| {
-            if let Err(err) = tx.send(res) {
-                log::error!("failed to send file change event: {:#}", err);
-            }
-        },
-        Config::default(),
-    )?;
-
-    Ok((watcher, rx))
 }

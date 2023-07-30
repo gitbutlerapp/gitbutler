@@ -20,7 +20,7 @@ tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-works
 tauri-plugin-websocket = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1", features = ["colored"]  }
 log = "0.4.17"
-notify = "6.0.1"
+notify = { version = "6.0.1" }
 serde_json = {version = "1.0.92", features = [ "std", "arbitrary_precision" ] }
 uuid = "1.4.1"
 git2 = { version = "0.17.2", features = ["vendored-openssl", "vendored-libgit2"] }
@@ -65,3 +65,10 @@ devtools = ["tauri/devtools"]
 # this feature is used used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
+
+# https://tauri.app/v1/guides/building/app-size/#rust-build-time-optimizations
+[profile.release]
+codegen-units = 1 # Compile crates one after another so the compiler can optimize better
+lto = true        # Enables link to optimizations
+opt-level = "s"   # Optimize for binary size
+strip = true      # Remove debug symbols

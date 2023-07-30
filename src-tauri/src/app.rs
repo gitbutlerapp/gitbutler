@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops, path, sync, time};
+use std::{collections::HashMap, ops, path, sync, thread, time};
 
 use anyhow::{bail, Context, Result};
 use tokio::sync::Semaphore;
@@ -109,10 +109,12 @@ impl App {
         );
 
         let c_watcher = watcher.clone();
-        tauri::async_runtime::spawn(async move {
-            if let Err(e) = c_watcher.run().await {
-                log::error!("watcher error: {:#}", e);
-            }
+        thread::spawn(move || {
+            futures::executor::block_on(async move {
+                if let Err(e) = c_watcher.run().await {
+                    log::error!("watcher error: {:#}", e);
+                }
+            });
             log::info!("watcher stopped");
         });
 

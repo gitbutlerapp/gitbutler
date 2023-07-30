@@ -51,6 +51,7 @@ impl Dispatcher {
             if let Err(e) = file_change_dispatcher.run(s2).await {
                 log::error!("{}: failed to start file watcher: {:#}", project_id, e);
             }
+            log::info!("{}: file watcher stopped", project_id);
         });
 
         self.cancellation_token.cancelled().await;
