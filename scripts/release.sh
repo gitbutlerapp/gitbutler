@@ -59,6 +59,8 @@ function os() {
 	Darwin)
 		echo "macos"
 		;;
+    Linux)
+        echo "linux"
 	*)
 		error "$os: unsupprted"
 		;;
@@ -177,7 +179,7 @@ export TAURI_PRIVATE_KEY="$TAURI_PRIVATE_KEY"
 export TAURI_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
 
 if [ "$DO_SIGN" = "true" ]; then
-	if [ "$(uname -s)" = "Darwin" ]; then
+	if [ "$OS" = "macos" ]; then
 		[ -z "$APPLE_CERTIFICATE" ] && error "--apple-certificate is not set"
 		[ -z "$APPLE_CERTIFICATE_PASSWORD" ] && error "--apple-certificate-password is not set"
 		[ -z "$APPLE_SIGNING_IDENTITY" ] && error "--apple-signing-identity is not set"
@@ -188,7 +190,7 @@ if [ "$DO_SIGN" = "true" ]; then
 		export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY"
 		export APPLE_ID="$APPLE_ID"
 		export APPLE_PASSWORD="$APPLE_PASSWORD"
-	elif [ "$(uname -s)" == "Linux" ]; then
+	elif [ "$OS" == "linux" ]; then
 		[ -z "$APPIMAGE_KEY_ID" ] && error "--appimage-key-id is not set"
 		[ -z "$APPIMAGE_KEY_PASSPHRASE" ] && error "--appimage-key-passphrase is not set"
 		export SIGN=1
@@ -226,19 +228,25 @@ SENTRY_RELEASE="$VERSION" tauri build \
 	--config "$TMP_DIR/tauri.conf.json"
 
 BUNDLE_DIR=$(readlink -f "$PWD/../src-tauri/target/release/bundle")
-MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
-MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
-MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
-
 RELEASE_DIR="$DIST/$OS/$ARCH"
 mkdir -p "$RELEASE_DIR"
-cp "$MACOS_DMG" "$RELEASE_DIR"
-cp "$MACOS_UPDATER" "$RELEASE_DIR"
-cp "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
 
-info "built:"
-info "  - $RELEASE_DIR/$(basename "$MACOS_DMG")"
-info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
-info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
+if [ "$os" = "macos" ]; then
+    MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
+    MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
+    MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
+    cp "$MACOS_DMG" "$RELEASE_DIR"
+    cp "$MACOS_UPDATER" "$RELEASE_DIR"
+    cp "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
+    info "built:"
+    info "  - $RELEASE_DIR/$(basename "$MACOS_DMG")"
+    info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
+    info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
+elif [ "$os" = "linux" ]; then
+    tree "$BUNDLE_DIR"
+    error "todo!"
+else
+    error "unsupported os: $os"
+fi
 
 info "done! bye!"
