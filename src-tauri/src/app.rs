@@ -110,7 +110,8 @@ impl App {
 
         let c_watcher = watcher.clone();
         thread::spawn(move || {
-            futures::executor::block_on(async move {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
                 if let Err(e) = c_watcher.run().await {
                     log::error!("watcher error: {:#}", e);
                 }
