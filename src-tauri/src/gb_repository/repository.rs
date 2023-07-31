@@ -587,15 +587,19 @@ impl Repository {
         // if there are no applied virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
         let commit = branch.get().peel_to_commit()?;
         let mut commit_oid = commit.id();
-        if active_virtual_branches.is_empty() {
-            // calculate the commit as the merge-base between HEAD in project_repository and this target commit
-            let head_oid = repo
-                .head()
-                .context("Failed to get HEAD reference")?
-                .peel_to_commit()
-                .context("Failed to peel HEAD reference to commit")?
-                .id();
 
+        let head_ref = repo.head().context("Failed to get HEAD reference")?;
+        let head_branch: project_repository::branch::Name = head_ref
+            .name()
+            .context("Failed to get HEAD reference name")?
+            .try_into()?;
+        let head_oid = head_ref
+            .peel_to_commit()
+            .context("Failed to peel HEAD reference to commit")?
+            .id();
+
+        if head_oid != commit_oid {
+            // calculate the commit as the merge-base between HEAD in project_repository and this target commit
             commit_oid = repo.merge_base(head_oid, commit_oid).context(format!(
                 "Failed to calculate merge base between {} and {}",
                 head_oid, commit_oid
@@ -612,28 +616,13 @@ impl Repository {
         let target_writer = virtual_branches::target::Writer::new(self);
         target_writer.write_default(&target)?;
 
-        let branch_writer = virtual_branches::branch::Writer::new(self);
-
         if active_virtual_branches.is_empty() {
-            let max_order = virtual_branches
-                .iter()
-                .map(|branch| branch.order)
-                .max()
-                .unwrap_or(0);
-            let now = time::UNIX_EPOCH.elapsed().unwrap().as_millis();
-            let branch = virtual_branches::branch::Branch {
-                id: Uuid::new_v4().to_string(),
-                order: max_order + 1,
-                name: "Virtual branch".to_string(),
-                applied: true,
-                upstream: None,
-                created_timestamp_ms: now,
-                updated_timestamp_ms: now,
-                tree: commit.tree().unwrap().id(),
-                head: commit_oid,
-                ownership: virtual_branches::branch::Ownership { files: vec![] },
-            };
-            branch_writer.write(&branch)?;
+            virtual_branches::create_virtual_branch_from_branch(
+                self,
+                project_repository,
+                &head_branch,
+                Some(true),
+            )?;
         }
 
         virtual_branches::update_gitbutler_integration(self, project_repository)?;
