@@ -109,13 +109,19 @@ impl App {
         );
 
         let c_watcher = watcher.clone();
+        let project_id = project.id.clone();
         thread::spawn(move || {
-            futures::executor::block_on(async move {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .thread_name(format!("watcher-{}", project_id))
+                .enable_time()
+                .build()
+                .unwrap();
+            rt.block_on(async move {
                 if let Err(e) = c_watcher.run().await {
                     log::error!("watcher error: {:#}", e);
                 }
+                log::info!("watcher stopped");
             });
-            log::info!("watcher stopped");
         });
 
         self.watchers

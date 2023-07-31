@@ -24,7 +24,7 @@
 
 <dialog
 	class="rounded-lg border-[0.5px] border-light-200 bg-white p-0 backdrop:bg-white/50 dark:border-dark-500 dark:bg-dark-1000 backdrop:dark:bg-black/50"
-	in:scale={{ duration: 150 }}
+	style="max-height: calc(100vh - 5rem)"
 	bind:this={dialog}
 	on:close={close}
 	on:close

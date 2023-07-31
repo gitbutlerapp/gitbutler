@@ -105,13 +105,11 @@ fn hunks_by_filepath(
                 hunk.old_start(),
                 hunk.old_lines(),
             )
+        } else if line.origin() == 'B' {
+            let hunk_id = format!("{:?}:{}", file_path.as_os_str(), delta.new_file().id());
+            (hunk_id.clone(), 0, 0, 0, 0)
         } else {
-            if line.origin() == 'B' {
-                let hunk_id = format!("{:?}:{}", file_path.as_os_str(), delta.new_file().id());
-                (hunk_id.clone(), 0, 0, 0, 0)
-            } else {
-                return true;
-            }
+            return true;
         };
 
         let is_path_changed = if current_file_path.is_none() {
@@ -151,10 +149,7 @@ fn hunks_by_filepath(
                 if !delta.new_file().id().is_zero() {
                     // the binary file wasnt deleted
                     let full_path = repo.workdir().unwrap().join(file_path);
-                    let blob_oid = repo.blob_path(full_path.as_path()).unwrap();
-                    if blob_oid != delta.new_file().id() {
-                        return false;
-                    }
+                    repo.blob_path(full_path.as_path()).unwrap();
                 }
                 current_diff.push_str(&format!("{}", delta.new_file().id()));
                 current_binary = true;

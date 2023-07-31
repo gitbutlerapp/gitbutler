@@ -10,8 +10,7 @@ use std::{
 pub use events::Event;
 
 use anyhow::{Context, Result};
-use tauri::async_runtime;
-use tokio::sync::mpsc;
+use tokio::{spawn, sync::mpsc, try_join};
 use tokio_util::sync::CancellationToken;
 
 use crate::{bookmarks, deltas, files, projects, search, sessions, users};
@@ -133,7 +132,7 @@ impl<'watcher> InnerWatcher {
         self.proxy_tx.lock().unwrap().replace(tx.clone());
 
         let c_tx = tx.clone();
-        let dispatcher_handle = tauri::async_runtime::spawn(async move {
+        let dispatcher_handle = spawn(async move {
             if let Err(e) = dispatcher.run(c_tx).await {
                 log::error!("{}: failed to start dispatcher: {:#}", project_id, e);
             }
@@ -145,7 +144,7 @@ impl<'watcher> InnerWatcher {
         let dispatcher = self.dispatcher.clone();
         let project_id = self.project_id.clone();
         let cancellation_token = self.cancellation_token.clone();
-        let handler_handle = async_runtime::spawn(async move {
+        let handler_handle = spawn(async move {
             loop {
                 tokio::select! {
                     Some(event) = rx.recv() => {
@@ -170,7 +169,7 @@ impl<'watcher> InnerWatcher {
             }
         });
 
-        tokio::try_join!(dispatcher_handle, handler_handle)
+        try_join!(dispatcher_handle, handler_handle)
             .context("failed to join dispatcher and handler")?;
 
         Ok(())

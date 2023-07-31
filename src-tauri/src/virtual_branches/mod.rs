@@ -20,9 +20,8 @@ pub use branch::{Branch, BranchCreateRequest, FileOwnership, Hunk, Ownership};
 pub use iterator::BranchIterator as Iterator;
 use uuid::Uuid;
 
-use crate::dedup::dedup_fmt;
 use crate::{
-    dedup::dedup,
+    dedup::{dedup, dedup_fmt},
     gb_repository,
     project_repository::{self, conflicts, diff},
     reader, sessions,
@@ -67,6 +66,8 @@ pub struct VirtualBranchCommit {
     pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
+    // only present if is_remove is false
+    pub files: Vec<VirtualBranchFile>,
 }
 
 // this struct is a mapping to the view `File` type in Typescript
@@ -897,7 +898,8 @@ pub fn list_virtual_branches(
             .log(branch.head, default_target.sha)
             .context(format!("failed to get log for branch {}", branch.name))?
         {
-            let commit = commit_to_vbranch_commit(&commit, Some(&upstream_commits))?;
+            let commit =
+                commit_to_vbranch_commit(project_repository, &commit, Some(&upstream_commits))?;
             commits.push(commit);
         }
 
@@ -951,7 +953,30 @@ pub fn list_virtual_branches(
     Ok(branches)
 }
 
+fn list_commit_files(
+    project_repository: &project_repository::Repository,
+    commit: &git2::Commit,
+) -> Result<Vec<VirtualBranchFile>> {
+    if commit.parent_count() == 0 {
+        return Ok(vec![]);
+    }
+    let parent = commit.parent(0).context("failed to get parent commit")?;
+    let commit_tree = commit.tree().context("failed to get commit tree")?;
+    let parent_tree = parent.tree().context("failed to get parent tree")?;
+    let diff = diff::trees(project_repository, &parent_tree, &commit_tree)?;
+    let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
+    Ok(hunks_to_files(
+        project_repository,
+        &hunks_by_filepath
+            .values()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>(),
+    ))
+}
+
 pub fn commit_to_vbranch_commit(
+    repository: &project_repository::Repository,
     commit: &git2::Commit,
     upstream_commits: Option<&HashMap<git2::Oid, bool>>,
 ) -> Result<VirtualBranchCommit> {
@@ -965,12 +990,19 @@ pub fn commit_to_vbranch_commit(
         None => true,
     };
 
+    let files = if is_remote {
+        vec![]
+    } else {
+        list_commit_files(repository, commit).context("failed to list commit files")?
+    };
+
     let commit = VirtualBranchCommit {
         id: sha,
         created_at: timestamp * 1000,
         author: Author::from(signature),
         description: message,
         is_remote,
+        files,
     };
 
     Ok(commit)
@@ -1636,6 +1668,34 @@ fn get_applied_status(
     Ok(files_by_branch)
 }
 
+fn hunks_to_files(
+    project_repository: &project_repository::Repository,
+    hunks: &[VirtualBranchHunk],
+) -> Vec<VirtualBranchFile> {
+    hunks
+        .iter()
+        .fold(HashMap::<path::PathBuf, Vec<_>>::new(), |mut acc, hunk| {
+            acc.entry(hunk.file_path.clone())
+                .or_default()
+                .push(hunk.clone());
+            acc
+        })
+        .into_iter()
+        .map(|(file_path, hunks)| VirtualBranchFile {
+            id: file_path.display().to_string(),
+            path: file_path.clone(),
+            hunks: hunks.clone(),
+            binary: hunks.iter().any(|h| h.binary),
+            modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
+            conflicted: conflicts::is_conflicting(
+                project_repository,
+                Some(&file_path.display().to_string()),
+            )
+            .unwrap_or(false),
+        })
+        .collect::<Vec<_>>()
+}
+
 fn group_virtual_hunks(
     project_repository: &project_repository::Repository,
     hunks_by_branch: &[(branch::Branch, Vec<VirtualBranchHunk>)],
@@ -1643,29 +1703,7 @@ fn group_virtual_hunks(
     hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {
-            let mut files = hunks
-                .iter()
-                .fold(HashMap::<path::PathBuf, Vec<_>>::new(), |mut acc, hunk| {
-                    acc.entry(hunk.file_path.clone())
-                        .or_default()
-                        .push(hunk.clone());
-                    acc
-                })
-                .into_iter()
-                .map(|(file_path, hunks)| VirtualBranchFile {
-                    id: file_path.display().to_string(),
-                    path: file_path.clone(),
-                    hunks: hunks.clone(),
-                    binary: hunks.iter().any(|h| h.binary),
-                    modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
-                    conflicted: conflicts::is_conflicting(
-                        project_repository,
-                        Some(&file_path.display().to_string()),
-                    )
-                    .unwrap_or(false),
-                })
-                .collect::<Vec<_>>();
-
+            let mut files = hunks_to_files(project_repository, hunks);
             files.sort_by(|a, b| {
                 branch
                     .ownership
@@ -2427,7 +2465,7 @@ pub fn target_to_base_branch(
         .log(oid, target.sha)
         .context(format!("failed to get log for branch {:?}", branch.name()?))?
     {
-        let commit = commit_to_vbranch_commit(&commit, None)?;
+        let commit = commit_to_vbranch_commit(project_repository, &commit, None)?;
         upstream_commits.push(commit);
     }
 
@@ -2440,7 +2478,7 @@ pub fn target_to_base_branch(
     for oid in revwalk.take(10) {
         let oid = oid.context("failed to get oid")?;
         let commit = repo.find_commit(oid).context("failed to find commit")?;
-        let commit = commit_to_vbranch_commit(&commit, None)?;
+        let commit = commit_to_vbranch_commit(project_repository, &commit, None)?;
         recent_commits.push(commit);
     }
 
