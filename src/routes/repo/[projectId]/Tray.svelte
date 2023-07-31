@@ -82,79 +82,85 @@
 			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
 		>
 			<div bind:this={vbContents}>
-				{#each branches as branch (branch.id)}
-					{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
-					<div
-						role="listitem"
-						on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
-						class="border-b border-light-400 p-2 dark:border-dark-600"
-					>
-						<div class="flex flex-row justify-between">
-							<div class="flex w-full items-center">
-								<Checkbox
-									on:change={() => toggleBranch(branch)}
-									bind:checked={branch.active}
-									disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
-								/>
-								<div class="ml-2 w-full truncate text-black dark:text-white">
-									{branch.name}
+				{#if !branches || branches.length == 0}
+					<div class="px-2 py-1">There are currently no branches</div>
+				{:else}
+					{#each branches as branch (branch.id)}
+						{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
+						<div
+							role="listitem"
+							on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
+							class="border-b border-light-400 p-2 dark:border-dark-600"
+						>
+							<div class="flex flex-row justify-between">
+								<div class="flex w-full items-center">
+									<Checkbox
+										on:change={() => toggleBranch(branch)}
+										bind:checked={branch.active}
+										disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
+									/>
+									<div class="ml-2 w-full truncate text-black dark:text-white">
+										{branch.name}
+									</div>
+								</div>
+								{#if !branch.active}
+									{#if !branch.baseCurrent}
+										<!-- branch will cause merge conflicts if applied -->
+										<Tooltip label="Will introduce merge conflicts if applied">
+											<div class="text-yellow-500">&#9679;</div>
+										</Tooltip>
+									{:else if branch.mergeable}
+										<Tooltip label="Can be applied cleanly">
+											<div class="text-green-500">&#9679;</div>
+										</Tooltip>
+									{:else}
+										<Tooltip
+											label="Canflicts with changes in your working directory, cannot be applied"
+										>
+											<div class="text-red-500">&#9679;</div>
+										</Tooltip>
+									{/if}
+								{/if}
+							</div>
+							<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
+								<div class="flex-grow">
+									{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
 								</div>
 							</div>
-							{#if !branch.active}
-								{#if !branch.baseCurrent}
-									<!-- branch will cause merge conflicts if applied -->
-									<Tooltip label="Will introduce merge conflicts if applied">
-										<div class="text-yellow-500">&#9679;</div>
-									</Tooltip>
-								{:else if branch.mergeable}
-									<Tooltip label="Can be applied cleanly">
-										<div class="text-green-500">&#9679;</div>
-									</Tooltip>
-								{:else}
-									<Tooltip
-										label="Canflicts with changes in your working directory, cannot be applied"
-									>
-										<div class="text-red-500">&#9679;</div>
-									</Tooltip>
-								{/if}
-							{/if}
 						</div>
-						<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
-							<div class="flex-grow">
-								{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
-							</div>
-						</div>
-					</div>
-				{/each}
+					{/each}
+				{/if}
 			</div>
 		</div>
 		<Scrollbar viewport={vbViewport} contents={vbContents} width="0.5rem" />
 	</div>
 
 	<!-- Remote branches -->
-	{#if remoteBranches}
-		<div
-			class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
-		>
-			<div class="font-bold">Remote branches</div>
-			<div class="flex h-4 w-4 justify-around">
-				<button class="h-full w-full" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
-					{#if remoteBranchesOpen}
-						<IconTriangleUp />
-					{:else}
-						<IconTriangleDown />
-					{/if}
-				</button>
-			</div>
+	<div
+		class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
+	>
+		<div class="font-bold">Remote branches</div>
+		<div class="flex h-4 w-4 justify-around">
+			<button class="h-full w-full" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
+				{#if remoteBranchesOpen}
+					<IconTriangleUp />
+				{:else}
+					<IconTriangleDown />
+				{/if}
+			</button>
 		</div>
+	</div>
 
-		<div class="relative overflow-y-hidden" use:accordion={remoteBranchesOpen}>
-			<div
-				bind:this={rbViewport}
-				class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
-			>
-				<div bind:this={rbContents}>
-					{#each remoteBranches as branch}
+	<div class="relative overflow-y-hidden" use:accordion={remoteBranchesOpen}>
+		<div
+			bind:this={rbViewport}
+			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
+		>
+			<div bind:this={rbContents}>
+				{#if !remoteBranches || remoteBranches.length == 0}
+					<div class="px-2 py-1">There are currently no branches</div>
+				{:else}
+					{#each remoteBranches ?? [] as branch}
 						<div
 							role="listitem"
 							on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
@@ -199,11 +205,11 @@
 							</div>
 						</div>
 					{/each}
-				</div>
+				{/if}
 			</div>
-			<Scrollbar viewport={rbViewport} contents={rbContents} width="0.5rem" />
 		</div>
-	{/if}
+		<Scrollbar viewport={rbViewport} contents={rbContents} width="0.5rem" />
+	</div>
 
 	<!-- Your branches context menu -->
 	<PopupMenu bind:this={yourBranchContextMenu} let:item>
