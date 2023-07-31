@@ -14,14 +14,12 @@
 	let viewport: Element;
 	let contents: Element;
 
+	let fetching = false;
+	let buttonHovered = false;
+
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
-	// $: behind = baseBranch.behind > 0;
-	$: behindMessage = base.behind > 0 ? `behind ${base.behind}` : 'up-to-date';
-
-	let fetching = false;
 	$: expanded = base.behind > 0;
-	let buttonHovered = false;
 </script>
 
 <div
@@ -71,7 +69,7 @@
 		</div>
 		{#if expanded}
 			<div
-				class="h-full w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:bg-dark-500 dark:border-dark-600"
+				class="h-full w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:border-dark-600 dark:bg-dark-500"
 			/>
 		{/if}
 	</div>

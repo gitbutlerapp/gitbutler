@@ -1,12 +1,9 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import type { Project } from '$lib/api';
-	import { Button, Link, Tooltip } from '$lib/components';
+	import { Button, Tooltip } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { IconEmail, IconRewind, IconSearch, IconSettings, IconTerminal } from '$lib/icons';
-	import { PUBLIC_API_BASE_URL } from '$env/static/public';
-	import { events } from '$lib';
+	import { IconRewind, IconSearch, IconSettings, IconTerminal } from '$lib/icons';
 
 	export let data: LayoutData;
 	const { project } = data;
@@ -15,9 +12,6 @@
 
 	const onSearchSubmit = () =>
 		goto(`/projects/${$project?.id}/search?q=${encodeURIComponent(query)}`);
-
-	const projectUrl = (project: Project) =>
-		new URL(`/projects/${project.id}`, new URL(PUBLIC_API_BASE_URL)).toString();
 
 	$: selection = $page?.route?.id?.split('/')?.[3];
 </script>

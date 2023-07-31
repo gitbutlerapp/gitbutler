@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 
 	export let viewport: Element;
 	export let contents: Element;
@@ -7,8 +7,8 @@
 	export let alwaysVisible = false;
 	export let initiallyVisible = false;
 	export let margin: { top?: number; right?: number; bottom?: number; left?: number } = {};
-	export let opacity: string = '0.2';
-	export let width: string = '0.625rem';
+	export let opacity = '0.2';
+	export let width = '0.625rem';
 
 	let thumb: Element;
 	let track: Element;
@@ -68,7 +68,7 @@
 		track.addEventListener('mouseenter', onTrackEnter);
 		track.addEventListener('mouseleave', onTrackLeave);
 		return () => {
-			track.removeEventListener('mousedown', onThumbClick);
+			track.removeEventListener('mousedown', onTrackClick);
 			track.removeEventListener('mouseenter', onTrackEnter);
 			track.removeEventListener('mouseleave', onTrackLeave);
 		};

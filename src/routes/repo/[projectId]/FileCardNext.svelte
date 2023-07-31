@@ -22,7 +22,6 @@
 	import { slide } from 'svelte/transition';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { summarizeHunk } from '$lib/summaries';
-	import { Button } from '$lib/components';
 
 	export let file: File;
 	export let conflicted: boolean;
