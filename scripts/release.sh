@@ -146,7 +146,7 @@ while [[ $# -gt 0 ]]; do
 		shift
 		shift
 		;;
-	--appimage-key-id)
+    --appimage-key-passphrase)
 		APPIMAGE_KEY_PASSPHRASE="$2"
 		shift
 		shift
