@@ -103,12 +103,13 @@
 				</p>
 			{:else}
 				<select bind:value={targetChoice}>
-					{#each remoteBranchNames as branch}
-						{@const strippedBranch = branch.substring(13)}
-						{#if strippedBranch == 'origin/master' || strippedBranch == 'origin/main'}
-							<option value={strippedBranch} selected>{strippedBranch}</option>
+					{#each remoteBranchNames
+						.map((branch) => branch.substring(13))
+						.sort((a, b) => a.localeCompare(b)) as branch}
+						{#if branch == 'origin/master' || branch == 'origin/main'}
+							<option value={branch} selected>{branch}</option>
 						{:else}
-							<option value={strippedBranch}>{strippedBranch}</option>
+							<option value={branch}>{branch}</option>
 						{/if}
 					{/each}
 				</select>
