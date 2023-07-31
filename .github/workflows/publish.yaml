@@ -31,6 +31,7 @@ jobs:
             matrix:
                 platform:
                     - macos-latest
+                    - ubuntu-latest
                     - macos-aarch64
 
         runs-on: ${{ matrix.platform }}
@@ -99,6 +100,21 @@ jobs:
                   NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
                   echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
+            - run: sudo apt-get update
+              if: runner.os == 'Linux'
+            - name: Install system dependencies
+              uses: daaku/gh-action-apt-install@v4
+              if: runner.os == 'Linux'
+              with:
+                  # https://tauri.app/v1/guides/getting-started/prerequisites#setting-up-linux
+                  packages: libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+            - name: import gpg key
+              if: runner.os == 'Linux'
+              uses: crazy-max/ghaction-import-gpg@v5
+              with:
+                  gpg_private_key: ${{ secrets.APPIMAGE_PRIVATE_KEY }}
+                  passphrase: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
+
             - name: Build binary
               run: |
                   ./scripts/release.sh \
@@ -112,7 +128,9 @@ jobs:
                     --apple-certificate-password "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" \
                     --apple-signing-identity     "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
                     --apple-id                   "${{ secrets.APPLE_ID }}" \
-                    --apple-password             "${{ secrets.APPLE_PASSWORD }}"
+                    --apple-password             "${{ secrets.APPLE_PASSWORD }}" \
+                    --appimage-key-id            "${{ secrets.APPIMAGE_KEY_ID }}" \
+                    --appimage-key-passphrase    "${{ secrets.APPIMAGE_KEY_PASSPHRASE }}"
 
             - uses: shallwefootball/s3-upload-action@master
               name: Upload To S3

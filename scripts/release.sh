@@ -16,6 +16,8 @@ APPLE_CERTIFICATE_PASSWORD=""
 APPLE_SIGNING_IDENTITY=""
 APPLE_ID=""
 APPLE_PASSWORD=""
+APPIMAGE_KEY_ID=""
+APPIMAGE_KEY_PASSPHRASE=""
 VERSION=""
 
 function help() {
@@ -33,6 +35,8 @@ function help() {
 	echo "  --apple-signing-identity      the name of the keychain entry that contains the signing certificate." 1>&$to
 	echo "  --apple-id                    the apple id to use for signing." 1>&$to
 	echo "  --apple-password              the password for the apple id." 1>&$to
+	echo "  --appimage-key-id             the gpg key id to use for signing the appimage." 1>&$to
+	echo "  --appimage-key-passphrase     the gpg key passphrase to use for signing the appimage." 1>&$to
 	echo "  --sign                        if set, will sign the app." 1>&$to
 	echo "  --channel                     the channel to use for the release (release | nightly)." 1>&$to
 	echo "  --help                        display this message." 1>&$to
@@ -135,6 +139,16 @@ while [[ $# -gt 0 ]]; do
 		shift
 		shift
 		;;
+	--appimage-key-id)
+		APPIMAGE_KEY_ID="$2"
+		shift
+		shift
+		;;
+	--appimage-key-id)
+		APPIMAGE_KEY_PASSPHRASE="$2"
+		shift
+		shift
+		;;
 	--sign)
 		DO_SIGN="true"
 		shift
@@ -163,17 +177,26 @@ export TAURI_PRIVATE_KEY="$TAURI_PRIVATE_KEY"
 export TAURI_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
 
 if [ "$DO_SIGN" = "true" ]; then
-	[ -z "$APPLE_CERTIFICATE" ] && error "--apple-certificate is not set"
-	[ -z "$APPLE_CERTIFICATE_PASSWORD" ] && error "--apple-certificate-password is not set"
-	[ -z "$APPLE_SIGNING_IDENTITY" ] && error "--apple-signing-identity is not set"
-	[ -z "$APPLE_ID" ] && error "--apple-id is not set"
-	[ -z "$APPLE_PASSWORD" ] && error "--apple-password is not set"
-
-	export APPLE_CERTIFICATE="$APPLE_CERTIFICATE"
-	export APPLE_CERTIFICATE_PASSWORD="$APPLE_CERTIFICATE_PASSWORD"
-	export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY"
-	export APPLE_ID="$APPLE_ID"
-	export APPLE_PASSWORD="$APPLE_PASSWORD"
+	if [ "$(uname -s)" = "Darwin" ]; then
+		[ -z "$APPLE_CERTIFICATE" ] && error "--apple-certificate is not set"
+		[ -z "$APPLE_CERTIFICATE_PASSWORD" ] && error "--apple-certificate-password is not set"
+		[ -z "$APPLE_SIGNING_IDENTITY" ] && error "--apple-signing-identity is not set"
+		[ -z "$APPLE_ID" ] && error "--apple-id is not set"
+		[ -z "$APPLE_PASSWORD" ] && error "--apple-password is not set"
+		export APPLE_CERTIFICATE="$APPLE_CERTIFICATE"
+		export APPLE_CERTIFICATE_PASSWORD="$APPLE_CERTIFICATE_PASSWORD"
+		export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY"
+		export APPLE_ID="$APPLE_ID"
+		export APPLE_PASSWORD="$APPLE_PASSWORD"
+	elif [ "$(uname -s)" == "Linux" ]; then
+		[ -z "$APPIMAGE_KEY_ID" ] && error "--appimage-key-id is not set"
+		[ -z "$APPIMAGE_KEY_PASSPHRASE" ] && error "--appimage-key-passphrase is not set"
+		export SIGN=1
+		export SIGN_KEY="$APPIMAGE_KEY_ID"
+		export APPIMAGETOOL_SIGN_PASSPHRASE="$APPIMAGE_KEY_PASSPHRASE"
+	else
+		error "signing is not supported on $(uname -s)"
+	fi
 fi
 
 info "building:"
@@ -191,17 +214,16 @@ CONFIG_PATH=$(readlink -f "$PWD/../src-tauri/tauri.conf.$CHANNEL.json")
 # update the version in the tauri release config
 jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
-
 FEATURES=""
 
 if [ "$CHANNEL" == "nightly" ]; then
-    FEATURES="$FEATURES devtools"
+	FEATURES="$FEATURES devtools"
 fi
 
 # build the app with release config
 SENTRY_RELEASE="$VERSION" tauri build \
-    --features "$FEATURES" \
-    --config "$TMP_DIR/tauri.conf.json"
+	--features "$FEATURES" \
+	--config "$TMP_DIR/tauri.conf.json"
 
 BUNDLE_DIR=$(readlink -f "$PWD/../src-tauri/target/release/bundle")
 MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
