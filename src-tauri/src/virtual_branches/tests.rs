@@ -230,7 +230,7 @@ fn test_track_binary_files() -> Result<()> {
     commit(&gb_repo, &project_repository, &branch1_id, "test commit")?;
 
     // status (no files)
-    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     let commit_obj = repository.find_commit(git2::Oid::from_str(commit_id).unwrap())?;
     let tree = commit_obj.tree()?;
@@ -250,7 +250,7 @@ fn test_track_binary_files() -> Result<()> {
     // commit
     commit(&gb_repo, &project_repository, &branch1_id, "test commit")?;
 
-    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     // get tree from commit_id
     let commit_obj = repository.find_commit(git2::Oid::from_str(commit_id).unwrap())?;
@@ -2328,14 +2328,36 @@ fn test_partial_commit() -> Result<()> {
     let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
 
     // branch one test.txt has just the 1st and 3rd hunks applied
-    let commit = &branch1.commits[0].id;
-    let contents = commit_sha_to_contents(&repository, commit, "test.txt");
-    assert_eq!(contents, "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nmiddle\nline11\nline12\npatch3\n");
+    assert_eq!(
+        branch1.commits[0].files[0]
+            .path
+            .display()
+            .to_string()
+            .as_str(),
+        "test.txt"
+    );
+    assert_eq!(
+        branch1.commits[0].files[0].hunks[0].diff,
+        "@@ -1,4 +1,5 @@\n line1\n+patch1\n line2\n line3\n line4\n"
+    );
+    assert_eq!(
+        branch1.commits[0].files[0].hunks[1].diff,
+        "@@ -15,5 +16,7 @@ line10\n middle\n middle\n middle\n+middle\n line11\n line12\n+patch3\n"
+    );
 
     // branch two test.txt has just the middle hunk applied
-    let commit = &branch2.commits[0].id;
-    let contents = commit_sha_to_contents(&repository, commit, "test.txt");
-    assert_eq!(contents, "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n");
+    assert_eq!(
+        branch2.commits[0].files[0]
+            .path
+            .display()
+            .to_string()
+            .as_str(),
+        "test.txt"
+    );
+    assert_eq!(
+        branch2.commits[0].files[0].hunks[0].diff,
+        "@@ -8,6 +8,7 @@ middle\n middle\n middle\n line6\n+patch2\n line7\n line8\n line9\n"
+    );
 
     // ok, now we're going to unapply branch1, which should remove the 1st and 3rd hunks
     unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
@@ -2357,30 +2379,6 @@ fn test_partial_commit() -> Result<()> {
     assert_eq!(contents, "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nmiddle\nline11\nline12\npatch3\n");
 
     Ok(())
-}
-
-fn commit_sha_to_contents(repository: &git2::Repository, commit: &str, path: &str) -> String {
-    let commit = git2::Oid::from_str(commit).expect("failed to parse oid");
-    let commit = repository
-        .find_commit(commit)
-        .expect("failed to get commit object");
-    // get the tree
-    let tree = commit.tree().expect("failed to get tree");
-    // get the blob
-    let tree_entry = tree
-        .get_path(std::path::Path::new(path))
-        .expect("failed to get blob");
-    // blob from tree_entry
-    let blob = tree_entry
-        .to_object(repository)
-        .unwrap()
-        .peel_to_blob()
-        .expect("failed to get blob");
-
-    // get the contents
-    let contents = blob.content();
-    let contents = std::str::from_utf8(contents).expect("failed to convert to string");
-    contents.to_string()
 }
 
 #[test]

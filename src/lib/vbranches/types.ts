@@ -48,6 +48,8 @@ export class Commit {
 	@Transform((obj) => new Date(obj.value))
 	createdAt!: Date;
 	isRemote!: boolean;
+	@Type(() => File)
+	files!: File[];
 }
 
 export class Author {
