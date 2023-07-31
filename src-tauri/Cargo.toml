@@ -21,7 +21,7 @@ tauri-plugin-websocket = { git = "https://github.com/tauri-apps/plugins-workspac
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1", features = ["colored"]  }
 log = "0.4.17"
 notify = { version = "6.0.1" }
-serde_json = {version = "1.0.92", features = [ "std", "arbitrary_precision" ] }
+serde_json = {version = "1.0.104", features = [ "std", "arbitrary_precision" ] }
 uuid = "1.4.1"
 git2 = { version = "0.17.2", features = ["vendored-openssl", "vendored-libgit2"] }
 filetime = "0.2.19"
