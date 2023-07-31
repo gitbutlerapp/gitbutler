@@ -1,7 +1,6 @@
 mod check_current_session;
 mod fetch_gitbutler_data;
 mod fetch_project_data;
-mod file_change;
 mod flush_session;
 mod git_file_change;
 mod index_handler;
@@ -19,7 +18,6 @@ use super::events;
 pub struct Handler {
     project_id: String,
 
-    file_change_handler: file_change::Handler,
     project_file_handler: project_file_change::Handler,
     git_file_change_handler: git_file_change::Handler,
     check_current_session_handler: check_current_session::Handler,
@@ -49,7 +47,6 @@ impl<'handler> Handler {
             project_id: project_id.to_string(),
             events_sender: events_sender.clone(),
 
-            file_change_handler: file_change::Handler::new(),
             project_file_handler: project_file_change::Handler::new(
                 local_data_dir,
                 project_id,
@@ -96,11 +93,6 @@ impl<'handler> Handler {
         log::info!("{}: handling event: {}", self.project_id, event);
 
         match event {
-            events::Event::FileChange(path) => self
-                .file_change_handler
-                .handle(path.clone())
-                .with_context(|| format!("failed to handle file change event: {:?}", path)),
-
             events::Event::ProjectFileChange(path) => self
                 .project_file_handler
                 .handle(path.clone())

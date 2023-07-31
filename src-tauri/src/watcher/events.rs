@@ -9,7 +9,6 @@ pub enum Event {
 
     FetchGitbutlerData(time::SystemTime),
 
-    FileChange(path::PathBuf),
     GitFileChange(path::PathBuf),
 
     ProjectFileChange(path::PathBuf),
@@ -32,8 +31,7 @@ impl Display for Event {
             Event::Tick(ts) => write!(f, "Tick({:?})", ts),
             Event::FetchGitbutlerData(ts) => write!(f, "FetchGitbutlerData({:?})", ts),
             Event::Flush(session) => write!(f, "Flush({})", session.id),
-            Event::FileChange(path) => write!(f, "FileChange({})", path.display()),
-            Event::GitFileChange(_) => write!(f, "GitFileChange"),
+            Event::GitFileChange(path) => write!(f, "GitFileChange({})", path.display()),
             Event::ProjectFileChange(path) => write!(f, "ProjectFileChange({})", path.display()),
             Event::Session(session) => write!(f, "Session({})", session.id),
             Event::Bookmark(_) => write!(f, "Bookmark"),
