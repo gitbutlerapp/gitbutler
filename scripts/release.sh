@@ -59,8 +59,9 @@ function os() {
 	Darwin)
 		echo "macos"
 		;;
-    Linux)
-        echo "linux"
+	Linux)
+		echo "linux"
+		;;
 	*)
 		error "$os: unsupprted"
 		;;
@@ -146,7 +147,7 @@ while [[ $# -gt 0 ]]; do
 		shift
 		shift
 		;;
-    --appimage-key-passphrase)
+	--appimage-key-passphrase)
 		APPIMAGE_KEY_PASSPHRASE="$2"
 		shift
 		shift
@@ -232,21 +233,21 @@ RELEASE_DIR="$DIST/$OS/$ARCH"
 mkdir -p "$RELEASE_DIR"
 
 if [ "$os" = "macos" ]; then
-    MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
-    MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
-    MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
-    cp "$MACOS_DMG" "$RELEASE_DIR"
-    cp "$MACOS_UPDATER" "$RELEASE_DIR"
-    cp "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
-    info "built:"
-    info "  - $RELEASE_DIR/$(basename "$MACOS_DMG")"
-    info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
-    info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
+	MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
+	MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
+	MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
+	cp "$MACOS_DMG" "$RELEASE_DIR"
+	cp "$MACOS_UPDATER" "$RELEASE_DIR"
+	cp "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
+	info "built:"
+	info "  - $RELEASE_DIR/$(basename "$MACOS_DMG")"
+	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
+	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
 elif [ "$os" = "linux" ]; then
-    tree "$BUNDLE_DIR"
-    error "todo!"
+	tree "$BUNDLE_DIR"
+	error "todo!"
 else
-    error "unsupported os: $os"
+	error "unsupported os: $os"
 fi
 
 info "done! bye!"
