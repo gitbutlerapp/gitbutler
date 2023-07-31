@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
-	import { Button, Tooltip } from '$lib/components';
+	import { Button } from '$lib/components';
 	import { events } from '$lib';
 
 	export let data: LayoutData;

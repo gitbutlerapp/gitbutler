@@ -6,7 +6,6 @@ import {
 	IconFeedback,
 	IconTerminal,
 	IconSettings,
-	IconAdjustmentsHorizontal,
 	IconDiscord,
 	IconSearch,
 	IconRewind,

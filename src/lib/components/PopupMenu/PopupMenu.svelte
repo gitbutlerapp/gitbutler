@@ -5,7 +5,7 @@
 	let showMenu = false;
 	let item: any;
 
-	function onDismiss(e: MouseEvent | KeyboardEvent | FocusEvent) {
+	function onDismiss() {
 		showMenu = false;
 	}
 

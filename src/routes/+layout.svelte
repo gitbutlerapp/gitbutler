@@ -4,10 +4,8 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import { toasts, Toaster, events, hotkeys, stores } from '$lib';
 	import type { LayoutData } from './$types';
-	import { Button, Link, Tooltip } from '$lib/components';
+	import { Link, Tooltip } from '$lib/components';
 	import { IconEmail } from '$lib/icons';
-	import type { Project } from '$lib/api';
-	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
 	import { onMount, setContext } from 'svelte';
@@ -16,7 +14,6 @@
 	import LinkProjectModal from './LinkProjectModal.svelte';
 	import Breadcrumbs from './Breadcrumbs.svelte';
 	import ShareIssueModal from './ShareIssueModal.svelte';
-	import ThemeSelector from './ThemeSelector.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/userSettings';
 	import { initTheme } from '$lib/theme';
 
@@ -39,9 +36,6 @@
 	$: zoom = $userSettings.zoom || 1;
 	$: document.documentElement.style.fontSize = zoom + 'rem';
 	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
-
-	const projectUrl = (project: Project) =>
-		new URL(`/projects/${project.id}`, new URL(PUBLIC_API_BASE_URL)).toString();
 
 	onMount(() =>
 		unsubscribe(

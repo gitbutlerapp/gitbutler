@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Project } from '$lib/api';
 	import { IconHome } from '$lib/icons';
-	import { Button } from '$lib/components';
 	import { goto } from '$app/navigation';
 
 	export let project: Project | undefined;
