@@ -4,7 +4,7 @@ mod tick;
 use std::time;
 
 use anyhow::Result;
-use tokio::sync::mpsc;
+use tokio::{spawn, sync::mpsc};
 use tokio_util::sync::CancellationToken;
 
 use crate::projects;
@@ -38,7 +38,7 @@ impl Dispatcher {
         let tick_dispatcher = self.tick_dispatcher.clone();
         let s1 = sender.clone();
         let project_id = self.project_id.clone();
-        tauri::async_runtime::spawn(async move {
+        spawn(async move {
             if let Err(e) = tick_dispatcher.run(time::Duration::from_secs(10), s1).await {
                 log::error!("{}: failed to start ticker: {:#}", project_id, e);
             }
@@ -47,7 +47,7 @@ impl Dispatcher {
         let file_change_dispatcher = self.file_change_dispatcher.clone();
         let project_id = self.project_id.clone();
         let s2 = sender.clone();
-        tauri::async_runtime::spawn(async move {
+        spawn(async move {
             if let Err(e) = file_change_dispatcher.run(s2).await {
                 log::error!("{}: failed to start file watcher: {:#}", project_id, e);
             }
