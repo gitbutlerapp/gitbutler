@@ -21,8 +21,7 @@ jobs:
                       args: ["--frozen-lockfile"]
 
             - name: Lint frontend
-              run: |
-                pnpm lint-ci
+              run: pnpm lint
 
     check-frontend:
         runs-on: ubuntu-latest
