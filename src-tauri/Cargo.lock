@@ -1473,7 +1473,7 @@ dependencies = [
  "reqwest",
  "rusqlite",
  "scopeguard",
- "sentry 0.31.4",
+ "sentry 0.31.5",
  "sentry-anyhow",
  "sentry-debug-images 0.31.5",
  "sentry-rust-minidump",
@@ -3789,19 +3789,19 @@ dependencies = [
 
 [[package]]
 name = "sentry"
-version = "0.31.4"
+version = "0.31.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e0bd2cbc3398be701a933e5b7357a4b6b1f94038d2054f118cba90b481a9fbe"
+checksum = "01b0ad16faa5d12372f914ed40d00bda21a6d1bdcc99264c5e5e1c9495cf3654"
 dependencies = [
  "httpdate",
  "native-tls",
  "reqwest",
  "sentry-anyhow",
  "sentry-backtrace 0.31.5",
- "sentry-contexts 0.31.4",
+ "sentry-contexts 0.31.5",
  "sentry-core 0.31.5",
  "sentry-debug-images 0.31.5",
- "sentry-panic 0.31.4",
+ "sentry-panic 0.31.5",
  "sentry-tracing",
  "tokio",
  "ureq",
@@ -3858,9 +3858,9 @@ dependencies = [
 
 [[package]]
 name = "sentry-contexts"
-version = "0.31.4"
+version = "0.31.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16bde19e361cff463253371dbabee51dab416c6f9285d6e62106539f96d12079"
+checksum = "dcd133362c745151eeba0ac61e3ba8350f034e9fe7509877d08059fe1d7720c6"
 dependencies = [
  "hostname",
  "libc",
@@ -3930,9 +3930,9 @@ dependencies = [
 
 [[package]]
 name = "sentry-panic"
-version = "0.31.4"
+version = "0.31.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "063ac270f11157e435f8b133a007669a3e1a7920e23374485357a8692996188f"
+checksum = "c4dfe8371c9b2e126a8b64f6fefa54cef716ff2a50e63b5558a48b899265bccd"
 dependencies = [
  "sentry-backtrace 0.31.5",
  "sentry-core 0.31.5",
@@ -3951,9 +3951,9 @@ dependencies = [
 
 [[package]]
 name = "sentry-tracing"
-version = "0.31.4"
+version = "0.31.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc167b6746500ea4bb86c2c13afe7ca6f75f2ed1bcfd84243e870780b8ced529"
+checksum = "5aca8b88978677a27ee1a91beafe4052306c474c06f582321fde72d2e2cc2f7f"
 dependencies = [
  "sentry-backtrace 0.31.5",
  "sentry-core 0.31.5",
