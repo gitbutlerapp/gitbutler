@@ -1143,39 +1143,31 @@ pub fn create_virtual_branch(
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
 
-    let all_virtual_branches = Iterator::new(&current_session_reader)
+    let mut all_virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?
         .into_iter()
         .collect::<Vec<branch::Branch>>();
+    all_virtual_branches.sort_by_key(|branch| branch.order);
 
-    let mut applied_virtual_branches = all_virtual_branches
-        .iter()
-        .filter(|branch| branch.applied)
-        .cloned()
-        .collect::<Vec<branch::Branch>>();
+    let order = create
+        .order
+        .unwrap_or(all_virtual_branches.len())
+        .clamp(0, all_virtual_branches.len());
 
-    applied_virtual_branches.sort_by_key(|branch| branch.order);
-
-    let order = if let Some(order) = create.order {
-        if order > applied_virtual_branches.len() {
-            applied_virtual_branches.len()
-        } else {
-            order
-        }
-    } else {
-        applied_virtual_branches.len()
-    };
     let branch_writer = branch::Writer::new(gb_repository);
 
     // make space for the new branch
-    for branch in applied_virtual_branches.iter().skip(order) {
+    for (i, branch) in all_virtual_branches.iter().enumerate() {
         let mut branch = branch.clone();
-        branch.order += 1;
-        branch_writer
-            .write(&branch)
-            .context("failed to write branch")?;
+        let new_order = if i < order { i } else { i + 1 };
+        if branch.order != new_order {
+            branch.order = new_order;
+            branch_writer
+                .write(&branch)
+                .context("failed to write branch")?;
+        }
     }
 
     let now = time::UNIX_EPOCH
