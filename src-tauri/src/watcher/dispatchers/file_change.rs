@@ -4,8 +4,8 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use futures::executor::block_on;
 use notify::{Config, RecommendedWatcher, Watcher};
+use tauri::async_runtime;
 use tokio::sync::mpsc;
 
 use crate::{projects, watcher::events};
@@ -89,7 +89,7 @@ fn async_watcher() -> notify::Result<(RecommendedWatcher, mpsc::Receiver<notify:
         move |res: notify::Result<notify::Event>| match res {
             Ok(event) => {
                 if is_interesting_event(&event.kind) {
-                    block_on(async {
+                    async_runtime::block_on(async {
                         if let Err(error) = tx.send(event).await {
                             log::error!("failed to send file change event: {:#}", error);
                         }
