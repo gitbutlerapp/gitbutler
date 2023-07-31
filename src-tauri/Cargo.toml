@@ -26,7 +26,7 @@ uuid = "1.4.1"
 git2 = { version = "0.17.2", features = ["vendored-openssl", "vendored-libgit2"] }
 filetime = "0.2.19"
 sha2 = "0.10.6"
-sentry = {version = "0.31.0", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
+sentry = {version = "0.31.5", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
 walkdir = "2.3.2"
 anyhow = "1.0.71"
 tempfile = "3.3.0"
