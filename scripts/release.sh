@@ -247,7 +247,7 @@ if [ "$OS" = "macos" ]; then
 	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
 	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
 elif [ "$OS" = "linux" ]; then
-	APPIMAGE="$(find "$BUNDLE_DIR" -depth 1 -type f -name "*.AppImage")"
+	APPIMAGE="$(find $BUNDLE_DIR/appimage -name \*.AppImage)"
 	cp "$APPIMAGE" "$RELEASE_DIR"
 
 	info "built:"
