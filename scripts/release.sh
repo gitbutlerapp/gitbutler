@@ -248,10 +248,17 @@ if [ "$OS" = "macos" ]; then
 	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
 elif [ "$OS" = "linux" ]; then
 	APPIMAGE="$(find $BUNDLE_DIR/appimage -name \*.AppImage)"
+	APPIMAGE_UPDATER="$(find $BUNDLE_DIR/appimage -name \*.AppImage.tar.gz)"
+	APPIMAGE_UPDATER_SIG="$(find $BUNDLE_DIR/appimage -name \*.AppImage.tar.gz.sig)"
+
 	cp "$APPIMAGE" "$RELEASE_DIR"
+	cp "$APPIMAGE_UPDATER" "$RELEASE_DIR"
+	cp "$APPIMAGE_UPDATER_SIG" "$RELEASE_DIR"
 
 	info "built:"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE")"
+	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER")"
+	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER_SIG")"
 fi
 
 info "done! bye!"
