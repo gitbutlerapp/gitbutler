@@ -6,7 +6,10 @@ use std::{
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use notify::{Config, RecommendedWatcher, Watcher};
-use tokio::sync::mpsc;
+use tokio::{
+    spawn,
+    sync::mpsc::{channel, Receiver},
+};
 
 use crate::{projects, watcher::events};
 
@@ -38,7 +41,7 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub async fn run(&self, rtx: mpsc::UnboundedSender<events::Event>) -> Result<()> {
+    pub fn run(self) -> Result<Receiver<events::Event>> {
         let repo = git2::Repository::open(&self.project_path).with_context(|| {
             format!(
                 "failed to open project repository: {}",
@@ -46,7 +49,7 @@ impl Dispatcher {
             )
         })?;
 
-        let (tx, mut rx) = mpsc::channel(1);
+        let (notify_tx, mut notify_rx) = channel(1);
         let mut watcher = RecommendedWatcher::new(
             move |res: notify::Result<notify::Event>| match res {
                 Ok(event) => {
@@ -59,8 +62,8 @@ impl Dispatcher {
                         .filter(|file| is_interesting_file(&repo, file))
                     {
                         block_on(async {
-                            log::warn!("sending file change event: {}", path.display());
-                            if let Err(error) = tx.send(path).await {
+                            log::warn!("detected file change event: {}", path.display());
+                            if let Err(error) = notify_tx.send(path).await {
                                 log::error!("failed to send file change event: {:#}", error);
                             }
                         });
@@ -86,36 +89,39 @@ impl Dispatcher {
 
         log::info!("{}: file watcher started", self.project_id);
 
-        while let Some(file_path) = rx.recv().await {
-            match file_path.strip_prefix(&self.project_path) {
-                Ok(relative_file_path) => {
-                    let event = if relative_file_path.starts_with(".git") {
-                        events::Event::GitFileChange(
-                            relative_file_path
-                                .strip_prefix(".git")
-                                .unwrap()
-                                .to_path_buf(),
-                        )
-                    } else {
-                        events::Event::ProjectFileChange(relative_file_path.to_path_buf())
-                    };
-                    if let Err(e) = rtx.send(event) {
-                        log::error!(
-                            "{}: failed to send file change event: {:#}",
-                            self.project_id,
-                            e
-                        );
+        let (tx, rx) = channel(1);
+        spawn(async move {
+            while let Some(file_path) = notify_rx.recv().await {
+                match file_path.strip_prefix(&self.project_path) {
+                    Ok(relative_file_path) => {
+                        let event = if relative_file_path.starts_with(".git") {
+                            events::Event::GitFileChange(
+                                relative_file_path
+                                    .strip_prefix(".git")
+                                    .unwrap()
+                                    .to_path_buf(),
+                            )
+                        } else {
+                            events::Event::ProjectFileChange(relative_file_path.to_path_buf())
+                        };
+                        log::warn!("sending file change event: {}", event);
+                        if let Err(e) = tx.send(event).await {
+                            log::error!(
+                                "{}: failed to send file change event: {:#}",
+                                self.project_id,
+                                e
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        log::error!("{}: failed to strip prefix: {:#}", self.project_id, err)
                     }
                 }
-                Err(err) => {
-                    log::error!("{}: failed to strip prefix: {:#}", self.project_id, err)
-                }
             }
-        }
+            log::info!("{}: file watcher stopped", self.project_id);
+        });
 
-        log::info!("{}: file watcher stopped", self.project_id);
-
-        Ok(())
+        Ok(rx)
     }
 }
 
