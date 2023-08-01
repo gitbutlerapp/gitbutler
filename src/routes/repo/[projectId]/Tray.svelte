@@ -44,7 +44,8 @@
 	}
 
 	function sumBranchLinesAddedRemoved(branch: Branch) {
-		return branch.files
+		const comitted = branch.commits
+			.flatMap((c) => c.files)
 			.flatMap((f) => f.hunks)
 			.map((h) => h.diff.split('\n'))
 			.reduce(
@@ -54,6 +55,21 @@
 				}),
 				{ added: 0, removed: 0 }
 			);
+		const uncomitted = branch.files
+			.flatMap((f) => f.hunks)
+			.map((h) => h.diff.split('\n'))
+			.reduce(
+				(acc, lines) => ({
+					added: acc.added + lines.filter((l) => l.startsWith('+')).length,
+					removed: acc.removed + lines.filter((l) => l.startsWith('-')).length
+				}),
+				{ added: 0, removed: 0 }
+			);
+
+		return {
+			added: comitted.added + uncomitted.added,
+			removed: comitted.removed + uncomitted.removed
+		};
 	}
 </script>
 
