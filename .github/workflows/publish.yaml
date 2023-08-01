@@ -31,8 +31,9 @@ jobs:
             matrix:
                 platform:
                     - macos-latest
-                    - ubuntu-20.04
-                    - macos-aarch64
+                    - [self-hosted, macOS, ARM64]
+                    - [self-hosted, Linux, X64]
+                    - [self-hosted, Linux, ARM64]
 
         runs-on: ${{ matrix.platform }}
         steps:
