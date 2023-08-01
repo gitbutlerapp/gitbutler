@@ -31,9 +31,9 @@ jobs:
             matrix:
                 platform:
                     - macos-latest
-                    - [self-hosted, macOS, ARM64]
-                    - [self-hosted, Linux, X64]
-                    - [self-hosted, Linux, ARM64]
+                    - [self-hosted, macOS, ARM64] # mac studio
+                    - ubuntu-20.04
+                    - [self-hosted, Linux, ARM64] # mac studio
 
         runs-on: ${{ matrix.platform }}
         steps:
