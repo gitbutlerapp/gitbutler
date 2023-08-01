@@ -1,7 +1,8 @@
 use std::{collections::HashMap, ops, path, sync, thread, time};
 
 use anyhow::{bail, Context, Result};
-use tokio::sync::Semaphore;
+use futures::executor::block_on;
+use tokio::sync::{Mutex, Semaphore};
 
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
@@ -19,7 +20,7 @@ pub struct App {
     searcher: search::Searcher,
     events_sender: events::Sender,
 
-    watchers: sync::Arc<sync::Mutex<HashMap<String, watcher::Watcher>>>,
+    watchers: sync::Arc<Mutex<HashMap<String, watcher::Watcher>>>,
 
     sessions_database: sessions::Database,
     files_database: files::Database,
@@ -53,7 +54,7 @@ impl App {
             projects_storage: projects::Storage::new(storage.clone()),
             users_storage: users::Storage::new(storage),
             searcher: deltas_searcher,
-            watchers: sync::Arc::new(sync::Mutex::new(HashMap::new())),
+            watchers: sync::Arc::new(Mutex::new(HashMap::new())),
             sessions_database: sessions::Database::new(database.clone()),
             deltas_database: deltas::Database::new(database.clone()),
             files_database: files::Database::new(database.clone()),
@@ -74,9 +75,14 @@ impl App {
     }
 
     pub fn init_project(&self, project: &projects::Project) -> Result<()> {
-        self.start_watcher(project).with_context(|| {
-            format!("failed to start watcher for project {}", project.id.clone())
-        })?;
+        block_on(async move {
+            self.start_watcher(project)
+                .await
+                .with_context(|| {
+                    format!("failed to start watcher for project {}", project.id.clone())
+                })
+                .expect("failed to start watcher");
+        });
 
         Ok(())
     }
@@ -94,7 +100,7 @@ impl App {
         Ok(())
     }
 
-    fn start_watcher(&self, project: &projects::Project) -> Result<()> {
+    async fn start_watcher(&self, project: &projects::Project) -> Result<()> {
         let watcher = watcher::Watcher::new(
             &self.local_data_dir,
             project,
@@ -126,16 +132,16 @@ impl App {
 
         self.watchers
             .lock()
-            .unwrap()
+            .await
             .insert(project.id.clone(), watcher.clone());
 
         Ok(())
     }
 
-    fn send_event(&self, project_id: &str, event: watcher::Event) -> Result<()> {
-        let watchers = self.watchers.lock().unwrap();
+    async fn send_event(&self, project_id: &str, event: watcher::Event) -> Result<()> {
+        let watchers = self.watchers.lock().await;
         if let Some(watcher) = watchers.get(project_id) {
-            watcher.post(event).context("failed to post event")
+            watcher.post(event).await.context("failed to post event")
         } else {
             Err(anyhow::anyhow!(
                 "watcher for project {} not found",
@@ -144,8 +150,8 @@ impl App {
         }
     }
 
-    fn stop_watcher(&self, project_id: &str) -> Result<()> {
-        if let Some((_, watcher)) = self.watchers.lock().unwrap().remove_entry(project_id) {
+    async fn stop_watcher(&self, project_id: &str) -> Result<()> {
+        if let Some((_, watcher)) = self.watchers.lock().await.remove_entry(project_id) {
             watcher.stop()?;
         };
         Ok(())
@@ -208,12 +214,17 @@ impl App {
     pub fn update_project(&self, project: &projects::UpdateRequest) -> Result<projects::Project> {
         let updated = self.projects_storage.update_project(project)?;
 
-        if let Err(err) = self.send_event(
-            &project.id,
-            watcher::Event::FetchGitbutlerData(time::SystemTime::now()),
-        ) {
-            log::error!("{}: failed to fetch project: {:#}", &project.id, err);
-        }
+        block_on(async move {
+            if let Err(err) = self
+                .send_event(
+                    &project.id,
+                    watcher::Event::FetchGitbutlerData(time::SystemTime::now()),
+                )
+                .await
+            {
+                log::error!("{}: failed to fetch project: {:#}", &project.id, err);
+            }
+        });
 
         Ok(updated)
     }
@@ -237,9 +248,14 @@ impl App {
                 )
                 .context("failed to open repository")?;
 
-                if let Err(e) = self.stop_watcher(&project.id) {
-                    log::error!("failed to stop watcher for project {}: {}", project.id, e);
-                }
+                block_on({
+                    let project_id = project.id.clone();
+                    async move {
+                        if let Err(e) = self.stop_watcher(&project_id).await {
+                            log::error!("failed to stop watcher for project {}: {}", project_id, e);
+                        }
+                    }
+                });
 
                 if let Err(e) = gb_repository.purge() {
                     log::error!("failed to remove project dir {}: {}", project.id, e);
@@ -523,12 +539,21 @@ impl App {
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
         writer.write(bookmark).context("failed to write bookmark")?;
 
-        if let Err(e) = self.send_event(
-            &bookmark.project_id,
-            watcher::Event::Bookmark(bookmark.clone()),
-        ) {
-            log::error!("failed to send session event: {:#}", e);
-        }
+        block_on({
+            let bookmark = bookmark.clone();
+            async move {
+                if let Err(err) = self
+                    .send_event(
+                        &bookmark.project_id,
+                        watcher::Event::Bookmark(bookmark.clone()),
+                    )
+                    .await
+                {
+                    log::error!("failed to send session event: {:#}", err);
+                }
+            }
+        });
+
         Ok(())
     }
 

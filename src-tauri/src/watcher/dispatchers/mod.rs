@@ -3,8 +3,11 @@ mod tick;
 
 use std::time;
 
-use anyhow::Result;
-use tokio::{spawn, sync::mpsc};
+use anyhow::{Context, Result};
+use tokio::{
+    select, spawn,
+    sync::mpsc::{channel, Receiver},
+};
 use tokio_util::sync::CancellationToken;
 
 use crate::projects;
@@ -30,32 +33,6 @@ impl Dispatcher {
     }
 
     pub fn stop(&self) -> Result<()> {
-        self.cancellation_token.cancel();
-        Ok(())
-    }
-
-    pub async fn run(&self, sender: mpsc::UnboundedSender<events::Event>) -> Result<()> {
-        let tick_dispatcher = self.tick_dispatcher.clone();
-        let s1 = sender.clone();
-        let project_id = self.project_id.clone();
-        spawn(async move {
-            if let Err(e) = tick_dispatcher.run(time::Duration::from_secs(10), s1).await {
-                log::error!("{}: failed to start ticker: {:#}", project_id, e);
-            }
-        });
-
-        let file_change_dispatcher = self.file_change_dispatcher.clone();
-        let project_id = self.project_id.clone();
-        let s2 = sender.clone();
-        spawn(async move {
-            if let Err(e) = file_change_dispatcher.run(s2).await {
-                log::error!("{}: failed to start file watcher: {:#}", project_id, e);
-            }
-            log::info!("{}: file watcher stopped", project_id);
-        });
-
-        self.cancellation_token.cancelled().await;
-
         if let Err(err) = self.tick_dispatcher.stop() {
             log::error!("{}: failed to stop ticker: {:#}", self.project_id, err);
         }
@@ -67,9 +44,47 @@ impl Dispatcher {
                 err
             );
         }
-
-        log::info!("{}: dispatcher stopped", self.project_id);
-
         Ok(())
+    }
+
+    pub fn run(self) -> Result<Receiver<events::Event>> {
+        let mut tick_rx = self
+            .tick_dispatcher
+            .run(time::Duration::from_secs(10))
+            .context(format!(
+                "{}: failed to start tick dispatcher",
+                self.project_id
+            ))?;
+
+        let mut file_change_rx = self.file_change_dispatcher.run().context(format!(
+            "{}: failed to start file change dispatcher",
+            self.project_id
+        ))?;
+
+        let (tx, rx) = channel(1);
+        spawn(async move {
+            loop {
+                select! {
+                    _ = self.cancellation_token.cancelled() => {
+                        break;
+                    }
+                    Some(event) = tick_rx.recv() => {
+                        log::warn!("{}: proxying tick", self.project_id);
+                        if let Err(e) = tx.send(event).await {
+                            log::error!("{}: failed to send tick: {}", self.project_id, e);
+                        }
+                    }
+                    Some(event) = file_change_rx.recv() => {
+                        log::warn!("{}: proxying file change", self.project_id);
+                        if let Err(e) = tx.send(event).await {
+                            log::error!("{}: failed to send file change: {}", self.project_id, e);
+                        }
+                    }
+                }
+            }
+            log::info!("{}: dispatcher stopped", self.project_id);
+        });
+
+        Ok(rx)
     }
 }
