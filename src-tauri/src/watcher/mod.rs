@@ -12,7 +12,7 @@ pub use events::Event;
 use anyhow::{Context, Result};
 use tokio::{
     spawn,
-    sync::{Mutex, mpsc::{channel, Sender}},
+    sync::{Mutex, mpsc::{unbounded_channel, UnboundedSender}},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -72,7 +72,7 @@ struct InnerWatcher {
     handler: handlers::Handler,
     cancellation_token: CancellationToken,
 
-    proxy_tx: Arc<Mutex<Option<Sender<Event>>>>,
+    proxy_tx: Arc<Mutex<Option<UnboundedSender<Event>>>>,
 }
 
 impl<'watcher> InnerWatcher {
@@ -120,7 +120,6 @@ impl<'watcher> InnerWatcher {
             tx.as_ref()
                 .unwrap()
                 .send(event)
-                .await
                 .context("failed to send event")?;
             Ok(())
         } else {
@@ -129,7 +128,7 @@ impl<'watcher> InnerWatcher {
     }
 
     pub async fn run(&self) -> Result<()> {
-        let (tx, mut rx) = channel(1);
+        let (tx, mut rx) = unbounded_channel();
         self.proxy_tx.lock().await.replace(tx.clone());
 
         spawn({
@@ -140,14 +139,14 @@ impl<'watcher> InnerWatcher {
                 let mut dispatcher_rx = dispatcher.run().expect("failed to start dispatcher");
                 while let Some(event) = dispatcher_rx.recv().await {
                     log::warn!("{}: dispatcher event: {}", project_id, event);
-                    if let Err(e) = tx.send(event).await {
+                    if let Err(e) = tx.send(event) {
                         log::error!("{}: failed to post event: {:#}", project_id, e);
                     }
                 }
             }
         });
 
-        tx.send(Event::IndexAll).await.context("failed to send event")?;
+        tx.send(Event::IndexAll).context("failed to send event")?;
 
         loop {
             tokio::select! {
@@ -156,7 +155,7 @@ impl<'watcher> InnerWatcher {
                     match self.handler.handle(event).await {
                         Ok(events) => {
                             for event in events {
-                                if let Err(e) = tx.send(event).await {
+                                if let Err(e) = tx.send(event) {
                                     log::error!("{}: failed to post event: {:#}", self.project_id, e);
                                 }
                             }
