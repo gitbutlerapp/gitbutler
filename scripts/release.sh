@@ -233,7 +233,7 @@ BUNDLE_DIR=$(readlink -f "$PWD/../src-tauri/target/release/bundle")
 RELEASE_DIR="$DIST/$OS/$ARCH"
 mkdir -p "$RELEASE_DIR"
 
-if [ "$os" = "macos" ]; then
+if [ "$OS" = "macos" ]; then
 	MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
 	MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
 	MACOS_UPDATER_SIG="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz.sig")"
@@ -246,15 +246,12 @@ if [ "$os" = "macos" ]; then
 	info "  - $RELEASE_DIR/$(basename "$MACOS_DMG")"
 	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
 	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
-elif [ "$os" = "linux" ]; then
+elif [ "$OS" = "linux" ]; then
 	APPIMAGE="$(find "$BUNDLE_DIR" -depth 1 -type f -name "*.AppImage")"
-
 	cp "$APPIMAGE" "$RELEASE_DIR"
 
 	info "built:"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE")"
-else
-	error "unsupported os: $os"
 fi
 
 info "done! bye!"
