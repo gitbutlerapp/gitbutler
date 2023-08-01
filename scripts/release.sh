@@ -71,7 +71,7 @@ function os() {
 function arch() {
 	local arch="$(uname -m)"
 	case "$arch" in
-	arm64)
+	arm64 | aarch64)
 		echo "aarch64"
 		;;
 	x86_64)
