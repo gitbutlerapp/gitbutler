@@ -51,6 +51,7 @@
 						if (!project) return;
 						toasts.success(`Project ${project.title} created`);
 						linkProjectModal?.show(project.id);
+						goto(`/repo/${project.id}/`);
 					})
 					.catch((e: any) => toasts.error(e.message))
 			),

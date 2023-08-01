@@ -6,6 +6,7 @@
 	import { IconFolder, IconLoading } from '$lib/icons';
 	import { toasts, api, stores } from '$lib';
 	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
+	import { goto } from '$app/navigation';
 
 	export let projects: ReturnType<typeof api.projects.Projects>;
 	export let cloud: ReturnType<typeof api.CloudApi>;
@@ -50,6 +51,7 @@
 					await project
 						.update({ api: { ...cloudProject, sync: true } })
 						.then(() => toasts.success(`Project linked`));
+					goto(`/repo/${$project.id}/`);
 				}
 				modal.close();
 			})
