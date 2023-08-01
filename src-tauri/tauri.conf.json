@@ -52,7 +52,7 @@
                 "icons/dev/icon.icns",
                 "icons/dev/icon.ico"
             ],
-            "targets": ["app", "dmg", "appimage"]
+            "targets": ["app", "dmg", "appimage", "updater"]
         },
         "systemTray": {
             "iconPath": "icons/tray.png",
