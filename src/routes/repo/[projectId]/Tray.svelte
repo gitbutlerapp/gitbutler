@@ -33,6 +33,9 @@
 	let rbViewport: HTMLElement;
 	let rbContents: HTMLElement;
 
+	// TODO: Replace this hacky thing when adding ability to resize sections
+	$: yourBranchesMinHeight = Math.min(Math.max(branches?.length ?? 0, 1), 5) * 3.25;
+
 	function toggleBranch(branch: Branch) {
 		if (branch.active) {
 			branchController.unapplyBranch(branch.id);
@@ -92,7 +95,11 @@
 			</button>
 		</div>
 	</div>
-	<div class="relative" use:accordion={yourBranchesOpen}>
+	<div
+		class="relative"
+		use:accordion={yourBranchesOpen}
+		style:min-height={`${yourBranchesMinHeight}rem`}
+	>
 		<div
 			bind:this={vbViewport}
 			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
@@ -176,7 +183,7 @@
 		</div>
 	</div>
 
-	<div class="relative overflow-y-hidden" use:accordion={remoteBranchesOpen}>
+	<div class="relative" use:accordion={remoteBranchesOpen}>
 		<div
 			bind:this={rbViewport}
 			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
