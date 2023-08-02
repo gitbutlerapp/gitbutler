@@ -323,6 +323,7 @@
 							color="purple"
 							on:click={() => {
 								if (commitMessage) commit();
+								commitMessage = '';
 								commitDialogShown = false;
 							}}
 						>
