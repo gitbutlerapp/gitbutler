@@ -1,6 +1,6 @@
 import posthog from 'posthog-js';
 import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
-import type { User } from '$lib/api';
+import type { User } from './api/cloud/api';
 import { getVersion, getName } from '@tauri-apps/api/app';
 
 interface PostHogClient {

@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { Operation, type Delta, type Session } from '$lib/api';
+	import type { Session } from '$lib/api/ipc/sessions';
+	import { isInsert, type Delta, isDelete } from '$lib/api/ipc/deltas';
 	import { page } from '$app/stores';
 	import { collapse } from '$lib/paths';
 	import { derived } from '@square/svelte-store';
-	import { stores } from '$lib';
+	import { getBookmarksStore } from '$lib/stores/bookmarks';
 	import { IconBookmarkFilled } from '$lib/icons';
 	import { line } from '$lib/diff';
 	import { Stats } from '$lib/components';
@@ -19,12 +20,12 @@
 		const operations = deltas.flatMap((delta) => delta.operations);
 
 		operations.forEach((operation) => {
-			if (Operation.isInsert(operation)) {
+			if (isInsert(operation)) {
 				text =
 					text.slice(0, operation.insert[0]) +
 					operation.insert[1] +
 					text.slice(operation.insert[0]);
-			} else if (Operation.isDelete(operation)) {
+			} else if (isDelete(operation)) {
 				text =
 					text.slice(0, operation.delete[0]) +
 					text.slice(operation.delete[0] + operation.delete[1]);
@@ -51,7 +52,7 @@
 		})
 		.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]);
 
-	$: bookmarks = derived(stores.bookmarks.list({ projectId: session.projectId }), (bookmarks) => {
+	$: bookmarksStore = derived(getBookmarksStore({ projectId: session.projectId }), (bookmarks) => {
 		if (bookmarks.isLoading) return [];
 		if (Loaded.isError(bookmarks)) return [];
 		const timestamps = Object.values(deltas ?? {}).flatMap((deltas) =>
@@ -110,8 +111,8 @@
 	class:bg-card-active={isCurrent}
 	class="session-card relative rounded border-[0.5px] border-gb-700 text-zinc-300 shadow-md transition-colors duration-200 ease-in-out hover:bg-card-active"
 >
-	{#await bookmarks.load() then}
-		{#if $bookmarks?.length > 0}
+	{#await bookmarksStore.load() then}
+		{#if $bookmarksStore?.length > 0}
 			<div class="absolute right-5 top-0 flex gap-2 overflow-hidden text-bookmark-selected">
 				<IconBookmarkFilled class="-mt-1 h-4 w-4" />
 			</div>

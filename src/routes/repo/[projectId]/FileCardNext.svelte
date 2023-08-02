@@ -2,7 +2,7 @@
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import { createEventDispatcher } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
-	import type { File } from '$lib/vbranches';
+	import type { File } from '$lib/vbranches/types';
 	import RenderedLine from './RenderedLine.svelte';
 	import {
 		IconTriangleUp,
@@ -11,8 +11,7 @@
 		IconExpandUp,
 		IconExpandDown
 	} from '$lib/icons';
-	import type { BranchController } from '$lib/vbranches';
-	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
+	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
 	import { dzTrigger } from './dropZone';
 	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';

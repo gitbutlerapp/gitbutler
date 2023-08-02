@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components';
 	import { dzHighlight } from './dropZone';
-	import type { BranchController } from '$lib/vbranches';
+	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
-	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 

@@ -1,7 +1,6 @@
 import type { PageLoadEvent } from './$types';
 import { invoke } from '$lib/ipc';
-import { api } from '$lib';
-import type { Project } from '$lib/api';
+import { getProjectStore, type Project } from '$lib/api/ipc/projects';
 import type { Loadable } from '@square/svelte-store';
 
 async function getRemoteBranches(params: { projectId: string }) {
@@ -11,7 +10,7 @@ async function getRemoteBranches(params: { projectId: string }) {
 export async function load({ parent, params }: PageLoadEvent) {
 	const projectId = params.projectId;
 	const remoteBranchNames = await getRemoteBranches({ projectId });
-	const project = api.projects.Project({ id: params.projectId });
+	const project = getProjectStore({ id: params.projectId });
 
 	const { branchStoresCache } = await parent();
 	const vbranchStore = branchStoresCache.getVirtualBranchStore(projectId);

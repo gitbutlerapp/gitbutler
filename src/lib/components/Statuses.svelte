@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { collapse } from '$lib/paths';
-	import { Status } from '$lib/api';
+	import { isStaged, isUnstaged, type Status } from '$lib/api/git/statuses';
 
 	export let statuses: Record<string, Status>;
 </script>
@@ -27,12 +27,12 @@
 				<li class="flex w-full gap-2">
 					<div class="flex w-[3ch] justify-between font-semibold">
 						<span>
-							{#if Status.isStaged(status)}
+							{#if isStaged(status)}
 								{status.staged.slice(0, 1).toUpperCase()}
 							{/if}
 						</span>
 						<span>
-							{#if Status.isUnstaged(status)}
+							{#if isUnstaged(status)}
 								{status.unstaged.slice(0, 1).toUpperCase()}
 							{/if}
 						</span>

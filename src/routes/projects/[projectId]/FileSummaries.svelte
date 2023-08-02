@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { format, startOfDay } from 'date-fns';
-	import type { Delta } from '$lib/api';
+	import type { Delta } from '$lib/api/ipc/deltas';
 	import { generateBuckets } from './histogram';
 	import { derived, Loaded } from 'svelte-loadable-store';
 	import FileActivity from './FileActivity.svelte';
@@ -8,13 +8,13 @@
 	import { Link } from '$lib/components';
 	import { IconRewind, IconPlayerPlayFilled, IconLoading, IconSparkle } from '$lib/icons';
 	import { collapse } from '$lib/paths';
-	import type { Session } from '$lib/api';
-	import { stores } from '$lib';
+	import type { Session } from '$lib/api/ipc/sessions';
+	import { getDeltasStore } from '$lib/stores/deltas';
 
 	export let sessions: Session[];
 
 	$: sessionDeltas = (sessions ?? []).map(({ id, projectId }) =>
-		stores.deltas({ sessionId: id, projectId })
+		getDeltasStore({ sessionId: id, projectId })
 	);
 
 	$: deltasByDate = derived(sessionDeltas, (sessionDeltas) =>

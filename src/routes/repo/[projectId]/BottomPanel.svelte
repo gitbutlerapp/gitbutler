@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
-	import type { BaseBranch } from '$lib/vbranches';
+	import type { BaseBranch } from '$lib/vbranches/types';
 	import { formatDistanceToNow } from 'date-fns';
 	import type { SettingsStore } from '$lib/userSettings';
 

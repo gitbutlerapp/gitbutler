@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Delta, Session } from '$lib/api';
+	import type { Session } from '$lib/api/ipc/sessions';
+	import type { Delta } from '$lib/api/ipc/deltas';
 	import type { Readable } from '@square/svelte-store';
 	import { Loaded, type Loadable } from 'svelte-loadable-store';
 	import { derived } from 'svelte-loadable-store';

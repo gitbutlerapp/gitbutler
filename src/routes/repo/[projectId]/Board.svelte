@@ -1,19 +1,17 @@
 <script lang="ts" async="true">
 	import Lane from './BranchLane.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import type { Branch, BaseBranch } from '$lib/vbranches';
+	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { dzHighlight } from './dropZone';
-	import type { BranchController } from '$lib/vbranches';
+	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
-	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
-	import type { CloudApi } from '$lib/api';
-
+	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
 	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
-	export let cloud: ReturnType<typeof CloudApi>;
+	export let cloud: ReturnType<typeof getCloudApiClient>;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 

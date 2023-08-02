@@ -20,7 +20,7 @@ export function subscribe(
 
 const stores: Record<string, WritableLoadable<Activity[]>> = {};
 
-export function Activities(params: { projectId: string }) {
+export function getActivitiesStore(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 
 	const store = asyncWritable([], () => list(params));

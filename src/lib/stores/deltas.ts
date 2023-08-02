@@ -1,10 +1,10 @@
 import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
-import { deltas, type Delta } from '$lib/api';
+import * as deltas from '$lib/api/ipc/deltas';
 import { get, type Readable } from '@square/svelte-store';
 
-const stores: Record<string, Readable<Loadable<Record<string, Delta[]>>>> = {};
+const stores: Record<string, Readable<Loadable<Record<string, deltas.Delta[]>>>> = {};
 
-export default (params: { projectId: string; sessionId: string }) => {
+export function getDeltasStore(params: { projectId: string; sessionId: string }) {
 	const key = `${params.projectId}/${params.sessionId}`;
 	if (key in stores) return stores[key];
 
@@ -29,5 +29,5 @@ export default (params: { projectId: string; sessionId: string }) => {
 		};
 	});
 	stores[key] = store;
-	return store as Readable<Loadable<Record<string, Delta[]>>>;
-};
+	return store as Readable<Loadable<Record<string, deltas.Delta[]>>>;
+}

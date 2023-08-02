@@ -85,11 +85,11 @@ const withLog: FetchMiddleware = (fetch) => async (url, options) => {
 	}
 };
 
-export default (
+export function getCloudApiClient(
 	{ fetch: realFetch }: { fetch: typeof window.fetch } = {
 		fetch: window.fetch
 	}
-) => {
+) {
 	const fetch = fetchWith(realFetch, withRequestId, withLog);
 	return {
 		login: {
@@ -278,4 +278,4 @@ export default (
 				}).then(parseResponseJSON)
 		}
 	};
-};
+}

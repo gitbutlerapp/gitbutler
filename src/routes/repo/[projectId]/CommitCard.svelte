@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { formatDistanceToNow } from 'date-fns';
-	import type { Commit } from '$lib/vbranches';
+	import type { Commit } from '$lib/vbranches/types';
 
 	export let commit: Commit;
 	export let url: string | undefined = undefined;

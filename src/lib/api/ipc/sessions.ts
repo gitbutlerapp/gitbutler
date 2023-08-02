@@ -42,7 +42,8 @@ export function subscribe(
 
 const stores: Record<string, WritableLoadable<Session[]>> = {};
 
-export function Sessions(params: { projectId: string }) {
+// TODO: Figure out why this extra store exists.
+export function getSessionStore(params: { projectId: string }) {
 	if (params.projectId in stores) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));
 

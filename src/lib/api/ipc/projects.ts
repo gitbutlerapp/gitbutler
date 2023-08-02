@@ -38,7 +38,7 @@ export function del(params: { id: string }) {
 
 const store = asyncWritable([], list);
 
-export function Project({ id }: { id: string }) {
+export function getProjectStore({ id }: { id: string }) {
 	return {
 		...derived(store, (projects) => projects?.find((p) => p.id === id)),
 		update: (params: Partial<Pick<Project, 'title' | 'description' | 'api'>>) =>
@@ -56,13 +56,11 @@ export function Project({ id }: { id: string }) {
 	};
 }
 
-export function Projects() {
-	return {
-		...store,
-		add: (params: { path: string }) =>
-			add(params).then((project) => {
-				store.update((projects) => [...projects, project]);
-				return project;
-			})
-	};
-}
+export const projectsStore = {
+	...store,
+	add: (params: { path: string }) =>
+		add(params).then((project) => {
+			store.update((projects) => [...projects, project]);
+			return project;
+		})
+};

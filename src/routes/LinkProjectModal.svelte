@@ -4,28 +4,29 @@
 	import { asyncDerived } from '@square/svelte-store';
 	import { compareDesc, formatDistanceToNow } from 'date-fns';
 	import { IconFolder, IconLoading } from '$lib/icons';
-	import { toasts, api, stores } from '$lib';
+	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import { userStore } from '$lib/stores/user';
+	import { getProjectStore, projectsStore } from '$lib/api/ipc/projects';
+	import * as toasts from '$lib/toasts';
 	import IconFolderPlus from '$lib/icons/IconFolderPlus.svelte';
 	import { goto } from '$app/navigation';
 
-	export let projects: ReturnType<typeof api.projects.Projects>;
-	export let cloud: ReturnType<typeof api.CloudApi>;
+	export let projects: typeof projectsStore;
+	export let cloud: ReturnType<typeof getCloudApiClient>;
 
-	const user = stores.user;
-
-	const cloudProjects = asyncDerived(user, async (user) =>
+	const cloudProjects = asyncDerived(userStore, async (user) =>
 		user ? await cloud.projects.list(user.access_token) : []
 	);
 
 	let selectedRepositoryId: string | null = null;
 
-	let project: ReturnType<typeof api.projects.Project> | undefined;
+	let project: ReturnType<typeof getProjectStore> | undefined;
 
 	export async function show(id: string) {
-		await user.load();
+		await userStore.load();
 		await cloudProjects.load();
-		if ($user === null) return;
-		project = api.projects.Project({ id });
+		if ($userStore === null) return;
+		project = getProjectStore({ id });
 		modal.show();
 	}
 
@@ -42,8 +43,8 @@
 					await project
 						.update({ api: { ...existingCloudProject, sync: true } })
 						.then(() => toasts.success(`Project linked`));
-				} else if (selectedRepositoryId === null && $user && project && $project) {
-					const cloudProject = await cloud.projects.create($user?.access_token, {
+				} else if (selectedRepositoryId === null && $userStore && project && $project) {
+					const cloudProject = await cloud.projects.create($userStore?.access_token, {
 						name: $project.title,
 						description: $project.description,
 						uid: $project.id
@@ -112,7 +113,7 @@
 						</button>
 						{#each $cloudProjects
 							// filter out projects that are already linked
-							.map( (project) => ({ ...project, disabled: $projects?.some((p) => p?.api?.repository_id === project.repository_id) }) )
+							.map( (project) => ({ ...project, disabled: $projectsStore?.some((p) => p?.api?.repository_id === project.repository_id) }) )
 							// sort by last updated
 							.sort((a, b) => compareDesc(new Date(a.updated_at), new Date(b.updated_at)))
 							// sort by name

@@ -5,12 +5,15 @@
 	import { get, writable } from '@square/svelte-store';
 	import { derived, Loaded } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
-	import { stores } from '$lib';
 	import Playback from './Playback.svelte';
 	import type { Frame as FrameType } from './frame';
 	import Frame from './Frame.svelte';
 	import Info from './Info.svelte';
-	import type { Delta } from '$lib/api';
+	import type { Delta } from '$lib/api/ipc/deltas';
+	import { getSessionStore } from '$lib/stores/sessions';
+	import { getDeltasStore } from '$lib/stores/deltas';
+	import { getFilesStore } from '$lib/stores/files';
+	import { getBookmarksStore } from '$lib/stores/bookmarks';
 
 	export let data: PageData;
 	const { currentFilepath, currentTimestamp, currentSessionId } = data;
@@ -26,24 +29,23 @@
 	const filter = derived(page, (page) => page.url.searchParams.get('file'));
 	const projectId = derived(page, (page) => page.params.projectId);
 
-	$: bookmarks = stores.bookmarks.list({ projectId: $page.params.projectId });
-	$: sessions = stores.sessions({ projectId: $page.params.projectId });
-	$: dateSessions = derived([sessions, page], ([sessions, page]) =>
+	$: bookmarks = getBookmarksStore({ projectId: $page.params.projectId });
+	$: sessions = getSessionStore({ projectId: $page.params.projectId });
+	$: dateSessions = derived([sessions, page], async ([sessions, page]) =>
 		sessions?.filter(
 			(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date
 		)
 	);
-
 	$: richSessions = derived([dateSessions, filter, projectId], ([sessions, filter, projectId]) =>
 		sessions.map((session) => ({
 			...session,
-			deltas: derived(stores.deltas({ projectId: projectId, sessionId: session.id }), (deltas) =>
+			deltas: derived(getDeltasStore({ projectId: projectId, sessionId: session.id }), (deltas) =>
 				Object.entries(deltas)
 					.filter(([path]) => (filter ? path === filter : true))
 					.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
 					.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
 			),
-			files: derived(stores.files({ projectId, sessionId: session.id }), (files) =>
+			files: derived(getFilesStore({ projectId, sessionId: session.id }), (files) =>
 				Object.fromEntries(
 					Object.entries(files).filter(([path]) => (filter ? path === filter : true))
 				)

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Delta, Session } from '$lib/api';
+	import type { Session } from '$lib/api/ipc/sessions';
+	import type { Delta } from '$lib/api/ipc/deltas';
 	import type { Frame } from './frame';
 	import { DeltasViewer } from '$lib/components';
 	import type { Readable } from '@square/svelte-store';
