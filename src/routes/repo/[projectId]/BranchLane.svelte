@@ -396,7 +396,7 @@
 								class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
 								data-dnd-ignore
 							>
-								No uncommitted changes
+								No uncommitted changes on this branch
 							</div>
 						{/if}
 					{/if}
@@ -512,6 +512,16 @@
 </div>
 
 <PopupMenu bind:this={popupMenu} let:item={branchId}>
+	{#if !maximized}
+		<PopupMenuItem on:click={() => (maximized = !maximized)}>Maximize</PopupMenuItem>
+	{:else}
+		<PopupMenuItem on:click={() => (maximized = !maximized)}>Minimize</PopupMenuItem>
+	{/if}
+
+	<div class="mx-3">
+		<div class="my-2 h-[0.0625rem] w-full bg-light-300 dark:bg-dark-500" />
+	</div>
+
 	<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
 		Unapply
 	</PopupMenuItem>

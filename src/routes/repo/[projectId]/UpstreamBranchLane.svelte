@@ -149,8 +149,20 @@
 <!-- Confirm target update modal -->
 
 <Modal width="small" bind:this={updateTargetModal}>
-	<svelte:fragment slot="title">Update target</svelte:fragment>
-	<p>You are about to update the base branch.</p>
+	<svelte:fragment slot="title">Merge Upstream Work</svelte:fragment>
+	<div class="flex flex-col space-y-2">
+		<p class="text-blue-600">You are about to merge upstream work from your base branch.</p>
+		<p class="font-bold">What will this do?</p>
+		<p>
+			We will try to merge the work that is upstream into each of your virtual branches, so that
+			they are all up to date.
+		</p>
+		<p>
+			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue dot.
+			You can merge these manually later.
+		</p>
+		<p>Any virtual branches that are fully integrated upstream will be automatically removed.</p>
+	</div>
 	<svelte:fragment slot="controls" let:close>
 		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
 		<Button
@@ -161,7 +173,7 @@
 				close();
 			}}
 		>
-			Update
+			Merge Upstream
 		</Button>
 	</svelte:fragment>
 </Modal>
