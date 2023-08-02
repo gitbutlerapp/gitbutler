@@ -20,6 +20,7 @@
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	$: expanded = base.behind > 0;
+	$: multiple = base.upstreamCommits.length > 1;
 </script>
 
 <div
@@ -30,13 +31,17 @@
 	dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
 	role="group"
 >
-	<div class="flex w-full bg-light-200 dark:bg-dark-800">
+	<div class="flex w-full {expanded ? 'bg-purple-300' : 'bg-light-200'} dark:bg-dark-800">
 		<div
 			class="flex flex-grow items-center border-b border-light-500 pl-1 dark:border-dark-500"
 			class:border-r={!expanded}
 			class:pr-1={!expanded}
 		>
-			<Tooltip label={'Fetch ' + base.branchName}>
+			<Tooltip
+				label={'Your upstream branch (' +
+					base.branchName +
+					') is up to date. Click to fetch again and check for new work.'}
+			>
 				<!-- svelte-ignore a11y-mouse-events-have-key-events -->
 				<button
 					on:mouseover={() => (buttonHovered = true)}
@@ -84,6 +89,13 @@
 					bind:this={viewport}
 					class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8 pt-2"
 				>
+					<div
+						class="mb-2 ml-8 rounded-sm bg-light-300 p-1 text-center text-xs text-light-700 dark:bg-dark-500"
+					>
+						There {multiple ? 'are' : 'is'}
+						{base.upstreamCommits.length} unmerged upstream
+						{multiple ? 'commits' : 'commit'}
+					</div>
 					<div bind:this={contents}>
 						<div class="ml-8">
 							<Tooltip

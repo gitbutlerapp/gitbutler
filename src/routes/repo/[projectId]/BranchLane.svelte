@@ -20,6 +20,7 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { CloudApi } from '$lib/api';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -378,13 +379,26 @@
 						</div>
 					{/if}
 					{#if files.length == 0}
-						<!-- attention: these markers have custom css at the bottom of thise file -->
-						<div
-							class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
-							data-dnd-ignore
-						>
-							No uncomitted changes
-						</div>
+						{#if commits.length == 0}
+							<div
+								class="no-changes space-y-6 rounded p-8 text-center text-light-700 dark:border-zinc-700"
+								data-dnd-ignore
+							>
+								<p>Nothing on this branch yet.</p>
+								<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
+								<p class="px-12 text-light-600">
+									Get some work done, then throw some files my way!
+								</p>
+							</div>
+						{:else}
+							<!-- attention: these markers have custom css at the bottom of thise file -->
+							<div
+								class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
+								data-dnd-ignore
+							>
+								No uncommitted changes
+							</div>
+						{/if}
 					{/if}
 				</div>
 				{#if localCommits.length > 0 || remoteCommits.length > 0}

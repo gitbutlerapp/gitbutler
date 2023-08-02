@@ -13,6 +13,7 @@
 	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
@@ -117,34 +118,43 @@
 							class="border-b border-light-400 p-2 dark:border-dark-600"
 						>
 							<div class="flex flex-row justify-between">
-								<div class="flex w-full items-center">
+								<div class="flex items-center">
 									<Checkbox
 										on:change={() => toggleBranch(branch)}
 										bind:checked={branch.active}
 										disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
 									/>
+									{#if !branch.active}
+										<div class="ml-1">
+											{#if !branch.baseCurrent}
+												<!-- branch will cause merge conflicts if applied -->
+												<Tooltip label="Will introduce merge conflicts if applied">
+													<div class="text-yellow-500">&#9679;</div>
+												</Tooltip>
+											{:else if branch.mergeable}
+												<Tooltip label="Can be applied cleanly">
+													<div class="text-green-500">&#9679;</div>
+												</Tooltip>
+											{:else}
+												<Tooltip
+													label="Canflicts with changes in your working directory, cannot be applied"
+												>
+													<div class="text-red-500">&#9679;</div>
+												</Tooltip>
+											{/if}
+										</div>
+									{/if}
 									<div class="ml-2 w-full truncate text-black dark:text-white">
 										{branch.name}
 									</div>
 								</div>
-								{#if !branch.active}
-									{#if !branch.baseCurrent}
-										<!-- branch will cause merge conflicts if applied -->
-										<Tooltip label="Will introduce merge conflicts if applied">
-											<div class="text-yellow-500">&#9679;</div>
-										</Tooltip>
-									{:else if branch.mergeable}
-										<Tooltip label="Can be applied cleanly">
-											<div class="text-green-500">&#9679;</div>
-										</Tooltip>
-									{:else}
-										<Tooltip
-											label="Canflicts with changes in your working directory, cannot be applied"
-										>
-											<div class="text-red-500">&#9679;</div>
-										</Tooltip>
-									{/if}
-								{/if}
+								<button
+									class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
+									on:keydown={(e) => yourBranchContextMenu.openByMouse(e, branch)}
+									on:click={(e) => yourBranchContextMenu.openByMouse(e, branch)}
+								>
+									<IconMeatballMenu />
+								</button>
 							</div>
 							<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
 								<div class="flex-grow">
