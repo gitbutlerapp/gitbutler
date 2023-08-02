@@ -1,8 +1,11 @@
-use std::{collections::HashMap, ops, path, sync, thread, time};
+use std::{collections::HashMap, ops, path, sync, time};
 
 use anyhow::{bail, Context, Result};
 use futures::executor::block_on;
-use tokio::sync::{Mutex, Semaphore};
+use tokio::{
+    spawn,
+    sync::{Mutex, Semaphore},
+};
 
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository,
@@ -115,19 +118,11 @@ impl App {
         );
 
         let c_watcher = watcher.clone();
-        let project_id = project.id.clone();
-        thread::spawn(move || {
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .thread_name(format!("watcher-{}", project_id))
-                .enable_time()
-                .build()
-                .unwrap();
-            rt.block_on(async move {
-                if let Err(e) = c_watcher.run().await {
-                    log::error!("watcher error: {:#}", e);
-                }
-                log::info!("watcher stopped");
-            });
+        spawn(async move {
+            if let Err(e) = c_watcher.run().await {
+                log::error!("watcher error: {:#}", e);
+            }
+            log::info!("watcher stopped");
         });
 
         self.watchers

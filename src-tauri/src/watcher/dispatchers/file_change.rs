@@ -6,10 +6,7 @@ use std::{
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use notify::{Config, RecommendedWatcher, Watcher};
-use tokio::{
-    spawn,
-    sync::mpsc::{channel, Receiver},
-};
+use tauri::async_runtime::{channel, spawn, Receiver};
 
 use crate::{projects, watcher::events};
 
