@@ -136,9 +136,7 @@
 				</p>
 				<p class="text-light-700 dark:text-dark-100">
 					This works by specifying a "base branch" that represents the state of production, normally
-					something like "origin/master". All of your virtual branches are based off of this branch
-					and need to be kept up to date with this branch to ensure they are working with the latest
-					code.
+					something like "origin/master".
 				</p>
 				<div class="font-bold">Ownership, Committing and Pushing</div>
 				<p class="text-light-700 dark:text-dark-100">

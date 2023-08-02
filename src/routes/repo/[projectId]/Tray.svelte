@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Checkbox, Modal } from '$lib/components';
+	import { Button, Checkbox, Link, Modal } from '$lib/components';
 	import type { Branch, BranchData } from '$lib/vbranches';
 	import { formatDistanceToNow } from 'date-fns';
 	import { IconGitBranch, IconRemote } from '$lib/icons';
@@ -84,7 +84,7 @@
 	<div
 		class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
-		<div class="font-bold">Your branches</div>
+		<div class="font-bold">Your Virtual Branches</div>
 		<div class="flex h-4 w-4 justify-around">
 			<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
 				{#if yourBranchesOpen}
@@ -106,7 +106,7 @@
 		>
 			<div bind:this={vbContents}>
 				{#if !branches || branches.length == 0}
-					<div class="px-2 py-1">There are currently no branches</div>
+					<div class="p-4 text-light-700">You currently have no virtual branches.</div>
 				{:else}
 					{#each branches as branch (branch.id)}
 						{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
@@ -171,7 +171,7 @@
 	<div
 		class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
-		<div class="font-bold">Remote branches</div>
+		<div class="font-bold">Remote Branches</div>
 		<div class="flex h-4 w-4 justify-around">
 			<button class="h-full w-full" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
 				{#if remoteBranchesOpen}
@@ -190,7 +190,18 @@
 		>
 			<div bind:this={rbContents}>
 				{#if !remoteBranches || remoteBranches.length == 0}
-					<div class="px-2 py-1">There are currently no branches</div>
+					<div class="p-4">
+						<p class="mb-2 text-light-700">
+							There are no local or remote Git branches that can be imported as virtual branches
+						</p>
+						<Link
+							target="_blank"
+							rel="noreferrer"
+							href="https://docs.gitbutler.com/features/virtual-branches/remote-branches"
+						>
+							Learn more
+						</Link>
+					</div>
 				{:else}
 					{#each remoteBranches ?? [] as branch}
 						<div
