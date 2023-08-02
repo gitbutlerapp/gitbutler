@@ -2,17 +2,18 @@ mod dispatchers;
 mod events;
 mod handlers;
 
-use std::{
-    path,
-    sync::Arc,
-};
+use std::{path, sync::Arc};
 
 pub use events::Event;
 
 use anyhow::{Context, Result};
 use tokio::{
     spawn,
-    sync::{Mutex, mpsc::{unbounded_channel, UnboundedSender}},
+    sync::{
+        mpsc::{unbounded_channel, UnboundedSender},
+        Mutex,
+    },
+    task::spawn_blocking,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -155,9 +156,14 @@ impl<'watcher> InnerWatcher {
                     match self.handler.handle(event).await {
                         Ok(events) => {
                             for event in events {
-                                if let Err(e) = tx.send(event) {
-                                    log::error!("{}: failed to post event: {:#}", self.project_id, e);
-                                }
+                                spawn_blocking({
+                                    let project_id = self.project_id.clone();
+                                    let tx = tx.clone();
+                                    move || {
+                                    if let Err(e) = tx.send(event) {
+                                        log::error!("{}: failed to post event: {:#}", project_id, e);
+                                    }
+                                }});
                             }
                         },
                         Err(err) => log::error!("{}: failed to handle event: {:#}", self.project_id, err),
