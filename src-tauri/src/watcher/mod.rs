@@ -13,7 +13,6 @@ use tokio::{
         mpsc::{unbounded_channel, UnboundedSender},
         Mutex,
     },
-    task::spawn_blocking,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -153,21 +152,22 @@ impl<'watcher> InnerWatcher {
             tokio::select! {
                 Some(event) = rx.recv() => {
                     log::warn!("{}: handling: {}", self.project_id, event);
-                    match self.handler.handle(event).await {
-                        Ok(events) => {
-                            for event in events {
-                                spawn_blocking({
-                                    let project_id = self.project_id.clone();
-                                    let tx = tx.clone();
-                                    move || {
+                    let handler = self.handler.clone();
+                    let project_id = self.project_id.clone();
+                    let tx = tx.clone();
+                    spawn(
+                        async move {
+                         match handler.handle(event).await {
+                            Ok(events) => {
+                                for event in events {
                                     if let Err(e) = tx.send(event) {
                                         log::error!("{}: failed to post event: {:#}", project_id, e);
                                     }
-                                }});
-                            }
-                        },
-                        Err(err) => log::error!("{}: failed to handle event: {:#}", self.project_id, err),
-                    }
+                                }
+                            },
+                            Err(err) => log::error!("{}: failed to handle event: {:#}", project_id, err),
+                        }
+                    });
                 },
                 _ = self.cancellation_token.cancelled() => {
                     if let Err(error) = self.dispatcher.stop() {
