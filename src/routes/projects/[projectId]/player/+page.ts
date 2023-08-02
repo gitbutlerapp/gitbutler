@@ -1,11 +1,11 @@
 import { error, redirect } from '@sveltejs/kit';
 import { format, compareDesc } from 'date-fns';
 import type { PageLoad } from './$types';
-import { stores } from '$lib';
+import { getSessionStore } from '$lib/stores/sessions';
 import { promisify } from 'svelte-loadable-store';
 
 export const load: PageLoad = async ({ url, params }) => {
-	const sessions = await promisify(stores.sessions({ projectId: params.projectId }));
+	const sessions = await promisify(getSessionStore({ projectId: params.projectId }));
 	const latestDate = sessions
 		.map((session) => session.meta.startTimestampMs)
 		.sort(compareDesc)

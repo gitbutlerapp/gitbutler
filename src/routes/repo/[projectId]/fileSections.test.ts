@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { File, Hunk } from '$lib/vbranches';
+import type { File, Hunk } from '$lib/vbranches/types';
 import { parseHunkSection, parseFileSections, SectionType } from './fileSections';
 import type { ContentSection, HunkSection } from './fileSections';
 

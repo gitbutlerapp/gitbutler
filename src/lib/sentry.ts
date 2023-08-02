@@ -1,5 +1,5 @@
 import { setUser } from '@sentry/sveltekit';
-import type { User } from '$lib/api';
+import type { User } from './api/cloud/api';
 
 export default () => {
 	return {

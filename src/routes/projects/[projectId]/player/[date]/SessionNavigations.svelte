@@ -4,7 +4,8 @@
 	import { page } from '$app/stores';
 	import { hotkeys } from '$lib';
 
-	import type { Delta, Session } from '$lib/api';
+	import type { Session } from '$lib/api/ipc/sessions';
+	import type { Delta } from '$lib/api/ipc/deltas';
 	import { unsubscribe } from '$lib/utils';
 	import type { Readable } from '@square/svelte-store';
 	import { onMount } from 'svelte';

@@ -1,10 +1,10 @@
 import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
-import { files } from '$lib/api';
+import * as files from '$lib/api/ipc/files';
 import { get, type Readable } from '@square/svelte-store';
 
 const stores: Record<string, Readable<Loadable<Record<string, string>>>> = {};
 
-export default (params: { projectId: string; sessionId: string }) => {
+export function getFilesStore(params: { projectId: string; sessionId: string }) {
 	const key = `${params.projectId}/${params.sessionId}`;
 	if (key in stores) return stores[key];
 
@@ -28,4 +28,4 @@ export default (params: { projectId: string; sessionId: string }) => {
 	});
 	stores[key] = store;
 	return store as Readable<Loadable<Record<string, string>>>;
-};
+}

@@ -16,7 +16,7 @@ export function subscribe(
 
 const stores: Record<string, WritableLoadable<string>> = {};
 
-export function Head(params: { projectId: string }) {
+export function getHeadStore(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 	const store = asyncWritable([], () =>
 		get(params).then((head) => head.replace('refs/heads/', ''))

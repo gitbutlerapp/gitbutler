@@ -5,14 +5,12 @@ export type OperationInsert = { insert: [number, string] };
 
 export type Operation = OperationDelete | OperationInsert;
 
-export namespace Operation {
-	export function isDelete(operation: Operation): operation is OperationDelete {
-		return 'delete' in operation;
-	}
+export function isDelete(operation: Operation): operation is OperationDelete {
+	return 'delete' in operation;
+}
 
-	export function isInsert(operation: Operation): operation is OperationInsert {
-		return 'insert' in operation;
-	}
+export function isInsert(operation: Operation): operation is OperationInsert {
+	return 'insert' in operation;
 }
 
 export type Delta = { timestampMs: number; operations: Operation[] };

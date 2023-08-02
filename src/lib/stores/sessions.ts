@@ -1,10 +1,10 @@
 import { derived, writable, type Loadable, Loaded } from 'svelte-loadable-store';
-import { sessions, type Session } from '$lib/api';
+import * as sessions from '$lib/api/ipc/sessions';
 import { get, type Readable } from '@square/svelte-store';
 
-const stores: Record<string, Readable<Loadable<Session[]>>> = {};
+const stores: Record<string, Readable<Loadable<sessions.Session[]>>> = {};
 
-export default (params: { projectId: string }) => {
+export function getSessionStore(params: { projectId: string }) {
 	if (params.projectId in stores) return stores[params.projectId];
 
 	const store = derived(
@@ -12,7 +12,7 @@ export default (params: { projectId: string }) => {
 			const unsubscribe = sessions.subscribe(params, ({ session }) => {
 				const oldValue = get(store);
 				if (oldValue.isLoading) {
-					sessions.list(params).then(set);
+					sessions.list(params).then((x) => set(x));
 				} else if (Loaded.isError(oldValue)) {
 					sessions.list(params).then(set);
 				} else {
@@ -33,5 +33,5 @@ export default (params: { projectId: string }) => {
 		(sessions) => sessions.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
 	);
 	stores[params.projectId] = store;
-	return store as Readable<Loadable<Session[]>>;
-};
+	return store;
+}

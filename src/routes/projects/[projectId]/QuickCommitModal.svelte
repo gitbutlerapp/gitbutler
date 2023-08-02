@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { toasts } from '$lib';
-	import { Status, type Project, git, type CloudApi, type User } from '$lib/api';
+	import type { Project } from '$lib/api/ipc/projects';
+	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
+	import { isUnstaged, type Status } from '$lib/api/git/statuses';
+	import { commit, stage } from '$lib/api/git';
 	import { Button, Overlay, Link } from '$lib/components';
 	import { IconGitBranch, IconSparkle } from '$lib/icons';
 	import { Stats } from '$lib/components';
@@ -14,7 +17,7 @@
 	export let statuses: Record<string, Status>;
 	export let diffs: Record<string, string>;
 	export let user: User;
-	export let cloud: ReturnType<typeof CloudApi>;
+	export let cloud: ReturnType<typeof getCloudApiClient>;
 
 	let summary = '';
 	let description = '';
@@ -23,10 +26,10 @@
 
 	const stageAll = async () => {
 		const paths = Object.entries(statuses)
-			.filter((entry) => Status.isUnstaged(entry[1]))
+			.filter((entry) => isUnstaged(entry[1]))
 			.map(([path]) => path);
 		if (paths.length === 0) return;
-		await git.stage({
+		await stage({
 			projectId: project.id,
 			paths
 		});
@@ -66,12 +69,11 @@
 
 		isCommitting = true;
 		await stageAll();
-		git
-			.commit({
-				projectId: project.id,
-				message: description.length > 0 ? `${summary}\n\n${description}` : summary,
-				push: false
-			})
+		commit({
+			projectId: project.id,
+			message: description.length > 0 ? `${summary}\n\n${description}` : summary,
+			push: false
+		})
 			.then(() => {
 				toasts.success('Commit created');
 				reset();

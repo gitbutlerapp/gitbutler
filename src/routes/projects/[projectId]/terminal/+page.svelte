@@ -3,7 +3,7 @@
 	import ResizeObserver from 'svelte-resize-observer';
 	import setupTerminal from './terminal';
 	import 'xterm/css/xterm.css';
-	import type { Project } from '$lib/api';
+	import type { Project } from '$lib/api/ipc/projects';
 	import { debounce } from '$lib/utils';
 	import { Button, Statuses } from '$lib/components';
 

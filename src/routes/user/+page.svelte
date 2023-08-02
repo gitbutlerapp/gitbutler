@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { Button, Modal, Login, Link } from '$lib/components';
 	import type { PageData } from './$types';
-	import { stores, toasts } from '$lib';
-	import { deleteAllData } from '$lib/api';
+	import { toasts } from '$lib';
+	import { deleteAllData } from '$lib/api/ipc';
+	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import ThemeSelector from '../ThemeSelector.svelte';
 	import { getContext } from 'svelte';
@@ -13,7 +14,7 @@
 	const { cloud } = data;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const user = stores.user;
+	const user = userStore;
 
 	$: saving = false;
 

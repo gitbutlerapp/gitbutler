@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Project } from '$lib/api';
+	import type { Project } from '$lib/api/ipc/projects';
 	import { IconHome } from '$lib/icons';
 	import { goto } from '$app/navigation';
 

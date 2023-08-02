@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Delta } from '$lib/api';
+	import type { Delta } from '$lib/api/ipc/deltas';
 	import { fillBuckets, type Bucket } from './histogram';
 
 	export let deltas: Delta[];

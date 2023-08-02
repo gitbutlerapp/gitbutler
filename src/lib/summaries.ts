@@ -1,6 +1,7 @@
-import { CloudApi } from '$lib/api';
+import { getCloudApiClient } from './api/cloud/api';
 import lscache from 'lscache';
-const cloud = CloudApi();
+
+const cloud = getCloudApiClient();
 
 export async function summarizeHunk(diff: string): Promise<string> {
 	const diffHash = hash(diff);

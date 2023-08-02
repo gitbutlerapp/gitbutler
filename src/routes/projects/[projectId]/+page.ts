@@ -1,6 +1,6 @@
 import type { PageLoad } from './$types';
-import { git } from '$lib/api';
+import { getActivitiesStore } from '$lib/api/git/activities';
 
 export const load: PageLoad = async ({ params }) => ({
-	activity: git.activities.Activities({ projectId: params.projectId })
+	activity: getActivitiesStore({ projectId: params.projectId })
 });

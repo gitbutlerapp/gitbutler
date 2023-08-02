@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { toasts, api } from '$lib';
+	import { toasts } from '$lib';
+	import * as zip from '$lib/api/ipc/zip';
 	import { Button, Checkbox, Modal } from '$lib/components';
 	import { page } from '$app/stores';
-	import type { User } from '$lib/api';
+	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
 
 	export let user: User | null;
-	export let cloud: ReturnType<typeof api.CloudApi>;
+	export let cloud: ReturnType<typeof getCloudApiClient>;
 
 	export function show() {
 		modal.show();
@@ -42,12 +43,12 @@
 		const email = user?.email ?? emailInputValue;
 		toasts.promise(
 			Promise.all([
-				sendLogs ? api.zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
+				sendLogs ? zip.logs().then((path) => readZipFile(path, 'logs.zip')) : undefined,
 				sendProjectData
-					? api.zip.gitbutlerData({ projectId }).then((path) => readZipFile(path, 'data.zip'))
+					? zip.gitbutlerData({ projectId }).then((path) => readZipFile(path, 'data.zip'))
 					: undefined,
 				sendProjectRepository
-					? api.zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
+					? zip.projectData({ projectId }).then((path) => readZipFile(path, 'project.zip'))
 					: undefined
 			]).then(async ([logs, data, repo]) =>
 				cloud.feedback.create(user?.access_token, {

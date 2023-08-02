@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { Button, Modal } from '$lib/components';
-	import { toasts, api, stores } from '$lib';
+	import { toasts } from '$lib';
+	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
-	import type { Project } from '$lib/api';
+	import * as projects from '$lib/api/ipc/projects';
+	import { projectsStore } from '$lib/api/ipc/projects';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
-	const { projects, project, cloud } = data;
-	const user = stores.user;
+	const { project, cloud } = data;
+	const user = userStore;
 
 	let deleteConfirmationModal: Modal;
 	let isDeleting = false;
@@ -17,19 +19,19 @@
 	const onDeleteClicked = () =>
 		Promise.resolve()
 			.then(() => (isDeleting = true))
-			.then(() => api.projects.del({ id: $project?.id }))
+			.then(() => projects.del({ id: $project?.id }))
 			.then(() => deleteConfirmationModal.close())
 			.catch((e) => {
 				console.error(e);
 				toasts.error('Failed to delete project');
 			})
 			.then(() => goto('/'))
-			.then(() => projects.update((projects) => projects.filter((p) => p.id !== $project?.id)))
+			.then(() => projectsStore.update((projects) => projects.filter((p) => p.id !== $project?.id)))
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
 
-	const onCloudUpdated = (e: { detail: Project }) => project.update({ ...e.detail });
-	const onDetailsUpdated = async (e: { detail: Project }) => {
+	const onCloudUpdated = (e: { detail: projects.Project }) => project.update({ ...e.detail });
+	const onDetailsUpdated = async (e: { detail: projects.Project }) => {
 		const api =
 			$user && e.detail.api
 				? await cloud.projects.update($user?.access_token, e.detail.api.repository_id, {

@@ -1,12 +1,13 @@
 import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
-import type { Session, Delta } from '$lib/api';
-import { Operation } from '$lib/api';
+import type { Session } from '$lib/api/ipc/sessions';
+import { getSessionStore } from '$lib/stores/sessions';
 import type { Readable } from '@square/svelte-store';
-import { deltas, git } from '$lib/api/ipc';
-import { stores } from '$lib';
+import * as fetches from '$lib/api/git/fetches';
+import * as deltas from '$lib/api/ipc/deltas';
 import { BaseBranch, Branch, BranchData } from './types';
 import { plainToInstance } from 'class-transformer';
 import { invoke } from '$lib/ipc';
+import { isDelete, isInsert } from '$lib/api/ipc/deltas';
 
 export interface Refreshable {
 	refresh(): Promise<void | object>;
@@ -24,7 +25,7 @@ export class BranchStoresCache {
 		}
 
 		const writableStore = writable(listVirtualBranches({ projectId }), (set) => {
-			return stores.sessions({ projectId }).subscribe((sessions) => {
+			return getSessionStore({ projectId }).subscribe((sessions) => {
 				if (sessions.isLoading) return;
 				if (Loaded.isError(sessions)) return;
 				const lastSession = sessions.value.at(-1);
@@ -70,7 +71,7 @@ export class BranchStoresCache {
 			return cachedStore;
 		}
 		const writableStore = writable(getRemoteBranchesData({ projectId }), (set) => {
-			git.fetches.subscribe({ projectId }, () => {
+			fetches.subscribe({ projectId }, () => {
 				getRemoteBranchesData({ projectId }).then(set);
 			});
 		});
@@ -91,7 +92,7 @@ export class BranchStoresCache {
 			return cachedStore;
 		}
 		const writableStore = writable(getBaseBranchData({ projectId }), (set) => {
-			git.fetches.subscribe({ projectId }, () => {
+			fetches.subscribe({ projectId }, () => {
 				getBaseBranchData({ projectId }).then(set);
 			});
 		});
@@ -133,7 +134,7 @@ async function branchesWithFileContent(projectId: string, sessionId: string, bra
 		sessionId: sessionId,
 		paths: filePaths
 	});
-	const sessionDeltas = await invoke<Record<string, Delta[]>>('list_deltas', {
+	const sessionDeltas = await invoke<Record<string, deltas.Delta[]>>('list_deltas', {
 		projectId: projectId,
 		sessionId: sessionId,
 		paths: filePaths
@@ -141,22 +142,22 @@ async function branchesWithFileContent(projectId: string, sessionId: string, bra
 	const branchesWithContnent = branches.map((branch) => {
 		branch.files.map((file) => {
 			const contentAtSessionStart = sessionFiles[file.path];
-			const deltas = sessionDeltas[file.path];
-			file.content = applyDeltas(contentAtSessionStart, deltas);
+			const ds = sessionDeltas[file.path];
+			file.content = applyDeltas(contentAtSessionStart, ds);
 		});
 		return branch;
 	});
 	return branchesWithContnent;
 }
 
-function applyDeltas(text: string, deltas: Delta[]) {
-	if (!deltas) return text;
-	const operations = deltas.flatMap((delta) => delta.operations);
+function applyDeltas(text: string, ds: deltas.Delta[]) {
+	if (!ds) return text;
+	const operations = ds.flatMap((delta) => delta.operations);
 	operations.forEach((operation) => {
-		if (Operation.isInsert(operation)) {
+		if (isInsert(operation)) {
 			text =
 				text.slice(0, operation.insert[0]) + operation.insert[1] + text.slice(operation.insert[0]);
-		} else if (Operation.isDelete(operation)) {
+		} else if (isDelete(operation)) {
 			text =
 				text.slice(0, operation.delete[0]) + text.slice(operation.delete[0] + operation.delete[1]);
 		}

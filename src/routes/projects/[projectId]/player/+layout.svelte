@@ -1,17 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { stores, api } from '$lib';
+	import { getSessionStore } from '$lib/stores/sessions';
+	import * as deltas from '$lib/api/ipc/deltas';
 	import { format } from 'date-fns';
 	import { derived, Loaded } from 'svelte-loadable-store';
 
-	const sessions = stores.sessions({ projectId: $page.params.projectId });
+	const sessions = getSessionStore({ projectId: $page.params.projectId });
 
 	$: fileFilter = $page.url.searchParams.get('file');
 
 	const dates = derived(sessions, async (sessions) => {
 		const sessionDeltas = await Promise.all(
 			sessions.map((session) =>
-				api.deltas.list({
+				deltas.list({
 					projectId: $page.params.projectId,
 					sessionId: session.id,
 					paths: fileFilter ? [fileFilter] : undefined

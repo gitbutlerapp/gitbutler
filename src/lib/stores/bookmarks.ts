@@ -1,10 +1,10 @@
 import { writable, type Loadable, derived, Loaded } from 'svelte-loadable-store';
-import { bookmarks, type Bookmark } from '$lib/api';
+import * as bookmarks from '$lib/api/ipc/bookmarks';
 import { get as getValue, type Readable } from '@square/svelte-store';
 
-const stores: Record<string, Readable<Loadable<Bookmark[]>>> = {};
+const stores: Record<string, Readable<Loadable<bookmarks.Bookmark[]>>> = {};
 
-export function list(params: { projectId: string }) {
+export function getBookmarksStore(params: { projectId: string }) {
 	if (params.projectId in stores) return stores[params.projectId];
 
 	const store = writable(bookmarks.list(params), (set) => {
@@ -23,11 +23,11 @@ export function list(params: { projectId: string }) {
 		};
 	});
 	stores[params.projectId] = store;
-	return store as Readable<Loadable<Bookmark[]>>;
+	return store as Readable<Loadable<bookmarks.Bookmark[]>>;
 }
 
-export function get(params: { projectId: string; timestampMs: number }) {
-	return derived(list({ projectId: params.projectId }), (bookmarks) =>
+export function getBookmark(params: { projectId: string; timestampMs: number }) {
+	return derived(getBookmarksStore({ projectId: params.projectId }), (bookmarks) =>
 		bookmarks.find((b) => b.timestampMs === params.timestampMs)
 	);
 }

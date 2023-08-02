@@ -1,7 +1,7 @@
-import { users } from '$lib/api';
+import * as users from '$lib/api/ipc/users';
 import { asyncWritable } from '@square/svelte-store';
 
-const store = asyncWritable([], users.get, async (user) => {
+export const userStore = asyncWritable([], users.get, async (user) => {
 	if (user === null) {
 		await users.delete();
 	} else {
@@ -9,5 +9,3 @@ const store = asyncWritable([], users.get, async (user) => {
 	}
 	return user;
 });
-
-export default store;

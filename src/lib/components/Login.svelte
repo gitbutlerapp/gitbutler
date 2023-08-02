@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { type LoginToken, CloudApi } from '$lib/api';
-	import { toasts, stores } from '$lib';
+	import { getCloudApiClient, type LoginToken } from '$lib/api/cloud/api';
+	import { toasts } from '$lib';
+	import { userStore } from '$lib/stores/user';
 	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import Button from './Button';
 	import { goto } from '$app/navigation';
 
-	const cloud = CloudApi();
-	const user = stores.user;
+	const cloud = getCloudApiClient();
+	const user = userStore;
 
 	export let width: 'basic' | 'full-width' = 'basic';
 

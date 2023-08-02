@@ -3,10 +3,9 @@
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
 	import { Button } from '$lib/components';
-	import { BranchController } from '$lib/vbranches';
+	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
 	import { Loaded } from 'svelte-loadable-store';
 	import { getContext, setContext } from 'svelte';
-	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import BottomPanel from './BottomPanel.svelte';
 	import UpstreamBranchLane from './UpstreamBranchLane.svelte';
