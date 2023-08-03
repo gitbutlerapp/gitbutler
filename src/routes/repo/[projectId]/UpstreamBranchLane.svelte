@@ -18,8 +18,8 @@
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
-	$: expanded = base.behind > 0;
-	$: multiple = base.upstreamCommits.length > 1;
+	$: expanded = base ? base.behind > 0 : false;
+	$: multiple = base ? base.upstreamCommits.length > 1 : false;
 </script>
 
 <div
@@ -42,7 +42,7 @@
 		>
 			<Tooltip
 				label={'Your upstream branch (' +
-					base.branchName +
+					base?.branchName +
 					') is up to date. Click to fetch again and check for new work.'}
 			>
 				<!-- svelte-ignore a11y-mouse-events-have-key-events -->
@@ -57,21 +57,25 @@
 					<div
 						class="flex h-6 w-6 items-center justify-center rounded hover:bg-light-200 dark:hover:bg-dark-700"
 					>
-						{#if buttonHovered || fetching}
-							<div class:animate-spin={fetching}>
-								<IconRefresh class="h-4 w-4" />
-							</div>
-						{:else if base.remoteUrl.includes('github.com')}
-							<IconGithub class="h-4 w-4" />
-						{:else}
-							<IconBranch class="h-4 w-4" />
-						{/if}
-					</div>
-				</button>
+						<div
+							class="flex h-6 w-6 items-center justify-center rounded hover:bg-light-200 dark:hover:bg-dark-700"
+						>
+							{#if buttonHovered || fetching}
+								<div class:animate-spin={fetching}>
+									<IconRefresh class="h-4 w-4" />
+								</div>
+							{:else if base?.remoteUrl.includes('github.com')}
+								<IconGithub class="h-4 w-4" />
+							{:else}
+								<IconBranch class="h-4 w-4" />
+							{/if}
+						</div>
+					</div></button
+				>
 			</Tooltip>
 			{#if expanded}
 				<div class="flex-grow pl-2 font-mono font-bold">
-					{base.branchName}
+					{base?.branchName}
 				</div>
 			{/if}
 		</div>
@@ -84,8 +88,7 @@
 				class="relative flex h-full w-60 shrink-0 flex-grow cursor-default snap-center flex-col overflow-y-hidden overscroll-y-none border-light-300 bg-light-200 pr-1.5 dark:border-l dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
 			>
 				<div
-					bind:this={viewport}
-					class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8 pt-2"
+					class="relative flex h-full w-60 shrink-0 flex-grow cursor-default snap-center flex-col overflow-y-hidden overscroll-y-none border-light-300 bg-light-200 pr-2 dark:border-l dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
 				>
 					<div
 						class="mb-2 ml-8 rounded-sm bg-light-300 p-1 text-center text-xs text-light-700 dark:bg-dark-500"

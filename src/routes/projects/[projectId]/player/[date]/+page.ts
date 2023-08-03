@@ -2,11 +2,11 @@ import { redirect, error } from '@sveltejs/kit';
 import { format } from 'date-fns';
 import type { PageLoad } from './$types';
 import { getSessionStore } from '$lib/stores/sessions';
-import { promisify } from 'svelte-loadable-store';
+import { get } from '@square/svelte-store';
 
 export const load: PageLoad = async ({ params, url }) => {
-	const sessions = await promisify(getSessionStore({ projectId: params.projectId }));
-	const dateSessions = sessions.filter(
+	const sessions = getSessionStore({ projectId: params.projectId });
+	const dateSessions = (await sessions.load()).filter(
 		(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === params.date
 	);
 	if (!dateSessions.length) throw error(404, 'No sessions found');

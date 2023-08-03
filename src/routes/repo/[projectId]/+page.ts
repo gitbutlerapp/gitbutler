@@ -15,14 +15,14 @@ export async function load({ parent, params }: PageLoadEvent) {
 	const { branchStoresCache } = await parent();
 	const vbranchStore = branchStoresCache.getVirtualBranchStore(projectId);
 	const remoteBranchStore = branchStoresCache.getRemoteBranchStore(projectId);
-	const targetBranchStore = branchStoresCache.getBaseBranchStore(projectId);
+	const baseBranchStore = branchStoresCache.getBaseBranchStore(projectId);
 
 	return {
 		projectId,
 		remoteBranchNames,
 		vbranchStore,
 		remoteBranchStore,
-		targetBranchStore,
+		baseBranchStore,
 		project: project as Loadable<Project> & Pick<typeof project, 'update' | 'delete'>
 	};
 }
