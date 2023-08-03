@@ -62,10 +62,10 @@
 	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
 
 	function getGutterMinWidth(max: number) {
-		if (max >= 1000) return 2.25;
-		if (max >= 100) return 1.75;
-		if (max >= 10) return 1.5;
-		return 1.25;
+		if (max >= 1000) return 2;
+		if (max >= 100) return 1.5;
+		if (max >= 10) return 1.25;
+		return 1;
 	}
 
 	$: minWidth = getGutterMinWidth(maxLineNumber);
@@ -155,7 +155,7 @@
 
 		{#if expanded}
 			<div
-				class="hunk-change-container flex flex-col rounded pl-2 pr-3"
+				class="hunk-change-container flex flex-col rounded px-1.5"
 				transition:slide={{ duration: 150 }}
 			>
 				{#each sections as section}
@@ -212,11 +212,11 @@
 											>
 												<div
 													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:border-dark-400 dark:bg-dark-500 dark:text-light-600 dark:hover:bg-dark-400 dark:hover:text-black"
-													style:min-width={`${2 * minWidth}rem`}
+													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
 												>
 													<button
 														class="flex justify-center py-0.5 text-sm"
-														style:width={`${2 * minWidth}rem`}
+														style:width={`calc(${2 * minWidth}rem - 1px)`}
 														on:click={() => {
 															if ('expanded' in subsection) {
 																subsection.expanded = true;
@@ -262,7 +262,7 @@
 							</div>
 						{/if}
 						{#if !section.expanded}
-							<div style:width={`${2 * minWidth}rem`} class="flex justify-center">
+							<div style:width={`calc(${2 * minWidth}rem - 1px)`} class="flex justify-center">
 								<button
 									class="px-2 py-1.5 text-sm text-light-600 hover:text-light-700 dark:text-dark-200 dark:hover:text-dark-100"
 									on:click={() => {
