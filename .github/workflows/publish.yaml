@@ -111,11 +111,8 @@ jobs:
               if: runner.os == 'Linux' && runner.arch != 'ARM64'
             - name: Install system dependencies
               # self hosted Linux ARM64 runner has this baked in
-              uses: daaku/gh-action-apt-install@v4
+              run: sudo apt-get install libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
               if: runner.os == 'Linux' && runner.arch != 'ARM64'
-              with:
-                  # https://tauri.app/v1/guides/getting-started/prerequisites#setting-up-linux
-                  packages: libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
             - name: import gpg key
               if: runner.os == 'Linux'
               uses: crazy-max/ghaction-import-gpg@v5
