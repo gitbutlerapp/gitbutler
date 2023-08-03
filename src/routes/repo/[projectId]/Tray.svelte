@@ -9,7 +9,8 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
-	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
@@ -130,7 +131,6 @@
 								</div>
 								<button
 									class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
-									on:keydown={(e) => yourBranchContextMenu.openByMouse(e, branch)}
 									on:click={(e) => yourBranchContextMenu.openByMouse(e, branch)}
 								>
 									<IconMeatballMenu />
@@ -250,7 +250,6 @@
 								</div>
 								<button
 									class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
-									on:keydown={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
 									on:click={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
 								>
 									<IconMeatballMenu />
