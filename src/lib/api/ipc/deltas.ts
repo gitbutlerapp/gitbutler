@@ -28,6 +28,7 @@ export function subscribe(
 		deltas: Delta[];
 	}) => Promise<void> | void
 ) {
+	if (!params.sessionId) return () => {};
 	return listen<{ deltas: Delta[]; filePath: string }>(
 		`project://${params.projectId}/sessions/${params.sessionId}/deltas`,
 		(event) => callback({ ...params, ...event.payload })
