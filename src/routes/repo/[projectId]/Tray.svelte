@@ -119,13 +119,13 @@
 							class="border-b border-light-400 p-2 dark:border-dark-600"
 						>
 							<div class="flex flex-row justify-between">
-								<div class="flex items-center">
+								<div class="flex flex-shrink items-center">
 									<Checkbox
 										on:change={() => toggleBranch(branch)}
 										bind:checked={branch.active}
 										disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
 									/>
-									<div class="ml-2 w-full truncate text-black dark:text-white">
+									<div class="max-w-36 ml-2 w-36 flex-grow truncate text-black dark:text-white">
 										{branch.name}
 									</div>
 								</div>
