@@ -11,7 +11,7 @@
 	function toTokens(codeString: string): string[] {
 		function sanitize(text: string) {
 			var element = document.createElement('div');
-			element.innerText = text;
+			element.innerText = text.replace(/\t/g, ' ').replace('   ', ' ');
 			return element.innerHTML;
 		}
 
@@ -29,24 +29,24 @@
 </script>
 
 <div
-	class="flex w-full bg-light-50 pl-[1px] font-mono text-sm dark:bg-dark-700"
+	class="flex w-full bg-light-50 font-mono text-sm dark:bg-dark-700"
 	role="group"
 	on:contextmenu|preventDefault
 >
 	<div
-		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-0.5 text-right text-xs text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 		style:min-width={minWidth + 'rem'}
 	>
 		{line.beforeLineNumber || ''}
 	</div>
 	<div
-		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-1 text-right text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-0.5 text-right text-xs text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
 		style:min-width={minWidth + 'rem'}
 	>
 		{line.afterLineNumber || ''}
 	</div>
 	<div
-		class="flex-grow overflow-hidden whitespace-pre pl-1"
+		class="flex-grow overflow-hidden whitespace-pre pl-0.5"
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
 		class:diff-line-addition={sectionType === SectionType.AddedLines}
 	>
