@@ -9,21 +9,30 @@
 	import BottomPanel from './BottomPanel.svelte';
 	import UpstreamBranchLane from './UpstreamBranchLane.svelte';
 	import { IconExternalLink } from '$lib/icons';
+	import {
+		getBaseBranchStore,
+		getRemoteBranchStore,
+		getVirtualBranchStore
+	} from '$lib/vbranches/branchStoresCache';
+	import { getSessionStore } from '$lib/stores/sessions';
+	import { getDeltasStore } from '$lib/stores/deltas';
+	import { getFetchesStore } from '$lib/stores/fetches';
 
 	export let data: PageData;
-	let {
-		projectId,
-		vbranchStore,
-		remoteBranchStore,
-		baseBranchStore,
-		remoteBranchNames,
-		project,
-		cloud
-	} = data;
+	let { projectId, remoteBranchNames, project, cloud } = data;
 
-	const branchesState = vbranchStore.state;
-	const remoteBranchesState = remoteBranchStore.state;
+	const fetchStore = getFetchesStore(projectId);
+	const sessionStore = getSessionStore({ projectId });
+	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore]);
+	const remoteBranchStore = getRemoteBranchStore(projectId, [fetchStore]);
+
 	const baseBranchesState = baseBranchStore.state;
+	const remoteBranchesState = remoteBranchStore.state;
+
+	$: sessionId = $sessionStore?.at(-1)?.id ?? '';
+	$: deltasStore = getDeltasStore({ projectId, sessionId });
+	$: vbranchStore = getVirtualBranchStore(projectId, sessionId, [sessionStore, deltasStore]);
+	$: branchesState = vbranchStore?.state;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 

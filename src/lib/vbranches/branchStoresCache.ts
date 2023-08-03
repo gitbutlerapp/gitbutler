@@ -1,93 +1,38 @@
-import { getSessionStore } from '$lib/stores/sessions';
-import { asyncWritable } from '@square/svelte-store';
-import * as fetches from '$lib/api/git/fetches';
-import * as deltas from '$lib/api/ipc/deltas';
-import { BaseBranch, Branch, BranchData, type Reloadable } from './types';
+import { asyncWritable, type Readable } from '@square/svelte-store';
+import { BaseBranch, Branch, BranchData, type WritableReloadable } from './types';
 import { plainToInstance } from 'class-transformer';
 import { invoke } from '$lib/ipc';
-import { isDelete, isInsert } from '$lib/api/ipc/deltas';
+import { isDelete, isInsert, type Delta } from '$lib/api/ipc/deltas';
 
-export class BranchStoresCache {
-	virtualBranchStores: Map<string, Reloadable<Branch[]>> = new Map();
-	remoteBranchStores: Map<string, Reloadable<BranchData[]>> = new Map();
-	targetBranchStores: Map<string, Reloadable<BaseBranch | undefined>> = new Map();
+export function getVirtualBranchStore(
+	projectId: string,
+	sessionId: string,
+	asyncStores: Readable<any>[]
+) {
+	return asyncWritable(
+		asyncStores,
+		async () => withFileContent(projectId, sessionId, await listVirtualBranches({ projectId })),
+		async (newBranches) => newBranches,
+		{ reloadable: true, trackState: true }
+	) as WritableReloadable<Branch[]>;
+}
 
-	getVirtualBranchStore(projectId: string) {
-		const cachedStore = this.virtualBranchStores.get(projectId);
-		if (cachedStore) {
-			return cachedStore;
-		}
+export function getRemoteBranchStore(projectId: string, asyncStores: Readable<any>[]) {
+	return asyncWritable(
+		asyncStores,
+		async () => getRemoteBranchesData({ projectId }),
+		async (newRemotes) => newRemotes,
+		{ reloadable: true, trackState: true }
+	) as WritableReloadable<BranchData[]>;
+}
 
-		const writableStore = asyncWritable(
-			[],
-			async () => listVirtualBranches({ projectId }),
-			async (newBranches) => newBranches,
-			{ reloadable: true, trackState: true }
-		) as Reloadable<Branch[]>;
-
-		getSessionStore({ projectId }).subscribe((sessions) => {
-			const lastSession = sessions?.at(-1);
-			if (!lastSession) return;
-
-			// new current session detected. refresh branches + subscribe to delta updates.
-			listVirtualBranches({ projectId }).then((newBranches) => {
-				branchesWithFileContent(projectId, lastSession.id, newBranches).then((withContent) => {
-					writableStore.set(withContent);
-				});
-			});
-			// TODO: We need to unsubscribe this somewhere!
-			const unsubscribe2 = deltas.subscribe({ projectId, sessionId: lastSession.id }, () => {
-				// new delta detected. refresh branches.
-				listVirtualBranches({ projectId }).then((newBranches) => {
-					branchesWithFileContent(projectId, lastSession.id, newBranches).then((withContent) => {
-						writableStore.set(withContent);
-					});
-				});
-			});
-		});
-		this.virtualBranchStores.set(projectId, writableStore);
-		return writableStore;
-	}
-
-	getRemoteBranchStore(projectId: string) {
-		const cachedStore = this.remoteBranchStores.get(projectId);
-		if (cachedStore) {
-			return cachedStore;
-		}
-		const writableStore = asyncWritable(
-			[],
-			async () => getRemoteBranchesData({ projectId }),
-			async (newRemotes) => newRemotes,
-			{ reloadable: true, trackState: true }
-		) as Reloadable<BranchData[]>;
-		// TODO: We need to unsubscribe this somewhere!
-		const unsubscribe = fetches.subscribe({ projectId }, () => {
-			getRemoteBranchesData({ projectId }).then((data) => writableStore.set(data));
-		});
-		this.remoteBranchStores.set(projectId, writableStore);
-		return writableStore;
-	}
-
-	getBaseBranchStore(projectId: string) {
-		const cachedStore = this.targetBranchStores.get(projectId);
-		if (cachedStore) {
-			return cachedStore;
-		}
-		const writableStore = asyncWritable(
-			[],
-			async () => await getBaseBranchData({ projectId }),
-			async (newBaseBranch) => {
-				return newBaseBranch;
-			},
-			{ reloadable: true, trackState: true }
-		) as Reloadable<BaseBranch>;
-		// TODO: We need to unsubscribe this somewhere!
-		const unsubscribe = fetches.subscribe({ projectId }, () => {
-			getBaseBranchData({ projectId }).then((data) => writableStore.set(data));
-		});
-		this.targetBranchStores.set(projectId, writableStore);
-		return writableStore;
-	}
+export function getBaseBranchStore(projectId: string, asyncStores: Readable<any>[]) {
+	return asyncWritable(
+		asyncStores,
+		async () => getBaseBranchData({ projectId }),
+		async (newBaseBranch) => newBaseBranch,
+		{ reloadable: true, trackState: true }
+	) as WritableReloadable<BaseBranch>;
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
@@ -108,7 +53,7 @@ export async function getBaseBranchData(params: { projectId: string }): Promise<
 	);
 }
 
-async function branchesWithFileContent(projectId: string, sessionId: string, branches: Branch[]) {
+async function withFileContent(projectId: string, sessionId: string, branches: Branch[]) {
 	const filePaths = branches
 		.map((branch) => branch.files)
 		.flat()
@@ -118,7 +63,7 @@ async function branchesWithFileContent(projectId: string, sessionId: string, bra
 		sessionId: sessionId,
 		paths: filePaths
 	});
-	const sessionDeltas = await invoke<Record<string, deltas.Delta[]>>('list_deltas', {
+	const sessionDeltas = await invoke<Record<string, Delta[]>>('list_deltas', {
 		projectId: projectId,
 		sessionId: sessionId,
 		paths: filePaths
@@ -134,7 +79,7 @@ async function branchesWithFileContent(projectId: string, sessionId: string, bra
 	return branchesWithContnent;
 }
 
-function applyDeltas(text: string, ds: deltas.Delta[]) {
+function applyDeltas(text: string, ds: Delta[]) {
 	if (!ds) return text;
 	const operations = ds.flatMap((delta) => delta.operations);
 	operations.forEach((operation) => {

@@ -93,7 +93,7 @@ export class BaseBranch {
 	}
 }
 
-export interface Reloadable<T> extends WritableLoadable<T> {
+export interface WritableReloadable<T> extends WritableLoadable<T> {
 	state: Readable<LoadState>;
 	reload(visitedMap?: VisitedMap): Promise<T>;
 }

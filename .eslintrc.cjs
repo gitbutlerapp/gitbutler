@@ -35,7 +35,6 @@ module.exports = {
 		'@typescript-eslint/no-namespace': 'off',
 		'@typescript-eslint/no-empty-function': 'off',
 		'@typescript-eslint/no-explicit-any': 'off',
-		'square-svelte-store/use-square-svelte-stores': 'error',
 		'@typescript-eslint/no-unused-vars': [
 			'warn', // or "error"
 			{
