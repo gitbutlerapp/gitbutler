@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Checkbox, Modal } from '$lib/components';
+	import { Button, Checkbox, Link, Modal } from '$lib/components';
 	import type { Branch, BranchData } from '$lib/vbranches/types';
 	import { formatDistanceToNow } from 'date-fns';
 	import { IconGitBranch, IconRemote } from '$lib/icons';
@@ -9,9 +9,12 @@
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
-	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
+	import IconHelp from '$lib/icons/IconHelp.svelte';
 
 	export let branches: Branch[];
 	export let remoteBranches: BranchData[];
@@ -83,7 +86,7 @@
 	<div
 		class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
-		<div class="font-bold">Your branches</div>
+		<div class="font-bold">Your Virtual Branches</div>
 		<div class="flex h-4 w-4 justify-around">
 			<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
 				{#if yourBranchesOpen}
@@ -105,7 +108,7 @@
 		>
 			<div bind:this={vbContents}>
 				{#if !branches || branches.length == 0}
-					<div class="px-2 py-1">There are currently no branches</div>
+					<div class="p-4 text-light-700">You currently have no virtual branches.</div>
 				{:else}
 					{#each branches as branch (branch.id)}
 						{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
@@ -116,39 +119,47 @@
 							class="border-b border-light-400 p-2 dark:border-dark-600"
 						>
 							<div class="flex flex-row justify-between">
-								<div class="flex w-full items-center">
+								<div class="flex flex-shrink items-center">
 									<Checkbox
 										on:change={() => toggleBranch(branch)}
 										bind:checked={branch.active}
 										disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
 									/>
-									<div class="ml-2 w-full truncate text-black dark:text-white">
+									<div class="max-w-36 ml-2 w-36 flex-grow truncate text-black dark:text-white">
 										{branch.name}
 									</div>
 								</div>
-								{#if !branch.active}
-									{#if !branch.baseCurrent}
-										<!-- branch will cause merge conflicts if applied -->
-										<Tooltip label="Will introduce merge conflicts if applied">
-											<div class="text-yellow-500">&#9679;</div>
-										</Tooltip>
-									{:else if branch.mergeable}
-										<Tooltip label="Can be applied cleanly">
-											<div class="text-green-500">&#9679;</div>
-										</Tooltip>
-									{:else}
-										<Tooltip
-											label="Canflicts with changes in your working directory, cannot be applied"
-										>
-											<div class="text-red-500">&#9679;</div>
-										</Tooltip>
-									{/if}
-								{/if}
+								<button
+									class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
+									on:click={(e) => yourBranchContextMenu.openByMouse(e, branch)}
+								>
+									<IconMeatballMenu />
+								</button>
 							</div>
 							<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
 								<div class="flex-grow">
 									{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
 								</div>
+								{#if !branch.active}
+									<div class="mr-2">
+										{#if !branch.baseCurrent}
+											<!-- branch will cause merge conflicts if applied -->
+											<Tooltip label="Will introduce merge conflicts if applied">
+												<div class="text-yellow-500">&#9679;</div>
+											</Tooltip>
+										{:else if branch.mergeable}
+											<Tooltip label="Can be applied cleanly">
+												<div class="text-green-500">&#9679;</div>
+											</Tooltip>
+										{:else}
+											<Tooltip
+												label="Canflicts with changes in your working directory, cannot be applied"
+											>
+												<div class="text-red-500">&#9679;</div>
+											</Tooltip>
+										{/if}
+									</div>
+								{/if}
 								<div class="flex gap-1 font-mono text-sm font-bold">
 									<span class="text-green-500">
 										+{added}
@@ -170,7 +181,16 @@
 	<div
 		class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
-		<div class="font-bold">Remote branches</div>
+		<div class="flex flex-row place-items-center space-x-2">
+			<div class="font-bold">Remote Branches</div>
+			<a
+				target="_blank"
+				rel="noreferrer"
+				href="https://docs.gitbutler.com/features/virtual-branches/remote-branches"
+			>
+				<IconHelp class="h-3 w-3 text-light-600" />
+			</a>
+		</div>
 		<div class="flex h-4 w-4 justify-around">
 			<button class="h-full w-full" on:click={() => (remoteBranchesOpen = !remoteBranchesOpen)}>
 				{#if remoteBranchesOpen}
@@ -189,7 +209,18 @@
 		>
 			<div bind:this={rbContents}>
 				{#if !remoteBranches || remoteBranches.length == 0}
-					<div class="px-2 py-1">There are currently no branches</div>
+					<div class="p-4">
+						<p class="mb-2 text-light-700">
+							There are no local or remote Git branches that can be imported as virtual branches
+						</p>
+						<Link
+							target="_blank"
+							rel="noreferrer"
+							href="https://docs.gitbutler.com/features/virtual-branches/remote-branches"
+						>
+							Learn more
+						</Link>
+					</div>
 				{:else}
 					{#each remoteBranches ?? [] as branch}
 						<div
@@ -200,9 +231,15 @@
 							<div class="flex flex-row items-center gap-x-2 pr-1">
 								<div class="text-light-600 dark:text-dark-200">
 									{#if branch.name.match('refs/remotes')}
-										<IconRemote class="h-4 w-4" />
+										<Tooltip
+											label="This is a remote branch that you don't have a virtual branch tracking yet"
+										>
+											<IconRemote class="h-4 w-4" />
+										</Tooltip>
 									{:else}
-										<IconGitBranch class="h-4 w-4" />
+										<Tooltip label="This is a local branch that is not a virtual branch yet">
+											<IconGitBranch class="h-4 w-4" />
+										</Tooltip>
 									{/if}
 								</div>
 								<div class="flex-grow truncate text-black dark:text-white" title={branch.name}>
@@ -211,15 +248,31 @@
 										.replace('origin/', '')
 										.replace('refs/heads/', '')}
 								</div>
-								<div>{branch.ahead}/{branch.behind}</div>
-								{#if !branch.mergeable}
-									<div class="font-bold text-red-500" title="Can't be merged">!</div>
-								{/if}
+								<button
+									class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
+									on:click={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
+								>
+									<IconMeatballMenu />
+								</button>
 							</div>
-							<div class="flex flex-row justify-between pr-1 text-light-700 dark:text-dark-300">
-								<div class="text-sm">{formatDistanceToNow(branch.lastCommitTs * 1000)}</div>
+							<div
+								class="flex flex-row justify-between space-x-2 rounded bg-light-100 p-1 pr-1 text-light-700 dark:bg-dark-700 dark:text-dark-300"
+							>
+								<div class="flex-grow-0 text-sm">
+									{formatDistanceToNow(branch.lastCommitTs * 1000)}
+								</div>
+								<div class="flex flex-grow-0 flex-row space-x-2">
+									<Tooltip
+										label="This branch has {branch.ahead} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
+									>
+										<div class="text-sm">{branch.ahead}/{branch.behind}</div>
+									</Tooltip>
+									{#if !branch.mergeable}
+										<div class="font-bold text-red-500" title="Can't be merged">!</div>
+									{/if}
+								</div>
 								<div
-									class="isolate flex -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
+									class="isolate flex flex-grow justify-end -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
 								>
 									{#each branch.authors as author}
 										<img

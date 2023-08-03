@@ -21,6 +21,8 @@
 	import { slide } from 'svelte/transition';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { summarizeHunk } from '$lib/summaries';
+	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
+	import IconLock from '$lib/icons/IconLock.svelte';
 
 	export let file: File;
 	export let conflicted: boolean;
@@ -83,7 +85,7 @@
 	on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', getAllHunksOwnership())}
 	role="group"
 	class="changed-file inner"
-	class:opacity-60={isFileLocked}
+	class:opacity-80={isFileLocked}
 >
 	<div
 		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-300 bg-light-50 py-1 text-light-900 dark:border-dark-500 dark:bg-dark-800 dark:text-light-300"
@@ -111,6 +113,15 @@
 
 				{@html boldenFilename(file.path)}
 			</div>
+			{#if isFileLocked}
+				<div class="flex flex-grow-0">
+					<Tooltip
+						label="File changes cannot be moved because part of this file was already committed into this branch"
+					>
+						<IconLock class="h-4 w-4 text-yellow-600" />
+					</Tooltip>
+				</div>
+			{/if}
 			<div
 				on:click|stopPropagation={() => {
 					expanded = !expanded;
@@ -119,7 +130,7 @@
 				on:keypress={() => (expanded = !expanded)}
 				role="button"
 				tabindex="0"
-				class="cursor-pointer px-3 py-2 text-light-600 dark:text-dark-200"
+				class="flex-grow-0 cursor-pointer px-3 py-2 text-light-600 dark:text-dark-200"
 			>
 				{#if !file.binary}
 					{#if expanded}

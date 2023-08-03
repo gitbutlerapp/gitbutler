@@ -6,6 +6,7 @@
 	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import { Link } from '$lib/components';
 	export let projectId: string;
 	export let projectPath: string;
 	export let branches: Branch[];
@@ -91,5 +92,31 @@
 			{upstream}
 		/>
 	{/each}
-	<NewBranchDropZone />
+
+	{#if branches.length == 0}
+		<div
+			class="m-auto mx-20 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
+		>
+			<div class="inline-flex w-96 flex-col items-center gap-y-4">
+				<h3 class="text-xl font-medium">You are up to date</h3>
+				<p class="text-light-700 dark:text-dark-200">
+					This means that your working directory looks exactly like your base branch. There isn't
+					anything locally that is not in your production code.
+				</p>
+				<p class="text-light-700 dark:text-dark-200">
+					If you start editing files in your working directory, a new virtual branch will
+					automatically be created and you can manage it here.
+				</p>
+				<Link
+					target="_blank"
+					rel="noreferrer"
+					href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+				>
+					Learn more
+				</Link>
+			</div>
+		</div>
+	{:else}
+		<NewBranchDropZone />
+	{/if}
 </div>

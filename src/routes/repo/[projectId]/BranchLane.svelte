@@ -20,6 +20,7 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -378,13 +379,26 @@
 						</div>
 					{/if}
 					{#if files.length == 0}
-						<!-- attention: these markers have custom css at the bottom of thise file -->
-						<div
-							class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
-							data-dnd-ignore
-						>
-							No uncomitted changes
-						</div>
+						{#if commits.length == 0}
+							<div
+								class="no-changes space-y-6 rounded p-8 text-center text-light-700 dark:border-zinc-700"
+								data-dnd-ignore
+							>
+								<p>Nothing on this branch yet.</p>
+								<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
+								<p class="px-12 text-light-600">
+									Get some work done, then throw some files my way!
+								</p>
+							</div>
+						{:else}
+							<!-- attention: these markers have custom css at the bottom of thise file -->
+							<div
+								class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
+								data-dnd-ignore
+							>
+								No uncommitted changes on this branch
+							</div>
+						{/if}
 					{/if}
 				</div>
 				{#if localCommits.length > 0 || remoteCommits.length > 0}
@@ -498,6 +512,16 @@
 </div>
 
 <PopupMenu bind:this={popupMenu} let:item={branchId}>
+	{#if !maximized}
+		<PopupMenuItem on:click={() => (maximized = !maximized)}>Maximize</PopupMenuItem>
+	{:else}
+		<PopupMenuItem on:click={() => (maximized = !maximized)}>Minimize</PopupMenuItem>
+	{/if}
+
+	<div class="mx-3">
+		<div class="my-2 h-[0.0625rem] w-full bg-light-300 dark:bg-dark-500" />
+	</div>
+
 	<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
 		Unapply
 	</PopupMenuItem>
