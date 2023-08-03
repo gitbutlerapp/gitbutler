@@ -1,4 +1,4 @@
-import type { Branch, BranchData, BaseBranch, Reloadable } from './types';
+import type { Branch, BranchData, BaseBranch, WritableReloadable } from './types';
 import { toasts } from '$lib';
 import { invoke } from '$lib/ipc';
 
@@ -7,9 +7,9 @@ export const BRANCH_CONTROLLER_KEY = Symbol();
 export class BranchController {
 	constructor(
 		readonly projectId: string,
-		readonly virtualBranchStore: Reloadable<Branch[]>,
-		readonly remoteBranchStore: Reloadable<BranchData[]>,
-		readonly targetBranchStore: Reloadable<BaseBranch | undefined>
+		readonly virtualBranchStore: WritableReloadable<Branch[]>,
+		readonly remoteBranchStore: WritableReloadable<BranchData[]>,
+		readonly targetBranchStore: WritableReloadable<BaseBranch | undefined>
 	) {}
 
 	async setTarget(branch: string) {
