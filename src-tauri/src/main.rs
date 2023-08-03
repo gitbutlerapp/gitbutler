@@ -1,27 +1,4 @@
-#[macro_use(defer)]
-extern crate scopeguard;
-
-mod app;
 mod assets;
-mod bookmarks;
-mod database;
-mod dedup;
-mod deltas;
-mod events;
-mod files;
-mod fs;
-mod gb_repository;
-mod project_repository;
-mod projects;
-mod pty;
-mod reader;
-mod search;
-mod sessions;
-mod storage;
-mod users;
-mod virtual_branches;
-mod watcher;
-mod writer;
 mod zip;
 
 #[macro_use]
@@ -40,7 +17,9 @@ use tauri_plugin_log::{
 use thiserror::Error;
 use timed::timed;
 
-use crate::project_repository::{activity, branch};
+use git_butler_tauri::*;
+
+use project_repository::{activity, branch};
 
 #[derive(Debug, Error)]
 pub enum Error {
