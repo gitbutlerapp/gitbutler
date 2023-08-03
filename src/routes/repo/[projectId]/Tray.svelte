@@ -119,7 +119,7 @@
 							class="border-b border-light-400 p-2 dark:border-dark-600"
 						>
 							<div class="flex flex-row justify-between">
-								<div class="flex flex-shrink items-center">
+								<div class="flex flex-grow items-center">
 									<Checkbox
 										on:change={() => toggleBranch(branch)}
 										bind:checked={branch.active}
