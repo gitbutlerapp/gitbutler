@@ -101,9 +101,10 @@ jobs:
                   NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
                   echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
-            - run: NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
+            - name: uninstall homebrew
+              run: NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
               # github's linux runner has homebrew installed which messes up with pkg-config.
-              if: runner.os == 'Linux' && runner.arch == 'X86'
+              if: runner.os == 'Linux' && runner.arch == 'X64'
             - run: sudo apt-get update
               # self hosted Linux ARM64 runner has this baked in
               if: runner.os == 'Linux' && runner.arch != 'ARM64'
