@@ -7,8 +7,8 @@ export const BRANCH_CONTROLLER_KEY = Symbol();
 export class BranchController {
 	constructor(
 		readonly projectId: string,
-		readonly virtualBranchStore: WritableReloadable<Branch[]>,
-		readonly remoteBranchStore: WritableReloadable<BranchData[]>,
+		readonly virtualBranchStore: WritableReloadable<Branch[] | undefined>,
+		readonly remoteBranchStore: WritableReloadable<BranchData[] | undefined>,
 		readonly targetBranchStore: WritableReloadable<BaseBranch | undefined>
 	) {}
 
