@@ -1,7 +1,10 @@
 use std::time;
 
 use anyhow::Result;
-use tauri::async_runtime::{channel, spawn, Receiver};
+use tokio::{
+    spawn,
+    sync::mpsc::{channel, Receiver},
+};
 use tokio_util::sync::CancellationToken;
 
 use crate::watcher::events;
