@@ -14,7 +14,7 @@ export function getVirtualBranchStore(
 		async () => withFileContent(projectId, sessionId, await listVirtualBranches({ projectId })),
 		async (newBranches) => newBranches,
 		{ reloadable: true, trackState: true }
-	) as WritableReloadable<Branch[]>;
+	) as WritableReloadable<Branch[] | undefined>;
 }
 
 export function getRemoteBranchStore(projectId: string, asyncStores: Readable<any>[]) {
@@ -23,7 +23,7 @@ export function getRemoteBranchStore(projectId: string, asyncStores: Readable<an
 		async () => getRemoteBranchesData({ projectId }),
 		async (newRemotes) => newRemotes,
 		{ reloadable: true, trackState: true }
-	) as WritableReloadable<BranchData[]>;
+	) as WritableReloadable<BranchData[] | undefined>;
 }
 
 export function getBaseBranchStore(projectId: string, asyncStores: Readable<any>[]) {
@@ -32,7 +32,7 @@ export function getBaseBranchStore(projectId: string, asyncStores: Readable<any>
 		async () => getBaseBranchData({ projectId }),
 		async (newBaseBranch) => newBaseBranch,
 		{ reloadable: true, trackState: true }
-	) as WritableReloadable<BaseBranch>;
+	) as WritableReloadable<BaseBranch | undefined>;
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
