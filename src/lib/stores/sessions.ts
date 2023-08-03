@@ -1,4 +1,5 @@
 import { Session, list, subscribe } from '$lib/api/ipc/sessions';
+import type { WritableReloadable } from '$lib/vbranches/types';
 import { asyncWritable, get, type WritableLoadable } from '@square/svelte-store';
 
 const stores: Record<string, WritableLoadable<Session[]>> = {};
@@ -12,8 +13,9 @@ export function getSessionStore(params: { projectId: string }) {
 			sessions.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
 			return sessions;
 		},
-		async (data) => data
-	);
+		async (data) => data,
+		{ trackState: true }
+	) as WritableReloadable<Session[]>;
 	// TODO: Where do we unsubscribe this?
 	const unsubscribe = subscribe(params, ({ session }) => {
 		const oldValue = get(store);

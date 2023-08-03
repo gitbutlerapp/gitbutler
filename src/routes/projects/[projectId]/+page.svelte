@@ -7,7 +7,6 @@
 	import { Button, Statuses, Tooltip } from '$lib/components';
 	import { goto } from '$app/navigation';
 	import Chat from './Chat.svelte';
-	import { Loaded } from 'svelte-loadable-store';
 
 	export let data: PageData;
 	const { project, statuses, sessions, head } = data;
@@ -15,16 +14,11 @@
 	$: recentSessions = derived(
 		sessions,
 		(item) => {
-			if (Loaded.isValue(item)) {
-				const lastFourDaysOfSessions = item.value?.filter(
-					(result) => result.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
-				);
-				if (lastFourDaysOfSessions?.length >= 4) return lastFourDaysOfSessions;
-				return item.value
-					?.slice(0, 4)
-					.sort((a, b) => b.meta.startTimestampMs - a.meta.startTimestampMs);
-			}
-			return [];
+			const lastFourDaysOfSessions = item?.filter(
+				(result) => result.meta.startTimestampMs >= getTime(subDays(new Date(), 4))
+			);
+			if (lastFourDaysOfSessions?.length >= 4) return lastFourDaysOfSessions;
+			return item?.slice(0, 4).sort((a, b) => b.meta.startTimestampMs - a.meta.startTimestampMs);
 		},
 		[]
 	);
