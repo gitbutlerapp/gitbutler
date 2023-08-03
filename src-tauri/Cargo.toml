@@ -46,7 +46,7 @@ timed = "0.2.1"
 serde-jsonlines = "0.4.0"
 scopeguard = "1.2.0"
 sentry-anyhow = "0.31.0"
-sentry-rust-minidump = "0.5.1"
+sentry-rust-minidump = "0.6.4"
 sentry-debug-images = "0.31.5"
 zip = "0.6.5"
 rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }
