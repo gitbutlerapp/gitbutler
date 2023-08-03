@@ -1,17 +1,11 @@
 use std::{fmt, str::FromStr};
 
-use ed25519_dalek::{
-    pkcs8::{
-        spki::der::pem::LineEnding, DecodePrivateKey, DecodePublicKey, EncodePrivateKey,
-        EncodePublicKey, Error as PKSC8Error,
-    },
-    SigningKey, VerifyingKey,
-};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
+use ssh_key;
 
 #[derive(Debug)]
-pub struct PrivateKey(SigningKey);
+pub struct PrivateKey(ssh_key::PrivateKey);
 
 impl PrivateKey {
     pub fn generate() -> Self {
@@ -25,9 +19,9 @@ impl PrivateKey {
 
 impl Default for PrivateKey {
     fn default() -> Self {
-        let mut csprng = OsRng;
-        let signing_key: SigningKey = SigningKey::generate(&mut csprng);
-        Self(signing_key)
+        let ed25519_keypair = ssh_key::private::Ed25519Keypair::random(OsRng);
+        let ed25519_key = ssh_key::PrivateKey::from(ed25519_keypair);
+        Self(ed25519_key)
     }
 }
 
@@ -44,10 +38,10 @@ impl Serialize for PrivateKey {
 }
 
 impl FromStr for PrivateKey {
-    type Err = PKSC8Error;
+    type Err = ssh_key::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let key = SigningKey::from_pkcs8_pem(s)?;
+        let key = ssh_key::PrivateKey::from_openssh(s.as_bytes())?;
         Ok(Self(key))
     }
 }
@@ -55,7 +49,7 @@ impl FromStr for PrivateKey {
 impl fmt::Display for PrivateKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0
-            .to_pkcs8_pem(LineEnding::default())
+            .to_openssh(ssh_key::LineEnding::default())
             .map_err(|_| fmt::Error)?
             .fmt(f)
     }
@@ -72,11 +66,11 @@ impl<'de> Deserialize<'de> for PrivateKey {
 }
 
 #[derive(Debug)]
-pub struct PublicKey(VerifyingKey);
+pub struct PublicKey(ssh_key::PublicKey);
 
 impl From<&PrivateKey> for PublicKey {
     fn from(value: &PrivateKey) -> Self {
-        Self(value.0.verifying_key())
+        Self(value.0.public_key().clone())
     }
 }
 
@@ -88,18 +82,15 @@ impl PartialEq for PublicKey {
 
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0
-            .to_public_key_pem(LineEnding::default())
-            .map_err(|_| fmt::Error)?
-            .fmt(f)
+        self.0.to_openssh().map_err(|_| fmt::Error)?.fmt(f)
     }
 }
 
 impl FromStr for PublicKey {
-    type Err = PKSC8Error;
+    type Err = ssh_key::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let key = VerifyingKey::from_public_key_pem(s)?;
+        let key = ssh_key::PublicKey::from_openssh(s)?;
         Ok(Self(key))
     }
 }

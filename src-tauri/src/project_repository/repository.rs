@@ -1,32 +1,12 @@
-use core::fmt;
-use std::{cell::Cell, collections::HashMap, env, path, process::Command};
+use std::{collections::HashMap, env, path, process::Command};
 
 use anyhow::{Context, Result};
-use git2::CredentialType;
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{project_repository::activity, projects, reader};
+use crate::{keys, project_repository::activity, projects, reader};
 
 use super::branch;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    Other(anyhow::Error),
-    UnsupportedAuthCredentials(CredentialType),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::UnsupportedAuthCredentials(cred_type) => {
-                write!(f, "unsupported credential type: {:?}", cred_type)
-            }
-            err => err.fmt(f),
-        }
-    }
-}
 
 pub struct Repository<'repository> {
     pub(crate) git_repository: git2::Repository,
@@ -337,38 +317,80 @@ impl<'repository> Repository<'repository> {
         Ok(())
     }
 
-    fn get_credential_types(&self, remote: &mut git2::Remote) -> CredentialType {
-        // try to empty push with no credentials, to see what kind of credentials are needed
+    // returns a remote and makes sure that the push url is an ssh url
+    // if url is already ssh, or not set at all, then it returns the remote as is.
+    fn get_push_remote(&'repository self, name: &str) -> Result<git2::Remote<'repository>> {
+        let remote = self
+            .git_repository
+            .find_remote(name)
+            .context("failed to find remote")?;
 
-        let mut callbacks = git2::RemoteCallbacks::new();
-        let allowed_types = Cell::new(CredentialType::empty());
+        let push_url = remote.pushurl().or_else(|| remote.url());
+        if push_url.is_none() {
+            return Ok(remote);
+        }
+        let push_url = push_url.unwrap();
 
-        // try to auth with creds from an ssh-agent
-        callbacks.credentials(|_url, _username_from_url, _allowed_types| {
-            allowed_types.set(_allowed_types);
-            git2::Cred::default()
-        });
+        let ssh_url = to_ssh_url(push_url);
+        if ssh_url == push_url {
+            return Ok(remote);
+        }
 
-        let mut push_options = git2::PushOptions::new();
-        push_options.remote_callbacks(callbacks);
+        self.git_repository
+            .remote_set_pushurl(name, Some(&ssh_url))?;
 
-        let _ = remote.push::<&str>(&[], Some(&mut push_options));
-
-        allowed_types.get()
+        self.git_repository
+            .find_remote(name)
+            .context("failed to find updated remote")
     }
 
-    pub fn push(&self, head: &git2::Oid, branch: &branch::RemoteName) -> Result<(), Error> {
+    pub fn push(
+        &self,
+        head: &git2::Oid,
+        branch: &branch::RemoteName,
+        key: &keys::PrivateKey,
+    ) -> Result<(), PushError> {
         let mut remote = self
-            .git_repository
-            .find_remote(branch.remote())
-            .context("failed to find remote")
-            .map_err(Error::Other)?;
+            .get_push_remote(branch.remote())
+            .context("failed to get remote")
+            .map_err(PushError::Other)?;
 
-        let allowed_credentials = self.get_credential_types(&mut remote);
-
-        if allowed_credentials == CredentialType::USER_PASS_PLAINTEXT {
-            return Err(Error::UnsupportedAuthCredentials(allowed_credentials));
+        let push_url = remote.pushurl().or_else(|| remote.url());
+        if let Some(url) = push_url {
+            if !matches!(url_type(url), URLType::Ssh) {
+                return Err(PushError::NonSSHUrl(url.to_string()));
+            }
+        } else {
+            return Err(PushError::NoPushUrl);
         }
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.push_update_reference(move |refname, message| {
+            log::info!(
+                "{}: pulling reference '{}': {:?}",
+                self.project.id,
+                refname,
+                message
+            );
+            Result::Ok(())
+        });
+        callbacks.push_transfer_progress(move |one, two, three| {
+            log::info!(
+                "{}: transferred {}/{}/{} objects",
+                self.project.id,
+                one,
+                two,
+                three
+            );
+        });
+        callbacks.credentials(|_url, _username_from_url, _allowed_types| {
+            git2::Cred::ssh_key_from_memory(
+                "git",
+                Some(&key.public_key().to_string()),
+                &key.to_string(),
+                None,
+            )
+        });
 
         log::info!(
             "{}: git push {} {}:refs/heads/{}",
@@ -378,28 +400,19 @@ impl<'repository> Repository<'repository> {
             branch.branch()
         );
 
-        let output = Command::new("git")
-            .arg("push")
-            .arg(branch.remote())
-            .arg(format!("{}:refs/heads/{}", head, branch.branch()))
-            .current_dir(&self.project.path)
-            .output()
-            .context("failed to fork exec")
-            .map_err(Error::Other)?;
-
-        output
-            .status
-            .success()
-            .then(|| ())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "failed to push: {}",
-                    String::from_utf8(output.stderr).unwrap()
-                )
-            })
-            .map_err(Error::Other)?;
-
-        Ok(())
+        match remote.push(
+            &[format!("{}:refs/heads/{}", head, branch.branch())],
+            Some(&mut git2::PushOptions::new().remote_callbacks(callbacks)),
+        ) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                if e.code() == git2::ErrorCode::Auth {
+                    Err(PushError::AuthError)
+                } else {
+                    Err(PushError::Other(e.into()))
+                }
+            }
+        }
     }
 
     pub fn fetch(&self) -> Result<()> {
@@ -544,4 +557,53 @@ impl From<git2::Status> for FileStatusType {
             FileStatusType::Other
         }
     }
+}
+
+enum URLType {
+    Ssh,
+    Https,
+    Unknown,
+}
+
+fn url_type(url: &str) -> URLType {
+    if url.starts_with("git@") {
+        URLType::Ssh
+    } else if url.starts_with("https://") {
+        URLType::Https
+    } else {
+        URLType::Unknown
+    }
+}
+
+fn to_ssh_url(url: &str) -> String {
+    if !url.starts_with("https://") {
+        return url.to_string();
+    }
+    let mut url = url.to_string();
+    url.replace_range(..8, "git@");
+    url.replace("https://", ":").replace(".com/", ".com:")
+}
+
+#[test]
+fn test_to_ssh_url() {
+    assert_eq!(
+        to_ssh_url("https://github.com/gitbutlerapp/gitbutler-client.git"),
+        "git@github.com:gitbutlerapp/gitbutler-client.git"
+    );
+    assert_eq!(
+        to_ssh_url("git@github.com:gitbutlerapp/gitbutler-client.git"),
+        "git@github.com:gitbutlerapp/gitbutler-client.git"
+    );
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum PushError {
+    #[error("push url not set")]
+    NoPushUrl,
+    #[error("push url is not an ssh url: {0}")]
+    NonSSHUrl(String),
+    #[error("auth error")]
+    AuthError,
+    #[error(transparent)]
+    Other(anyhow::Error),
 }
