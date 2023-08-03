@@ -239,6 +239,28 @@
 			</div>
 		</div>
 
+		<div class="flex flex-col space-y-2">
+			<p>SSH Key</p>
+			<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
+				<div>
+					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
+					key to your Git provider to enable GitButler to push code.
+				</div>
+			</div>
+			<div class="flex-auto overflow-y-scroll">
+				{#await invoke('get_public_key') then key}
+					<div
+						class="
+                        whitespece-pre
+                        select-all
+                        rounded border border-light-200 bg-white p-2 font-mono dark:border-dark-400 dark:bg-dark-700"
+					>
+						{key}
+					</div>
+				{/await}
+			</div>
+		</div>
+
 		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Appearance</h2>
