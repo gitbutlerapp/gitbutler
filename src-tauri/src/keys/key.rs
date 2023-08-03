@@ -1,7 +1,9 @@
+use std::{fmt, str::FromStr};
+
 use ed25519_dalek::{
     pkcs8::{
         spki::der::pem::LineEnding, DecodePrivateKey, DecodePublicKey, EncodePrivateKey,
-        EncodePublicKey,
+        EncodePublicKey, Error as PKSC8Error,
     },
     SigningKey, VerifyingKey,
 };
@@ -37,10 +39,25 @@ impl PartialEq for PrivateKey {
 
 impl Serialize for PrivateKey {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl FromStr for PrivateKey {
+    type Err = PKSC8Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let key = SigningKey::from_pkcs8_pem(s)?;
+        Ok(Self(key))
+    }
+}
+
+impl fmt::Display for PrivateKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0
             .to_pkcs8_pem(LineEnding::default())
-            .map_err(|e| serde::ser::Error::custom(e.to_string()))?
-            .serialize(serializer)
+            .map_err(|_| fmt::Error)?
+            .fmt(f)
     }
 }
 
@@ -50,9 +67,7 @@ impl<'de> Deserialize<'de> for PrivateKey {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let key = SigningKey::from_pkcs8_pem(s.as_str())
-            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
-        Ok(Self(key))
+        Self::from_str(&s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -71,15 +86,30 @@ impl PartialEq for PublicKey {
     }
 }
 
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0
+            .to_public_key_pem(LineEnding::default())
+            .map_err(|_| fmt::Error)?
+            .fmt(f)
+    }
+}
+
+impl FromStr for PublicKey {
+    type Err = PKSC8Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let key = VerifyingKey::from_public_key_pem(s)?;
+        Ok(Self(key))
+    }
+}
+
 impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        self.0
-            .to_public_key_pem(LineEnding::default())
-            .map_err(|e| serde::ser::Error::custom(e.to_string()))?
-            .serialize(serializer)
+        self.to_string().serialize(serializer)
     }
 }
 
@@ -89,15 +119,30 @@ impl<'de> Deserialize<'de> for PublicKey {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let key = VerifyingKey::from_public_key_pem(s.as_str())
-            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
-        Ok(Self(key))
+        Self::from_str(s.as_str()).map_err(serde::de::Error::custom)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_to_from_string_private() {
+        let private_key = PrivateKey::generate();
+        let serialized = private_key.to_string();
+        let deserialized: PrivateKey = serialized.parse().unwrap();
+        assert_eq!(private_key, deserialized);
+    }
+
+    #[test]
+    fn test_to_from_string_public() {
+        let private_key = PrivateKey::generate();
+        let public_key = private_key.public_key();
+        let serialized = public_key.to_string();
+        let deserialized: PublicKey = serialized.parse().unwrap();
+        assert_eq!(public_key, deserialized);
+    }
 
     #[test]
     fn test_serde_private() {
