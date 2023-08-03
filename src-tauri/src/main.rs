@@ -865,7 +865,7 @@ fn main() {
             window.open_devtools();
 
             let app: app::App = app::App::new(
-                tauri_app.path_resolver().app_local_data_dir().unwrap(),
+                tauri_app.app_handle(),
                 events::Sender::new(tauri_app.handle()),
             )
             .expect("failed to initialize app");

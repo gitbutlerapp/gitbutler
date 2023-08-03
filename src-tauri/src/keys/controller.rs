@@ -1,10 +1,10 @@
 use std::{fs, path};
 
-use ed25519_dalek::pkcs8::Error as PKSC8Error;
 use tauri::AppHandle;
 
-use super::key;
+use super::PrivateKey;
 
+#[derive(Clone)]
 pub struct Controller {
     dir: path::PathBuf,
 }
@@ -15,8 +15,8 @@ pub enum Error {
     DirNotFound,
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("failed to parse key{0}")]
-    Pkcs8(String),
+    #[error("SSH key error: {0}")]
+    SSHKey(#[from] ssh_key::Error),
 }
 
 impl TryFrom<AppHandle> for Controller {
@@ -49,14 +49,10 @@ impl Controller {
 
     fn get_private_key(&self) -> Result<PrivateKey, Error> {
         let path = self.private_key_path();
-        let key = fs::read_to_string(&path).map_err(Error::Io).and_then(|s| {
-            s.parse()
-                .map_err(|e: PKSC8Error| Error::Pkcs8(e.to_string()))
-        })?;
-        Ok(PrivateKey {
-            key,
-            path: path.to_path_buf(),
-        })
+        let key = fs::read_to_string(path)
+            .map_err(Error::Io)
+            .and_then(|s| s.parse().map_err(Error::SSHKey))?;
+        Ok(key)
     }
 
     fn private_key_path(&self) -> path::PathBuf {
@@ -64,51 +60,12 @@ impl Controller {
     }
 
     fn create(&self) -> Result<PrivateKey, Error> {
-        let key = key::PrivateKey::generate();
+        let key = PrivateKey::generate();
         let key_path = self.private_key_path();
         fs::write(&key_path, key.to_string()).map_err(Error::Io)?;
         fs::write(key_path.with_extension("pub"), key.public_key().to_string())
             .map_err(Error::Io)?;
-        Ok(PrivateKey {
-            key,
-            path: self.private_key_path().to_path_buf(),
-        })
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct PrivateKey {
-    key: key::PrivateKey,
-    path: path::PathBuf,
-}
-
-impl PrivateKey {
-    pub fn public_key(&self) -> PublicKey {
-        PublicKey {
-            key: self.key.public_key(),
-            path: self.path.with_extension("pub"),
-        }
-    }
-
-    pub fn path(&self) -> &path::Path {
-        &self.path
-    }
-}
-
-pub struct PublicKey {
-    key: key::PublicKey,
-    path: path::PathBuf,
-}
-
-impl PublicKey {
-    pub fn path(&self) -> &path::Path {
-        &self.path
-    }
-}
-
-impl serde::Serialize for PublicKey {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.key.serialize(serializer)
+        Ok(key)
     }
 }
 

@@ -2,10 +2,11 @@ use std::{collections::HashMap, ops, path, sync, thread, time};
 
 use anyhow::{bail, Context, Result};
 use futures::executor::block_on;
+use tauri::AppHandle;
 use tokio::sync::{Mutex, Semaphore};
 
 use crate::{
-    bookmarks, database, deltas, events, files, gb_repository,
+    bookmarks, database, deltas, events, files, gb_repository, keys,
     project_repository::{self, activity, branch, conflicts, diff},
     projects, pty, search, sessions, storage, users, virtual_branches, watcher,
 };
@@ -16,6 +17,8 @@ pub struct App {
 
     projects_storage: projects::Storage,
     users_storage: users::Storage,
+
+    keys_controller: keys::Controller,
 
     searcher: search::Searcher,
     events_sender: events::Sender,
@@ -39,16 +42,14 @@ pub enum Error {
 }
 
 impl App {
-    pub fn new<P: AsRef<std::path::Path>>(
-        local_data_dir: P,
-        event_sender: events::Sender,
-    ) -> Result<Self> {
-        let local_data_dir = local_data_dir.as_ref();
-        let storage = storage::Storage::from_path(local_data_dir);
+    pub fn new(app_handle: AppHandle, event_sender: events::Sender) -> Result<Self> {
+        let local_data_dir = app_handle.path_resolver().app_local_data_dir().unwrap();
+        let storage = storage::Storage::from_path(&local_data_dir);
         let deltas_searcher =
-            search::Searcher::at(local_data_dir).context("failed to open deltas searcher")?;
+            search::Searcher::at(&local_data_dir).context("failed to open deltas searcher")?;
         let database = database::Database::open(local_data_dir.join("database.sqlite3"))?;
         Ok(Self {
+            keys_controller: keys::Controller::try_from(app_handle)?,
             events_sender: event_sender,
             local_data_dir: local_data_dir.to_path_buf(),
             projects_storage: projects::Storage::new(storage.clone()),
@@ -505,6 +506,11 @@ impl App {
         let project_repository =
             project_repository::Repository::open(&project).map_err(Error::Other)?;
 
+        let private_key = self
+            .keys_controller
+            .get_or_create()
+            .map_err(|e| Error::Other(e.into()))?;
+
         let mut semaphores = self.vbranch_semaphores.lock().await;
         let semaphore = semaphores
             .entry(project_id.to_string())
@@ -515,12 +521,13 @@ impl App {
             .context("failed to acquire semaphore")
             .map_err(Error::Other)?;
 
-        match virtual_branches::push(&project_repository, &gb_repository, branch_id) {
+        match virtual_branches::push(&project_repository, &gb_repository, branch_id, &private_key) {
             Ok(_) => Ok(()),
-            Err(virtual_branches::Error::UnsupportedAuthCredentials(_)) => Err(Error::Message(
-                "unsupported authentication credentials".to_string(),
-            )),
-            Err(virtual_branches::Error::Other(e)) => Err(Error::Other(e)),
+            Err(virtual_branches::PushError::Repository(project_repository::PushError::Other(
+                e,
+            ))) => Err(Error::Other(e)),
+            Err(virtual_branches::PushError::Repository(e)) => Err(Error::Message(e.to_string())),
+            Err(virtual_branches::PushError::Other(e)) => Err(Error::Other(e)),
         }
     }
 

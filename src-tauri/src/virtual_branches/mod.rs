@@ -9,7 +9,7 @@ use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::{
     collections::{HashMap, HashSet},
-    fmt, path, time, vec,
+    path, time, vec,
 };
 
 use anyhow::{bail, Context, Result};
@@ -20,6 +20,7 @@ pub use branch::{Branch, BranchCreateRequest, FileOwnership, Hunk, Ownership};
 pub use iterator::BranchIterator as Iterator;
 use uuid::Uuid;
 
+use crate::keys::PrivateKey;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
@@ -2339,35 +2340,26 @@ fn name_to_branch(name: &str) -> String {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
-    UnsupportedAuthCredentials(git2::CredentialType),
+pub enum PushError {
+    #[error(transparent)]
+    Repository(#[from] project_repository::PushError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::UnsupportedAuthCredentials(cred_type) => {
-                write!(f, "unsupported credential type: {:?}", cred_type)
-            }
-            err => err.fmt(f),
-        }
-    }
 }
 
 pub fn push(
     project_repository: &project_repository::Repository,
     gb_repository: &gb_repository::Repository,
     branch_id: &str,
-) -> Result<(), Error> {
+    key: &PrivateKey,
+) -> Result<(), PushError> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create currnt session")
-        .map_err(Error::Other)?;
+        .map_err(PushError::Other)?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")
-        .map_err(Error::Other)?;
+        .map_err(PushError::Other)?;
 
     let branch_reader = branch::Reader::new(&current_session_reader);
     let branch_writer = branch::Writer::new(gb_repository);
@@ -2375,7 +2367,7 @@ pub fn push(
     let mut vbranch = branch_reader
         .read(branch_id)
         .context("failed to read branch")
-        .map_err(Error::Other)?;
+        .map_err(PushError::Other)?;
 
     let remote_branch = if let Some(upstream_branch) = vbranch.upstream.as_ref() {
         upstream_branch.clone()
@@ -2390,7 +2382,7 @@ pub fn push(
                 .as_str(),
             )
             .unwrap(),
-            None => return Err(Error::Other(anyhow::anyhow!("no default target set"))),
+            None => return Err(PushError::Other(anyhow::anyhow!("no default target set"))),
         };
         let remote_branches = project_repository.git_remote_branches()?;
         let existing_branches = remote_branches
@@ -2404,14 +2396,7 @@ pub fn push(
         )))
     };
 
-    project_repository
-        .push(&vbranch.head, &remote_branch)
-        .map_err(|err| match err {
-            project_repository::Error::UnsupportedAuthCredentials(cred_type) => {
-                Error::UnsupportedAuthCredentials(cred_type)
-            }
-            err => Error::Other(err.into()),
-        })?;
+    project_repository.push(&vbranch.head, &remote_branch, key)?;
 
     vbranch.upstream = Some(remote_branch);
     branch_writer
@@ -2421,7 +2406,7 @@ pub fn push(
     project_repository
         .fetch()
         .context("failed to fetch after push")
-        .map_err(Error::Other)
+        .map_err(PushError::Other)
 }
 
 pub fn get_base_branch_data(
