@@ -103,14 +103,18 @@
 			allExpanded = undefined;
 		}
 	}
-	function handleToggleExpandAll() {
-		if (allExpanded == true) {
-			files.forEach((f) => setExpandedWithCache(f, false));
-			allExpanded = false;
-		} else {
-			files.forEach((f) => setExpandedWithCache(f, true));
-			allExpanded = true;
-		}
+
+	$: allCollapsed = files.every((f) => getExpandedWithCacheFallback(f) === false);
+
+	function handleCollapseAll() {
+		files.forEach((f) => setExpandedWithCache(f, false));
+		allExpanded = false;
+		files = files;
+	}
+
+	function handleExpandAll() {
+		files.forEach((f) => setExpandedWithCache(f, true));
+		allExpanded = true;
 		files = files;
 	}
 
@@ -501,13 +505,9 @@
 		Unapply
 	</PopupMenuItem>
 
-	<PopupMenuItem on:click={handleToggleExpandAll}>
-		{#if allExpanded}
-			Collapse all
-		{:else}
-			Expand all
-		{/if}
-	</PopupMenuItem>
+	<PopupMenuItem on:click={handleExpandAll} disabled={allExpanded}>Expand all</PopupMenuItem>
+
+	<PopupMenuItem on:click={handleCollapseAll} disabled={allCollapsed}>Collapse all</PopupMenuItem>
 
 	<div class="mx-3">
 		<div class="my-2 h-[0.0625rem] w-full bg-light-300 dark:bg-dark-500" />
