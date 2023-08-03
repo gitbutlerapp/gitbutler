@@ -1,7 +1,4 @@
-import type { Refreshable } from './branchStoresCache';
-import type { Readable } from '@square/svelte-store';
-import type { Loadable } from 'svelte-loadable-store';
-import type { Branch, BranchData, BaseBranch } from './types';
+import type { Branch, BranchData, BaseBranch, Reloadable } from './types';
 import { toasts } from '$lib';
 import { invoke } from '$lib/ipc';
 
@@ -10,18 +7,18 @@ export const BRANCH_CONTROLLER_KEY = Symbol();
 export class BranchController {
 	constructor(
 		readonly projectId: string,
-		readonly virtualBranchStore: Refreshable & Readable<Loadable<Branch[]>>,
-		readonly remoteBranchStore: Refreshable & Readable<Loadable<BranchData[]>>,
-		readonly targetBranchStore: Refreshable & Readable<Loadable<BaseBranch | null>>
+		readonly virtualBranchStore: Reloadable<Branch[]>,
+		readonly remoteBranchStore: Reloadable<BranchData[]>,
+		readonly targetBranchStore: Reloadable<BaseBranch | undefined>
 	) {}
 
 	async setTarget(branch: string) {
 		try {
 			await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
 			await Promise.all([
-				this.virtualBranchStore.refresh(),
-				this.remoteBranchStore.refresh(),
-				this.targetBranchStore.refresh()
+				this.virtualBranchStore.reload(),
+				this.remoteBranchStore.reload(),
+				this.targetBranchStore.reload()
 			]);
 		} catch (err) {
 			toasts.error('Failed to set target');
@@ -31,7 +28,7 @@ export class BranchController {
 	async createBranch(branch: { name?: string; ownership?: string; order?: number }) {
 		try {
 			await invoke<void>('create_virtual_branch', { projectId: this.projectId, branch });
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to create branch');
 		}
@@ -40,7 +37,7 @@ export class BranchController {
 	async commitBranch(branch: string, message: string) {
 		try {
 			await invoke<void>('commit_virtual_branch', { projectId: this.projectId, branch, message });
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to commit branch');
 		}
@@ -52,7 +49,7 @@ export class BranchController {
 				projectId: this.projectId,
 				branch: { id: branchId, name }
 			});
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to update branch name');
 		}
@@ -64,7 +61,7 @@ export class BranchController {
 				projectId: this.projectId,
 				branch: { id: branchId, order }
 			});
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to update branch order');
 		}
@@ -73,7 +70,7 @@ export class BranchController {
 	async applyBranch(branchId: string) {
 		try {
 			await invoke<void>('apply_branch', { projectId: this.projectId, branch: branchId });
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to apply branch');
 		}
@@ -82,7 +79,7 @@ export class BranchController {
 	async unapplyBranch(branchId: string) {
 		try {
 			await invoke<void>('unapply_branch', { projectId: this.projectId, branch: branchId });
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to unapply branch');
 		}
@@ -94,7 +91,7 @@ export class BranchController {
 				projectId: this.projectId,
 				branch: { id: branchId, ownership }
 			});
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to update branch ownership');
 		}
@@ -103,7 +100,7 @@ export class BranchController {
 	async pushBranch(branchId: string) {
 		try {
 			await invoke<void>('push_virtual_branch', { projectId: this.projectId, branchId });
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err: any) {
 			if (err.message === 'auth error') {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
@@ -116,8 +113,8 @@ export class BranchController {
 	async deleteBranch(branchId: string) {
 		try {
 			await invoke<void>('delete_virtual_branch', { projectId: this.projectId, branchId });
-			await this.virtualBranchStore.refresh();
-			await this.remoteBranchStore.refresh();
+			await this.virtualBranchStore.reload();
+			await this.remoteBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to delete branch');
 		}
@@ -127,9 +124,9 @@ export class BranchController {
 		try {
 			await invoke<object>('update_base_branch', { projectId: this.projectId });
 			await Promise.all([
-				this.remoteBranchStore.refresh(),
-				this.virtualBranchStore.refresh(),
-				this.targetBranchStore.refresh()
+				this.remoteBranchStore.reload(),
+				this.virtualBranchStore.reload(),
+				this.targetBranchStore.reload()
 			]);
 		} catch (err) {
 			toasts.error('Failed to update target');
@@ -143,8 +140,8 @@ export class BranchController {
 				branch
 			});
 			await Promise.all([
-				await this.remoteBranchStore.refresh(),
-				await this.targetBranchStore.refresh()
+				await this.remoteBranchStore.reload(),
+				await this.targetBranchStore.reload()
 			]);
 		} catch (err) {
 			toasts.error('Failed to create virtual branch from branch');
@@ -155,8 +152,8 @@ export class BranchController {
 		try {
 			await invoke<void>('fetch_from_target', { projectId: this.projectId });
 			await Promise.all([
-				await this.remoteBranchStore.refresh(),
-				await this.targetBranchStore.refresh()
+				await this.remoteBranchStore.reload(),
+				await this.targetBranchStore.reload()
 			]);
 		} catch (err) {
 			toasts.error('Failed to fetch from target');
@@ -166,7 +163,7 @@ export class BranchController {
 	async markResolved(projectId: string, path: string) {
 		try {
 			await invoke<void>('mark_resolved', { projectId, path });
-			await this.virtualBranchStore.refresh();
+			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error(`Failed to mark file resolved`);
 		}

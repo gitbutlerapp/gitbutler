@@ -4,7 +4,6 @@
 	import type { PageData } from './$types';
 	import { Button } from '$lib/components';
 	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
-	import { Loaded } from 'svelte-loadable-store';
 	import { getContext, setContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import BottomPanel from './BottomPanel.svelte';
@@ -16,11 +15,15 @@
 		projectId,
 		vbranchStore,
 		remoteBranchStore,
-		targetBranchStore,
+		baseBranchStore,
 		remoteBranchNames,
 		project,
 		cloud
 	} = data;
+
+	const branchesState = vbranchStore.state;
+	const remoteBranchesState = remoteBranchStore.state;
+	const baseBranchesState = baseBranchStore.state;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
@@ -28,14 +31,10 @@
 		projectId,
 		vbranchStore,
 		remoteBranchStore,
-		targetBranchStore
+		baseBranchStore
 	);
 	setContext(BRANCH_CONTROLLER_KEY, branchController);
 
-	$: remoteBranches = Loaded.isValue($remoteBranchStore) ? $remoteBranchStore.value : [];
-	$: base = Loaded.isValue($targetBranchStore) ? $targetBranchStore.value : undefined;
-	$: branches =
-		!$vbranchStore.isLoading && !Loaded.isError($vbranchStore) ? $vbranchStore.value : [];
 	let targetChoice: string | undefined;
 
 	function onSetTargetClick() {
@@ -46,9 +45,14 @@
 	}
 </script>
 
-{#if base}
+{#if $baseBranchStore}
 	<div class="flex w-full max-w-full" role="group" on:dragover|preventDefault>
-		<Tray {branches} {remoteBranches} />
+		<Tray
+			branches={$vbranchStore}
+			branchesState={$branchesState}
+			remoteBranches={$remoteBranchStore}
+			remoteBranchesState={$remoteBranchesState}
+		/>
 		<div
 			class="z-30 -ml-[0.250rem] w-[0.250rem] shrink-0 cursor-col-resize hover:bg-orange-200 dark:bg-dark-1000 dark:hover:bg-orange-700"
 			draggable="true"
@@ -64,19 +68,19 @@
 			<div
 				class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-y-none bg-light-300 dark:bg-dark-1100"
 			>
-				{#if base}
-					<UpstreamBranchLane {base} />
-				{/if}
+				<UpstreamBranchLane base={$baseBranchStore} />
 				<Board
-					{branches}
+					branches={$vbranchStore}
+					branchesState={$branchesState}
 					{projectId}
 					projectPath={$project?.path}
-					{base}
+					base={$baseBranchStore}
+					baseBranchState={$baseBranchesState}
 					cloudEnabled={$project?.api?.sync || false}
 					{cloud}
 				/>
 			</div>
-			<BottomPanel {base} {userSettings} />
+			<BottomPanel base={$baseBranchStore} {userSettings} />
 		</div>
 	</div>
 {:else}

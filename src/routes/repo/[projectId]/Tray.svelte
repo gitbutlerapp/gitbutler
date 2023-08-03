@@ -15,9 +15,12 @@
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
 	import IconHelp from '$lib/icons/IconHelp.svelte';
+	import type { LoadState } from '@square/svelte-store';
 
-	export let branches: Branch[];
-	export let remoteBranches: BranchData[];
+	export let branches: Branch[] | undefined;
+	export let branchesState: LoadState;
+	export let remoteBranches: BranchData[] | undefined;
+	export let remoteBranchesState: LoadState;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
@@ -107,7 +110,11 @@
 			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
 		>
 			<div bind:this={vbContents}>
-				{#if !branches || branches.length == 0}
+				{#if branchesState.isLoading}
+					<div class="px-2 py-1">Loading...</div>
+				{:else if branchesState.isError}
+					<div class="px-2 py-1">Something went wrong!</div>
+				{:else if !branches || branches.length == 0}
 					<div class="p-4 text-light-700">You currently have no virtual branches.</div>
 				{:else}
 					{#each branches as branch (branch.id)}
@@ -206,7 +213,11 @@
 			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
 		>
 			<div bind:this={rbContents}>
-				{#if !remoteBranches || remoteBranches.length == 0}
+				{#if remoteBranchesState.isLoading}
+					<div class="px-2 py-1">loading...</div>
+				{:else if remoteBranchesState.isError}
+					<div class="px-2 py-1">Something went wrong</div>
+				{:else if !remoteBranches || remoteBranches.length == 0}
 					<div class="p-4">
 						<p class="mb-2 text-light-700">
 							There are no local or remote Git branches that can be imported as virtual branches
@@ -219,8 +230,8 @@
 							Learn more
 						</Link>
 					</div>
-				{:else}
-					{#each remoteBranches ?? [] as branch}
+				{:else if remoteBranches}
+					{#each remoteBranches as branch}
 						<div
 							role="listitem"
 							on:contextmenu|preventDefault={(e) => remoteBranchContextMenu.openByMouse(e, branch)}
@@ -295,7 +306,7 @@
 
 	<!-- Your branches context menu -->
 	<PopupMenu bind:this={yourBranchContextMenu} let:item>
-		{@const disabled = branches.some((b) => b.id == item.id && b.active)}
+		{@const disabled = branches?.some((b) => b.id == item.id && b.active)}
 		<PopupMenuItem
 			{disabled}
 			title={disabled ? 'Unapply before delete' : 'Delete branch'}
