@@ -101,6 +101,7 @@ jobs:
                   NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
                   echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
+            - run: env
             - name: uninstall homebrew
               run: NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
               # github's linux runner has homebrew installed which messes up with pkg-config.
