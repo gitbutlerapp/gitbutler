@@ -118,16 +118,14 @@
 							on:contextmenu|preventDefault={(e) => yourBranchContextMenu.openByMouse(e, branch)}
 							class="border-b border-light-400 p-2 dark:border-dark-600"
 						>
-							<div class="flex flex-row justify-between">
-								<div class="flex flex-grow items-center">
-									<Checkbox
-										on:change={() => toggleBranch(branch)}
-										bind:checked={branch.active}
-										disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
-									/>
-									<div class="max-w-36 ml-2 w-36 flex-grow truncate text-black dark:text-white">
-										{branch.name}
-									</div>
+							<div class="flex flex-row items-center">
+								<Checkbox
+									on:change={() => toggleBranch(branch)}
+									bind:checked={branch.active}
+									disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
+								/>
+								<div class="ml-2 flex-grow truncate text-black dark:text-white">
+									{branch.name}
 								</div>
 								<button
 									class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
