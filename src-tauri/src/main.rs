@@ -1,61 +1,23 @@
 mod assets;
 mod zip;
 
-#[macro_use]
-extern crate log;
-
 use std::{collections::HashMap, ops, path, time};
 
 use anyhow::{Context, Result};
 use futures::future::join_all;
-use serde::{ser::SerializeMap, Serialize};
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{
     fern::colors::{Color, ColoredLevelConfig},
     LogTarget,
 };
-use thiserror::Error;
 use timed::timed;
 
-use git_butler_tauri::*;
+#[macro_use]
+extern crate log;
+
+use git_butler_tauri::{*, error::Error};
 
 use project_repository::{activity, branch};
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("{0}")]
-    Message(String),
-    #[error("Something went wrong")]
-    Unknown,
-}
-
-impl Serialize for Error {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut map = serializer.serialize_map(Some(1))?;
-        map.serialize_entry("message", &self.to_string())?;
-        map.end()
-    }
-}
-
-impl From<app::Error> for Error {
-    fn from(e: app::Error) -> Self {
-        match e {
-            app::Error::Message(msg) => Error::Message(msg),
-            app::Error::Other(e) => Error::from(e),
-        }
-    }
-}
-
-impl From<anyhow::Error> for Error {
-    fn from(e: anyhow::Error) -> Self {
-        sentry_anyhow::capture_anyhow(&e);
-        log::error!("{:#}", e);
-        Error::Unknown
-    }
-}
 
 const IS_DEV: bool = cfg!(debug_assertions);
 
@@ -1007,6 +969,7 @@ fn main() {
             git_get_config,
             git_set_global_config,
             git_get_global_config,
+            keys::commands::get_public_key,
         ])
         .build(tauri_context)
         .expect("Failed to build tauri app")

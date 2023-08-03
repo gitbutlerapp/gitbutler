@@ -1,16 +1,19 @@
 #[macro_use(defer)]
 extern crate scopeguard;
+#[macro_use]
+extern crate log;
 
-pub mod keys;
 pub mod app;
 pub mod bookmarks;
 pub mod database;
 pub mod dedup;
 pub mod deltas;
+pub mod error;
 pub mod events;
 pub mod files;
 pub mod fs;
 pub mod gb_repository;
+pub mod keys;
 pub mod project_repository;
 pub mod projects;
 pub mod pty;
