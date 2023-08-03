@@ -1,6 +1,7 @@
 #[macro_use(defer)]
 extern crate scopeguard;
 
+pub mod keys;
 pub mod app;
 pub mod bookmarks;
 pub mod database;
