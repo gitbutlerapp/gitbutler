@@ -62,9 +62,10 @@ mod tests {
         let dispatcher2 = dispatcher.clone();
         let mut rx = dispatcher2.run(Duration::from_millis(10)).unwrap();
 
-        tokio::time::sleep(Duration::from_millis(50)).await;
-
-        dispatcher.stop().unwrap();
+        spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            dispatcher.stop().unwrap();
+        });
 
         let mut count = 0;
         while let Some(event) = rx.recv().await {
