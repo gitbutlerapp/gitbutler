@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { page } from '$app/stores';
-	import { derived, Loaded } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { events, hotkeys } from '$lib';
@@ -14,6 +13,8 @@
 	import { getDeltasStore } from '$lib/stores/deltas';
 	import { getFilesStore } from '$lib/stores/files';
 	import * as bookmarks from '$lib/api/ipc/bookmarks';
+	import { asyncDerived } from '@square/svelte-store';
+	import { derived } from 'svelte/store';
 
 	export let data: LayoutData;
 	const { currentFilepath, currentTimestamp } = data;
@@ -22,34 +23,43 @@
 	const projectId = derived(page, (page) => page.params.projectId);
 
 	$: sessions = getSessionStore({ projectId: $page.params.projectId });
-	$: dateSessions = derived([sessions, page], ([sessions, page]) =>
+	$: dateSessions = asyncDerived([sessions, page], async ([sessions, page]) =>
 		sessions
 			.filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date)
 			.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs)
 	);
 
-	$: richSessions = derived([dateSessions, projectId, filter], ([sessions, projectId, filter]) =>
-		sessions.map((session) => ({
-			...session,
-			deltas: derived(getDeltasStore({ projectId: projectId, sessionId: session.id }), (deltas) =>
-				Object.fromEntries(
-					Object.entries(deltas).filter(([path]) => (filter ? path === filter : true))
+	$: richSessions = asyncDerived(
+		[dateSessions, projectId, filter],
+		async ([sessions, projectId, filter]) =>
+			sessions.map((session) => ({
+				...session,
+				deltas: asyncDerived(
+					getDeltasStore({ projectId: projectId, sessionId: session.id }),
+					async (deltas) =>
+						Object.fromEntries(
+							Object.entries(deltas).filter(([path]) => (filter ? path === filter : true))
+						)
+				),
+				files: asyncDerived(
+					getFilesStore({ projectId: projectId, sessionId: session.id }),
+					async (files) =>
+						Object.fromEntries(
+							Object.entries(files).filter(([path]) => (filter ? path === filter : true))
+						)
 				)
-			),
-			files: derived(getFilesStore({ projectId, sessionId: session.id }), (files) =>
-				Object.fromEntries(
-					Object.entries(files).filter(([path]) => (filter ? path === filter : true))
-				)
-			)
-		}))
+			}))
 	);
+	$: richSessionsState = richSessions.state;
 
-	$: currentSession = derived(
+	$: currentSession = asyncDerived(
 		[page, richSessions, data.currentSessionId],
-		([page, sessions, currentSessionId]) =>
+		async ([page, sessions, currentSessionId]) =>
 			sessions.find((s) => s.id === currentSessionId) ??
-			sessions.find((s) => s.id === page.params.sessionId)
+			sessions.find((s) => s.id === page.params.sessionId),
+		{ trackState: true }
 	);
+	$: currentSessionsState = sessions.state;
 
 	let bookmarkModal: BookmarkModal;
 
@@ -84,19 +94,19 @@
 </script>
 
 <article id="activities" class="card my-2 flex w-80 flex-shrink-0 flex-grow-0 flex-col xl:w-96">
-	{#if $richSessions.isLoading || $currentSession.isLoading}
+	{#if $richSessionsState?.isLoading || $currentSessionsState?.isLoading}
 		<div class="flex h-full flex-col items-center justify-center">
 			<IconLoading class="mb-4 h-12 w-12 animate-spin ease-linear" />
 			<h2 class="text-center text-2xl font-medium text-gray-500">Loading...</h2>
 		</div>
-	{:else if Loaded.isError($richSessions) || Loaded.isError($currentSession)}
+	{:else if $richSessionsState?.isError || $currentSessionsState?.isError}
 		<div class="flex h-full flex-col items-center justify-center">
 			<h2 class="text-center text-2xl font-medium text-gray-500">Error</h2>
 		</div>
 	{:else}
 		<SessionsList
-			sessions={$richSessions.value}
-			currentSession={$currentSession.value}
+			sessions={$richSessions}
+			currentSession={$currentSession}
 			currentFilepath={$currentFilepath}
 		/>
 	{/if}
@@ -104,14 +114,14 @@
 
 <div id="player" class="card relative my-2 flex flex-auto flex-col overflow-auto">
 	<header class="flex items-center gap-3 bg-card-active px-3 py-2">
-		{#if $currentSession.isLoading || $richSessions.isLoading}
+		{#if $currentSessionsState?.isLoading || $richSessionsState?.isLoading}
 			<span>Loading...</span>
-		{:else if Loaded.isError($currentSession) || Loaded.isError($richSessions)}
+		{:else if $currentSessionsState?.isError || $richSessionsState?.isError}
 			<span>Error</span>
-		{:else if !$currentSession.value}
+		{:else if !$currentSession}
 			<span>No session found</span>
 		{:else}
-			<SessionNavigations currentSession={$currentSession.value} sessions={$richSessions.value} />
+			<SessionNavigations currentSession={$currentSession} sessions={$richSessions} />
 		{/if}
 	</header>
 

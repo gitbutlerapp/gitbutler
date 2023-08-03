@@ -1,34 +1,29 @@
 <script lang="ts">
 	import type { Session } from '$lib/api/ipc/sessions';
 	import type { Delta } from '$lib/api/ipc/deltas';
-	import type { Readable } from '@square/svelte-store';
-	import { Loaded, type Loadable } from 'svelte-loadable-store';
-	import { derived } from 'svelte-loadable-store';
+	import { asyncDerived, type Readable } from '@square/svelte-store';
 	import SessionCard from './SessionCard.svelte';
 
 	export let sessions: (Session & {
-		deltas: Readable<Loadable<Record<string, Delta[]>>>;
-		files: Readable<Loadable<Record<string, string>>>;
+		deltas: Readable<Record<string, Delta[]>>;
+		files: Readable<Record<string, string>>;
 	})[];
 	export let currentSession: Session | undefined;
 	export let currentFilepath: string;
 
-	$: visibleDeltas = derived(
+	$: visibleDeltas = asyncDerived(
 		sessions.map(({ deltas }) => deltas),
-		(deltas) => deltas.map((delta) => Object.fromEntries(Object.entries(delta ?? {})))
+		async (deltas) => deltas.map((delta) => Object.fromEntries(Object.entries(delta ?? {})))
 	);
 
-	$: visibleFiles = derived(
+	$: visibleFiles = asyncDerived(
 		sessions.map(({ files }) => files),
-		(files) => files.map((file) => Object.fromEntries(Object.entries(file ?? {})))
+		async (files) => files.map((file) => Object.fromEntries(Object.entries(file ?? {})))
 	);
 
 	$: visibleSessions = sessions?.map((session, i) => ({
 		...session,
-		visible:
-			!$visibleDeltas.isLoading &&
-			!Loaded.isError($visibleDeltas) &&
-			Object.keys($visibleDeltas.value[i]).length > 0
+		visible: Object.keys($visibleDeltas[i]).length > 0
 	}));
 </script>
 
@@ -49,12 +44,12 @@
 >
 	{#each visibleSessions as session, i}
 		{@const isCurrent = session.id === currentSession?.id}
-		{#if session.visible && !$visibleDeltas.isLoading && !Loaded.isError($visibleDeltas) && !$visibleFiles.isLoading && !Loaded.isError($visibleFiles)}
+		{#if session.visible && $visibleDeltas && $visibleFiles}
 			<SessionCard
 				{isCurrent}
 				{session}
-				deltas={$visibleDeltas.value[i]}
-				files={$visibleFiles.value[i]}
+				deltas={$visibleDeltas[i]}
+				files={$visibleFiles[i]}
 				{currentFilepath}
 			/>
 		{/if}

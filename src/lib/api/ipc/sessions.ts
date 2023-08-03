@@ -1,5 +1,4 @@
 import { invoke, listen } from '$lib/ipc';
-import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 
 export namespace Session {
 	export function within(session: Session | undefined, timestampMs: number) {
@@ -38,23 +37,4 @@ export function subscribe(
 		`project://${params.projectId}/sessions`,
 		async (event) => callback({ ...params, session: event.payload })
 	);
-}
-
-const stores: Record<string, WritableLoadable<Session[]>> = {};
-
-// TODO: Figure out why this extra store exists.
-export function getSessionStore(params: { projectId: string }) {
-	if (params.projectId in stores) return stores[params.projectId];
-	const store = asyncWritable([], () => list(params));
-
-	subscribe(params, ({ session }) => {
-		store.update((sessions) => {
-			const index = sessions.findIndex((s) => s.id === session.id);
-			if (index === -1) return [...sessions, { ...session, projectId: params.projectId }];
-			sessions[index] = { ...session, projectId: params.projectId };
-			return sessions;
-		});
-	});
-	stores[params.projectId] = store;
-	return store;
 }

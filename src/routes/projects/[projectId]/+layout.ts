@@ -1,6 +1,6 @@
 import { getHeadStore } from '$lib/api/git/heads';
 import { getStatusStore } from '$lib/api/git/statuses';
-import { getSessionStore } from '$lib/api/ipc/sessions';
+import { getSessionStore } from '$lib/stores/sessions';
 import { getDiffsStore } from '$lib/api/git/diffs';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';

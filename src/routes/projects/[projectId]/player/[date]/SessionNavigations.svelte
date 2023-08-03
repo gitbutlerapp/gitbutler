@@ -7,14 +7,12 @@
 	import type { Session } from '$lib/api/ipc/sessions';
 	import type { Delta } from '$lib/api/ipc/deltas';
 	import { unsubscribe } from '$lib/utils';
-	import type { Readable } from '@square/svelte-store';
+	import { derived, type Readable } from '@square/svelte-store';
 	import { onMount } from 'svelte';
-	import { Loaded, type Loadable } from 'svelte-loadable-store';
-	import { derived } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
 
 	export let sessions: (Session & {
-		deltas: Readable<Loadable<Record<string, Delta[]>>>;
+		deltas: Readable<Record<string, Delta[]>>;
 	})[];
 	export let currentSession: Session;
 
@@ -58,12 +56,10 @@
 	onMount(() =>
 		unsubscribe(
 			hotkeys.on('Shift+ArrowRight', () => {
-				if (!$nextSessionId.isLoading && Loaded.isValue($nextSessionId) && $nextSessionId.value)
-					goto(getSessionURI($nextSessionId.value));
+				if ($nextSessionId) goto(getSessionURI($nextSessionId));
 			}),
 			hotkeys.on('Shift+ArrowLeft', () => {
-				if (!$prevSessionId.isLoading && Loaded.isValue($prevSessionId) && $prevSessionId.value)
-					goto(getSessionURI($prevSessionId.value));
+				if ($prevSessionId) goto(getSessionURI($prevSessionId));
 			})
 		)
 	);
@@ -76,22 +72,22 @@
 </span>
 
 <div class="flex items-center gap-1">
-	{#if !$prevSessionId.isLoading && !$nextSessionId.isLoading && Loaded.isValue($prevSessionId) && Loaded.isValue($nextSessionId)}
+	{#if $prevSessionId && $nextSessionId}
 		<a
-			href={$prevSessionId.value && getSessionURI($prevSessionId.value)}
+			href={$prevSessionId && getSessionURI($prevSessionId)}
 			class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
-			class:hover:bg-zinc-500={!!$prevSessionId.value}
-			class:pointer-events-none={!$prevSessionId.value}
-			class:text-zinc-500={!$prevSessionId.value}
+			class:hover:bg-zinc-500={!!$prevSessionId}
+			class:pointer-events-none={!$prevSessionId}
+			class:text-zinc-500={!$prevSessionId}
 		>
 			<IconChevronLeft class="h-4 w-4" />
 		</a>
 		<a
-			href={$nextSessionId.value && getSessionURI($nextSessionId.value)}
+			href={$nextSessionId && getSessionURI($nextSessionId)}
 			class="rounded border border-zinc-500 bg-zinc-600 p-0.5"
-			class:hover:bg-zinc-500={!!$nextSessionId.value}
-			class:pointer-events-none={!$nextSessionId.value}
-			class:text-zinc-500={!$nextSessionId.value}
+			class:hover:bg-zinc-500={!!$nextSessionId}
+			class:pointer-events-none={!$nextSessionId}
+			class:text-zinc-500={!$nextSessionId}
 		>
 			<IconChevronRight class="h-4 w-4" />
 		</a>

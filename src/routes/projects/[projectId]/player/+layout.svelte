@@ -3,23 +3,24 @@
 	import { getSessionStore } from '$lib/stores/sessions';
 	import * as deltas from '$lib/api/ipc/deltas';
 	import { format } from 'date-fns';
-	import { derived, Loaded } from 'svelte-loadable-store';
+	import { asyncDerived, type Readable } from '@square/svelte-store';
+	import type { Session } from '$lib/api/ipc/sessions';
 
 	const sessions = getSessionStore({ projectId: $page.params.projectId });
 
 	$: fileFilter = $page.url.searchParams.get('file');
 
-	const dates = derived(sessions, async (sessions) => {
+	const dates = asyncDerived<Readable<Session[]>, string[]>(sessions, async (value) => {
 		const sessionDeltas = await Promise.all(
-			sessions.map((session) =>
+			value.map((value) =>
 				deltas.list({
 					projectId: $page.params.projectId,
-					sessionId: session.id,
+					sessionId: value.id,
 					paths: fileFilter ? [fileFilter] : undefined
 				})
 			)
 		);
-		return sessions
+		return value
 			.filter((_, index) => Object.keys(sessionDeltas[index]).length > 0)
 			.map((session) => session.meta.startTimestampMs)
 			.sort((a, b) => b - a)
@@ -33,8 +34,8 @@
 </script>
 
 <div id="player-page" class="flex h-full w-full flex-col">
-	{#if !$dates.isLoading && Loaded.isValue($dates)}
-		{#if $dates.value.length === 0}
+	{#if $dates}
+		{#if $dates.length === 0}
 			<div class="text-center">
 				<h2 class="text-2xl">I haven't seen any changes yet</h2>
 				<p class="text-gray-500">Go code something!</p>
@@ -55,7 +56,7 @@
 					id="days"
 					class="scrollbar-hidden grid h-full flex-shrink-0 auto-rows-min gap-2 overflow-y-scroll py-2"
 				>
-					{#each $dates.value as date}
+					{#each $dates as date}
 						{@const isToday = format(new Date(date), 'yyyy-MM-dd') === today}
 						<li class="date-card">
 							<a
