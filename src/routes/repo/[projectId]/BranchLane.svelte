@@ -193,8 +193,8 @@
 <div
 	draggable="true"
 	class:w-full={maximized}
-	class:w-96={!maximized}
-	class="flex h-full min-w-[24rem] max-w-[120ch] shrink-0 cursor-default snap-center flex-col bg-light-150 transition-width dark:bg-dark-1000 dark:text-dark-100"
+	class:w-80={!maximized}
+	class="flex h-full max-w-[120ch] shrink-0 cursor-default snap-center flex-col border-l border-r border-light-400 bg-light-150 transition-width dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -222,7 +222,7 @@
 		class="flex bg-light-200 text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
 	>
 		<div class="flex shrink-0 flex-grow flex-col border-b border-light-400 dark:border-dark-600">
-			<div class="flex w-full items-center py-1 pl-2 pr-4">
+			<div class="flex w-full items-center px-1.5 py-1">
 				<button
 					bind:this={meatballButton}
 					class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
@@ -338,9 +338,6 @@
 				</div>
 			{/if}
 		</div>
-		<div
-			class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:border-dark-600 dark:bg-dark-500"
-		/>
 	</div>
 
 	<div class="relative flex flex-grow overflow-y-hidden">
@@ -416,13 +413,13 @@
 								transition:slide={{ duration: 150 }}
 							>
 								<div
-									class="dark:form-dark-600 absolute top-4 ml-[1.0625rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+									class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
 									style={remoteCommits.length == 0 ? 'height: calc(100% - 1rem);' : 'height: 100%;'}
 								/>
 
 								<div class="relative flex flex-col gap-2">
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[1.0625rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
 									/>
 									<div class="ml-10 mr-2 flex items-center py-2">
 										<div
@@ -444,12 +441,12 @@
 
 									{#each localCommits as commit (commit.id)}
 										<div
-											class="flex w-full items-center pb-2 pr-2"
+											class="flex w-full items-center pb-2 pr-1.5"
 											in:receive={{ key: commit.id }}
 											out:send={{ key: commit.id }}
 											animate:flip
 										>
-											<div class="ml-[0.875rem] mr-2">
+											<div class="ml-[0.4rem] mr-1.5">
 												<div
 													class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
 												/>
@@ -463,14 +460,14 @@
 						{#if remoteCommits.length > 0}
 							<div class="relative flex-grow">
 								<div
-									class="dark:form-dark-600 absolute top-4 ml-[1.0625rem]
+									class="dark:form-dark-600 absolute top-4 ml-[0.75rem]
 						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 									style="height: calc(100% - 1rem);"
 								/>
 
 								<div class="relative flex flex-col gap-2">
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[1.0625rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
 									/>
 
 									<div class="ml-12 flex items-center py-2 font-mono text-sm">
@@ -485,12 +482,12 @@
 
 									{#each remoteCommits as commit (commit.id)}
 										<div
-											class="flex w-full items-center pb-2 pr-2"
+											class="flex w-full items-center pb-2 pr-1.5"
 											in:receive={{ key: commit.id }}
 											out:send={{ key: commit.id }}
 											animate:flip
 										>
-											<div class="ml-3 mr-2">
+											<div class="ml-[0.4rem] mr-1.5">
 												<div
 													class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
 													class:bg-light-500={commit.isRemote}
@@ -507,11 +504,7 @@
 				{/if}
 			</div>
 		</div>
-		<div
-			class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:border-dark-600 dark:bg-dark-500"
-		>
-			<Scrollbar {viewport} {contents} width="0.75rem" opacity="0.1" />
-		</div>
+		<Scrollbar {viewport} {contents} width="0.4rem" />
 	</div>
 </div>
 

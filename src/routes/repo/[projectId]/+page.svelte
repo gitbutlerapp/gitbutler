@@ -61,7 +61,9 @@
 			}}
 		/>
 		<div class="flex w-full flex-col overflow-hidden">
-			<div class="lane-scroll flex flex-grow overflow-x-auto overflow-y-hidden overscroll-y-none">
+			<div
+				class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-y-none bg-light-300 dark:bg-dark-1100"
+			>
 				{#if base}
 					<UpstreamBranchLane {base} />
 				{/if}

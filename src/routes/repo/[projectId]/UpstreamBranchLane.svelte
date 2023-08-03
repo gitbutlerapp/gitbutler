@@ -24,16 +24,20 @@
 
 <div
 	class="flex h-full shrink-0 cursor-default snap-center flex-col overflow-y-hidden
-	overscroll-y-none border-light-600
-	bg-light-150
+	overscroll-y-none
+	border-r border-light-400 bg-light-150
 	dark:border-l
-	dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
+	dark:border-dark-600
+	dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
 	role="group"
 >
-	<div class="flex w-full {expanded ? 'bg-purple-300' : 'bg-light-200'} dark:bg-dark-800">
+	<div
+		class="flex w-full {expanded
+			? 'bg-purple-300 dark:bg-purple-600'
+			: 'bg-light-200 dark:bg-dark-800'}"
+	>
 		<div
 			class="flex flex-grow items-center border-b border-light-500 pl-1 dark:border-dark-500"
-			class:border-r={!expanded}
 			class:pr-1={!expanded}
 		>
 			<Tooltip
@@ -71,18 +75,13 @@
 				</div>
 			{/if}
 		</div>
-		{#if expanded}
-			<div
-				class="h-full w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:border-dark-600 dark:bg-dark-500"
-			/>
-		{/if}
 	</div>
 
 	<div class="relative flex flex-grow justify-center overflow-hidden">
 		<div class="flex-grow" />
 		{#if expanded}
 			<div
-				class="relative flex h-full w-60 shrink-0 flex-grow cursor-default snap-center flex-col overflow-y-hidden overscroll-y-none border-light-300 bg-light-200 pr-2 dark:border-l dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
+				class="relative flex h-full w-60 shrink-0 flex-grow cursor-default snap-center flex-col overflow-y-hidden overscroll-y-none border-light-300 bg-light-200 pr-1.5 dark:border-l dark:border-dark-600 dark:border-r-light-800 dark:bg-dark-700 dark:text-dark-100"
 			>
 				<div
 					bind:this={viewport}
@@ -131,11 +130,7 @@
 					</div>
 				</div>
 			</div>
-			<div
-				class="w-3 shrink-0 border-l border-r border-light-400 bg-light-300 dark:border-dark-500 dark:bg-dark-500"
-			>
-				<Scrollbar {viewport} {contents} width="0.75rem" opacity="0.1" />
-			</div>
+			<Scrollbar {viewport} {contents} width="0.4rem" />
 		{:else}
 			<div class="w-5" />
 		{/if}
