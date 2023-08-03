@@ -1,4 +1,5 @@
-import { type Project, git } from '$lib/api';
+import type { Project } from '$lib/api/ipc/projects';
+import { matchFiles } from '$lib/api/git';
 import { events } from '$lib';
 import {
 	IconGitCommit,
@@ -180,7 +181,7 @@ const fileGroup = ({
 				description: 'type part of a file name',
 				commands: []
 		  }
-		: git.matchFiles({ projectId: project.id, matchPattern: input }).then((files) => ({
+		: matchFiles({ projectId: project.id, matchPattern: input }).then((files) => ({
 				title: 'Files',
 				description: files.length === 0 ? `no files containing '${input}'` : '',
 				commands: files.map((file) => ({

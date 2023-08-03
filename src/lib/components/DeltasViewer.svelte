@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { type Delta, Operation } from '$lib/api';
-	import { Differ } from '$lib/components';
+	import { isInsert, type Delta, isDelete } from '$lib/api/ipc/deltas';
+	import Differ from './Differ';
 	import { line } from '$lib/diff';
 
 	export let doc: string;
@@ -13,12 +13,12 @@
 		const operations = deltas.flatMap((delta) => delta.operations);
 
 		operations.forEach((operation) => {
-			if (Operation.isInsert(operation)) {
+			if (isInsert(operation)) {
 				text =
 					text.slice(0, operation.insert[0]) +
 					operation.insert[1] +
 					text.slice(operation.insert[0]);
-			} else if (Operation.isDelete(operation)) {
+			} else if (isDelete(operation)) {
 				text =
 					text.slice(0, operation.delete[0]) +
 					text.slice(operation.delete[0] + operation.delete[1]);

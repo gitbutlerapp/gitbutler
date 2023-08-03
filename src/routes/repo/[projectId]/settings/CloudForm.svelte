@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { stores, toasts } from '$lib';
-	import { CloudApi, type Project } from '$lib/api';
+	import { toasts } from '$lib';
+	import { getCloudApiClient } from '$lib/api/cloud/api';
+	import type { Project } from '$lib/api/ipc/projects';
+	import { userStore } from '$lib/stores/user';
 	import { Login, Checkbox } from '$lib/components';
 	import { createEventDispatcher, onMount } from 'svelte';
 
 	export let project: Project;
-	const user = stores.user;
-	const cloud = CloudApi();
+	const user = userStore;
+	const cloud = getCloudApiClient();
 
 	const dispatch = createEventDispatcher<{
 		updated: Project;

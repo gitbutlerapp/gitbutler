@@ -1,6 +1,7 @@
 import { invoke } from '$lib/ipc';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
-import { sessions, git } from '$lib/api';
+import * as activities from './activities';
+import * as sessions from '../ipc/sessions';
 
 const list = (params: { projectId: string; contextLines?: number }) =>
 	invoke<Record<string, string>>('git_wd_diff', {
@@ -10,10 +11,10 @@ const list = (params: { projectId: string; contextLines?: number }) =>
 
 const stores: Record<string, WritableLoadable<Record<string, string>>> = {};
 
-export function Diffs(params: { projectId: string }) {
+export function getDiffsStore(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));
-	git.activities.subscribe(params, ({ projectId }) => list({ projectId }).then(store.set));
+	activities.subscribe(params, ({ projectId }) => list({ projectId }).then(store.set));
 	sessions.subscribe(params, () => list(params).then(store.set));
 	stores[params.projectId] = store;
 	return store;

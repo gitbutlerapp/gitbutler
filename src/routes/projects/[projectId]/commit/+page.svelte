@@ -3,13 +3,15 @@
 	import { Button, Checkbox, DiffContext } from '$lib/components';
 	import { collapse } from '$lib/paths';
 	import { derived, writable } from '@square/svelte-store';
-	import { git, Status } from '$lib/api';
+	import { isStaged, isUnstaged } from '$lib/api/git/statuses';
+	import { userStore } from '$lib/stores/user';
+	import { commit, stage, unstage } from '$lib/api/git';
 	import DiffViewer from './DiffViewer.svelte';
 	import { page } from '$app/stores';
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Modal } from '$lib/components';
-	import { hotkeys, stores } from '$lib';
+	import { hotkeys } from '$lib';
 	import { IconChevronDown, IconChevronUp } from '$lib/icons';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';
@@ -17,19 +19,19 @@
 	export let data: PageData;
 	let { statuses, diffs, cloud, project } = data;
 
-	const user = stores.user;
+	const user = userStore;
 
 	let fullContext = false;
 	let context = 3;
 
 	const stagedFiles = derived(statuses, (statuses) =>
 		Object.entries(statuses ?? {})
-			.filter((status) => Status.isStaged(status[1]))
+			.filter((status) => isStaged(status[1]))
 			.map(([path]) => path)
 	);
 	const unstagedFiles = derived(statuses, (statuses) =>
 		Object.entries(statuses ?? {})
-			.filter((status) => Status.isUnstaged(status[1]))
+			.filter((status) => isUnstaged(status[1]))
 			.map(([path]) => path)
 	);
 	const allFiles = derived(statuses, (statuses) =>
@@ -97,12 +99,11 @@
 		const description = formData.get('description') as string;
 
 		isCommitting = true;
-		git
-			.commit({
-				projectId: $page.params.projectId,
-				message: description.length > 0 ? `${summary}\n\n${description}` : summary,
-				push: false
-			})
+		commit({
+			projectId: $page.params.projectId,
+			message: description.length > 0 ? `${summary}\n\n${description}` : summary,
+			push: false
+		})
 			.then(() => {
 				success('Commit created');
 				reset();
@@ -123,9 +124,7 @@
 		if ($user === null) return;
 
 		const partialDiff = Object.fromEntries(
-			Object.entries($diffs ?? {}).filter(
-				([key]) => $statuses[key] && Status.isStaged($statuses[key])
-			)
+			Object.entries($diffs ?? {}).filter(([key]) => $statuses[key] && isStaged($statuses[key]))
 		);
 		const diff = Object.values(partialDiff).join('\n').slice(0, 5000);
 
@@ -158,23 +157,19 @@
 	const onGroupCheckboxClick = (e: Event) => {
 		const target = e.target as HTMLInputElement;
 		if (target.checked) {
-			git
-				.stage({
-					projectId: $page.params.projectId,
-					paths: $unstagedFiles
-				})
-				.catch(() => {
-					error('Failed to stage files');
-				});
+			stage({
+				projectId: $page.params.projectId,
+				paths: $unstagedFiles
+			}).catch(() => {
+				error('Failed to stage files');
+			});
 		} else {
-			git
-				.unstage({
-					projectId: $page.params.projectId,
-					paths: $stagedFiles
-				})
-				.catch(() => {
-					error('Failed to unstage files');
-				});
+			unstage({
+				projectId: $page.params.projectId,
+				paths: $stagedFiles
+			}).catch(() => {
+				error('Failed to unstage files');
+			});
 		}
 	};
 
@@ -210,10 +205,10 @@
 	// an git
 	statuses.subscribe((statuses) =>
 		Object.entries(statuses ?? {}).forEach(([file, status]) => {
-			const isStagedAdded = Status.isStaged(status) && status.staged === 'added';
-			const isUnstagedDeleted = Status.isUnstaged(status) && status.unstaged === 'deleted';
+			const isStagedAdded = isStaged(status) && status.staged === 'added';
+			const isUnstagedDeleted = isUnstaged(status) && status.unstaged === 'deleted';
 			if (isStagedAdded && isUnstagedDeleted)
-				git.stage({ projectId: $page.params.projectId, paths: [file] });
+				stage({ projectId: $page.params.projectId, paths: [file] });
 		})
 	);
 
@@ -288,22 +283,20 @@
 									class="file-changed-item mx-1 mt-1 flex select-text items-center gap-2 rounded bg-card-default px-1 py-1"
 								>
 									<Checkbox
-										checked={Status.isStaged(status)}
+										checked={isStaged(status)}
 										name="path"
 										disabled={isCommitting || isGeneratingCommitMessage}
 										value={path}
 										on:click={() => {
-											Status.isStaged(status)
-												? git
-														.unstage({ projectId: $page.params.projectId, paths: [path] })
-														.catch(() => {
+											isStaged(status)
+												? unstage({ projectId: $page.params.projectId, paths: [path] }).catch(
+														() => {
 															error('Failed to unstage file');
-														})
-												: git
-														.stage({ projectId: $page.params.projectId, paths: [path] })
-														.catch(() => {
-															error('Failed to stage file');
-														});
+														}
+												  )
+												: stage({ projectId: $page.params.projectId, paths: [path] }).catch(() => {
+														error('Failed to stage file');
+												  });
 										}}
 									/>
 									<label class="flex h-5 w-full overflow-auto" for="path">

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { toasts, api } from '$lib';
+	import { toasts } from '$lib';
+	import * as bookmarks from '$lib/api/ipc/bookmarks';
 	import { Button, Modal } from '$lib/components';
 	import { IconBookmarkFilled } from '$lib/icons';
 
@@ -16,7 +17,7 @@
 	export async function show(ts: number) {
 		reset();
 		timestampMs = ts;
-		const existing = await api.bookmarks.list({
+		const existing = await bookmarks.list({
 			projectId,
 			range: {
 				start: ts,
@@ -35,7 +36,7 @@
 		Promise.resolve()
 			.then(() => (isCreating = true))
 			.then(() =>
-				api.bookmarks.upsert({
+				bookmarks.upsert({
 					projectId,
 					note,
 					timestampMs: timestampMs ?? Date.now(),

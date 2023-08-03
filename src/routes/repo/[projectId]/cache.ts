@@ -1,4 +1,4 @@
-import type { File } from '$lib/vbranches';
+import type { File } from '$lib/vbranches/types';
 
 const TRUE_KEY = '1';
 const FALSE_KEY = '0';

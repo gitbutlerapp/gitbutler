@@ -1,13 +1,15 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { IconChevronLeft, IconChevronRight, IconLoading } from '$lib/icons';
-	import { files, deltas, searchResults, type SearchResult } from '$lib/api';
 	import { asyncDerived } from '@square/svelte-store';
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { DeltasViewer } from '$lib/components';
 	import { page } from '$app/stores';
 	import { derived } from '@square/svelte-store';
 	import { goto } from '$app/navigation';
+	import * as search from '$lib/api/ipc/search';
+	import * as files from '$lib/api/ipc/files';
+	import * as deltas from '$lib/api/ipc/deltas';
 
 	export let data: PageData;
 	const { project } = data;
@@ -19,7 +21,12 @@
 	const openNextPage = () => goto(`?q=${$query}&offset=${$offset + limit}`);
 	const openPrevPage = () => goto(`?q=${$query}&offset=${$offset - limit}`);
 
-	const fetchResultData = async ({ sessionId, projectId, filePath, index }: SearchResult) => {
+	const fetchResultData = async ({
+		sessionId,
+		projectId,
+		filePath,
+		index
+	}: search.SearchResult) => {
 		const [doc, dd] = await Promise.all([
 			files.list({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? ''),
 			deltas
@@ -42,7 +49,7 @@
 		[query, project, offset],
 		async ([query, project, offset]) => {
 			if (!query || !project) return { page: [], total: 0, haveNext: false, havePrev: false };
-			const results = await searchResults.list({ projectId: project.id, query, limit, offset });
+			const results = await search.list({ projectId: project.id, query, limit, offset });
 			return {
 				page: await Promise.all(results.page.map(fetchResultData)),
 				haveNext: offset + limit < results.total,

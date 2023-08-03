@@ -2,7 +2,8 @@
 	import '../styles/main.postcss';
 
 	import { open } from '@tauri-apps/api/dialog';
-	import { toasts, Toaster, events, hotkeys, stores } from '$lib';
+	import { toasts, Toaster, events, hotkeys } from '$lib';
+	import { userStore } from '$lib/stores/user';
 	import type { LayoutData } from './$types';
 	import { Link, Tooltip } from '$lib/components';
 	import { IconEmail } from '$lib/icons';
@@ -20,7 +21,7 @@
 	export let data: LayoutData;
 	const { posthog, projects, sentry, cloud } = data;
 
-	const user = stores.user;
+	const user = userStore;
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);

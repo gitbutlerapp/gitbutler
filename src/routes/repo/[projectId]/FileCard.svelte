@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
-	import type { BranchController, Hunk } from '$lib/vbranches';
+	import type { Hunk } from '$lib/vbranches/types';
 	import HunkDiffViewer from './HunkDiffViewer.svelte';
 	import { summarizeHunk } from '$lib/summaries';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
@@ -11,7 +11,7 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
 	import { dzTrigger } from './dropZone';
-	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
+	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);

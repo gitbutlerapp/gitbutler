@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { Button } from '$lib/components';
-	import { CloudApi, type Project } from '$lib/api';
-	import { stores } from '$lib';
+	import { getCloudApiClient } from '$lib/api/cloud/api';
+	import { userStore } from '$lib/stores/user';
+	import type { Project } from '$lib/api/ipc/projects';
 	import { marked } from 'marked';
 	import { IconAISparkles } from '$lib/icons';
 	import { onMount } from 'svelte';
 
-	const cloud = CloudApi();
-	const user = stores.user;
+	const cloud = getCloudApiClient();
+	const user = userStore;
 
 	export let project: Project;
 

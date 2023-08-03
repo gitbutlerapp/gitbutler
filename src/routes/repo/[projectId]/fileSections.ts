@@ -1,4 +1,4 @@
-import type { File, Hunk } from '$lib/vbranches';
+import type { File, Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 
 export type Line = {

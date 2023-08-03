@@ -4,12 +4,16 @@
 	import { derived, Loaded } from 'svelte-loadable-store';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
-	import { api, events, hotkeys, stores } from '$lib';
+	import { events, hotkeys } from '$lib';
 	import BookmarkModal from './BookmarkModal.svelte';
 	import { unsubscribe } from '$lib/utils';
 	import SessionsList from './SessionsList.svelte';
 	import SessionNavigations from './SessionNavigations.svelte';
 	import { IconLoading } from '$lib/icons';
+	import { getSessionStore } from '$lib/stores/sessions';
+	import { getDeltasStore } from '$lib/stores/deltas';
+	import { getFilesStore } from '$lib/stores/files';
+	import * as bookmarks from '$lib/api/ipc/bookmarks';
 
 	export let data: LayoutData;
 	const { currentFilepath, currentTimestamp } = data;
@@ -17,7 +21,7 @@
 	const filter = derived(page, (page) => page.url.searchParams.get('file'));
 	const projectId = derived(page, (page) => page.params.projectId);
 
-	$: sessions = stores.sessions({ projectId: $page.params.projectId });
+	$: sessions = getSessionStore({ projectId: $page.params.projectId });
 	$: dateSessions = derived([sessions, page], ([sessions, page]) =>
 		sessions
 			.filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date)
@@ -27,12 +31,12 @@
 	$: richSessions = derived([dateSessions, projectId, filter], ([sessions, projectId, filter]) =>
 		sessions.map((session) => ({
 			...session,
-			deltas: derived(stores.deltas({ projectId: projectId, sessionId: session.id }), (deltas) =>
+			deltas: derived(getDeltasStore({ projectId: projectId, sessionId: session.id }), (deltas) =>
 				Object.fromEntries(
 					Object.entries(deltas).filter(([path]) => (filter ? path === filter : true))
 				)
 			),
-			files: derived(stores.files({ projectId, sessionId: session.id }), (files) =>
+			files: derived(getFilesStore({ projectId, sessionId: session.id }), (files) =>
 				Object.fromEntries(
 					Object.entries(files).filter(([path]) => (filter ? path === filter : true))
 				)
@@ -54,7 +58,7 @@
 			events.on('openBookmarkModal', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('Meta+Shift+D', () => bookmarkModal?.show($currentTimestamp)),
 			hotkeys.on('D', async () => {
-				const existing = await api.bookmarks.list({
+				const existing = await bookmarks.list({
 					projectId: $page.params.projectId,
 					range: {
 						start: $currentTimestamp,
@@ -73,7 +77,7 @@
 								...existing[0],
 								deleted: !existing[0].deleted
 						  };
-				api.bookmarks.upsert(newBookmark);
+				bookmarks.upsert(newBookmark);
 			})
 		)
 	);

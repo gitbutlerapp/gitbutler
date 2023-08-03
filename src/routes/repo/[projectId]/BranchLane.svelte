@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { toasts, stores } from '$lib';
-	import type { Commit, File, BaseBranch } from '$lib/vbranches';
+	import { toasts } from '$lib';
+	import { userStore } from '$lib/stores/user';
+	import type { BaseBranch, Commit, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
 	import { Button, Link, Tooltip } from '$lib/components';
@@ -10,15 +11,14 @@
 	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
-	import type { BranchController } from '$lib/vbranches';
-	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
+	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
 	import FileCardNext from './FileCardNext.svelte';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { crossfade, fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { invoke } from '@tauri-apps/api/tauri';
-	import type { CloudApi } from '$lib/api';
+	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
 
@@ -50,11 +50,11 @@
 	export let conflicted: boolean;
 	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
-	export let cloud: ReturnType<typeof CloudApi>;
+	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let upstream: string | undefined;
 
 	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
-	const user = stores.user;
+	const user = userStore;
 	let commitMessage: string;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Checkbox, Link, Modal } from '$lib/components';
-	import type { Branch, BranchData } from '$lib/vbranches';
+	import type { Branch, BranchData } from '$lib/vbranches/types';
 	import { formatDistanceToNow } from 'date-fns';
 	import { IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
@@ -8,9 +8,8 @@
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
-	import type { BranchController } from '$lib/vbranches';
 	import { getContext } from 'svelte';
-	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
+	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';

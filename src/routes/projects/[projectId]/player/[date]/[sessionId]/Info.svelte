@@ -1,20 +1,22 @@
 <script lang="ts">
-	import { stores, api, events } from '$lib';
+	import { events } from '$lib';
 	import { collapse } from '$lib/paths';
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { format } from 'date-fns';
 	import { page } from '$app/stores';
 	import { Loaded } from 'svelte-loadable-store';
+	import * as bookmarks from '$lib/api/ipc/bookmarks';
+	import { getBookmark } from '$lib/stores/bookmarks';
 
 	export let timestampMs: number;
 	export let filename: string;
 
-	$: bookmark = stores.bookmarks.get({ projectId: $page.params.projectId, timestampMs });
+	$: bookmark = getBookmark({ projectId: $page.params.projectId, timestampMs });
 
 	const toggleBookmark = () => {
 		if ($bookmark.isLoading) return;
 		if (Loaded.isError($bookmark)) return;
-		api.bookmarks.upsert(
+		bookmarks.upsert(
 			!$bookmark.value
 				? {
 						projectId: $page.params.projectId,
