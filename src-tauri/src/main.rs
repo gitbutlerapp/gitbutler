@@ -15,7 +15,7 @@ use timed::timed;
 #[macro_use]
 extern crate log;
 
-use git_butler_tauri::{*, error::Error};
+use git_butler_tauri::{error::Error, *};
 
 use project_repository::{activity, branch};
 
