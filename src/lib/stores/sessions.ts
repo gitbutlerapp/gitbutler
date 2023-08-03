@@ -1,11 +1,14 @@
 import { Session, list, subscribe } from '$lib/api/ipc/sessions';
 import type { WritableReloadable } from '$lib/vbranches/types';
-import { asyncWritable, get, type WritableLoadable } from '@square/svelte-store';
-
-const stores: Record<string, WritableLoadable<Session[]>> = {};
+import { asyncWritable, get } from '@square/svelte-store';
 
 export function getSessionStore(params: { projectId: string }) {
-	if (params.projectId in stores) return stores[params.projectId];
+	const { store, unsubscribe } = getSessionStore2(params);
+	return store;
+}
+
+export function getSessionStore2(params: { projectId: string }) {
+	console.log('getting sessions!');
 	const store = asyncWritable(
 		[],
 		async () => {
@@ -28,6 +31,5 @@ export function getSessionStore(params: { projectId: string }) {
 				})
 		);
 	});
-	stores[params.projectId] = store;
-	return store;
+	return { unsubscribe, store };
 }
