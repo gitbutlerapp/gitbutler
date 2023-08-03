@@ -49,11 +49,13 @@
 	<Button kind="plain" color="destructive" on:click={() => ($user = null)}>Log out</Button>
 {:else if $token !== null}
 	{#await Promise.all([open($token.url), pollForUser($token.token)])}
-		<div>Log in in your system browser</div>
+		<div class="text-light-700">
+			Your browser should have been opened. Please log into your GitButler account there.
+		</div>
 	{/await}
 	<p>
-		<button class="underline" on:click={() => open($authUrl)}>Click here</button>
-		if you are not redirected automatically, you can
+		If you were not redirected automatically, you can
+		<button class="underline" on:click={() => open($authUrl)}>click here</button>
 	</p>
 {:else}
 	<Button {width} loading={signUpOrLoginLoading} color="purple" on:click={onSignUpOrLoginClick}>
