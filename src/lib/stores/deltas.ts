@@ -3,7 +3,7 @@ import * as deltas from '$lib/api/ipc/deltas';
 import { get } from '@square/svelte-store';
 
 export function getDeltasStore(params: { projectId: string; sessionId: string }) {
-	const { store, unsubscribe } = getDeltasStore2(params);
+	const { store } = getDeltasStore2(params);
 	return store;
 }
 export function getDeltasStore2(params: { projectId: string; sessionId: string }) {

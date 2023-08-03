@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { toasts } from '$lib';
+	import * as toasts from '$lib/toasts';
 	import type { Project } from '$lib/api/ipc/projects';
 	import type { User, getCloudApiClient } from '$lib/api/cloud/api';
 	import { isUnstaged, type Status } from '$lib/api/git/statuses';
 	import { commit, stage } from '$lib/api/git';
-	import { Button, Overlay, Link } from '$lib/components';
+	import { Button, Link } from '$lib/components';
 	import { IconGitBranch, IconSparkle } from '$lib/icons';
 	import { Stats } from '$lib/components';
+	import Overlay from '$lib/components/Overlay/Overlay.svelte';
 
 	export function show() {
 		modal.show();

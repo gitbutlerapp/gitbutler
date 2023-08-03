@@ -1,6 +1,6 @@
 import type { Project } from '$lib/api/ipc/projects';
 import { matchFiles } from '$lib/api/git';
-import { events } from '$lib';
+import * as events from '$lib/events';
 import {
 	IconGitCommit,
 	IconFile,

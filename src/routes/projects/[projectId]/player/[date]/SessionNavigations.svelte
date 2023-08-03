@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { IconChevronLeft, IconChevronRight } from '$lib/icons';
 	import { page } from '$app/stores';
-	import { hotkeys } from '$lib';
+	import * as hotkeys from '$lib/hotkeys';
 
 	import type { Session } from '$lib/api/ipc/sessions';
 	import type { Delta } from '$lib/api/ipc/deltas';

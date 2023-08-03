@@ -1,4 +1,4 @@
-import { events } from '$lib';
+import * as events from './events';
 
 export async function on(combo: string, callback: (event: KeyboardEvent) => void) {
 	const comboContainsControlKeys =

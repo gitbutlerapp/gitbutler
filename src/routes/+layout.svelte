@@ -2,7 +2,10 @@
 	import '../styles/main.postcss';
 
 	import { open } from '@tauri-apps/api/dialog';
-	import { toasts, Toaster, events, hotkeys } from '$lib';
+	import * as toasts from '$lib/toasts';
+	import * as hotkeys from '$lib/hotkeys';
+	import * as events from '$lib/events';
+	import { Toaster } from 'svelte-french-toast';
 	import { userStore } from '$lib/stores/user';
 	import type { LayoutData } from './$types';
 	import { Link, Tooltip } from '$lib/components';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toasts } from '$lib';
+	import * as toasts from '$lib/toasts';
 	import * as zip from '$lib/api/ipc/zip';
 	import { Button, Checkbox, Modal } from '$lib/components';
 	import { page } from '$app/stores';

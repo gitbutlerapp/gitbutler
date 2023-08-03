@@ -4,7 +4,7 @@
 	import { DiffContext } from '$lib/components';
 	import { unsubscribe } from '$lib/utils';
 	import { onMount } from 'svelte';
-	import { hotkeys } from '$lib';
+	import * as hotkeys from '$lib/hotkeys';
 	import type { Readable } from '@square/svelte-store';
 	import { type Loadable, derived, Loaded } from 'svelte-loadable-store';
 
