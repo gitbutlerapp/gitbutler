@@ -1,4 +1,4 @@
-import { diff } from '$lib';
+import * as diff from '$lib/diff';
 
 export interface Token {
 	text: string;

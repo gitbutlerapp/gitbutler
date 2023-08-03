@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { Button } from '$lib/components';
-	import { events } from '$lib';
+	import * as events from '$lib/events';
 
 	export let data: LayoutData;
 

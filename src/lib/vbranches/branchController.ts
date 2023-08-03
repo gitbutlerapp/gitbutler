@@ -1,5 +1,5 @@
 import type { Branch, BranchData, BaseBranch, WritableReloadable } from './types';
-import { toasts } from '$lib';
+import * as toasts from '$lib/toasts';
 import { invoke } from '$lib/ipc';
 
 export const BRANCH_CONTROLLER_KEY = Symbol();

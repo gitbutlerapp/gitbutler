@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getCloudApiClient, type LoginToken } from '$lib/api/cloud/api';
-	import { toasts } from '$lib';
+	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
 	import { derived, writable } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';

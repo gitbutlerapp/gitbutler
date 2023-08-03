@@ -2,7 +2,6 @@ import { redirect, error } from '@sveltejs/kit';
 import { format } from 'date-fns';
 import type { PageLoad } from './$types';
 import { getSessionStore } from '$lib/stores/sessions';
-import { get } from '@square/svelte-store';
 
 export const load: PageLoad = async ({ params, url }) => {
 	const sessions = getSessionStore({ projectId: params.projectId });

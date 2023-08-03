@@ -11,7 +11,7 @@
 	import { error, success } from '$lib/toasts';
 	import { fly } from 'svelte/transition';
 	import { Modal } from '$lib/components';
-	import { hotkeys } from '$lib';
+	import * as hotkeys from '$lib/hotkeys';
 	import { IconChevronDown, IconChevronUp } from '$lib/icons';
 	import { onMount } from 'svelte';
 	import { unsubscribe } from '$lib/utils';

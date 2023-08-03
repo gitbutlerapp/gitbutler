@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { events } from '$lib';
+	import * as events from '$lib/events';
 	import { collapse } from '$lib/paths';
 	import { IconBookmark, IconBookmarkFilled } from '$lib/icons';
 	import { format } from 'date-fns';

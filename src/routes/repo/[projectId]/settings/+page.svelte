@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Modal } from '$lib/components';
-	import { toasts } from '$lib';
+	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
 	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';

@@ -2,12 +2,12 @@
 	import tinykeys from 'tinykeys';
 	import type { Project } from '$lib/api/ipc/projects';
 	import { derived, readable, writable, type Readable } from '@square/svelte-store';
-	import { Overlay } from '$lib/components';
 	import listAvailableCommands, { Action, type Group } from './commands';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconExternalLink } from '../../icons';
+	import Overlay from '../Overlay/Overlay.svelte';
 
 	export let projects: Readable<Project[]>;
 	export let project = readable<Project | undefined>(undefined);

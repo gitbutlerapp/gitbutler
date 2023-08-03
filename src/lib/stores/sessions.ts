@@ -3,12 +3,11 @@ import type { WritableReloadable } from '$lib/vbranches/types';
 import { asyncWritable, get } from '@square/svelte-store';
 
 export function getSessionStore(params: { projectId: string }) {
-	const { store, unsubscribe } = getSessionStore2(params);
+	const { store } = getSessionStore2(params);
 	return store;
 }
 
 export function getSessionStore2(params: { projectId: string }) {
-	console.log('getting sessions!');
 	const store = asyncWritable(
 		[],
 		async () => {

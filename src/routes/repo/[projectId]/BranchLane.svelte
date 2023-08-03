@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toasts } from '$lib';
+	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Commit, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';

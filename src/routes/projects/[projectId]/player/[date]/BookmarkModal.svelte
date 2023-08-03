@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toasts } from '$lib';
+	import * as toasts from '$lib/toasts';
 	import * as bookmarks from '$lib/api/ipc/bookmarks';
 	import { Button, Modal } from '$lib/components';
 	import { IconBookmarkFilled } from '$lib/icons';

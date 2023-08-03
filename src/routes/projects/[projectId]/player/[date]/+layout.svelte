@@ -3,7 +3,8 @@
 	import { page } from '$app/stores';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
-	import { events, hotkeys } from '$lib';
+	import * as hotkeys from '$lib/hotkeys';
+	import * as events from '$lib/events';
 	import BookmarkModal from './BookmarkModal.svelte';
 	import { unsubscribe } from '$lib/utils';
 	import SessionsList from './SessionsList.svelte';
