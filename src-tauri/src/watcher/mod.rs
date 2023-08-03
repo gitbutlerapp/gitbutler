@@ -7,10 +7,12 @@ use std::{path, sync::Arc};
 pub use events::Event;
 
 use anyhow::{Context, Result};
-use tauri::async_runtime::spawn;
-use tokio::sync::{
-    mpsc::{unbounded_channel, UnboundedSender},
-    Mutex,
+use tokio::{
+    spawn,
+    sync::{
+        mpsc::{unbounded_channel, UnboundedSender},
+        Mutex,
+    },
 };
 use tokio_util::sync::CancellationToken;
 
