@@ -7,7 +7,7 @@ pub trait Writer {
     fn append_string(&self, path: &str, contents: &str) -> Result<()>;
     fn remove(&self, path: &str) -> Result<()>;
 
-    fn write_usize(&self, path: &str, contents: &usize) -> Result<()> {
+    fn write_u32(&self, path: &str, contents: &u32) -> Result<()> {
         self.write_string(path, &contents.to_string())
     }
     fn write_u128(&self, path: &str, contents: &u128) -> Result<()> {

@@ -46,7 +46,7 @@ pub struct VirtualBranch {
     pub mergeable: bool,
     pub merge_conflicts: Vec<String>,
     pub conflicted: bool,
-    pub order: usize,
+    pub order: u32,
     pub upstream: Option<project_repository::branch::RemoteName>,
     pub base_current: bool, // is this vbranch based on the current base branch?
 }
@@ -1035,7 +1035,7 @@ pub fn create_virtual_branch_from_branch(
         .collect::<Result<Vec<branch::Branch>, reader::Error>>()
         .context("failed to read virtual branches")?;
 
-    let order = virtual_branches.len();
+    let order: u32 = virtual_branches.len().try_into().unwrap();
 
     let now = time::UNIX_EPOCH
         .elapsed()
@@ -1155,14 +1155,15 @@ pub fn create_virtual_branch(
 
     let order = create
         .order
-        .unwrap_or(all_virtual_branches.len())
-        .clamp(0, all_virtual_branches.len());
+        .unwrap_or(all_virtual_branches.len().try_into().unwrap())
+        .clamp(0, all_virtual_branches.len().try_into().unwrap());
 
     let branch_writer = branch::Writer::new(gb_repository);
 
     // make space for the new branch
     for (i, branch) in all_virtual_branches.iter().enumerate() {
         let mut branch = branch.clone();
+        let i: u32 = i.try_into().unwrap();
         let new_order = if i < order { i } else { i + 1 };
         if branch.order != new_order {
             branch.order = new_order;

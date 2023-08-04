@@ -25,12 +25,12 @@ pub trait Reader {
     fn size(&self, file_path: &str) -> Result<usize>;
     fn is_dir(&self, file_path: &str) -> bool;
 
-    fn read_usize(&self, file_path: &str) -> Result<usize, Error> {
+    fn read_u32(&self, file_path: &str) -> Result<u32, Error> {
         let s = self.read_string(file_path)?;
-        s.parse::<usize>().map_err(|_| {
+        s.parse::<u32>().map_err(|_| {
             Error::IOError(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                "file is not usize",
+                "file is not u32",
             ))
         })
     }

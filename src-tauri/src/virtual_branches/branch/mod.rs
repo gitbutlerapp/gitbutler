@@ -33,7 +33,7 @@ pub struct Branch {
     pub head: git2::Oid,
     pub ownership: Ownership,
     // order is the number by which UI should sort branches
-    pub order: usize,
+    pub order: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -41,14 +41,14 @@ pub struct BranchUpdateRequest {
     pub id: String,
     pub name: Option<String>,
     pub ownership: Option<Ownership>,
-    pub order: Option<usize>,
+    pub order: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BranchCreateRequest {
     pub name: Option<String>,
     pub ownership: Option<Ownership>,
-    pub order: Option<usize>,
+    pub order: Option<u32>,
 }
 
 impl TryFrom<&dyn crate::reader::Reader> for Branch {
@@ -77,7 +77,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
             })
             .or(Ok(false))?;
 
-        let order = match reader.read_usize("meta/order") {
+        let order = match reader.read_u32("meta/order") {
             Ok(order) => Ok(order),
             Err(crate::reader::Error::NotFound) => Ok(0),
             Err(e) => Err(e),
