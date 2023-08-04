@@ -4,4 +4,4 @@ pub mod conflicts;
 pub mod diff;
 mod repository;
 
-pub use repository::{FileStatus, PushError, Repository};
+pub use repository::{Error, FileStatus, Repository};

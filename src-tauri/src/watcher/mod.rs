@@ -16,7 +16,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{bookmarks, deltas, files, projects, search, sessions, users};
+use crate::{bookmarks, deltas, files, keys, projects, search, sessions, users};
 
 #[derive(Clone)]
 pub struct Watcher {
@@ -36,6 +36,7 @@ impl Watcher {
         deltas_database: &deltas::Database,
         files_database: &files::Database,
         bookmarks_database: &bookmarks::Database,
+        keys_controller: &keys::Controller,
     ) -> Self {
         Self {
             inner: Arc::new(InnerWatcher::new(
@@ -49,6 +50,7 @@ impl Watcher {
                 deltas_database,
                 files_database,
                 bookmarks_database,
+                keys_controller,
             )),
         }
     }
@@ -88,6 +90,7 @@ impl<'watcher> InnerWatcher {
         deltas_database: &deltas::Database,
         files_database: &files::Database,
         bookmarks_database: &bookmarks::Database,
+        keys_controller: &keys::Controller,
     ) -> Self {
         Self {
             project_id: project.id.clone(),
@@ -103,6 +106,7 @@ impl<'watcher> InnerWatcher {
                 deltas_database,
                 files_database,
                 bookmarks_database,
+                keys_controller,
             ),
             cancellation_token: CancellationToken::new(),
             proxy_tx: Arc::new(Mutex::new(None)),

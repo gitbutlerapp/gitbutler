@@ -1,8 +1,8 @@
-use std::time;
+use std::{path, time};
 
 use anyhow::{Context, Result};
 
-use crate::{project_repository, projects};
+use crate::{gb_repository, keys, project_repository, projects, users};
 
 use super::events;
 
@@ -10,13 +10,25 @@ use super::events;
 pub struct Handler {
     project_id: String,
     project_storage: projects::Storage,
+    local_data_dir: path::PathBuf,
+    user_storage: users::Storage,
+    keys_controller: keys::Controller,
 }
 
 impl Handler {
-    pub fn new(project_id: &str, project_storage: &projects::Storage) -> Self {
+    pub fn new(
+        project_id: &str,
+        project_storage: &projects::Storage,
+        local_data_dir: &path::Path,
+        user_storage: &users::Storage,
+        keys_controller: &keys::Controller,
+    ) -> Self {
         Self {
             project_id: project_id.to_string(),
             project_storage: project_storage.clone(),
+            local_data_dir: local_data_dir.to_path_buf(),
+            user_storage: user_storage.clone(),
+            keys_controller: keys_controller.clone(),
         }
     }
 
@@ -37,23 +49,35 @@ impl Handler {
 
         let project_repository = project_repository::Repository::open(&project)?;
 
-        let fetch_result = if let Err(err) = project_repository.fetch() {
-            projects::FetchResult::Error {
-                attempt: project
-                    .project_data_last_fetched
-                    .as_ref()
-                    .map_or(0, |r| match r {
-                        projects::FetchResult::Error { attempt, .. } => *attempt + 1,
-                        projects::FetchResult::Fetched { .. } => 0,
-                    }),
-                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                error: err.to_string(),
-            }
-        } else {
-            projects::FetchResult::Fetched {
-                timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-            }
-        };
+        let gb_repo = gb_repository::Repository::open(
+            self.local_data_dir.clone(),
+            self.project_id.clone(),
+            self.project_storage.clone(),
+            self.user_storage.clone(),
+        )
+        .context("failed to open repository")?;
+
+        let default_target = gb_repo.default_target()?.context("target not set")?;
+        let key = self.keys_controller.get_or_create()?;
+
+        let fetch_result =
+            if let Err(err) = project_repository.fetch(&default_target.remote_name, &key) {
+                projects::FetchResult::Error {
+                    attempt: project
+                        .project_data_last_fetched
+                        .as_ref()
+                        .map_or(0, |r| match r {
+                            projects::FetchResult::Error { attempt, .. } => *attempt + 1,
+                            projects::FetchResult::Fetched { .. } => 0,
+                        }),
+                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+                    error: err.to_string(),
+                }
+            } else {
+                projects::FetchResult::Fetched {
+                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+                }
+            };
 
         self.project_storage
             .update_project(&projects::UpdateRequest {
