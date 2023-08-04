@@ -32,7 +32,7 @@ fn test_sorted_by_timestamp() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
@@ -82,7 +82,7 @@ fn search_by_bookmark_note() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
@@ -178,7 +178,7 @@ fn search_by_full_match() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
@@ -219,7 +219,7 @@ fn search_by_diff() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
@@ -338,7 +338,7 @@ fn test_delete_all() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
@@ -387,7 +387,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 
@@ -443,7 +443,7 @@ fn search_by_filename() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let index_path = tempdir()?.path().to_str().unwrap().to_string();
 

@@ -11,14 +11,12 @@ use crate::watcher::events;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
-    project_id: String,
     cancellation_token: CancellationToken,
 }
 
 impl Dispatcher {
-    pub fn new(project_id: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            project_id: project_id.to_string(),
             cancellation_token: CancellationToken::new(),
         }
     }
@@ -28,23 +26,36 @@ impl Dispatcher {
         Ok(())
     }
 
-    pub fn run(self, interval: time::Duration) -> Result<Receiver<events::Event>> {
+    pub fn run(
+        self,
+        project_id: &str,
+        interval: time::Duration,
+    ) -> Result<Receiver<events::Event>> {
         let (tx, rx) = channel(1);
         let mut ticker = tokio::time::interval(interval);
 
-        spawn(async move {
-            log::info!("{}: ticker started", self.project_id);
-            loop {
-                ticker.tick().await;
-                if self.cancellation_token.is_cancelled() {
-                    break;
+        spawn({
+            let project_id = project_id.to_string();
+            async move {
+                log::info!("{}: ticker started", project_id);
+                loop {
+                    ticker.tick().await;
+                    if self.cancellation_token.is_cancelled() {
+                        break;
+                    }
+                    log::warn!("{}: sending tick", project_id);
+                    if let Err(e) = tx
+                        .send(events::Event::Tick(
+                            project_id.to_string(),
+                            time::SystemTime::now(),
+                        ))
+                        .await
+                    {
+                        log::error!("{}: failed to send tick: {}", project_id, e);
+                    }
                 }
-                log::warn!("{}: sending tick", self.project_id);
-                if let Err(e) = tx.send(events::Event::Tick(time::SystemTime::now())).await {
-                    log::error!("{}: failed to send tick: {}", self.project_id, e);
-                }
+                log::info!("{}: ticker stopped", project_id);
             }
-            log::info!("{}: ticker stopped", self.project_id);
         });
 
         Ok(rx)
@@ -58,9 +69,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_ticker() {
-        let dispatcher = Dispatcher::new("test");
+        let dispatcher = Dispatcher::new();
         let dispatcher2 = dispatcher.clone();
-        let mut rx = dispatcher2.run(Duration::from_millis(10)).unwrap();
+        let mut rx = dispatcher2.run("test", Duration::from_millis(10)).unwrap();
 
         spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -70,7 +81,7 @@ mod tests {
         let mut count = 0;
         while let Some(event) = rx.recv().await {
             match event {
-                events::Event::Tick(_) => count += 1,
+                events::Event::Tick(_, _) => count += 1,
                 _ => panic!("unexpected event: {:?}", event),
             }
         }

@@ -8,7 +8,6 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_id: String,
     project_store: projects::Storage,
     local_data_dir: path::PathBuf,
     user_store: users::Storage,
@@ -17,22 +16,20 @@ pub struct Handler {
 impl Handler {
     pub fn new(
         local_data_dir: &path::Path,
-        project_id: &str,
         project_store: &projects::Storage,
         user_store: &users::Storage,
     ) -> Self {
         Self {
-            project_id: project_id.to_string(),
             project_store: project_store.clone(),
             local_data_dir: local_data_dir.to_path_buf(),
             user_store: user_store.clone(),
         }
     }
 
-    pub fn handle(&self, now: time::SystemTime) -> Result<Vec<events::Event>> {
+    pub fn handle(&self, project_id: &str, now: time::SystemTime) -> Result<Vec<events::Event>> {
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
-            self.project_id.clone(),
+            project_id,
             self.project_store.clone(),
             self.user_store.clone(),
         )
@@ -44,7 +41,10 @@ impl Handler {
             None => Ok(vec![]),
             Some(current_session) => {
                 if should_flush(now, &current_session)? {
-                    Ok(vec![events::Event::Flush(current_session)])
+                    Ok(vec![events::Event::Flush(
+                        project_id.to_string(),
+                        current_session,
+                    )])
                 } else {
                     Ok(vec![])
                 }

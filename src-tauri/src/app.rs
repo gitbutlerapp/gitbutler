@@ -106,7 +106,6 @@ impl App {
     async fn start_watcher(&self, project: &projects::Project) -> Result<()> {
         let watcher = watcher::Watcher::new(
             &self.local_data_dir,
-            project,
             &self.projects_storage,
             &self.users_storage,
             &self.searcher,
@@ -120,6 +119,7 @@ impl App {
 
         let c_watcher = watcher.clone();
         let project_id = project.id.clone();
+        let project_path = project.path.clone();
         thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_multi_thread()
                 .thread_name(format!("watcher-{}", project_id))
@@ -127,7 +127,7 @@ impl App {
                 .build()
                 .unwrap();
             rt.block_on(async move {
-                if let Err(e) = c_watcher.run().await {
+                if let Err(e) = c_watcher.run(&project_path, &project_id).await {
                     log::error!("watcher error: {:#}", e);
                 }
                 log::info!("watcher stopped");
@@ -164,7 +164,7 @@ impl App {
     fn gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            project_id.to_string(),
+            project_id,
             self.projects_storage.clone(),
             self.users_storage.clone(),
         )
@@ -222,7 +222,7 @@ impl App {
             if let Err(err) = self
                 .send_event(
                     &project.id,
-                    watcher::Event::FetchGitbutlerData(time::SystemTime::now()),
+                    watcher::Event::FetchGitbutlerData(project.id.clone(), time::SystemTime::now()),
                 )
                 .await
             {
@@ -246,7 +246,7 @@ impl App {
             Some(project) => {
                 let gb_repository = gb_repository::Repository::open(
                     self.local_data_dir.clone(),
-                    id.to_string(),
+                    id,
                     self.projects_storage.clone(),
                     self.users_storage.clone(),
                 )

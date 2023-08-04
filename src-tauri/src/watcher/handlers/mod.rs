@@ -18,8 +18,6 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_id: String,
-
     project_file_handler: project_file_change::Handler,
     git_file_change_handler: git_file_change::Handler,
     check_current_session_handler: check_current_session::Handler,
@@ -35,7 +33,6 @@ impl<'handler> Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_data_dir: &path::Path,
-        project_id: &str,
         project_store: &projects::Storage,
         user_store: &users::Storage,
         searcher: &search::Searcher,
@@ -47,30 +44,25 @@ impl<'handler> Handler {
         keys_controller: &keys::Controller,
     ) -> Self {
         Self {
-            project_id: project_id.to_string(),
             events_sender: events_sender.clone(),
 
             project_file_handler: project_file_change::Handler::new(
                 local_data_dir,
-                project_id,
                 project_store,
                 user_store,
             ),
             check_current_session_handler: check_current_session::Handler::new(
                 local_data_dir,
-                project_id,
                 project_store,
                 user_store,
             ),
-            git_file_change_handler: git_file_change::Handler::new(project_id, project_store),
+            git_file_change_handler: git_file_change::Handler::new(project_store),
             flush_session_handler: flush_session::Handler::new(
                 local_data_dir,
-                project_id,
                 project_store,
                 user_store,
             ),
             fetch_project_handler: fetch_project_data::Handler::new(
-                project_id,
                 project_store,
                 local_data_dir,
                 user_store,
@@ -78,13 +70,11 @@ impl<'handler> Handler {
             ),
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::new(
                 local_data_dir,
-                project_id,
                 project_store,
                 user_store,
             ),
             index_handler: index_handler::Handler::new(
                 local_data_dir,
-                project_id,
                 project_store,
                 user_store,
                 searcher,
@@ -97,59 +87,46 @@ impl<'handler> Handler {
     }
 
     pub async fn handle(&self, event: events::Event) -> Result<Vec<events::Event>> {
-        // its's noisy for development
-        #[cfg(not(debug_assertions))]
-        log::info!("{}: handling event: {}", self.project_id, event);
-
         match event {
-            events::Event::ProjectFileChange(path) => self
+            events::Event::ProjectFileChange(project_id, path) => self
                 .project_file_handler
-                .handle(path.clone())
-                .with_context(|| format!("failed to handle project file change event: {:?}", path)),
+                .handle(&path, &project_id)
+                .context(format!(
+                    "failed to handle project file change event: {:?}",
+                    path.display()
+                )),
 
-            events::Event::GitFileChange(path) => self
+            events::Event::GitFileChange(project_id, path) => self
                 .git_file_change_handler
-                .handle(path)
+                .handle(path, &project_id)
                 .context("failed to handle git file change event"),
 
-            events::Event::FetchGitbutlerData(tick) => self
+            events::Event::FetchGitbutlerData(project_id, tick) => self
                 .fetch_gitbutler_handler
-                .handle(tick)
+                .handle(&project_id, tick)
                 .context("failed to fetch gitbutler data"),
 
-            events::Event::Tick(tick) => {
-                let one = match self.check_current_session_handler.handle(tick) {
+            events::Event::Tick(project_id, tick) => {
+                let one = match self.check_current_session_handler.handle(&project_id, tick) {
                     Ok(events) => events,
                     Err(err) => {
-                        log::error!(
-                            "{}: failed to check current session: {:#}",
-                            self.project_id,
-                            err
-                        );
+                        log::error!("{}: failed to check current session: {:#}", project_id, err);
                         vec![]
                     }
                 };
 
-                let two = match self.fetch_project_handler.handle(tick) {
+                let two = match self.fetch_project_handler.handle(&project_id, tick) {
                     Ok(events) => events,
                     Err(err) => {
-                        log::error!(
-                            "{}: failed to fetch project data: {:#}",
-                            self.project_id,
-                            err
-                        );
+                        log::error!("{}: failed to fetch project data: {:#}", project_id, err);
                         vec![]
                     }
                 };
 
-                let three = match self.fetch_gitbutler_handler.handle(tick) {
+                let three = match self.fetch_gitbutler_handler.handle(&project_id, tick) {
                     Ok(events) => events,
                     Err(err) => {
-                        log::error!(
-                            "{}: failed to fetch gitbutler data: {:#}",
-                            self.project_id,
-                            err
-                        );
+                        log::error!("{}: failed to fetch gitbutler data: {:#}", project_id, err);
                         vec![]
                     }
                 };
@@ -161,18 +138,23 @@ impl<'handler> Handler {
                     .collect())
             }
 
-            events::Event::Flush(session) => self
+            events::Event::Flush(project_id, session) => self
                 .flush_session_handler
-                .handle(&session)
+                .handle(&project_id, &session)
                 .context("failed to handle flush session event"),
 
-            events::Event::SessionFile((session_id, file_path, contents)) => {
+            events::Event::SessionFile((project_id, session_id, file_path, contents)) => {
                 let mut events = self
                     .index_handler
-                    .index_file(&session_id, file_path.to_str().unwrap(), &contents)
+                    .index_file(
+                        &project_id,
+                        &session_id,
+                        file_path.to_str().unwrap(),
+                        &contents,
+                    )
                     .context("failed to index file")?;
                 events.push(events::Event::Emit(app_events::Event::file(
-                    &self.project_id,
+                    &project_id,
                     &session_id,
                     &file_path.display().to_string(),
                     &contents,
@@ -180,19 +162,24 @@ impl<'handler> Handler {
                 Ok(events)
             }
 
-            events::Event::Session(session) => self
+            events::Event::Session(project_id, session) => self
                 .index_handler
-                .index_session(&session)
+                .index_session(&project_id, &session)
                 .context("failed to index session"),
 
-            events::Event::SessionDelta((session_id, path, delta)) => {
+            events::Event::SessionDelta((project_id, session_id, path, delta)) => {
                 let mut events = self
                     .index_handler
-                    .index_deltas(&session_id, path.to_str().unwrap(), &vec![delta.clone()])
+                    .index_deltas(
+                        &project_id,
+                        &session_id,
+                        path.to_str().unwrap(),
+                        &vec![delta.clone()],
+                    )
                     .context("failed to index deltas")?;
 
                 events.push(events::Event::Emit(app_events::Event::deltas(
-                    &self.project_id,
+                    &project_id,
                     &session_id,
                     &vec![delta],
                     &path,
@@ -203,10 +190,10 @@ impl<'handler> Handler {
 
             events::Event::Bookmark(bookmark) => self
                 .index_handler
-                .index_bookmark(&bookmark)
+                .index_bookmark(&bookmark.project_id, &bookmark)
                 .context("failed to index bookmark"),
 
-            events::Event::IndexAll => self.index_handler.reindex(),
+            events::Event::IndexAll(project_id) => self.index_handler.reindex(&project_id),
 
             events::Event::Emit(event) => {
                 self.events_sender

@@ -12,7 +12,6 @@ use super::events;
 #[derive(Clone)]
 pub struct Handler {
     local_data_dir: path::PathBuf,
-    project_id: String,
     project_store: projects::Storage,
     user_store: users::Storage,
     deltas_searcher: search::Searcher,
@@ -26,7 +25,6 @@ impl Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_data_dir: &path::Path,
-        project_id: &str,
         project_store: &projects::Storage,
         user_store: &users::Storage,
         deltas_searcher: &search::Searcher,
@@ -37,7 +35,6 @@ impl Handler {
     ) -> Self {
         Self {
             local_data_dir: local_data_dir.to_path_buf(),
-            project_id: project_id.to_string(),
             project_store: project_store.clone(),
             user_store: user_store.clone(),
             deltas_searcher: deltas_searcher.clone(),
@@ -50,45 +47,50 @@ impl Handler {
 
     pub fn index_deltas(
         &self,
+        project_id: &str,
         session_id: &str,
         file_path: &str,
         deltas: &Vec<deltas::Delta>,
     ) -> Result<Vec<events::Event>> {
         self.deltas_database
-            .insert(&self.project_id, session_id, file_path, deltas)
+            .insert(project_id, session_id, file_path, deltas)
             .context("failed to insert deltas into database")?;
         Ok(vec![])
     }
 
     pub fn index_file(
         &self,
+        project_id: &str,
         session_id: &str,
         file_path: &str,
         content: &str,
     ) -> Result<Vec<events::Event>> {
         self.files_database
-            .insert(&self.project_id, session_id, file_path, content)
+            .insert(project_id, session_id, file_path, content)
             .context("failed to insert file into database")?;
         Ok(vec![])
     }
 
-    pub fn index_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<Vec<events::Event>> {
+    pub fn index_bookmark(
+        &self,
+        project_id: &str,
+        bookmark: &bookmarks::Bookmark,
+    ) -> Result<Vec<events::Event>> {
         let updated = self.bookmarks_database.upsert(bookmark)?;
         self.deltas_searcher.index_bookmark(bookmark)?;
         if let Some(updated) = updated {
             Ok(vec![events::Event::Emit(app_events::Event::bookmark(
-                &self.project_id,
-                &updated,
+                project_id, &updated,
             ))])
         } else {
             Ok(vec![])
         }
     }
 
-    pub fn reindex(&self) -> Result<Vec<events::Event>> {
+    pub fn reindex(&self, project_id: &str) -> Result<Vec<events::Event>> {
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            self.project_id.clone(),
+            project_id,
             self.project_store.clone(),
             self.user_store.clone(),
         )
@@ -97,15 +99,19 @@ impl Handler {
         let sessions_iter = gb_repository.get_sessions_iterator()?;
         let mut events = vec![];
         for session in sessions_iter {
-            events.extend(self.index_session(&session?)?);
+            events.extend(self.index_session(project_id, &session?)?);
         }
         Ok(events)
     }
 
-    pub fn index_session(&self, session: &sessions::Session) -> Result<Vec<events::Event>> {
+    pub fn index_session(
+        &self,
+        project_id: &str,
+        session: &sessions::Session,
+    ) -> Result<Vec<events::Event>> {
         let gb_repository = gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            self.project_id.clone(),
+            project_id,
             self.project_store.clone(),
             self.user_store.clone(),
         )
@@ -123,7 +129,7 @@ impl Handler {
         let session_reader = sessions::Reader::open(&gb_repository, session)?;
         let bookmarks_reader = bookmarks::Reader::new(&session_reader);
         for bookmark in bookmarks_reader.read()? {
-            self.index_bookmark(&bookmark)?;
+            self.index_bookmark(project_id, &bookmark)?;
         }
 
         // now, index session if it has changed to the database.
@@ -133,19 +139,18 @@ impl Handler {
         }
 
         self.sessions_database
-            .insert(&self.project_id, &[session])
+            .insert(project_id, &[session])
             .context("failed to insert session into database")?;
 
         let mut events: Vec<events::Event> = vec![events::Event::Emit(app_events::Event::session(
-            &self.project_id,
-            session,
+            project_id, session,
         ))];
 
         for (file_path, content) in session_reader
             .files(None)
             .context("could not list files for session")?
         {
-            let file_events = self.index_file(&session.id, &file_path, &content)?;
+            let file_events = self.index_file(project_id, &session.id, &file_path, &content)?;
             events.extend(file_events);
         }
 
@@ -155,7 +160,7 @@ impl Handler {
             .context("could not list deltas for session")?
             .into_iter()
         {
-            let delta_events = self.index_deltas(&session.id, &file_path, &deltas)?;
+            let delta_events = self.index_deltas(project_id, &session.id, &file_path, &deltas)?;
             events.extend(delta_events);
         }
 

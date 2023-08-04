@@ -33,7 +33,7 @@ pub struct Repository {
 impl Repository {
     pub fn open<P: AsRef<std::path::Path>>(
         root: P,
-        project_id: String,
+        project_id: &str,
         project_store: projects::Storage,
         users_store: users::Storage,
     ) -> Result<Self> {
@@ -66,7 +66,7 @@ impl Repository {
                 .context("failed to add disk alternate")?;
 
             Ok(Self {
-                project_id,
+                project_id: project_id.to_string(),
                 git_repository,
                 project_store,
                 users_store,
@@ -88,7 +88,7 @@ impl Repository {
                 .context("failed to add disk alternate")?;
 
             let gb_repository = Self {
-                project_id,
+                project_id: project_id.to_string(),
                 git_repository,
                 project_store,
                 users_store,

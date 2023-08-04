@@ -54,7 +54,7 @@ fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let current_session_1 = gb_repo.get_or_create_current_session()?;
     let current_session_2 = gb_repo.get_or_create_current_session()?;
@@ -73,7 +73,7 @@ fn test_must_not_return_init_session() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     assert!(gb_repo.get_current_session()?.is_none());
 
@@ -93,7 +93,7 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let session = gb_repo.flush()?;
     assert!(session.is_none());
@@ -117,7 +117,7 @@ fn test_init_on_non_empty_repository() -> Result<()> {
     std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
     commit_all(&repository)?;
 
-    gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+    gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     Ok(())
 }
@@ -137,13 +137,13 @@ fn test_flush_on_existing_repository() -> Result<()> {
 
     gb_repository::Repository::open(
         gb_repo_path.clone(),
-        project.id.clone(),
+        &project.id,
         project_store.clone(),
         user_store.clone(),
     )?;
 
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     gb_repo.get_or_create_current_session()?;
     gb_repo.flush()?;
@@ -161,7 +161,7 @@ fn test_must_flush_current_session() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     gb_repo.get_or_create_current_session()?;
 
@@ -183,7 +183,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
     let writer = deltas::Writer::new(&gb_repo);
@@ -219,7 +219,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::new(storage);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -262,7 +262,7 @@ fn test_list_files_from_current_session() -> Result<()> {
     )?;
 
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let session = gb_repo.get_or_create_current_session()?;
 
@@ -292,7 +292,7 @@ fn test_list_files_from_flushed_session() -> Result<()> {
     )?;
 
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     gb_repo.get_or_create_current_session()?;
     let session = gb_repo.flush()?.unwrap();
@@ -343,7 +343,7 @@ fn test_remote_syncronization() -> Result<()> {
     )?;
     let gb_repo_one = gb_repository::Repository::open(
         gb_repos_path.clone(),
-        project_one.id,
+        &project_one.id,
         project_store.clone(),
         user_store.clone(),
     )?;
@@ -365,7 +365,7 @@ fn test_remote_syncronization() -> Result<()> {
         ..project_two.clone()
     })?;
     let gb_repo_two =
-        gb_repository::Repository::open(gb_repos_path, project_two.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repos_path, &project_two.id, project_store, user_store)?;
     gb_repo_two.fetch()?;
     // now it should have the session from the first local project synced
     let sessions_two = gb_repo_two
@@ -426,7 +426,7 @@ fn test_remote_sync_order() -> Result<()> {
     })?;
     let gb_repo_one = gb_repository::Repository::open(
         gb_repos_path.clone(),
-        project_one.id,
+        &project_one.id,
         project_store.clone(),
         user_store.clone(),
     )?;
@@ -439,7 +439,7 @@ fn test_remote_sync_order() -> Result<()> {
         ..project_two.clone()
     })?;
     let gb_repo_two =
-        gb_repository::Repository::open(gb_repos_path, project_two.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repos_path, &project_two.id, project_store, user_store)?;
 
     // create session in the first project
     gb_repo_one.get_or_create_current_session()?;
