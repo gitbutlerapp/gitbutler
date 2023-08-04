@@ -18,6 +18,7 @@
 	import { getDeltasStore2 } from '$lib/stores/deltas';
 	import { getFetchesStore } from '$lib/stores/fetches';
 	import type { Readable } from '@square/svelte-store';
+	// import TopBar from './topbar/TopBar.svelte';
 
 	export let data: PageData;
 	let { projectId, remoteBranchNames, project, cloud } = data;
@@ -91,6 +92,12 @@
 			}}
 		/>
 		<div class="flex w-full flex-col overflow-hidden">
+			<!-- <TopBar
+				vbranches={$vbranchStore}
+				{branchController}
+				remoteUrl={$baseBranchStore?.remoteUrl}
+				remoteBranches={$remoteBranchStore}
+			/> -->
 			<div
 				class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-y-none bg-light-300 dark:bg-dark-1100"
 			>
