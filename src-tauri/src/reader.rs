@@ -273,6 +273,8 @@ impl Reader for SubReader<'_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::writer::{DirWriter, Writer};
+
     use super::*;
     use anyhow::Result;
     use tempfile::tempdir;
@@ -493,5 +495,16 @@ mod tests {
         assert!(!reader.exists("test2.txt"));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_read_usize() {
+        let dir = tempdir().unwrap();
+
+        let writer = DirWriter::open(dir.path().to_path_buf());
+        let reader = DirReader::open(dir.path().to_path_buf());
+
+        writer.write_usize("test", &42).unwrap();
+        assert_eq!(reader.read_usize("test").unwrap(), 42);
     }
 }
