@@ -13,6 +13,7 @@ pub mod events;
 pub mod files;
 pub mod fs;
 pub mod gb_repository;
+pub mod git;
 pub mod keys;
 pub mod project_repository;
 pub mod projects;
