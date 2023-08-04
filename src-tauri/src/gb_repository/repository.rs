@@ -965,6 +965,7 @@ fn add_wd_path(
             && entry.mtime.nanoseconds() == mtime.nanoseconds()
             && entry.file_size == u32::try_from(metadata.len())?
             && entry.mode == metadata.mode()
+        // TODO: we need to normalize this mode to an acceptable git mode
         {
             index.add(&entry).unwrap();
             return Ok(());
@@ -1119,7 +1120,7 @@ fn add_log_path(
         mtime: git2::IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds()),
         dev: metadata.dev().try_into()?,
         ino: metadata.ino().try_into()?,
-        mode: metadata.mode(),
+        mode: 33188,
         uid: metadata.uid(),
         gid: metadata.gid(),
         file_size: metadata.len().try_into()?,
