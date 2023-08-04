@@ -9,7 +9,6 @@
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { invoke } from '@tauri-apps/api/tauri';
-	import CopyClipBoard from '$lib/components/CopyClipBoard.svelte';
 	import { copyToClipboard } from '$lib/clipboard';
 
 	export let data: PageData;
@@ -99,14 +98,6 @@
 	get_public_key().then((key) => {
 		sshKey = key;
 	});
-
-	const copy = () => {
-		const app = new CopyClipBoard({
-			target: document.getElementById('clipboard'),
-			props: { value: sshKey }
-		});
-		app.$destroy();
-	};
 
 	$: annotateCommits = true;
 
