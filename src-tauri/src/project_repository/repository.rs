@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{keys, project_repository::activity, projects, reader};
+use crate::{git, keys, project_repository::activity, projects, reader};
 
 use super::branch;
 
@@ -364,34 +364,6 @@ impl<'repository> Repository<'repository> {
             return Err(PushError::NoPushUrl);
         }
 
-        let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.push_update_reference(move |refname, message| {
-            log::info!(
-                "{}: pulling reference '{}': {:?}",
-                self.project.id,
-                refname,
-                message
-            );
-            Result::Ok(())
-        });
-        callbacks.push_transfer_progress(move |one, two, three| {
-            log::info!(
-                "{}: transferred {}/{}/{} objects",
-                self.project.id,
-                one,
-                two,
-                three
-            );
-        });
-        callbacks.credentials(|_url, _username_from_url, _allowed_types| {
-            git2::Cred::ssh_key_from_memory(
-                "git",
-                Some(&key.public_key().to_string()),
-                &key.to_string(),
-                None,
-            )
-        });
-
         log::info!(
             "{}: git push {} {}:refs/heads/{}",
             self.project.id,
@@ -400,19 +372,26 @@ impl<'repository> Repository<'repository> {
             branch.branch()
         );
 
-        match remote.push(
-            &[format!("{}:refs/heads/{}", head, branch.branch())],
-            Some(&mut git2::PushOptions::new().remote_callbacks(callbacks)),
-        ) {
-            Ok(()) => Ok(()),
-            Err(e) => {
-                if e.code() == git2::ErrorCode::Auth {
-                    Err(PushError::AuthError)
-                } else {
-                    Err(PushError::Other(e.into()))
+        for credential_callback in git::credentials::for_key(key) {
+            let mut cb = git2::RemoteCallbacks::new();
+            cb.credentials(credential_callback);
+
+            match remote.push(
+                &[format!("{}:refs/heads/{}", head, branch.branch())],
+                Some(&mut git2::PushOptions::new().remote_callbacks(cb)),
+            ) {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    if e.code() == git2::ErrorCode::Auth {
+                        continue;
+                    } else {
+                        return Err(PushError::Other(e.into()));
+                    }
                 }
             }
         }
+
+        Err(PushError::AuthError)
     }
 
     pub fn fetch(&self) -> Result<()> {
