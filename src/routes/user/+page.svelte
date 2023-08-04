@@ -10,6 +10,7 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import CopyClipBoard from '$lib/components/CopyClipBoard.svelte';
+	import { copyToClipboard } from '$lib/clipboard';
 
 	export let data: PageData;
 	const { cloud } = data;
@@ -277,7 +278,9 @@
 			</div>
 			<div class="flex flex-row justify-end space-x-2">
 				<div>
-					<Button kind="filled" color="purple" on:click={copy}>Copy to Clipboard</Button>
+					<Button kind="filled" color="purple" on:click={() => copyToClipboard(sshKey)}>
+						Copy to Clipboard
+					</Button>
 				</div>
 				<div class="p-1">
 					<Link target="_blank" rel="noreferrer" href="https://github.com/settings/ssh/new"
