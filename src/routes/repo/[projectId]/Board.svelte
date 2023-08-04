@@ -3,8 +3,7 @@
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { dzHighlight } from './dropZone';
-	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
-	import { getContext } from 'svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import { Link } from '$lib/components';
 	import type { LoadState } from '@square/svelte-store';
@@ -20,8 +19,7 @@
 
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
-
-	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
+	export let branchController: BranchController;
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -103,6 +101,7 @@
 				{cloudEnabled}
 				{cloud}
 				{upstream}
+				{branchController}
 			/>
 		{/each}
 
@@ -130,7 +129,7 @@
 				</div>
 			</div>
 		{:else}
-			<NewBranchDropZone />
+			<NewBranchDropZone {branchController} />
 		{/if}
 	</div>
 {/if}
