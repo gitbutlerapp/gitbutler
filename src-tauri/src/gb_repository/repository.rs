@@ -1119,7 +1119,7 @@ fn add_log_path(
         mtime: git2::IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds()),
         dev: metadata.dev().try_into()?,
         ino: metadata.ino().try_into()?,
-        mode: metadata.mode(),
+        mode: 33188,
         uid: metadata.uid(),
         gid: metadata.gid(),
         file_size: metadata.len().try_into()?,
