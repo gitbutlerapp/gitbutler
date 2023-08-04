@@ -965,6 +965,7 @@ fn add_wd_path(
             && entry.mtime.nanoseconds() == mtime.nanoseconds()
             && entry.file_size == u32::try_from(metadata.len())?
             && entry.mode == metadata.mode()
+        // TODO: we need to normalize this mode to an acceptable git mode
         {
             index.add(&entry).unwrap();
             return Ok(());
