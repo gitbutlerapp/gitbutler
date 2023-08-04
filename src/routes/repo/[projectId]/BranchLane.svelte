@@ -2,7 +2,7 @@
 	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Commit, File } from '$lib/vbranches/types';
-	import { getContext, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
 	import { Button, Link, Tooltip } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
@@ -11,7 +11,7 @@
 	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
-	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import FileCardNext from './FileCardNext.svelte';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
@@ -52,8 +52,8 @@
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let upstream: string | undefined;
+	export let branchController: BranchController;
 
-	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 	const user = userStore;
 	let commitMessage: string;
 
@@ -371,6 +371,7 @@
 									{dzType}
 									{projectId}
 									{projectPath}
+									{branchController}
 									on:expanded={(e) => {
 										setExpandedWithCache(file, e.detail);
 										expandFromCache();

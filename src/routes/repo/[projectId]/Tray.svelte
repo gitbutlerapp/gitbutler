@@ -10,7 +10,6 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import { BRANCH_CONTROLLER_KEY } from '$lib/vbranches/branchController';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
@@ -21,9 +20,9 @@
 	export let branchesState: LoadState;
 	export let remoteBranches: BranchData[] | undefined;
 	export let remoteBranchesState: LoadState;
+	export let branchController: BranchController;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;

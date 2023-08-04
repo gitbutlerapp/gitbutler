@@ -11,7 +11,7 @@
 		IconExpandUp,
 		IconExpandDown
 	} from '$lib/icons';
-	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from 'svelte';
 	import { dzTrigger } from './dropZone';
 	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';
@@ -30,9 +30,9 @@
 	export let dzType: string;
 	export let projectPath: string;
 	export let expanded: boolean | undefined;
+	export let branchController: BranchController;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;
 	}>();

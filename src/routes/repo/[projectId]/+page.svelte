@@ -3,8 +3,8 @@
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
 	import { Button } from '$lib/components';
-	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
-	import { getContext, onDestroy, setContext } from 'svelte';
+	import { BranchController } from '$lib/vbranches/branchController';
+	import { getContext, onDestroy } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import BottomPanel from './BottomPanel.svelte';
 	import UpstreamBranchLane from './UpstreamBranchLane.svelte';
@@ -47,13 +47,12 @@
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
-	const branchController = new BranchController(
+	$: branchController = new BranchController(
 		projectId,
 		vbranchStore,
 		remoteBranchStore,
 		baseBranchStore
 	);
-	setContext(BRANCH_CONTROLLER_KEY, branchController);
 
 	let targetChoice: string | undefined;
 
@@ -78,6 +77,7 @@
 			branchesState={$branchesState}
 			remoteBranches={$remoteBranchStore}
 			remoteBranchesState={$remoteBranchesState}
+			{branchController}
 		/>
 		<div
 			class="z-30 -ml-[0.250rem] w-[0.250rem] shrink-0 cursor-col-resize hover:bg-orange-200 dark:bg-dark-1000 dark:hover:bg-orange-700"
@@ -94,10 +94,11 @@
 			<div
 				class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-y-none bg-light-300 dark:bg-dark-1100"
 			>
-				<UpstreamBranchLane base={$baseBranchStore} />
+				<UpstreamBranchLane base={$baseBranchStore} {branchController} />
 				<Board
 					branches={$vbranchStore}
 					branchesState={$branchesState}
+					{branchController}
 					{projectId}
 					projectPath={$project?.path}
 					base={$baseBranchStore}

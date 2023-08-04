@@ -11,10 +11,9 @@
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { getContext } from 'svelte';
 	import { dzTrigger } from './dropZone';
-	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
+	import type { BranchController } from '$lib/vbranches/branchController';
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
-	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	export let id: string;
 	export let projectPath: string;
@@ -24,6 +23,7 @@
 	export let hunks: Hunk[];
 	export let maximized: boolean;
 	export let dzType: string;
+	export let branchController: BranchController;
 
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;

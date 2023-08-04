@@ -3,11 +3,11 @@
 	import { Button, Modal, Tooltip } from '$lib/components';
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
-	import { BRANCH_CONTROLLER_KEY, BranchController } from '$lib/vbranches/branchController';
-	import { getContext } from 'svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 
 	export let base: BaseBranch;
+	export let branchController: BranchController;
 
 	let updateTargetModal: Modal;
 	let viewport: Element;
@@ -15,8 +15,6 @@
 
 	let fetching = false;
 	let buttonHovered = false;
-
-	const branchController = getContext<BranchController>(BRANCH_CONTROLLER_KEY);
 
 	$: expanded = base ? base.behind > 0 : false;
 	$: multiple = base ? base.upstreamCommits.length > 1 : false;
