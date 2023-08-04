@@ -69,7 +69,7 @@ mod tests {
         Ok(repository)
     }
 
-    static mut TEST_INDEX: usize = 0;
+    static mut TEST_INDEX: u32 = 0;
 
     fn test_branch() -> branch::Branch {
         unsafe {
