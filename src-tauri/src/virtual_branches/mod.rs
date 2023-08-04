@@ -2342,7 +2342,7 @@ fn name_to_branch(name: &str) -> String {
 #[derive(Debug, thiserror::Error)]
 pub enum PushError {
     #[error(transparent)]
-    Repository(#[from] project_repository::PushError),
+    Repository(#[from] project_repository::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -2398,15 +2398,14 @@ pub fn push(
 
     project_repository.push(&vbranch.head, &remote_branch, key)?;
 
-    vbranch.upstream = Some(remote_branch);
+    vbranch.upstream = Some(remote_branch.clone());
     branch_writer
         .write(&vbranch)
         .context("failed to write target branch after push")?;
 
-    project_repository
-        .fetch()
-        .context("failed to fetch after push")
-        .map_err(PushError::Other)
+    project_repository.fetch(remote_branch.remote(), key)?;
+
+    Ok(())
 }
 
 pub fn get_base_branch_data(

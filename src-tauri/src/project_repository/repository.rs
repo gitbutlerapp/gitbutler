@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, path, process::Command};
+use std::{collections::HashMap, env, path};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -319,7 +319,7 @@ impl<'repository> Repository<'repository> {
 
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_push_remote(&'repository self, name: &str) -> Result<git2::Remote<'repository>> {
+    fn get_remote(&'repository self, name: &str) -> Result<git2::Remote<'repository>> {
         let remote = self
             .git_repository
             .find_remote(name)
@@ -336,8 +336,7 @@ impl<'repository> Repository<'repository> {
             return Ok(remote);
         }
 
-        self.git_repository
-            .remote_set_pushurl(name, Some(&ssh_url))?;
+        self.git_repository.remote_set_url(name, &ssh_url)?;
 
         self.git_repository
             .find_remote(name)
@@ -349,19 +348,18 @@ impl<'repository> Repository<'repository> {
         head: &git2::Oid,
         branch: &branch::RemoteName,
         key: &keys::PrivateKey,
-    ) -> Result<(), PushError> {
+    ) -> Result<(), Error> {
         let mut remote = self
-            .get_push_remote(branch.remote())
+            .get_remote(branch.remote())
             .context("failed to get remote")
-            .map_err(PushError::Other)?;
+            .map_err(Error::Other)?;
 
-        let push_url = remote.pushurl().or_else(|| remote.url());
-        if let Some(url) = push_url {
+        if let Some(url) = remote.url() {
             if !matches!(url_type(url), URLType::Ssh) {
-                return Err(PushError::NonSSHUrl(url.to_string()));
+                return Err(Error::NonSSHUrl(url.to_string()));
             }
         } else {
-            return Err(PushError::NoPushUrl);
+            return Err(Error::NoUrl);
         }
 
         log::info!(
@@ -373,47 +371,67 @@ impl<'repository> Repository<'repository> {
         );
 
         for credential_callback in git::credentials::for_key(key) {
-            let mut cb = git2::RemoteCallbacks::new();
-            cb.credentials(credential_callback);
+            let mut remote_callbacks = git2::RemoteCallbacks::new();
+            remote_callbacks.credentials(credential_callback);
 
             match remote.push(
                 &[format!("{}:refs/heads/{}", head, branch.branch())],
-                Some(&mut git2::PushOptions::new().remote_callbacks(cb)),
+                Some(&mut git2::PushOptions::new().remote_callbacks(remote_callbacks)),
             ) {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     if e.code() == git2::ErrorCode::Auth {
                         continue;
                     } else {
-                        return Err(PushError::Other(e.into()));
+                        return Err(Error::Other(e.into()));
                     }
                 }
             }
         }
 
-        Err(PushError::AuthError)
+        Err(Error::AuthError)
     }
 
-    pub fn fetch(&self) -> Result<()> {
-        let output = Command::new("git")
-            .arg("fetch")
-            .arg("--prune")
-            .arg("origin")
-            .current_dir(&self.project.path)
-            .output()
-            .context("failed to fork exec")?;
+    pub fn fetch(&self, remote: &str, key: &keys::PrivateKey) -> Result<(), Error> {
+        let mut remote = self
+            .get_remote(remote)
+            .context("failed to get remote")
+            .map_err(Error::Other)?;
+        if let Some(url) = remote.url() {
+            if !matches!(url_type(url), URLType::Ssh) {
+                return Err(Error::NonSSHUrl(url.to_string()));
+            }
+        } else {
+            return Err(Error::NoUrl);
+        }
 
-        output.status.success().then(|| ()).ok_or_else(|| {
-            anyhow::anyhow!(
-                "failed to fetch from repository: {}: {}",
-                &self.project.title,
-                String::from_utf8(output.stderr).unwrap(),
-            )
-        })?;
+        log::info!("{}: git fetch {}", self.project.id, remote.name().unwrap());
 
-        log::info!("{}: fetched", self.project.id);
+        for credential_callback in git::credentials::for_key(key) {
+            let mut remote_callbacks = git2::RemoteCallbacks::new();
+            remote_callbacks.credentials(credential_callback);
 
-        Ok(())
+            let mut fetch_opts = git2::FetchOptions::new();
+            fetch_opts.remote_callbacks(remote_callbacks);
+            fetch_opts.prune(git2::FetchPrune::On);
+
+            match remote.fetch(
+                &["refs/heads/*:refs/remotes/*"],
+                Some(&mut fetch_opts),
+                None,
+            ) {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    if e.code() == git2::ErrorCode::Auth {
+                        continue;
+                    } else {
+                        return Err(Error::Other(e.into()));
+                    }
+                }
+            }
+        }
+
+        Err(Error::AuthError)
     }
 
     pub fn git_commit(&self, message: &str, push: bool) -> Result<()> {
@@ -576,9 +594,9 @@ fn test_to_ssh_url() {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum PushError {
+pub enum Error {
     #[error("push url not set")]
-    NoPushUrl,
+    NoUrl,
     #[error("push url is not an ssh url: {0}")]
     NonSSHUrl(String),
     #[error("auth error")]

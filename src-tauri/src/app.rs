@@ -8,7 +8,9 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::{
     bookmarks, database, deltas, events, files, gb_repository, keys,
     project_repository::{self, activity, branch, conflicts, diff},
-    projects, pty, search, sessions, storage, users, virtual_branches, watcher,
+    projects, pty, reader, search, sessions, storage, users,
+    virtual_branches::{self, target},
+    watcher,
 };
 
 #[derive(Clone)]
@@ -113,6 +115,7 @@ impl App {
             &self.deltas_database,
             &self.files_database,
             &self.bookmarks_database,
+            &self.keys_controller,
         );
 
         let c_watcher = watcher.clone();
@@ -523,22 +526,37 @@ impl App {
 
         match virtual_branches::push(&project_repository, &gb_repository, branch_id, &private_key) {
             Ok(_) => Ok(()),
-            Err(virtual_branches::PushError::Repository(project_repository::PushError::Other(
-                e,
-            ))) => Err(Error::Other(e)),
+            Err(virtual_branches::PushError::Repository(project_repository::Error::Other(e))) => {
+                Err(Error::Other(e))
+            }
             Err(virtual_branches::PushError::Repository(e)) => Err(Error::Message(e.to_string())),
             Err(virtual_branches::PushError::Other(e)) => Err(Error::Other(e)),
         }
     }
 
-    pub fn fetch_from_target(&self, project_id: &str) -> Result<()> {
+    pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        project_repository
-            .fetch()
-            .context("failed to fetch from target")?;
+        let gb_repo = self.gb_repository(project_id)?;
+        let current_session = gb_repo.get_or_create_current_session()?;
+        let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
+        let target_reader = target::Reader::new(&current_session_reader);
+        let default_target = match target_reader.read_default() {
+            Ok(target) => Ok(target),
+            Err(reader::Error::NotFound) => Err(anyhow::anyhow!("target not set")),
+            Err(e) => Err(e).context("failed to read default target"),
+        }?;
 
-        Ok(())
+        let key = self
+            .keys_controller
+            .get_or_create()
+            .map_err(|e| Error::Other(e.into()))?;
+
+        match project_repository.fetch(&default_target.remote_name, &key) {
+            Ok(_) => Ok(()),
+            Err(project_repository::Error::Other(e)) => Err(Error::Other(e)),
+            Err(e) => Err(Error::Message(e.to_string())),
+        }
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {

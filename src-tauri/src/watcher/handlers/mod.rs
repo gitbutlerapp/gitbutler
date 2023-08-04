@@ -10,7 +10,9 @@ use std::path;
 
 use anyhow::{Context, Result};
 
-use crate::{bookmarks, deltas, events as app_events, files, projects, search, sessions, users};
+use crate::{
+    bookmarks, deltas, events as app_events, files, keys, projects, search, sessions, users,
+};
 
 use super::events;
 
@@ -42,6 +44,7 @@ impl<'handler> Handler {
         deltas_database: &deltas::Database,
         files_database: &files::Database,
         bookmarks_database: &bookmarks::Database,
+        keys_controller: &keys::Controller,
     ) -> Self {
         Self {
             project_id: project_id.to_string(),
@@ -66,7 +69,13 @@ impl<'handler> Handler {
                 project_store,
                 user_store,
             ),
-            fetch_project_handler: fetch_project_data::Handler::new(project_id, project_store),
+            fetch_project_handler: fetch_project_data::Handler::new(
+                project_id,
+                project_store,
+                local_data_dir,
+                user_store,
+                keys_controller,
+            ),
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::new(
                 local_data_dir,
                 project_id,

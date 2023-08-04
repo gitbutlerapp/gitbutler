@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     fs, projects, users,
-    virtual_branches::{self},
+    virtual_branches::{self, target},
 };
 
 use crate::{
@@ -550,6 +550,20 @@ impl Repository {
 
     pub(crate) fn session_wd_path(&self) -> std::path::PathBuf {
         self.session_path().join("wd")
+    }
+
+    pub fn default_target(&self) -> Result<Option<target::Target>> {
+        let current_session = self
+            .get_or_create_current_session()
+            .context("failed to get current session")?;
+        let current_session_reader = sessions::Reader::open(self, &current_session)
+            .context("failed to open current session")?;
+        let target_reader = target::Reader::new(&current_session_reader);
+        match target_reader.read_default() {
+            Result::Ok(target) => Ok(Some(target)),
+            Err(reader::Error::NotFound) => Ok(None),
+            Err(err) => Err(err.into()),
+        }
     }
 
     pub fn set_base_branch(
