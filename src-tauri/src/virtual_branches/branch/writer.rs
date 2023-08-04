@@ -51,7 +51,7 @@ impl<'writer> BranchWriter<'writer> {
             .context("Failed to write branch name")?;
 
         self.writer
-            .write_u32(&format!("branches/{}/meta/order", branch.id), &branch.order)
+            .write_usize(&format!("branches/{}/meta/order", branch.id), &branch.order)
             .context("Failed to write branch order")?;
 
         self.writer
@@ -114,7 +114,7 @@ mod tests {
 
     use super::*;
 
-    static mut TEST_INDEX: u32 = 0;
+    static mut TEST_INDEX: usize = 0;
 
     fn test_branch() -> Branch {
         unsafe {

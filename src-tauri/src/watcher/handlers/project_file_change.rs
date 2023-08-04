@@ -224,7 +224,7 @@ mod test {
         }
     }
 
-    static mut TEST_INDEX: u32 = 0;
+    static mut TEST_INDEX: usize = 0;
 
     fn test_branch() -> virtual_branches::branch::Branch {
         unsafe {

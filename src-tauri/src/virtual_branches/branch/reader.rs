@@ -37,7 +37,7 @@ mod tests {
 
     use super::{super::Writer, *};
 
-    static mut TEST_INDEX: u32 = 0;
+    static mut TEST_INDEX: usize = 0;
 
     fn test_branch() -> Branch {
         unsafe {
