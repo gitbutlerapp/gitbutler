@@ -11,7 +11,11 @@ export function getVirtualBranchStore(
 ) {
 	return asyncWritable(
 		asyncStores,
-		async () => withFileContent(projectId, sessionId, await listVirtualBranches({ projectId })),
+		async () => {
+			const branches = await listVirtualBranches({ projectId });
+			withFileContent(projectId, sessionId, branches); // still executes without await
+			return branches;
+		},
 		async (newBranches) => newBranches,
 		{ reloadable: true, trackState: true }
 	) as WritableReloadable<Branch[] | undefined>;
