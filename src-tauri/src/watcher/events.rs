@@ -4,21 +4,21 @@ use crate::{bookmarks, deltas, events, sessions};
 
 #[derive(Debug, PartialEq)]
 pub enum Event {
-    Tick(time::SystemTime),
-    Flush(sessions::Session),
+    Tick(String, time::SystemTime),
+    Flush(String, sessions::Session),
 
-    FetchGitbutlerData(time::SystemTime),
+    FetchGitbutlerData(String, time::SystemTime),
 
-    GitFileChange(path::PathBuf),
+    GitFileChange(String, path::PathBuf),
 
-    ProjectFileChange(path::PathBuf),
+    ProjectFileChange(String, path::PathBuf),
 
-    Session(sessions::Session),
-    SessionFile((String, path::PathBuf, String)),
-    SessionDelta((String, path::PathBuf, deltas::Delta)),
+    Session(String, sessions::Session),
+    SessionFile((String, String, path::PathBuf, String)),
+    SessionDelta((String, String, path::PathBuf, deltas::Delta)),
     Bookmark(bookmarks::Bookmark),
 
-    IndexAll,
+    IndexAll(String),
 
     Emit(events::Event),
 }
@@ -27,19 +27,28 @@ impl Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Event::Emit(event) => write!(f, "Emit({})", event.name()),
-            Event::IndexAll => write!(f, "IndexAll"),
-            Event::Tick(ts) => write!(f, "Tick({:?})", ts),
-            Event::FetchGitbutlerData(ts) => write!(f, "FetchGitbutlerData({:?})", ts),
-            Event::Flush(session) => write!(f, "Flush({})", session.id),
-            Event::GitFileChange(path) => write!(f, "GitFileChange({})", path.display()),
-            Event::ProjectFileChange(path) => write!(f, "ProjectFileChange({})", path.display()),
-            Event::Session(session) => write!(f, "Session({})", session.id),
-            Event::Bookmark(_) => write!(f, "Bookmark"),
-            Event::SessionFile((sid, path, _)) => write!(f, "File({},{})", sid, path.display()),
-            Event::SessionDelta((sid, path, delta)) => {
+            Event::IndexAll(project_id) => write!(f, "IndexAll({})", project_id),
+            Event::Tick(project_id, ts) => write!(f, "Tick({}, {:?})", project_id, ts),
+            Event::FetchGitbutlerData(pid, ts) => {
+                write!(f, "FetchGitbutlerData({}, {:?})", pid, ts)
+            }
+            Event::Flush(project_id, session) => write!(f, "Flush({}, {})", project_id, session.id),
+            Event::GitFileChange(project_id, path) => {
+                write!(f, "GitFileChange({}, {})", project_id, path.display())
+            }
+            Event::ProjectFileChange(project_id, path) => {
+                write!(f, "ProjectFileChange({}, {})", project_id, path.display())
+            }
+            Event::Session(pid, session) => write!(f, "Session({}, {})", pid, session.id),
+            Event::Bookmark(b) => write!(f, "Bookmark({})", b.project_id),
+            Event::SessionFile((pid, sid, path, _)) => {
+                write!(f, "File({}, {}, {})", pid, sid, path.display())
+            }
+            Event::SessionDelta((pid, sid, path, delta)) => {
                 write!(
                     f,
-                    "Deltas({},{},{})",
+                    "Deltas({}, {}, {}, {})",
+                    pid,
                     sid,
                     path.display(),
                     delta.timestamp_ms

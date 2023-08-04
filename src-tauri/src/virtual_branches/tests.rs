@@ -27,7 +27,7 @@ fn new_test_deps() -> Result<TestDeps> {
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path.clone(),
-        project.id.clone(),
+        &project.id,
         project_store.clone(),
         user_store.clone(),
     )?;
@@ -100,12 +100,8 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -574,12 +570,8 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -697,12 +689,8 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -813,12 +801,8 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
         )?;
     commit_all(&repository)?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let project_repository = project_repository::Repository::open(&project)?;
 
@@ -910,12 +894,8 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
         )?;
     commit_all(&repository)?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
     let project_repository = project_repository::Repository::open(&project)?;
 
@@ -978,12 +958,8 @@ fn test_update_base_branch_base() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -1085,12 +1061,8 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -1171,12 +1143,8 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
     )?;
     commit_all(&repository)?;
 
-    let gb_repo = gb_repository::Repository::open(
-        gb_repo_path,
-        project.id.clone(),
-        project_store,
-        user_store,
-    )?;
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {

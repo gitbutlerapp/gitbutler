@@ -27,7 +27,6 @@ impl Watcher {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_data_dir: &path::Path,
-        project: &projects::Project,
         project_store: &projects::Storage,
         user_store: &users::Storage,
         deltas_searcher: &search::Searcher,
@@ -41,7 +40,6 @@ impl Watcher {
         Self {
             inner: Arc::new(InnerWatcher::new(
                 local_data_dir,
-                project,
                 project_store,
                 user_store,
                 deltas_searcher,
@@ -63,13 +61,12 @@ impl Watcher {
         self.inner.post(event).await
     }
 
-    pub async fn run(&self) -> Result<()> {
-        self.inner.run().await
+    pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &str) -> Result<()> {
+        self.inner.run(path, project_id).await
     }
 }
 
 struct InnerWatcher {
-    project_id: String,
     dispatcher: dispatchers::Dispatcher,
     handler: handlers::Handler,
     cancellation_token: CancellationToken,
@@ -81,7 +78,6 @@ impl<'watcher> InnerWatcher {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_data_dir: &path::Path,
-        project: &projects::Project,
         project_store: &projects::Storage,
         user_store: &users::Storage,
         deltas_searcher: &search::Searcher,
@@ -93,11 +89,9 @@ impl<'watcher> InnerWatcher {
         keys_controller: &keys::Controller,
     ) -> Self {
         Self {
-            project_id: project.id.clone(),
-            dispatcher: dispatchers::Dispatcher::new(project),
+            dispatcher: dispatchers::Dispatcher::new(),
             handler: handlers::Handler::new(
                 local_data_dir,
-                &project.id,
                 project_store,
                 user_store,
                 deltas_searcher,
@@ -131,16 +125,21 @@ impl<'watcher> InnerWatcher {
         }
     }
 
-    pub async fn run(&self) -> Result<()> {
+    pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &str) -> Result<()> {
+        let path = path.as_ref();
+
         let (tx, mut rx) = unbounded_channel();
         self.proxy_tx.lock().await.replace(tx.clone());
 
         spawn({
             let dispatcher = self.dispatcher.clone();
-            let project_id = self.project_id.clone();
+            let project_id = project_id.to_string();
+            let project_path = path.to_path_buf();
             let tx = tx.clone();
             async move {
-                let mut dispatcher_rx = dispatcher.run().expect("failed to start dispatcher");
+                let mut dispatcher_rx = dispatcher
+                    .run(&project_id, &project_path)
+                    .expect("failed to start dispatcher");
                 while let Some(event) = dispatcher_rx.recv().await {
                     log::warn!("{}: dispatcher event: {}", project_id, event);
                     if let Err(e) = tx.send(event) {
@@ -150,14 +149,15 @@ impl<'watcher> InnerWatcher {
             }
         });
 
-        tx.send(Event::IndexAll).context("failed to send event")?;
+        tx.send(Event::IndexAll(project_id.to_string()))
+            .context("failed to send event")?;
 
         loop {
             tokio::select! {
                 Some(event) = rx.recv() => {
-                    log::warn!("{}: handling: {}", self.project_id, event);
+                    log::warn!("{}: handling: {}", project_id, event);
                     let handler = self.handler.clone();
-                    let project_id = self.project_id.clone();
+                    let project_id = project_id.to_string();
                     let tx = tx.clone();
                     spawn(
                         async move {
@@ -175,7 +175,7 @@ impl<'watcher> InnerWatcher {
                 },
                 _ = self.cancellation_token.cancelled() => {
                     if let Err(error) = self.dispatcher.stop() {
-                        log::error!("{}: failed to stop dispatcher: {:#}", self.project_id, error);
+                        log::error!("{}: failed to stop dispatcher: {:#}", project_id, error);
                     }
                     break;
                 }

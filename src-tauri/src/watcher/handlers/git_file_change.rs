@@ -6,23 +6,25 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_id: String,
     project_store: projects::Storage,
 }
 
 impl Handler {
-    pub fn new(project_id: &str, project_store: &projects::Storage) -> Self {
+    pub fn new(project_store: &projects::Storage) -> Self {
         Self {
-            project_id: project_id.to_string(),
             project_store: project_store.clone(),
         }
     }
 
-    pub fn handle<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Vec<events::Event>> {
+    pub fn handle<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+        project_id: &str,
+    ) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
-            .get_project(&self.project_id)
-            .with_context(|| "failed to get project")?;
+            .get_project(&project_id)
+            .context("failed to get project")?;
 
         if project.is_none() {
             return Err(anyhow::anyhow!("project not found"));

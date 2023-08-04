@@ -12,7 +12,6 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_id: String,
     project_store: projects::Storage,
     local_data_dir: path::PathBuf,
     user_store: users::Storage,
@@ -21,12 +20,10 @@ pub struct Handler {
 impl Handler {
     pub fn new(
         local_data_dir: &path::Path,
-        project_id: &str,
         project_store: &projects::Storage,
         user_store: &users::Storage,
     ) -> Self {
         Self {
-            project_id: project_id.to_string(),
             project_store: project_store.clone(),
             local_data_dir: local_data_dir.to_path_buf(),
             user_store: user_store.clone(),
@@ -37,6 +34,7 @@ impl Handler {
     fn get_current_file_content(
         &self,
         project_repository: &project_repository::Repository,
+        project_id: &str,
         path: &std::path::Path,
     ) -> Result<Option<String>> {
         if project_repository.is_path_ignored(path)? {
@@ -51,29 +49,25 @@ impl Handler {
         }
 
         if reader.size(path)? > 100_000 {
-            log::warn!("{}: ignoring large file: {}", self.project_id, path);
+            log::warn!("{}: ignoring large file: {}", project_id, path);
             return Ok(None);
         }
 
         match reader.read(path)? {
             reader::Content::UTF8(content) => Ok(Some(content)),
             reader::Content::Binary(_) => {
-                log::warn!("{}: ignoring non-utf8 file: {}", self.project_id, path);
+                log::warn!("{}: ignoring non-utf8 file: {}", project_id, path);
                 Ok(None)
             }
         }
     }
 
     // returns deltas for the file that are already part of the current session (if any)
-    fn get_current_deltas(&self, path: &std::path::Path) -> Result<Option<Vec<deltas::Delta>>> {
-        let gb_repo = gb_repository::Repository::open(
-            self.local_data_dir.clone(),
-            self.project_id.clone(),
-            self.project_store.clone(),
-            self.user_store.clone(),
-        )
-        .context("failed to open gb repository")?;
-
+    fn get_current_deltas(
+        &self,
+        gb_repo: &gb_repository::Repository,
+        path: &path::Path,
+    ) -> Result<Option<Vec<deltas::Delta>>> {
         let current_session = gb_repo.get_current_session()?;
         if current_session.is_none() {
             return Ok(None);
@@ -88,10 +82,14 @@ impl Handler {
         Ok(deltas)
     }
 
-    pub fn handle<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Vec<events::Event>> {
+    pub fn handle<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+        project_id: &str,
+    ) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
-            .get_project(&self.project_id)
+            .get_project(&project_id)
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 
@@ -100,7 +98,7 @@ impl Handler {
 
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
-            self.project_id.clone(),
+            project_id,
             self.project_store.clone(),
             self.user_store.clone(),
         )
@@ -124,7 +122,7 @@ impl Handler {
         let path = path.as_ref();
 
         let current_wd_file_content = match self
-            .get_current_file_content(&project_repository, path)
+            .get_current_file_content(&project_repository, project_id, path)
             .context("failed to get current file content")?
         {
             Some(content) => content,
@@ -140,11 +138,7 @@ impl Handler {
         let latest_file_content = match current_session_reader.file(path) {
             Ok(reader::Content::UTF8(content)) => content,
             Ok(reader::Content::Binary(_)) => {
-                log::warn!(
-                    "{}: ignoring non-utf8 file: {}",
-                    self.project_id,
-                    path.display()
-                );
+                log::warn!("{}: ignoring non-utf8 file: {}", project_id, path.display());
                 return Ok(vec![]);
             }
             Err(reader::Error::NotFound) => "".to_string(),
@@ -152,7 +146,7 @@ impl Handler {
         };
 
         let current_deltas = self
-            .get_current_deltas(path)
+            .get_current_deltas(&gb_repository, path)
             .with_context(|| "failed to get current deltas")?;
 
         let mut text_doc = deltas::Document::new(
@@ -164,11 +158,7 @@ impl Handler {
             .update(&current_wd_file_content)
             .context("failed to calculate new deltas")?;
         if new_delta.is_none() {
-            log::debug!(
-                "{}: {} no new deltas, ignoring",
-                self.project_id,
-                path.display()
-            );
+            log::debug!("{}: {} no new deltas, ignoring", project_id, path.display());
             return Ok(vec![]);
         }
         let new_delta = new_delta.as_ref().unwrap();
@@ -184,12 +174,14 @@ impl Handler {
 
         Ok(vec![
             events::Event::SessionFile((
+                project_id.to_string(),
                 current_session.id.clone(),
                 path.to_path_buf(),
                 latest_file_content,
             )),
-            events::Event::Session(current_session.clone()),
+            events::Event::Session(project_id.to_string(), current_session.clone()),
             events::Event::SessionDelta((
+                project_id.to_string(),
                 current_session.id.clone(),
                 path.to_path_buf(),
                 new_delta.clone(),
@@ -308,19 +300,14 @@ mod test {
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         std::fs::write(project_repo.root().join(file_path), "test2")?;
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let session = gb_repo.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repo, &session)?;
@@ -352,21 +339,16 @@ mod test {
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
 
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         assert!(gb_repo.get_current_session()?.is_some());
 
@@ -385,25 +367,20 @@ mod test {
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let session1 = gb_repo.get_current_session()?.unwrap();
 
         std::fs::write(project_repo.root().join(file_path), "test2")?;
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let session2 = gb_repo.get_current_session()?.unwrap();
         assert_eq!(session1.id, session2.id);
@@ -423,21 +400,16 @@ mod test {
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
 
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let session = gb_repo.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repo, &session)?;
@@ -469,20 +441,15 @@ mod test {
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let session = gb_repo.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repo, &session)?;
@@ -500,7 +467,7 @@ mod test {
         );
 
         std::fs::write(project_repo.root().join(file_path), "test2")?;
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 2);
@@ -534,20 +501,15 @@ mod test {
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let session = gb_repo.get_current_session()?.unwrap();
         let session_reader = sessions::Reader::open(&gb_repo, &session)?;
@@ -565,7 +527,7 @@ mod test {
         );
 
         std::fs::remove_file(project_repo.root().join(file_path))?;
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let deltas = deltas_reader.read_file("test.txt")?.unwrap();
         assert_eq!(deltas.len(), 2);
@@ -591,16 +553,11 @@ mod test {
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -613,7 +570,7 @@ mod test {
             )?;
 
             commit_all(&repository)?;
-            listener.handle(relative_file_path)?;
+            listener.handle(relative_file_path, &project.id)?;
             assert!(gb_repo.flush()?.is_some());
         }
 
@@ -688,16 +645,11 @@ mod test {
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -709,7 +661,7 @@ mod test {
                 i.to_string(),
             )?;
 
-            listener.handle(relative_file_path)?;
+            listener.handle(relative_file_path, &project.id)?;
             assert!(gb_repo.flush()?.is_some());
         }
 
@@ -784,16 +736,11 @@ mod test {
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -805,7 +752,7 @@ mod test {
                 i.to_string(),
             )?;
 
-            listener.handle(relative_file_path)?;
+            listener.handle(relative_file_path, &project.id)?;
         }
 
         // collect all operations from sessions in the reverse order
@@ -856,16 +803,11 @@ mod test {
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
         let target_writer = virtual_branches::target::Writer::new(&gb_repo);
@@ -879,7 +821,7 @@ mod test {
         target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
         std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
-        listener.handle(file_path)?;
+        listener.handle(file_path, &project.id)?;
 
         let flushed_session = gb_repo.flush().unwrap();
 
@@ -925,16 +867,11 @@ mod test {
 
         let gb_repo = gb_repository::Repository::open(
             gb_repo_path.clone(),
-            project.id.clone(),
+            &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(
-            path::Path::new(&gb_repo_path),
-            &project.id,
-            &project_store,
-            &user_store,
-        );
+        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
 
         let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
         let target_writer = virtual_branches::target::Writer::new(&gb_repo);
@@ -948,7 +885,7 @@ mod test {
         target_writer.write(&vbranch1.id, &vbranch1_target)?;
 
         std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
-        listener.handle(file_path).unwrap();
+        listener.handle(file_path, &project.id).unwrap();
 
         let flushed_session = gb_repo.flush().unwrap();
 

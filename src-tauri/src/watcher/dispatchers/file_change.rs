@@ -11,43 +11,28 @@ use tokio::{
     sync::mpsc::{channel, Receiver},
 };
 
-use crate::{projects, watcher::events};
+use crate::watcher::events;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     watcher: Arc<Mutex<Option<RecommendedWatcher>>>,
-    project_path: path::PathBuf,
-    project_id: String,
 }
 
 impl Dispatcher {
-    pub fn new(project: &projects::Project) -> Self {
+    pub fn new() -> Self {
         Self {
             watcher: Arc::new(Mutex::new(None)),
-            project_path: path::PathBuf::from(&project.path),
-            project_id: project.id.clone(),
         }
     }
 
     pub fn stop(&self) -> Result<()> {
-        if let Some(mut watcher) = self.watcher.lock().unwrap().take() {
-            watcher
-                .unwatch(std::path::Path::new(&self.project_path))
-                .context(format!(
-                    "failed to unwatch project path: {}",
-                    self.project_path.display()
-                ))?;
-        }
+        self.watcher.lock().unwrap().take();
         Ok(())
     }
 
-    pub fn run(self) -> Result<Receiver<events::Event>> {
-        let repo = git2::Repository::open(&self.project_path).with_context(|| {
-            format!(
-                "failed to open project repository: {}",
-                self.project_path.display()
-            )
-        })?;
+    pub fn run(self, project_id: &str, path: &path::Path) -> Result<Receiver<events::Event>> {
+        let repo = git2::Repository::open(path)
+            .with_context(|| format!("failed to open project repository: {}", path.display()))?;
 
         let (notify_tx, mut notify_rx) = channel(1);
         let mut watcher = RecommendedWatcher::new(
@@ -75,50 +60,51 @@ impl Dispatcher {
         )?;
 
         watcher
-            .watch(
-                std::path::Path::new(&self.project_path),
-                notify::RecursiveMode::Recursive,
-            )
-            .with_context(|| {
-                format!(
-                    "failed to watch project path: {}",
-                    self.project_path.display()
-                )
-            })?;
+            .watch(std::path::Path::new(path), notify::RecursiveMode::Recursive)
+            .with_context(|| format!("failed to watch project path: {}", path.display()))?;
         self.watcher.lock().unwrap().replace(watcher);
 
-        log::info!("{}: file watcher started", self.project_id);
+        log::info!("{}: file watcher started", project_id);
 
         let (tx, rx) = channel(1);
-        spawn(async move {
-            while let Some(file_path) = notify_rx.recv().await {
-                match file_path.strip_prefix(&self.project_path) {
-                    Ok(relative_file_path) => {
-                        let event = if relative_file_path.starts_with(".git") {
-                            events::Event::GitFileChange(
-                                relative_file_path
-                                    .strip_prefix(".git")
-                                    .unwrap()
-                                    .to_path_buf(),
-                            )
-                        } else {
-                            events::Event::ProjectFileChange(relative_file_path.to_path_buf())
-                        };
-                        log::warn!("sending file change event: {}", event);
-                        if let Err(e) = tx.send(event).await {
-                            log::error!(
-                                "{}: failed to send file change event: {:#}",
-                                self.project_id,
-                                e
-                            );
+        let project_id = project_id.to_string();
+        spawn({
+            let path = path.to_path_buf();
+            let project_id = project_id.clone();
+            async move {
+                while let Some(file_path) = notify_rx.recv().await {
+                    match file_path.strip_prefix(&path) {
+                        Ok(relative_file_path) => {
+                            let event = if relative_file_path.starts_with(".git") {
+                                events::Event::GitFileChange(
+                                    project_id.to_string(),
+                                    relative_file_path
+                                        .strip_prefix(".git")
+                                        .unwrap()
+                                        .to_path_buf(),
+                                )
+                            } else {
+                                events::Event::ProjectFileChange(
+                                    project_id.to_string(),
+                                    relative_file_path.to_path_buf(),
+                                )
+                            };
+                            log::warn!("sending file change event: {}", event);
+                            if let Err(e) = tx.send(event).await {
+                                log::error!(
+                                    "{}: failed to send file change event: {:#}",
+                                    project_id,
+                                    e
+                                );
+                            }
+                        }
+                        Err(err) => {
+                            log::error!("{}: failed to strip prefix: {:#}", project_id, err)
                         }
                     }
-                    Err(err) => {
-                        log::error!("{}: failed to strip prefix: {:#}", self.project_id, err)
-                    }
                 }
+                log::info!("{}: file watcher stopped", project_id);
             }
-            log::info!("{}: file watcher stopped", self.project_id);
         });
 
         Ok(rx)

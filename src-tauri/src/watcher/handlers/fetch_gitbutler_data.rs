@@ -8,7 +8,6 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_id: String,
     project_storage: projects::Storage,
     local_data_dir: path::PathBuf,
     user_storage: users::Storage,
@@ -17,22 +16,20 @@ pub struct Handler {
 impl Handler {
     pub fn new(
         local_data_dir: &path::Path,
-        project_id: &str,
         project_storage: &projects::Storage,
         user_storage: &users::Storage,
     ) -> Self {
         Self {
-            project_id: project_id.to_string(),
             project_storage: project_storage.clone(),
             user_storage: user_storage.clone(),
             local_data_dir: local_data_dir.to_path_buf(),
         }
     }
 
-    pub fn handle(&self, now: time::SystemTime) -> Result<Vec<events::Event>> {
+    pub fn handle(&self, project_id: &str, now: time::SystemTime) -> Result<Vec<events::Event>> {
         let project = self
             .project_storage
-            .get_project(&self.project_id)
+            .get_project(project_id)
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 
@@ -46,7 +43,7 @@ impl Handler {
 
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            self.project_id.clone(),
+            &project_id,
             self.project_storage.clone(),
             self.user_storage.clone(),
         )
@@ -77,7 +74,7 @@ impl Handler {
 
         self.project_storage
             .update_project(&projects::UpdateRequest {
-                id: self.project_id.clone(),
+                id: project_id.to_string(),
                 gitbutler_data_last_fetched: Some(fetch_result),
                 ..Default::default()
             })
@@ -96,7 +93,7 @@ impl Handler {
         let events = new_sessions
             .into_iter()
             .cloned()
-            .map(events::Event::Session)
+            .map(|session| events::Event::Session(project_id.to_string(), session))
             .collect::<Vec<_>>();
 
         Ok(events)
