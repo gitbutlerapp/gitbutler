@@ -9,6 +9,7 @@
 	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { invoke } from '@tauri-apps/api/tauri';
+	import CopyClipBoard from '$lib/components/CopyClipBoard.svelte';
 
 	export let data: PageData;
 	const { cloud } = data;
@@ -87,6 +88,23 @@
 			key: 'gitbutler.utmostDiscretion',
 			value: value ? '0' : '1'
 		});
+	};
+
+	export function get_public_key() {
+		return invoke<string>('get_public_key');
+	}
+
+	let sshKey = '';
+	get_public_key().then((key) => {
+		sshKey = key;
+	});
+
+	const copy = () => {
+		const app = new CopyClipBoard({
+			target: document.getElementById('clipboard'),
+			props: { value: sshKey }
+		});
+		app.$destroy();
 	};
 
 	$: annotateCommits = true;
@@ -248,16 +266,24 @@
 				</div>
 			</div>
 			<div class="flex-auto overflow-y-scroll">
-				{#await invoke('get_public_key') then key}
-					<div
-						class="
+				<input
+					bind:value={sshKey}
+					class="
                         whitespece-pre
-                        select-all
+                        w-full
+												select-all
                         rounded border border-light-200 bg-white p-2 font-mono dark:border-dark-400 dark:bg-dark-700"
+				/>
+			</div>
+			<div class="flex flex-row justify-end space-x-2">
+				<div>
+					<Button kind="filled" color="purple" on:click={copy}>Copy to Clipboard</Button>
+				</div>
+				<div class="p-1">
+					<Link target="_blank" rel="noreferrer" href="https://github.com/settings/ssh/new"
+						>Add key to GitHub</Link
 					>
-						{key}
-					</div>
-				{/await}
+				</div>
 			</div>
 		</div>
 
@@ -347,3 +373,5 @@
 		</Modal>
 	</div>
 </div>
+
+<div id="clipboard" />
