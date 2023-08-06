@@ -392,9 +392,9 @@ impl<'repository> Repository<'repository> {
         Err(Error::AuthError)
     }
 
-    pub fn fetch(&self, remote: &str, key: &keys::PrivateKey) -> Result<(), Error> {
+    pub fn fetch(&self, remote_name: &str, key: &keys::PrivateKey) -> Result<(), Error> {
         let mut remote = self
-            .get_remote(remote)
+            .get_remote(remote_name)
             .context("failed to get remote")
             .map_err(Error::Other)?;
         if let Some(url) = remote.url() {
@@ -415,11 +415,7 @@ impl<'repository> Repository<'repository> {
             fetch_opts.remote_callbacks(remote_callbacks);
             fetch_opts.prune(git2::FetchPrune::On);
 
-            match remote.fetch(
-                &["refs/heads/*:refs/remotes/*"],
-                Some(&mut fetch_opts),
-                None,
-            ) {
+            match remote.fetch(&[remote_name], Some(&mut fetch_opts), None) {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     if e.code() == git2::ErrorCode::Auth {
