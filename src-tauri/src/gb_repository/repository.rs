@@ -606,7 +606,8 @@ impl Repository {
         let head_branch: project_repository::branch::Name = head_ref
             .name()
             .context("Failed to get HEAD reference name")?
-            .try_into()?;
+            .parse()
+            .context("Failed to parse HEAD reference name")?;
         let head_oid = head_ref
             .peel_to_commit()
             .context("Failed to peel HEAD reference to commit")?

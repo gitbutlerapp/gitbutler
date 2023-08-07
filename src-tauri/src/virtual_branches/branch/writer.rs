@@ -126,8 +126,7 @@ mod tests {
             applied: true,
             upstream: Some(
                 format!("refs/remotes/origin/upstream_{}", unsafe { TEST_INDEX })
-                    .as_str()
-                    .try_into()
+                    .parse()
                     .unwrap(),
             ),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
@@ -277,7 +276,7 @@ mod tests {
         let updated_branch = Branch {
             name: "updated_name".to_string(),
             applied: false,
-            upstream: Some("refs/remotes/origin/upstream_updated".try_into().unwrap()),
+            upstream: Some("refs/remotes/origin/upstream_updated".parse().unwrap()),
             created_timestamp_ms: 2,
             updated_timestamp_ms: 3,
             ownership: branch::Ownership { files: vec![] },

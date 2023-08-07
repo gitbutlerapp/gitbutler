@@ -1049,17 +1049,13 @@ pub fn create_virtual_branch_from_branch(
         applied: applied.unwrap_or(false),
         upstream: Some(match upstream {
             project_repository::branch::Name::Remote(remote) => remote.clone(),
-            project_repository::branch::Name::Local(local) => {
-                project_repository::branch::RemoteName::try_from(
-                    format!(
-                        "refs/remotes/{}/{}",
-                        default_target.remote_name,
-                        local.branch()
-                    )
-                    .as_str(),
-                )
-                .unwrap()
-            }
+            project_repository::branch::Name::Local(local) => format!(
+                "refs/remotes/{}/{}",
+                default_target.remote_name,
+                local.branch()
+            )
+            .parse()
+            .unwrap(),
         }),
         tree: tree.id(),
         head: head_commit.id(),
@@ -1115,7 +1111,9 @@ pub fn create_virtual_branch_from_branch(
     // assign ownership to the branch
     for hunk in hunks_by_filepath.values().flatten() {
         branch.ownership.put(
-            &FileOwnership::try_from(format!("{}:{}", hunk.file_path.display(), hunk.id)).unwrap(),
+            &format!("{}:{}", hunk.file_path.display(), hunk.id)
+                .parse()
+                .unwrap(),
         );
     }
 
@@ -1617,14 +1615,15 @@ fn get_applied_status(
     // put the remaining hunks into the default (first) branch
     for hunk in hunks_by_filepath.values().flatten() {
         virtual_branches[0].ownership.put(
-            &FileOwnership::try_from(format!(
+            &format!(
                 "{}:{}-{}-{}-{}",
                 hunk.file_path.display(),
                 hunk.start,
                 hunk.end,
                 hunk.hash,
                 hunk.modified_at,
-            ))
+            )
+            .parse()
             .unwrap(),
         );
         hunks_by_branch_id
@@ -2373,14 +2372,12 @@ pub fn push(
         upstream_branch.clone()
     } else {
         let remote_branch = match get_default_target(&current_session_reader)? {
-            Some(target) => project_repository::branch::RemoteName::try_from(
-                format!(
-                    "refs/remotes/{}/{}",
-                    target.remote_name,
-                    name_to_branch(&vbranch.name)
-                )
-                .as_str(),
+            Some(target) => format!(
+                "refs/remotes/{}/{}",
+                target.remote_name,
+                name_to_branch(&vbranch.name)
             )
+            .parse::<project_repository::branch::RemoteName>()
             .unwrap(),
             None => return Err(PushError::Other(anyhow::anyhow!("no default target set"))),
         };

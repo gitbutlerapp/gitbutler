@@ -56,8 +56,7 @@ mod tests {
             applied: true,
             upstream: Some(
                 format!("refs/remotes/origin/upstream_{}", unsafe { TEST_INDEX })
-                    .as_str()
-                    .try_into()
+                    .parse()
                     .unwrap(),
             ),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,

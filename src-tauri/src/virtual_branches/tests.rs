@@ -597,7 +597,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
         )?;
     get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
     let files = branch_reader.read(&branch1_id)?.ownership.files;
-    assert_eq!(files, vec!["test.txt:11-15,1-5".try_into()?]);
+    assert_eq!(files, vec!["test.txt:11-15,1-5".parse()?]);
     assert_eq!(
         files[0].hunks[0].timestam_ms(),
         files[0].hunks[1].timestam_ms(),
@@ -617,10 +617,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
     let files1 = branch_reader.read(&branch1_id)?.ownership.files;
     assert_eq!(
         files1,
-        vec![
-            "test2.txt:1-2".try_into()?,
-            "test.txt:11-15,1-5".try_into()?
-        ]
+        vec!["test2.txt:1-2".parse()?, "test.txt:11-15,1-5".parse()?]
     );
 
     assert_ne!(
@@ -646,10 +643,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
     let files2 = branch_reader.read(&branch1_id)?.ownership.files;
     assert_eq!(
         files2,
-        vec![
-            "test.txt:1-6,11-15".try_into()?,
-            "test2.txt:1-2".try_into()?,
-        ]
+        vec!["test.txt:1-6,11-15".parse()?, "test2.txt:1-2".parse()?,]
     );
 
     assert_ne!(
@@ -723,14 +717,14 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     let branch2 = branch_reader.read(&branch2_id)?;
     branch_writer.write(&branch::Branch {
         ownership: Ownership {
-            files: vec!["test.txt:1-5".try_into()?],
+            files: vec!["test.txt:1-5".parse()?],
         },
         ..branch2
     })?;
     let branch1 = branch_reader.read(&branch1_id)?;
     branch_writer.write(&branch::Branch {
         ownership: Ownership {
-            files: vec!["test.txt:11-15".try_into()?],
+            files: vec!["test.txt:11-15".parse()?],
         },
         ..branch1
     })?;
@@ -754,7 +748,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
         &gb_repo,
         branch::BranchUpdateRequest {
             id: branch3_id.clone(),
-            ownership: Some(Ownership::try_from("test.txt:1-5,11-15")?),
+            ownership: Some("test.txt:1-5,11-15".parse()?),
             ..Default::default()
         },
     )?;
@@ -777,7 +771,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     assert_eq!(branch_reader.read(&branch2_id)?.ownership.files, vec![]);
     assert_eq!(
         branch_reader.read(&branch3_id)?.ownership.files,
-        vec!["test.txt:1-5,11-15".try_into()?]
+        vec!["test.txt:1-5,11-15".parse()?]
     );
 
     Ok(())
@@ -842,7 +836,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
         &gb_repo,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
-            ownership: Some(Ownership::try_from("test.txt:1-5")?),
+            ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -866,11 +860,11 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
     let branch_reader = branch::Reader::new(&current_session_reader);
     assert_eq!(
         branch_reader.read(&branch1_id)?.ownership.files,
-        vec!["test.txt:12-16".try_into()?]
+        vec!["test.txt:12-16".parse()?]
     );
     assert_eq!(
         branch_reader.read(&branch2_id)?.ownership.files,
-        vec!["test.txt:1-5".try_into()?]
+        vec!["test.txt:1-5".parse()?]
     );
 
     Ok(())
@@ -1329,7 +1323,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch7_id.clone(),
             name: Some("Situation 7".to_string()),
-            ownership: Some(Ownership::try_from("test.txt:1-5")?),
+            ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -1358,7 +1352,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch1_id.clone(),
             name: Some("Situation 1".to_string()),
-            ownership: Some(Ownership::try_from("test.txt:1-5")?),
+            ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -1375,7 +1369,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             name: Some("Situation 2".to_string()),
-            ownership: Some(Ownership::try_from("test.txt:1-5")?),
+            ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -1393,7 +1387,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repo,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
-            ownership: Some(Ownership::try_from("test.txt:1-6")?),
+            ownership: Some("test.txt:1-6".parse()?),
             ..Default::default()
         },
     )?;
@@ -1413,7 +1407,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch3_id.clone(),
             name: Some("Situation 3".to_string()),
-            ownership: Some(Ownership::try_from("test2.txt:1-5")?),
+            ownership: Some("test2.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -1429,7 +1423,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch5_id.clone(),
             name: Some("Situation 5".to_string()),
-            ownership: Some(Ownership::try_from("test3.txt:1-4")?),
+            ownership: Some("test3.txt:1-4".parse()?),
             ..Default::default()
         },
     )?;
@@ -1447,7 +1441,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &gb_repo,
         branch::BranchUpdateRequest {
             id: branch5_id.clone(),
-            ownership: Some(Ownership::try_from("test3.txt:1-5")?),
+            ownership: Some("test3.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -1462,7 +1456,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch4_id.clone(),
             name: Some("Situation 4".to_string()),
-            ownership: Some(Ownership::try_from("test.txt:1-5")?),
+            ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -1477,7 +1471,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch6_id.clone(),
             name: Some("Situation 6".to_string()),
-            ownership: Some(Ownership::try_from("test2.txt:1-5")?),
+            ownership: Some("test2.txt:1-5".parse()?),
             ..Default::default()
         },
     )?;
@@ -1577,7 +1571,7 @@ fn test_apply_unapply_branch() -> Result<()> {
         &gb_repo,
         branch::BranchUpdateRequest {
             id: branch2_id,
-            ownership: Some(Ownership::try_from("test2.txt:1-3")?),
+            ownership: Some("test2.txt:1-3".parse()?),
             ..Default::default()
         },
     )?;
@@ -1674,7 +1668,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         &gb_repo,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
-            ownership: Some(Ownership::try_from("test2.txt:0-0")?),
+            ownership: Some("test2.txt:0-0".parse()?),
             ..Default::default()
         },
     )?;
@@ -1682,7 +1676,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         &gb_repo,
         branch::BranchUpdateRequest {
             id: branch3_id.clone(),
-            ownership: Some(Ownership::try_from("test3.txt:1-2")?),
+            ownership: Some("test3.txt:1-2".parse()?),
             ..Default::default()
         },
     )?;
@@ -1764,7 +1758,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         &gb_repo,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
-            ownership: Some("test4.txt:1-3".try_into()?),
+            ownership: Some("test4.txt:1-3".parse()?),
             ..Default::default()
         },
     )
@@ -1838,7 +1832,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
     let branch4 = branch_reader.read(&branch4_id)?;
     branch_writer.write(&Branch {
         ownership: Ownership {
-            files: vec!["test2.txt:1-6".try_into()?],
+            files: vec!["test2.txt:1-6".parse()?],
         },
         ..branch4
     })?;
@@ -1946,7 +1940,7 @@ fn test_detect_remote_commits() -> Result<()> {
     let branch1 = branch_reader.read(&branch1_id)?;
     let up_target = branch1.head;
     let remote_branch: project_repository::branch::RemoteName =
-        "refs/remotes/origin/remote_branch".try_into().unwrap();
+        "refs/remotes/origin/remote_branch".parse().unwrap();
     repository.reference(&remote_branch.to_string(), up_target, true, "update target")?;
     // set the upstream reference
     branch_writer.write(&Branch {
@@ -2013,7 +2007,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     commit_all(&repository)?;
 
     let upstream: project_repository::branch::Name =
-        "refs/remotes/origin/branch1".try_into().unwrap();
+        "refs/remotes/origin/branch1".parse().unwrap();
 
     repository.reference(
         &upstream.to_string(),
@@ -2170,7 +2164,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
     let remote_commit = repository.head().unwrap().target().unwrap();
 
     let remote_branch: project_repository::branch::Name =
-        "refs/remotes/origin/branch1".try_into().unwrap();
+        "refs/remotes/origin/branch1".parse().unwrap();
     repository.reference(
         &remote_branch.to_string(),
         remote_commit,
@@ -2270,14 +2264,14 @@ fn test_partial_commit() -> Result<()> {
     let branch2 = branch_reader.read(&branch2_id)?;
     branch_writer.write(&branch::Branch {
         ownership: Ownership {
-            files: vec!["test.txt:9-16".try_into()?],
+            files: vec!["test.txt:9-16".parse()?],
         },
         ..branch2
     })?;
     let branch1 = branch_reader.read(&branch1_id)?;
     branch_writer.write(&branch::Branch {
         ownership: Ownership {
-            files: vec!["test.txt:1-6".try_into()?, "test.txt:17-24".try_into()?],
+            files: vec!["test.txt:1-6".parse()?, "test.txt:17-24".parse()?],
         },
         ..branch1
     })?;
@@ -2632,7 +2626,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
     let branch_writer = branch::Writer::new(&gb_repo);
     branch_writer.write(&branch::Branch {
         ownership: Ownership {
-            files: vec!["test2.txt:1-2".try_into()?],
+            files: vec!["test2.txt:1-2".parse()?],
         },
         ..branch
     })?;
@@ -2768,7 +2762,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     branch_writer.write(&branch::Branch {
         name: "My Awesome Branch".to_string(),
         ownership: Ownership {
-            files: vec!["test2.txt:1-2".try_into()?, "test.txt:1-5".try_into()?],
+            files: vec!["test2.txt:1-2".parse()?, "test.txt:1-5".parse()?],
         },
         ..branch
     })?;
@@ -2913,7 +2907,7 @@ fn test_apply_conflicting_vbranch() -> Result<()> {
     branch_writer.write(&branch::Branch {
         name: "Our Awesome Branch".to_string(),
         ownership: Ownership {
-            files: vec!["test.txt:1-5".try_into()?, "test2.txt:1-2".try_into()?],
+            files: vec!["test.txt:1-5".parse()?, "test2.txt:1-2".parse()?],
         },
         ..branch
     })?;
