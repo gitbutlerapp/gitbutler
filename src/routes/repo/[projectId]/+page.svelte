@@ -48,17 +48,15 @@
 	);
 
 	$: sessionId = $sessionsStore?.at(-1)?.id;
-	$: updateDeltasStore(projectId, sessionId); // has to come before `getVirtualBranchStore`
+	$: updateDeltasStore(sessionId); // has to come before `getVirtualBranchStore`
 
 	let targetChoice: string | undefined;
-	let deltasUnsubscribe: () => void;
+	let deltasUnsubscribe: (() => void) | undefined;
 
 	// function exists to unsubscribe from delta store when session changes
-	function updateDeltasStore(projectId: string, sessionId: string | undefined) {
+	function updateDeltasStore(sessionId: string | undefined) {
 		if (deltasUnsubscribe) deltasUnsubscribe();
-		if (sessionId) {
-			deltasUnsubscribe = deltasStore.subscribeStream(sessionId);
-		}
+		deltasUnsubscribe = sessionId ? deltasStore.subscribeStream(sessionId) : undefined;
 	}
 
 	function onSetTargetClick() {
