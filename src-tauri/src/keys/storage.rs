@@ -7,7 +7,7 @@ use crate::storage;
 use super::PrivateKey;
 
 #[derive(Clone)]
-pub struct Controller {
+pub struct Storage {
     storage: storage::Storage,
 }
 
@@ -21,13 +21,13 @@ pub enum Error {
     SSHKey(#[from] ssh_key::Error),
 }
 
-impl From<storage::Storage> for Controller {
+impl From<storage::Storage> for Storage {
     fn from(storage: storage::Storage) -> Self {
         Self { storage }
     }
 }
 
-impl From<&AppHandle> for Controller {
+impl From<&AppHandle> for Storage {
     fn from(handle: &AppHandle) -> Self {
         Self {
             storage: handle.state::<storage::Storage>().inner().clone(),
@@ -35,13 +35,13 @@ impl From<&AppHandle> for Controller {
     }
 }
 
-impl From<&path::PathBuf> for Controller {
+impl From<&path::PathBuf> for Storage {
     fn from(path: &path::PathBuf) -> Self {
         Self::from(storage::Storage::from(path))
     }
 }
 
-impl Controller {
+impl Storage {
     pub fn get_or_create(&self) -> Result<PrivateKey, Error> {
         match self.get_private_key() {
             Ok(Some(key)) => Ok(key),
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_get_or_create() {
         let dir = tempfile::tempdir().unwrap();
-        let controller = Controller::from(&dir.path().to_path_buf());
+        let controller = Storage::from(&dir.path().to_path_buf());
         let once = controller.get_or_create().unwrap();
         let twice = controller.get_or_create().unwrap();
         assert_eq!(once, twice);
