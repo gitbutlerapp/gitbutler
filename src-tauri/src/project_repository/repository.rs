@@ -439,7 +439,7 @@ impl<'repository> Repository<'repository> {
             fetch_opts.remote_callbacks(remote_callbacks);
             fetch_opts.prune(git2::FetchPrune::On);
 
-            let refspec = format!("+refs/heads/*:{}/heads/*", remote_name);
+            let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
             log::info!("{}: git fetch {}", self.project.id, &refspec);
 
             match remote.fetch(&[refspec], Some(&mut fetch_opts), None) {
