@@ -2,12 +2,16 @@ import { Session, list, subscribe } from '$lib/api/ipc/sessions';
 import type { WritableReloadable } from '$lib/vbranches/types';
 import { asyncWritable, get } from '@square/svelte-store';
 
+export interface SessionsStore extends WritableReloadable<Session[]> {
+	subscribeStream(): () => void;
+}
+
 export function getSessionStore(params: { projectId: string }) {
 	const { store } = getSessionStore2(params);
 	return store;
 }
 
-export function getSessionStore2(params: { projectId: string }) {
+export function getSessionStore2(params: { projectId: string }): SessionsStore {
 	const store = asyncWritable(
 		[],
 		async () => {
@@ -19,16 +23,18 @@ export function getSessionStore2(params: { projectId: string }) {
 		{ trackState: true }
 	) as WritableReloadable<Session[]>;
 	// TODO: Where do we unsubscribe this?
-	const unsubscribe = subscribe(params, ({ session }) => {
-		const oldValue = get(store);
-		store.set(
-			oldValue
-				.filter((b) => b.id !== session.id)
-				.concat({
-					projectId: params.projectId,
-					...session
-				})
-		);
-	});
-	return { unsubscribe, store };
+	const subscribeStream = () => {
+		return subscribe(params, ({ session }) => {
+			const oldValue = get(store);
+			store.set(
+				oldValue
+					.filter((b) => b.id !== session.id)
+					.concat({
+						projectId: params.projectId,
+						...session
+					})
+			);
+		});
+	};
+	return { ...store, subscribeStream };
 }
