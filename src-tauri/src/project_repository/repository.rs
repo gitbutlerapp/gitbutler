@@ -593,9 +593,9 @@ fn test_to_ssh_url() {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("push url not set")]
+    #[error("url not set")]
     NoUrl,
-    #[error("push url is not an ssh url: {0}")]
+    #[error("not an ssh url: {0}")]
     NonSSHUrl(String),
     #[error("auth error")]
     AuthError,
