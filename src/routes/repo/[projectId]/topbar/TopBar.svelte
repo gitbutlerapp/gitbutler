@@ -234,9 +234,12 @@
 
 <!-- Remote branches context menu -->
 <PopupMenu bind:this={remoteBranchContextMenu} let:item>
-	<PopupMenuItem on:click={() => item && branchController.createvBranchFromBranch(item.name)}
-		>Apply</PopupMenuItem
-	>
+	<PopupMenuItem on:click={() => {
+    console.log(item) &&
+    item && branchController.createvBranchFromBranch(item.name)
+    }>
+		Apply
+	</PopupMenuItem>
 </PopupMenu>
 
 <!-- Delete branch confirmation modal -->

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::error::Error;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Name {
     // contains name of the remote, e.x. "origin" or "upstream"
     remote: String,
@@ -32,19 +32,6 @@ impl Name {
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "refs/remotes/{}/{}", self.remote, self.branch)
-    }
-}
-
-impl Serialize for Name {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'d> Deserialize<'d> for Name {
-    fn deserialize<D: serde::Deserializer<'d>>(deserializer: D) -> Result<Self, D::Error> {
-        let name = String::deserialize(deserializer)?;
-        name.as_str().parse().map_err(serde::de::Error::custom)
     }
 }
 

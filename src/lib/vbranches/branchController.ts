@@ -1,4 +1,4 @@
-import type { Branch, BranchData, BaseBranch, WritableReloadable } from './types';
+import type { Branch, BranchData, BaseBranch, WritableReloadable, BranchName } from './types';
 import * as toasts from '$lib/toasts';
 import { invoke } from '$lib/ipc';
 
@@ -131,7 +131,7 @@ export class BranchController {
 		}
 	}
 
-	async createvBranchFromBranch(branch: string) {
+	async createvBranchFromBranch(branch: BranchName) {
 		try {
 			await invoke<string>('create_virtual_branch_from_branch', {
 				projectId: this.projectId,

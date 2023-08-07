@@ -143,7 +143,7 @@
 			{:else}
 				<select bind:value={targetChoice}>
 					{#each remoteBranchNames
-						.map((branch) => branch.substring(13))
+						.map(({ branch, remote }) => `${remote}/${branch}`)
 						.sort((a, b) => a.localeCompare(b)) as branch}
 						{#if branch == 'origin/master' || branch == 'origin/main'}
 							<option value={branch} selected>{branch}</option>

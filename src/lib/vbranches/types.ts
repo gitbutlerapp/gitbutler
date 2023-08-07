@@ -3,6 +3,20 @@ import { Type, Transform } from 'class-transformer';
 import type { Readable, WritableLoadable } from '@square/svelte-store';
 import type { LoadState, VisitedMap } from '@square/svelte-store/lib/async-stores/types';
 
+export type RemoteBranchName = {
+	type: 'Remote';
+	remote: string;
+	branch: string;
+};
+
+export type LocalBranchName = {
+	type: 'Local';
+	branch: string;
+	remote?: RemoteBranchName;
+};
+
+export type BranchName = RemoteBranchName | LocalBranchName;
+
 export class Hunk {
 	id!: string;
 	diff!: string;
@@ -38,7 +52,7 @@ export class Branch {
 	mergeable!: boolean;
 	mergeConflicts!: string[];
 	order!: number;
-	upstream?: string;
+	upstream?: RemoteBranchName;
 	conflicted!: boolean;
 	baseCurrent!: boolean;
 }
@@ -63,20 +77,18 @@ export class Author {
 
 export class BranchData {
 	sha!: string;
-	name!: string;
+	name!: BranchName;
 	lastCommitTs!: number;
 	firstCommitTs!: number;
 	ahead!: number;
 	behind!: number;
-	upstream?: string;
 	authors!: Author[];
 	mergeable!: boolean;
 	mergeConflicts!: string[];
 }
 
 export class BaseBranch {
-	branchName!: string;
-	remoteName!: string;
+	name!: RemoteBranchName;
 	remoteUrl!: string;
 	baseSha!: string;
 	currentSha!: string;

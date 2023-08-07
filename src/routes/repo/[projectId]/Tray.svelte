@@ -317,7 +317,9 @@
 
 	<!-- Remote branches context menu -->
 	<PopupMenu bind:this={remoteBranchContextMenu} let:item>
-		<PopupMenuItem on:click={() => item && branchController.createvBranchFromBranch(item.name)}
+		<PopupMenuItem
+			on:click={() =>
+				console.log(item) && item && branchController.createvBranchFromBranch(item.name)}
 			>Apply</PopupMenuItem
 		>
 	</PopupMenu>

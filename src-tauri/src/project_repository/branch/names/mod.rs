@@ -10,7 +10,8 @@ pub use error::Error;
 pub use local::Name as LocalName;
 pub use remote::Name as RemoteName;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[serde(tag = "type")]
 pub enum Name {
     Remote(RemoteName),
     Local(LocalName),
@@ -61,21 +62,5 @@ impl fmt::Display for Name {
             Self::Remote(remote) => remote.fmt(f),
             Self::Local(local) => local.fmt(f),
         }
-    }
-}
-
-impl Serialize for Name {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            Self::Remote(remote) => remote.serialize(serializer),
-            Self::Local(local) => local.serialize(serializer),
-        }
-    }
-}
-
-impl<'d> Deserialize<'d> for Name {
-    fn deserialize<D: serde::Deserializer<'d>>(deserializer: D) -> Result<Self, D::Error> {
-        let name = String::deserialize(deserializer)?;
-        name.parse().map_err(serde::de::Error::custom)
     }
 }

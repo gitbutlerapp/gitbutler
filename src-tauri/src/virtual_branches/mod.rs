@@ -39,7 +39,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranch {
     pub id: String,
-    pub name: String,
+    pub name: project_repository::branch::Name,
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
@@ -47,7 +47,6 @@ pub struct VirtualBranch {
     pub merge_conflicts: Vec<String>,
     pub conflicted: bool,
     pub order: usize,
-    pub upstream: Option<project_repository::branch::RemoteName>,
     pub base_current: bool, // is this vbranch based on the current base branch?
 }
 
@@ -139,8 +138,7 @@ pub struct RemoteBranch {
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BaseBranch {
-    pub branch_name: String,
-    pub remote_name: String,
+    pub name: project_repository::branch::RemoteName,
     pub remote_url: String,
     pub base_sha: String,
     pub current_sha: String,

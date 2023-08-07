@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{error::Error, RemoteName};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Name {
     // contains name of the branch, e.x. "master" or "main"
     branch: String,
@@ -19,19 +19,6 @@ impl Name {
 
     pub fn remote(&self) -> Option<&RemoteName> {
         self.remote.as_ref()
-    }
-}
-
-impl Serialize for Name {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.branch)
-    }
-}
-
-impl<'d> Deserialize<'d> for Name {
-    fn deserialize<D: serde::Deserializer<'d>>(deserializer: D) -> Result<Self, D::Error> {
-        let name = String::deserialize(deserializer)?;
-        name.as_str().parse().map_err(serde::de::Error::custom)
     }
 }
 

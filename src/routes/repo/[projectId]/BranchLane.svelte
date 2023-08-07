@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
-	import type { BaseBranch, Commit, File } from '$lib/vbranches/types';
+	import type { BaseBranch, Commit, File, RemoteBranchName } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
 	import { Button, Link, Tooltip } from '$lib/components';
@@ -51,7 +51,7 @@
 	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
-	export let upstream: string | undefined;
+	export let upstream: RemoteBranchName | undefined;
 	export let branchController: BranchController;
 
 	const user = userStore;
@@ -473,7 +473,11 @@
 
 									<div class="ml-12 flex items-center py-2 font-mono text-sm">
 										{#if upstream}
-											<Link target="_blank" rel="noreferrer" href={url(base, upstream)}>
+											<Link
+												target="_blank"
+												rel="noreferrer"
+												href={url(base, `refs/remotes/${upstream.remote}/${upstream.branch}`)}
+											>
 												<span class="text-sm font-bold">
 													{upstream.split('refs/remotes/')[1]}
 												</span>
