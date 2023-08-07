@@ -1,11 +1,17 @@
 import { subscribe } from '$lib/api/git/fetches';
-import { writable } from '@square/svelte-store';
+import { writable, type Readable } from '@square/svelte-store';
 
-export function getFetchesStore(projectId: string) {
+export interface FetchesStore extends Readable<any[]> {
+	subscribeStream(): () => void;
+}
+
+export function getFetchesStore(projectId: string): FetchesStore {
 	const store = writable<any>([]);
 	// TODO: We need to unsubscribe this!
-	const unsubscribe = subscribe({ projectId }, (result) => {
-		store.set(result);
-	});
-	return { store, unsubscribe };
+	const subscribeStream = () => {
+		return subscribe({ projectId }, (result) => {
+			store.set(result);
+		});
+	};
+	return { ...store, subscribeStream };
 }

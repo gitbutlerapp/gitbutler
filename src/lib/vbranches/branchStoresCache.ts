@@ -3,15 +3,28 @@ import { BaseBranch, Branch, BranchData, type WritableReloadable } from './types
 import { plainToInstance } from 'class-transformer';
 import { invoke } from '$lib/ipc';
 import { isDelete, isInsert, type Delta } from '$lib/api/ipc/deltas';
+import type { Session } from '$lib/api/ipc/sessions';
 
-export function getVirtualBranchStore(
-	projectId: string,
-	sessionId: string,
-	asyncStores: Readable<any>[]
-) {
+export function getVirtualBranchStore(projectId: string, asyncStores: Readable<any>[]) {
 	return asyncWritable(
 		asyncStores,
-		async () => withFileContent(projectId, sessionId, await listVirtualBranches({ projectId })),
+		async () => await listVirtualBranches({ projectId }),
+		async (newBranches) => newBranches,
+		{ reloadable: true, trackState: true }
+	) as WritableReloadable<Branch[] | undefined>;
+}
+
+export function getWithContentStore(
+	projectId: string,
+	sessionStore: Readable<Session[]>,
+	vbranchStore: Readable<Branch[] | undefined>
+) {
+	return asyncWritable(
+		[vbranchStore, sessionStore],
+		async ([branches, sessions]) => {
+			const lastSession = sessions.at(-1);
+			return lastSession ? await withFileContent(projectId, lastSession.id, branches) : [];
+		},
 		async (newBranches) => newBranches,
 		{ reloadable: true, trackState: true }
 	) as WritableReloadable<Branch[] | undefined>;
@@ -53,7 +66,14 @@ export async function getBaseBranchData(params: { projectId: string }): Promise<
 	);
 }
 
-async function withFileContent(projectId: string, sessionId: string, branches: Branch[]) {
+export async function withFileContent(
+	projectId: string,
+	sessionId: string,
+	branches: Branch[] | undefined
+) {
+	if (!branches) {
+		return [];
+	}
 	const filePaths = branches
 		.map((branch) => branch.files)
 		.flat()
