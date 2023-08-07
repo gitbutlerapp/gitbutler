@@ -52,7 +52,6 @@ struct WatcherInner {
     cancellation_token: CancellationToken,
 
     proxy_tx: Arc<Mutex<Option<UnboundedSender<Event>>>>,
-
 }
 
 impl TryFrom<&AppHandle> for WatcherInner {
@@ -97,7 +96,7 @@ impl WatcherInner {
             let project_path = path.as_ref().to_path_buf();
             let tx = tx.clone();
             async move {
-               let mut dispatcher_rx = dispatcher
+                let mut dispatcher_rx = dispatcher
                     .run(&project_id, &project_path)
                     .expect("failed to start dispatcher");
                 while let Some(event) = dispatcher_rx.recv().await {
