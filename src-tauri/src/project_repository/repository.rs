@@ -405,7 +405,7 @@ impl<'repository> Repository<'repository> {
             return Err(Error::NoUrl);
         }
 
-        log::info!("{}: git fetch {}", self.project.id, remote.name().unwrap());
+        log::info!("{}: fetching {}", self.project.id, remote.name().unwrap());
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
@@ -426,6 +426,8 @@ impl<'repository> Repository<'repository> {
                 }
             }
         }
+
+        log::info!("{}: fetched {}", self.project.id, remote.name().unwrap());
 
         Err(Error::AuthError)
     }
