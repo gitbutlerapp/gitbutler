@@ -12,7 +12,7 @@ pub struct Handler {
     local_data_dir: path::PathBuf,
     project_storage: projects::Storage,
     user_storage: users::Storage,
-    keys_controller: keys::Controller,
+    keys_controller: keys::Storage,
 }
 
 impl TryFrom<&AppHandle> for Handler {
@@ -25,7 +25,7 @@ impl TryFrom<&AppHandle> for Handler {
             .context("failed to get local data dir")?;
         Ok(Self {
             local_data_dir: local_data_dir.to_path_buf(),
-            keys_controller: keys::Controller::try_from(value)?,
+            keys_controller: keys::Storage::try_from(value)?,
             project_storage: projects::Storage::try_from(value)?,
             user_storage: users::Storage::try_from(value)?,
         })

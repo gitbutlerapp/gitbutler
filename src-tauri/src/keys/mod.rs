@@ -1,6 +1,6 @@
 pub mod commands;
-mod controller;
 mod key;
+mod storage;
 
-pub use controller::{Controller, Error};
 pub use key::{PrivateKey, PublicKey};
+pub use storage::{Error, Storage};

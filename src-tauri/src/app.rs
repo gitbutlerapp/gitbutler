@@ -19,7 +19,7 @@ pub struct App {
     local_data_dir: std::path::PathBuf,
     projects_storage: projects::Storage,
     users_storage: users::Storage,
-    keys_controller: keys::Controller,
+    keys_controller: keys::Storage,
     searcher: search::Searcher,
     watchers: sync::Arc<Mutex<HashMap<String, watcher::Watcher>>>,
     sessions_database: sessions::Database,
@@ -47,7 +47,7 @@ impl TryFrom<&AppHandle> for App {
                 .path_resolver()
                 .app_local_data_dir()
                 .context("failed to get local data dir")?,
-            keys_controller: keys::Controller::try_from(value)?,
+            keys_controller: keys::Storage::try_from(value)?,
             projects_storage: projects::Storage::try_from(value)?,
             users_storage: users::Storage::try_from(value)?,
             searcher: value.state::<search::Searcher>().inner().clone(),
