@@ -5034,7 +5034,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-log"
 version = "0.0.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#cdb77c4b650a81a9c44c4b5db5a46c31954dd7f9"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#700549ab0265f3699dce4a154332564f4b09117f"
 dependencies = [
  "byte-unit",
  "fern",
@@ -5049,7 +5049,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-websocket"
 version = "0.0.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#cdb77c4b650a81a9c44c4b5db5a46c31954dd7f9"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#700549ab0265f3699dce4a154332564f4b09117f"
 dependencies = [
  "futures-util",
  "log",
@@ -5065,7 +5065,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-window-state"
 version = "0.1.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#cdb77c4b650a81a9c44c4b5db5a46c31954dd7f9"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#700549ab0265f3699dce4a154332564f4b09117f"
 dependencies = [
  "bincode",
  "bitflags 2.3.3",
