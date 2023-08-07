@@ -325,14 +325,14 @@ impl<'repository> Repository<'repository> {
             .find_remote(name)
             .context("failed to find remote")?;
 
-        let push_url = remote.pushurl().or_else(|| remote.url());
-        if push_url.is_none() {
+        let url = remote.url();
+        if url.is_none() {
             return Ok(remote);
         }
-        let push_url = push_url.unwrap();
+        let url = url.unwrap();
 
-        let ssh_url = to_ssh_url(push_url);
-        if ssh_url == push_url {
+        let ssh_url = to_ssh_url(url);
+        if ssh_url == url {
             return Ok(remote);
         }
 
