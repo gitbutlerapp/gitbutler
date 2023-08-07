@@ -48,7 +48,7 @@ impl Handler {
 
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            &project_id,
+            project_id,
             self.project_storage.clone(),
             self.user_storage.clone(),
         )

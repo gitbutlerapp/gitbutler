@@ -36,7 +36,7 @@ impl Handler {
     pub fn handle(&self, project_id: &str, now: time::SystemTime) -> Result<Vec<events::Event>> {
         let project = self
             .project_storage
-            .get_project(&project_id)
+            .get_project(project_id)
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 

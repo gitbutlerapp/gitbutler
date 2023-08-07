@@ -38,7 +38,7 @@ impl Handler {
     ) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
-            .get_project(&project_id)
+            .get_project(project_id)
             .context("failed to get project")?
             .ok_or_else(|| anyhow!("project not found"))?;
 
