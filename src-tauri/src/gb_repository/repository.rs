@@ -38,7 +38,7 @@ impl Repository {
         users_store: users::Storage,
     ) -> Result<Self> {
         let project = project_store
-            .get_project(&project_id)
+            .get_project(project_id)
             .context("failed to get project")?;
         if project.is_none() {
             return Err(anyhow!("project not found"));

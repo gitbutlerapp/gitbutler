@@ -7,6 +7,7 @@ use std::{path, sync::Arc};
 pub use events::Event;
 
 use anyhow::{Context, Result};
+use tauri::AppHandle;
 use tokio::{
     spawn,
     sync::{
@@ -16,43 +17,22 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{bookmarks, deltas, files, keys, projects, search, sessions, users};
-
 #[derive(Clone)]
 pub struct Watcher {
-    inner: Arc<InnerWatcher>,
+    inner: Arc<WatcherInner>,
+}
+
+impl TryFrom<&AppHandle> for Watcher {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            inner: Arc::new(WatcherInner::try_from(value)?),
+        })
+    }
 }
 
 impl Watcher {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        local_data_dir: &path::Path,
-        project_store: &projects::Storage,
-        user_store: &users::Storage,
-        deltas_searcher: &search::Searcher,
-        events_sender: &crate::events::Sender,
-        sessions_database: &sessions::Database,
-        deltas_database: &deltas::Database,
-        files_database: &files::Database,
-        bookmarks_database: &bookmarks::Database,
-        keys_controller: &keys::Controller,
-    ) -> Self {
-        Self {
-            inner: Arc::new(InnerWatcher::new(
-                local_data_dir,
-                project_store,
-                user_store,
-                deltas_searcher,
-                events_sender,
-                sessions_database,
-                deltas_database,
-                files_database,
-                bookmarks_database,
-                keys_controller,
-            )),
-        }
-    }
-
     pub fn stop(&self) -> Result<()> {
         self.inner.stop()
     }
@@ -66,47 +46,29 @@ impl Watcher {
     }
 }
 
-struct InnerWatcher {
-    dispatcher: dispatchers::Dispatcher,
+struct WatcherInner {
     handler: handlers::Handler,
+    dispatcher: dispatchers::Dispatcher,
     cancellation_token: CancellationToken,
 
     proxy_tx: Arc<Mutex<Option<UnboundedSender<Event>>>>,
+
 }
 
-impl<'watcher> InnerWatcher {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        local_data_dir: &path::Path,
-        project_store: &projects::Storage,
-        user_store: &users::Storage,
-        deltas_searcher: &search::Searcher,
-        events_sender: &crate::events::Sender,
-        sessions_database: &sessions::Database,
-        deltas_database: &deltas::Database,
-        files_database: &files::Database,
-        bookmarks_database: &bookmarks::Database,
-        keys_controller: &keys::Controller,
-    ) -> Self {
-        Self {
+impl TryFrom<&AppHandle> for WatcherInner {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            handler: handlers::Handler::try_from(value)?,
             dispatcher: dispatchers::Dispatcher::new(),
-            handler: handlers::Handler::new(
-                local_data_dir,
-                project_store,
-                user_store,
-                deltas_searcher,
-                events_sender,
-                sessions_database,
-                deltas_database,
-                files_database,
-                bookmarks_database,
-                keys_controller,
-            ),
             cancellation_token: CancellationToken::new(),
             proxy_tx: Arc::new(Mutex::new(None)),
-        }
+        })
     }
+}
 
+impl WatcherInner {
     pub fn stop(&self) -> Result<()> {
         self.cancellation_token.cancel();
         Ok(())
@@ -126,18 +88,16 @@ impl<'watcher> InnerWatcher {
     }
 
     pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &str) -> Result<()> {
-        let path = path.as_ref();
-
         let (tx, mut rx) = unbounded_channel();
         self.proxy_tx.lock().await.replace(tx.clone());
 
         spawn({
             let dispatcher = self.dispatcher.clone();
             let project_id = project_id.to_string();
-            let project_path = path.to_path_buf();
+            let project_path = path.as_ref().to_path_buf();
             let tx = tx.clone();
             async move {
-                let mut dispatcher_rx = dispatcher
+               let mut dispatcher_rx = dispatcher
                     .run(&project_id, &project_path)
                     .expect("failed to start dispatcher");
                 while let Some(event) = dispatcher_rx.recv().await {
@@ -156,10 +116,10 @@ impl<'watcher> InnerWatcher {
             tokio::select! {
                 Some(event) = rx.recv() => {
                     log::warn!("{}: handling: {}", project_id, event);
-                    let handler = self.handler.clone();
-                    let project_id = project_id.to_string();
-                    let tx = tx.clone();
-                    spawn(
+                    spawn({
+                        let project_id = project_id.to_string();
+                        let handler = self.handler.clone();
+                        let tx = tx.clone();
                         async move {
                          match handler.handle(event).await {
                             Ok(events) => {
@@ -171,6 +131,7 @@ impl<'watcher> InnerWatcher {
                             },
                             Err(err) => log::error!("{}: failed to handle event: {:#}", project_id, err),
                         }
+                    }
                     });
                 },
                 _ = self.cancellation_token.cancelled() => {

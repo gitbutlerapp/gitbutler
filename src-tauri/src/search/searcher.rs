@@ -1,5 +1,5 @@
 use std::{
-    fs,
+    fs, path,
     sync::{Arc, RwLock},
     time, vec,
 };
@@ -12,6 +12,7 @@ use tantivy::query::TermQuery;
 use tantivy::{collector, directory::MmapDirectory, IndexWriter};
 use tantivy::{query::QueryParser, Term};
 use tantivy::{schema::IndexRecordOption, tokenizer};
+use tauri::AppHandle;
 
 use crate::{bookmarks, deltas, gb_repository, sessions};
 
@@ -19,6 +20,55 @@ use super::{index, meta};
 
 #[derive(Clone)]
 pub struct Searcher {
+    inner: Arc<SearcherInner>,
+}
+
+impl TryFrom<&AppHandle> for Searcher {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self> {
+        Ok(Self {
+            inner: Arc::new(SearcherInner::try_from(value)?),
+        })
+    }
+}
+
+impl TryFrom<&path::PathBuf> for Searcher {
+    type Error = anyhow::Error;
+
+    fn try_from(path: &path::PathBuf) -> Result<Self> {
+        Ok(Self {
+            inner: Arc::new(SearcherInner::try_from(path)?),
+        })
+    }
+}
+
+impl Searcher {
+    pub fn search(&self, q: &Query) -> Result<Results> {
+        self.inner.search(q)
+    }
+
+    pub fn delete_all_data(&self) -> Result<()> {
+        self.inner.delete_all_data()
+    }
+
+    pub fn index_bookmark(
+        &self,
+        bookmark: &bookmarks::Bookmark,
+    ) -> Result<Option<index::IndexDocument>> {
+        self.inner.index_bookmark(bookmark)
+    }
+
+    pub fn index_session(
+        &self,
+        repository: &gb_repository::Repository,
+        session: &sessions::Session,
+    ) -> Result<()> {
+        self.inner.index_session(repository, session)
+    }
+}
+
+pub struct SearcherInner {
     meta_storage: meta::Storage,
 
     index: tantivy::Index,
@@ -26,8 +76,28 @@ pub struct Searcher {
     writer: Arc<RwLock<tantivy::IndexWriter>>,
 }
 
-impl Searcher {
-    pub fn at<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
+impl TryFrom<&AppHandle> for SearcherInner {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self> {
+        let local_data_dir = value
+            .path_resolver()
+            .app_local_data_dir()
+            .context("Failed to get local data dir")?;
+        Self::from_path(local_data_dir)
+    }
+}
+
+impl TryFrom<&path::PathBuf> for SearcherInner {
+    type Error = anyhow::Error;
+
+    fn try_from(path: &path::PathBuf) -> Result<Self> {
+        Self::from_path(path)
+    }
+}
+
+impl SearcherInner {
+    fn from_path<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let dir = path
             .join("indexes")

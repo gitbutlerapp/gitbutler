@@ -6,6 +6,7 @@ use std::{
 use anyhow::{Context, Result};
 
 use rusqlite::{Connection, Transaction};
+use tauri::AppHandle;
 
 mod embedded {
     use refinery::embed_migrations;
@@ -15,6 +16,26 @@ mod embedded {
 #[derive(Clone)]
 pub struct Database {
     conn: Arc<Mutex<Connection>>,
+}
+
+impl TryFrom<&path::PathBuf> for Database {
+    type Error = anyhow::Error;
+
+    fn try_from(path: &path::PathBuf) -> Result<Self, Self::Error> {
+        Self::open(path)
+    }
+}
+
+impl TryFrom<&AppHandle> for Database {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        let local_data_dir = value
+            .path_resolver()
+            .app_local_data_dir()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get local data dir"))?;
+        Self::try_from(&local_data_dir.join("database.sqlite3"))
+    }
 }
 
 impl Database {
@@ -35,7 +56,7 @@ impl Database {
         })
     }
 
-    pub fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
+    fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let mut conn = Connection::open(path).context("Failed to open database")?;
         embedded::migrations::runner()

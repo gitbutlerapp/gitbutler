@@ -864,11 +864,18 @@ fn main() {
             #[cfg(debug_assertions)]
             window.open_devtools();
 
-            let app: app::App = app::App::new(
-                tauri_app.app_handle(),
-                events::Sender::new(tauri_app.handle()),
-            )
-            .expect("failed to initialize app");
+            let app_handle = tauri_app.handle();
+
+            let search = search::Searcher::try_from(&app_handle).expect("failed to initialize search");
+            app_handle.manage(search);
+
+            let database = database::Database::try_from(&app_handle).expect("failed to initialize database");
+            app_handle.manage(database);
+
+            let storage = storage::Storage::try_from(&app_handle).expect("failed to initialize storage");
+            app_handle.manage(storage);
+
+            let app: app::App = app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
 
             // TODO: REMOVE THIS
             // debug_test_consistency(&app_state, "fec3d50c-503f-4021-89fb-e7ec2433ceae")

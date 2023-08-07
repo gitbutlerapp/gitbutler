@@ -1,13 +1,36 @@
-use crate::projects::project;
-use crate::storage;
+use std::path;
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager};
+
+use crate::{projects::project, storage};
 
 const PROJECTS_FILE: &str = "projects.json";
 
 #[derive(Debug, Clone)]
 pub struct Storage {
     storage: storage::Storage,
+}
+
+impl From<storage::Storage> for Storage {
+    fn from(storage: storage::Storage) -> Self {
+        Storage { storage }
+    }
+}
+
+impl From<&path::PathBuf> for Storage {
+    fn from(value: &path::PathBuf) -> Self {
+        Self::from(storage::Storage::from(value))
+    }
+}
+
+impl From<&AppHandle> for Storage {
+    fn from(value: &AppHandle) -> Self {
+        Self {
+            storage: value.state::<storage::Storage>().inner().clone(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -21,10 +44,6 @@ pub struct UpdateRequest {
 }
 
 impl Storage {
-    pub fn new(storage: storage::Storage) -> Self {
-        Self { storage }
-    }
-
     pub fn list_projects(&self) -> Result<Vec<project::Project>> {
         match self.storage.read(PROJECTS_FILE)? {
             Some(projects) => {

@@ -1,6 +1,7 @@
 use std::path;
 
 use anyhow::{Context, Result};
+use tauri::{AppHandle, Manager};
 
 use crate::{
     bookmarks, deltas, events as app_events, files, gb_repository, projects, search, sessions,
@@ -21,30 +22,28 @@ pub struct Handler {
     bookmarks_database: bookmarks::Database,
 }
 
-impl Handler {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        local_data_dir: &path::Path,
-        project_store: &projects::Storage,
-        user_store: &users::Storage,
-        deltas_searcher: &search::Searcher,
-        files_database: &files::Database,
-        sessions_database: &sessions::Database,
-        deltas_database: &deltas::Database,
-        bookmarks_database: &bookmarks::Database,
-    ) -> Self {
-        Self {
-            local_data_dir: local_data_dir.to_path_buf(),
-            project_store: project_store.clone(),
-            user_store: user_store.clone(),
-            deltas_searcher: deltas_searcher.clone(),
-            files_database: files_database.clone(),
-            sessions_database: sessions_database.clone(),
-            deltas_database: deltas_database.clone(),
-            bookmarks_database: bookmarks_database.clone(),
-        }
-    }
+impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
 
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        let local_data_dir = value
+            .path_resolver()
+            .app_local_data_dir()
+            .context("failed to get local data dir")?;
+        Ok(Self {
+            local_data_dir: local_data_dir.to_path_buf(),
+            project_store: projects::Storage::try_from(value)?,
+            user_store: users::Storage::try_from(value)?,
+            deltas_searcher: value.state::<search::Searcher>().inner().clone(),
+            files_database: files::Database::try_from(value)?,
+            sessions_database: sessions::Database::try_from(value)?,
+            deltas_database: deltas::Database::try_from(value)?,
+            bookmarks_database: bookmarks::Database::try_from(value)?,
+        })
+    }
+}
+
+impl Handler {
     pub fn index_deltas(
         &self,
         project_id: &str,

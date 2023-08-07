@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
 
 use crate::{bookmarks, deltas, sessions};
 
@@ -8,11 +8,15 @@ pub struct Sender {
     app_handle: tauri::AppHandle,
 }
 
-impl Sender {
-    pub fn new(app_handle: tauri::AppHandle) -> Self {
-        Self { app_handle }
+impl From<&AppHandle> for Sender {
+    fn from(value: &AppHandle) -> Self {
+        Self {
+            app_handle: value.clone(),
+        }
     }
+}
 
+impl Sender {
     pub fn send(&self, event: Event) -> Result<()> {
         self.app_handle
             .emit_all(&event.name, Some(&event.payload))
