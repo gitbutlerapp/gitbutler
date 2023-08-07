@@ -1,7 +1,7 @@
 import { Session, list, subscribe } from '$lib/api/ipc/sessions';
-import { asyncWritable, get, type AsyncWritable, type Readable } from '@square/svelte-store';
+import { asyncWritable, get, type Loadable, type WritableLoadable } from '@square/svelte-store';
 
-export interface SessionsStore extends Readable<Session[]> {
+export interface SessionsStore extends Loadable<Session[]> {
 	subscribeStream(): () => void; // Consumer of store shall manage hsubscription
 }
 
@@ -19,7 +19,7 @@ export function getSessionStore2(projectId: string): SessionsStore {
 		},
 		async (data) => data,
 		{ trackState: true }
-	) as AsyncWritable<Session[]>;
+	) as WritableLoadable<Session[]>;
 	const subscribeStream = () => {
 		return subscribe({ projectId }, ({ session }) => {
 			const oldValue = get(store);
