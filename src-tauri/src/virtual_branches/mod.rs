@@ -903,9 +903,8 @@ pub fn list_virtual_branches(
             // if there are upstream commits, it might be integrated
             if !upstream_commits.is_empty() {
                 let head_tree = repo.find_tree(branch.tree)?;
-                let merge_tree = repo
-                    .find_tree(merge_base)
-                    .context("failed to find branch commit")?;
+                let merge_commit = repo.find_commit(merge_base)?;
+                let merge_tree = merge_commit.tree()?;
                 let upstream_tree = upstream.tree()?;
                 let upstream_tree_oid = upstream_tree.id();
 
