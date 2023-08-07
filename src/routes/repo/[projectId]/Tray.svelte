@@ -134,7 +134,7 @@
 									{branch.name}
 								</div>
 								<button
-									class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
+									class="flex-grow-0 text-light-600 transition-colors dark:text-dark-200"
 									on:click={(e) => yourBranchContextMenu.openByMouse(e, branch)}
 								>
 									<IconMeatballMenu />

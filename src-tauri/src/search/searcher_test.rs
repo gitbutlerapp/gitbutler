@@ -3,7 +3,7 @@ use std::{path::Path, time};
 use anyhow::Result;
 use tempfile::tempdir;
 
-use crate::{bookmarks, deltas, gb_repository, projects, storage, users};
+use crate::{bookmarks, deltas, gb_repository, projects, users};
 
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
@@ -27,14 +27,14 @@ fn test_sorted_by_timestamp() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_data_dir = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
-    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+    let index_path = tempdir()?.path().to_path_buf();
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -52,7 +52,7 @@ fn test_sorted_by_timestamp() -> Result<()> {
     )?;
     let session = gb_repo.flush()?;
 
-    let searcher = super::Searcher::at(index_path).unwrap();
+    let searcher = super::Searcher::try_from(&index_path).unwrap();
 
     let write_result = searcher.index_session(&gb_repo, &session.unwrap());
     assert!(write_result.is_ok());
@@ -77,14 +77,14 @@ fn search_by_bookmark_note() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_data_dir = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
-    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+    let index_path = tempdir()?.path().to_path_buf();
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -96,7 +96,7 @@ fn search_by_bookmark_note() -> Result<()> {
     )?;
     let session = gb_repo.flush()?.unwrap();
 
-    let searcher = super::Searcher::at(index_path).unwrap();
+    let searcher = super::Searcher::try_from(&index_path).unwrap();
 
     // first we index bookmark
     searcher.index_bookmark(&bookmarks::Bookmark {
@@ -173,14 +173,14 @@ fn search_by_full_match() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_data_dir = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
-    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+    let index_path = tempdir()?.path().to_path_buf();
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -193,7 +193,7 @@ fn search_by_full_match() -> Result<()> {
     let session = gb_repo.flush()?;
     let session = session.unwrap();
 
-    let searcher = super::Searcher::at(index_path).unwrap();
+    let searcher = super::Searcher::try_from(&index_path).unwrap();
 
     let write_result = searcher.index_session(&gb_repo, &session);
     assert!(write_result.is_ok());
@@ -214,14 +214,14 @@ fn search_by_diff() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_data_dir = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
-    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+    let index_path = tempdir()?.path().to_path_buf();
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -240,7 +240,7 @@ fn search_by_diff() -> Result<()> {
     let session = gb_repo.flush()?;
     let session = session.unwrap();
 
-    let searcher = super::Searcher::at(index_path).unwrap();
+    let searcher = super::Searcher::try_from(&index_path).unwrap();
 
     let write_result = searcher.index_session(&gb_repo, &session);
     assert!(write_result.is_ok());
@@ -262,8 +262,8 @@ fn search_by_diff() -> Result<()> {
 
 #[test]
 fn should_index_bookmark_once() -> Result<()> {
-    let index_path = tempdir()?.path().to_str().unwrap().to_string();
-    let searcher = super::Searcher::at(index_path).unwrap();
+    let index_path = tempdir()?.path().to_path_buf();
+    let searcher = super::Searcher::try_from(&index_path).unwrap();
 
     // should not index deleted non-existing bookmark
     assert!(searcher
@@ -333,14 +333,14 @@ fn test_delete_all() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_data_dir = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
-    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+    let index_path = tempdir()?.path().to_path_buf();
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -361,7 +361,7 @@ fn test_delete_all() -> Result<()> {
         ],
     )?;
     let session = gb_repo.flush()?;
-    let searcher = super::Searcher::at(index_path)?;
+    let searcher = super::Searcher::try_from(&index_path).unwrap();
     searcher.index_session(&gb_repo, &session.unwrap())?;
 
     searcher.delete_all_data()?;
@@ -382,14 +382,14 @@ fn search_bookmark_by_phrase() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_data_dir = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
-    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+    let index_path = tempdir()?.path().to_path_buf();
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -402,7 +402,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
     let session = gb_repo.flush()?;
     let session = session.unwrap();
 
-    let searcher = super::Searcher::at(index_path).unwrap();
+    let searcher = super::Searcher::try_from(&index_path).unwrap();
 
     searcher.index_session(&gb_repo, &session)?;
     searcher.index_bookmark(&bookmarks::Bookmark {
@@ -438,14 +438,14 @@ fn search_by_filename() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_data_dir = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
-    let index_path = tempdir()?.path().to_str().unwrap().to_string();
+    let index_path = tempdir()?.path().to_path_buf();
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -464,7 +464,7 @@ fn search_by_filename() -> Result<()> {
     let session = gb_repo.flush()?;
     let session = session.unwrap();
 
-    let searcher = super::Searcher::at(index_path).unwrap();
+    let searcher = super::Searcher::try_from(&index_path).unwrap();
 
     searcher.index_session(&gb_repo, &session)?;
 

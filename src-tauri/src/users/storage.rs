@@ -1,6 +1,9 @@
-use crate::storage;
-use crate::users::user;
+use std::path;
+
 use anyhow::Result;
+use tauri::{AppHandle, Manager};
+
+use crate::{storage, users::user};
 
 const USER_FILE: &str = "user.json";
 
@@ -9,11 +12,31 @@ pub struct Storage {
     storage: storage::Storage,
 }
 
-impl Storage {
-    pub fn new(storage: storage::Storage) -> Self {
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Storage(#[from] storage::Error),
+}
+
+impl From<storage::Storage> for Storage {
+    fn from(storage: storage::Storage) -> Self {
         Self { storage }
     }
+}
 
+impl From<&path::PathBuf> for Storage {
+    fn from(path: &path::PathBuf) -> Self {
+        Self::from(storage::Storage::from(path))
+    }
+}
+
+impl From<&AppHandle> for Storage {
+    fn from(value: &AppHandle) -> Self {
+        Self::from(value.state::<storage::Storage>().inner().clone())
+    }
+}
+
+impl Storage {
     pub fn get(&self) -> Result<Option<user::User>> {
         match self.storage.read(USER_FILE)? {
             Some(data) => Ok(Some(serde_json::from_str(&data)?)),

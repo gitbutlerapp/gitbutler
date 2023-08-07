@@ -325,22 +325,23 @@ impl<'repository> Repository<'repository> {
             .find_remote(name)
             .context("failed to find remote")?;
 
-        let push_url = remote.pushurl().or_else(|| remote.url());
-        if push_url.is_none() {
-            return Ok(remote);
+        if let Some(url) = remote.url() {
+            if matches!(url_type(url), URLType::Ssh) {
+                return Ok(remote);
+            }
+
+            let url = to_ssh_url(url);
+            if !matches!(url_type(&url), URLType::Ssh) {
+                return Err(Error::NonSSHUrl(url.to_string()).into());
+            }
+
+            Ok(self
+                .git_repository
+                .remote_anonymous(&url)
+                .context("failed to get anonymous")?)
+        } else {
+            Err(Error::NoUrl.into())
         }
-        let push_url = push_url.unwrap();
-
-        let ssh_url = to_ssh_url(push_url);
-        if ssh_url == push_url {
-            return Ok(remote);
-        }
-
-        self.git_repository.remote_set_url(name, &ssh_url)?;
-
-        self.git_repository
-            .find_remote(name)
-            .context("failed to find updated remote")
     }
 
     pub fn push(
@@ -354,33 +355,29 @@ impl<'repository> Repository<'repository> {
             .context("failed to get remote")
             .map_err(Error::Other)?;
 
-        if let Some(url) = remote.url() {
-            if !matches!(url_type(url), URLType::Ssh) {
-                return Err(Error::NonSSHUrl(url.to_string()));
-            }
-        } else {
-            return Err(Error::NoUrl);
-        }
-
-        log::info!(
-            "{}: git push {} {}:refs/heads/{}",
-            self.project.id,
-            branch.remote(),
-            head,
-            branch.branch()
-        );
-
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
+
+            log::info!(
+                "{}: git push {} {}:refs/heads/{}",
+                self.project.id,
+                branch.remote(),
+                head,
+                branch.branch()
+            );
 
             match remote.push(
                 &[format!("{}:refs/heads/{}", head, branch.branch())],
                 Some(&mut git2::PushOptions::new().remote_callbacks(remote_callbacks)),
             ) {
-                Ok(()) => return Ok(()),
+                Ok(()) => {
+                    log::info!("{}: git push succeeded", self.project.id);
+                    return Ok(());
+                }
                 Err(e) => {
                     if e.code() == git2::ErrorCode::Auth {
+                        log::info!("{}: git push failed: {:#}", self.project.id, e);
                         continue;
                     } else {
                         return Err(Error::Other(e.into()));
@@ -397,28 +394,62 @@ impl<'repository> Repository<'repository> {
             .get_remote(remote_name)
             .context("failed to get remote")
             .map_err(Error::Other)?;
-        if let Some(url) = remote.url() {
-            if !matches!(url_type(url), URLType::Ssh) {
-                return Err(Error::NonSSHUrl(url.to_string()));
-            }
-        } else {
-            return Err(Error::NoUrl);
-        }
-
-        log::info!("{}: fetching {}", self.project.id, remote.name().unwrap());
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
+            remote_callbacks.push_update_reference(|refname, message| {
+                if let Some(msg) = message {
+                    log::info!(
+                        "{}: push update reference: {}: {}",
+                        self.project.id,
+                        refname,
+                        msg
+                    );
+                }
+                Ok(())
+            });
+            remote_callbacks.push_negotiation(|proposals| {
+                log::info!(
+                    "{}: push negotiation: {:?}",
+                    self.project.id,
+                    proposals
+                        .iter()
+                        .map(|p| format!(
+                            "src_refname: {}, dst_refname: {}",
+                            p.src_refname().unwrap_or(&p.src().to_string()),
+                            p.dst_refname().unwrap_or(&p.dst().to_string())
+                        ))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                Ok(())
+            });
+            remote_callbacks.push_transfer_progress(|one, two, three| {
+                log::info!(
+                    "{}: push transfer progress: {} {} {}",
+                    self.project.id,
+                    one,
+                    two,
+                    three
+                );
+            });
 
             let mut fetch_opts = git2::FetchOptions::new();
             fetch_opts.remote_callbacks(remote_callbacks);
             fetch_opts.prune(git2::FetchPrune::On);
 
-            match remote.fetch(&[remote_name], Some(&mut fetch_opts), None) {
-                Ok(()) => return Ok(()),
+            let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
+            log::info!("{}: git fetch {}", self.project.id, &refspec);
+
+            match remote.fetch(&[refspec], Some(&mut fetch_opts), None) {
+                Ok(()) => {
+                    log::info!("{}: fetched {}", self.project.id, remote_name);
+                    return Ok(());
+                }
                 Err(e) => {
                     if e.code() == git2::ErrorCode::Auth {
+                        log::warn!("{}: auth error", self.project.id);
                         continue;
                     } else {
                         return Err(Error::Other(e.into()));
@@ -426,8 +457,6 @@ impl<'repository> Repository<'repository> {
                 }
             }
         }
-
-        log::info!("{}: fetched {}", self.project.id, remote.name().unwrap());
 
         Err(Error::AuthError)
     }
@@ -593,9 +622,9 @@ fn test_to_ssh_url() {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("push url not set")]
+    #[error("url not set")]
     NoUrl,
-    #[error("push url is not an ssh url: {0}")]
+    #[error("not an ssh url: {0}")]
     NonSSHUrl(String),
     #[error("auth error")]
     AuthError,

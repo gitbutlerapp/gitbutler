@@ -1,6 +1,6 @@
 use std::{thread, time};
 
-use crate::{deltas, gb_repository, projects, sessions, storage, users};
+use crate::{deltas, gb_repository, projects, sessions, users};
 use anyhow::Result;
 use tempfile::tempdir;
 
@@ -49,10 +49,10 @@ fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
@@ -68,10 +68,10 @@ fn test_must_not_return_init_session() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
@@ -88,10 +88,10 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
@@ -109,10 +109,10 @@ fn test_init_on_non_empty_repository() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
 
     std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
     commit_all(&repository)?;
@@ -127,10 +127,10 @@ fn test_flush_on_existing_repository() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
 
     std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
     commit_all(&repository)?;
@@ -156,10 +156,10 @@ fn test_must_flush_current_session() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
@@ -178,10 +178,10 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
@@ -214,10 +214,10 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
@@ -250,10 +250,10 @@ fn test_list_files_from_current_session() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
 
     // files are there before the session is created
     std::fs::write(
@@ -280,10 +280,10 @@ fn test_list_files_from_flushed_session() -> Result<()> {
     let repository = test_repository()?;
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
 
     // files are there before the session is created
     std::fs::write(
@@ -320,10 +320,10 @@ fn test_remote_syncronization() -> Result<()> {
         sync: true,
     };
 
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
     user_store.set(&users::User {
         name: "test".to_string(),
         email: "test@email.com".to_string(),
@@ -407,10 +407,10 @@ fn test_remote_sync_order() -> Result<()> {
         sync: true,
     };
 
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let project_store = projects::Storage::new(storage.clone());
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let project_store = projects::Storage::from(&local_app_data);
     let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
-    let user_store = users::Storage::new(storage);
+    let user_store = users::Storage::from(&local_app_data);
     user_store.set(&users::User {
         name: "test".to_string(),
         email: "test@email.com".to_string(),

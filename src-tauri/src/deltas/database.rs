@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use tauri::{AppHandle, Manager};
 
 use crate::database;
 
@@ -11,11 +12,19 @@ pub struct Database {
     database: database::Database,
 }
 
-impl Database {
-    pub fn new(database: database::Database) -> Self {
+impl From<database::Database> for Database {
+    fn from(database: database::Database) -> Self {
         Self { database }
     }
+}
 
+impl From<&AppHandle> for Database {
+    fn from(value: &AppHandle) -> Self {
+        Self::from(value.state::<database::Database>().inner().clone())
+    }
+}
+
+impl Database {
     pub fn insert(
         &self,
         project_id: &str,
@@ -128,7 +137,7 @@ mod tests {
     #[test]
     fn insert_query() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(db);
+        let database = Database::from(db);
 
         let project_id = "project_id";
         let session_id = "session_id";
@@ -154,7 +163,7 @@ mod tests {
     #[test]
     fn insert_update() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(db);
+        let database = Database::from(db);
 
         let project_id = "project_id";
         let session_id = "session_id";
@@ -187,7 +196,7 @@ mod tests {
     #[test]
     fn aggregate_deltas_by_file() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(db);
+        let database = Database::from(db);
 
         let project_id = "project_id";
         let session_id = "session_id";

@@ -1,6 +1,7 @@
 use std::{path, vec};
 
 use anyhow::{Context, Result};
+use tauri::AppHandle;
 
 use crate::{
     deltas, gb_repository, project_repository, projects,
@@ -12,24 +13,40 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_store: projects::Storage,
     local_data_dir: path::PathBuf,
+    project_store: projects::Storage,
     user_store: users::Storage,
 }
 
-impl Handler {
-    pub fn new(
-        local_data_dir: &path::Path,
-        project_store: &projects::Storage,
-        user_store: &users::Storage,
-    ) -> Self {
+impl From<&path::PathBuf> for Handler {
+    fn from(local_data_dir: &path::PathBuf) -> Self {
         Self {
-            project_store: project_store.clone(),
             local_data_dir: local_data_dir.to_path_buf(),
-            user_store: user_store.clone(),
+            project_store: projects::Storage::from(local_data_dir),
+            user_store: users::Storage::from(local_data_dir),
         }
     }
+}
 
+impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        let local_data_dir = value
+            .path_resolver()
+            .app_local_data_dir()
+            .context("Failed to get local data dir")?;
+        let user_store = users::Storage::try_from(value).context("Failed to get user store")?;
+        let project_store = projects::Storage::try_from(value)?;
+        Ok(Self {
+            project_store,
+            local_data_dir,
+            user_store,
+        })
+    }
+}
+
+impl Handler {
     // Returns Some(file_content) or None if the file is ignored.
     fn get_current_file_content(
         &self,
@@ -73,7 +90,7 @@ impl Handler {
             return Ok(None);
         }
         let current_session = current_session.unwrap();
-        let session_reader = sessions::Reader::open(&gb_repo, &current_session)
+        let session_reader = sessions::Reader::open(gb_repo, &current_session)
             .context("failed to get session reader")?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         let deltas = deltas_reader
@@ -89,7 +106,7 @@ impl Handler {
     ) -> Result<Vec<events::Event>> {
         let project = self
             .project_store
-            .get_project(&project_id)
+            .get_project(project_id)
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 
@@ -195,7 +212,7 @@ mod test {
     use tempfile::tempdir;
 
     use crate::{
-        deltas, gb_repository, project_repository, projects, sessions, storage, users,
+        deltas, gb_repository, project_repository, projects, sessions, users,
         virtual_branches::{self, branch},
     };
 
@@ -288,10 +305,9 @@ mod test {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
 
         let file_path = std::path::Path::new("test.txt");
@@ -299,12 +315,12 @@ mod test {
         commit_all(&repository)?;
 
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         std::fs::write(project_repo.root().join(file_path), "test2")?;
         listener.handle(file_path, &project.id)?;
@@ -332,18 +348,17 @@ mod test {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -360,18 +375,17 @@ mod test {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -393,18 +407,17 @@ mod test {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -434,18 +447,17 @@ mod test {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -494,18 +506,17 @@ mod test {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
@@ -546,18 +557,17 @@ mod test {
     fn test_flow_with_commits() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -638,18 +648,17 @@ mod test {
     fn test_flow_no_commits() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -729,18 +738,17 @@ mod test {
     fn test_flow_signle_session() -> Result<()> {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let size = 10;
         let relative_file_path = std::path::Path::new("one/two/test.txt");
@@ -791,10 +799,9 @@ mod test {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
 
         let file_path = std::path::Path::new("test.txt");
@@ -802,12 +809,12 @@ mod test {
         commit_all(&repository)?;
 
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
         let target_writer = virtual_branches::target::Writer::new(&gb_repo);
@@ -855,10 +862,9 @@ mod test {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
 
         let file_path = std::path::Path::new("test.txt");
@@ -866,12 +872,12 @@ mod test {
         commit_all(&repository)?;
 
         let gb_repo = gb_repository::Repository::open(
-            gb_repo_path.clone(),
+            local_data_dir.clone(),
             &project.id,
             project_store.clone(),
             user_store.clone(),
         )?;
-        let listener = Handler::new(path::Path::new(&gb_repo_path), &project_store, &user_store);
+        let listener = Handler::from(&local_data_dir);
 
         let branch_writer = virtual_branches::branch::Writer::new(&gb_repo);
         let target_writer = virtual_branches::target::Writer::new(&gb_repo);

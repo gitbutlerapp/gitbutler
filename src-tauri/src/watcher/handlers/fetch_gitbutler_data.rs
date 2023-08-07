@@ -1,6 +1,7 @@
 use std::{path, time};
 
 use anyhow::{Context, Result};
+use tauri::AppHandle;
 
 use crate::{gb_repository, projects, users};
 
@@ -8,24 +9,28 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    project_storage: projects::Storage,
     local_data_dir: path::PathBuf,
+    project_storage: projects::Storage,
     user_storage: users::Storage,
 }
 
-impl Handler {
-    pub fn new(
-        local_data_dir: &path::Path,
-        project_storage: &projects::Storage,
-        user_storage: &users::Storage,
-    ) -> Self {
-        Self {
-            project_storage: project_storage.clone(),
-            user_storage: user_storage.clone(),
-            local_data_dir: local_data_dir.to_path_buf(),
-        }
-    }
+impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
 
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        let local_data_dir = value
+            .path_resolver()
+            .app_local_data_dir()
+            .context("failed to get local data dir")?;
+        Ok(Self {
+            local_data_dir: local_data_dir.to_path_buf(),
+            project_storage: projects::Storage::try_from(value)?,
+            user_storage: users::Storage::try_from(value)?,
+        })
+    }
+}
+
+impl Handler {
     pub fn handle(&self, project_id: &str, now: time::SystemTime) -> Result<Vec<events::Event>> {
         let project = self
             .project_storage
@@ -43,7 +48,7 @@ impl Handler {
 
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
-            &project_id,
+            project_id,
             self.project_storage.clone(),
             self.user_storage.clone(),
         )
