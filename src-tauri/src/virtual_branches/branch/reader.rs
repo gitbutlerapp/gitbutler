@@ -48,8 +48,7 @@ mod tests {
             order: unsafe { TEST_INDEX },
             upstream: Some(
                 format!("refs/remotes/origin/upstream_{}", unsafe { TEST_INDEX })
-                    .as_str()
-                    .try_into()
+                    .parse()
                     .unwrap(),
             ),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
@@ -66,7 +65,7 @@ mod tests {
             .unwrap(),
             ownership: Ownership {
                 files: vec![format!("file/{}:1-2", unsafe { TEST_INDEX })
-                    .try_into()
+                    .parse()
                     .unwrap()],
             },
         }

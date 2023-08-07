@@ -1,4 +1,4 @@
-use std::{fmt, path, vec};
+use std::{fmt, path, str::FromStr, vec};
 
 use anyhow::{Context, Result};
 
@@ -10,22 +10,16 @@ pub struct FileOwnership {
     pub hunks: Vec<Hunk>,
 }
 
-impl TryFrom<&String> for FileOwnership {
-    type Error = anyhow::Error;
-    fn try_from(value: &String) -> std::result::Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
-    }
-}
+impl FromStr for FileOwnership {
+    type Err = anyhow::Error;
 
-impl TryFrom<&str> for FileOwnership {
-    type Error = anyhow::Error;
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
         let mut parts = value.split(':');
         let file_path = parts.next().unwrap();
         let ranges = match parts.next() {
             Some(raw_ranges) => raw_ranges
                 .split(',')
-                .map(Hunk::try_from)
+                .map(|h| h.parse())
                 .collect::<Result<Vec<Hunk>>>(),
             None => Ok(vec![]),
         }
@@ -39,13 +33,6 @@ impl TryFrom<&str> for FileOwnership {
                 hunks: ranges,
             })
         }
-    }
-}
-
-impl TryFrom<String> for FileOwnership {
-    type Error = anyhow::Error;
-    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
-        Self::try_from(&value)
     }
 }
 
@@ -168,7 +155,7 @@ mod tests {
 
     #[test]
     fn parse_ownership() {
-        let ownership = FileOwnership::try_from("foo/bar.rs:1-2,4-5").unwrap();
+        let ownership: FileOwnership = "foo/bar.rs:1-2,4-5".parse().unwrap();
         assert_eq!(
             ownership,
             FileOwnership {
@@ -180,7 +167,7 @@ mod tests {
 
     #[test]
     fn parse_ownership_no_ranges() {
-        assert!(FileOwnership::try_from("foo/bar.rs").is_err());
+        assert!("foo/bar.rs".parse::<FileOwnership>().is_err());
     }
 
     #[test]
@@ -191,7 +178,7 @@ mod tests {
         };
         assert_eq!(ownership.to_string(), "foo/bar.rs:1-2,4-5".to_string());
         assert_eq!(
-            FileOwnership::try_from(&ownership.to_string()).unwrap(),
+            ownership.to_string().parse::<FileOwnership>().unwrap(),
             ownership
         );
     }
@@ -215,9 +202,9 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                FileOwnership::try_from(a).unwrap(),
-                FileOwnership::try_from(b).unwrap(),
-                FileOwnership::try_from(expected).unwrap(),
+                a.parse::<FileOwnership>().unwrap(),
+                b.parse::<FileOwnership>().unwrap(),
+                expected.parse::<FileOwnership>().unwrap(),
             )
         })
         .for_each(|(a, b, expected)| {
@@ -267,11 +254,11 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                FileOwnership::try_from(a).unwrap(),
-                FileOwnership::try_from(b).unwrap(),
+                a.parse::<FileOwnership>().unwrap(),
+                b.parse::<FileOwnership>().unwrap(),
                 (
-                    expected.0.map(|s| FileOwnership::try_from(s).unwrap()),
-                    expected.1.map(|s| FileOwnership::try_from(s).unwrap()),
+                    expected.0.map(|s| s.parse::<FileOwnership>().unwrap()),
+                    expected.1.map(|s| s.parse::<FileOwnership>().unwrap()),
                 ),
             )
         })
@@ -296,8 +283,8 @@ mod tests {
         .into_iter()
         .map(|(a, b, expected)| {
             (
-                FileOwnership::try_from(a).unwrap(),
-                FileOwnership::try_from(b).unwrap(),
+                a.parse::<FileOwnership>().unwrap(),
+                b.parse::<FileOwnership>().unwrap(),
                 expected,
             )
         })

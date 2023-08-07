@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::RangeInclusive};
+use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 
@@ -31,10 +31,10 @@ impl From<RangeInclusive<usize>> for Hunk {
     }
 }
 
-impl TryFrom<&str> for Hunk {
-    type Error = anyhow::Error;
+impl FromStr for Hunk {
+    type Err = anyhow::Error;
 
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let mut range = s.split('-');
         let start = if let Some(raw_start) = range.next() {
             raw_start
@@ -138,19 +138,19 @@ mod tests {
 
     #[test]
     fn to_from_string() {
-        let hunk = Hunk::try_from("1-2").unwrap();
+        let hunk = "1-2".parse::<Hunk>().unwrap();
         assert_eq!("1-2", hunk.to_string());
     }
 
     #[test]
     fn parse_invalid() {
-        assert!(Hunk::try_from("3-2").is_err());
+        assert!("3-2".parse::<Hunk>().is_err());
     }
 
     #[test]
     fn parse_with_hash() {
         assert_eq!(
-            Hunk::try_from("2-3-hash").unwrap(),
+            "2-3-hash".parse::<Hunk>().unwrap(),
             Hunk::new(2, 3, Some("hash".to_string()), None).unwrap()
         );
     }
@@ -158,14 +158,14 @@ mod tests {
     #[test]
     fn parse_with_timestamp() {
         assert_eq!(
-            Hunk::try_from("2-3--123").unwrap(),
+            "2-3--123".parse::<Hunk>().unwrap(),
             Hunk::new(2, 3, None, Some(123)).unwrap()
         );
     }
 
     #[test]
     fn parse_invalid_2() {
-        assert!(Hunk::try_from("3-2").is_err());
+        assert!("3-2".parse::<Hunk>().is_err());
     }
 
     #[test]
@@ -180,43 +180,43 @@ mod tests {
     fn test_eq() {
         vec![
             (
-                Hunk::try_from("1-2").unwrap(),
-                Hunk::try_from("1-2").unwrap(),
+                "1-2".parse::<Hunk>().unwrap(),
+                "1-2".parse::<Hunk>().unwrap(),
                 true,
             ),
             (
-                Hunk::try_from("1-2").unwrap(),
-                Hunk::try_from("2-3").unwrap(),
+                "1-2".parse::<Hunk>().unwrap(),
+                "2-3".parse::<Hunk>().unwrap(),
                 false,
             ),
             (
-                Hunk::try_from("1-2-abc").unwrap(),
-                Hunk::try_from("1-2-abc").unwrap(),
+                "1-2-abc".parse::<Hunk>().unwrap(),
+                "1-2-abc".parse::<Hunk>().unwrap(),
                 true,
             ),
             (
-                Hunk::try_from("1-2-abc").unwrap(),
-                Hunk::try_from("2-3-abc").unwrap(),
+                "1-2-abc".parse::<Hunk>().unwrap(),
+                "2-3-abc".parse::<Hunk>().unwrap(),
                 true,
             ),
             (
-                Hunk::try_from("1-2").unwrap(),
-                Hunk::try_from("1-2-abc").unwrap(),
+                "1-2".parse::<Hunk>().unwrap(),
+                "1-2-abc".parse::<Hunk>().unwrap(),
                 true,
             ),
             (
-                Hunk::try_from("1-2-abc").unwrap(),
-                Hunk::try_from("1-2").unwrap(),
+                "1-2-abc".parse::<Hunk>().unwrap(),
+                "1-2".parse::<Hunk>().unwrap(),
                 true,
             ),
             (
-                Hunk::try_from("1-2-abc").unwrap(),
-                Hunk::try_from("1-2-bcd").unwrap(),
+                "1-2-abc".parse::<Hunk>().unwrap(),
+                "1-2-bcd".parse::<Hunk>().unwrap(),
                 false,
             ),
             (
-                Hunk::try_from("1-2-abc").unwrap(),
-                Hunk::try_from("2-3-bcd").unwrap(),
+                "1-2-abc".parse::<Hunk>().unwrap(),
+                "2-3-bcd".parse::<Hunk>().unwrap(),
                 false,
             ),
         ]
