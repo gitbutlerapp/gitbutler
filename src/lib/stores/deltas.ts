@@ -17,9 +17,7 @@ export function getDeltasStore2(projectId: string): DeltasStore {
 	const subscribe = (sessionId: string) => {
 		const combinedParams = { sessionId, projectId };
 		deltas.list(combinedParams).then((results) => {
-			if (Loaded.isValue(results)) {
-				store.set(results);
-			}
+			store.set({ isLoading: false, value: results });
 		});
 		return deltas.subscribe(combinedParams, ({ filePath, deltas: newDeltas }) => {
 			const oldValue = get(store);
