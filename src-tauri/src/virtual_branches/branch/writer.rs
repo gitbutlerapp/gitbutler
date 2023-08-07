@@ -110,7 +110,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use crate::{projects, storage, users, virtual_branches::branch};
+    use crate::{projects, users, virtual_branches::branch};
 
     use super::*;
 
@@ -174,9 +174,9 @@ mod tests {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo =
             gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -240,9 +240,9 @@ mod tests {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo =
             gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -262,9 +262,9 @@ mod tests {
         let repository = test_repository()?;
         let project = projects::Project::try_from(&repository)?;
         let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let storage = storage::Storage::from_path(tempdir()?.path());
-        let user_store = users::Storage::new(storage.clone());
-        let project_store = projects::Storage::new(storage);
+        let local_data_dir = tempdir()?.path().to_path_buf();
+        let user_store = users::Storage::from(&local_data_dir);
+        let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo =
             gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;

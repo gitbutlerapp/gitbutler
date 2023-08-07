@@ -4,7 +4,7 @@ use tempfile::tempdir;
 use crate::{
     gb_repository,
     projects::{self, Project},
-    sessions, storage, users,
+    sessions, users,
 };
 
 use super::Writer;
@@ -31,9 +31,9 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
     let repository = test_repository()?;
     let project = Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let user_store = users::Storage::from(&local_app_data);
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -59,9 +59,9 @@ fn test_should_write_full_session() -> Result<()> {
     let repository = test_repository()?;
     let project = Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let user_store = users::Storage::from(&local_app_data);
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -108,9 +108,9 @@ fn test_should_write_partial_session() -> Result<()> {
     let repository = test_repository()?;
     let project = Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let storage = storage::Storage::from_path(tempdir()?.path());
-    let user_store = users::Storage::new(storage.clone());
-    let project_store = projects::Storage::new(storage);
+    let local_app_data = tempdir()?.path().to_path_buf();
+    let user_store = users::Storage::from(&local_app_data);
+    let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;

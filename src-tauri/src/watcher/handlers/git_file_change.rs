@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use tauri::AppHandle;
 
 use crate::{events as app_events, project_repository, projects};
 
@@ -9,13 +10,16 @@ pub struct Handler {
     project_store: projects::Storage,
 }
 
-impl Handler {
-    pub fn new(project_store: &projects::Storage) -> Self {
-        Self {
-            project_store: project_store.clone(),
-        }
+impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        Ok(Self {
+            project_store: projects::Storage::try_from(value)?,
+        })
     }
+}
 
+impl Handler {
     pub fn handle<P: AsRef<std::path::Path>>(
         &self,
         path: P,

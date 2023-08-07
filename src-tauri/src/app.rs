@@ -2,36 +2,30 @@ use std::{collections::HashMap, ops, path, sync, thread, time};
 
 use anyhow::{bail, Context, Result};
 use futures::executor::block_on;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::{Mutex, Semaphore};
 
 use crate::{
-    bookmarks, database, deltas, events, files, gb_repository, keys,
+    bookmarks, deltas, files, gb_repository, keys,
     project_repository::{self, activity, branch, conflicts, diff},
-    projects, pty, reader, search, sessions, storage, users,
+    projects, pty, reader, search, sessions, users,
     virtual_branches::{self, target},
     watcher,
 };
 
 #[derive(Clone)]
 pub struct App {
+    app_handle: AppHandle,
     local_data_dir: std::path::PathBuf,
-
     projects_storage: projects::Storage,
     users_storage: users::Storage,
-
     keys_controller: keys::Controller,
-
     searcher: search::Searcher,
-    events_sender: events::Sender,
-
     watchers: sync::Arc<Mutex<HashMap<String, watcher::Watcher>>>,
-
     sessions_database: sessions::Database,
     files_database: files::Database,
     deltas_database: deltas::Database,
     bookmarks_database: bookmarks::Database,
-
     vbranch_semaphores: sync::Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 }
 
@@ -43,29 +37,31 @@ pub enum Error {
     Other(#[from] anyhow::Error),
 }
 
-impl App {
-    pub fn new(app_handle: AppHandle, event_sender: events::Sender) -> Result<Self> {
-        let local_data_dir = app_handle.path_resolver().app_local_data_dir().unwrap();
-        let storage = storage::Storage::from_path(&local_data_dir);
-        let deltas_searcher =
-            search::Searcher::at(&local_data_dir).context("failed to open deltas searcher")?;
-        let database = database::Database::open(local_data_dir.join("database.sqlite3"))?;
+impl TryFrom<&AppHandle> for App {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
-            keys_controller: keys::Controller::try_from(app_handle)?,
-            events_sender: event_sender,
-            local_data_dir: local_data_dir.to_path_buf(),
-            projects_storage: projects::Storage::new(storage.clone()),
-            users_storage: users::Storage::new(storage),
-            searcher: deltas_searcher,
+            app_handle: value.clone(),
+            local_data_dir: value
+                .path_resolver()
+                .app_local_data_dir()
+                .context("failed to get local data dir")?,
+            keys_controller: keys::Controller::try_from(value)?,
+            projects_storage: projects::Storage::try_from(value)?,
+            users_storage: users::Storage::try_from(value)?,
+            searcher: value.state::<search::Searcher>().inner().clone(),
             watchers: sync::Arc::new(Mutex::new(HashMap::new())),
-            sessions_database: sessions::Database::new(database.clone()),
-            deltas_database: deltas::Database::new(database.clone()),
-            files_database: files::Database::new(database.clone()),
-            bookmarks_database: bookmarks::Database::new(database),
+            sessions_database: sessions::Database::try_from(value)?,
+            deltas_database: deltas::Database::try_from(value)?,
+            files_database: files::Database::try_from(value)?,
+            bookmarks_database: bookmarks::Database::try_from(value)?,
             vbranch_semaphores: sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         })
     }
+}
 
+impl App {
     pub fn start_pty_server(&self) -> Result<()> {
         let self_ = self.clone();
         tauri::async_runtime::spawn(async move {
@@ -104,18 +100,7 @@ impl App {
     }
 
     async fn start_watcher(&self, project: &projects::Project) -> Result<()> {
-        let watcher = watcher::Watcher::new(
-            &self.local_data_dir,
-            &self.projects_storage,
-            &self.users_storage,
-            &self.searcher,
-            &self.events_sender,
-            &self.sessions_database,
-            &self.deltas_database,
-            &self.files_database,
-            &self.bookmarks_database,
-            &self.keys_controller,
-        );
+        let watcher = watcher::Watcher::try_from(&self.app_handle)?;
 
         let c_watcher = watcher.clone();
         let project_id = project.id.clone();

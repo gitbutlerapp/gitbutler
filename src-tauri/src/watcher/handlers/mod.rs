@@ -6,13 +6,10 @@ mod git_file_change;
 mod index_handler;
 mod project_file_change;
 
-use std::path;
-
 use anyhow::{Context, Result};
+use tauri::AppHandle;
 
-use crate::{
-    bookmarks, deltas, events as app_events, files, keys, projects, search, sessions, users,
-};
+use crate::events as app_events;
 
 use super::events;
 
@@ -29,63 +26,23 @@ pub struct Handler {
     events_sender: app_events::Sender,
 }
 
-impl<'handler> Handler {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        local_data_dir: &path::Path,
-        project_store: &projects::Storage,
-        user_store: &users::Storage,
-        searcher: &search::Searcher,
-        events_sender: &app_events::Sender,
-        sessions_database: &sessions::Database,
-        deltas_database: &deltas::Database,
-        files_database: &files::Database,
-        bookmarks_database: &bookmarks::Database,
-        keys_controller: &keys::Controller,
-    ) -> Self {
-        Self {
-            events_sender: events_sender.clone(),
-
-            project_file_handler: project_file_change::Handler::new(
-                local_data_dir,
-                project_store,
-                user_store,
-            ),
-            check_current_session_handler: check_current_session::Handler::new(
-                local_data_dir,
-                project_store,
-                user_store,
-            ),
-            git_file_change_handler: git_file_change::Handler::new(project_store),
-            flush_session_handler: flush_session::Handler::new(
-                local_data_dir,
-                project_store,
-                user_store,
-            ),
-            fetch_project_handler: fetch_project_data::Handler::new(
-                project_store,
-                local_data_dir,
-                user_store,
-                keys_controller,
-            ),
-            fetch_gitbutler_handler: fetch_gitbutler_data::Handler::new(
-                local_data_dir,
-                project_store,
-                user_store,
-            ),
-            index_handler: index_handler::Handler::new(
-                local_data_dir,
-                project_store,
-                user_store,
-                searcher,
-                files_database,
-                sessions_database,
-                deltas_database,
-                bookmarks_database,
-            ),
-        }
+impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
+    fn try_from(value: &AppHandle) -> Result<Self, Self::Error> {
+        Ok(Self {
+            events_sender: app_events::Sender::from(value),
+            project_file_handler: project_file_change::Handler::try_from(value)?,
+            check_current_session_handler: check_current_session::Handler::try_from(value)?,
+            git_file_change_handler: git_file_change::Handler::try_from(value)?,
+            flush_session_handler: flush_session::Handler::try_from(value)?,
+            fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
+            fetch_gitbutler_handler: fetch_gitbutler_data::Handler::try_from(value)?,
+            index_handler: index_handler::Handler::try_from(value)?,
+        })
     }
+}
 
+impl<'handler> Handler {
     pub async fn handle(&self, event: events::Event) -> Result<Vec<events::Event>> {
         match event {
             events::Event::ProjectFileChange(project_id, path) => self

@@ -14,7 +14,7 @@ pub struct Storage {
 impl Storage {
     pub fn new(base_path: path::PathBuf) -> Self {
         Self {
-            storage: storage::Storage::from_path(base_path),
+            storage: storage::Storage::from(&base_path),
         }
     }
 

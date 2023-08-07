@@ -1,6 +1,7 @@
 use std::ops;
 
 use anyhow::{Context, Result};
+use tauri::{AppHandle, Manager};
 
 use crate::database;
 
@@ -11,11 +12,19 @@ pub struct Database {
     database: database::Database,
 }
 
-impl Database {
-    pub fn new(database: database::Database) -> Self {
-        Self { database }
+impl From<database::Database> for Database {
+    fn from(database: database::Database) -> Self {
+        Database { database }
     }
+}
 
+impl From<&AppHandle> for Database {
+    fn from(value: &AppHandle) -> Self {
+        Self::from(value.state::<database::Database>().inner().clone())
+    }
+}
+
+impl Database {
     fn get_by_project_id_timestamp_ms(
         &self,
         project_id: &str,
@@ -235,7 +244,7 @@ mod tests {
     #[test]
     fn list_by_project_id_all() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(db);
+        let database = Database::from(db);
 
         let bookmark = Bookmark {
             project_id: "project_id".to_string(),
@@ -258,7 +267,7 @@ mod tests {
     #[test]
     fn list_by_project_id_range() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(db);
+        let database = Database::from(db);
 
         let bookmark_one = Bookmark {
             project_id: "project_id".to_string(),
@@ -292,7 +301,7 @@ mod tests {
     #[test]
     fn update() -> Result<()> {
         let db = database::Database::memory()?;
-        let database = Database::new(db);
+        let database = Database::from(db);
 
         let bookmark = Bookmark {
             project_id: "project_id".to_string(),
