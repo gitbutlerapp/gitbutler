@@ -26,8 +26,8 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	const fetchStore = getFetchesStore(projectId);
-	const deltasStore = getDeltasStore2();
-	const sessionsStore = getSessionStore2({ projectId });
+	const deltasStore = getDeltasStore2(projectId);
+	const sessionsStore = getSessionStore2(projectId);
 	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore]);
 	const remoteBranchStore = getRemoteBranchStore(projectId, [fetchStore]);
 	const vbranchStore = getVirtualBranchStore(projectId, [deltasStore, sessionsStore]);
@@ -57,7 +57,7 @@
 	function updateDeltasStore(projectId: string, sessionId: string | undefined) {
 		if (deltasUnsubscribe) deltasUnsubscribe();
 		if (sessionId) {
-			deltasUnsubscribe = deltasStore.subscribeStream({ projectId, sessionId });
+			deltasUnsubscribe = deltasStore.subscribeStream(sessionId);
 		}
 	}
 

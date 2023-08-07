@@ -1,36 +1,33 @@
 import { Session, list, subscribe } from '$lib/api/ipc/sessions';
-import type { WritableReloadable } from '$lib/vbranches/types';
-import { asyncWritable, get } from '@square/svelte-store';
+import { asyncWritable, get, type AsyncWritable, type Readable } from '@square/svelte-store';
 
-export interface SessionsStore extends WritableReloadable<Session[]> {
-	subscribeStream(): () => void;
+export interface SessionsStore extends Readable<Session[]> {
+	subscribeStream(): () => void; // Consumer of store shall manage hsubscription
 }
 
 export function getSessionStore(params: { projectId: string }) {
-	const { store } = getSessionStore2(params);
-	return store;
+	return getSessionStore2(params.projectId);
 }
 
-export function getSessionStore2(params: { projectId: string }): SessionsStore {
+export function getSessionStore2(projectId: string): SessionsStore {
 	const store = asyncWritable(
 		[],
 		async () => {
-			const sessions = await list(params);
+			const sessions = await list({ projectId: projectId });
 			sessions.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
 			return sessions;
 		},
 		async (data) => data,
 		{ trackState: true }
-	) as WritableReloadable<Session[]>;
-	// TODO: Where do we unsubscribe this?
+	) as AsyncWritable<Session[]>;
 	const subscribeStream = () => {
-		return subscribe(params, ({ session }) => {
+		return subscribe({ projectId }, ({ session }) => {
 			const oldValue = get(store);
 			store.set(
 				oldValue
 					.filter((b) => b.id !== session.id)
 					.concat({
-						projectId: params.projectId,
+						projectId,
 						...session
 					})
 			);
