@@ -405,20 +405,61 @@ impl<'repository> Repository<'repository> {
             return Err(Error::NoUrl);
         }
 
-        log::info!("{}: fetching {}", self.project.id, remote.name().unwrap());
-
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
+            remote_callbacks.push_update_reference(|refname, message| {
+                if let Some(msg) = message {
+                    log::info!(
+                        "{}: push update reference: {}: {}",
+                        self.project.id,
+                        refname,
+                        msg
+                    );
+                }
+                Ok(())
+            });
+            remote_callbacks.push_negotiation(|proposals| {
+                log::info!(
+                    "{}: push negotiation: {:?}",
+                    self.project.id,
+                    proposals
+                        .iter()
+                        .map(|p| format!(
+                            "src_refname: {}, dst_refname: {}",
+                            p.src_refname().unwrap_or(&p.src().to_string()),
+                            p.dst_refname().unwrap_or(&p.dst().to_string())
+                        ))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                Ok(())
+            });
+            remote_callbacks.push_transfer_progress(|one, two, three| {
+                log::info!(
+                    "{}: push transfer progress: {} {} {}",
+                    self.project.id,
+                    one,
+                    two,
+                    three
+                );
+            });
 
             let mut fetch_opts = git2::FetchOptions::new();
             fetch_opts.remote_callbacks(remote_callbacks);
             fetch_opts.prune(git2::FetchPrune::On);
 
-            match remote.fetch(&[remote_name], Some(&mut fetch_opts), None) {
-                Ok(()) => return Ok(()),
+            log::info!("{}: fetching {}", self.project.id, remote_name);
+
+            let refs = vec![remote_name];
+            match remote.fetch(&refs, Some(&mut fetch_opts), None) {
+                Ok(()) => {
+                    log::info!("{}: fetched {}", self.project.id, remote_name);
+                    return Ok(());
+                }
                 Err(e) => {
                     if e.code() == git2::ErrorCode::Auth {
+                        log::warn!("{}: auth error, retrying", self.project.id);
                         continue;
                     } else {
                         return Err(Error::Other(e.into()));
@@ -427,9 +468,7 @@ impl<'repository> Repository<'repository> {
             }
         }
 
-        log::info!("{}: fetched {}", self.project.id, remote.name().unwrap());
-
-        Err(Error::AuthError)
+        unreachable!()
     }
 
     pub fn git_commit(&self, message: &str, push: bool) -> Result<()> {
