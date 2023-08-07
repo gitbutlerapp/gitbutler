@@ -2006,8 +2006,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let upstream: project_repository::branch::Name =
-        "refs/remotes/origin/branch1".parse().unwrap();
+    let upstream: project_repository::branch::Name = "refs/remotes/origin/branch1".parse().unwrap();
 
     repository.reference(
         &upstream.to_string(),
