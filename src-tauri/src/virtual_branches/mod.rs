@@ -43,12 +43,13 @@ pub struct VirtualBranch {
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
-    pub mergeable: bool,
-    pub merge_conflicts: Vec<String>,
-    pub conflicted: bool,
-    pub order: usize,
-    pub upstream: Option<project_repository::branch::RemoteName>,
-    pub base_current: bool, // is this vbranch based on the current base branch?
+    pub mergeable: bool, // this branch will merge cleanly into the current working directory (only for unapplied branches)
+    pub merge_conflicts: Vec<String>, // if mergeable is false, this will contain a list of files that have merge conflicts (only for unapplied branches)
+    pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
+    pub order: usize,     // the order in which this branch should be displayed in the UI
+    pub upstream: Option<project_repository::branch::RemoteName>, // the name of the upstream branch this branch this pushes to
+    pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
+    pub integrated: bool, // this branch is already integrated into upstream base branch work that is not yet merged
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -867,6 +868,9 @@ pub fn list_virtual_branches(
         };
 
         let repo = &project_repository.git_repository;
+        let branch_commit = repo
+            .find_commit(branch.head)
+            .context("failed to find branch commit")?;
 
         // see if we can identify some upstream
         let mut upstream_commit = None;
@@ -880,6 +884,9 @@ pub fn list_virtual_branches(
 
         // find upstream commits if we found an upstream reference
         let mut upstream_commits = HashMap::new();
+        // figure out if this branch is integrated into the target
+        let mut integrated = false;
+
         if let Some(ref upstream) = upstream_commit {
             let merge_base =
                 repo.merge_base(upstream.id(), default_target.sha)
@@ -888,8 +895,40 @@ pub fn list_virtual_branches(
                         upstream.id(),
                         default_target.sha
                     ))?;
+
             for oid in project_repository.l(upstream.id(), merge_base)? {
                 upstream_commits.insert(oid, true);
+            }
+
+            // if there are upstream commits, it might be integrated
+            if !upstream_commits.is_empty() {
+                let head_tree = repo.find_tree(branch.tree)?;
+                let merge_tree = repo
+                    .find_tree(merge_base)
+                    .context("failed to find branch commit")?;
+                let upstream_tree = upstream.tree()?;
+                let upstream_tree_oid = upstream_tree.id();
+
+                // try to merge our tree into the upstream tree
+                let mut merge_index = repo
+                    .merge_trees(
+                        &merge_tree,
+                        &upstream_tree,
+                        &head_tree,
+                        Some(&git2::MergeOptions::new()),
+                    )
+                    .context("failed to merge trees")?;
+
+                if !merge_index.has_conflicts() {
+                    // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
+                    let merge_tree_oid = merge_index
+                        .write_tree_to(repo)
+                        .context("failed to write tree")?;
+                    // then the vbranch is fully merged, so delete it
+                    if merge_tree_oid == upstream_tree_oid {
+                        integrated = true;
+                    }
+                }
             }
         }
 
@@ -917,9 +956,6 @@ pub fn list_virtual_branches(
                 let target_commit = repo
                     .find_commit(default_target.sha)
                     .context("failed to find target commit")?;
-                let branch_commit = repo
-                    .find_commit(branch.head)
-                    .context("failed to find branch commit")?;
                 if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
                     // determine if this tree is mergeable
                     let branch_tree = repo
@@ -947,6 +983,7 @@ pub fn list_virtual_branches(
             upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
+            integrated,
         };
         branches.push(branch);
     }
