@@ -237,7 +237,7 @@ impl App {
                 ) {
                     Ok(repo) => Ok(Some(repo)),
                     Err(gb_repository::Error::ProjectPathNotFound(_)) => Ok(None),
-                    Err(e) => Err(anyhow::anyhow!("failed to open repository: {:#}", e))
+                    Err(e) => Err(anyhow::anyhow!("failed to open repository: {:#}", e)),
                 }?;
 
                 block_on({
@@ -256,7 +256,8 @@ impl App {
                 }
 
                 self.projects_storage
-                    .purge(&project.id).context("failed to purge project")?;
+                    .purge(&project.id)
+                    .context("failed to purge project")?;
 
                 Ok(())
             }
