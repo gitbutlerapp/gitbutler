@@ -51,8 +51,8 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = 
-            project.as_ref()
+        let project_repository = project
+            .as_ref()
             .try_into()
             .context("failed to open project repository")?;
         let gb_repository = self.open_gb_repository(project_id)?;
