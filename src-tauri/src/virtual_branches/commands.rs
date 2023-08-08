@@ -140,3 +140,18 @@ pub async fn get_base_branch_data(
 
     Ok(target)
 }
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+pub async fn set_base_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<super::BaseBranch, Error> {
+    let controller = handle.state::<Controller>();
+    let target = controller
+        .set_base_branch(project_id, branch)
+        .await
+        .context("failed to get target data")?;
+    Ok(target)
+}
