@@ -30,8 +30,10 @@ pub struct App {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("{0}")]
-    Message(String),
+    #[error("failed to fetch: {0}")]
+    FetchError(#[from] project_repository::Error),
+    #[error("failed to create project: {0}")]
+    CreateProjectError(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -180,11 +182,11 @@ impl App {
             .map_err(Error::Other)?;
 
         if all_projects.iter().any(|project| project.path == path) {
-            return Err(Error::Message("Project already exists".to_string()));
+            return Err(Error::CreateProjectError(format!("project {} already exists", path)));
         }
 
         let project = projects::Project::from_path(path.to_string())
-            .map_err(|err| Error::Message(err.to_string()))?;
+            .map_err(|err| Error::CreateProjectError(err.to_string()))?;
 
         self.projects_storage
             .add_project(&project)
@@ -309,11 +311,7 @@ impl App {
             .get_or_create()
             .map_err(|e| Error::Other(e.into()))?;
 
-        match project_repository.fetch(&default_target.remote_name, &key) {
-            Ok(_) => Ok(()),
-            Err(project_repository::Error::Other(e)) => Err(Error::Other(e)),
-            Err(e) => Err(Error::Message(e.to_string())),
-        }
+        project_repository.fetch(&default_target.remote_name, &key).map_err(Error::FetchError)
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {

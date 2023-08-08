@@ -30,7 +30,7 @@ async fn get_project_archive_path(
     let app = handle.state::<app::App>();
     let project = app
         .get_project(project_id)?
-        .ok_or_else(|| Error::Message("Project not found".to_string()))?;
+        .context("failed to get project")?;
 
     let zipper = handle.state::<zip::Zipper>();
     let zipped_logs = zipper.zip(project.path)?;

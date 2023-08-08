@@ -1,12 +1,37 @@
+use core::fmt;
+
 use serde::{ser::SerializeMap, Serialize};
 
-use crate::{app, keys, virtual_branches};
+use crate::{app, keys, project_repository, virtual_branches};
+
+#[derive(Debug)]
+pub enum Code {
+    Unknown,
+    FetchFailed,
+    PushFailed,
+    Conflicting,
+    ProjectCreateFailed,
+    GitAutenticationFailed,
+}
+
+impl fmt::Display for Code {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Code::Unknown => write!(f, "errors.unknown"),
+            Code::PushFailed => write!(f, "errors.push"),
+            Code::FetchFailed => write!(f, "errors.fetch"),
+            Code::Conflicting => write!(f, "errors.conflict"),
+            Code::GitAutenticationFailed => write!(f, "errors.git.authentication"),
+            Code::ProjectCreateFailed => write!(f, "errors.projects.create"),
+        }
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("{0}")]
-    Message(String),
-    #[error("Something went wrong")]
+    #[error("[{code}]: {message}")]
+    UserError { code: Code, message: String },
+    #[error("[errors.unknown]: Something went wrong")]
     Unknown,
 }
 
@@ -15,8 +40,17 @@ impl Serialize for Error {
     where
         S: serde::Serializer,
     {
-        let mut map = serializer.serialize_map(Some(1))?;
-        map.serialize_entry("message", &self.to_string())?;
+        let (code, message) = match self {
+            Error::UserError { code, message } => (code.to_string(), message.to_string()),
+            Error::Unknown => (
+                Code::Unknown.to_string(),
+                "Something went wrong".to_string(),
+            ),
+        };
+
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("code", &code)?;
+        map.serialize_entry("message", &message)?;
         map.end()
     }
 }
@@ -24,10 +58,22 @@ impl Serialize for Error {
 impl From<virtual_branches::controller::Error> for Error {
     fn from(e: virtual_branches::controller::Error) -> Self {
         match e {
-            virtual_branches::controller::Error::PushError(e) => Error::Message(e.to_string()),
-            virtual_branches::controller::Error::Conflicting => {
-                Error::Message("Project is in conflicting state".to_string())
-            }
+            virtual_branches::controller::Error::PushError(
+                project_repository::Error::AuthError,
+            ) => Error::UserError {
+                code: Code::GitAutenticationFailed,
+                message: "Git authentication failed. Add your GitButler key to your provider and try again."
+                    .to_string(),
+            },
+            virtual_branches::controller::Error::PushError(e) => Error::UserError {
+                code: Code::PushFailed,
+                message: e.to_string(),
+            },
+            virtual_branches::controller::Error::Conflicting => Error::UserError {
+                code: Code::Conflicting,
+                message: "Project is in conflicting state. Resolve all conflicts and try again."
+                    .to_string(),
+            },
             virtual_branches::controller::Error::LockError(_) => Error::Unknown,
             virtual_branches::controller::Error::Other(e) => Error::from(e),
         }
@@ -37,7 +83,19 @@ impl From<virtual_branches::controller::Error> for Error {
 impl From<app::Error> for Error {
     fn from(e: app::Error) -> Self {
         match e {
-            app::Error::Message(msg) => Error::Message(msg),
+            app::Error::FetchError(project_repository::Error::AuthError) => Error::UserError {
+                code: Code::GitAutenticationFailed,
+                message: "Git authentication failed. Add your GitButler key to your provider and try again."
+                    .to_string(),
+            },
+            app::Error::FetchError(e) => Error::UserError {
+                code: Code::FetchFailed,
+                message: e.to_string(),
+            },
+            app::Error::CreateProjectError(message) => Error::UserError {
+                code: Code::ProjectCreateFailed,
+                message,
+            },
             app::Error::Other(e) => Error::from(e),
         }
     }
@@ -45,7 +103,7 @@ impl From<app::Error> for Error {
 
 impl From<keys::Error> for Error {
     fn from(value: keys::Error) -> Self {
-        app::Error::Other(anyhow::Error::from(value)).into()
+        anyhow::anyhow!(format!("keys: {0}", value.to_string())).into()
     }
 }
 
