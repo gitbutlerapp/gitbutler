@@ -1,8 +1,9 @@
 use anyhow::Context;
+use futures::future::join_all;
 use tauri::{AppHandle, Manager};
 use timed::timed;
 
-use crate::{error::Error, project_repository::branch};
+use crate::{assets, error::Error, project_repository::branch};
 
 use super::controller::Controller;
 
@@ -64,4 +65,78 @@ pub async fn create_virtual_branch_from_branch(
         .await
         .context("failed to create virtual branch from branch")?;
     Ok(branch_id)
+}
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+pub async fn get_base_branch_data(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Option<super::BaseBranch>, Error> {
+    let controller = handle.state::<Controller>();
+    let target = match controller
+        .get_base_branch_data(project_id)
+        .context("failed to get base branch data")?
+    {
+        None => return Ok(None),
+        Some(target) => target,
+    };
+
+    let target = Some(super::BaseBranch {
+        recent_commits: join_all(
+            target
+                .clone()
+                .recent_commits
+                .into_iter()
+                .map(|commit| {
+                    let proxy = handle.state::<assets::Proxy>();
+                    async move {
+                        super::VirtualBranchCommit {
+                            author: super::Author {
+                                gravatar_url: proxy
+                                    .proxy(&commit.author.gravatar_url)
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        log::error!("failed to proxy gravatar url: {:#}", e);
+                                        commit.author.gravatar_url
+                                    }),
+                                ..commit.author
+                            },
+                            ..commit
+                        }
+                    }
+                })
+                .collect::<Vec<_>>(),
+        )
+        .await,
+        upstream_commits: join_all(
+            target
+                .clone()
+                .upstream_commits
+                .into_iter()
+                .map(|commit| {
+                    let proxy = handle.state::<assets::Proxy>();
+                    async move {
+                        super::VirtualBranchCommit {
+                            author: super::Author {
+                                gravatar_url: proxy
+                                    .proxy(&commit.author.gravatar_url)
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        log::error!("failed to proxy gravatar url: {:#}", e);
+                                        commit.author.gravatar_url
+                                    }),
+                                ..commit.author
+                            },
+                            ..commit
+                        }
+                    }
+                })
+                .collect::<Vec<_>>(),
+        )
+        .await,
+        ..target
+    });
+
+    Ok(target)
 }

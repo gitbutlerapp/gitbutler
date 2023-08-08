@@ -164,6 +164,25 @@ impl Controller {
         Ok(branch_id)
     }
 
+    pub fn get_base_branch_data(
+        &self,
+        project_id: &str,
+    ) -> Result<Option<super::BaseBranch>, Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+
+        let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
+        Ok(base_branch)
+    }
+
     fn open_gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository, Error> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),
