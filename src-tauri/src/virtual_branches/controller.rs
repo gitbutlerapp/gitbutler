@@ -4,7 +4,7 @@ use anyhow::Context;
 use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
-use crate::{gb_repository, projects, users};
+use crate::{gb_repository, project_repository::conflicts, projects, users};
 
 pub struct Controller {
     local_data_dir: path::PathBuf,
@@ -16,6 +16,8 @@ pub struct Controller {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("project is in a conflicted state")]
+    Conflicting,
     #[error(transparent)]
     LockError(#[from] tokio::sync::AcquireError),
     #[error(transparent)]
@@ -91,6 +93,36 @@ impl Controller {
 
         let branches = super::list_virtual_branches(&gb_repository, &project_repository)?;
         Ok(branches)
+    }
+
+    pub async fn create_virtual_branch(
+        &self,
+        project_id: &str,
+        create: &super::branch::BranchCreateRequest,
+    ) -> Result<(), Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+
+        if conflicts::is_resolving(&project_repository) {
+            return Err(Error::Conflicting);
+        }
+
+        let mut semaphores = self.semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+        super::create_virtual_branch(&gb_repository, create)?;
+        Ok(())
     }
 
     fn open_gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository, Error> {

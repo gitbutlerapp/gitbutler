@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops, path, sync, thread, time};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
 use tokio::sync::{Mutex, Semaphore};
@@ -329,31 +329,6 @@ impl App {
         let _permit = semaphore.acquire().await?;
 
         virtual_branches::update_base_branch(&gb_repository, &project_repository)?;
-        Ok(())
-    }
-
-    pub async fn create_virtual_branch(
-        &self,
-        project_id: &str,
-        create: &virtual_branches::branch::BranchCreateRequest,
-    ) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-
-        if conflicts::is_resolving(&project_repository) {
-            bail!("cannot create a branch, project is in a conflicted state");
-        }
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        virtual_branches::create_virtual_branch(&gb_repository, create)?;
         Ok(())
     }
 
