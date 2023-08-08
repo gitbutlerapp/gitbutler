@@ -1150,6 +1150,7 @@ pub fn create_virtual_branch(
 
 pub fn update_branch(
     gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
@@ -1170,7 +1171,24 @@ pub fn update_branch(
     }
 
     if let Some(name) = branch_update.name {
+        let old_branch_name = name_to_branch(&branch.name.clone());
+        let old_refname = format!("refs/gitbutler/{}", old_branch_name);
+
+        let branch_name = name_to_branch(&name.clone());
+        let refname = format!("refs/gitbutler/{}", branch_name);
+
         branch.name = name;
+
+        // rename the ref
+        let repo = &project_repository.git_repository;
+        if let Ok(mut reference) = repo
+            .find_reference(&old_refname)
+            .context("failed to find reference")
+        {
+            reference
+                .rename(&refname, true, "gb")
+                .context("failed to rename reference")?;
+        }
     };
 
     if let Some(order) = branch_update.order {

@@ -236,9 +236,19 @@ impl Controller {
         project_id: &str,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+
         self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
             let gb_repository = self.open_gb_repository(project_id)?;
-            super::update_branch(&gb_repository, branch_update)
+            super::update_branch(&gb_repository, &project_repository, branch_update)
         })
         .await?;
 
