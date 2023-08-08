@@ -265,6 +265,32 @@ impl Controller {
         Ok(())
     }
 
+    pub async fn apply_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_id: &str,
+    ) -> Result<(), Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+
+        let mut semaphores = self.semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+        super::apply_branch(&gb_repository, &project_repository, branch_id)?;
+        Ok(())
+    }
+
     fn open_gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository, Error> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),

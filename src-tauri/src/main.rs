@@ -546,18 +546,6 @@ async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn apply_branch(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    branch: &str,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.apply_virtual_branch(project_id, branch).await?;
-    Ok(())
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn unapply_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -795,7 +783,7 @@ fn main() {
             virtual_branches::commands::update_base_branch,
             virtual_branches::commands::update_virtual_branch,
             virtual_branches::commands::delete_virtual_branch,
-            apply_branch,
+            virtual_branches::commands::apply_branch,
             unapply_branch,
             push_virtual_branch,
             virtual_branches::commands::create_virtual_branch_from_branch,
