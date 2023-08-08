@@ -284,7 +284,6 @@ impl App {
             .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-
     pub async fn delete_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;
 
