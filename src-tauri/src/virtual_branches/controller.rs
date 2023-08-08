@@ -21,6 +21,10 @@ pub struct Controller {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("detached head detected, go back to gitbutler/integration to continue")]
+    DetachedHead,
+    #[error("unexpected head {0}, go back to gitbutler/integration to continue")]
+    InvalidHead(String),
     #[error("failed to open project repository")]
     PushError(#[from] project_repository::Error),
     #[error("project is in a conflicted state")]
@@ -67,6 +71,7 @@ impl Controller {
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
+            self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
 
             super::commit(&gb_repository, &project_repository, branch, message)
@@ -92,6 +97,7 @@ impl Controller {
                     .as_ref()
                     .try_into()
                     .context("failed to open project repository")?;
+                self.verify_branch(&project_repository)?;
                 let gb_repository = self.open_gb_repository(project_id)?;
 
                 super::list_virtual_branches(&gb_repository, &project_repository)
@@ -117,6 +123,7 @@ impl Controller {
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
+            self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
 
             if conflicts::is_resolving(&project_repository) {
@@ -148,6 +155,7 @@ impl Controller {
                     .as_ref()
                     .try_into()
                     .context("failed to open project repository")?;
+                self.verify_branch(&project_repository)?;
                 let gb_repository = self.open_gb_repository(project_id)?;
 
                 let branch_id = super::create_virtual_branch_from_branch(
@@ -179,6 +187,7 @@ impl Controller {
             .as_ref()
             .try_into()
             .context("failed to open project repository")?;
+        self.verify_branch(&project_repository)?;
         let gb_repository = self.open_gb_repository(project_id)?;
         let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
         Ok(base_branch)
@@ -222,6 +231,7 @@ impl Controller {
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
+            self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
 
             super::update_base_branch(&gb_repository, &project_repository)
@@ -236,8 +246,20 @@ impl Controller {
         project_id: &str,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+
         self.with_lock(project_id, || {
             let gb_repository = self.open_gb_repository(project_id)?;
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+
+            self.verify_branch(&project_repository)?;
             super::update_branch(&gb_repository, branch_update)
         })
         .await?;
@@ -250,8 +272,19 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+
         self.with_lock(project_id, || {
             let gb_repository = self.open_gb_repository(project_id)?;
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            self.verify_branch(&project_repository)?;
             super::delete_branch(&gb_repository, branch_id)
         })
         .await?;
@@ -275,6 +308,7 @@ impl Controller {
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
+            self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
             super::apply_branch(&gb_repository, &project_repository, branch_id)
         })
@@ -299,6 +333,7 @@ impl Controller {
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
+            self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
             super::unapply_branch(&gb_repository, &project_repository, branch_id)
         })
@@ -328,6 +363,7 @@ impl Controller {
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
+            self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
 
             super::push(&project_repository, &gb_repository, branch_id, &private_key).map_err(|e| {
@@ -360,5 +396,16 @@ impl Controller {
         )
         .context("failed to open repository")
         .map_err(Error::Other)
+    }
+
+    fn verify_branch(
+        &self,
+        project_repository: &project_repository::Repository,
+    ) -> Result<(), Error> {
+        match project_repository.get_head().map_err(Error::Other)?.name() {
+            None => Err(Error::DetachedHead),
+            Some(super::vbranch::GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
+            Some(head_name) => Err(Error::InvalidHead(head_name.to_string())),
+        }
     }
 }

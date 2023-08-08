@@ -1,4 +1,3 @@
-use anyhow::Context;
 use futures::future::join_all;
 use tauri::{AppHandle, Manager};
 use timed::timed;
@@ -19,8 +18,7 @@ pub async fn commit_virtual_branch(
         .state::<Controller>()
         .create_commit(project_id, branch, message)
         .await
-        .context("failed to create commit")?;
-    Ok(())
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -29,12 +27,11 @@ pub async fn list_virtual_branches(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<Vec<super::VirtualBranch>, Error> {
-    let branches = handle
+    handle
         .state::<Controller>()
         .list_virtual_branches(project_id)
         .await
-        .context("failed to list virtual branches")?;
-    Ok(branches)
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -48,8 +45,7 @@ pub async fn create_virtual_branch(
         .state::<Controller>()
         .create_virtual_branch(project_id, &branch)
         .await
-        .context("failed to create virtual branch")?;
-    Ok(())
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -59,12 +55,11 @@ pub async fn create_virtual_branch_from_branch(
     project_id: &str,
     branch: branch::Name,
 ) -> Result<String, Error> {
-    let branch_id = handle
+    handle
         .state::<Controller>()
         .create_virtual_branch_from_branch(project_id, &branch)
         .await
-        .context("failed to create virtual branch from branch")?;
-    Ok(branch_id)
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -74,10 +69,7 @@ pub async fn get_base_branch_data(
     project_id: &str,
 ) -> Result<Option<super::BaseBranch>, Error> {
     let controller = handle.state::<Controller>();
-    let target = match controller
-        .get_base_branch_data(project_id)
-        .context("failed to get base branch data")?
-    {
+    let target = match controller.get_base_branch_data(project_id)? {
         None => return Ok(None),
         Some(target) => target,
     };
@@ -148,23 +140,21 @@ pub async fn set_base_branch(
     project_id: &str,
     branch: &str,
 ) -> Result<super::BaseBranch, Error> {
-    let controller = handle.state::<Controller>();
-    let target = controller
+    handle
+        .state::<Controller>()
         .set_base_branch(project_id, branch)
         .await
-        .context("failed to get target data")?;
-    Ok(target)
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 pub async fn update_base_branch(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
-    let controller = handle.state::<Controller>();
-    controller
+    handle
+        .state::<Controller>()
         .update_base_branch(project_id)
         .await
-        .context("failed to update base branch")?;
-    Ok(())
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -174,12 +164,11 @@ pub async fn update_virtual_branch(
     project_id: &str,
     branch: super::branch::BranchUpdateRequest,
 ) -> Result<(), Error> {
-    let controller = handle.state::<Controller>();
-    controller
+    handle
+        .state::<Controller>()
         .update_virtual_branch(project_id, branch)
         .await
-        .context("failed to update virtual branch")?;
-    Ok(())
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -189,12 +178,11 @@ pub async fn delete_virtual_branch(
     project_id: &str,
     branch_id: &str,
 ) -> Result<(), Error> {
-    let controller = handle.state::<Controller>();
-    controller
+    handle
+        .state::<Controller>()
         .delete_virtual_branch(project_id, branch_id)
         .await
-        .context("failed to update virtual branch")?;
-    Ok(())
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -204,12 +192,11 @@ pub async fn apply_branch(
     project_id: &str,
     branch: &str,
 ) -> Result<(), Error> {
-    let controller = handle.state::<Controller>();
-    controller
+    handle
+        .state::<Controller>()
         .apply_virtual_branch(project_id, branch)
         .await
-        .context("failed to apply branch")?;
-    Ok(())
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -219,12 +206,11 @@ pub async fn unapply_branch(
     project_id: &str,
     branch: &str,
 ) -> Result<(), Error> {
-    let controller = handle.state::<Controller>();
-    controller
+    handle
+        .state::<Controller>()
         .unapply_virtual_branch(project_id, branch)
         .await
-        .context("failed to unapply branch")?;
-    Ok(())
+        .map_err(Into::into)
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -237,6 +223,6 @@ pub async fn push_virtual_branch(
     handle
         .state::<Controller>()
         .push_virtual_branch(project_id, branch_id)
-        .await?;
-    Ok(())
+        .await
+        .map_err(Into::into)
 }

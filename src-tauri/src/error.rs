@@ -12,6 +12,7 @@ pub enum Code {
     Conflicting,
     ProjectCreateFailed,
     GitAutenticationFailed,
+    InvalidHead,
 }
 
 impl fmt::Display for Code {
@@ -22,6 +23,7 @@ impl fmt::Display for Code {
             Code::FetchFailed => write!(f, "errors.fetch"),
             Code::Conflicting => write!(f, "errors.conflict"),
             Code::GitAutenticationFailed => write!(f, "errors.git.authentication"),
+            Code::InvalidHead => write!(f, "errors.git.head"),
             Code::ProjectCreateFailed => write!(f, "errors.projects.create"),
         }
     }
@@ -74,8 +76,15 @@ impl From<virtual_branches::controller::Error> for Error {
                 message: "Project is in conflicting state. Resolve all conflicts and try again."
                     .to_string(),
             },
-            virtual_branches::controller::Error::LockError(_) => Error::Unknown,
-            virtual_branches::controller::Error::Other(e) => Error::from(e),
+            virtual_branches::controller::Error::DetachedHead => Error::UserError {
+                code: Code::InvalidHead,
+                message: format!("Project in detached head state. Please checkout {0} to continue.", virtual_branches::GITBUTLER_INTEGRATION_REFERENCE),
+            },
+            virtual_branches::controller::Error::InvalidHead(head_name) => Error::UserError {
+                code: Code::InvalidHead,
+                message: format!("Project is on {0}. Please checkout {1} to continue.", head_name, virtual_branches::GITBUTLER_INTEGRATION_REFERENCE),
+            },
+            e => Error::from(e),
         }
     }
 }
