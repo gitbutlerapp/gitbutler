@@ -35,3 +35,18 @@ pub async fn list_virtual_branches(
         .context("failed to list virtual branches")?;
     Ok(branches)
 }
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+pub async fn create_virtual_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: super::branch::BranchCreateRequest,
+) -> Result<(), Error> {
+    handle
+        .state::<Controller>()
+        .create_virtual_branch(project_id, &branch)
+        .await
+        .context("failed to create virtual branch")?;
+    Ok(())
+}
