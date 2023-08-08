@@ -21,3 +21,17 @@ pub async fn commit_virtual_branch(
         .context("failed to create commit")?;
     Ok(())
 }
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+pub async fn list_virtual_branches(
+    handle: tauri::AppHandle,
+    project_id: &str,
+) -> Result<Vec<super::VirtualBranch>, Error> {
+    let branches = handle
+        .state::<Controller>()
+        .list_virtual_branches(project_id)
+        .await
+        .context("failed to list virtual branches")?;
+    Ok(branches)
+}

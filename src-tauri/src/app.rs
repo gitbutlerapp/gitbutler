@@ -332,24 +332,6 @@ impl App {
         Ok(())
     }
 
-    pub async fn list_virtual_branches(
-        &self,
-        project_id: &str,
-    ) -> Result<Vec<virtual_branches::VirtualBranch>> {
-        let gb_repository = self.gb_repository(project_id)?;
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        virtual_branches::list_virtual_branches(&gb_repository, &project_repository)
-    }
-
     pub async fn create_virtual_branch(
         &self,
         project_id: &str,
