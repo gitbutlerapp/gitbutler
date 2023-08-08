@@ -284,17 +284,6 @@ impl App {
             .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub fn get_base_branch_data(
-        &self,
-        project_id: &str,
-    ) -> Result<Option<virtual_branches::BaseBranch>> {
-        let gb_repository = self.gb_repository(project_id)?;
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        virtual_branches::get_base_branch_data(&gb_repository, &project_repository)
-    }
-
     pub async fn set_base_branch(
         &self,
         project_id: &str,

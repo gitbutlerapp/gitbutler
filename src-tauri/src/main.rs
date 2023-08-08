@@ -574,77 +574,6 @@ async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn get_base_branch_data(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<Option<virtual_branches::BaseBranch>, Error> {
-    let app = handle.state::<app::App>();
-    let target = match app.get_base_branch_data(project_id)? {
-        None => return Ok(None),
-        Some(target) => target,
-    };
-
-    let target = Some(virtual_branches::BaseBranch {
-        recent_commits: join_all(
-            target
-                .clone()
-                .recent_commits
-                .into_iter()
-                .map(|commit| {
-                    let proxy = handle.state::<assets::Proxy>();
-                    async move {
-                        virtual_branches::VirtualBranchCommit {
-                            author: virtual_branches::Author {
-                                gravatar_url: proxy
-                                    .proxy(&commit.author.gravatar_url)
-                                    .await
-                                    .unwrap_or_else(|e| {
-                                        log::error!("failed to proxy gravatar url: {:#}", e);
-                                        commit.author.gravatar_url
-                                    }),
-                                ..commit.author
-                            },
-                            ..commit
-                        }
-                    }
-                })
-                .collect::<Vec<_>>(),
-        )
-        .await,
-        upstream_commits: join_all(
-            target
-                .clone()
-                .upstream_commits
-                .into_iter()
-                .map(|commit| {
-                    let proxy = handle.state::<assets::Proxy>();
-                    async move {
-                        virtual_branches::VirtualBranchCommit {
-                            author: virtual_branches::Author {
-                                gravatar_url: proxy
-                                    .proxy(&commit.author.gravatar_url)
-                                    .await
-                                    .unwrap_or_else(|e| {
-                                        log::error!("failed to proxy gravatar url: {:#}", e);
-                                        commit.author.gravatar_url
-                                    }),
-                                ..commit.author
-                            },
-                            ..commit
-                        }
-                    }
-                })
-                .collect::<Vec<_>>(),
-        )
-        .await,
-        ..target
-    });
-
-    Ok(target)
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn set_base_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -912,7 +841,7 @@ fn main() {
             virtual_branches::commands::list_virtual_branches,
             virtual_branches::commands::create_virtual_branch,
             virtual_branches::commands::commit_virtual_branch,
-            get_base_branch_data,
+            virtual_branches::commands::get_base_branch_data,
             set_base_branch,
             update_base_branch,
             update_virtual_branch,

@@ -4,6 +4,7 @@ extern crate scopeguard;
 extern crate log;
 
 pub mod app;
+pub mod assets;
 pub mod bookmarks;
 pub mod database;
 pub mod dedup;
