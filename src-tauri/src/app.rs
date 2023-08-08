@@ -311,7 +311,8 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-        let target = gb_repository.set_base_branch(&project_repository, target_branch)?;
+        let target =
+            virtual_branches::set_base_branch(&gb_repository, &project_repository, target_branch)?;
         Ok(Some(target))
     }
 

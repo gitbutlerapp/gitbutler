@@ -1,11 +1,18 @@
-use std::fs::{self, Permissions};
-use std::os::unix::fs::symlink;
-use std::{thread, time::Duration};
+use std::{
+    collections::HashMap,
+    fs::{self, Permissions},
+    io::Write,
+    os::unix::fs::{symlink, PermissionsExt},
+    thread,
+    time::Duration,
+};
 
+use anyhow::{Context, Result};
 use tempfile::tempdir;
 
-use crate::{projects, users};
+use crate::{gb_repository, project_repository, projects, reader, sessions, users};
 
+use super::branch::{Branch, BranchCreateRequest, Ownership};
 use super::*;
 
 pub struct TestDeps {
@@ -2803,7 +2810,10 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     // apply branch which is now out of date and conflicting
     apply_branch(&gb_repo, &project_repository, branch_id)?;
 
-    assert!(conflicts::is_conflicting(&project_repository, None)?);
+    assert!(project_repository::conflicts::is_conflicting(
+        &project_repository,
+        None
+    )?);
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
@@ -2824,7 +2834,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     assert!(result.is_err());
 
     // mark file as resolved
-    conflicts::resolve(&project_repository, "test.txt")?;
+    project_repository::conflicts::resolve(&project_repository, "test.txt")?;
 
     // make sure the branch has that commit and that the parent is the target
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
