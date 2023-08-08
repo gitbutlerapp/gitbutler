@@ -332,33 +332,6 @@ impl App {
         Ok(())
     }
 
-    pub async fn create_virtual_branch_from_branch(
-        &self,
-        project_id: &str,
-        branch: &project_repository::branch::Name,
-    ) -> Result<String> {
-        let gb_repository = self.gb_repository(project_id)?;
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        let branch_id = virtual_branches::create_virtual_branch_from_branch(
-            &gb_repository,
-            &project_repository,
-            branch,
-            None,
-        )?;
-        // also apply the branch
-        virtual_branches::apply_branch(&gb_repository, &project_repository, &branch_id)?;
-        Ok(branch_id)
-    }
-
     pub async fn update_virtual_branch(
         &self,
         project_id: &str,

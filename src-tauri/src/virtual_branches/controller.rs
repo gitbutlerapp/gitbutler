@@ -4,7 +4,11 @@ use anyhow::Context;
 use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
-use crate::{gb_repository, project_repository::conflicts, projects, users};
+use crate::{
+    gb_repository,
+    project_repository::{self, conflicts},
+    projects, users,
+};
 
 pub struct Controller {
     local_data_dir: path::PathBuf,
@@ -123,6 +127,41 @@ impl Controller {
 
         super::create_virtual_branch(&gb_repository, create)?;
         Ok(())
+    }
+
+    pub async fn create_virtual_branch_from_branch(
+        &self,
+        project_id: &str,
+        branch: &project_repository::branch::Name,
+    ) -> Result<String, Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+
+        let mut semaphores = self.semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+        let branch_id = super::create_virtual_branch_from_branch(
+            &gb_repository,
+            &project_repository,
+            branch,
+            None,
+        )?;
+
+        // also apply the branch
+        super::apply_branch(&gb_repository, &project_repository, &branch_id)?;
+
+        Ok(branch_id)
     }
 
     fn open_gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository, Error> {

@@ -526,21 +526,6 @@ async fn list_bookmarks(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn create_virtual_branch_from_branch(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    branch: branch::Name,
-) -> Result<String, Error> {
-    let app = handle.state::<app::App>();
-    let branch_id = app
-        .create_virtual_branch_from_branch(project_id, &branch)
-        .await
-        .context("failed to create virtual branch from branch")?;
-    Ok(branch_id)
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn update_virtual_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -935,7 +920,7 @@ fn main() {
             apply_branch,
             unapply_branch,
             push_virtual_branch,
-            create_virtual_branch_from_branch,
+            virtual_branches::commands::create_virtual_branch_from_branch,
             fetch_from_target,
             mark_resolved,
             git_set_config,
