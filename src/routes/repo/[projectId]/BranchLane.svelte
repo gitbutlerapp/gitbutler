@@ -48,6 +48,7 @@
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
+	export let integrated: boolean;
 	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
@@ -218,6 +219,14 @@
 	}}
 	on:dblclick={() => (maximized = !maximized)}
 >
+	{#if integrated}
+		<div class="mb-2 flex flex-col">
+			<div class="bg-light-800 text-center text-light-200">Branch is Integrated</div>
+			<div class="text-center text-sm text-light-600">
+				It will be removed when you merge upstream
+			</div>
+		</div>
+	{/if}
 	<div
 		class="flex bg-light-200 text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
 	>
@@ -340,7 +349,7 @@
 		</div>
 	</div>
 
-	<div class="relative flex flex-grow overflow-y-hidden">
+	<div class="relative flex flex-grow overflow-y-hidden" class:opacity-40={integrated}>
 		<div
 			bind:this={viewport}
 			class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8"
@@ -426,7 +435,11 @@
 										<div
 											class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
 										>
-											local
+											{#if integrated}
+												integrated
+											{:else}
+												local
+											{/if}
 										</div>
 										<Button
 											class="w-20"
@@ -476,6 +489,9 @@
 											<Link target="_blank" rel="noreferrer" href={url(base, upstream)}>
 												<span class="text-sm font-bold">
 													{upstream.split('refs/remotes/')[1]}
+													{#if integrated}
+														(integrated)
+													{/if}
 												</span>
 											</Link>
 										{/if}
