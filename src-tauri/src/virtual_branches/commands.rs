@@ -166,3 +166,18 @@ pub async fn update_base_branch(handle: tauri::AppHandle, project_id: &str) -> R
         .context("failed to update base branch")?;
     Ok(())
 }
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+pub async fn update_virtual_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: super::branch::BranchUpdateRequest,
+) -> Result<(), Error> {
+    let controller = handle.state::<Controller>();
+    controller
+        .update_virtual_branch(project_id, branch)
+        .await
+        .context("failed to update virtual branch")?;
+    Ok(())
+}

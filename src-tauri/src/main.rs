@@ -526,20 +526,6 @@ async fn list_bookmarks(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn update_virtual_branch(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    branch: virtual_branches::branch::BranchUpdateRequest,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.update_virtual_branch(project_id, branch)
-        .await
-        .context("failed to update virtual branch")?;
-    Ok(())
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn delete_virtual_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -821,7 +807,7 @@ fn main() {
             virtual_branches::commands::get_base_branch_data,
             virtual_branches::commands::set_base_branch,
             virtual_branches::commands::update_base_branch,
-            update_virtual_branch,
+            virtual_branches::commands::update_virtual_branch,
             delete_virtual_branch,
             apply_branch,
             unapply_branch,
