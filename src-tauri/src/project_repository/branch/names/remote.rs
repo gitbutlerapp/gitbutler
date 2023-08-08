@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
@@ -44,14 +44,14 @@ impl Serialize for Name {
 impl<'d> Deserialize<'d> for Name {
     fn deserialize<D: serde::Deserializer<'d>>(deserializer: D) -> Result<Self, D::Error> {
         let name = String::deserialize(deserializer)?;
-        Self::try_from(name.as_str()).map_err(serde::de::Error::custom)
+        name.as_str().parse().map_err(serde::de::Error::custom)
     }
 }
 
-impl TryFrom<&str> for Name {
-    type Error = Error;
+impl FromStr for Name {
+    type Err = Error;
 
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         if !value.starts_with("refs/remotes/") {
             return Err(Error::NotRemote(value.to_string()));
         };
@@ -80,6 +80,6 @@ impl TryFrom<&git2::Branch<'_>> for Name {
             return Err(Error::NotRemote(refname));
         }
 
-        Self::try_from(refname.as_str())
+        refname.as_str().parse()
     }
 }

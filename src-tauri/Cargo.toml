@@ -28,8 +28,8 @@ filetime = "0.2.19"
 sha2 = "0.10.6"
 sentry = {version = "0.31.5", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
 walkdir = "2.3.2"
-anyhow = "1.0.71"
-tempfile = "3.3.0"
+anyhow = "1.0.72"
+tempfile = "3.7.1"
 reqwest = "0.11.14"
 md5 = "0.7.0"
 urlencoding = "2.1.2"
@@ -37,7 +37,7 @@ thiserror = "1.0.44"
 tantivy = "0.20.2"
 similar = { version = "2.2.1", features = ["unicode"] }
 fslock = "0.2.1"
-tokio = { version = "1.28.0", features = ["full", "sync"] }
+tokio = { version = "1.29.1", features = ["full", "sync"] }
 tokio-tungstenite = "0.19.0"
 portable-pty = { version = "0.8.0", features = [ "serde_support" ] }
 bytes = "1.1.0"

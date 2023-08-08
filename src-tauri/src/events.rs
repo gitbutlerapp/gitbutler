@@ -21,11 +21,12 @@ impl Sender {
         self.app_handle
             .emit_all(&event.name, Some(&event.payload))
             .context("emit event")?;
+        log::info!("sent event: {}", event.name);
         Ok(())
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Event {
     name: String,
     payload: serde_json::Value,

@@ -229,13 +229,16 @@ impl App {
     pub fn delete_project(&self, id: &str) -> Result<()> {
         match self.projects_storage.get_project(id)? {
             Some(project) => {
-                let gb_repository = gb_repository::Repository::open(
+                let gb_repository = match gb_repository::Repository::open(
                     self.local_data_dir.clone(),
                     id,
                     self.projects_storage.clone(),
                     self.users_storage.clone(),
-                )
-                .context("failed to open repository")?;
+                ) {
+                    Ok(repo) => Ok(Some(repo)),
+                    Err(gb_repository::Error::ProjectPathNotFound(_)) => Ok(None),
+                    Err(e) => Err(anyhow::anyhow!("failed to open repository: {:#}", e)),
+                }?;
 
                 block_on({
                     let project_id = project.id.clone();
@@ -246,9 +249,15 @@ impl App {
                     }
                 });
 
-                if let Err(e) = gb_repository.purge() {
-                    log::error!("failed to remove project dir {}: {}", project.id, e);
+                if let Some(gb_repository) = gb_repository {
+                    if let Err(e) = gb_repository.purge() {
+                        log::error!("failed to remove project dir {}: {}", project.id, e);
+                    }
                 }
+
+                self.projects_storage
+                    .purge(&project.id)
+                    .context("failed to purge project")?;
 
                 Ok(())
             }
@@ -302,7 +311,8 @@ impl App {
             .or_insert_with(|| Semaphore::new(1));
         let _permit = semaphore.acquire().await?;
 
-        let target = gb_repository.set_base_branch(&project_repository, target_branch)?;
+        let target =
+            virtual_branches::set_base_branch(&gb_repository, &project_repository, target_branch)?;
         Ok(Some(target))
     }
 

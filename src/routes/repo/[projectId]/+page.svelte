@@ -12,50 +12,52 @@
 	import {
 		getBaseBranchStore,
 		getRemoteBranchStore,
-		getVirtualBranchStore
+		getVirtualBranchStore,
+		getWithContentStore
 	} from '$lib/vbranches/branchStoresCache';
 	import { getSessionStore2 } from '$lib/stores/sessions';
 	import { getDeltasStore2 } from '$lib/stores/deltas';
 	import { getFetchesStore } from '$lib/stores/fetches';
-	import type { Readable } from '@square/svelte-store';
 	// import TopBar from './topbar/TopBar.svelte';
 
 	export let data: PageData;
 	let { projectId, remoteBranchNames, project, cloud } = data;
 
-	const { store: fetchStore, unsubscribe: fetchUnsubscribe } = getFetchesStore(projectId);
-	const { store: sessionStore, unsubscribe: unsubscribeSessions } = getSessionStore2({ projectId });
-	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore]);
-	const remoteBranchStore = getRemoteBranchStore(projectId, [fetchStore]);
-
-	const baseBranchesState = baseBranchStore.state;
-	const remoteBranchesState = remoteBranchStore.state;
-	let deltasStore: Readable<any>;
-	let deltasUnsubscribe: () => void;
-
-	$: updateDeltasStore(projectId, sessionId); // has to come before `getVirtualBranchStore`
-	$: sessionId = $sessionStore?.at(-1)?.id ?? '';
-	$: vbranchStore = getVirtualBranchStore(projectId, sessionId, [sessionStore, deltasStore]);
-	$: branchesState = vbranchStore?.state;
-
-	// function exists to unsubscribe from delta store when session changes
-	function updateDeltasStore(projectId: string, sessionId: string) {
-		if (deltasUnsubscribe) deltasUnsubscribe();
-		const { store, unsubscribe } = getDeltasStore2({ projectId, sessionId });
-		deltasStore = store;
-		deltasUnsubscribe = unsubscribe;
-	}
-
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
-	$: branchController = new BranchController(
+	const fetchStore = getFetchesStore(projectId);
+	const deltasStore = getDeltasStore2(projectId);
+	const sessionsStore = getSessionStore2(projectId);
+	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore]);
+	const remoteBranchStore = getRemoteBranchStore(projectId, [fetchStore]);
+	const vbranchStore = getVirtualBranchStore(projectId, [deltasStore, sessionsStore]);
+	const branchesWithContent = getWithContentStore(projectId, sessionsStore, vbranchStore);
+
+	const fetchUnsubscribe = fetchStore.subscribeStream();
+	const sessionsUnsubscribe = sessionsStore.subscribeStream();
+
+	const branchesState = branchesWithContent.state;
+	const baseBranchesState = baseBranchStore.state;
+	const remoteBranchesState = remoteBranchStore.state;
+
+	const branchController = new BranchController(
 		projectId,
 		vbranchStore,
 		remoteBranchStore,
 		baseBranchStore
 	);
 
+	$: sessionId = $sessionsStore?.at(-1)?.id;
+	$: updateDeltasStore(sessionId); // has to come before `getVirtualBranchStore`
+
 	let targetChoice: string | undefined;
+	let deltasUnsubscribe: (() => void) | undefined;
+
+	// function exists to unsubscribe from delta store when session changes
+	function updateDeltasStore(sessionId: string | undefined) {
+		if (deltasUnsubscribe) deltasUnsubscribe();
+		deltasUnsubscribe = sessionId ? deltasStore.subscribeStream(sessionId) : undefined;
+	}
 
 	function onSetTargetClick() {
 		if (!targetChoice) {
@@ -65,7 +67,7 @@
 	}
 
 	onDestroy(() => {
-		unsubscribeSessions();
+		sessionsUnsubscribe();
 		fetchUnsubscribe();
 		if (deltasUnsubscribe) deltasUnsubscribe();
 	});
@@ -103,7 +105,7 @@
 			>
 				<UpstreamBranchLane base={$baseBranchStore} {branchController} />
 				<Board
-					branches={$vbranchStore}
+					branches={$branchesWithContent}
 					branchesState={$branchesState}
 					{branchController}
 					{projectId}

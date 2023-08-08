@@ -2,7 +2,7 @@ mod error;
 mod local;
 mod remote;
 
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
@@ -25,20 +25,20 @@ impl Name {
     }
 }
 
-impl TryFrom<&str> for Name {
-    type Error = Error;
+impl FromStr for Name {
+    type Err = Error;
 
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         if value.starts_with("refs") {
             if value.starts_with("refs/remotes/") {
-                Ok(Self::Remote(RemoteName::try_from(value)?))
+                Ok(Self::Remote(value.parse()?))
             } else if value.starts_with("refs/heads/") {
-                Ok(Self::Local(LocalName::try_from(value)?))
+                Ok(Self::Local(value.parse()?))
             } else {
                 Err(Error::InvalidName(value.to_string()))
             }
         } else {
-            Ok(Self::Local(LocalName::try_from(value)?))
+            Ok(Self::Local(value.parse()?))
         }
     }
 }
@@ -76,6 +76,6 @@ impl Serialize for Name {
 impl<'d> Deserialize<'d> for Name {
     fn deserialize<D: serde::Deserializer<'d>>(deserializer: D) -> Result<Self, D::Error> {
         let name = String::deserialize(deserializer)?;
-        Self::try_from(name.as_str()).map_err(serde::de::Error::custom)
+        name.parse().map_err(serde::de::Error::custom)
     }
 }

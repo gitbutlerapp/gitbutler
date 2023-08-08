@@ -3,7 +3,7 @@ use std::{
     fs::File,
     io::{BufReader, Read},
     os::unix::prelude::MetadataExt,
-    sync, time,
+    path, sync, time,
 };
 
 use anyhow::{anyhow, Context, Ok, Result};
@@ -30,27 +30,37 @@ pub struct Repository {
     fslock: sync::Arc<sync::Mutex<fslock::LockFile>>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("project not found")]
+    ProjectNotFound,
+    #[error("path not found: {0}")]
+    ProjectPathNotFound(path::PathBuf),
+    #[error(transparent)]
+    Git(#[from] git2::Error),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 impl Repository {
     pub fn open<P: AsRef<std::path::Path>>(
         root: P,
         project_id: &str,
         project_store: projects::Storage,
         users_store: users::Storage,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let project = project_store
             .get_project(project_id)
-            .context("failed to get project")?;
+            .context("failed to get project")
+            .map_err(Error::Other)?;
         if project.is_none() {
-            return Err(anyhow!("project not found"));
+            return Err(Error::ProjectNotFound);
         }
         let project = project.unwrap();
 
         let project_objects_path = std::path::Path::new(&project.path).join(".git/objects");
         if !project_objects_path.exists() {
-            return Err(anyhow!(
-                "{}: project objects path does not exist",
-                project_objects_path.display()
-            ));
+            return Err(Error::ProjectPathNotFound(project_objects_path));
         }
 
         let path = root.as_ref().join("projects").join(project_id.clone());
@@ -61,16 +71,21 @@ impl Repository {
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
 
             git_repository
-                .odb()?
+                .odb()
+                .map_err(Error::Git)?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
-                .context("failed to add disk alternate")?;
+                .map_err(Error::Git)?;
 
-            Ok(Self {
+            let fslock = fslock::LockFile::open(&lock_file_path)
+                .context("failed to open lock file")
+                .map_err(Error::Other)?;
+
+            Result::Ok(Self {
                 project_id: project_id.to_string(),
                 git_repository,
                 project_store,
                 users_store,
-                fslock: sync::Arc::new(sync::Mutex::new(fslock::LockFile::open(&lock_file_path)?)),
+                fslock: sync::Arc::new(sync::Mutex::new(fslock)),
             })
         } else {
             let git_repository = git2::Repository::init_opts(
@@ -87,12 +102,15 @@ impl Repository {
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .context("failed to add disk alternate")?;
 
+            let fslock =
+                fslock::LockFile::open(&lock_file_path).context("failed to open lock file")?;
+
             let gb_repository = Self {
                 project_id: project_id.to_string(),
                 git_repository,
                 project_store,
                 users_store,
-                fslock: sync::Arc::new(sync::Mutex::new(fslock::LockFile::open(&lock_file_path)?)),
+                fslock: sync::Arc::new(sync::Mutex::new(fslock)),
             };
 
             if gb_repository
@@ -100,7 +118,7 @@ impl Repository {
                 .context("failed to migrate")?
             {
                 log::info!("{}: migrated", gb_repository.project_id);
-                return Ok(gb_repository);
+                return Result::Ok(gb_repository);
             }
 
             gb_repository.lock()?;
@@ -112,7 +130,7 @@ impl Repository {
                 .flush_session(&project_repository::Repository::open(&project)?, &session)
                 .context("failed to run initial flush")?;
 
-            Ok(gb_repository)
+            Result::Ok(gb_repository)
         }
     }
 
@@ -566,84 +584,6 @@ impl Repository {
         }
     }
 
-    pub fn set_base_branch(
-        &self,
-        project_repository: &project_repository::Repository,
-        target_branch: &str,
-    ) -> Result<virtual_branches::BaseBranch> {
-        let repo = &project_repository.git_repository;
-
-        // lookup a branch by name
-        let branch = repo.find_branch(target_branch, git2::BranchType::Remote)?;
-
-        let remote_name = repo.branch_remote_name(branch.get().name().unwrap())?;
-        let remote = repo.find_remote(remote_name.as_str().unwrap())?;
-        let remote_url = remote.url().unwrap();
-
-        // get a list of currently active virtual branches
-
-        let current_session = self
-            .get_or_create_current_session()
-            .context("failed to get current session")?;
-        let current_session_reader = sessions::Reader::open(self, &current_session)
-            .context("failed to open current session for reading")?;
-
-        let virtual_branches = virtual_branches::Iterator::new(&current_session_reader)
-            .context("failed to create branch iterator")?
-            .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
-            .context("failed to read virtual branches")?;
-
-        let active_virtual_branches = virtual_branches
-            .iter()
-            .filter(|branch| branch.applied)
-            .collect::<Vec<_>>();
-
-        // if there are no applied virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
-        let commit = branch.get().peel_to_commit()?;
-        let mut commit_oid = commit.id();
-
-        let head_ref = repo.head().context("Failed to get HEAD reference")?;
-        let head_branch: project_repository::branch::Name = head_ref
-            .name()
-            .context("Failed to get HEAD reference name")?
-            .try_into()?;
-        let head_oid = head_ref
-            .peel_to_commit()
-            .context("Failed to peel HEAD reference to commit")?
-            .id();
-
-        if head_oid != commit_oid {
-            // calculate the commit as the merge-base between HEAD in project_repository and this target commit
-            commit_oid = repo.merge_base(head_oid, commit_oid).context(format!(
-                "Failed to calculate merge base between {} and {}",
-                head_oid, commit_oid
-            ))?;
-        }
-
-        let target = virtual_branches::target::Target {
-            branch_name: branch.name()?.unwrap().to_string(),
-            remote_name: remote.name().unwrap().to_string(),
-            remote_url: remote_url.to_string(),
-            sha: commit_oid,
-        };
-
-        let target_writer = virtual_branches::target::Writer::new(self);
-        target_writer.write_default(&target)?;
-
-        if active_virtual_branches.is_empty() {
-            virtual_branches::create_virtual_branch_from_branch(
-                self,
-                project_repository,
-                &head_branch,
-                Some(true),
-            )?;
-        }
-
-        virtual_branches::update_gitbutler_integration(self, project_repository)?;
-        let base = virtual_branches::target_to_base_branch(project_repository, &target)?;
-        Ok(base)
-    }
-
     pub fn git_signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
         let user = self.users_store.get().context("failed to get user")?;
         let mut committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
@@ -772,9 +712,6 @@ impl Repository {
     }
 
     pub fn purge(&self) -> Result<()> {
-        self.project_store
-            .purge(&self.project_id)
-            .context("failed to delete project from store")?;
         std::fs::remove_dir_all(self.git_repository.path()).context("failed to remove repository")
     }
 }

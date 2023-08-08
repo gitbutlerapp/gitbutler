@@ -94,7 +94,8 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                 if upstream.is_empty() {
                     Ok(None)
                 } else {
-                    branch::RemoteName::try_from(upstream.as_str())
+                    upstream
+                        .parse::<branch::RemoteName>()
                         .map(Some)
                         .map_err(|e| {
                             crate::reader::Error::IOError(std::io::Error::new(
@@ -139,7 +140,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                 format!("meta/ownership: {}", e),
             ))
         })?;
-        let ownership = Ownership::try_from(ownership_string.as_str()).map_err(|e| {
+        let ownership = ownership_string.parse().map_err(|e| {
             crate::reader::Error::IOError(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("meta/ownership: {}", e),

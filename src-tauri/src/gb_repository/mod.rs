@@ -3,4 +3,4 @@ mod repository;
 #[cfg(test)]
 mod repository_tests;
 
-pub use repository::Repository;
+pub use repository::{Error, Repository};
