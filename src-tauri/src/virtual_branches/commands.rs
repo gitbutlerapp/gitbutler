@@ -181,3 +181,18 @@ pub async fn update_virtual_branch(
         .context("failed to update virtual branch")?;
     Ok(())
 }
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+pub async fn delete_virtual_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch_id: &str,
+) -> Result<(), Error> {
+    let controller = handle.state::<Controller>();
+    controller
+        .delete_virtual_branch(project_id, branch_id)
+        .await
+        .context("failed to update virtual branch")?;
+    Ok(())
+}
