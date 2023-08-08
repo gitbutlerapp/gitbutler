@@ -133,7 +133,7 @@ impl WatcherInner {
                     if let Err(error) = handle_result {
                         log::error!("{}: failed to handle event {} in {:?}: {:#}", project_id, event, start.elapsed(), error);
                     } else {
-                        log::warn!("{}: handled event {:?} in {}", project_id, start.elapsed(), event);
+                        log::warn!("{}: handled event {} in {:?}", project_id, event, start.elapsed()) ;
                     }
                 },
                 _ = self.cancellation_token.cancelled() => {
