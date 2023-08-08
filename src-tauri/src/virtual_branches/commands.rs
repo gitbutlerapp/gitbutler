@@ -211,3 +211,18 @@ pub async fn apply_branch(
         .context("failed to apply branch")?;
     Ok(())
 }
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+pub async fn unapply_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<(), Error> {
+    let controller = handle.state::<Controller>();
+    controller
+        .unapply_virtual_branch(project_id, branch)
+        .await
+        .context("failed to unapply branch")?;
+    Ok(())
+}
