@@ -226,3 +226,17 @@ pub async fn unapply_branch(
         .context("failed to unapply branch")?;
     Ok(())
 }
+
+#[timed(duration(printer = "debug!"))]
+#[tauri::command(async)]
+pub async fn push_virtual_branch(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    branch_id: &str,
+) -> Result<(), Error> {
+    handle
+        .state::<Controller>()
+        .push_virtual_branch(project_id, branch_id)
+        .await?;
+    Ok(())
+}

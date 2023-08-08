@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
 use crate::{
-    gb_repository,
+    gb_repository, keys,
     project_repository::{self, conflicts},
     projects, users,
 };
@@ -16,10 +16,13 @@ pub struct Controller {
 
     projects_storage: projects::Storage,
     users_storage: users::Storage,
+    keys_storage: keys::Storage,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("failed to open project repository")]
+    PushError(#[from] project_repository::Error),
     #[error("project is in a conflicted state")]
     Conflicting,
     #[error(transparent)]
@@ -41,6 +44,7 @@ impl TryFrom<&AppHandle> for Controller {
             semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             projects_storage: projects::Storage::from(value),
             users_storage: users::Storage::from(value),
+            keys_storage: keys::Storage::from(value),
         })
     }
 }
@@ -314,6 +318,43 @@ impl Controller {
         let _permit = semaphore.acquire().await?;
 
         super::unapply_branch(&gb_repository, &project_repository, branch_id)?;
+        Ok(())
+    }
+
+    pub async fn push_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_id: &str,
+    ) -> Result<(), Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+
+        let private_key = self
+            .keys_storage
+            .get_or_create()
+            .context("failed to get or create private key")?;
+
+        let mut semaphores = self.semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+        super::push(&project_repository, &gb_repository, branch_id, &private_key).map_err(|e| {
+            match e {
+                super::PushError::Repository(e) => Error::PushError(e),
+                super::PushError::Other(e) => Error::Other(e),
+            }
+        })?;
+
         Ok(())
     }
 

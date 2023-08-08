@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops, path, sync, thread, time};
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
-use tokio::sync::{Mutex, Semaphore};
+use tokio::sync::Mutex;
 
 use crate::{
     bookmarks, deltas, files, gb_repository, keys,
@@ -26,7 +26,6 @@ pub struct App {
     files_database: files::Database,
     deltas_database: deltas::Database,
     bookmarks_database: bookmarks::Database,
-    vbranch_semaphores: sync::Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,7 +55,6 @@ impl TryFrom<&AppHandle> for App {
             deltas_database: deltas::Database::try_from(value)?,
             files_database: files::Database::try_from(value)?,
             bookmarks_database: bookmarks::Database::try_from(value)?,
-            vbranch_semaphores: sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         })
     }
 }
@@ -291,41 +289,6 @@ impl App {
         // mark file as resolved
         conflicts::resolve(&project_repository, path)?;
         Ok(())
-    }
-
-    pub async fn push_virtual_branch(
-        &self,
-        project_id: &str,
-        branch_id: &str,
-    ) -> Result<(), Error> {
-        let gb_repository = self.gb_repository(project_id).map_err(Error::Other)?;
-        let project = self.gb_project(project_id).map_err(Error::Other)?;
-        let project_repository =
-            project_repository::Repository::open(&project).map_err(Error::Other)?;
-
-        let private_key = self
-            .keys_controller
-            .get_or_create()
-            .map_err(|e| Error::Other(e.into()))?;
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore
-            .acquire()
-            .await
-            .context("failed to acquire semaphore")
-            .map_err(Error::Other)?;
-
-        match virtual_branches::push(&project_repository, &gb_repository, branch_id, &private_key) {
-            Ok(_) => Ok(()),
-            Err(virtual_branches::PushError::Repository(project_repository::Error::Other(e))) => {
-                Err(Error::Other(e))
-            }
-            Err(virtual_branches::PushError::Repository(e)) => Err(Error::Message(e.to_string())),
-            Err(virtual_branches::PushError::Other(e)) => Err(Error::Other(e)),
-        }
     }
 
     pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
