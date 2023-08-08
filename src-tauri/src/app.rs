@@ -284,22 +284,6 @@ impl App {
             .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub async fn update_virtual_branch(
-        &self,
-        project_id: &str,
-        branch_update: virtual_branches::branch::BranchUpdateRequest,
-    ) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        virtual_branches::update_branch(&gb_repository, branch_update)?;
-        Ok(())
-    }
 
     pub async fn delete_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
         let gb_repository = self.gb_repository(project_id)?;

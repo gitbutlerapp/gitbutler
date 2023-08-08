@@ -231,6 +231,23 @@ impl Controller {
         Ok(())
     }
 
+    pub async fn update_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_update: super::branch::BranchUpdateRequest,
+    ) -> Result<(), Error> {
+        let gb_repository = self.open_gb_repository(project_id)?;
+
+        let mut semaphores = self.semaphores.lock().await;
+        let semaphore = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(1));
+        let _permit = semaphore.acquire().await?;
+
+        super::update_branch(&gb_repository, branch_update)?;
+        Ok(())
+    }
+
     fn open_gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository, Error> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),
