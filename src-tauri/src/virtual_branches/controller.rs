@@ -61,19 +61,17 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
+        self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            let gb_repository = self.open_gb_repository(project_id)?;
 
-        super::commit(&gb_repository, &project_repository, branch, message)?;
+            super::commit(&gb_repository, &project_repository, branch, message)
+        })
+        .await?;
 
         Ok(())
     }
@@ -87,19 +85,19 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
+        let branches = self
+            .with_lock(project_id, || {
+                let project_repository = project
+                    .as_ref()
+                    .try_into()
+                    .context("failed to open project repository")?;
+                let gb_repository = self.open_gb_repository(project_id)?;
 
-        let branches = super::list_virtual_branches(&gb_repository, &project_repository)?;
+                super::list_virtual_branches(&gb_repository, &project_repository)
+            })
+            .await?;
+
         Ok(branches)
     }
 
@@ -113,23 +111,23 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
-        if conflicts::is_resolving(&project_repository) {
-            return Err(Error::Conflicting);
-        }
+        self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            let gb_repository = self.open_gb_repository(project_id)?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
+            if conflicts::is_resolving(&project_repository) {
+                return Err(Error::Conflicting);
+            }
 
-        super::create_virtual_branch(&gb_repository, create)?;
+            super::create_virtual_branch(&gb_repository, create)?;
+            Ok(())
+        })
+        .await?;
+
         Ok(())
     }
 
@@ -143,27 +141,27 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
+        let branch_id = self
+            .with_lock::<Result<String, Error>>(project_id, || {
+                let project_repository = project
+                    .as_ref()
+                    .try_into()
+                    .context("failed to open project repository")?;
+                let gb_repository = self.open_gb_repository(project_id)?;
 
-        let branch_id = super::create_virtual_branch_from_branch(
-            &gb_repository,
-            &project_repository,
-            branch,
-            None,
-        )?;
+                let branch_id = super::create_virtual_branch_from_branch(
+                    &gb_repository,
+                    &project_repository,
+                    branch,
+                    None,
+                )?;
 
-        // also apply the branch
-        super::apply_branch(&gb_repository, &project_repository, &branch_id)?;
+                // also apply the branch
+                super::apply_branch(&gb_repository, &project_repository, &branch_id)?;
+                Ok(branch_id)
+            })
+            .await?;
 
         Ok(branch_id)
     }
@@ -182,7 +180,6 @@ impl Controller {
             .try_into()
             .context("failed to open project repository")?;
         let gb_repository = self.open_gb_repository(project_id)?;
-
         let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
         Ok(base_branch)
     }
@@ -197,19 +194,19 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
+        let target = self
+            .with_lock(project_id, || {
+                let project_repository = project
+                    .as_ref()
+                    .try_into()
+                    .context("failed to open project repository")?;
+                let gb_repository = self.open_gb_repository(project_id)?;
 
-        let target = super::set_base_branch(&gb_repository, &project_repository, target_branch)?;
+                super::set_base_branch(&gb_repository, &project_repository, target_branch)
+            })
+            .await?;
+
         Ok(target)
     }
 
@@ -219,19 +216,18 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
+        self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            let gb_repository = self.open_gb_repository(project_id)?;
 
-        super::update_base_branch(&gb_repository, &project_repository)?;
+            super::update_base_branch(&gb_repository, &project_repository)
+        })
+        .await?;
+
         Ok(())
     }
 
@@ -240,15 +236,12 @@ impl Controller {
         project_id: &str,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
-        let gb_repository = self.open_gb_repository(project_id)?;
+        self.with_lock(project_id, || {
+            let gb_repository = self.open_gb_repository(project_id)?;
+            super::update_branch(&gb_repository, branch_update)
+        })
+        .await?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        super::update_branch(&gb_repository, branch_update)?;
         Ok(())
     }
 
@@ -257,15 +250,12 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
-        let gb_repository = self.open_gb_repository(project_id)?;
+        self.with_lock(project_id, || {
+            let gb_repository = self.open_gb_repository(project_id)?;
+            super::delete_branch(&gb_repository, branch_id)
+        })
+        .await?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        super::delete_branch(&gb_repository, branch_id)?;
         Ok(())
     }
 
@@ -279,19 +269,17 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
+        self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            let gb_repository = self.open_gb_repository(project_id)?;
+            super::apply_branch(&gb_repository, &project_repository, branch_id)
+        })
+        .await?;
 
-        super::apply_branch(&gb_repository, &project_repository, branch_id)?;
         Ok(())
     }
 
@@ -305,19 +293,17 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
-        let mut semaphores = self.semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
+        self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            let gb_repository = self.open_gb_repository(project_id)?;
+            super::unapply_branch(&gb_repository, &project_repository, branch_id)
+        })
+        .await?;
 
-        super::unapply_branch(&gb_repository, &project_repository, branch_id)?;
         Ok(())
     }
 
@@ -331,31 +317,38 @@ impl Controller {
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
-        let project_repository = project
-            .as_ref()
-            .try_into()
-            .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
 
         let private_key = self
             .keys_storage
             .get_or_create()
             .context("failed to get or create private key")?;
 
+        self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            let gb_repository = self.open_gb_repository(project_id)?;
+
+            super::push(&project_repository, &gb_repository, branch_id, &private_key).map_err(|e| {
+                match e {
+                    super::PushError::Repository(e) => Error::PushError(e),
+                    super::PushError::Other(e) => Error::Other(e),
+                }
+            })
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    async fn with_lock<T>(&self, project_id: &str, action: impl FnOnce() -> T) -> T {
         let mut semaphores = self.semaphores.lock().await;
         let semaphore = semaphores
             .entry(project_id.to_string())
             .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        super::push(&project_repository, &gb_repository, branch_id, &private_key).map_err(|e| {
-            match e {
-                super::PushError::Repository(e) => Error::PushError(e),
-                super::PushError::Other(e) => Error::Other(e),
-            }
-        })?;
-
-        Ok(())
+        let _permit = semaphore.acquire().await;
+        action()
     }
 
     fn open_gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository, Error> {
