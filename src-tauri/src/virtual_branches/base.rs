@@ -361,7 +361,7 @@ pub fn update_base_branch(
     Ok(())
 }
 
-fn target_to_base_branch(
+pub fn target_to_base_branch(
     project_repository: &project_repository::Repository,
     target: &target::Target,
 ) -> Result<super::BaseBranch> {
