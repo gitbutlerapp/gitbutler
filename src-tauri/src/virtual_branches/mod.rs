@@ -755,6 +755,7 @@ pub fn list_virtual_branches(
         Some(target) => target,
         None => return Ok(vec![]),
     };
+    let base_data = target_to_base_branch(project_repository, &default_target)?;
 
     let virtual_branches = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
@@ -884,9 +885,6 @@ pub fn list_virtual_branches(
 
         // find upstream commits if we found an upstream reference
         let mut upstream_commits = HashMap::new();
-        // figure out if this branch is integrated into the target
-        let mut integrated = false;
-
         if let Some(ref upstream) = upstream_commit {
             let merge_base =
                 repo.merge_base(upstream.id(), default_target.sha)
@@ -898,36 +896,6 @@ pub fn list_virtual_branches(
 
             for oid in project_repository.l(upstream.id(), merge_base)? {
                 upstream_commits.insert(oid, true);
-            }
-
-            // if there are upstream commits, it might be integrated
-            if !upstream_commits.is_empty() {
-                let head_tree = repo.find_tree(branch.tree)?;
-                let merge_commit = repo.find_commit(merge_base)?;
-                let merge_tree = merge_commit.tree()?;
-                let upstream_tree = upstream.tree()?;
-                let upstream_tree_oid = upstream_tree.id();
-
-                // try to merge our tree into the upstream tree
-                let mut merge_index = repo
-                    .merge_trees(
-                        &merge_tree,
-                        &upstream_tree,
-                        &head_tree,
-                        Some(&git2::MergeOptions::new()),
-                    )
-                    .context("failed to merge trees")?;
-
-                if !merge_index.has_conflicts() {
-                    // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
-                    let merge_tree_oid = merge_index
-                        .write_tree_to(repo)
-                        .context("failed to write tree")?;
-                    // then the vbranch is fully merged, so delete it
-                    if merge_tree_oid == upstream_tree_oid {
-                        integrated = true;
-                    }
-                }
             }
         }
 
@@ -942,6 +910,7 @@ pub fn list_virtual_branches(
             commits.push(commit);
         }
 
+        // if the branch is not applied, check to see if it's mergeable and up to date
         let mut mergeable = true;
         let mut merge_conflicts = vec![];
         let mut base_current = true;
@@ -967,6 +936,43 @@ pub fn list_virtual_branches(
                     // there is no common base
                     mergeable = false;
                 };
+            }
+        }
+
+        // figure out if this branch is integrated into the target
+        let mut integrated = false;
+        // can only be true if there are upstream commits
+        if base_data.behind > 0 && base_data.base_sha != branch.head.to_string() {
+            let target_sha = git2::Oid::from_str(&base_data.current_sha)?;
+            let merge_base = repo.merge_base(target_sha, branch.head)?;
+            if merge_base != branch.head {
+                let head_tree = repo.find_tree(branch.tree)?;
+                let merge_commit = repo.find_commit(merge_base)?;
+                let merge_tree = merge_commit.tree()?;
+                let upstream = repo.find_commit(target_sha)?;
+                let upstream_tree = upstream.tree()?;
+                let upstream_tree_oid = upstream_tree.id();
+
+                // try to merge our tree into the upstream tree
+                let mut merge_index = repo
+                    .merge_trees(
+                        &merge_tree,
+                        &upstream_tree,
+                        &head_tree,
+                        Some(&git2::MergeOptions::new()),
+                    )
+                    .context("failed to merge trees")?;
+
+                if !merge_index.has_conflicts() {
+                    // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
+                    let merge_tree_oid = merge_index
+                        .write_tree_to(repo)
+                        .context("failed to write tree")?;
+                    // then the vbranch is fully merged, so delete it
+                    if merge_tree_oid == upstream_tree_oid {
+                        integrated = true;
+                    }
+                }
             }
         }
 

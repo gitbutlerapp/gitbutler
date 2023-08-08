@@ -58,6 +58,28 @@ fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
     Ok(commit_oid)
 }
 
+fn set_test_target(
+    gb_repo: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    repository: &git2::Repository,
+) -> Result<()> {
+    target::Writer::new(&gb_repo).write_default(&target::Target {
+        branch_name: "origin/master".to_string(),
+        remote_name: "origin".to_string(),
+        remote_url: "origin".to_string(),
+        sha: repository.head().unwrap().target().unwrap(),
+    })?;
+    repository.reference(
+        "refs/remotes/origin/master",
+        repository.head().unwrap().target().unwrap(),
+        true,
+        "update target",
+    )?;
+    repository.remote("origin", "http://origin.com/project")?;
+    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    Ok(())
+}
+
 fn test_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
     //dbg!(&path);
@@ -104,13 +126,7 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        remote_name: "origin".to_string(),
-        branch_name: "master".to_string(),
-        remote_url: "origin".to_string(),
-        sha: repository.head().unwrap().target().unwrap(),
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -180,13 +196,7 @@ fn test_track_binary_files() -> Result<()> {
     file.write_all(&image_data)?;
     commit_all(&repository)?;
 
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        remote_name: "origin".to_string(),
-        branch_name: "master".to_string(),
-        remote_url: "origin".to_string(),
-        sha: repository.head().unwrap().target().unwrap(),
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -1548,13 +1558,7 @@ fn test_apply_unapply_branch() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "origin".to_string(),
-        sha: repository.head().unwrap().target().unwrap(),
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     std::fs::write(
         std::path::Path::new(&project.path).join(file_path),
@@ -1648,7 +1652,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
     commit_all(&repository)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
+        branch_name: "origin/master".to_string(),
         remote_name: "origin".to_string(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
@@ -1730,13 +1734,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "origin".to_string(),
-        sha: repository.head().unwrap().target().unwrap(),
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     std::fs::write(
         std::path::Path::new(&project.path).join(file_path),
@@ -1901,16 +1899,7 @@ fn test_detect_remote_commits() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "http://origin.com/project".to_string(),
-        sha: repository.head().unwrap().target().unwrap(),
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
-
-    let repo = &project_repository.git_repository;
-    repo.remote("origin", "http://origin.com/project")?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -1994,14 +1983,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "http://origin.com/project".to_string(),
-        sha: repository.head().unwrap().target().unwrap(),
-    })?;
-    repository.remote("origin", "http://origin.com/project")?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     repository.set_head("refs/heads/master")?;
     repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2145,7 +2127,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
         remote_name: "origin".to_string(),
-        branch_name: "master".to_string(),
+        branch_name: "origin/master".to_string(),
         remote_url: "http://origin.com/project".to_string(),
         sha: upstream_commit,
     })?;
@@ -2225,6 +2207,147 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
 }
 
 #[test]
+fn test_upstream_integrated_vbranch() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    // ok, we need a vbranch with some work and an upstream target that also includes that work, but the base is behind
+    // plus a branch with work not in upstream so we can see that it is not included in the vbranch
+
+    // create a commit and set the target
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "file1\n",
+    )?;
+    let file_path2 = std::path::Path::new("test2.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "file2\n",
+    )?;
+    let file_path3 = std::path::Path::new("test3.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path3),
+        "file3\n",
+    )?;
+    commit_all(&repository)?;
+
+    let base_commit = repository.head().unwrap().target().unwrap();
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "file1\nversion2\n",
+    )?;
+    commit_all(&repository)?;
+
+    let upstream_commit = repository.head().unwrap().target().unwrap();
+    repository.reference(
+        "refs/remotes/origin/master",
+        upstream_commit,
+        true,
+        "update target",
+    )?;
+
+    target::Writer::new(&gb_repo).write_default(&target::Target {
+        remote_name: "origin".to_string(),
+        branch_name: "origin/master".to_string(),
+        remote_url: "http://origin.com/project".to_string(),
+        sha: base_commit,
+    })?;
+    repository.remote("origin", "http://origin.com/project")?;
+    update_gitbutler_integration(&gb_repo, &project_repository)?;
+
+    // create vbranches, one integrated, one not
+    let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+    let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+    let branch3_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "file2\nversion2\n",
+    )?;
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path3),
+        "file3\nversion2\n",
+    )?;
+
+    update_branch(
+        &gb_repo,
+        branch::BranchUpdateRequest {
+            id: branch1_id.clone(),
+            name: Some("integrated".to_string()),
+            ownership: Some(Ownership::try_from("test.txt:1-2")?),
+            ..Default::default()
+        },
+    )?;
+
+    update_branch(
+        &gb_repo,
+        branch::BranchUpdateRequest {
+            id: branch2_id.clone(),
+            name: Some("not integrated".to_string()),
+            ownership: Some(Ownership::try_from("test2.txt:1-2")?),
+            ..Default::default()
+        },
+    )?;
+
+    update_branch(
+        &gb_repo,
+        branch::BranchUpdateRequest {
+            id: branch3_id.clone(),
+            name: Some("not committed".to_string()),
+            ownership: Some(Ownership::try_from("test3.txt:1-2")?),
+            ..Default::default()
+        },
+    )?;
+
+    // create a new virtual branch from the remote branch
+    commit(
+        &gb_repo,
+        &project_repository,
+        &branch1_id,
+        "integrated commit",
+    )?;
+    commit(
+        &gb_repo,
+        &project_repository,
+        &branch2_id,
+        "non-integrated commit",
+    )?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+
+    let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+    assert_eq!(branch1.integrated, true);
+    assert_eq!(branch1.files.len(), 0);
+    assert_eq!(branch1.commits.len(), 1);
+
+    let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
+    assert_eq!(branch2.integrated, false);
+    assert_eq!(branch2.files.len(), 0);
+    assert_eq!(branch2.commits.len(), 1);
+
+    let branch3 = &branches.iter().find(|b| b.id == branch3_id).unwrap();
+    assert_eq!(branch3.integrated, false);
+    assert_eq!(branch3.files.len(), 1);
+    assert_eq!(branch3.commits.len(), 0);
+
+    Ok(())
+}
+
+#[test]
 fn test_partial_commit() -> Result<()> {
     let TestDeps {
         repository,
@@ -2241,13 +2364,7 @@ fn test_partial_commit() -> Result<()> {
         )?;
     commit_all(&repository)?;
 
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "origin".to_string(),
-        sha: repository.head().unwrap().target().unwrap(),
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -2372,16 +2489,9 @@ fn test_commit_add_and_delete_files() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
+    set_test_target(&gb_repo, &project_repository, &repository)?;
     let commit1_oid = repository.head().unwrap().target().unwrap();
     let commit1 = repository.find_commit(commit1_oid).unwrap();
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "origin".to_string(),
-        sha: commit1_oid,
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
-
     // remove file
     std::fs::remove_file(std::path::Path::new(&project.path).join(file_path2))?;
     // add new file
@@ -2442,14 +2552,7 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let commit1_oid = repository.head().unwrap().target().unwrap();
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "origin".to_string(),
-        sha: commit1_oid,
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     // add symlinked file
     let file_path3 = std::path::Path::new("test3.txt");
