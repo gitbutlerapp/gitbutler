@@ -526,18 +526,6 @@ async fn list_bookmarks(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn push_virtual_branch(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    branch_id: &str,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.push_virtual_branch(project_id, branch_id).await?;
-    Ok(())
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.fetch_from_target(project_id)?;
@@ -773,7 +761,7 @@ fn main() {
             virtual_branches::commands::delete_virtual_branch,
             virtual_branches::commands::apply_branch,
             virtual_branches::commands::unapply_branch,
-            push_virtual_branch,
+            virtual_branches::commands::push_virtual_branch,
             virtual_branches::commands::create_virtual_branch_from_branch,
             fetch_from_target,
             mark_resolved,
