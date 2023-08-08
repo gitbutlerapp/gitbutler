@@ -182,7 +182,10 @@ impl App {
             .map_err(Error::Other)?;
 
         if all_projects.iter().any(|project| project.path == path) {
-            return Err(Error::CreateProjectError(format!("project {} already exists", path)));
+            return Err(Error::CreateProjectError(format!(
+                "project {} already exists",
+                path
+            )));
         }
 
         let project = projects::Project::from_path(path.to_string())
@@ -311,7 +314,9 @@ impl App {
             .get_or_create()
             .map_err(|e| Error::Other(e.into()))?;
 
-        project_repository.fetch(&default_target.remote_name, &key).map_err(Error::FetchError)
+        project_repository
+            .fetch(&default_target.remote_name, &key)
+            .map_err(Error::FetchError)
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
