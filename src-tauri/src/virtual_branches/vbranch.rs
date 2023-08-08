@@ -1651,19 +1651,6 @@ fn group_virtual_hunks(
         .collect::<Vec<_>>()
 }
 
-fn get_target(gb_repository: &gb_repository::Repository) -> Result<target::Target> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-
-    let default_target = get_default_target(&current_session_reader)
-        .context("failed to read default target")?
-        .context("failed to read default target")?;
-    Ok(default_target)
-}
-
 fn get_virtual_branches(
     gb_repository: &gb_repository::Repository,
     applied: Option<bool>,
@@ -1687,7 +1674,11 @@ pub fn update_gitbutler_integration(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
-    let target = get_target(gb_repository)?;
+    let target = gb_repository
+        .default_target()
+        .context("failed to get target")?
+        .context("no target set")?;
+
     let repo = &project_repository.git_repository;
 
     // write the currrent target sha to a temp branch as a parent
@@ -1934,7 +1925,10 @@ pub fn commit(
         bail!("cannot commit, project is in a conflicted state");
     }
 
-    let default_target = get_target(gb_repository).context("failed to get default target")?;
+    let default_target = gb_repository
+        .default_target()
+        .context("failed to get default target")?
+        .context("no default target set")?;
 
     // get the files to commit
     let statuses = get_status_by_branch(gb_repository, project_repository)
