@@ -100,7 +100,7 @@ export class BranchController {
 			await invoke<void>('push_virtual_branch', { projectId: this.projectId, branchId });
 			await this.virtualBranchStore.reload();
 		} catch (err: any) {
-			if (err.message === 'auth error') {
+			if (err.code === 'errors.git.authentication') {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
 			} else {
 				toasts.error(`Failed to push branch: ${err.message}`);
@@ -153,8 +153,11 @@ export class BranchController {
 				await this.remoteBranchStore.reload(),
 				await this.targetBranchStore.reload()
 			]);
-		} catch (err) {
-			toasts.error('Failed to fetch from target');
+		} catch (err: any) { if (err.code === 'errors.git.authentication') {
+				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
+			} else {
+				toasts.error(`Failed to push branch: ${err.message}`);
+			}
 		}
 	}
 

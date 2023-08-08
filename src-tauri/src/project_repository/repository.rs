@@ -650,11 +650,11 @@ fn test_to_ssh_url() {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("url not set")]
+    #[error("git url is empty")]
     NoUrl,
-    #[error("not an ssh url: {0}")]
+    #[error("git url is not ssh: {0}")]
     NonSSHUrl(String),
-    #[error("auth error")]
+    #[error("authentication failed")]
     AuthError,
     #[error(transparent)]
     Other(anyhow::Error),
