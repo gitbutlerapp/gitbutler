@@ -670,10 +670,6 @@ fn main() {
             let app: app::App =
                 app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
 
-            // TODO: REMOVE THIS
-            // debug_test_consistency(&app_state, "fec3d50c-503f-4021-89fb-e7ec2433ceae")
-            //     .expect("FAIL");
-
             let cache_dir = tauri_app.path_resolver().app_cache_dir().unwrap();
             let zipper = zip::Zipper::new(cache_dir.join("archives"));
             let proxy = assets::Proxy::new(cache_dir.join("images"));
@@ -880,59 +876,3 @@ fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
 
     Ok(())
 }
-
-// fn debug_test_consistency(app_state: &App, project_id: &str) -> Result<()> {
-//     let repo = app_state
-//         .repositories_storage
-//         .lock()
-//         .unwrap()
-//         .get(&project_id)?;
-
-//     let sessions = repo.sessions(None)?;
-//     let session_deltas: Vec<HashMap<String, Vec<Delta>>> = sessions
-//         .iter()
-//         .map(|session| {
-//             let deltas = repo
-//                 .deltas(&session.id, None)
-//                 .expect("Failed to list deltas");
-//             deltas
-//         })
-//         .collect();
-
-//     let deltas: HashMap<String, Vec<Delta>> =
-//         session_deltas
-//             .iter()
-//             .fold(HashMap::new(), |mut acc, deltas| {
-//                 for (path, deltas) in deltas {
-//                     acc.entry(path.to_string())
-//                         .or_insert_with(Vec::new)
-//                         .extend(deltas.clone());
-//                 }
-//                 acc
-//             });
-
-//     if sessions.is_empty() {
-//         return Ok(());
-//     }
-
-//     let first_session = &sessions[sessions.len() - 1];
-//     let files = repo.files(&first_session.id, None)?;
-
-//     files.iter().for_each(|(path, content)| {
-//         println!("Testing consistency for {}", path);
-//         let mut file_deltas = deltas.get(path).unwrap_or(&Vec::new()).clone();
-//         file_deltas.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
-//         let mut text: Vec<char> = content.chars().collect();
-//         for delta in file_deltas {
-//             println!("Applying delta: {:?}", delta.timestamp_ms);
-//             for operation in delta.operations {
-//                 println!("Applying operation: {:?}", operation);
-//                 operation
-//                     .apply(&mut text)
-//                     .expect("Failed to apply operation");
-//             }
-//         }
-//     });
-
-//     Ok(())
-// }
