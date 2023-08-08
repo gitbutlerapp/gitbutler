@@ -3,7 +3,7 @@ use std::{
     fs::File,
     io::{BufReader, Read},
     os::unix::prelude::MetadataExt,
-    sync, time,
+    path, sync, time,
 };
 
 use anyhow::{anyhow, Context, Ok, Result};
@@ -30,27 +30,37 @@ pub struct Repository {
     fslock: sync::Arc<sync::Mutex<fslock::LockFile>>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("project not found")]
+    ProjectNotFound,
+    #[error("path not found: {0}")]
+    ProjectPathNotFound(path::PathBuf),
+    #[error(transparent)]
+    Git(#[from] git2::Error),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 impl Repository {
     pub fn open<P: AsRef<std::path::Path>>(
         root: P,
         project_id: &str,
         project_store: projects::Storage,
         users_store: users::Storage,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let project = project_store
             .get_project(project_id)
-            .context("failed to get project")?;
+            .context("failed to get project")
+            .map_err(Error::Other)?;
         if project.is_none() {
-            return Err(anyhow!("project not found"));
+            return Err(Error::ProjectNotFound);
         }
         let project = project.unwrap();
 
         let project_objects_path = std::path::Path::new(&project.path).join(".git/objects");
         if !project_objects_path.exists() {
-            return Err(anyhow!(
-                "{}: project objects path does not exist",
-                project_objects_path.display()
-            ));
+            return Err(Error::ProjectPathNotFound(project_objects_path));
         }
 
         let path = root.as_ref().join("projects").join(project_id.clone());
@@ -61,16 +71,21 @@ impl Repository {
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
 
             git_repository
-                .odb()?
+                .odb()
+                .map_err(Error::Git)?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
-                .context("failed to add disk alternate")?;
+                .map_err(Error::Git)?;
 
-            Ok(Self {
+            let fslock = fslock::LockFile::open(&lock_file_path)
+                .context("failed to open lock file")
+                .map_err(Error::Other)?;
+
+            Result::Ok(Self {
                 project_id: project_id.to_string(),
                 git_repository,
                 project_store,
                 users_store,
-                fslock: sync::Arc::new(sync::Mutex::new(fslock::LockFile::open(&lock_file_path)?)),
+                fslock: sync::Arc::new(sync::Mutex::new(fslock)),
             })
         } else {
             let git_repository = git2::Repository::init_opts(
@@ -87,12 +102,15 @@ impl Repository {
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .context("failed to add disk alternate")?;
 
+            let fslock =
+                fslock::LockFile::open(&lock_file_path).context("failed to open lock file")?;
+
             let gb_repository = Self {
                 project_id: project_id.to_string(),
                 git_repository,
                 project_store,
                 users_store,
-                fslock: sync::Arc::new(sync::Mutex::new(fslock::LockFile::open(&lock_file_path)?)),
+                fslock: sync::Arc::new(sync::Mutex::new(fslock)),
             };
 
             if gb_repository
@@ -100,7 +118,7 @@ impl Repository {
                 .context("failed to migrate")?
             {
                 log::info!("{}: migrated", gb_repository.project_id);
-                return Ok(gb_repository);
+                return Result::Ok(gb_repository);
             }
 
             gb_repository.lock()?;
@@ -112,7 +130,7 @@ impl Repository {
                 .flush_session(&project_repository::Repository::open(&project)?, &session)
                 .context("failed to run initial flush")?;
 
-            Ok(gb_repository)
+            Result::Ok(gb_repository)
         }
     }
 
@@ -773,9 +791,6 @@ impl Repository {
     }
 
     pub fn purge(&self) -> Result<()> {
-        self.project_store
-            .purge(&self.project_id)
-            .context("failed to delete project from store")?;
         std::fs::remove_dir_all(self.git_repository.path()).context("failed to remove repository")
     }
 }
