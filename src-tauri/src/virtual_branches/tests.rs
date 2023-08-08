@@ -2267,7 +2267,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch1_id.clone(),
             name: Some("integrated".to_string()),
-            ownership: Some(Ownership::try_from("test.txt:1-2")?),
+            ownership: Some("test.txt:1-2".parse()?),
             ..Default::default()
         },
     )?;
@@ -2277,7 +2277,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             name: Some("not integrated".to_string()),
-            ownership: Some(Ownership::try_from("test2.txt:1-2")?),
+            ownership: Some("test2.txt:1-2".parse()?),
             ..Default::default()
         },
     )?;
@@ -2287,7 +2287,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         branch::BranchUpdateRequest {
             id: branch3_id.clone(),
             name: Some("not committed".to_string()),
-            ownership: Some(Ownership::try_from("test3.txt:1-2")?),
+            ownership: Some("test3.txt:1-2".parse()?),
             ..Default::default()
         },
     )?;
