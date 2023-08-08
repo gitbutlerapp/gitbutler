@@ -2533,14 +2533,7 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let commit1_oid = repository.head().unwrap().target().unwrap();
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "origin".to_string(),
-        sha: commit1_oid,
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     // add symlinked file
     let file_path3 = std::path::Path::new("test3.txt");

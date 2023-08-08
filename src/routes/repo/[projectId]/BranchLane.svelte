@@ -435,7 +435,11 @@
 										<div
 											class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
 										>
-											local
+											{#if integrated}
+												integrated
+											{:else}
+												local
+											{/if}
 										</div>
 										<Button
 											class="w-20"
@@ -485,6 +489,9 @@
 											<Link target="_blank" rel="noreferrer" href={url(base, upstream)}>
 												<span class="text-sm font-bold">
 													{upstream.split('refs/remotes/')[1]}
+													{#if integrated}
+														(integrated)
+													{/if}
 												</span>
 											</Link>
 										{/if}
