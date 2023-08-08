@@ -973,6 +973,9 @@ pub fn list_virtual_branches(
                         integrated = true;
                     }
                 }
+            } else {
+                // merge base is the same as the branch head, so the branch is fully merged
+                integrated = true;
             }
         }
 

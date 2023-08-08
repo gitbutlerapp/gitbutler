@@ -41,6 +41,7 @@ export class Branch {
 	upstream?: string;
 	conflicted!: boolean;
 	baseCurrent!: boolean;
+	integrated!: boolean;
 }
 
 export class Commit {
