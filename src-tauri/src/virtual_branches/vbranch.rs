@@ -15,7 +15,7 @@ use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
     keys::PrivateKey,
-    project_repository::{self, conflicts, diff},
+    project_repository::{self, conflicts, diff, LogUntil},
     reader, sessions,
 };
 
@@ -606,7 +606,7 @@ pub fn list_remote_branches(
                     .context("failed to get behind count")?;
 
                 let ahead = project_repository
-                    .log(branch_oid, main_oid)
+                    .log(branch_oid, LogUntil::Commit(main_oid))
                     .context("failed to get ahead commits")?;
                 let count_ahead = ahead.len();
 
@@ -887,7 +887,7 @@ pub fn list_virtual_branches(
                         upstream.id(),
                         default_target.sha
                     ))?;
-            for oid in project_repository.l(upstream.id(), merge_base)? {
+            for oid in project_repository.l(upstream.id(), LogUntil::Commit(merge_base))? {
                 upstream_commits.insert(oid, true);
             }
         }
@@ -895,7 +895,7 @@ pub fn list_virtual_branches(
         // find all commits on head that are not on target.sha
         let mut commits = vec![];
         for commit in project_repository
-            .log(branch.head, default_target.sha)
+            .log(branch.head, LogUntil::Commit(default_target.sha))
             .context(format!("failed to get log for branch {}", branch.name))?
         {
             let commit =
