@@ -1186,6 +1186,7 @@ pub fn update_branch(
 
 pub fn delete_branch(
     gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
@@ -1203,6 +1204,18 @@ pub fn delete_branch(
     branch_writer
         .delete(&branch)
         .context("Failed to remove branch")?;
+
+    // remove refs/butler reference
+    let repo = &project_repository.git_repository;
+    let branch_name = name_to_branch(&branch.name);
+    let ref_name = format!("refs/gitbutler/{}", branch_name);
+    println!("deleting ref: {}", ref_name);
+    if let Ok(mut reference) = repo.find_reference(&ref_name) {
+        println!("FOUND {}", ref_name);
+        reference
+            .delete()
+            .context(format!("failed to delete {}", ref_name))?;
+    }
 
     Ok(branch)
 }
