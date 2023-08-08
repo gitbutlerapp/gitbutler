@@ -114,24 +114,27 @@ impl WatcherInner {
         loop {
             tokio::select! {
                 Some(event) = rx.recv() => {
-                    log::warn!("{}: handling: {}", project_id, event);
-                    spawn({
+                    let start = std::time::Instant::now();
+                    log::warn!("{}: handling event: {}", project_id, event);
+                    let handle_result: Result<()> = spawn({
                         let project_id = project_id.to_string();
                         let handler = self.handler.clone();
                         let tx = tx.clone();
+                        let event = event.clone();
                         async move {
-                         match handler.handle(event).await {
-                            Ok(events) => {
-                                for event in events {
-                                    if let Err(e) = tx.send(event) {
-                                        log::error!("{}: failed to post event: {:#}", project_id, e);
-                                    }
+                            for event in handler.handle(event).await? {
+                                if let Err(e) = tx.send(event.clone()) {
+                                    log::error!("{}: failed to post event {}: {:#}", project_id, event, e);
                                 }
-                            },
-                            Err(err) => log::error!("{}: failed to handle event: {:#}", project_id, err),
+                            }
+                            Ok(())
                         }
+                    }).await?;
+                    if let Err(error) = handle_result {
+                        log::error!("{}: failed to handle event {} in {:?}: {:#}", project_id, event, start.elapsed(), error);
+                    } else {
+                        log::warn!("{}: handled event {:?} in {}", project_id, start.elapsed(), event);
                     }
-                    });
                 },
                 _ = self.cancellation_token.cancelled() => {
                     if let Err(error) = self.dispatcher.stop() {

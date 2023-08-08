@@ -2,7 +2,7 @@ use std::{fmt::Display, path, time};
 
 use crate::{bookmarks, deltas, events, sessions};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Event {
     Tick(String, time::SystemTime),
     Flush(String, sessions::Session),
@@ -28,9 +28,19 @@ impl Display for Event {
         match self {
             Event::Emit(event) => write!(f, "Emit({})", event.name()),
             Event::IndexAll(project_id) => write!(f, "IndexAll({})", project_id),
-            Event::Tick(project_id, ts) => write!(f, "Tick({}, {:?})", project_id, ts),
+            Event::Tick(project_id, ts) => write!(
+                f,
+                "Tick({}, {})",
+                project_id,
+                ts.duration_since(time::UNIX_EPOCH).unwrap().as_millis()
+            ),
             Event::FetchGitbutlerData(pid, ts) => {
-                write!(f, "FetchGitbutlerData({}, {:?})", pid, ts)
+                write!(
+                    f,
+                    "FetchGitbutlerData({}, {})",
+                    pid,
+                    ts.duration_since(time::UNIX_EPOCH).unwrap().as_millis()
+                )
             }
             Event::Flush(project_id, session) => write!(f, "Flush({}, {})", project_id, session.id),
             Event::GitFileChange(project_id, path) => {
