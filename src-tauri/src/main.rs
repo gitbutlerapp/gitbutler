@@ -597,20 +597,6 @@ async fn delete_virtual_branch(
 
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
-async fn commit_virtual_branch(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    branch: &str,
-    message: &str,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.commit_virtual_branch(project_id, branch, message)
-        .await?;
-    Ok(())
-}
-
-#[timed(duration(printer = "debug!"))]
-#[tauri::command(async)]
 async fn push_virtual_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -878,6 +864,10 @@ fn main() {
                 storage::Storage::try_from(&app_handle).expect("failed to initialize storage");
             app_handle.manage(storage);
 
+            let vbranch_contoller = virtual_branches::controller::Controller::try_from(&app_handle)
+                .expect("failed to initialize virtual branches controller");
+            app_handle.manage(vbranch_contoller);
+
             let app: app::App =
                 app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
 
@@ -964,7 +954,7 @@ fn main() {
             list_bookmarks,
             list_virtual_branches,
             create_virtual_branch,
-            commit_virtual_branch,
+            virtual_branches::commands::commit_virtual_branch,
             get_base_branch_data,
             set_base_branch,
             update_base_branch,

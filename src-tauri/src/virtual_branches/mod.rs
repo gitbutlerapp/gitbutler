@@ -5,6 +5,10 @@ pub mod target;
 mod base;
 pub use base::*;
 
+pub mod controller;
+
+pub mod commands;
+
 mod iterator;
 pub use iterator::BranchIterator as Iterator;
 
