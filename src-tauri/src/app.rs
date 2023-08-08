@@ -284,51 +284,6 @@ impl App {
             .list_by_project_id_session_id(project_id, session_id, paths)
     }
 
-    pub async fn delete_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        virtual_branches::delete_branch(&gb_repository, branch_id)?;
-        Ok(())
-    }
-
-    pub async fn unapply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        virtual_branches::unapply_branch(&gb_repository, &project_repository, branch_id)?;
-        Ok(())
-    }
-
-    pub async fn apply_virtual_branch(&self, project_id: &str, branch_id: &str) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-
-        let mut semaphores = self.vbranch_semaphores.lock().await;
-        let semaphore = semaphores
-            .entry(project_id.to_string())
-            .or_insert_with(|| Semaphore::new(1));
-        let _permit = semaphore.acquire().await?;
-
-        virtual_branches::apply_branch(&gb_repository, &project_repository, branch_id)?;
-        Ok(())
-    }
-
     pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<()> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
