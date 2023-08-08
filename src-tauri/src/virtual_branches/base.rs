@@ -3,7 +3,11 @@ use std::time;
 use anyhow::{bail, Context, Result};
 use uuid::Uuid;
 
-use crate::{gb_repository, project_repository, reader, sessions};
+use crate::{
+    gb_repository,
+    project_repository::{self, LogUntil},
+    reader, sessions,
+};
 
 use super::{branch, iterator, target};
 
@@ -371,27 +375,20 @@ pub fn target_to_base_branch(
     let oid = commit.id();
 
     // gather a list of commits between oid and target.sha
-    let mut upstream_commits = vec![];
-    for commit in project_repository
-        .log(oid, target.sha)
-        .context(format!("failed to get log for branch {:?}", branch.name()?))?
-    {
-        let commit = super::commit_to_vbranch_commit(project_repository, &commit, None)?;
-        upstream_commits.push(commit);
-    }
+    let upstream_commits = project_repository
+        .log(oid, project_repository::LogUntil::Commit(target.sha))
+        .context("failed to get upstream commits")?
+        .iter()
+        .map(|c| super::commit_to_vbranch_commit(project_repository, c, None))
+        .collect::<Result<Vec<_>>>()?;
 
     // get some recent commits
-    let mut revwalk = repo.revwalk().context("failed to create revwalk")?;
-    revwalk
-        .push(target.sha)
-        .context(format!("failed to push {}", target.sha))?;
-    let mut recent_commits = vec![];
-    for oid in revwalk.take(10) {
-        let oid = oid.context("failed to get oid")?;
-        let commit = repo.find_commit(oid).context("failed to find commit")?;
-        let commit = super::commit_to_vbranch_commit(project_repository, &commit, None)?;
-        recent_commits.push(commit);
-    }
+    let recent_commits = project_repository
+        .log(target.sha, LogUntil::End)
+        .context("failed to get recent commits")?
+        .iter()
+        .map(|c| super::commit_to_vbranch_commit(project_repository, c, None))
+        .collect::<Result<Vec<_>>>()?;
 
     let base = super::BaseBranch {
         branch_name: target.branch_name.clone(),
