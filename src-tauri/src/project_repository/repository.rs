@@ -13,6 +13,18 @@ pub struct Repository<'repository> {
     project: &'repository projects::Project,
 }
 
+impl<'project> TryFrom<&'project projects::Project> for Repository<'project> {
+    type Error = git2::Error;
+
+    fn try_from(project: &'project projects::Project) -> std::result::Result<Self, Self::Error> {
+        let git_repository = git2::Repository::open(&project.path)?;
+        Ok(Self {
+            git_repository,
+            project,
+        })
+    }
+}
+
 impl<'repository> Repository<'repository> {
     pub fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
