@@ -384,11 +384,7 @@ impl Controller {
         &self,
         project_repository: &project_repository::Repository,
     ) -> Result<(), Error> {
-        match project_repository
-            .get_head()
-            .map_err(|e| Error::Other(e))?
-            .name()
-        {
+        match project_repository.get_head().map_err(Error::Other)?.name() {
             None => Err(Error::DetachedHead),
             Some(super::vbranch::GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
             Some(head_name) => Err(Error::InvalidHead(head_name.to_string())),
