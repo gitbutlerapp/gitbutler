@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path, sync};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use tauri::AppHandle;
 use tokio::sync::Semaphore;
 use url::Url;
 
@@ -11,16 +12,32 @@ pub struct Proxy {
     semaphores: sync::Arc<tokio::sync::Mutex<HashMap<url::Url, Semaphore>>>,
 }
 
-const ASSET_SCHEME: &str = "asset";
-
-impl Proxy {
-    pub fn new<P: AsRef<path::Path>>(cache_dir: P) -> Self {
+impl From<&path::PathBuf> for Proxy {
+    fn from(value: &path::PathBuf) -> Self {
         Self {
-            cache_dir: cache_dir.as_ref().to_path_buf(),
+            cache_dir: value.to_path_buf(),
             semaphores: sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         }
     }
+}
 
+impl TryFrom<&AppHandle> for Proxy {
+    type Error = anyhow::Error;
+
+    fn try_from(handle: &AppHandle) -> Result<Self, Self::Error> {
+        let cache_dir = handle
+            .path_resolver()
+            .app_cache_dir()
+            .context("failed to get cache dir")?
+            .join("images");
+
+        Ok(Self::from(&cache_dir))
+    }
+}
+
+const ASSET_SCHEME: &str = "asset";
+
+impl Proxy {
     // takes a url of a remote assets, downloads it into cache and returns a url that points to the cached file
     pub async fn proxy(&self, src: &Url) -> Result<Url> {
         if src.scheme() == ASSET_SCHEME {
