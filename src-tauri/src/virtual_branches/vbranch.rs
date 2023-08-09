@@ -1171,23 +1171,35 @@ pub fn update_branch(
     }
 
     if let Some(name) = branch_update.name {
-        let old_branch_name = name_to_branch(&branch.name.clone());
-        let old_refname = format!("refs/gitbutler/{}", old_branch_name);
+        let unique_branch_name = Iterator::new(&current_session_reader)
+            .context("failed to create branch iterator")?
+            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|branch| branch.name == name)
+            .collect::<Vec<_>>()
+            .is_empty();
+        if unique_branch_name {
+            let old_branch_name = name_to_branch(&branch.name.clone());
+            let old_refname = format!("refs/gitbutler/{}", old_branch_name);
 
-        let branch_name = name_to_branch(&name.clone());
-        let refname = format!("refs/gitbutler/{}", branch_name);
+            let branch_name = name_to_branch(&name.clone());
+            let refname = format!("refs/gitbutler/{}", branch_name);
 
-        branch.name = name;
+            branch.name = name;
 
-        // rename the ref
-        let repo = &project_repository.git_repository;
-        if let Ok(mut reference) = repo
-            .find_reference(&old_refname)
-            .context("failed to find reference")
-        {
-            reference
-                .rename(&refname, true, "gb")
-                .context("failed to rename reference")?;
+            // rename the ref
+            let repo = &project_repository.git_repository;
+            if let Ok(mut reference) = repo
+                .find_reference(&old_refname)
+                .context("failed to find reference")
+            {
+                reference
+                    .rename(&refname, true, "gb")
+                    .context("failed to rename reference")?;
+            }
+        } else {
+            bail!("branch name {} already exists", name);
         }
     };
 

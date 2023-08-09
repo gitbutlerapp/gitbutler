@@ -418,6 +418,77 @@ fn test_create_branch_no_arguments() -> Result<()> {
 }
 
 #[test]
+fn test_name_to_branch() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\n",
+    )?;
+
+    let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+    let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    update_gitbutler_integration(&gb_repo, &project_repository)?;
+
+    // even though selected branch has changed
+    update_branch(
+        &gb_repo,
+        &project_repository,
+        branch::BranchUpdateRequest {
+            id: branch1_id.clone(),
+            name: Some("branch1".to_string()),
+            order: Some(1),
+            ..Default::default()
+        },
+    )?;
+    let result = update_branch(
+        &gb_repo,
+        &project_repository,
+        branch::BranchUpdateRequest {
+            id: branch2_id.clone(),
+            name: Some("branch1".to_string()),
+            order: Some(0),
+            ..Default::default()
+        },
+    );
+    assert!(result.is_err());
+    update_branch(
+        &gb_repo,
+        &project_repository,
+        branch::BranchUpdateRequest {
+            id: branch2_id.clone(),
+            name: Some("branch2".to_string()),
+            order: Some(0),
+            ..Default::default()
+        },
+    )?;
+
+    let mut references = Vec::new();
+    for reference in repository.references()? {
+        references.push(reference?.name().unwrap().to_string());
+    }
+    dbg!(&references);
+    assert!(references.contains(&"refs/gitbutler/branch1".to_string()));
+    assert!(references.contains(&"refs/gitbutler/branch2".to_string()));
+
+    Ok(())
+}
+
+#[test]
 fn test_hunk_expantion() -> Result<()> {
     let TestDeps {
         repository,
