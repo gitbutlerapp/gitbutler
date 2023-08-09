@@ -60,7 +60,6 @@ impl Controller {
         branch: &str,
         message: &str,
     ) -> Result<(), Error> {
-        println!("create_commit");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -85,7 +84,6 @@ impl Controller {
         &self,
         project_id: &str,
     ) -> Result<Vec<super::VirtualBranch>, Error> {
-        println!("list_virtual_branches");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -110,7 +108,6 @@ impl Controller {
         project_id: &str,
         create: &super::branch::BranchCreateRequest,
     ) -> Result<(), Error> {
-        println!("create_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -140,7 +137,6 @@ impl Controller {
         project_id: &str,
         branch: &project_repository::branch::Name,
     ) -> Result<String, Error> {
-        println!("create_virtual_branch_from_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -175,7 +171,6 @@ impl Controller {
         &self,
         project_id: &str,
     ) -> Result<Option<super::BaseBranch>, Error> {
-        println!("get_base_branch_data");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -195,7 +190,6 @@ impl Controller {
         project_id: &str,
         target_branch: &str,
     ) -> Result<super::BaseBranch, Error> {
-        println!("set_base_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -216,7 +210,6 @@ impl Controller {
     }
 
     pub async fn update_base_branch(&self, project_id: &str) -> Result<(), Error> {
-        println!("update_base_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -241,7 +234,6 @@ impl Controller {
         project_id: &str,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
-        println!("update_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -267,7 +259,6 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
-        println!("delete_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -292,7 +283,6 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
-        println!("apply_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -317,7 +307,6 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
-        println!("unapply_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -342,7 +331,6 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
-        println!("push_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -398,24 +386,12 @@ impl Controller {
     ) -> Result<(), Error> {
         match project_repository
             .get_head()
-            .map_err(|e| {
-                println!("Error getting head: {:?}", e);
-                Error::Other(e)
-            })?
+            .map_err(|e| Error::Other(e))?
             .name()
         {
-            None => {
-                println!("Detached head");
-                Err(Error::DetachedHead)
-            }
-            Some(super::vbranch::GITBUTLER_INTEGRATION_REFERENCE) => {
-                println!("all good");
-                Ok(())
-            }
-            Some(head_name) => {
-                println!("Invalid head: {}", head_name);
-                Err(Error::InvalidHead(head_name.to_string()))
-            }
+            None => Err(Error::DetachedHead),
+            Some(super::vbranch::GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
+            Some(head_name) => Err(Error::InvalidHead(head_name.to_string())),
         }
     }
 }
