@@ -106,6 +106,7 @@
 									width="full-width"
 									height="small"
 									color="purple"
+									id="merge-base-branch"
 									on:click={updateTargetModal.show}
 								>
 									Merge into common base
