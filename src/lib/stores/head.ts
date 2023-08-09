@@ -10,14 +10,14 @@ export function getHeadsStore(projectId: string): GitHeadStore {
 		[],
 		async () => {
 			const head = await getHead({ projectId: projectId });
-			return head;
+			return head.replace('refs/heads/', '');
 		},
 		async (data) => data,
 		{ trackState: true }
 	) as WritableLoadable<string>;
 	const subscribeStream = () => {
 		return subscribe({ projectId }, ({ head }) => {
-			store.set(head);
+			store.set(head.replace('refs/heads/', ''));
 		});
 	};
 	return { ...store, subscribeStream };

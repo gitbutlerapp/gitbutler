@@ -2,7 +2,7 @@
 	import Board from './Board.svelte';
 	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
-	import { Button } from '$lib/components';
+	import { Button, Link } from '$lib/components';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext, onDestroy } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
@@ -19,7 +19,7 @@
 	import { getSessionStore2 } from '$lib/stores/sessions';
 	import { getDeltasStore2 } from '$lib/stores/deltas';
 	import { getFetchesStore } from '$lib/stores/fetches';
-	import { Code } from '$lib/ipc';
+	import { Code, invoke } from '$lib/ipc';
 	// import TopBar from './topbar/TopBar.svelte';
 
 	export let data: PageData;
@@ -224,9 +224,28 @@
 {:else}
 	<div class="m-auto text-light-700 dark:text-dark-100">
 		{#if $baseBranchState.error.code === Code.InvalidHead}
-			<div class="rounded-md bg-light-400 p-4 dark:bg-dark-700">
-				<h2 class="text-lg font-semibold">Invalid Head</h2>
-				<p>{$baseBranchState.error.message}</p>
+			<div class="space-y-2 rounded-md bg-light-400 p-4 dark:bg-dark-700">
+				<h2 class="text-lg font-semibold">Looks like you've switched from gitbutler/integration</h2>
+
+				<p>
+					Due to GitButler managing multiple virtual branches, you cannot switch back and forth
+					between git branches and virtual branches easily.
+				</p>
+
+				<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
+					Learn more
+				</Link>
+
+				<div class="flex flex-col items-center">
+					<Button
+						color="purple"
+						height="small"
+						on:click={() =>
+							invoke('git_switch_branch', { projectId, branch: 'gitbutler/integration' })}
+					>
+						Go back to gitbutler/integration
+					</Button>
+				</div>
 			</div>
 		{:else}
 			<p>{$baseBranchState.error.message}</p>
