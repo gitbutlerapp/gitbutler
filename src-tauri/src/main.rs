@@ -43,13 +43,7 @@ async fn get_project_data_archive_path(
     handle: tauri::AppHandle,
     project_id: &str,
 ) -> Result<String, Error> {
-    let zipper = zip::Zipper::new(
-        handle
-            .path_resolver()
-            .app_cache_dir()
-            .unwrap()
-            .join("archives"),
-    );
+    let zipper = handle.state::<zip::Zipper>();
     let zipped_logs = zipper.zip(
         handle
             .path_resolver()
@@ -64,13 +58,7 @@ async fn get_project_data_archive_path(
 #[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
 async fn get_logs_archive_path(handle: tauri::AppHandle) -> Result<String, Error> {
-    let zipper = zip::Zipper::new(
-        handle
-            .path_resolver()
-            .app_cache_dir()
-            .unwrap()
-            .join("archives"),
-    );
+    let zipper = handle.state::<zip::Zipper>();
     let zipped_logs = zipper.zip(handle.path_resolver().app_log_dir().unwrap())?;
     Ok(zipped_logs.to_str().unwrap().to_string())
 }
@@ -651,9 +639,11 @@ fn main() {
 
             let app_handle = tauri_app.handle();
 
-            let search =
-                search::Searcher::try_from(&app_handle).expect("failed to initialize search");
-            app_handle.manage(search);
+            let zipper = zip::Zipper::try_from(&app_handle).expect("failed to initialize zipper");
+            tauri_app.manage(zipper);
+
+            let proxy = assets::Proxy::try_from(&app_handle).expect("failed to initialize proxy");
+            tauri_app.manage(proxy);
 
             let database =
                 database::Database::try_from(&app_handle).expect("failed to initialize database");
@@ -663,22 +653,18 @@ fn main() {
                 storage::Storage::try_from(&app_handle).expect("failed to initialize storage");
             app_handle.manage(storage);
 
+            let search =
+                search::Searcher::try_from(&app_handle).expect("failed to initialize search");
+            app_handle.manage(search);
+
             let vbranch_contoller = virtual_branches::controller::Controller::try_from(&app_handle)
                 .expect("failed to initialize virtual branches controller");
             app_handle.manage(vbranch_contoller);
 
             let app: app::App =
                 app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
+            app_handle.manage(app);
 
-            let cache_dir = tauri_app.path_resolver().app_cache_dir().unwrap();
-            let zipper = zip::Zipper::new(cache_dir.join("archives"));
-            let proxy = assets::Proxy::new(cache_dir.join("images"));
-
-            tauri_app.manage(zipper);
-            tauri_app.manage(proxy);
-            tauri_app.manage(app);
-
-            let app_handle = tauri_app.handle();
             tauri::async_runtime::spawn_blocking(move || {
                 if let Err(e) = init(app_handle) {
                     log::error!("failed to app: {:#}", e);
