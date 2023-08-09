@@ -1,11 +1,12 @@
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
+use futures::future::join_all;
 use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
 use crate::{
-    gb_repository, keys,
+    assets, gb_repository, keys,
     project_repository::{self, conflicts},
     projects, users,
 };
@@ -14,6 +15,7 @@ pub struct Controller {
     local_data_dir: path::PathBuf,
     semaphores: Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 
+    assets_proxy: assets::Proxy,
     projects_storage: projects::Storage,
     users_storage: users::Storage,
     keys_storage: keys::Storage,
@@ -46,6 +48,7 @@ impl TryFrom<&AppHandle> for Controller {
         Ok(Self {
             local_data_dir,
             semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            assets_proxy: assets::Proxy::try_from(value)?,
             projects_storage: projects::Storage::from(value),
             users_storage: users::Storage::from(value),
             keys_storage: keys::Storage::from(value),
@@ -167,7 +170,7 @@ impl Controller {
         .await
     }
 
-    pub fn get_base_branch_data(
+    pub async fn get_base_branch_data(
         &self,
         project_id: &str,
     ) -> Result<Option<super::BaseBranch>, Error> {
@@ -182,7 +185,12 @@ impl Controller {
             .context("failed to open project repository")?;
         self.verify_branch(&project_repository)?;
         let gb_repository = self.open_gb_repository(project_id)?;
-        super::get_base_branch_data(&gb_repository, &project_repository).map_err(Error::Other)
+        let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
+        if let Some(branch) = base_branch {
+            Ok(Some(self.proxy_base_branch(branch).await))
+        } else {
+            Ok(None)
+        }
     }
 
     pub async fn set_base_branch(
@@ -196,17 +204,22 @@ impl Controller {
             .context("failed to get project")?
             .context("project not found")?;
 
-        self.with_lock(project_id, || {
-            let project_repository = project
-                .as_ref()
-                .try_into()
-                .context("failed to open project repository")?;
-            let gb_repository = self.open_gb_repository(project_id)?;
+        let target = self
+            .with_lock(project_id, || {
+                let project_repository = project
+                    .as_ref()
+                    .try_into()
+                    .context("failed to open project repository")?;
+                let gb_repository = self.open_gb_repository(project_id)?;
 
-            super::set_base_branch(&gb_repository, &project_repository, target_branch)
-                .map_err(Error::Other)
-        })
-        .await
+                super::set_base_branch(&gb_repository, &project_repository, target_branch)
+                    .map_err(Error::Other)
+            })
+            .await?;
+
+        let target = self.proxy_base_branch(target).await;
+
+        Ok(target)
     }
 
     pub async fn update_base_branch(&self, project_id: &str) -> Result<(), Error> {
@@ -388,6 +401,60 @@ impl Controller {
             None => Err(Error::DetachedHead),
             Some(super::vbranch::GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
             Some(head_name) => Err(Error::InvalidHead(head_name.to_string())),
+        }
+    }
+
+    async fn proxy_base_branch(&self, target: super::BaseBranch) -> super::BaseBranch {
+        super::BaseBranch {
+            recent_commits: join_all(
+                target
+                    .clone()
+                    .recent_commits
+                    .into_iter()
+                    .map(|commit| async move {
+                        super::VirtualBranchCommit {
+                            author: super::Author {
+                                gravatar_url: self
+                                    .assets_proxy
+                                    .proxy(&commit.author.gravatar_url)
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        log::error!("failed to proxy gravatar url: {:#}", e);
+                                        commit.author.gravatar_url
+                                    }),
+                                ..commit.author
+                            },
+                            ..commit
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            upstream_commits: join_all(
+                target
+                    .clone()
+                    .upstream_commits
+                    .into_iter()
+                    .map(|commit| async move {
+                        super::VirtualBranchCommit {
+                            author: super::Author {
+                                gravatar_url: self
+                                    .assets_proxy
+                                    .proxy(&commit.author.gravatar_url)
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        log::error!("failed to proxy gravatar url: {:#}", e);
+                                        commit.author.gravatar_url
+                                    }),
+                                ..commit.author
+                            },
+                            ..commit
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            ..target
         }
     }
 }
