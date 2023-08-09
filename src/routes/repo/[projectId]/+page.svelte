@@ -159,7 +159,9 @@
 					or "origin/main".
 				</p>
 				<div>
-					<Button color="purple" height="small" on:click={onSetTargetClick}>Set Base Branch</Button>
+					<Button color="purple" height="small" id="set-base-branch" on:click={onSetTargetClick}
+						>Set Base Branch</Button
+					>
 				</div>
 			{/if}
 		</div>

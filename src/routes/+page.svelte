@@ -21,7 +21,11 @@
 			</div>
 			{#if $projects.length > 0}
 				<div class="self-start">
-					<Button color="purple" on:click={() => events.emit('openNewProjectModal')}>
+					<Button
+						id="add-new-project"
+						color="purple"
+						on:click={() => events.emit('openNewProjectModal')}
+					>
 						Add project
 					</Button>
 				</div>

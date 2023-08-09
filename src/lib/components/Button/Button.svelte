@@ -11,6 +11,7 @@
 	export let width: 'basic' | 'full-width' = 'basic';
 	export let type: 'button' | 'submit' = 'button';
 	export let align: 'left' | 'center' | 'right' = 'center';
+	export let id: string | undefined = undefined;
 	export let icon: ComponentType | undefined = undefined;
 	export let loading = false;
 	export let tabindex = 0;
@@ -37,6 +38,7 @@
 	{type}
 	class:disabled
 	on:click
+	{id}
 	class:justify-start={align == 'left'}
 	class:justify-center={align == 'center'}
 	class:justify-end={align == 'right'}
