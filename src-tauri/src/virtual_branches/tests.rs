@@ -418,6 +418,77 @@ fn test_create_branch_no_arguments() -> Result<()> {
 }
 
 #[test]
+fn test_name_to_branch() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\n",
+    )?;
+
+    let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+    let branch2_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    update_gitbutler_integration(&gb_repo, &project_repository)?;
+
+    // even though selected branch has changed
+    update_branch(
+        &gb_repo,
+        &project_repository,
+        branch::BranchUpdateRequest {
+            id: branch1_id.clone(),
+            name: Some("branch1".to_string()),
+            order: Some(1),
+            ..Default::default()
+        },
+    )?;
+    let result = update_branch(
+        &gb_repo,
+        &project_repository,
+        branch::BranchUpdateRequest {
+            id: branch2_id.clone(),
+            name: Some("branch1".to_string()),
+            order: Some(0),
+            ..Default::default()
+        },
+    );
+    assert!(result.is_err());
+    update_branch(
+        &gb_repo,
+        &project_repository,
+        branch::BranchUpdateRequest {
+            id: branch2_id.clone(),
+            name: Some("branch2".to_string()),
+            order: Some(0),
+            ..Default::default()
+        },
+    )?;
+
+    let mut references = Vec::new();
+    for reference in repository.references()? {
+        references.push(reference?.name().unwrap().to_string());
+    }
+    dbg!(&references);
+    assert!(references.contains(&"refs/gitbutler/branch1".to_string()));
+    assert!(references.contains(&"refs/gitbutler/branch2".to_string()));
+
+    Ok(())
+}
+
+#[test]
 fn test_hunk_expantion() -> Result<()> {
     let TestDeps {
         repository,
@@ -427,13 +498,7 @@ fn test_hunk_expantion() -> Result<()> {
     } = new_test_deps()?;
     let project_repository = project_repository::Repository::open(&project)?;
 
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "origin".to_string(),
-        sha: repository.head().unwrap().target().unwrap(),
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
@@ -463,6 +528,7 @@ fn test_hunk_expantion() -> Result<()> {
     // even though selected branch has changed
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch1_id.clone(),
             order: Some(1),
@@ -471,6 +537,7 @@ fn test_hunk_expantion() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             order: Some(0),
@@ -763,6 +830,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id.clone(),
             ownership: Some("test.txt:1-5,11-15".parse()?),
@@ -851,6 +919,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             ownership: Some("test.txt:1-5".parse()?),
@@ -1337,6 +1406,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch7_id.clone(),
             name: Some("Situation 7".to_string()),
@@ -1366,6 +1436,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch1_id.clone(),
             name: Some("Situation 1".to_string()),
@@ -1383,6 +1454,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             name: Some("Situation 2".to_string()),
@@ -1402,6 +1474,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             ownership: Some("test.txt:1-6".parse()?),
@@ -1421,6 +1494,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id.clone(),
             name: Some("Situation 3".to_string()),
@@ -1437,6 +1511,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch5_id.clone(),
             name: Some("Situation 5".to_string()),
@@ -1456,6 +1531,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch5_id.clone(),
             ownership: Some("test3.txt:1-5".parse()?),
@@ -1470,6 +1546,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch4_id.clone(),
             name: Some("Situation 4".to_string()),
@@ -1485,6 +1562,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch6_id.clone(),
             name: Some("Situation 6".to_string()),
@@ -1580,6 +1658,7 @@ fn test_apply_unapply_branch() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:1-3".parse()?),
@@ -1671,6 +1750,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             ownership: Some("test2.txt:0-0".parse()?),
@@ -1679,6 +1759,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
     )?;
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id.clone(),
             ownership: Some("test3.txt:1-2".parse()?),
@@ -1755,6 +1836,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             ownership: Some("test4.txt:1-3".parse()?),
@@ -2264,6 +2346,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch1_id.clone(),
             name: Some("integrated".to_string()),
@@ -2274,6 +2357,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch2_id.clone(),
             name: Some("not integrated".to_string()),
@@ -2284,6 +2368,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         &gb_repo,
+        &project_repository,
         branch::BranchUpdateRequest {
             id: branch3_id.clone(),
             name: Some("not committed".to_string()),

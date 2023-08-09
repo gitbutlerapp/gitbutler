@@ -98,10 +98,21 @@ pub fn set_base_branch(
         )?;
     }
 
+    set_exclude_decoration(project_repository)?;
+
     super::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
+}
+
+fn set_exclude_decoration(project_repository: &project_repository::Repository) -> Result<()> {
+    let repo = &project_repository.git_repository;
+    let mut config = repo.config()?;
+    config
+        .set_multivar("log.excludeDecoration", "refs/gitbutler", "refs/gitbutler")
+        .context("failed to set log.excludeDecoration")?;
+    Ok(())
 }
 
 // try to update the target branch
