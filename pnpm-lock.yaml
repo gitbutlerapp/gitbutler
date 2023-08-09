@@ -1,5 +1,9 @@
 lockfileVersion: '6.0'
 
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
 devDependencies:
   '@codemirror/lang-cpp':
     specifier: ^6.0.2
@@ -66,7 +70,7 @@ devDependencies:
     version: 7.58.0(@sveltejs/kit@1.22.3)(svelte@4.0.5)
   '@square/svelte-store':
     specifier: github:gitbutlerapp/svelte-store#error-state
-    version: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5)
+    version: git/github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5)
   '@sveltejs/adapter-static':
     specifier: ^2.0.2
     version: 2.0.2(@sveltejs/kit@1.22.3)
@@ -204,10 +208,10 @@ devDependencies:
     version: 3.3.2
   tauri-plugin-log-api:
     specifier: github:tauri-apps/tauri-plugin-log
-    version: github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab
+    version: git/github.com+tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab
   tauri-plugin-websocket-api:
     specifier: github:tauri-apps/tauri-plugin-websocket
-    version: github.com/tauri-apps/tauri-plugin-websocket/4350fdfd0446a9d384b7c00390ce441d69d10a58
+    version: git/github.com+tauri-apps/tauri-plugin-websocket/4350fdfd0446a9d384b7c00390ce441d69d10a58
   tinykeys:
     specifier: ^1.4.0
     version: 1.4.0
@@ -221,8 +225,8 @@ devDependencies:
     specifier: ^4.4.3
     version: 4.4.3(@types/node@18.11.18)
   vitest:
-    specifier: ^0.33.0
-    version: 0.33.0
+    specifier: ^0.34.1
+    version: 0.34.1
   xterm:
     specifier: ^5.2.1
     version: 5.2.1
@@ -1166,7 +1170,7 @@ packages:
       '@sentry/browser': 7.58.0
       '@sentry/types': 7.58.0
       '@sentry/utils': 7.58.0
-      magic-string: 0.30.0
+      magic-string: 0.30.1
       svelte: 4.0.5
       tslib: 2.6.0
     dev: true
@@ -1303,7 +1307,7 @@ packages:
       debug: 4.3.4
       deepmerge: 4.3.1
       kleur: 4.1.5
-      magic-string: 0.30.0
+      magic-string: 0.30.1
       svelte: 4.0.5
       svelte-hmr: 0.15.2(svelte@4.0.5)
       vite: 4.4.3(@types/node@18.11.18)
@@ -1642,38 +1646,38 @@ packages:
       eslint-visitor-keys: 3.4.1
     dev: true
 
-  /@vitest/expect@0.33.0:
-    resolution: {integrity: sha512-sVNf+Gla3mhTCxNJx+wJLDPp/WcstOe0Ksqz4Vec51MmgMth/ia0MGFEkIZmVGeTL5HtjYR4Wl/ZxBxBXZJTzQ==}
+  /@vitest/expect@0.34.1:
+    resolution: {integrity: sha512-q2CD8+XIsQ+tHwypnoCk8Mnv5e6afLFvinVGCq3/BOT4kQdVQmY6rRfyKkwcg635lbliLPqbunXZr+L1ssUWiQ==}
     dependencies:
-      '@vitest/spy': 0.33.0
-      '@vitest/utils': 0.33.0
+      '@vitest/spy': 0.34.1
+      '@vitest/utils': 0.34.1
       chai: 4.3.7
     dev: true
 
-  /@vitest/runner@0.33.0:
-    resolution: {integrity: sha512-UPfACnmCB6HKRHTlcgCoBh6ppl6fDn+J/xR8dTufWiKt/74Y9bHci5CKB8tESSV82zKYtkBJo9whU3mNvfaisg==}
+  /@vitest/runner@0.34.1:
+    resolution: {integrity: sha512-YfQMpYzDsYB7yqgmlxZ06NI4LurHWfrH7Wy3Pvf/z/vwUSgq1zLAb1lWcItCzQG+NVox+VvzlKQrYEXb47645g==}
     dependencies:
-      '@vitest/utils': 0.33.0
+      '@vitest/utils': 0.34.1
       p-limit: 4.0.0
       pathe: 1.1.1
     dev: true
 
-  /@vitest/snapshot@0.33.0:
-    resolution: {integrity: sha512-tJjrl//qAHbyHajpFvr8Wsk8DIOODEebTu7pgBrP07iOepR5jYkLFiqLq2Ltxv+r0uptUb4izv1J8XBOwKkVYA==}
+  /@vitest/snapshot@0.34.1:
+    resolution: {integrity: sha512-0O9LfLU0114OqdF8lENlrLsnn024Tb1CsS9UwG0YMWY2oGTQfPtkW+B/7ieyv0X9R2Oijhi3caB1xgGgEgclSQ==}
     dependencies:
       magic-string: 0.30.1
       pathe: 1.1.1
       pretty-format: 29.6.1
     dev: true
 
-  /@vitest/spy@0.33.0:
-    resolution: {integrity: sha512-Kv+yZ4hnH1WdiAkPUQTpRxW8kGtH8VRTnus7ZTGovFYM1ZezJpvGtb9nPIjPnptHbsyIAxYZsEpVPYgtpjGnrg==}
+  /@vitest/spy@0.34.1:
+    resolution: {integrity: sha512-UT4WcI3EAPUNO8n6y9QoEqynGGEPmmRxC+cLzneFFXpmacivjHZsNbiKD88KUScv5DCHVDgdBsLD7O7s1enFcQ==}
     dependencies:
       tinyspy: 2.1.1
     dev: true
 
-  /@vitest/utils@0.33.0:
-    resolution: {integrity: sha512-pF1w22ic965sv+EN6uoePkAOTkAPWM03Ri/jXNyMIKBb/XHLDPfhLvf/Fa9g0YECevAIz56oVYXhodLvLQ/awA==}
+  /@vitest/utils@0.34.1:
+    resolution: {integrity: sha512-/ql9dsFi4iuEbiNcjNHQWXBum7aL8pyhxvfnD9gNtbjR9fUKAjxhj4AA3yfLXg6gJpMGGecvtF8Au2G9y3q47Q==}
     dependencies:
       diff-sequences: 29.4.3
       loupe: 2.3.6
@@ -1687,7 +1691,7 @@ packages:
   /acorn-globals@7.0.1:
     resolution: {integrity: sha512-umOSDSDrfHbTNPuNpC2NSnnA3LUrqpevPb4T9jRx4MagXNS0rs+gwiTcAvqCRmsD6utzsrzNt+ebm00SNWiC3Q==}
     dependencies:
-      acorn: 8.8.2
+      acorn: 8.10.0
       acorn-walk: 8.2.0
     dev: true
 
@@ -1699,14 +1703,6 @@ packages:
       acorn: 8.10.0
     dev: true
 
-  /acorn-jsx@5.3.2(acorn@8.8.2):
-    resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
-    peerDependencies:
-      acorn: ^6.0.0 || ^7.0.0 || ^8.0.0
-    dependencies:
-      acorn: 8.8.2
-    dev: true
-
   /acorn-walk@8.2.0:
     resolution: {integrity: sha512-k+iyHEuPgSw6SbuDpGQM+06HQUa04DZ3o+F6CSzXMvvI5KMvnaEqXe+YVe555R9nn6GPt404fos4wcgpw12SDA==}
     engines: {node: '>=0.4.0'}
@@ -1714,12 +1710,6 @@ packages:
 
   /acorn@8.10.0:
     resolution: {integrity: sha512-F0SAmZ8iUtS//m8DmCTA0jlh6TDKkHQyK6xc6V4KDTyZKA9dnvX9/3sRTVQrWm79glUAZbnmmNcdYwUIHWVybw==}
-    engines: {node: '>=0.4.0'}
-    hasBin: true
-    dev: true
-
-  /acorn@8.8.2:
-    resolution: {integrity: sha512-xjIYgE8HBrkpd/sJqOGNspf8uHG+NOHGOw6a/Urj8taM2EXfdNAH2oFcPeIFfsv3+kz/mJrS5VuMqbNLjCa2vw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
     dev: true
@@ -2736,8 +2726,8 @@ packages:
     resolution: {integrity: sha512-7OASN1Wma5fum5SrNhFMAMJxOUAbhyfQ8dQ//PJaJbNw0URTPWqIghHWt1MmAANKhHZIYOHruW4Kw4ruUWOdGw==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     dependencies:
-      acorn: 8.8.2
-      acorn-jsx: 5.3.2(acorn@8.8.2)
+      acorn: 8.10.0
+      acorn-jsx: 5.3.2(acorn@8.10.0)
       eslint-visitor-keys: 3.4.1
     dev: true
 
@@ -3561,7 +3551,7 @@ packages:
         optional: true
     dependencies:
       abab: 2.0.6
-      acorn: 8.8.2
+      acorn: 8.10.0
       acorn-globals: 7.0.1
       cssom: 0.5.0
       cssstyle: 2.3.0
@@ -3756,7 +3746,7 @@ packages:
     resolution: {integrity: sha512-LA+31JYDJLs82r2ScLrlz1GjSgu66ZV518eyWT+S8VhyQn/JL0u9MeBOvQMGYiPk1DBiSN9DDMOcXvigJZaViQ==}
     engines: {node: '>=12'}
     dependencies:
-      '@jridgewell/sourcemap-codec': 1.4.14
+      '@jridgewell/sourcemap-codec': 1.4.15
     dev: true
 
   /magic-string@0.30.1:
@@ -3904,15 +3894,6 @@ packages:
     hasBin: true
     dependencies:
       minimist: 1.2.7
-    dev: true
-
-  /mlly@1.2.0:
-    resolution: {integrity: sha512-+c7A3CV0KGdKcylsI6khWyts/CYrGTrRVo4R/I7u/cUsy0Conxa6LUhiEzVKIw14lc2L5aiO4+SeVe4TeGRKww==}
-    dependencies:
-      acorn: 8.8.2
-      pathe: 1.1.0
-      pkg-types: 1.0.3
-      ufo: 1.1.2
     dev: true
 
   /mlly@1.4.0:
@@ -4245,10 +4226,6 @@ packages:
     resolution: {integrity: sha512-sTitTPYnn23esFR3RlqYBWn4c45WGeLcsKzQiUpXJAyfcWkolvlYpV8FLo7JishK946oQwMFUCHXQ9AjGPKExw==}
     dev: true
 
-  /pathe@1.1.0:
-    resolution: {integrity: sha512-ODbEPR0KKHqECXW1GoxdDb+AZvULmXjVPy4rt+pGo2+TnjJTIPJQSVS6N63n8T2Ip+syHhbn52OewKicV0373w==}
-    dev: true
-
   /pathe@1.1.1:
     resolution: {integrity: sha512-d+RQGp0MAYTIaDBIMmOfMwz3E+LOZnxx1HZd5R18mmCZY0QBlK0LDZfPc8FW8Ed2DlvsuE6PRjroDY+wg4+j/Q==}
     dev: true
@@ -4288,8 +4265,8 @@ packages:
     resolution: {integrity: sha512-nN7pYi0AQqJnoLPC9eHFQ8AcyaixBUOwvqc5TDnIKCMEE6I0y8P7OKA7fPexsXGCGxQDl/cmrLAp26LhcwxZ4A==}
     dependencies:
       jsonc-parser: 3.2.0
-      mlly: 1.2.0
-      pathe: 1.1.0
+      mlly: 1.4.0
+      pathe: 1.1.1
     dev: true
 
   /postcss-import@15.1.0(postcss@8.4.25):
@@ -5185,8 +5162,8 @@ packages:
     resolution: {integrity: sha512-ysnVd2E4nWbNXIbHaUidcKGLTmNimqP0hdpsD0Ph5hPJ84ntCF6PHj+Jg3im9nZt9/hNsBg/E6m1psHc2KaPnQ==}
     dev: true
 
-  /tinypool@0.6.0:
-    resolution: {integrity: sha512-FdswUUo5SxRizcBc6b1GSuLpLjisa8N8qMyYoP3rl+bym+QauhtJP5bvZY1ytt8krKGmMLYIRl36HBZfeAoqhQ==}
+  /tinypool@0.7.0:
+    resolution: {integrity: sha512-zSYNUlYSMhJ6Zdou4cJwo/p7w5nmAH17GRfU/ui3ctvjXFErXXkruT4MWW6poDeXgCaIBlGLrfU6TbTXxyGMww==}
     engines: {node: '>=14.0.0'}
     dev: true
 
@@ -5422,8 +5399,8 @@ packages:
     dependencies:
       cac: 6.7.14
       debug: 4.3.4
-      mlly: 1.2.0
-      pathe: 1.1.0
+      mlly: 1.4.0
+      pathe: 1.1.1
       picocolors: 1.0.0
       source-map: 0.6.1
       source-map-support: 0.5.21
@@ -5439,8 +5416,8 @@ packages:
       - terser
     dev: true
 
-  /vite-node@0.33.0(@types/node@18.11.18):
-    resolution: {integrity: sha512-19FpHYbwWWxDr73ruNahC+vtEdza52kA90Qb3La98yZ0xULqV8A5JLNPUff0f5zID4984tW7l3DH2przTJUZSw==}
+  /vite-node@0.34.1(@types/node@18.11.18):
+    resolution: {integrity: sha512-odAZAL9xFMuAg8aWd7nSPT+hU8u2r9gU3LRm9QKjxBEF2rRdWpMuqkrkjvyVQEdNFiBctqr2Gg4uJYizm5Le6w==}
     engines: {node: '>=v14.18.0'}
     hasBin: true
     dependencies:
@@ -5508,8 +5485,8 @@ packages:
       vite: 4.4.3(@types/node@18.11.18)
     dev: true
 
-  /vitest@0.33.0:
-    resolution: {integrity: sha512-1CxaugJ50xskkQ0e969R/hW47za4YXDUfWJDxip1hwbnhUjYolpfUn2AMOulqG/Dtd9WYAtkHmM/m3yKVrEejQ==}
+  /vitest@0.34.1:
+    resolution: {integrity: sha512-G1PzuBEq9A75XSU88yO5G4vPT20UovbC/2osB2KEuV/FisSIIsw7m5y2xMdB7RsAGHAfg2lPmp2qKr3KWliVlQ==}
     engines: {node: '>=v14.18.0'}
     hasBin: true
     peerDependencies:
@@ -5542,11 +5519,11 @@ packages:
       '@types/chai': 4.3.5
       '@types/chai-subset': 1.3.3
       '@types/node': 18.11.18
-      '@vitest/expect': 0.33.0
-      '@vitest/runner': 0.33.0
-      '@vitest/snapshot': 0.33.0
-      '@vitest/spy': 0.33.0
-      '@vitest/utils': 0.33.0
+      '@vitest/expect': 0.34.1
+      '@vitest/runner': 0.34.1
+      '@vitest/snapshot': 0.34.1
+      '@vitest/spy': 0.34.1
+      '@vitest/utils': 0.34.1
       acorn: 8.10.0
       acorn-walk: 8.2.0
       cac: 6.7.14
@@ -5559,9 +5536,9 @@ packages:
       std-env: 3.3.3
       strip-literal: 1.0.1
       tinybench: 2.5.0
-      tinypool: 0.6.0
+      tinypool: 0.7.0
       vite: 4.4.3(@types/node@18.11.18)
-      vite-node: 0.33.0(@types/node@18.11.18)
+      vite-node: 0.34.1(@types/node@18.11.18)
       why-is-node-running: 2.2.2
     transitivePeerDependencies:
       - less
@@ -5770,9 +5747,9 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/4cf861db334188389186a6f41ddfc1ba157b4ffd}
-    id: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
+  git/github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5):
+    resolution: {commit: 4cf861db334188389186a6f41ddfc1ba157b4ffd, repo: git@github.com:gitbutlerapp/svelte-store.git, type: git}
+    id: git@github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
     name: '@square/svelte-store'
     version: 1.0.17
     peerDependencies:
@@ -5782,16 +5759,16 @@ packages:
       svelte: 4.0.5
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab}
+  git/github.com+tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab:
+    resolution: {commit: 9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab, repo: git@github.com:tauri-apps/tauri-plugin-log.git, type: git}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
       '@tauri-apps/api': 1.4.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/4350fdfd0446a9d384b7c00390ce441d69d10a58:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/4350fdfd0446a9d384b7c00390ce441d69d10a58}
+  git/github.com+tauri-apps/tauri-plugin-websocket/4350fdfd0446a9d384b7c00390ce441d69d10a58:
+    resolution: {commit: 4350fdfd0446a9d384b7c00390ce441d69d10a58, repo: git@github.com:tauri-apps/tauri-plugin-websocket.git, type: git}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:

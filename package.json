@@ -90,7 +90,7 @@
 		"tslib": "^2.6.0",
 		"typescript": "^5.1.6",
 		"vite": "^4.4.3",
-		"vitest": "^0.33.0",
+		"vitest": "^0.34.1",
 		"xterm": "^5.2.1",
 		"xterm-addon-canvas": "^0.4.0",
 		"xterm-addon-fit": "^0.7.0",
