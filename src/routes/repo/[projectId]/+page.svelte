@@ -166,7 +166,7 @@
 						"origin/master" or "origin/main".
 					</p>
 					<div>
-						<Button color="purple" height="small" on:click={onSetTargetClick}
+						<Button color="purple" height="small" on:click={onSetTargetClick} id="set-base-branch"
 							>Set Base Branch</Button
 						>
 					</div>

@@ -98,10 +98,21 @@ pub fn set_base_branch(
         )?;
     }
 
+    set_exclude_decoration(project_repository)?;
+
     super::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
+}
+
+fn set_exclude_decoration(project_repository: &project_repository::Repository) -> Result<()> {
+    let repo = &project_repository.git_repository;
+    let mut config = repo.config()?;
+    config
+        .set_multivar("log.excludeDecoration", "refs/gitbutler", "refs/gitbutler")
+        .context("failed to set log.excludeDecoration")?;
+    Ok(())
 }
 
 // try to update the target branch
@@ -197,7 +208,7 @@ pub fn update_base_branch(
         let branch_tree = repo.find_tree(tree_oid)?;
 
         // check for conflicts with this tree
-        let merge_index = repo
+        let mut merge_index = repo
             .merge_trees(
                 &old_target_tree,
                 &branch_tree,
@@ -268,9 +279,12 @@ pub fn update_base_branch(
             // branch head does not have conflicts, so don't unapply it, but still try to merge it's head if there are commits
             // but also remove/archive it if the branch is fully integrated
             if target.sha == virtual_branch.head {
-                // there were no conflicts and no commits, so just update the head
+                // there were no conflicts and no commits, so write the merge index as the new tree and update the head to the new target
+                let merge_tree_oid = merge_index
+                    .write_tree_to(repo)
+                    .context("failed to write tree")?;
                 virtual_branch.head = new_target_commit_oid;
-                virtual_branch.tree = tree_oid;
+                virtual_branch.tree = merge_tree_oid;
                 branch_writer.write(&virtual_branch)?;
             } else {
                 // no conflicts, but there have been commits, so update head with a merge

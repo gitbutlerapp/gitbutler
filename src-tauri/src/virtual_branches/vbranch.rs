@@ -1150,6 +1150,7 @@ pub fn create_virtual_branch(
 
 pub fn update_branch(
     gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
@@ -1170,7 +1171,36 @@ pub fn update_branch(
     }
 
     if let Some(name) = branch_update.name {
-        branch.name = name;
+        let unique_branch_name = Iterator::new(&current_session_reader)
+            .context("failed to create branch iterator")?
+            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|branch| branch.name == name)
+            .collect::<Vec<_>>()
+            .is_empty();
+        if unique_branch_name {
+            let old_branch_name = name_to_branch(&branch.name.clone());
+            let old_refname = format!("refs/gitbutler/{}", old_branch_name);
+
+            let branch_name = name_to_branch(&name.clone());
+            let refname = format!("refs/gitbutler/{}", branch_name);
+
+            branch.name = name;
+
+            // rename the ref
+            let repo = &project_repository.git_repository;
+            if let Ok(mut reference) = repo
+                .find_reference(&old_refname)
+                .context("failed to find reference")
+            {
+                reference
+                    .rename(&refname, true, "gb")
+                    .context("failed to rename reference")?;
+            }
+        } else {
+            bail!("branch name {} already exists", name);
+        }
     };
 
     if let Some(order) = branch_update.order {
@@ -1186,6 +1216,7 @@ pub fn update_branch(
 
 pub fn delete_branch(
     gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
     branch_id: &str,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
@@ -1203,6 +1234,18 @@ pub fn delete_branch(
     branch_writer
         .delete(&branch)
         .context("Failed to remove branch")?;
+
+    // remove refs/butler reference
+    let repo = &project_repository.git_repository;
+    let branch_name = name_to_branch(&branch.name);
+    let ref_name = format!("refs/gitbutler/{}", branch_name);
+    println!("deleting ref: {}", ref_name);
+    if let Ok(mut reference) = repo.find_reference(&ref_name) {
+        println!("FOUND {}", ref_name);
+        reference
+            .delete()
+            .context(format!("failed to delete {}", ref_name))?;
+    }
 
     Ok(branch)
 }
@@ -1660,14 +1703,25 @@ fn get_virtual_branches(
         .context("failed to get or create currnt session")?;
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
         .context("failed to open current session")?;
-    let applied_virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|branch| branch.applied == applied.unwrap_or(true))
-        .collect::<Vec<_>>();
-    Ok(applied_virtual_branches)
+    match applied {
+        Some(is_applied) => {
+            let applied_virtual_branches = Iterator::new(&current_session_reader)
+                .context("failed to create branch iterator")?
+                .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+                .context("failed to read virtual branches")?
+                .into_iter()
+                .filter(|branch| branch.applied == is_applied)
+                .collect::<Vec<_>>();
+            Ok(applied_virtual_branches)
+        }
+        None => {
+            let applied_virtual_branches = Iterator::new(&current_session_reader)
+                .context("failed to create branch iterator")?
+                .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+                .context("failed to read virtual branches")?;
+            Ok(applied_virtual_branches)
+        }
+    }
 }
 
 pub const GITBUTLER_INTEGRATION_BRANCH_NAME: &str = "gitbutler/integration";
@@ -1724,7 +1778,11 @@ pub fn update_gitbutler_integration(
         .context("failed to set head")?;
 
     // get all virtual branches, we need to try to update them all
-    let applied_virtual_branches = get_virtual_branches(gb_repository, Some(true))?;
+    let all_virtual_branches = get_virtual_branches(gb_repository, None)?;
+    let applied_virtual_branches = all_virtual_branches
+        .iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
 
     let merge_options = git2::MergeOptions::new();
     let base_tree = target_commit.tree()?;
@@ -1760,6 +1818,8 @@ pub fn update_gitbutler_integration(
     for branch in &applied_virtual_branches {
         message.push_str(" - ");
         message.push_str(branch.name.as_str());
+        let branch_name = name_to_branch(branch.name.as_str());
+        message.push_str(format!(" (gitbutler/{})", &branch_name).as_str());
         message.push('\n');
 
         if branch.head != target.sha {
@@ -1797,6 +1857,38 @@ pub fn update_gitbutler_integration(
     let mut index = repo.index()?;
     index.read_tree(&final_tree)?;
     index.write()?;
+
+    // finally, update the refs/gitbutler/ heads to the states of the current virtual branches
+    for branch in &all_virtual_branches {
+        let wip_tree = repo.find_tree(branch.tree)?;
+        let mut branch_head = repo.find_commit(branch.head)?;
+        let head_tree = branch_head.tree()?;
+
+        // create a wip commit if there is wip
+        if head_tree.id() != wip_tree.id() {
+            let mut message = "GitButler WIP Commit".to_string();
+            message.push_str("\n\n");
+            message.push_str("This is a WIP commit for the virtual branch '");
+            message.push_str(branch.name.as_str());
+            message.push_str("'\n\n");
+            message.push_str("This commit is used to store the state of the virtual branch\n");
+            message.push_str("while you are working on it. It is not meant to be used for\n");
+            message.push_str("anything else.\n\n");
+            let branch_head_oid = repo.commit(
+                None,
+                &committer,
+                &committer,
+                &message,
+                &wip_tree,
+                &[&branch_head],
+            )?;
+            branch_head = repo.find_commit(branch_head_oid)?;
+        }
+
+        let branch_name = name_to_branch(branch.name.as_str());
+        let branch_ref = format!("refs/gitbutler/{}", branch_name);
+        repo.reference(&branch_ref, branch_head.id(), true, "update virtual branch")?;
+    }
 
     Ok(())
 }

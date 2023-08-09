@@ -80,6 +80,7 @@ impl super::RunCommand for Move {
 
         virtual_branches::update_branch(
             app.gb_repository(),
+            &app.project_repository(),
             virtual_branches::branch::BranchUpdateRequest {
                 id: target_branch.id,
                 ownership: Some(ownership),

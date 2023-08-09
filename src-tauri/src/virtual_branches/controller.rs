@@ -253,15 +253,14 @@ impl Controller {
             .context("failed to get project")?
             .context("project not found")?;
 
-        self.with_lock::<Result<(), Error>>(project_id, || {
-            let gb_repository = self.open_gb_repository(project_id)?;
+        self.with_lock(project_id, || {
             let project_repository = project
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
-
             self.verify_branch(&project_repository)?;
-            super::update_branch(&gb_repository, branch_update).map_err(Error::Other)?;
+            let gb_repository = self.open_gb_repository(project_id)?;
+            super::update_branch(&gb_repository, &project_repository, branch_update)?;
             Ok(())
         })
         .await
@@ -278,14 +277,14 @@ impl Controller {
             .context("failed to get project")?
             .context("project not found")?;
 
-        self.with_lock::<Result<(), Error>>(project_id, || {
-            let gb_repository = self.open_gb_repository(project_id)?;
+        self.with_lock(project_id, || {
             let project_repository = project
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
             self.verify_branch(&project_repository)?;
-            super::delete_branch(&gb_repository, branch_id)?;
+            let gb_repository = self.open_gb_repository(project_id)?;
+            super::delete_branch(&gb_repository, &project_repository, branch_id)?;
             Ok(())
         })
         .await

@@ -307,6 +307,7 @@
 									kind="outlined"
 									class="text-light-500"
 									height="small"
+									id="generate-ai-message"
 									icon={IconAISparkles}
 									loading={isGeneratingCommigMessage}
 									on:click={() => generateCommitMessage(files)}
@@ -335,6 +336,7 @@
 							class="w-20"
 							height="small"
 							color="purple"
+							id="commit-to-branch"
 							on:click={() => {
 								if (commitMessage) commit();
 								commitMessage = '';
@@ -446,6 +448,7 @@
 											height="small"
 											kind="outlined"
 											color="purple"
+											id="push-commits"
 											loading={isPushing}
 											on:click={push}
 										>
