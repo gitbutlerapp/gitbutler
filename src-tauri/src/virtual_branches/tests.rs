@@ -70,7 +70,7 @@ fn set_test_target(
     project_repository: &project_repository::Repository,
     repository: &git2::Repository,
 ) -> Result<()> {
-    target::Writer::new(&gb_repo).write_default(&target::Target {
+    target::Writer::new(gb_repo).write_default(&target::Target {
         branch_name: "origin/master".to_string(),
         remote_name: "origin".to_string(),
         remote_url: "origin".to_string(),
@@ -83,7 +83,7 @@ fn set_test_target(
         "update target",
     )?;
     repository.remote("origin", "http://origin.com/project")?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    update_gitbutler_integration(gb_repo, project_repository)?;
     Ok(())
 }
 
@@ -2309,17 +2309,17 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
 
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-    assert_eq!(branch1.integrated, true);
+    assert!(branch1.integrated);
     assert_eq!(branch1.files.len(), 0);
     assert_eq!(branch1.commits.len(), 1);
 
     let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
-    assert_eq!(branch2.integrated, false);
+    assert!(!branch2.integrated);
     assert_eq!(branch2.files.len(), 0);
     assert_eq!(branch2.commits.len(), 1);
 
     let branch3 = &branches.iter().find(|b| b.id == branch3_id).unwrap();
-    assert_eq!(branch3.integrated, false);
+    assert!(!branch3.integrated);
     assert_eq!(branch3.files.len(), 1);
     assert_eq!(branch3.commits.len(), 0);
 
