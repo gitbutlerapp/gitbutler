@@ -11,7 +11,7 @@ use tauri::AppHandle;
 use tokio::{
     spawn,
     sync::{
-        mpsc::{unbounded_channel, UnboundedSender},
+        mpsc::{channel, Sender},
         Mutex,
     },
 };
@@ -51,7 +51,7 @@ struct WatcherInner {
     dispatcher: dispatchers::Dispatcher,
     cancellation_token: CancellationToken,
 
-    proxy_tx: Arc<Mutex<Option<UnboundedSender<Event>>>>,
+    proxy_tx: Arc<Mutex<Option<Sender<Event>>>>,
 }
 
 impl TryFrom<&AppHandle> for WatcherInner {
@@ -79,6 +79,7 @@ impl WatcherInner {
             tx.as_ref()
                 .unwrap()
                 .send(event)
+                .await
                 .context("failed to send event")?;
             Ok(())
         } else {
@@ -87,7 +88,7 @@ impl WatcherInner {
     }
 
     pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &str) -> Result<()> {
-        let (tx, mut rx) = unbounded_channel();
+        let (tx, mut rx) = channel(1);
         self.proxy_tx.lock().await.replace(tx.clone());
 
         spawn({
@@ -100,41 +101,47 @@ impl WatcherInner {
                     .run(&project_id, &project_path)
                     .expect("failed to start dispatcher");
                 while let Some(event) = dispatcher_rx.recv().await {
-                    log::warn!("{}: dispatcher event: {}", project_id, event);
-                    if let Err(e) = tx.send(event) {
+                    log::warn!("{}: sending dispatcher event: {}", project_id, event);
+                    if let Err(e) = tx.send(event.clone()).await {
                         log::error!("{}: failed to post event: {:#}", project_id, e);
                     }
+                    log::warn!("{}: sent dispatcher event: {}", project_id, event);
                 }
             }
         });
 
         tx.send(Event::IndexAll(project_id.to_string()))
+            .await
             .context("failed to send event")?;
 
         loop {
             tokio::select! {
                 Some(event) = rx.recv() => {
-                    let start = std::time::Instant::now();
-                    log::warn!("{}: handling event: {}", project_id, event);
-                    let handle_result: Result<()> = spawn({
+                    spawn({
                         let project_id = project_id.to_string();
                         let handler = self.handler.clone();
                         let tx = tx.clone();
                         let event = event.clone();
                         async move {
-                            for event in handler.handle(event).await? {
-                                if let Err(e) = tx.send(event.clone()) {
-                                    log::error!("{}: failed to post event {}: {:#}", project_id, event, e);
+                            log::warn!("{}: handling event: {}", project_id, event);
+                            let start = std::time::Instant::now();
+                            match handler.handle(event.clone()).await {
+                                Err(error) => log::error!("{}: failed to handle event {} in {:?}: {:#}", project_id, event, start.elapsed(), error),
+                                Ok(events) => {
+                                    log::warn!("{}: handled event {} in {:?}", project_id, event, start.elapsed()) ;
+                                    for event in events {
+                                        let start = std::time::Instant::now();
+                                        log::warn!("{}: sending response event: {}", project_id, event);
+                                        if let Err(e) = tx.send(event.clone()).await {
+                                            log::error!("{}: failed to post event {}, waited {:?}: {:#}", project_id, event, start.elapsed(), e);
+                                        } else {
+                                            log::info!("{}: sent response event, waited {:?}: {}", project_id, start.elapsed(), event);
+                                        }
+                                    }
                                 }
                             }
-                            Ok(())
                         }
-                    }).await?;
-                    if let Err(error) = handle_result {
-                        log::error!("{}: failed to handle event {} in {:?}: {:#}", project_id, event, start.elapsed(), error);
-                    } else {
-                        log::warn!("{}: handled event {} in {:?}", project_id, event, start.elapsed()) ;
-                    }
+                    });
                 },
                 _ = self.cancellation_token.cancelled() => {
                     if let Err(error) = self.dispatcher.stop() {
