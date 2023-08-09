@@ -551,7 +551,7 @@ pub fn list_remote_branches(
             if branch_name.branch().eq("HEAD") {
                 continue;
             }
-            if branch_name.branch().eq("gitbutler/integration") {
+            if branch_name.branch().eq(GITBUTLER_INTEGRATION_BRANCH_NAME) {
                 continue;
             }
 
@@ -1670,6 +1670,7 @@ fn get_virtual_branches(
     Ok(applied_virtual_branches)
 }
 
+pub const GITBUTLER_INTEGRATION_BRANCH_NAME: &str = "gitbutler/integration";
 pub const GITBUTLER_INTEGRATION_REFERENCE: &str = "refs/heads/gitbutler/integration";
 
 pub fn update_gitbutler_integration(

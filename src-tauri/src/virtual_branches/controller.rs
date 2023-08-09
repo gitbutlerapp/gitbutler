@@ -60,6 +60,7 @@ impl Controller {
         branch: &str,
         message: &str,
     ) -> Result<(), Error> {
+        println!("create_commit");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -75,36 +76,33 @@ impl Controller {
             let gb_repository = self.open_gb_repository(project_id)?;
 
             super::commit(&gb_repository, &project_repository, branch, message)
+                .map_err(Error::Other)
         })
-        .await?;
-
-        Ok(())
+        .await
     }
 
     pub async fn list_virtual_branches(
         &self,
         project_id: &str,
     ) -> Result<Vec<super::VirtualBranch>, Error> {
+        println!("list_virtual_branches");
         let project = self
             .projects_storage
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
 
-        let branches = self
-            .with_lock(project_id, || {
-                let project_repository = project
-                    .as_ref()
-                    .try_into()
-                    .context("failed to open project repository")?;
-                self.verify_branch(&project_repository)?;
-                let gb_repository = self.open_gb_repository(project_id)?;
-
-                super::list_virtual_branches(&gb_repository, &project_repository)
-            })
-            .await?;
-
-        Ok(branches)
+        self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")
+                .map_err(Error::Other)?;
+            self.verify_branch(&project_repository)?;
+            let gb_repository = self.open_gb_repository(project_id)?;
+            super::list_virtual_branches(&gb_repository, &project_repository).map_err(Error::Other)
+        })
+        .await
     }
 
     pub async fn create_virtual_branch(
@@ -112,6 +110,7 @@ impl Controller {
         project_id: &str,
         create: &super::branch::BranchCreateRequest,
     ) -> Result<(), Error> {
+        println!("create_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -130,12 +129,10 @@ impl Controller {
                 return Err(Error::Conflicting);
             }
 
-            super::create_virtual_branch(&gb_repository, create)?;
+            super::create_virtual_branch(&gb_repository, create).map_err(Error::Other)?;
             Ok(())
         })
-        .await?;
-
-        Ok(())
+        .await
     }
 
     pub async fn create_virtual_branch_from_branch(
@@ -143,41 +140,42 @@ impl Controller {
         project_id: &str,
         branch: &project_repository::branch::Name,
     ) -> Result<String, Error> {
+        println!("create_virtual_branch_from_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
 
-        let branch_id = self
-            .with_lock::<Result<String, Error>>(project_id, || {
-                let project_repository = project
-                    .as_ref()
-                    .try_into()
-                    .context("failed to open project repository")?;
-                self.verify_branch(&project_repository)?;
-                let gb_repository = self.open_gb_repository(project_id)?;
+        self.with_lock::<Result<String, Error>>(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            self.verify_branch(&project_repository)?;
+            let gb_repository = self.open_gb_repository(project_id)?;
 
-                let branch_id = super::create_virtual_branch_from_branch(
-                    &gb_repository,
-                    &project_repository,
-                    branch,
-                    None,
-                )?;
+            let branch_id = super::create_virtual_branch_from_branch(
+                &gb_repository,
+                &project_repository,
+                branch,
+                None,
+            )
+            .map_err(Error::Other)?;
 
-                // also apply the branch
-                super::apply_branch(&gb_repository, &project_repository, &branch_id)?;
-                Ok(branch_id)
-            })
-            .await?;
-
-        Ok(branch_id)
+            // also apply the branch
+            super::apply_branch(&gb_repository, &project_repository, &branch_id)
+                .map_err(Error::Other)?;
+            Ok(branch_id)
+        })
+        .await
     }
 
     pub fn get_base_branch_data(
         &self,
         project_id: &str,
     ) -> Result<Option<super::BaseBranch>, Error> {
+        println!("get_base_branch_data");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -189,8 +187,7 @@ impl Controller {
             .context("failed to open project repository")?;
         self.verify_branch(&project_repository)?;
         let gb_repository = self.open_gb_repository(project_id)?;
-        let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
-        Ok(base_branch)
+        super::get_base_branch_data(&gb_repository, &project_repository).map_err(Error::Other)
     }
 
     pub async fn set_base_branch(
@@ -198,28 +195,28 @@ impl Controller {
         project_id: &str,
         target_branch: &str,
     ) -> Result<super::BaseBranch, Error> {
+        println!("set_base_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
 
-        let target = self
-            .with_lock(project_id, || {
-                let project_repository = project
-                    .as_ref()
-                    .try_into()
-                    .context("failed to open project repository")?;
-                let gb_repository = self.open_gb_repository(project_id)?;
+        self.with_lock(project_id, || {
+            let project_repository = project
+                .as_ref()
+                .try_into()
+                .context("failed to open project repository")?;
+            let gb_repository = self.open_gb_repository(project_id)?;
 
-                super::set_base_branch(&gb_repository, &project_repository, target_branch)
-            })
-            .await?;
-
-        Ok(target)
+            super::set_base_branch(&gb_repository, &project_repository, target_branch)
+                .map_err(Error::Other)
+        })
+        .await
     }
 
     pub async fn update_base_branch(&self, project_id: &str) -> Result<(), Error> {
+        println!("update_base_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -234,11 +231,9 @@ impl Controller {
             self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
 
-            super::update_base_branch(&gb_repository, &project_repository)
+            super::update_base_branch(&gb_repository, &project_repository).map_err(Error::Other)
         })
-        .await?;
-
-        Ok(())
+        .await
     }
 
     pub async fn update_virtual_branch(
@@ -246,13 +241,14 @@ impl Controller {
         project_id: &str,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
+        println!("update_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
 
-        self.with_lock(project_id, || {
+        self.with_lock::<Result<(), Error>>(project_id, || {
             let gb_repository = self.open_gb_repository(project_id)?;
             let project_repository = project
                 .as_ref()
@@ -260,11 +256,10 @@ impl Controller {
                 .context("failed to open project repository")?;
 
             self.verify_branch(&project_repository)?;
-            super::update_branch(&gb_repository, branch_update)
+            super::update_branch(&gb_repository, branch_update).map_err(Error::Other)?;
+            Ok(())
         })
-        .await?;
-
-        Ok(())
+        .await
     }
 
     pub async fn delete_virtual_branch(
@@ -272,24 +267,24 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
+        println!("delete_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
             .context("failed to get project")?
             .context("project not found")?;
 
-        self.with_lock(project_id, || {
+        self.with_lock::<Result<(), Error>>(project_id, || {
             let gb_repository = self.open_gb_repository(project_id)?;
             let project_repository = project
                 .as_ref()
                 .try_into()
                 .context("failed to open project repository")?;
             self.verify_branch(&project_repository)?;
-            super::delete_branch(&gb_repository, branch_id)
+            super::delete_branch(&gb_repository, branch_id)?;
+            Ok(())
         })
-        .await?;
-
-        Ok(())
+        .await
     }
 
     pub async fn apply_virtual_branch(
@@ -297,6 +292,7 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
+        println!("apply_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -311,10 +307,9 @@ impl Controller {
             self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
             super::apply_branch(&gb_repository, &project_repository, branch_id)
+                .map_err(Error::Other)
         })
-        .await?;
-
-        Ok(())
+        .await
     }
 
     pub async fn unapply_virtual_branch(
@@ -322,6 +317,7 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
+        println!("unapply_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -336,10 +332,9 @@ impl Controller {
             self.verify_branch(&project_repository)?;
             let gb_repository = self.open_gb_repository(project_id)?;
             super::unapply_branch(&gb_repository, &project_repository, branch_id)
+                .map_err(Error::Other)
         })
-        .await?;
-
-        Ok(())
+        .await
     }
 
     pub async fn push_virtual_branch(
@@ -347,6 +342,7 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
+        println!("push_virtual_branch");
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -373,9 +369,7 @@ impl Controller {
                 }
             })
         })
-        .await?;
-
-        Ok(())
+        .await
     }
 
     async fn with_lock<T>(&self, project_id: &str, action: impl FnOnce() -> T) -> T {
@@ -402,10 +396,26 @@ impl Controller {
         &self,
         project_repository: &project_repository::Repository,
     ) -> Result<(), Error> {
-        match project_repository.get_head().map_err(Error::Other)?.name() {
-            None => Err(Error::DetachedHead),
-            Some(super::vbranch::GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
-            Some(head_name) => Err(Error::InvalidHead(head_name.to_string())),
+        match project_repository
+            .get_head()
+            .map_err(|e| {
+                println!("Error getting head: {:?}", e);
+                Error::Other(e)
+            })?
+            .name()
+        {
+            None => {
+                println!("Detached head");
+                Err(Error::DetachedHead)
+            }
+            Some(super::vbranch::GITBUTLER_INTEGRATION_REFERENCE) => {
+                println!("all good");
+                Ok(())
+            }
+            Some(head_name) => {
+                println!("Invalid head: {}", head_name);
+                Err(Error::InvalidHead(head_name.to_string()))
+            }
         }
     }
 }
