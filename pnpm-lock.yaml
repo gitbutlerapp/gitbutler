@@ -65,8 +65,8 @@ devDependencies:
     specifier: ^7.58.0
     version: 7.58.0(@sveltejs/kit@1.22.3)(svelte@4.0.5)
   '@square/svelte-store':
-    specifier: ^1.0.17
-    version: 1.0.17(svelte@4.0.5)
+    specifier: github:gitbutlerapp/svelte-store#error-state
+    version: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5)
   '@sveltejs/adapter-static':
     specifier: ^2.0.2
     version: 2.0.2(@sveltejs/kit@1.22.3)
@@ -204,10 +204,10 @@ devDependencies:
     version: 3.3.2
   tauri-plugin-log-api:
     specifier: github:tauri-apps/tauri-plugin-log
-    version: github.com/tauri-apps/tauri-plugin-log/fbbb126e6d7fba7a7e6772d33f99c0fb689f32b6
+    version: github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab
   tauri-plugin-websocket-api:
     specifier: github:tauri-apps/tauri-plugin-websocket
-    version: github.com/tauri-apps/tauri-plugin-websocket/6c973fc1b8fb307125f52b02a561d51f49dcea71
+    version: github.com/tauri-apps/tauri-plugin-websocket/4350fdfd0446a9d384b7c00390ce441d69d10a58
   tinykeys:
     specifier: ^1.4.0
     version: 1.4.0
@@ -1239,15 +1239,6 @@ packages:
 
   /@sinclair/typebox@0.27.8:
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
-    dev: true
-
-  /@square/svelte-store@1.0.17(svelte@4.0.5):
-    resolution: {integrity: sha512-DZ6cnPMvxNzSAphgUlrOu6IBntihHq05FOSW7Qm8bA2+x/ZoviAumErFQUvtKiftCOjkQvxbKYXfzBnALiCSyQ==}
-    peerDependencies:
-      svelte: ^3.0.0
-    dependencies:
-      cookie-storage: 6.1.0
-      svelte: 4.0.5
     dev: true
 
   /@sveltejs/adapter-static@2.0.2(@sveltejs/kit@1.22.3):
@@ -5779,16 +5770,28 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-log/fbbb126e6d7fba7a7e6772d33f99c0fb689f32b6:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/fbbb126e6d7fba7a7e6772d33f99c0fb689f32b6}
+  github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5):
+    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/4cf861db334188389186a6f41ddfc1ba157b4ffd}
+    id: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
+    name: '@square/svelte-store'
+    version: 1.0.17
+    peerDependencies:
+      svelte: ^3.0.0
+    dependencies:
+      cookie-storage: 6.1.0
+      svelte: 4.0.5
+    dev: true
+
+  github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
       '@tauri-apps/api': 1.4.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/6c973fc1b8fb307125f52b02a561d51f49dcea71:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/6c973fc1b8fb307125f52b02a561d51f49dcea71}
+  github.com/tauri-apps/tauri-plugin-websocket/4350fdfd0446a9d384b7c00390ce441d69d10a58:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/4350fdfd0446a9d384b7c00390ce441d69d10a58}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:

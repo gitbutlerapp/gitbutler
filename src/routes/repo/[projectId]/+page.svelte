@@ -33,13 +33,14 @@
 	const sessionsStore = getSessionStore2(projectId);
 	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore, headStore]);
 	const remoteBranchStore = getRemoteBranchStore(projectId, [fetchStore, headStore]);
-	const vbranchStore = getVirtualBranchStore(projectId, [deltasStore, sessionsStore]);
+	const vbranchStore = getVirtualBranchStore(projectId, [deltasStore, sessionsStore, headStore]);
 	const branchesWithContent = getWithContentStore(projectId, sessionsStore, vbranchStore);
 
 	const fetchUnsubscribe = fetchStore.subscribeStream();
 	const gitHeadUnsubscribe = headStore.subscribeStream();
 	const sessionsUnsubscribe = sessionsStore.subscribeStream();
 
+	const baseBranchState = baseBranchStore.state;
 	const branchesState = branchesWithContent.state;
 	const baseBranchesState = baseBranchStore.state;
 	const remoteBranchesState = remoteBranchStore.state;
@@ -78,7 +79,7 @@
 	});
 </script>
 
-{#await baseBranchStore.load() then}
+{#if !$baseBranchState.isError}
 	{#if $baseBranchStore}
 		<div class="flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<Tray
@@ -220,10 +221,15 @@
 			</div>
 		</div>
 	{/if}
-{:catch error}
-	{#if error.code === Code.InvalidHead}
-		<p>go back to to gitbutler/integration to continue</p>
-	{:else}
-		<p>{error.message}</p>
-	{/if}
-{/await}
+{:else}
+	<div class="m-auto text-light-700 dark:text-dark-100">
+		{#if $baseBranchState.error.code === Code.InvalidHead}
+			<div class="rounded-md bg-light-400 p-4 dark:bg-dark-700">
+				<h2 class="text-lg font-semibold">Invalid Head</h2>
+				<p>{$baseBranchState.error.message}</p>
+			</div>
+		{:else}
+			<p>{$baseBranchState.error.message}</p>
+		{/if}
+	</div>
+{/if}
