@@ -124,9 +124,9 @@ fn is_interesting_kind(kind: &notify::EventKind) -> bool {
 fn is_interesting_file(git_repo: &git2::Repository, file_path: &path::Path) -> bool {
     if file_path.starts_with(git_repo.path()) {
         file_path.ends_with("FETCH_HEAD")
-            || file_path.eq(path::Path::new("logs/HEAD"))
-            || file_path.eq(path::Path::new("HEAD"))
-            || file_path.eq(path::Path::new("index"))
+            || file_path.ends_with("logs/HEAD")
+            || file_path.ends_with("HEAD")
+            || file_path.ends_with("index")
     } else {
         !git_repo.is_path_ignored(file_path).unwrap_or(false)
     }
