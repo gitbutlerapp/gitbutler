@@ -1283,6 +1283,93 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
 }
 
 #[test]
+fn test_update_base_branch_no_commits_no_conflict() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
+
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    // create a commit and set the target
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\n",
+    )?;
+    commit_all(&repository)?;
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
+    // create a vbranch
+    let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\nupstream\n",
+    )?;
+    // add a commit to the target branch it's pointing to so there is something "upstream"
+    commit_all(&repository)?;
+    let up_target = repository.head().unwrap().target().unwrap();
+
+    //update repo ref refs/remotes/origin/master to up_target oid
+    repository.reference(
+        "refs/remotes/origin/master",
+        up_target,
+        true,
+        "update target",
+    )?;
+
+    // revert this file
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\n",
+    )?;
+    // add some uncommitted work
+    let file_path2 = std::path::Path::new("test2.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "file2\n",
+    )?;
+
+    unapply_branch(&gb_repo, &project_repository, &branch1_id)?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch1 = &branches[0];
+    assert_eq!(branch1.files.len(), 1);
+    assert_eq!(branch1.commits.len(), 0);
+
+    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+    assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
+
+    update_base_branch(&gb_repo, &project_repository)?;
+
+    // this should bring back the branch, with the same file changes, but merged into the upstream work
+    apply_branch(&gb_repo, &project_repository, &branch1_id)?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch1 = &branches[0];
+    assert_eq!(branch1.files.len(), 1);
+    assert_eq!(branch1.commits.len(), 0);
+
+    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+    assert_eq!(
+        "line1\nline2\nline3\nline4\nupstream\n",
+        String::from_utf8(contents)?
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     let TestDeps {
         repository,
