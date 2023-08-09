@@ -38,7 +38,7 @@
 		"@lezer/highlight": "^1.1.6",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@sentry/sveltekit": "^7.58.0",
-		"@square/svelte-store": "^1.0.17",
+		"@square/svelte-store": "github:gitbutlerapp/svelte-store#error-state",
 		"@sveltejs/adapter-static": "^2.0.2",
 		"@sveltejs/kit": "^1.22.3",
 		"@tauri-apps/api": "^1.4.0",

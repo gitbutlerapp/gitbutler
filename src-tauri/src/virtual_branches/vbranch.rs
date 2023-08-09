@@ -551,7 +551,7 @@ pub fn list_remote_branches(
             if branch_name.branch().eq("HEAD") {
                 continue;
             }
-            if branch_name.branch().eq("gitbutler/integration") {
+            if branch_name.branch().eq(GITBUTLER_INTEGRATION_BRANCH_NAME) {
                 continue;
             }
 
@@ -1724,6 +1724,9 @@ fn get_virtual_branches(
     }
 }
 
+pub const GITBUTLER_INTEGRATION_BRANCH_NAME: &str = "gitbutler/integration";
+pub const GITBUTLER_INTEGRATION_REFERENCE: &str = "refs/heads/gitbutler/integration";
+
 pub fn update_gitbutler_integration(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
@@ -1736,8 +1739,12 @@ pub fn update_gitbutler_integration(
     let repo = &project_repository.git_repository;
 
     // write the currrent target sha to a temp branch as a parent
-    let my_ref = "refs/heads/gitbutler/integration";
-    repo.reference(my_ref, target.sha, true, "update target")?;
+    repo.reference(
+        GITBUTLER_INTEGRATION_REFERENCE,
+        target.sha,
+        true,
+        "update target",
+    )?;
 
     // get commit object from target.sha
     let target_commit = repo.find_commit(target.sha)?;
@@ -1747,7 +1754,7 @@ pub fn update_gitbutler_integration(
     let mut prev_head = head.name().unwrap().to_string();
     let mut prev_sha = head.target().unwrap().to_string();
     let integration_file = repo.path().join("integration");
-    if prev_head != my_ref {
+    if prev_head != GITBUTLER_INTEGRATION_REFERENCE {
         // we are moving from a regular branch to our gitbutler integration branch, save the original
         // write a file to .git/integration with the previous head and name
         let mut file = std::fs::File::create(integration_file)?;
@@ -1767,7 +1774,8 @@ pub fn update_gitbutler_integration(
     }
 
     // commit index to temp head for the merge
-    repo.set_head(my_ref).context("failed to set head")?;
+    repo.set_head(GITBUTLER_INTEGRATION_REFERENCE)
+        .context("failed to set head")?;
 
     // get all virtual branches, we need to try to update them all
     let all_virtual_branches = get_virtual_branches(gb_repository, None)?;
