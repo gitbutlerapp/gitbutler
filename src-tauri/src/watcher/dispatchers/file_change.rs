@@ -47,14 +47,14 @@ impl Dispatcher {
                         .filter(|file| is_interesting_file(&repo, file))
                     {
                         block_on(async {
-                            log::warn!("detected file change event: {}", path.display());
+                            tracing::warn!("detected file change event: {}", path.display());
                             if let Err(error) = notify_tx.send(path).await {
-                                log::error!("failed to send file change event: {:#}", error);
+                                tracing::error!("failed to send file change event: {:#}", error);
                             }
                         });
                     }
                 }
-                Err(error) => log::error!("file watcher error: {:#}", error),
+                Err(error) => tracing::error!("file watcher error: {:#}", error),
             },
             Config::default(),
         )?;
@@ -64,7 +64,7 @@ impl Dispatcher {
             .with_context(|| format!("failed to watch project path: {}", path.display()))?;
         self.watcher.lock().unwrap().replace(watcher);
 
-        log::info!("{}: file watcher started", project_id);
+        tracing::info!("{}: file watcher started", project_id);
 
         let (tx, rx) = channel(1);
         let project_id = project_id.to_string();
@@ -89,21 +89,27 @@ impl Dispatcher {
                                     relative_file_path.to_path_buf(),
                                 )
                             };
-                            log::warn!("sending file change event: {}", event);
+                            let send_file_change_span = tracing::info_span!(
+                                "send_file_change",
+                                project_id = project_id.as_str(),
+                                file_path = relative_file_path.display().to_string().as_str()
+                            );
+                            let _send_file_change_span_guard = send_file_change_span.enter();
                             if let Err(e) = tx.send(event).await {
-                                log::error!(
+                                tracing::error!(
                                     "{}: failed to send file change event: {:#}",
                                     project_id,
                                     e
                                 );
                             }
+                            drop(_send_file_change_span_guard);
                         }
                         Err(err) => {
-                            log::error!("{}: failed to strip prefix: {:#}", project_id, err)
+                            tracing::error!("{}: failed to strip prefix: {:#}", project_id, err)
                         }
                     }
                 }
-                log::info!("{}: file watcher stopped", project_id);
+                tracing::info!("{}: file watcher stopped", project_id);
             }
         });
 

@@ -66,14 +66,14 @@ impl Handler {
         }
 
         if reader.size(path)? > 100_000 {
-            log::warn!("{}: ignoring large file: {}", project_id, path);
+            tracing::warn!("{}: ignoring large file: {}", project_id, path);
             return Ok(None);
         }
 
         match reader.read(path)? {
             reader::Content::UTF8(content) => Ok(Some(content)),
             reader::Content::Binary(_) => {
-                log::warn!("{}: ignoring non-utf8 file: {}", project_id, path);
+                tracing::warn!("{}: ignoring non-utf8 file: {}", project_id, path);
                 Ok(None)
             }
         }
@@ -155,7 +155,7 @@ impl Handler {
         let latest_file_content = match current_session_reader.file(path) {
             Ok(reader::Content::UTF8(content)) => content,
             Ok(reader::Content::Binary(_)) => {
-                log::warn!("{}: ignoring non-utf8 file: {}", project_id, path.display());
+                tracing::warn!("{}: ignoring non-utf8 file: {}", project_id, path.display());
                 return Ok(vec![]);
             }
             Err(reader::Error::NotFound) => "".to_string(),
@@ -175,7 +175,7 @@ impl Handler {
             .update(&current_wd_file_content)
             .context("failed to calculate new deltas")?;
         if new_delta.is_none() {
-            log::debug!("{}: {} no new deltas, ignoring", project_id, path.display());
+            tracing::debug!("{}: {} no new deltas, ignoring", project_id, path.display());
             return Ok(vec![]);
         }
         let new_delta = new_delta.as_ref().unwrap();

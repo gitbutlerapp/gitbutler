@@ -418,7 +418,7 @@ impl Controller {
                                     .proxy(&commit.author.gravatar_url)
                                     .await
                                     .unwrap_or_else(|e| {
-                                        log::error!("failed to proxy gravatar url: {:#}", e);
+                                        tracing::error!("failed to proxy gravatar url: {:#}", e);
                                         commit.author.gravatar_url
                                     }),
                                 ..commit.author
@@ -442,7 +442,7 @@ impl Controller {
                                     .proxy(&commit.author.gravatar_url)
                                     .await
                                     .unwrap_or_else(|e| {
-                                        log::error!("failed to proxy gravatar url: {:#}", e);
+                                        tracing::error!("failed to proxy gravatar url: {:#}", e);
                                         commit.author.gravatar_url
                                     }),
                                 ..commit.author

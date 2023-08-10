@@ -30,11 +30,11 @@ impl Dispatcher {
 
     pub fn stop(&self) -> Result<()> {
         if let Err(err) = self.tick_dispatcher.stop() {
-            log::error!("failed to stop ticker: {:#}", err);
+            tracing::error!("failed to stop ticker: {:#}", err);
         }
 
         if let Err(err) = self.file_change_dispatcher.stop() {
-            log::error!("failed to stop file change dispatcher: {:#}", err);
+            tracing::error!("failed to stop file change dispatcher: {:#}", err);
         }
         Ok(())
     }
@@ -68,20 +68,24 @@ impl Dispatcher {
                         break;
                     }
                     Some(event) = tick_rx.recv() => {
-                        log::warn!("{}: proxying tick", project_id);
+                        let span = tracing::info_span!("dispatcher send tick", event = %event);
+                        let span = span.enter();
                         if let Err(e) = tx.send(event).await {
-                            log::error!("{}: failed to send tick: {}", project_id, e);
+                            tracing::error!("{}: failed to send tick: {}", project_id, e);
                         }
+                        drop(span);
                     }
                     Some(event) = file_change_rx.recv() => {
-                        log::warn!("{}: proxying file change", project_id);
+                        let span = tracing::info_span!("dispatcher send file change", event = %event);
+                        let span = span.enter();
                         if let Err(e) = tx.send(event).await {
-                            log::error!("{}: failed to send file change: {}", project_id, e);
+                            tracing::error!("{}: failed to send file change: {}", project_id, e);
                         }
+                        drop(span);
                     }
                 }
             }
-            log::info!("{}: dispatcher stopped", project_id);
+            tracing::info!("{}: dispatcher stopped", project_id);
         });
 
         Ok(rx)

@@ -27,7 +27,7 @@ impl<'writer> PtyWriter<'writer> {
             [record],
         )?;
 
-        log::info!(
+        tracing::info!(
             "{}: appended pty record to session",
             self.repository.project_id
         );

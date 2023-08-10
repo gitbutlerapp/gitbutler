@@ -117,7 +117,7 @@ impl Repository {
                 .migrate(&project)
                 .context("failed to migrate")?
             {
-                log::info!("{}: migrated", gb_repository.project_id);
+                tracing::info!("{}: migrated", gb_repository.project_id);
                 return Result::Ok(gb_repository);
             }
 
@@ -180,7 +180,7 @@ impl Repository {
 
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
-            log::info!(
+            tracing::info!(
                 "{}: pulling reference '{}': {:?}",
                 self.project_id,
                 refname,
@@ -189,7 +189,7 @@ impl Repository {
             Result::Ok(())
         });
         callbacks.push_transfer_progress(move |one, two, three| {
-            log::info!(
+            tracing::info!(
                 "{}: transferred {}/{}/{} objects",
                 self.project_id,
                 one,
@@ -212,7 +212,7 @@ impl Repository {
             )
             .with_context(|| format!("failed to pull from remote {}", remote.url().unwrap()))?;
 
-        log::info!(
+        tracing::info!(
             "{}: fetched from {}",
             self.project_id,
             remote.url().unwrap()
@@ -230,7 +230,7 @@ impl Repository {
         // Set the remote's callbacks
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
-            log::info!(
+            tracing::info!(
                 "{}: pushing reference '{}': {:?}",
                 self.project_id,
                 refname,
@@ -239,7 +239,7 @@ impl Repository {
             Result::Ok(())
         });
         callbacks.push_transfer_progress(move |one, two, three| {
-            log::info!(
+            tracing::info!(
                 "{}: transferred {}/{}/{} objects",
                 self.project_id,
                 one,
@@ -266,7 +266,7 @@ impl Repository {
                 )
             })?;
 
-        log::info!("{}: pushed to {}", self.project_id, remote.url().unwrap());
+        tracing::info!("{}: pushed to {}", self.project_id, remote.url().unwrap());
 
         Ok(())
     }
@@ -341,7 +341,7 @@ impl Repository {
         &self,
         project_repository: &project_repository::Repository,
     ) -> Result<sessions::Session> {
-        log::info!("{}: creating new session", self.project_id);
+        tracing::info!("{}: creating new session", self.project_id);
 
         let now_ms = time::SystemTime::now()
             .duration_since(time::UNIX_EPOCH)
@@ -511,7 +511,7 @@ impl Repository {
 
         let commit_oid = write_gb_commit(tree, self, &user).context("failed to write gb commit")?;
 
-        log::info!(
+        tracing::info!(
             "{}: flushed session {} into commit {}",
             self.project_id,
             session.id,
@@ -524,7 +524,7 @@ impl Repository {
         self.unlock().context("failed to unlock")?;
 
         if let Err(e) = self.push() {
-            log::error!("{}: failed to push to remote: {:#}", self.project_id, e);
+            tracing::error!("{}: failed to push to remote: {:#}", self.project_id, e);
         }
 
         let session = sessions::Session {
@@ -639,7 +639,7 @@ impl Repository {
         match reference {
             Err(e) => {
                 if e.code() == git2::ErrorCode::NotFound {
-                    log::warn!(
+                    tracing::warn!(
                         "{}: reference {} not found, no migration",
                         project.id,
                         refname
@@ -702,7 +702,7 @@ impl Repository {
                         }
                     };
 
-                    log::warn!("{}: migrated commit {}", project.id, id);
+                    tracing::warn!("{}: migrated commit {}", project.id, id);
                     migrated = true
                 }
 
@@ -751,7 +751,7 @@ fn build_wd_tree(
                 {
                     Result::Ok(content) => content,
                     Err(e) => {
-                        log::error!(
+                        tracing::error!(
                             "{}: failed to read file {}: {:#}",
                             gb_repository.project_id,
                             abs_path.display(),
@@ -929,7 +929,7 @@ fn add_wd_path(
     // insert a pointer as the blob content instead
     // TODO: size limit should be configurable
     let blob = if metadata.len() > 100_000_000 {
-        log::warn!(
+        tracing::warn!(
             "{}: file too big: {}",
             gb_repository.project_id,
             file_path.display()
