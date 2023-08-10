@@ -27,7 +27,7 @@ impl<'writer> BookmarksWriter<'writer> {
             [bookmark],
         )?;
 
-        log::info!(
+        tracing::info!(
             "{}: wrote bookmark {}",
             self.repository.project_id,
             bookmark.timestamp_ms

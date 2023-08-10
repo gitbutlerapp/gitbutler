@@ -67,7 +67,11 @@ impl<'handler> Handler {
                 let one = match self.check_current_session_handler.handle(&project_id, tick) {
                     Ok(events) => events,
                     Err(err) => {
-                        log::error!("{}: failed to check current session: {:#}", project_id, err);
+                        tracing::error!(
+                            "{}: failed to check current session: {:#}",
+                            project_id,
+                            err
+                        );
                         vec![]
                     }
                 };
@@ -75,7 +79,7 @@ impl<'handler> Handler {
                 let two = match self.fetch_project_handler.handle(&project_id, tick) {
                     Ok(events) => events,
                     Err(err) => {
-                        log::error!("{}: failed to fetch project data: {:#}", project_id, err);
+                        tracing::error!("{}: failed to fetch project data: {:#}", project_id, err);
                         vec![]
                     }
                 };
@@ -83,7 +87,11 @@ impl<'handler> Handler {
                 let three = match self.fetch_gitbutler_handler.handle(&project_id, tick) {
                     Ok(events) => events,
                     Err(err) => {
-                        log::error!("{}: failed to fetch gitbutler data: {:#}", project_id, err);
+                        tracing::error!(
+                            "{}: failed to fetch gitbutler data: {:#}",
+                            project_id,
+                            err
+                        );
                         vec![]
                     }
                 };

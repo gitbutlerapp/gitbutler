@@ -243,7 +243,7 @@ impl SearcherInner {
         writer.commit()?;
         self.reader.reload()?;
 
-        log::info!(
+        tracing::info!(
             "{}: bookmark {} added to search",
             bookmark.project_id,
             bookmark.timestamp_ms
@@ -281,7 +281,7 @@ impl SearcherInner {
         self.meta_storage
             .set(repository.get_project_id(), &session.id, index::VERSION)?;
 
-        log::info!(
+        tracing::info!(
             "{}: session added to search {}",
             repository.get_project_id(),
             session.id,

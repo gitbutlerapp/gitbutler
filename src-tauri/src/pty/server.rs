@@ -9,18 +9,18 @@ pub async fn start_server(port: usize, app: app::App) -> Result<()> {
         .await
         .with_context(|| format!("failed to bind to {}", pty_ws_address))?;
 
-    log::info!("pty-ws: listening on {}", pty_ws_address);
+    tracing::info!("pty-ws: listening on {}", pty_ws_address);
 
     while let Ok((stream, _)) = listener.accept().await {
         let app_clone = app.clone();
         tauri::async_runtime::spawn(async {
             if let Err(e) = connection::accept_connection(app_clone, stream).await {
-                log::error!("pty-ws: failed to accept connection {:#}", e);
+                tracing::error!("pty-ws: failed to accept connection {:#}", e);
             }
         });
     }
 
-    log::info!("pty-ws: server stopped");
+    tracing::info!("pty-ws: server stopped");
 
     Ok(())
 }

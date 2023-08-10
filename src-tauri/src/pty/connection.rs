@@ -27,7 +27,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
             project = match app.get_project(project_id) {
                 Ok(p) => p,
                 Err(e) => {
-                    log::error!("failed to get project: {}", e);
+                    tracing::error!("failed to get project: {}", e);
                     None
                 }
             };
@@ -112,12 +112,12 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                 match pty_reader.read(tail) {
                     Ok(0) => {
                         // EOF
-                        log::info!("0 bytes read from pty. EOF.");
+                        tracing::info!("0 bytes read from pty. EOF.");
                         if let Err(e) = ws_sender
                             .send(tokio_tungstenite::tungstenite::Message::Close(None))
                             .await
                         {
-                            log::error!(
+                            tracing::error!(
                                 "{}: error sending data to websocket: {:#}",
                                 shared_project_id,
                                 e
@@ -133,7 +133,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                             ))
                             .await
                         {
-                            log::error!(
+                            tracing::error!(
                                 "{}: error sending data to websocket: {:#}",
                                 shared_project_id,
                                 e
@@ -143,17 +143,17 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                         if let Err(e) =
                             shared_app.record_pty(&shared_project_id, recorder::Type::Output, data)
                         {
-                            log::error!("{}: error recording data: {:#}", shared_project_id, e);
+                            tracing::error!("{}: error recording data: {:#}", shared_project_id, e);
                         }
                     }
                     Err(e) => {
-                        log::error!("Error reading from pty: {:#}", e);
+                        tracing::error!("Error reading from pty: {:#}", e);
                         break;
                     }
                 }
             }
 
-            log::info!("PTY child process killed.");
+            tracing::info!("PTY child process killed.");
         });
     });
 
@@ -168,7 +168,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                             if let Err(e) =
                                 app.record_pty(&project.id, recorder::Type::Input, &data.to_vec())
                             {
-                                log::error!("{}: error recording data: {:#}", &project.id, e);
+                                tracing::error!("{}: error recording data: {:#}", &project.id, e);
                             }
                         }
                     }
@@ -176,21 +176,21 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                         let pty_size: PtySize = serde_json::from_slice(&data)?;
                         pty_pair.master.resize(pty_size)?;
                     }
-                    (code, _) => log::error!("Unknown command {}", code),
+                    (code, _) => tracing::error!("Unknown command {}", code),
                 }
             }
             Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => {
-                log::info!("Closing the websocket connection...");
+                tracing::info!("Closing the websocket connection...");
 
-                log::info!("Killing PTY child process...");
+                tracing::info!("Killing PTY child process...");
                 pty_child_process
                     .kill()
                     .with_context(|| "failed to kill pty child process".to_string())?;
                 break;
             }
-            Ok(_) => log::error!("Unknown received data type"),
+            Ok(_) => tracing::error!("Unknown received data type"),
             Err(e) => {
-                log::error!("Error receiving data: {}", e);
+                tracing::error!("Error receiving data: {}", e);
                 break;
             }
         }

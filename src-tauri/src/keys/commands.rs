@@ -1,11 +1,11 @@
-use timed::timed;
+use tracing::instrument;
 
 use crate::error::Error;
 
 use super::{storage::Storage, PublicKey};
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "get_public_key", skip(handle))]
 pub async fn get_public_key(handle: tauri::AppHandle) -> Result<PublicKey, Error> {
     let controller = Storage::from(&handle);
     let key = controller.get_or_create()?;

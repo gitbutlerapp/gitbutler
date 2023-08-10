@@ -40,19 +40,19 @@ impl Handler {
 
         match path.as_ref().to_str().unwrap() {
             "FETCH_HEAD" => {
-                log::info!("{}: git fetch", project.id);
+                tracing::info!("{}: git fetch", project.id);
                 Ok(vec![events::Event::Emit(app_events::Event::git_fetch(
                     &project.id,
                 ))])
             }
             "logs/HEAD" => {
-                log::info!("{}: git activity", project.id);
+                tracing::info!("{}: git activity", project.id);
                 Ok(vec![events::Event::Emit(app_events::Event::git_activity(
                     &project.id,
                 ))])
             }
             "HEAD" => {
-                log::info!("{}: git head changed", project.id);
+                tracing::info!("{}: git head changed", project.id);
                 let head_ref = project_repository.get_head()?;
                 if let Some(head) = head_ref.name() {
                     Ok(vec![events::Event::Emit(app_events::Event::git_head(
@@ -64,7 +64,7 @@ impl Handler {
                 }
             }
             "index" => {
-                log::info!("{}: git index changed", project.id);
+                tracing::info!("{}: git index changed", project.id);
                 Ok(vec![events::Event::Emit(app_events::Event::git_index(
                     &project.id,
                 ))])

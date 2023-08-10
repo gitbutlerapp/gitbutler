@@ -48,7 +48,7 @@ impl Database {
                 report
                     .applied_migrations()
                     .iter()
-                    .for_each(|m| log::info!("Applied migration: {}", m))
+                    .for_each(|m| tracing::info!("Applied migration: {}", m))
             })
             .context("Failed to run migrations")?;
         Ok(Self {
@@ -65,7 +65,7 @@ impl Database {
                 report
                     .applied_migrations()
                     .iter()
-                    .for_each(|m| log::info!("Applied migration: {}", m))
+                    .for_each(|m| tracing::info!("Applied migration: {}", m))
             })
             .context("Failed to run migrations")?;
         Ok(Self {

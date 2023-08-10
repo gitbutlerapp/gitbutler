@@ -67,7 +67,7 @@ impl App {
         tauri::async_runtime::spawn(async move {
             let port = if cfg!(debug_assertions) { 7702 } else { 7703 };
             if let Err(e) = pty::start_server(port, self_).await {
-                log::error!("failed to start pty server: {:#}", e);
+                tracing::error!("failed to start pty server: {:#}", e);
             }
         });
         Ok(())
@@ -93,7 +93,7 @@ impl App {
             .with_context(|| "failed to list projects")?
         {
             if let Err(e) = self.init_project(&project) {
-                log::error!("failed to init project {}: {:#}", project.id, e);
+                tracing::error!("failed to init project {}: {:#}", project.id, e);
             }
         }
         Ok(())
@@ -113,9 +113,9 @@ impl App {
                 .unwrap();
             rt.block_on(async move {
                 if let Err(e) = c_watcher.run(&project_path, &project_id).await {
-                    log::error!("watcher error: {:#}", e);
+                    tracing::error!("watcher error: {:#}", e);
                 }
-                log::info!("watcher stopped");
+                tracing::info!("watcher stopped");
             });
         });
 
@@ -214,7 +214,7 @@ impl App {
                 )
                 .await
             {
-                log::error!("{}: failed to fetch project: {:#}", &project.id, err);
+                tracing::error!("{}: failed to fetch project: {:#}", &project.id, err);
             }
         });
 
@@ -247,14 +247,18 @@ impl App {
                     let project_id = project.id.clone();
                     async move {
                         if let Err(e) = self.stop_watcher(&project_id).await {
-                            log::error!("failed to stop watcher for project {}: {}", project_id, e);
+                            tracing::error!(
+                                "failed to stop watcher for project {}: {}",
+                                project_id,
+                                e
+                            );
                         }
                     }
                 });
 
                 if let Some(gb_repository) = gb_repository {
                     if let Err(e) = gb_repository.purge() {
-                        log::error!("failed to remove project dir {}: {}", project.id, e);
+                        tracing::error!("failed to remove project dir {}: {}", project.id, e);
                     }
                 }
 
@@ -334,7 +338,7 @@ impl App {
                     )
                     .await
                 {
-                    log::error!("failed to send session event: {:#}", err);
+                    tracing::error!("failed to send session event: {:#}", err);
                 }
             }
         });

@@ -387,7 +387,7 @@ impl<'repository> Repository<'repository> {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
             remote_callbacks.credentials(credential_callback);
 
-            log::info!(
+            tracing::info!(
                 "{}: git push {} {}:refs/heads/{}",
                 self.project.id,
                 branch.remote(),
@@ -400,12 +400,12 @@ impl<'repository> Repository<'repository> {
                 Some(&mut git2::PushOptions::new().remote_callbacks(remote_callbacks)),
             ) {
                 Ok(()) => {
-                    log::info!("{}: git push succeeded", self.project.id);
+                    tracing::info!("{}: git push succeeded", self.project.id);
                     return Ok(());
                 }
                 Err(e) => {
                     if e.code() == git2::ErrorCode::Auth {
-                        log::info!("{}: git push failed: {:#}", self.project.id, e);
+                        tracing::info!("{}: git push failed: {:#}", self.project.id, e);
                         continue;
                     } else {
                         return Err(Error::Other(e.into()));
@@ -428,7 +428,7 @@ impl<'repository> Repository<'repository> {
             remote_callbacks.credentials(credential_callback);
             remote_callbacks.push_update_reference(|refname, message| {
                 if let Some(msg) = message {
-                    log::info!(
+                    tracing::info!(
                         "{}: push update reference: {}: {}",
                         self.project.id,
                         refname,
@@ -438,7 +438,7 @@ impl<'repository> Repository<'repository> {
                 Ok(())
             });
             remote_callbacks.push_negotiation(|proposals| {
-                log::info!(
+                tracing::info!(
                     "{}: push negotiation: {:?}",
                     self.project.id,
                     proposals
@@ -454,7 +454,7 @@ impl<'repository> Repository<'repository> {
                 Ok(())
             });
             remote_callbacks.push_transfer_progress(|one, two, three| {
-                log::info!(
+                tracing::info!(
                     "{}: push transfer progress: {} {} {}",
                     self.project.id,
                     one,
@@ -468,16 +468,16 @@ impl<'repository> Repository<'repository> {
             fetch_opts.prune(git2::FetchPrune::On);
 
             let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
-            log::info!("{}: git fetch {}", self.project.id, &refspec);
+            tracing::info!("{}: git fetch {}", self.project.id, &refspec);
 
             match remote.fetch(&[refspec], Some(&mut fetch_opts), None) {
                 Ok(()) => {
-                    log::info!("{}: fetched {}", self.project.id, remote_name);
+                    tracing::info!("{}: fetched {}", self.project.id, remote_name);
                     return Ok(());
                 }
                 Err(e) => {
                     if e.code() == git2::ErrorCode::Auth {
-                        log::warn!("{}: auth error", self.project.id);
+                        tracing::warn!("{}: auth error", self.project.id);
                         continue;
                     } else {
                         return Err(Error::Other(e.into()));
@@ -517,7 +517,7 @@ impl<'repository> Repository<'repository> {
             &tree,
             &[&parent_commit],
         )?;
-        log::info!("{}: created commit {}", self.project.id, commit);
+        tracing::info!("{}: created commit {}", self.project.id, commit);
 
         if push {
             // Get a reference to the current branch
@@ -528,7 +528,7 @@ impl<'repository> Repository<'repository> {
             let branch_remote_name = branch_remote.as_str().unwrap();
             let branch_name = self.git_repository.branch_upstream_name(branch)?;
 
-            log::info!(
+            tracing::info!(
                 "{}: pushing {} to {} as {}",
                 self.project.id,
                 branch,
@@ -540,11 +540,11 @@ impl<'repository> Repository<'repository> {
             let mut callbacks = git2::RemoteCallbacks::new();
 
             callbacks.push_update_reference(move |refname, message| {
-                log::info!("pushing reference '{}': {:?}", refname, message);
+                tracing::info!("pushing reference '{}': {:?}", refname, message);
                 Ok(())
             });
             callbacks.push_transfer_progress(move |one, two, three| {
-                log::info!("transferred {}/{}/{} objects", one, two, three);
+                tracing::info!("transferred {}/{}/{} objects", one, two, three);
             });
 
             // create ssh key if it's not there

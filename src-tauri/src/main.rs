@@ -1,28 +1,21 @@
 mod assets;
 mod zip;
 
-use std::{collections::HashMap, ops, path, time};
+use std::{collections::HashMap, fs, ops, path, time};
 
+use tracing::instrument;
 use anyhow::{Context, Result};
 use futures::future::join_all;
 use tauri::{generate_context, Manager};
-use tauri_plugin_log::{
-    fern::colors::{Color, ColoredLevelConfig},
-    LogTarget,
-};
-use timed::timed;
-
-#[macro_use]
-extern crate log;
 
 use git_butler_tauri::{error::Error, *};
 
 use project_repository::{activity, branch};
+use tracing::subscriber::set_global_default;
+use tracing_subscriber::fmt::format::FmtSpan;
 
-const IS_DEV: bool = cfg!(debug_assertions);
-
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "get_project_archive_path", skip(handle))]
 async fn get_project_archive_path(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -37,8 +30,8 @@ async fn get_project_archive_path(
     Ok(zipped_logs.to_str().unwrap().to_string())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "get_project_data_archive_path", skip(handle))]
 async fn get_project_data_archive_path(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -55,16 +48,16 @@ async fn get_project_data_archive_path(
     Ok(zipped_logs.to_str().unwrap().to_string())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "get_logs_archive_path", skip(handle))]
 async fn get_logs_archive_path(handle: tauri::AppHandle) -> Result<String, Error> {
     let zipper = handle.state::<zip::Zipper>();
     let zipped_logs = zipper.zip(handle.path_resolver().app_log_dir().unwrap())?;
     Ok(zipped_logs.to_str().unwrap().to_string())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "search", skip(handle))]
 async fn search(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -91,8 +84,8 @@ async fn search(
     Ok(results)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "list_sessions", skip(handle))]
 async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -105,8 +98,8 @@ async fn list_sessions(
     Ok(sessions)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "get_user", skip(handle))]
 async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let app = handle.state::<app::App>();
     let proxy = handle.state::<assets::Proxy>();
@@ -117,7 +110,7 @@ async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error
             let local_picture = match proxy.proxy(&remote_picture).await {
                 Ok(picture) => picture,
                 Err(e) => {
-                    log::error!("{:#}", e);
+                    tracing::error!("{:#}", e);
                     remote_picture
                 }
             };
@@ -133,8 +126,8 @@ async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error
     }
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "set_user", skip(handle))]
 async fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
@@ -145,8 +138,8 @@ async fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Err
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "delete_user", skip(handle))]
 async fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
@@ -157,8 +150,8 @@ async fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "update_project", skip(handle))]
 async fn update_project(
     handle: tauri::AppHandle,
     project: projects::UpdateRequest,
@@ -175,16 +168,16 @@ async fn update_project(
     Ok(project)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "add_project", skip(handle))]
 async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
     let app = handle.state::<app::App>();
     let project = app.add_project(path)?;
     Ok(project)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "get_project", skip(handle))]
 async fn get_project(
     handle: tauri::AppHandle,
     id: &str,
@@ -194,8 +187,8 @@ async fn get_project(
     Ok(project)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "list_projects", skip(handle))]
 async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
     let app = handle.state::<app::App>();
 
@@ -204,8 +197,8 @@ async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project
     Ok(projects)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "delete_project", skip(handle))]
 async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
@@ -215,8 +208,8 @@ async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error>
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "list_session_files", skip(handle))]
 async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -235,8 +228,8 @@ async fn list_session_files(
     Ok(files)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "list_deltas", skip(handle))]
 async fn list_deltas(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -255,8 +248,8 @@ async fn list_deltas(
     Ok(deltas)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_activity", skip(handle))]
 async fn git_activity(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -269,8 +262,8 @@ async fn git_activity(
     Ok(activity)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_status", skip(handle))]
 async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -282,8 +275,8 @@ async fn git_status(
     Ok(status)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_wd_diff", skip(handle))]
 async fn git_wd_diff(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -296,8 +289,8 @@ async fn git_wd_diff(
     Ok(diff)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_match_paths", skip(handle))]
 async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -315,8 +308,8 @@ async fn git_match_paths(
     Ok(paths)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_branches", skip(handle))]
 async fn git_branches(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -328,8 +321,8 @@ async fn git_branches(
     Ok(branches)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_remote_branches", skip(handle))]
 async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -344,8 +337,8 @@ async fn git_remote_branches(
     Ok(branches)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_remote_branches_data", skip(handle))]
 async fn git_remote_branches_data(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -374,7 +367,7 @@ async fn git_remote_branches_data(
                                                 .proxy(&author.gravatar_url)
                                                 .await
                                                 .unwrap_or_else(|e| {
-                                                    log::error!(
+                                                    tracing::error!(
                                                         "failed to proxy gravatar url {}: {:#}",
                                                         author.gravatar_url,
                                                         e
@@ -398,8 +391,8 @@ async fn git_remote_branches_data(
     Ok(branches)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_head", skip(handle))]
 async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let head = app
@@ -408,8 +401,8 @@ async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, 
     Ok(head)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_switch_branch", skip(handle))]
 async fn git_switch_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -421,8 +414,8 @@ async fn git_switch_branch(
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_stage", skip(handle))]
 async fn git_stage(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -434,8 +427,8 @@ async fn git_stage(
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_unstage", skip(handle))]
 async fn git_unstage(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -447,8 +440,8 @@ async fn git_unstage(
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_commit", skip(handle))]
 async fn git_commit(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -461,16 +454,16 @@ async fn git_commit(
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "delete_all_data", skip(handle))]
 async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.delete_all_data().context("failed to delete all data")?;
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "upsert_bookmark", skip(handle))]
 async fn upsert_bookmark(
     handle: tauri::AppHandle,
     project_id: String,
@@ -498,8 +491,8 @@ async fn upsert_bookmark(
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "list_bookmarks", skip(handle))]
 async fn list_bookmarks(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -512,16 +505,16 @@ async fn list_bookmarks(
     Ok(bookmarks)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "fetch_from_target", skip(handle))]
 async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.fetch_from_target(project_id)?;
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "mark_resolved", skip(handle))]
 async fn mark_resolved(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -532,8 +525,8 @@ async fn mark_resolved(
     Ok(())
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_set_config", skip(handle))]
 async fn git_set_config(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -545,8 +538,8 @@ async fn git_set_config(
     Ok(result)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_get_config", skip(handle))]
 async fn git_get_config(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -557,8 +550,8 @@ async fn git_get_config(
     Ok(result)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_set_global_config", skip(handle))]
 async fn git_set_global_config(
     handle: tauri::AppHandle,
     key: &str,
@@ -569,8 +562,8 @@ async fn git_set_global_config(
     Ok(result)
 }
 
-#[timed(duration(printer = "debug!"))]
 #[tauri::command(async)]
+#[instrument(name = "git_get_global_config", skip(handle))]
 async fn git_get_global_config(
     handle: tauri::AppHandle,
     key: &str,
@@ -605,6 +598,7 @@ fn main() {
                 let item_handle = app_handle.tray_handle().get_item(&id);
                 match id.as_str() {
                     "quit" => {
+                        tracing::info!("App exited");
                         app_handle.exit(0);
                     }
                     "toggle" => match get_window(app_handle) {
@@ -639,6 +633,33 @@ fn main() {
 
             let app_handle = tauri_app.handle();
 
+            {
+                // setup tracing subscriber to write to logs file
+                let logs_dir = app_handle
+                    .path_resolver()
+                    .app_log_dir()
+                    .expect("failed to get app log dir");
+                if !logs_dir.exists() {
+                    fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
+                }
+                let file_appender = tracing_appender::rolling::never(logs_dir, "GitButler.log");
+                let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+                app_handle.manage(guard); // keep the guard alive for the lifetime of the app
+
+                use tracing_subscriber::layer::SubscriberExt;
+                let subscriber = tracing_subscriber::fmt()
+                    .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+                    .with_file(true)
+                    .with_line_number(true)
+                    .with_thread_ids(true)
+                    .with_target(false)
+                    .finish()
+                    .with(tracing_subscriber::fmt::Layer::default().with_writer(file_writer));
+                set_global_default(subscriber).expect("failed to set subscriber");
+            }
+
+            tracing::info!("Starting app");
+
             let zipper = zip::Zipper::try_from(&app_handle).expect("failed to initialize zipper");
             tauri_app.manage(zipper);
 
@@ -667,7 +688,7 @@ fn main() {
 
             tauri::async_runtime::spawn_blocking(move || {
                 if let Err(e) = init(app_handle) {
-                    log::error!("failed to app: {:#}", e);
+                    tracing::error!("failed to app: {:#}", e);
                 }
             });
 
@@ -675,33 +696,6 @@ fn main() {
         })
         .plugin(tauri_plugin_websocket::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin({
-            let targets = [
-                LogTarget::LogDir,
-                #[cfg(debug_assertions)]
-                LogTarget::Stdout,
-            ];
-            tauri_plugin_log::Builder::default()
-                .filter(|metadata| {
-                    // only show logs from git_butler
-                    metadata.target().starts_with("git_butler")
-                        // or if the log level is info or higher
-                        || metadata.level() < log::LevelFilter::Info
-                })
-                .level(match IS_DEV {
-                    true => log::LevelFilter::Debug,
-                    false => log::LevelFilter::Info,
-                })
-                .with_colors(ColoredLevelConfig {
-                    error: Color::Red,
-                    warn: Color::Yellow,
-                    debug: Color::Blue,
-                    info: Color::BrightGreen,
-                    trace: Color::Cyan,
-                })
-                .targets(targets)
-                .build()
-        })
         .invoke_handler(tauri::generate_handler![
             add_project,
             get_project,
@@ -794,7 +788,7 @@ fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
 
 #[cfg(not(target_os = "macos"))]
 fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
-    log::info!("Creating window");
+    tracing::info!("Creating window");
     let app_title = handle.package_info().name.clone();
     tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
         .resizable(true)
@@ -807,7 +801,7 @@ fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
 
 #[cfg(target_os = "macos")]
 fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
-    log::info!("Creating window");
+    tracing::info!("Creating window");
     tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
         .resizable(true)
         .title(handle.package_info().name.clone())
