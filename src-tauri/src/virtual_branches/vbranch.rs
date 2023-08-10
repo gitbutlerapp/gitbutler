@@ -132,6 +132,7 @@ pub struct RemoteBranch {
     pub authors: Vec<Author>,
     pub mergeable: bool,
     pub merge_conflicts: Vec<String>,
+    pub commits: Vec<VirtualBranchCommit>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -654,6 +655,13 @@ pub fn list_remote_branches(
                             authors: authors.into_iter().collect(),
                             mergeable,
                             merge_conflicts,
+                            commits: ahead
+                                .into_iter()
+                                .map(|commit| {
+                                    commit_to_vbranch_commit(project_repository, &commit, None)
+                                        .unwrap()
+                                })
+                                .collect(),
                         });
                     };
                 }
@@ -671,6 +679,7 @@ pub fn list_remote_branches(
                     authors: vec![],
                     mergeable: false,
                     merge_conflicts: vec![],
+                    commits: vec![],
                 });
             }
         }
