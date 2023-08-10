@@ -252,17 +252,26 @@ impl<'repository> Repository<'repository> {
                     .context(format!("failed to push {}", oid))?;
                 revwalk.collect::<Result<Vec<_>, _>>()
             }
-            LogUntil::Take(n) => self
-                .git_repository
-                .revwalk()
-                .context("failed to create revwalk")?
-                .take(n)
-                .collect::<Result<Vec<_>, _>>(),
-            LogUntil::End => self
-                .git_repository
-                .revwalk()
-                .context("failed to create revwalk")?
-                .collect::<Result<Vec<_>, _>>(),
+            LogUntil::Take(n) => {
+                let mut revwalk = self
+                    .git_repository
+                    .revwalk()
+                    .context("failed to create revwalk")?;
+                revwalk
+                    .push(from)
+                    .context(format!("failed to push {}", from))?;
+                revwalk.take(n).collect::<Result<Vec<_>, _>>()
+            }
+            LogUntil::End => {
+                let mut revwalk = self
+                    .git_repository
+                    .revwalk()
+                    .context("failed to create revwalk")?;
+                revwalk
+                    .push(from)
+                    .context(format!("failed to push {}", from))?;
+                revwalk.collect::<Result<Vec<_>, _>>()
+            }
         }
         .context("failed to collect oids")
     }
