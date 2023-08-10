@@ -84,7 +84,7 @@ impl From<virtual_branches::controller::Error> for Error {
                 code: Code::InvalidHead,
                 message: format!("Project is on {0}. Please checkout {1} to continue.", head_name.replace("refs/heads", ""), virtual_branches::GITBUTLER_INTEGRATION_BRANCH_NAME),
             },
-            e => Error::from(e),
+            e => Error::from(anyhow::Error::from(e))
         }
     }
 }
