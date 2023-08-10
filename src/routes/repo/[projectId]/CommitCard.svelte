@@ -7,7 +7,7 @@
 </script>
 
 <div
-	class="w-full truncate rounded border border-light-400 bg-light-50 p-2 dark:border-dark-600 dark:bg-dark-900"
+	class="w-full truncate rounded border border-light-400 bg-light-50 p-2 text-left dark:border-dark-600 dark:bg-dark-900"
 >
 	<div class="mb-1 truncate">
 		{#if url}
