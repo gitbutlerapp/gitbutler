@@ -207,6 +207,8 @@ pub fn update_base_branch(
         };
         let branch_tree = repo.find_tree(tree_oid)?;
 
+        let (author, committer) = gb_repository.git_signatures()?;
+
         // check for conflicts with this tree
         let mut merge_index = repo
             .merge_trees(
@@ -260,7 +262,6 @@ pub fn update_base_branch(
                         .find_tree(merge_tree_oid)
                         .context("failed to find tree")?;
 
-                    let (author, committer) = gb_repository.git_signatures()?;
                     // commit the merge tree oid
                     let new_branch_head = repo.commit(
                         None,
@@ -276,13 +277,15 @@ pub fn update_base_branch(
                 }
             }
         } else {
+            // get the merge tree oid from writing the index out
+            let merge_tree_oid = merge_index
+                .write_tree_to(repo)
+                .context("failed to write tree")?;
+
             // branch head does not have conflicts, so don't unapply it, but still try to merge it's head if there are commits
             // but also remove/archive it if the branch is fully integrated
             if target.sha == virtual_branch.head {
                 // there were no conflicts and no commits, so write the merge index as the new tree and update the head to the new target
-                let merge_tree_oid = merge_index
-                    .write_tree_to(repo)
-                    .context("failed to write tree")?;
                 virtual_branch.head = new_target_commit_oid;
                 virtual_branch.tree = merge_tree_oid;
                 branch_writer.write(&virtual_branch)?;
@@ -311,30 +314,103 @@ pub fn update_base_branch(
                     vbranches_commits =
                         super::list_virtual_branches(gb_repository, project_repository)?;
                 } else {
-                    // get the merge tree oid from writing the index out
                     let merge_tree_oid = merge_index
                         .write_tree_to(repo)
                         .context("failed to write tree")?;
-                    // get tree from merge_tree_oid
-                    let merge_tree = repo
-                        .find_tree(merge_tree_oid)
-                        .context("failed to find tree")?;
-
                     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                     // then the vbranch is fully merged, so delete it
                     if merge_tree_oid == new_target_tree.id() && non_commited_files.is_empty() {
                         branch_writer.delete(&virtual_branch)?;
                     } else {
-                        let (author, committer) = gb_repository.git_signatures()?;
-                        // commit the merge tree oid
-                        let new_branch_head = repo.commit(
-                            None,
-                            &author,
-                            &committer,
-                            "merged upstream",
-                            &merge_tree,
-                            &[&head_commit, &new_target_commit],
-                        )?;
+                        // check to see if these commits have already been pushed
+                        let mut last_rebase_head = virtual_branch.head;
+                        let new_branch_head;
+
+                        match &virtual_branch.upstream {
+                            // if there are upstream pushes, just merge, otherwise try to rebase
+                            None => {
+                                // attempt to rebase, otherwise, fall back to the merge
+                                let annotated_branch_head = repo
+                                    .find_annotated_commit(virtual_branch.head)
+                                    .context("failed to find annotated commit")?;
+                                let annotated_upstream_base = repo
+                                    .find_annotated_commit(new_target_commit_oid)
+                                    .context("failed to find annotated commit")?;
+                                let mut rebase_options = git2::RebaseOptions::new();
+                                rebase_options.quiet(true);
+                                rebase_options.inmemory(true);
+                                let mut rebase = repo.rebase(
+                                    Some(&annotated_branch_head),
+                                    Some(&annotated_upstream_base),
+                                    None,
+                                    Some(&mut rebase_options),
+                                )?;
+
+                                let mut rebase_success = true;
+
+                                while let Some(_rebase_operation) = rebase.next() {
+                                    let index = rebase.inmemory_index()?;
+                                    if index.has_conflicts() {
+                                        rebase_success = false;
+                                        break;
+                                    }
+                                    // try to commit this stage
+                                    let commit_result = rebase.commit(None, &committer, None);
+                                    match commit_result {
+                                        Ok(commit_id) => {
+                                            last_rebase_head = commit_id;
+                                        }
+                                        Err(_e) => {
+                                            rebase_success = false;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if rebase_success {
+                                    // Finish the rebase.
+                                    rebase.finish(None)?;
+                                    new_branch_head = last_rebase_head;
+                                } else {
+                                    // abort the rebase, just do a merge
+                                    rebase.abort()?;
+
+                                    println!("rebase failed");
+                                    // get tree from merge_tree_oid
+                                    let merge_tree = repo
+                                        .find_tree(merge_tree_oid)
+                                        .context("failed to find tree")?;
+
+                                    // commit the merge tree oid
+                                    new_branch_head = repo.commit(
+                                        None,
+                                        &author,
+                                        &committer,
+                                        "merged upstream",
+                                        &merge_tree,
+                                        &[&head_commit, &new_target_commit],
+                                    )?;
+                                }
+                            }
+                            Some(upstream) => {
+                                println!("upstream: {:?}", upstream);
+                                // get tree from merge_tree_oid
+                                let merge_tree = repo
+                                    .find_tree(merge_tree_oid)
+                                    .context("failed to find tree")?;
+
+                                // commit the merge tree oid
+                                new_branch_head = repo.commit(
+                                    None,
+                                    &author,
+                                    &committer,
+                                    "merged upstream",
+                                    &merge_tree,
+                                    &[&head_commit, &new_target_commit],
+                                )?;
+                            }
+                        }
+
                         virtual_branch.head = new_branch_head;
                         virtual_branch.tree = merge_tree_oid;
                         branch_writer.write(&virtual_branch)?;

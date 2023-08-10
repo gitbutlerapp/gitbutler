@@ -481,7 +481,6 @@ fn test_name_to_branch() -> Result<()> {
     for reference in repository.references()? {
         references.push(reference?.name().unwrap().to_string());
     }
-    dbg!(&references);
     assert!(references.contains(&"refs/gitbutler/branch1".to_string()));
     assert!(references.contains(&"refs/gitbutler/branch2".to_string()));
 
@@ -1117,7 +1116,12 @@ fn test_update_base_branch_base() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
-    assert_eq!(branch.commits.len(), 2); // branch commit, merge commit
+    assert_eq!(branch.commits.len(), 1); // branch commit, rebased
+    let head_sha = git2::Oid::from_str(&branch.commits[0].id)?;
+
+    let head_commit = repository.find_commit(head_sha)?;
+    let parent = head_commit.parent(0)?;
+    assert_eq!(parent.id(), up_target);
 
     Ok(())
 }
@@ -2939,7 +2943,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
     assert_eq!(branches.len(), 1); // one is there still
     let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
     assert_eq!(branch1.files.len(), 0);
-    assert_eq!(branch1.commits.len(), 2);
+    assert_eq!(branch1.commits.len(), 1);
 
     Ok(())
 }
