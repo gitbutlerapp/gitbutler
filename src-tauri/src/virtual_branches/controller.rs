@@ -272,11 +272,13 @@ impl Controller {
             .try_into()
             .context("failed to open project repository")?;
         let gb_repository = self.open_gb_repository(project_id)?;
-        super::integration::verify_branch(&gb_repository, &project_repository).map_err(|e| match e {
-            super::integration::VerifyError::DetachedHead => Error::DetachedHead,
-            super::integration::VerifyError::InvalidHead(head) => Error::InvalidHead(head),
-            super::integration::VerifyError::Other(e) => Error::Other(e),
-        })?;
+        super::integration::verify_branch(&gb_repository, &project_repository).map_err(
+            |e| match e {
+                super::integration::VerifyError::DetachedHead => Error::DetachedHead,
+                super::integration::VerifyError::InvalidHead(head) => Error::InvalidHead(head),
+                super::integration::VerifyError::Other(e) => Error::Other(e),
+            },
+        )?;
         action(&gb_repository, &project_repository)
     }
 
