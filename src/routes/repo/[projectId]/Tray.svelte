@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button, Checkbox, Link, Modal } from '$lib/components';
 	import type { Branch, BranchData } from '$lib/vbranches/types';
-	import { formatDistanceToNow } from 'date-fns';
+	import { formatDistanceToNowStrict } from 'date-fns';
 	import { IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
@@ -142,7 +142,7 @@
 							</div>
 							<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
 								<div class="flex-grow">
-									{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
+									{latestModifiedAt ? formatDistanceToNowStrict(latestModifiedAt) + 'ago' : ''}
 								</div>
 								{#if !branch.active}
 									<div class="mr-2">
@@ -267,7 +267,7 @@
 								class="flex flex-row justify-between space-x-2 rounded bg-light-100 p-1 pr-1 text-light-700 dark:bg-dark-700 dark:text-dark-300"
 							>
 								<div class="flex-grow-0 text-sm">
-									{formatDistanceToNow(branch.lastCommitTs * 1000)}
+									{formatDistanceToNowStrict(branch.lastCommitTs * 1000)} ago
 								</div>
 								<div class="flex flex-grow-0 flex-row space-x-2">
 									<Tooltip
