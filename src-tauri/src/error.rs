@@ -78,11 +78,11 @@ impl From<virtual_branches::controller::Error> for Error {
             },
             virtual_branches::controller::Error::DetachedHead => Error::UserError {
                 code: Code::InvalidHead,
-                message: format!("Project in detached head state. Please checkout {0} to continue.", virtual_branches::GITBUTLER_INTEGRATION_REFERENCE),
+                message: format!("Project in detached head state. Please checkout {0} to continue.", virtual_branches::GITBUTLER_INTEGRATION_BRANCH_NAME),
             },
             virtual_branches::controller::Error::InvalidHead(head_name) => Error::UserError {
                 code: Code::InvalidHead,
-                message: format!("Project is on {0}. Please checkout {1} to continue.", head_name, virtual_branches::GITBUTLER_INTEGRATION_REFERENCE),
+                message: format!("Project is on {0}. Please checkout {1} to continue.", head_name.replace("refs/heads", ""), virtual_branches::GITBUTLER_INTEGRATION_BRANCH_NAME),
             },
             e => Error::from(e),
         }

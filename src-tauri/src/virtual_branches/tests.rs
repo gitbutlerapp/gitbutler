@@ -83,7 +83,7 @@ fn set_test_target(
         "update target",
     )?;
     repository.remote("origin", "http://origin.com/project")?;
-    update_gitbutler_integration(gb_repo, project_repository)?;
+    super::integration::update_gitbutler_integration(gb_repo, project_repository)?;
     Ok(())
 }
 
@@ -292,7 +292,7 @@ fn test_create_branch_with_ownership() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
@@ -351,7 +351,7 @@ fn test_create_branch_in_the_middle() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
@@ -397,7 +397,7 @@ fn test_create_branch_no_arguments() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
@@ -442,7 +442,7 @@ fn test_name_to_branch() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     // even though selected branch has changed
     update_branch(
@@ -580,7 +580,7 @@ fn test_get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     let statuses =
         get_status_by_branch(&gb_repo, &project_repository).expect("failed to get status");
@@ -606,7 +606,7 @@ fn test_get_status_files_by_branch() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
@@ -663,7 +663,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
     let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
@@ -776,7 +776,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -890,7 +890,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -984,7 +984,7 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
@@ -1047,7 +1047,7 @@ fn test_update_base_branch_base() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
     repository.set_head("refs/heads/master")?;
     repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
@@ -1155,7 +1155,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     repository.set_head("refs/heads/master")?;
     repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -1237,7 +1237,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     // create a vbranch
     let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
@@ -1412,7 +1412,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     repository.set_head("refs/heads/master")?;
     repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2414,7 +2414,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         sha: base_commit,
     })?;
     repository.remote("origin", "http://origin.com/project")?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     // create vbranches, one integrated, one not
     let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
@@ -2844,7 +2844,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
         sha: base_commit,
     })?;
     repository.remote("origin", "http://origin.com/project")?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     repository.set_head("refs/heads/master")?;
     repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -2979,7 +2979,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         sha: base_commit,
     })?;
     repository.remote("origin", "http://origin.com/project")?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    super::integration::update_gitbutler_integration(&gb_repo, &project_repository)?;
 
     repository.set_head("refs/heads/master")?;
     repository.checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
