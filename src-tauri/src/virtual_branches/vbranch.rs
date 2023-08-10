@@ -769,6 +769,8 @@ pub fn list_virtual_branches(
     let repo = &project_repository.git_repository;
     let wd_tree = get_wd_tree(repo)?;
 
+    let conflicting_files = conflicts::conflicting_files(project_repository)?;
+
     for branch in &virtual_branches {
         let files: Vec<VirtualBranchFile> = statuses
             .iter()
@@ -830,6 +832,28 @@ pub fn list_virtual_branches(
                             .unwrap_or(Some(0))
                     });
 
+                    let mut conflicted = false;
+                    if let Some(conflicts) = &conflicting_files {
+                        if conflicts.contains(&file_path.display().to_string()) {
+                            // check file for conflict markers, resolve the file if there are none in any hunk
+                            for hunk in &non_commited_hunks {
+                                if hunk.diff.contains("<<<<<<< ours") {
+                                    conflicted = true;
+                                }
+                                if hunk.diff.contains(">>>>>>> theirs") {
+                                    conflicted = true;
+                                }
+                            }
+                            if !conflicted {
+                                conflicts::resolve(
+                                    project_repository,
+                                    &file_path.display().to_string(),
+                                )
+                                .unwrap();
+                            }
+                        }
+                    }
+
                     VirtualBranchFile {
                         id: file_path.display().to_string(),
                         path: file_path.clone(),
@@ -852,11 +876,7 @@ pub fn list_virtual_branches(
                                 ..hunk
                             })
                             .collect::<Vec<_>>(),
-                        conflicted: conflicts::is_conflicting(
-                            project_repository,
-                            Some(&file_path.display().to_string()),
-                        )
-                        .unwrap_or(false),
+                        conflicted,
                     }
                 })
                 .collect::<Vec<_>>();

@@ -3079,18 +3079,15 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     assert!(branch1.conflicted);
 
+    // try to commit, fail
+    let result = commit(&gb_repo, &project_repository, branch_id, "resolve commit");
+    assert!(result.is_err());
+
     // fix the conflict and commit it
     std::fs::write(
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\nconflict\n",
     )?;
-
-    // try to commit, fail
-    let result = commit(&gb_repo, &project_repository, branch_id, "resolve commit");
-    assert!(result.is_err());
-
-    // mark file as resolved
-    project_repository::conflicts::resolve(&project_repository, "test.txt")?;
 
     // make sure the branch has that commit and that the parent is the target
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -3138,14 +3135,7 @@ fn test_apply_conflicting_vbranch() -> Result<()> {
     )?;
     commit_all(&repository)?;
 
-    let base_commit = repository.head().unwrap().target().unwrap();
-    target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
-        remote_url: "http://origin.com/project".to_string(),
-        sha: base_commit,
-    })?;
-    update_gitbutler_integration(&gb_repo, &project_repository)?;
+    set_test_target(&gb_repo, &project_repository, &repository)?;
 
     // write new unapplied virtual branch with other changes
     std::fs::write(
