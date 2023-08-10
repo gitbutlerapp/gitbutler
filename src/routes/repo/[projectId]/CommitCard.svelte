@@ -20,7 +20,7 @@
 	</div>
 	<div class="flex space-x-1 text-sm text-light-700">
 		<img
-			class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
+			class="relative z-20 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
 			title="Gravatar for {commit.author.email}"
 			alt="Gravatar for {commit.author.email}"
 			srcset="{commit.author.gravatarUrl} 2x"
