@@ -530,17 +530,14 @@ pub fn create_virtual_branch_from_branch(
     let upstream = match upstream {
         project_repository::branch::Name::Remote(remote) => Some(remote.clone()),
         project_repository::branch::Name::Local(local) => {
-            let remote_name = format!( "{}/{}", default_target.remote_name, local.branch());
+            let remote_name = format!("{}/{}", default_target.remote_name, local.branch());
             if remote_name != default_target.branch_name {
-                Some(format!("refs/remotes/{}", remote_name))
+                Some(format!("refs/remotes/{}", remote_name).parse().unwrap())
             } else {
                 None
             }
         }
-        .parse()
-        .unwrap(),
-    });
-
+    };
 
     let branch_id = Uuid::new_v4().to_string();
     let mut branch = branch::Branch {
