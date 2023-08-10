@@ -69,6 +69,17 @@ pub fn resolve(repository: &Repository, path: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn conflicting_files(repository: &Repository) -> Result<Option<Vec<String>>> {
+    let conflicts_path = repository.git_repository.path().join("conflicts");
+    if !conflicts_path.exists() {
+        return Ok(None);
+    }
+
+    let file = std::fs::File::open(conflicts_path)?;
+    let reader = std::io::BufReader::new(file);
+    Ok(Some(reader.lines().flatten().collect()))
+}
+
 pub fn is_conflicting(repository: &Repository, path: Option<&str>) -> Result<bool> {
     let conflicts_path = repository.git_repository.path().join("conflicts");
     if let Some(pathname) = path {
