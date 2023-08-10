@@ -130,17 +130,17 @@ impl Controller {
         &self,
         project_id: &str,
     ) -> Result<Option<super::BaseBranch>, Error> {
-                let project = self
-                    .projects_storage
-                    .get_project(project_id)
-                    .context("failed to get project")?
-                    .context("project not found")?;
-                let project_repository = project
-                    .as_ref()
-                    .try_into()
-                    .context("failed to open project repository")?;
-                let gb_repository = self.open_gb_repository(project_id)?;
-        let base_branch = super::get_base_branch_data(&gb_repository,&project_repository)?;
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+        let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
         if let Some(branch) = base_branch {
             Ok(Some(block_on(self.proxy_base_branch(branch))))
         } else {
