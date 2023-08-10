@@ -68,16 +68,20 @@ impl Dispatcher {
                         break;
                     }
                     Some(event) = tick_rx.recv() => {
-                        tracing::warn!("{}: proxying tick", project_id);
+                        let span = tracing::info_span!("dispatcher send tick", event = %event);
+                        let span = span.enter();
                         if let Err(e) = tx.send(event).await {
                             tracing::error!("{}: failed to send tick: {}", project_id, e);
                         }
+                        drop(span);
                     }
                     Some(event) = file_change_rx.recv() => {
-                        tracing::warn!("{}: proxying file change", project_id);
+                        let span = tracing::info_span!("dispatcher send file change", event = %event);
+                        let span = span.enter();
                         if let Err(e) = tx.send(event).await {
                             tracing::error!("{}: failed to send file change: {}", project_id, e);
                         }
+                        drop(span);
                     }
                 }
             }

@@ -21,7 +21,7 @@ pub async fn commit_virtual_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name="list_virtual_branches", skip(handle))]
+#[instrument(name = "list_virtual_branches", skip(handle))]
 pub async fn list_virtual_branches(
     handle: AppHandle,
     project_id: &str,

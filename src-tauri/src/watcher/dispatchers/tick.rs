@@ -43,7 +43,8 @@ impl Dispatcher {
                     if self.cancellation_token.is_cancelled() {
                         break;
                     }
-                    tracing::warn!("{}: sending tick", project_id);
+                    let send_tick_span = tracing::info_span!("send tick", project = %project_id);
+                    let send_tick_span = send_tick_span.enter();
                     if let Err(e) = tx
                         .send(events::Event::Tick(
                             project_id.to_string(),
@@ -53,6 +54,7 @@ impl Dispatcher {
                     {
                         tracing::error!("{}: failed to send tick: {}", project_id, e);
                     }
+                    drop(send_tick_span);
                 }
                 tracing::info!("{}: ticker stopped", project_id);
             }

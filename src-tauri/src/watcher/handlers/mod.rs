@@ -8,6 +8,7 @@ mod project_file_change;
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
+use tracing::instrument;
 
 use crate::events as app_events;
 
@@ -43,6 +44,7 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl<'handler> Handler {
+    #[instrument(name = "handle", skip(self), fields(event = %event))]
     pub async fn handle(&self, event: events::Event) -> Result<Vec<events::Event>> {
         match event {
             events::Event::ProjectFileChange(project_id, path) => self

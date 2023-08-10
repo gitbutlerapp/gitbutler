@@ -101,11 +101,13 @@ impl WatcherInner {
                     .run(&project_id, &project_path)
                     .expect("failed to start dispatcher");
                 while let Some(event) = dispatcher_rx.recv().await {
-                    tracing::warn!("{}: sending dispatcher event: {}", project_id, event);
+                    let span =
+                        tracing::info_span!("proxying event from dispatcher", source = %event);
+                    let _guard = span.enter();
                     if let Err(e) = tx.send(event.clone()).await {
                         tracing::error!("{}: failed to post event: {:#}", project_id, e);
                     }
-                    tracing::warn!("{}: sent dispatcher event: {}", project_id, event);
+                    drop(_guard);
                 }
             }
         });
@@ -123,20 +125,18 @@ impl WatcherInner {
                         let tx = tx.clone();
                         let event = event.clone();
                         async move {
-                            tracing::warn!("{}: handling event: {}", project_id, event);
-                            let start = std::time::Instant::now();
                             match handler.handle(event.clone()).await {
-                                Err(error) => tracing::error!("{}: failed to handle event {} in {:?}: {:#}", project_id, event, start.elapsed(), error),
+                                Err(error) => tracing::error!("{}: failed to handle event {}: {:#}", project_id, event, error),
                                 Ok(events) => {
-                                    tracing::warn!("{}: handled event {} in {:?}", project_id, event, start.elapsed()) ;
-                                    for event in events {
-                                        let start = std::time::Instant::now();
-                                        tracing::warn!("{}: sending response event: {}", project_id, event);
-                                        if let Err(e) = tx.send(event.clone()).await {
-                                            tracing::error!("{}: failed to post event {}, waited {:?}: {:#}", project_id, event, start.elapsed(), e);
+                                    for e in events {
+                                        let send_span = tracing::info_span!("sending event", source = %event, event = %e);
+                                        let span_guard = send_span.enter();
+                                        if let Err(e) = tx.send(e.clone()).await {
+                                            tracing::error!("{}: failed to post event {}: {:#}", project_id, event, e);
                                         } else {
-                                            tracing::info!("{}: sent response event, waited {:?}: {}", project_id, start.elapsed(), event);
+                                            tracing::info!("{}: sent response event: {}", project_id, event);
                                         }
+                                        drop(span_guard);
                                     }
                                 }
                             }

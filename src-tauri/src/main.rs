@@ -3,10 +3,10 @@ mod zip;
 
 use std::{collections::HashMap, fs, ops, path, time};
 
-use tracing::instrument;
 use anyhow::{Context, Result};
 use futures::future::join_all;
 use tauri::{generate_context, Manager};
+use tracing::instrument;
 
 use git_butler_tauri::{error::Error, *};
 
