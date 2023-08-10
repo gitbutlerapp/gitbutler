@@ -527,7 +527,7 @@ pub fn create_virtual_branch_from_branch(
         .as_millis();
 
     // only set upstream if it's not the default target
-    let upstream = match upstream {
+    let upstream_branch = match upstream {
         project_repository::branch::Name::Remote(remote) => Some(remote.clone()),
         project_repository::branch::Name::Local(local) => {
             let remote_name = format!("{}/{}", default_target.remote_name, local.branch());
@@ -544,7 +544,7 @@ pub fn create_virtual_branch_from_branch(
         id: branch_id.clone(),
         name: upstream.branch().to_string(),
         applied: applied.unwrap_or(false),
-        upstream,
+        upstream: upstream_branch,
         tree: tree.id(),
         head: head_commit.id(),
         created_timestamp_ms: now,
