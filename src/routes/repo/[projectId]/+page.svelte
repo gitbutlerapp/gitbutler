@@ -1,13 +1,13 @@
 <script lang="ts">
 	import Board from './Board.svelte';
-	import Tray from './Tray.svelte';
+	// import Tray from './Tray.svelte';
+	import TrayNext from './TrayNext.svelte';
 	import type { PageData } from './$types';
 	import { Button, Link } from '$lib/components';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext, onDestroy } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import BottomPanel from './BottomPanel.svelte';
-	import UpstreamBranchLane from './UpstreamBranchLane.svelte';
 	import { IconExternalLink } from '$lib/icons';
 	import {
 		getBaseBranchStore,
@@ -81,14 +81,15 @@
 
 {#if !$baseBranchState.isError}
 	{#if $baseBranchStore}
-		<div class="flex w-full max-w-full" role="group" on:dragover|preventDefault>
-			<Tray
-				branches={$vbranchStore}
-				branchesState={$branchesState}
-				remoteBranches={$remoteBranchStore}
-				remoteBranchesState={$remoteBranchesState}
-				{branchController}
-			/>
+		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
+			<TrayNext {vbranchStore} {remoteBranchStore} {baseBranchStore} {branchController} />
+			<!-- <Tray
+			branches={$vbranchStore}
+			branchesState={$branchesState}
+			remoteBranches={$remoteBranchStore}
+			remoteBranchesState={$remoteBranchesState}
+			{branchController}
+		/> -->
 			<div
 				class="z-30 -ml-[0.250rem] w-[0.250rem] shrink-0 cursor-col-resize hover:bg-orange-200 dark:bg-dark-1000 dark:hover:bg-orange-700"
 				draggable="true"
@@ -110,7 +111,6 @@
 				<div
 					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-y-none bg-light-300 dark:bg-dark-1100"
 				>
-					<UpstreamBranchLane base={$baseBranchStore} {branchController} />
 					<Board
 						branches={$branchesWithContent}
 						branchesState={$branchesState}

@@ -1,0 +1,74 @@
+<script lang="ts">
+	import { IconBranch, IconRefresh, IconGithub } from '$lib/icons';
+	import { Button, Modal, Tooltip } from '$lib/components';
+	import type { BaseBranch } from '$lib/vbranches/types';
+	import CommitCard from './CommitCard.svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
+
+	export let base: BaseBranch;
+	export let branchController: BranchController;
+
+	let updateTargetModal: Modal;
+
+	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
+</script>
+
+<div class="relative">
+	<div class="flex flex-grow cursor-default flex-col gap-y-4 p-4">
+		<div class="rounded-sm text-center text-xs text-light-700">
+			There {multiple ? 'are' : 'is'}
+			{base.upstreamCommits.length} unmerged upstream
+			{multiple ? 'commits' : 'commit'}
+		</div>
+		<div>
+			<Tooltip
+				label={'Merges the commits from ' +
+					base.branchName +
+					' into the base of all applied virtual branches'}
+			>
+				<Button width="full-width" height="small" color="purple" on:click={updateTargetModal.show}>
+					Merge into common base
+				</Button>
+			</Tooltip>
+		</div>
+		<div class="flex h-full">
+			<div class="z-20 flex w-full flex-col gap-2">
+				{#each base.upstreamCommits as commit}
+					<CommitCard {commit} url={base.commitUrl(commit.id)} />
+				{/each}
+			</div>
+		</div>
+	</div>
+</div>
+<!-- Confirm target update modal -->
+
+<Modal width="small" bind:this={updateTargetModal}>
+	<svelte:fragment slot="title">Merge Upstream Work</svelte:fragment>
+	<div class="flex flex-col space-y-2">
+		<p class="text-blue-600">You are about to merge upstream work from your base branch.</p>
+		<p class="font-bold">What will this do?</p>
+		<p>
+			We will try to merge the work that is upstream into each of your virtual branches, so that
+			they are all up to date.
+		</p>
+		<p>
+			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue dot.
+			You can merge these manually later.
+		</p>
+		<p>Any virtual branches that are fully integrated upstream will be automatically removed.</p>
+	</div>
+	<svelte:fragment slot="controls" let:close>
+		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			height="small"
+			color="purple"
+			on:click={() => {
+				branchController.updateBaseBranch();
+				close();
+			}}
+		>
+			Merge Upstream
+		</Button>
+	</svelte:fragment>
+</Modal>
