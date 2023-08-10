@@ -110,6 +110,7 @@
 </script>
 
 <PeekTray
+	base={$baseBranchStore}
 	{branchController}
 	item={selectedItem}
 	offsetTop={overlayOffsetTop}

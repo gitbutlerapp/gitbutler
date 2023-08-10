@@ -10,6 +10,7 @@
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
 
 	export let item: Readable<BranchData | Branch | BaseBranch | undefined> | undefined;
+	export let base: BaseBranch | undefined;
 	export let branchController: BranchController;
 	export let expanded: boolean;
 	export let offsetTop: number;
@@ -82,7 +83,7 @@
 >
 	<div class="w-full flex-grow overflow-y-scroll" style:width={`${$userSettings.peekTrayWidth}px`}>
 		{#if $item instanceof BranchData}
-			<RemoteBranchPeek {branchController} branch={$item} />
+			<RemoteBranchPeek {branchController} {base} branch={$item} />
 		{:else if $item instanceof Branch}
 			<VirtualBranchPeek {branchController} branch={$item} />
 		{:else if $item instanceof BaseBranch}

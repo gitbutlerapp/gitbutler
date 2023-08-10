@@ -1,15 +1,17 @@
 <script lang="ts">
 	import Button from '$lib/components/Button/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BranchData } from '$lib/vbranches/types';
+	import type { BaseBranch, BranchData } from '$lib/vbranches/types';
+	import CommitCard from './CommitCard.svelte';
 
 	export let branch: BranchData | undefined;
+	export let base: BaseBranch | undefined;
 	export let branchController: BranchController;
 </script>
 
 {#if branch != undefined}
-	<div class="p-4 text-center">
-		<h1 class="mb-2 text-xl font-medium">
+	<div class="flex w-full max-w-full flex-col items-center gap-y-4 overflow-hidden p-4">
+		<h1 class="text-xl font-medium">
 			{branch.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '')}
 		</h1>
 		<Button
@@ -19,5 +21,12 @@
 		>
 			Apply
 		</Button>
+		{#if branch.commits && branch.commits.length > 0}
+			<div class="flex w-full flex-col gap-y-2">
+				{#each branch.commits as commit}
+					<CommitCard {commit} url={base?.commitUrl(commit.id)} />
+				{/each}
+			</div>
+		{/if}
 	</div>
 {/if}
