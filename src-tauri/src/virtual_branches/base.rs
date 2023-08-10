@@ -474,11 +474,13 @@ pub fn target_to_base_branch(
 
     // get some recent commits
     let recent_commits = project_repository
-        .log(target.sha, LogUntil::End)
+        .log(target.sha, LogUntil::Take(20))
         .context("failed to get recent commits")?
         .iter()
         .map(|c| super::commit_to_vbranch_commit(project_repository, c, None))
         .collect::<Result<Vec<_>>>()?;
+
+    dbg!(&recent_commits);
 
     let base = super::BaseBranch {
         branch_name: target.branch_name.clone(),
