@@ -324,7 +324,12 @@ impl Controller {
             .context("failed to read branches")?
             .into_iter()
             .filter(|branch| branch.applied)
-            .map(|branch| branch_writer.write(&super::Branch { ..branch }))
+            .map(|branch| {
+                branch_writer.write(&super::Branch {
+                    applied: false,
+                    ..branch
+                })
+            })
             .collect::<Result<Vec<_>, _>>()
             .context("failed to write branches")?;
         Ok(())
