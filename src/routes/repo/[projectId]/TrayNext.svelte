@@ -39,7 +39,6 @@
 	let selectedItem: Readable<Branch | BranchData | BaseBranch | undefined> | undefined;
 	let overlayOffsetTop = 0;
 	let peekTrayExpanded = false;
-	let buttonHovered = false;
 	let fetching = false;
 
 	// TODO: Replace this hacky thing when adding ability to resize sections
@@ -123,51 +122,55 @@
 >
 	<!-- Base branch -->
 	<div
-		class="flex items-center p-2"
+		class="flex flex-col p-2"
 		tabindex="0"
 		role="button"
 		bind:this={baseContents}
 		on:click={() => select($baseBranchStore, 0)}
 		on:keypress|capture={() => select($baseBranchStore, 0)}
 	>
-		<div class="flex flex-grow flex-col">
-			<div class="font-bold">Trunk</div>
-			<div>{$baseBranchStore?.branchName}</div>
-		</div>
-		<Tooltip
-			label={'Your upstream branch (' +
-				$baseBranchStore?.branchName +
-				') is up to date. Click to fetch again and check for new work.'}
-		>
-			<!-- svelte-ignore a11y-mouse-events-have-key-events -->
-			<button
-				class="p-0"
-				on:mouseover={() => (buttonHovered = true)}
-				on:mouseleave={() => (buttonHovered = false)}
-				on:click={() => {
-					fetching = true;
-					branchController.fetchFromTarget().finally(() => (fetching = false));
-				}}
-			>
-				<div
-					class="flex h-6 w-6 items-center justify-center rounded hover:bg-light-200 dark:hover:bg-dark-700"
-				>
+		<div class="flex flex-grow items-center">
+			<div class="flex flex-grow items-center gap-1">
+				<span class="font-bold">Trunk</span>
+				<Tooltip label="Unmerged upstream commits">
 					<div
-						class="flex h-6 w-6 items-center justify-center rounded hover:bg-light-200 dark:hover:bg-dark-700"
+						class="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white"
 					>
-						{#if buttonHovered || fetching}
-							<div class:animate-spin={fetching}>
-								<IconRefresh class="h-4 w-4" />
-							</div>
-						{:else if $baseBranchStore?.remoteUrl.includes('github.com')}
-							<IconGithub class="h-4 w-4" />
-						{:else}
-							<IconBranch class="h-4 w-4" />
-						{/if}
+						{$baseBranchStore?.behind}
 					</div>
-				</div></button
-			>
-		</Tooltip>
+				</Tooltip>
+			</div>
+			<div class="flex">
+				<Tooltip label="Fetch from upstream">
+					<button
+						class="h-5 w-5 items-center justify-center hover:bg-light-150 dark:hover:bg-dark-700"
+						on:click={() => {
+							fetching = true;
+							branchController.fetchFromTarget().finally(() => (fetching = false));
+						}}
+					>
+						<div class:animate-spin={fetching}>
+							<IconRefresh class="h-4 w-4" />
+						</div>
+					</button>
+				</Tooltip>
+			</div>
+		</div>
+		<div class="flex flex-grow items-center text-sm">
+			<div class="flex flex-grow items-center gap-1">
+				{#if $baseBranchStore?.remoteUrl.includes('github.com')}
+					<IconGithub class="h-2.5 w-2.5" />
+				{:else}
+					<IconBranch class="h-2.5 w-2.5" />
+				{/if}
+				{$baseBranchStore?.branchName}
+			</div>
+			<div>
+				<Tooltip label="Last fetch from upstream">
+					<span>1 minute ago</span>
+				</Tooltip>
+			</div>
+		</div>
 	</div>
 	<!-- Your branches -->
 	<div
