@@ -5,11 +5,20 @@ export const SETTINGS_CONTEXT = Symbol();
 
 export interface Settings {
 	aiSummariesEnabled?: boolean;
-	trayWidth?: number;
+	bottomPanelExpanded: boolean;
+	peekTrayWidth: number;
 	theme?: string;
-	zoom?: number;
-	bottomPanelExpanded?: boolean;
+	trayWidth: number;
+	zoom: number;
 }
+
+const defaults: Settings = {
+	aiSummariesEnabled: false,
+	bottomPanelExpanded: false,
+	peekTrayWidth: 480,
+	trayWidth: 320,
+	zoom: 1
+};
 
 export type SettingsStore = Writable<Settings>;
 
@@ -21,7 +30,7 @@ export function loadUserSettings(): Writable<Settings> {
 		obj = {};
 	}
 
-	const store = writable(obj);
+	const store = writable<Settings>({ ...defaults, ...obj });
 	return {
 		subscribe: store.subscribe,
 		set: store.set,
