@@ -277,7 +277,7 @@
 				>
 					{#if annotateCommits}
 						<div class="bg-blue-400 p-2 text-sm text-white">
-							GitButler will be the "committer" of this commit.
+							GitButler will be the committer of this commit.
 							<a
 								target="_blank"
 								rel="noreferrer"
