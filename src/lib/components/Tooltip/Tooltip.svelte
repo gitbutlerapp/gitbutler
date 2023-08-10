@@ -38,7 +38,7 @@
 
 <div
 	role="tooltip"
-	class="h-fit flex-auto overflow-auto"
+	class="h-fit overflow-auto"
 	on:mouseenter={() => (timeout = setTimeout(() => (showTooltip = true), timeoutMilliseconds))}
 	on:mouseleave={() => {
 		clearTimeout(timeout);
