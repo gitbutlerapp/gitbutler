@@ -8,7 +8,7 @@ use tokio::sync::Semaphore;
 use crate::{
     assets, gb_repository, keys,
     project_repository::{self, conflicts},
-    projects, sessions, users,
+    projects, users,
 };
 
 pub struct Controller {
@@ -272,7 +272,11 @@ impl Controller {
             .try_into()
             .context("failed to open project repository")?;
         let gb_repository = self.open_gb_repository(project_id)?;
-        self.verify_branch(&gb_repository, &project_repository)?;
+        super::integration::verify_branch(&gb_repository, &project_repository).map_err(|e| match e {
+            super::integration::VerifyError::DetachedHead => Error::DetachedHead,
+            super::integration::VerifyError::InvalidHead(head) => Error::InvalidHead(head),
+            super::integration::VerifyError::Other(e) => Error::Other(e),
+        })?;
         action(&gb_repository, &project_repository)
     }
 
@@ -294,45 +298,6 @@ impl Controller {
         )
         .context("failed to open repository")
         .map_err(Error::Other)
-    }
-
-    fn verify_branch(
-        &self,
-        gb_repository: &gb_repository::Repository,
-        project_repository: &project_repository::Repository,
-    ) -> Result<(), Error> {
-        match project_repository.get_head().map_err(Error::Other)?.name() {
-            Some(super::vbranch::GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
-            None => {
-                self.mark_all_unapplied(gb_repository)?;
-                Err(Error::DetachedHead)
-            }
-            Some(head_name) => {
-                self.mark_all_unapplied(gb_repository)?;
-                Err(Error::InvalidHead(head_name.to_string()))
-            }
-        }
-    }
-
-    fn mark_all_unapplied(&self, gb_repository: &gb_repository::Repository) -> Result<(), Error> {
-        let current_session = gb_repository.get_or_create_current_session()?;
-        let session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-        let branch_iterator = super::Iterator::new(&session_reader)?;
-        let branch_writer = super::branch::Writer::new(gb_repository);
-        branch_iterator
-            .collect::<Result<Vec<_>, _>>()
-            .context("failed to read branches")?
-            .into_iter()
-            .filter(|branch| branch.applied)
-            .map(|branch| {
-                branch_writer.write(&super::Branch {
-                    applied: false,
-                    ..branch
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .context("failed to write branches")?;
-        Ok(())
     }
 
     async fn proxy_base_branch(&self, target: super::BaseBranch) -> super::BaseBranch {

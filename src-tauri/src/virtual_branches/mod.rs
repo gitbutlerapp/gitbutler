@@ -2,6 +2,9 @@ pub mod branch;
 pub use branch::Branch;
 pub mod target;
 
+mod integration;
+pub use integration::GITBUTLER_INTEGRATION_BRANCH_NAME;
+
 mod base;
 pub use base::*;
 

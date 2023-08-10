@@ -100,7 +100,7 @@ pub fn set_base_branch(
 
     set_exclude_decoration(project_repository)?;
 
-    super::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
@@ -374,7 +374,7 @@ pub fn update_base_branch(
         ..target
     })?;
 
-    super::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(())
 }

@@ -39,7 +39,7 @@ impl<'repository> Repository<'repository> {
         })
     }
 
-    pub fn get_head(&self) -> Result<git2::Reference> {
+    pub fn get_head(&self) -> Result<git2::Reference, git2::Error> {
         let head = self.git_repository.head()?;
         Ok(head)
     }
