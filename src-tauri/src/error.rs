@@ -82,7 +82,7 @@ impl From<virtual_branches::controller::Error> for Error {
             },
             virtual_branches::controller::Error::InvalidHead(head_name) => Error::UserError {
                 code: Code::InvalidHead,
-                message: format!("Project is on {0}. Please checkout {1} to continue.", head_name.replace("refs/heads", ""), virtual_branches::GITBUTLER_INTEGRATION_BRANCH_NAME),
+                message: format!("Project is on {0}. Please checkout {1} to continue.", head_name.replace("refs/heads/", ""), virtual_branches::GITBUTLER_INTEGRATION_BRANCH_NAME),
             },
             e => Error::from(anyhow::Error::from(e))
         }
