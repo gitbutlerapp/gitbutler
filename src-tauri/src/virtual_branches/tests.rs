@@ -2029,6 +2029,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
     assert_eq!(remote1.ahead, 1);
     assert_eq!(remote1.merge_conflicts.len(), 1);
     assert_eq!(remote1.merge_conflicts.first().unwrap(), "test.txt");
+    assert_eq!(remote1.commits.len(), 1);
 
     let remote2 = &remotes
         .iter()
@@ -2037,6 +2038,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
     assert!(remote2.mergeable);
     assert_eq!(remote2.ahead, 2);
     assert_eq!(remote2.merge_conflicts.len(), 0);
+    assert_eq!(remote2.commits.len(), 2);
 
     Ok(())
 }
