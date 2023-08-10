@@ -73,6 +73,7 @@ export class BranchData {
 	authors!: Author[];
 	mergeable!: boolean;
 	mergeConflicts!: string[];
+	commits!: Commit[];
 }
 
 export class BaseBranch {
