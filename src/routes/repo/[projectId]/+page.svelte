@@ -19,7 +19,7 @@
 	import { getSessionStore2 } from '$lib/stores/sessions';
 	import { getDeltasStore2 } from '$lib/stores/deltas';
 	import { getFetchesStore } from '$lib/stores/fetches';
-	import { Code, invoke } from '$lib/ipc';
+	import { Code } from '$lib/ipc';
 	// import TopBar from './topbar/TopBar.svelte';
 
 	export let data: PageData;
@@ -240,8 +240,9 @@
 					<Button
 						color="purple"
 						height="small"
-						on:click={() =>
-							invoke('git_switch_branch', { projectId, branch: 'gitbutler/integration' })}
+						on:click={() => {
+							if ($baseBranchStore) branchController.setTarget($baseBranchStore.branchName);
+						}}
 					>
 						Go back to gitbutler/integration
 					</Button>
