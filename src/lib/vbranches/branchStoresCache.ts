@@ -61,9 +61,12 @@ export async function getRemoteBranchesData(params: { projectId: string }): Prom
 }
 
 export async function getBaseBranchData(params: { projectId: string }): Promise<BaseBranch> {
-	return (
-		plainToInstance(BaseBranch, await invoke<any>('get_base_branch_data', params)) || undefined
-	);
+	const baseBranch = plainToInstance(BaseBranch, await invoke<any>('get_base_branch_data', params));
+	if (baseBranch) {
+		// The rust code performs a fetch when get_base_branch_data is invoked
+		baseBranch.fetchedAt = new Date();
+	}
+	return baseBranch || undefined;
 }
 
 export async function withFileContent(

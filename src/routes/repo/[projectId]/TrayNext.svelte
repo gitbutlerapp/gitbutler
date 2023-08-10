@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Link } from '$lib/components';
 	import { Branch, BaseBranch, BranchData } from '$lib/vbranches/types';
-	import { formatDistanceToNow } from 'date-fns';
+	import { formatDistanceToNowStrict } from 'date-fns';
 	import { IconBranch, IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
@@ -168,7 +168,11 @@
 			</div>
 			<div>
 				<Tooltip label="Last fetch from upstream">
-					<span>1 minute ago</span>
+					{#if $baseBranchStore?.fetchedAt}
+						<span
+							>{formatDistanceToNowStrict($baseBranchStore?.fetchedAt, { addSuffix: true })}</span
+						>
+					{/if}
 				</Tooltip>
 			</div>
 		</div>
@@ -228,7 +232,9 @@
 							</div>
 							<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
 								<div class="flex-grow">
-									{latestModifiedAt ? formatDistanceToNow(latestModifiedAt) : ''}
+									{latestModifiedAt
+										? formatDistanceToNowStrict(latestModifiedAt, { addSuffix: true })
+										: ''}
 								</div>
 								{#if !branch.active}
 									<div class="mr-2">
@@ -343,7 +349,7 @@
 								class="flex flex-row justify-between space-x-2 rounded p-1 pr-1 text-light-700 dark:text-dark-300"
 							>
 								<div class="flex-grow-0 text-sm">
-									{formatDistanceToNow(branch.lastCommitTs * 1000)}
+									{formatDistanceToNowStrict(branch.lastCommitTs * 1000, { addSuffix: true })}
 								</div>
 								<div class="flex flex-grow-0 flex-row space-x-2">
 									<Tooltip
