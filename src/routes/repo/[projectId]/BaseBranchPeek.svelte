@@ -16,29 +16,36 @@
 
 <div class="relative">
 	<div class="flex flex-grow cursor-default flex-col gap-y-4 p-4">
-		<div class="rounded-sm text-center text-xs text-light-700">
+		<div class="rounded-sm text-center text-sm text-light-700">
 			There {multiple ? 'are' : 'is'}
 			{base.upstreamCommits.length} unmerged upstream
 			{multiple ? 'commits' : 'commit'}
 		</div>
-		<div>
-			<Tooltip
-				label={'Merges the commits from ' +
-					base.branchName +
-					' into the base of all applied virtual branches'}
-			>
-				<Button width="full-width" height="small" color="purple" on:click={updateTargetModal.show}>
-					Merge into common base
-				</Button>
-			</Tooltip>
-		</div>
-		<div class="flex h-full">
-			<div class="z-20 flex w-full flex-col gap-2">
-				{#each base.upstreamCommits as commit}
-					<CommitCard {commit} url={base.commitUrl(commit.id)} />
-				{/each}
+		{#if base.upstreamCommits?.length > 0}
+			<div>
+				<Tooltip
+					label={'Merges the commits from ' +
+						base.branchName +
+						' into the base of all applied virtual branches'}
+				>
+					<Button
+						width="full-width"
+						height="small"
+						color="purple"
+						on:click={updateTargetModal.show}
+					>
+						Merge into common base
+					</Button>
+				</Tooltip>
 			</div>
-		</div>
+			<div class="flex h-full">
+				<div class="z-20 flex w-full flex-col gap-2">
+					{#each base.upstreamCommits as commit}
+						<CommitCard {commit} url={base.commitUrl(commit.id)} />
+					{/each}
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>
 <!-- Confirm target update modal -->
