@@ -3,7 +3,9 @@ use std::io::{Read, Write};
 use anyhow::{Context, Result};
 
 use crate::{
-    gb_repository, project_repository, reader, sessions,
+    gb_repository,
+    project_repository::{self, LogUntil},
+    reader, sessions,
     virtual_branches::branch::BranchCreateRequest,
 };
 
@@ -224,27 +226,14 @@ fn verify_head_is_clean(
         .peel_to_commit()
         .context("failed to peel to commit")?;
 
-    let mut walk = project_repository
-        .git_repository
-        .revwalk()
-        .context("failed to create revwalk")?;
-    walk.push(head_commit.id())
-        .context("failed to push head commit")?;
+    let mut extra_commits = project_repository
+        .log(
+            head_commit.id(),
+            LogUntil::When(Box::new(|commit| Ok(is_integration_commit(commit)))),
+        )
+        .context("failed to get log")?;
 
-    let mut extra_commits = vec![];
-    let mut integration_commit = None;
-    for oid in walk {
-        let oid = oid.context("failed to get oid")?;
-        let commit = project_repository
-            .git_repository
-            .find_commit(oid)
-            .context("failed to find commit")?;
-        if is_integration_commit(&commit) {
-            integration_commit = Some(commit);
-            break;
-        }
-        extra_commits.push(commit);
-    }
+    let integration_commit = extra_commits.pop();
 
     if integration_commit.is_none() {
         // no integration commit found

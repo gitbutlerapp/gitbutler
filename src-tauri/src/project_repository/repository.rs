@@ -262,6 +262,30 @@ impl<'repository> Repository<'repository> {
                     .context(format!("failed to push {}", from))?;
                 revwalk.take(n).collect::<Result<Vec<_>, _>>()
             }
+            LogUntil::When(cond) => {
+                let mut revwalk = self
+                    .git_repository
+                    .revwalk()
+                    .context("failed to create revwalk")?;
+                revwalk
+                    .push(from)
+                    .context(format!("failed to push {}", from))?;
+                let mut oids = vec![];
+                for oid in revwalk {
+                    let oid = oid.context("failed to get oid")?;
+                    oids.push(oid);
+
+                    let commit = self
+                        .git_repository
+                        .find_commit(oid)
+                        .context("failed to find commit")?;
+
+                    if cond(&commit).context("failed to check condition")? {
+                        break;
+                    }
+                }
+                Ok(oids)
+            }
             LogUntil::End => {
                 let mut revwalk = self
                     .git_repository
@@ -669,8 +693,11 @@ pub enum Error {
     Other(anyhow::Error),
 }
 
+type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;
+
 pub enum LogUntil {
     Commit(git2::Oid),
     Take(usize),
+    When(Box<OidFilter>),
     End,
 }
