@@ -125,7 +125,7 @@ impl WatcherInner {
                         let tx = tx.clone();
                         let event = event.clone();
                         async move {
-                            match handler.handle(event.clone()).await {
+                            match handler.handle(&event).await {
                                 Err(error) => tracing::error!("{}: failed to handle event {}: {:#}", project_id, event, error),
                                 Ok(events) => {
                                     for e in events {
