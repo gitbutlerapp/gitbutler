@@ -15,6 +15,9 @@
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
+	import Checkbox from '$lib/components/Checkbox/Checkbox.svelte';
+	import Button from '$lib/components/Button/Button.svelte';
+	import Modal from '$lib/components/Modal/Modal.svelte';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
@@ -28,6 +31,8 @@
 
 	let yourBranchesOpen = true;
 	let remoteBranchesOpen = true;
+
+	let applyConflictedModal: Modal;
 
 	let vbViewport: HTMLElement;
 	let vbContents: HTMLElement;
@@ -106,6 +111,16 @@
 			added: comitted.added + uncomitted.added,
 			removed: comitted.removed + uncomitted.removed
 		};
+	}
+
+	function toggleBranch(branch: Branch) {
+		if (branch.active) {
+			branchController.unapplyBranch(branch.id);
+		} else if (!branch.baseCurrent) {
+			applyConflictedModal.show(branch);
+		} else {
+			branchController.applyBranch(branch.id);
+		}
 	}
 </script>
 
@@ -192,7 +207,11 @@
 			</button>
 		</div>
 	</div>
-	<div use:accordion={yourBranchesOpen} style:min-height={`${yourBranchesMinHeight}rem`}>
+	<div
+		use:accordion={yourBranchesOpen}
+		style:min-height={`${yourBranchesMinHeight}rem`}
+		class="relative"
+	>
 		<div
 			bind:this={vbViewport}
 			on:scroll={onScroll}
@@ -217,45 +236,50 @@
 							class="border-b border-light-400 p-2 dark:border-dark-600"
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 						>
-							<div class="flex flex-row items-center">
-								<div class="flex-grow truncate text-black dark:text-white">
-									{branch.name}
-								</div>
-								<div class="font-mono text-sm font-bold">
-									<span class="text-green-500">
-										+{added}
-									</span>
-									<span class="text-red-500">
-										-{removed}
-									</span>
-								</div>
-							</div>
-							<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
-								{#if latestModifiedAt}
-									<div class="flex-grow">
-										<TimeAgo date={latestModifiedAt} />
+							<div class="flex flex-row">
+								<div class="flex flex-grow flex-col gap-y-2">
+									<div class="flex-grow truncate text-black dark:text-white">
+										{branch.name}
 									</div>
-								{/if}
-								{#if !branch.active}
-									<div class="mr-2">
-										{#if !branch.baseCurrent}
-											<!-- branch will cause merge conflicts if applied -->
-											<Tooltip label="Will introduce merge conflicts if applied">
-												<div class="text-yellow-500">&#9679;</div>
-											</Tooltip>
-										{:else if branch.mergeable}
-											<Tooltip label="Can be applied cleanly">
-												<div class="text-green-500">&#9679;</div>
-											</Tooltip>
-										{:else}
-											<Tooltip
-												label="Canflicts with changes in your working directory, cannot be applied"
-											>
-												<div class="text-red-500">&#9679;</div>
-											</Tooltip>
+									<div class="flex items-center gap-x-2 text-sm text-light-700 dark:text-dark-300">
+										{#if latestModifiedAt}
+											<span><TimeAgo date={latestModifiedAt} /></span>
+										{/if}
+										<div class="font-mono">
+											<span class="text-green-500">
+												+{added}
+											</span>
+											<span class="text-red-500">
+												-{removed}
+											</span>
+										</div>
+										{#if !branch.active}
+											{#if !branch.baseCurrent}
+												<!-- branch will cause merge conflicts if applied -->
+												<Tooltip label="Will introduce merge conflicts if applied">
+													<span class="text-yellow-500">&#9679;</span>
+												</Tooltip>
+											{:else if branch.mergeable}
+												<Tooltip label="Can be applied cleanly">
+													<span class="text-green-500">&#9679;</span>
+												</Tooltip>
+											{:else}
+												<Tooltip
+													label="Canflicts with changes in your working directory, cannot be applied"
+												>
+													<span class="text-red-500">&#9679;</span>
+												</Tooltip>
+											{/if}
 										{/if}
 									</div>
-								{/if}
+								</div>
+								<div>
+									<Checkbox
+										on:change={() => toggleBranch(branch)}
+										bind:checked={branch.active}
+										disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
+									/>
+								</div>
 							</div>
 						</div>
 					{/each}
@@ -387,3 +411,21 @@
 		<Scrollbar viewport={rbViewport} contents={rbContents} width="0.5rem" />
 	</div>
 </div>
+
+<Modal width="small" bind:this={applyConflictedModal}>
+	<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
+	<p>Applying this branch will introduce merge conflicts.</p>
+	<svelte:fragment slot="controls" let:item let:close>
+		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			height="small"
+			color="purple"
+			on:click={() => {
+				branchController.applyBranch(item.id);
+				close();
+			}}
+		>
+			Update
+		</Button>
+	</svelte:fragment>
+</Modal>

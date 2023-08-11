@@ -290,7 +290,7 @@ input[type='checkbox']:indeterminate::before {
 
 /* colors */
 input[type='checkbox'] {
-	@apply bg-gradient-to-b from-[#c0c0c0] to-[#d5d5d5] dark:from-[#505050] dark:to-[#656565];
+	@apply bg-gradient-to-b from-light-200 to-light-300 dark:from-dark-400 dark:to-dark-500;
 }
 input[type='checkbox'].error {
 	background: #fff4f4;
@@ -298,8 +298,7 @@ input[type='checkbox'].error {
 }
 
 input[type='checkbox']:hover {
-	background: linear-gradient(0deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)),
-		linear-gradient(180deg, #505050 0%, #656565 100%);
+	@apply bg-gradient-to-b from-light-300 to-light-400 dark:from-dark-300 dark:to-dark-400;
 }
 
 input[type='checkbox']:checked,
@@ -324,7 +323,8 @@ input[type='checkbox']:indeterminate:focus {
 }
 
 input[type='checkbox']:disabled {
-	background: #fafbfb;
+	@apply border border-light-600 bg-gradient-to-b from-[#a0a0a0] to-[#b5b5b5] dark:border-dark-400 dark:from-[#606060] dark:to-[#757575];
+
 	border: 0.125rem solid #d2d5d8;
 }
 input[type='checkbox']:checked:disabled,
