@@ -63,11 +63,14 @@ export class Author {
 	gravatarUrl!: URL;
 }
 
+// TODO: For consistency change Ts suffix to At, and return milliseconds from back end
 export class BranchData {
 	sha!: string;
 	name!: string;
-	lastCommitTs!: number;
-	firstCommitTs!: number;
+	@Transform((obj) => new Date(obj.value * 1000))
+	lastCommitTs!: Date;
+	@Transform((obj) => new Date(obj.value * 1000))
+	firstCommitTs!: Date;
 	ahead!: number;
 	behind!: number;
 	upstream?: string;
