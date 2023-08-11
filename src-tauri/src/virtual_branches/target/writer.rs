@@ -103,6 +103,7 @@ mod tests {
         branch::Branch {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
+            notes: format!("branch_notes_{}", unsafe { TEST_INDEX }),
             applied: true,
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             upstream: Some(

@@ -44,6 +44,7 @@ mod tests {
         Branch {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
+            notes: "".to_string(),
             applied: true,
             order: unsafe { TEST_INDEX },
             upstream: Some(

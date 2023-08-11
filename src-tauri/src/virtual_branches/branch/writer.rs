@@ -51,6 +51,10 @@ impl<'writer> BranchWriter<'writer> {
             .context("Failed to write branch name")?;
 
         self.writer
+            .write_string(&format!("branches/{}/meta/notes", branch.id), &branch.notes)
+            .context("Failed to write notes")?;
+
+        self.writer
             .write_usize(&format!("branches/{}/meta/order", branch.id), &branch.order)
             .context("Failed to write branch order")?;
 
@@ -123,6 +127,7 @@ mod tests {
         Branch {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
+            notes: "".to_string(),
             applied: true,
             upstream: Some(
                 format!("refs/remotes/origin/upstream_{}", unsafe { TEST_INDEX })

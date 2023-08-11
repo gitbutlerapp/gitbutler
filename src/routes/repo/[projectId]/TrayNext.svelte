@@ -357,7 +357,9 @@
 									<Tooltip
 										label="This branch has {branch.ahead} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
 									>
-										<div class="text-sm">{branch.ahead}/{branch.behind}</div>
+										<div class="rounded-lg bg-zinc-100 px-1 text-sm">
+											{branch.ahead}/{branch.behind}
+										</div>
 									</Tooltip>
 									{#if !branch.mergeable}
 										<div class="font-bold text-red-500" title="Can't be merged">!</div>

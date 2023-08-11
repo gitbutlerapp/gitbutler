@@ -24,6 +24,7 @@ use crate::project_repository::branch;
 pub struct Branch {
     pub id: String,
     pub name: String,
+    pub notes: String,
     pub applied: bool,
     pub upstream: Option<branch::RemoteName>,
     pub created_timestamp_ms: u128,
@@ -40,6 +41,7 @@ pub struct Branch {
 pub struct BranchUpdateRequest {
     pub id: String,
     pub name: Option<String>,
+    pub notes: Option<String>,
     pub ownership: Option<Ownership>,
     pub order: Option<usize>,
 }
@@ -67,6 +69,13 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                 format!("meta/name: {}", e),
             ))
         })?;
+
+        let notes = match reader.read_string("meta/notes") {
+            Ok(notes) => Ok(notes),
+            Err(crate::reader::Error::NotFound) => Ok("".to_string()),
+            Err(e) => Err(e),
+        }?;
+
         let applied = reader
             .read_bool("meta/applied")
             .map_err(|e| {
@@ -150,6 +159,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
         Ok(Self {
             id,
             name,
+            notes,
             applied,
             upstream,
             tree: git2::Oid::from_str(&tree).unwrap(),

@@ -242,6 +242,7 @@ mod test {
         virtual_branches::branch::Branch {
             id: format!("branch_{}", unsafe { TEST_INDEX }),
             name: format!("branch_name_{}", unsafe { TEST_INDEX }),
+            notes: format!("branch_notes_{}", unsafe { TEST_INDEX }),
             applied: true,
             upstream: Some(
                 format!("refs/remotes/origin/upstream_{}", unsafe { TEST_INDEX })
