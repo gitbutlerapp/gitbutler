@@ -480,8 +480,6 @@ pub fn target_to_base_branch(
         .map(|c| super::commit_to_vbranch_commit(project_repository, c, None))
         .collect::<Result<Vec<_>>>()?;
 
-    dbg!(&recent_commits);
-
     let base = super::BaseBranch {
         branch_name: target.branch_name.clone(),
         remote_name: target.remote_name.clone(),

@@ -84,6 +84,10 @@ impl From<virtual_branches::controller::Error> for Error {
                 code: Code::InvalidHead,
                 message: format!("Project is on {0}. Please checkout {1} to continue.", head_name.replace("refs/heads/", ""), virtual_branches::GITBUTLER_INTEGRATION_BRANCH_NAME),
             },
+            virtual_branches::controller::Error::NoIntegrationCommit => Error::UserError {
+                code: Code::InvalidHead,
+                message: "GibButler's integration commit not found on head.".to_string(),
+            },
             e => Error::from(anyhow::Error::from(e))
         }
     }

@@ -2,10 +2,16 @@ use std::io::{Read, Write};
 
 use anyhow::{Context, Result};
 
-use crate::{gb_repository, project_repository, reader, sessions};
+use crate::{
+    gb_repository, project_repository, reader, sessions,
+    virtual_branches::branch::BranchCreateRequest,
+};
 
 pub const GITBUTLER_INTEGRATION_BRANCH_NAME: &str = "gitbutler/integration";
 pub const GITBUTLER_INTEGRATION_REFERENCE: &str = "refs/heads/gitbutler/integration";
+
+const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
+const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
 pub fn update_gitbutler_integration(
     gb_repository: &gb_repository::Repository,
@@ -132,7 +138,10 @@ pub fn update_gitbutler_integration(
     message.push_str("For more information about what we're doing here, check out our docs:\n");
     message.push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
 
-    let committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
+    let committer = git2::Signature::now(
+        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    )?;
 
     repo.commit(
         Some("HEAD"),
@@ -189,11 +198,130 @@ pub enum VerifyError {
     DetachedHead,
     #[error("head is {0}")]
     InvalidHead(String),
+    #[error("integration commit not found")]
+    NoIntegrationCommit,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
 pub fn verify_branch(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<(), VerifyError> {
+    verify_head_is_set(gb_repository, project_repository)?;
+    verify_head_is_clean(gb_repository, project_repository)?;
+    Ok(())
+}
+
+fn verify_head_is_clean(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+) -> Result<(), VerifyError> {
+    let head_commit = project_repository
+        .git_repository
+        .head()
+        .context("failed to get head")?
+        .peel_to_commit()
+        .context("failed to peel to commit")?;
+
+    let mut walk = project_repository
+        .git_repository
+        .revwalk()
+        .context("failed to create revwalk")?;
+    walk.push(head_commit.id())
+        .context("failed to push head commit")?;
+
+    let mut extra_commits = vec![];
+    let mut integration_commit = None;
+    for oid in walk {
+        let oid = oid.context("failed to get oid")?;
+        let commit = project_repository
+            .git_repository
+            .find_commit(oid)
+            .context("failed to find commit")?;
+        if is_integration_commit(&commit) {
+            integration_commit = Some(commit);
+            break;
+        }
+        extra_commits.push(commit);
+    }
+
+    if integration_commit.is_none() {
+        // no integration commit found
+        // TODO: handle that?
+        return Err(VerifyError::NoIntegrationCommit);
+    }
+
+    if extra_commits.is_empty() {
+        // no extra commits found, so we're good
+        return Ok(());
+    }
+
+    project_repository
+        .git_repository
+        .reset(
+            integration_commit.as_ref().unwrap().as_object(),
+            git2::ResetType::Soft,
+            None,
+        )
+        .context("failed to reset to integration commit")?;
+
+    let new_branch = super::vbranch::create_virtual_branch(
+        gb_repository,
+        &BranchCreateRequest {
+            name: extra_commits
+                .last()
+                .unwrap()
+                .message()
+                .map(|s| s.to_string()),
+            ..Default::default()
+        },
+    )
+    .context("failed to create virtual branch")?;
+
+    let new_branch_head = project_repository
+        .git_repository
+        .find_commit(new_branch.head)
+        .context("failed to find new branch head")?;
+
+    // rebasing the extra commits onto the new branch
+    let writer = super::branch::Writer::new(gb_repository);
+    extra_commits.reverse();
+    for commit in extra_commits {
+        let rebased_commit_oid = project_repository
+            .git_repository
+            .commit(
+                None,
+                &commit.author(),
+                &commit.committer(),
+                commit.message().unwrap(),
+                &commit.tree().unwrap(),
+                &[&new_branch_head],
+            )
+            .context(format!(
+                "failed to rebase commit {} onto new branch",
+                commit.id()
+            ))?;
+        let rebased_commit = project_repository
+            .git_repository
+            .find_commit(rebased_commit_oid)
+            .context(format!(
+                "failed to find rebased commit {}",
+                rebased_commit_oid
+            ))?;
+
+        writer
+            .write(&super::Branch {
+                head: rebased_commit.id(),
+                tree: rebased_commit.tree_id(),
+                ..new_branch.clone()
+            })
+            .context("failed to write branch")?;
+    }
+    Ok(())
+}
+
+fn verify_head_is_set(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<(), VerifyError> {
@@ -213,4 +341,35 @@ pub fn verify_branch(
             Err(VerifyError::InvalidHead(head_name.to_string()))
         }
     }
+}
+
+fn is_integration_commit(commit: &git2::Commit) -> bool {
+    is_integration_commit_author(commit) && is_integration_commit_message(commit)
+}
+
+fn is_integration_commit_author(commit: &git2::Commit) -> bool {
+    is_integration_commit_author_email(commit) && is_integration_commit_author_name(commit)
+}
+
+fn is_integration_commit_author_email(commit: &git2::Commit) -> bool {
+    commit
+        .author()
+        .email()
+        .map(|email| email == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL)
+        .unwrap_or(false)
+}
+
+fn is_integration_commit_author_name(commit: &git2::Commit) -> bool {
+    commit
+        .author()
+        .name()
+        .map(|name| name == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME)
+        .unwrap_or(false)
+}
+
+fn is_integration_commit_message(commit: &git2::Commit) -> bool {
+    commit
+        .message()
+        .map(|message| message.starts_with("GitButler Integration Commit"))
+        .unwrap_or(false)
 }
