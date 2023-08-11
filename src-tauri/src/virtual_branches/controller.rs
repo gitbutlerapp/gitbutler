@@ -27,6 +27,8 @@ pub enum Error {
     DetachedHead,
     #[error("unexpected head {0}, go back to gitbutler/integration to continue")]
     InvalidHead(String),
+    #[error("integration commit not found")]
+    NoIntegrationCommit,
     #[error("failed to open project repository")]
     PushError(#[from] project_repository::Error),
     #[error("project is in a conflicted state")]
@@ -284,7 +286,8 @@ impl Controller {
             |e| match e {
                 super::integration::VerifyError::DetachedHead => Error::DetachedHead,
                 super::integration::VerifyError::InvalidHead(head) => Error::InvalidHead(head),
-                super::integration::VerifyError::Other(e) => Error::Other(e),
+                super::integration::VerifyError::NoIntegrationCommit => Error::NoIntegrationCommit,
+                e => Error::Other(anyhow::Error::from(e)),
             },
         )?;
         action(&gb_repository, &project_repository)
