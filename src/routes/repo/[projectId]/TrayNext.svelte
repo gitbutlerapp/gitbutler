@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Link } from '$lib/components';
 	import { Branch, BaseBranch, BranchData } from '$lib/vbranches/types';
-	import { formatDistanceToNowStrict } from 'date-fns';
 	import { IconBranch, IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';

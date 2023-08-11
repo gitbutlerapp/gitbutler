@@ -34,6 +34,7 @@ export class Branch {
 	active!: boolean;
 	@Type(() => File)
 	files!: File[];
+	@Type(() => Commit)
 	commits!: Commit[];
 	description!: string;
 	mergeable!: boolean;
@@ -77,6 +78,7 @@ export class BranchData {
 	authors!: Author[];
 	mergeable!: boolean;
 	mergeConflicts!: string[];
+	@Type(() => Commit)
 	commits!: Commit[];
 }
 
@@ -87,7 +89,9 @@ export class BaseBranch {
 	baseSha!: string;
 	currentSha!: string;
 	behind!: number;
+	@Type(() => Commit)
 	upstreamCommits!: Commit[];
+	@Type(() => Commit)
 	recentCommits!: Commit[];
 	fetchedAt!: Date;
 
