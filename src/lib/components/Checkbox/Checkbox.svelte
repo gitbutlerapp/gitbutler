@@ -10,7 +10,7 @@
 </script>
 
 <input
-	on:click
+	on:click|stopPropagation
 	on:change
 	type="checkbox"
 	{value}

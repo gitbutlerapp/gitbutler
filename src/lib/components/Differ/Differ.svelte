@@ -120,7 +120,7 @@
 
 	$: renderedRows = diffRows.rows.map((row) => ({ ...row, render: renderRowContent(row) }));
 
-	type RenderedRow = typeof renderedRows[0];
+	type RenderedRow = (typeof renderedRows)[0];
 
 	const padHighlighted = (rows: RenderedRow[]): RenderedRow[] => {
 		const chunks: (RenderedRow[] | RenderedRow)[] = [];
