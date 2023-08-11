@@ -72,7 +72,7 @@
 							<div class="w-24 shrink-0 truncate">{formatDistanceToNow(commit.createdAt)} ago</div>
 							<div class="flex w-32 shrink-0 flex-row items-center gap-x-1 truncate">
 								<img
-									class="relative z-30 inline h-3 w-3 rounded-full ring-1 ring-white dark:ring-black"
+									class="relative inline h-3 w-3 rounded-full ring-1 ring-white dark:ring-black"
 									title="Gravatar for {commit.author.email}"
 									alt="Gravatar for {commit.author.email}"
 									srcset="{commit.author.gravatarUrl} 2x"
