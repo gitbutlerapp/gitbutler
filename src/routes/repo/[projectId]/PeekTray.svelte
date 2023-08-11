@@ -79,13 +79,13 @@
 	style:width={`${$userSettings.peekTrayWidth}px`}
 	style:translate={`${offsetLeft}px`}
 	style:transition-property={expanded ? 'top,translate,height' : 'translate'}
-	class="absolute z-30 flex shrink-0 overflow-y-auto overflow-x-visible bg-white text-light-800 duration-200 ease-in-out"
+	class="absolute z-30 flex shrink-0 overflow-y-auto overflow-x-visible bg-white text-light-800 duration-200 ease-in-out dark:bg-dark-800 dark:text-dark-100"
 >
 	<div class="w-full flex-grow overflow-y-scroll" style:width={`${$userSettings.peekTrayWidth}px`}>
 		{#if $item instanceof BranchData}
 			<RemoteBranchPeek {branchController} {base} branch={$item} />
 		{:else if $item instanceof Branch}
-			<VirtualBranchPeek {branchController} branch={$item} />
+			<VirtualBranchPeek {branchController} {base} branch={$item} />
 		{:else if $item instanceof BaseBranch}
 			<BaseBranchPeek base={$item} {branchController} />
 		{:else}
@@ -93,7 +93,7 @@
 		{/if}
 	</div>
 	<div
-		class="flex w-4 cursor-pointer items-center bg-light-50 text-light-600"
+		class="flex w-4 cursor-pointer items-center bg-light-50 text-light-600 dark:bg-dark-700"
 		role="button"
 		tabindex="0"
 		on:click={toggleExpanded}
@@ -111,6 +111,7 @@
 		role="slider"
 		aria-valuenow={$userSettings.peekTrayWidth}
 		class:bg-orange-300={hovering}
-		class="right-0 h-full w-0.5 shrink-0 cursor-ew-resize bg-light-50 text-light-600"
+		class:dark:bg-orange-700={hovering}
+		class="right-0 h-full w-0.5 shrink-0 cursor-ew-resize bg-light-50 text-light-600 dark:bg-dark-700"
 	/>
 </div>

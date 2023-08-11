@@ -2,10 +2,12 @@
 	import Button from '$lib/components/Button/Button.svelte';
 	import Modal from '$lib/components/Modal';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { Branch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import CommitCard from './CommitCard.svelte';
 
 	export let branch: Branch | undefined;
 	export let branchController: BranchController;
+	export let base: BaseBranch | undefined;
 
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
@@ -26,18 +28,27 @@
 <!-- Apply conflicted branch modal -->
 
 {#if branch != undefined}
-	<div class="p-4 text-center">
-		<h1 class="mb-2 text-xl font-medium">{branch.name}</h1>
-		<h2 class="mb-4 text-lg text-light-800">
+	<div class="flex w-full max-w-full flex-col items-center gap-y-4 overflow-hidden p-4">
+		<h1 class="text-xl font-medium">{branch.name}</h1>
+		<h2 class="text-lg text-light-800 dark:text-dark-200">
 			status: {branch.active ? 'applied' : 'unapplied'}
 		</h2>
-		<Button color="purple" height="small" on:click={() => toggleBranch(branch)}>
-			{branch.active ? 'Unapply' : 'Apply'}
-		</Button>
-		{#if !branch.active}
-			<Button color="purple" height="small" on:click={() => deleteBranchModal.show(branch)}>
-				Delete
+		<div class="flex gap-x-4">
+			<Button color="purple" height="small" on:click={() => toggleBranch(branch)}>
+				{branch.active ? 'Unapply' : 'Apply'}
 			</Button>
+			{#if !branch.active}
+				<Button color="purple" height="small" on:click={() => deleteBranchModal.show(branch)}>
+					Delete
+				</Button>
+			{/if}
+		</div>
+		{#if branch.commits && branch.commits.length > 0}
+			<div class="flex w-full flex-col gap-y-2">
+				{#each branch.commits as commit}
+					<CommitCard {commit} url={base?.commitUrl(commit.id)} />
+				{/each}
+			</div>
 		{/if}
 	</div>
 
