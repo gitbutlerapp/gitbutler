@@ -76,8 +76,6 @@
 		gitHeadUnsubscribe();
 		if (deltasUnsubscribe) deltasUnsubscribe();
 	});
-
-	vbrachesState.subscribe(console.log);
 </script>
 
 {#if $baseBranchStore}
