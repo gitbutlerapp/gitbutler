@@ -279,15 +279,15 @@ fn verify_head_is_clean(
     )
     .context("failed to create virtual branch")?;
 
-    let new_branch_head = project_repository
-        .git_repository
-        .find_commit(new_branch.head)
-        .context("failed to find new branch head")?;
-
     // rebasing the extra commits onto the new branch
     let writer = super::branch::Writer::new(gb_repository);
     extra_commits.reverse();
     for commit in extra_commits {
+        let new_branch_head = project_repository
+            .git_repository
+            .find_commit(new_branch.head)
+            .context("failed to find new branch head")?;
+
         let rebased_commit_oid = project_repository
             .git_repository
             .commit(
@@ -302,6 +302,7 @@ fn verify_head_is_clean(
                 "failed to rebase commit {} onto new branch",
                 commit.id()
             ))?;
+
         let rebased_commit = project_repository
             .git_repository
             .find_commit(rebased_commit_oid)
