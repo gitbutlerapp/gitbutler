@@ -241,15 +241,17 @@
 									<div class="flex-grow truncate text-black dark:text-white">
 										{branch.name}
 									</div>
-									<div class="flex items-center gap-x-2 text-sm text-light-700 dark:text-dark-300">
+									<div
+										class="flex items-baseline gap-x-2 text-sm text-light-700 dark:text-dark-300"
+									>
 										{#if latestModifiedAt}
 											<span><TimeAgo date={latestModifiedAt} /></span>
 										{/if}
-										<div class="font-mono">
-											<span class="text-green-500">
+										<div class="flex gap-1 font-mono text-sm font-bold">
+											<span class="font-mono text-green-500">
 												+{added}
 											</span>
-											<span class="text-red-500">
+											<span class="font-mono text-red-500">
 												-{removed}
 											</span>
 										</div>
