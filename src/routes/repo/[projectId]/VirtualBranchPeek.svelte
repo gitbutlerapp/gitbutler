@@ -14,9 +14,12 @@
 	$: notesRows = branch ? Math.min(10, Math.max(2, branch.notes.split('\n').length)) : 2;
 
 	function handleUpdateNotes() {
-		notesRows = Math.min(10, Math.max(2, branch.notes.split('\n').length));
-		branchController.updateBranchNotes(branch.id, branch.notes);
+		if (branch) {
+			notesRows = Math.min(10, Math.max(2, branch.notes.split('\n').length));
+			branchController.updateBranchNotes(branch.id, branch.notes);
+		}
 	}
+
 	function toggleBranch(branch: Branch | undefined) {
 		if (!branch) {
 			return;
