@@ -33,7 +33,7 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    pub fn handle(&self, project_id: &str, now: time::SystemTime) -> Result<Vec<events::Event>> {
+    pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             project_id,
@@ -60,24 +60,24 @@ impl Handler {
     }
 }
 
-pub(super) fn should_flush(now: time::SystemTime, session: &sessions::Session) -> Result<bool> {
+pub(super) fn should_flush(now: &time::SystemTime, session: &sessions::Session) -> Result<bool> {
     Ok(!is_session_active(now, session)? || is_session_too_old(now, session)?)
 }
 
 const ONE_HOUR: time::Duration = time::Duration::new(60 * 60, 0);
 
-fn is_session_too_old(now: time::SystemTime, session: &sessions::Session) -> Result<bool> {
+fn is_session_too_old(now: &time::SystemTime, session: &sessions::Session) -> Result<bool> {
     let session_start =
         time::UNIX_EPOCH + time::Duration::from_millis(session.meta.start_timestamp_ms.try_into()?);
-    Ok(session_start + ONE_HOUR < now)
+    Ok(session_start + ONE_HOUR < *now)
 }
 
 const FIVE_MINUTES: time::Duration = time::Duration::new(5 * 60, 0);
 
-fn is_session_active(now: time::SystemTime, session: &sessions::Session) -> Result<bool> {
+fn is_session_active(now: &time::SystemTime, session: &sessions::Session) -> Result<bool> {
     let session_last_update =
         time::UNIX_EPOCH + time::Duration::from_millis(session.meta.last_timestamp_ms.try_into()?);
-    Ok(session_last_update + FIVE_MINUTES > now)
+    Ok(session_last_update + FIVE_MINUTES > *now)
 }
 
 #[cfg(test)]
@@ -104,10 +104,10 @@ mod tests {
             },
         };
 
-        assert!(!should_flush(now, &session)?);
+        assert!(!should_flush(&now, &session)?);
 
-        assert!(should_flush(start + FIVE_MINUTES, &session)?);
-        assert!(should_flush(last + ONE_HOUR, &session)?);
+        assert!(should_flush(&(start + FIVE_MINUTES), &session)?);
+        assert!(should_flush(&(last + ONE_HOUR), &session)?);
 
         Ok(())
     }
