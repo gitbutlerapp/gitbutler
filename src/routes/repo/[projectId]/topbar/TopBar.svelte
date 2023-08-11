@@ -181,7 +181,7 @@
 							class="flex flex-row justify-between space-x-2 rounded bg-light-100 p-1 pr-1 text-light-700 dark:bg-dark-700 dark:text-dark-300"
 						>
 							<div class="flex-grow-0 text-sm">
-								{formatDistanceToNow(branch.lastCommitTs * 1000)}
+								{formatDistanceToNow(branch.lastCommitTs)}
 							</div>
 							<div class="flex flex-grow-0 flex-row space-x-2">
 								<Tooltip

@@ -15,6 +15,7 @@
 	import PeekTray from './PeekTray.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
+	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
@@ -147,7 +148,7 @@
 				<Tooltip label="Fetch from upstream">
 					<button
 						class="h-5 w-5 items-center justify-center hover:bg-light-150 dark:hover:bg-dark-700"
-						on:click={() => {
+						on:click|stopPropagation={() => {
 							fetching = true;
 							branchController.fetchFromTarget().finally(() => (fetching = false));
 						}}
@@ -171,9 +172,7 @@
 			<div>
 				<Tooltip label="Last fetch from upstream">
 					{#if $baseBranchStore?.fetchedAt}
-						<span
-							>{formatDistanceToNowStrict($baseBranchStore?.fetchedAt, { addSuffix: true })}</span
-						>
+						<TimeAgo date={$baseBranchStore.fetchedAt} />
 					{/if}
 				</Tooltip>
 			</div>
@@ -233,11 +232,11 @@
 								</div>
 							</div>
 							<div class="flex items-center text-sm text-light-700 dark:text-dark-300">
-								<div class="flex-grow">
-									{latestModifiedAt
-										? formatDistanceToNowStrict(latestModifiedAt, { addSuffix: true })
-										: ''}
-								</div>
+								{#if latestModifiedAt}
+									<div class="flex-grow">
+										<TimeAgo date={latestModifiedAt} />
+									</div>
+								{/if}
 								{#if !branch.active}
 									<div class="mr-2">
 										{#if !branch.baseCurrent}
@@ -351,7 +350,7 @@
 								class="flex flex-row justify-between space-x-2 rounded p-1 pr-1 text-light-700 dark:text-dark-300"
 							>
 								<div class="flex-grow-0 text-sm">
-									{formatDistanceToNowStrict(branch.lastCommitTs * 1000, { addSuffix: true })}
+									<TimeAgo date={branch.lastCommitTs} />
 								</div>
 								<div class="flex flex-grow-0 flex-row space-x-2">
 									<Tooltip
