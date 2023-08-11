@@ -133,13 +133,15 @@
 		<div class="flex flex-grow items-center">
 			<div class="flex flex-grow items-center gap-1">
 				<span class="font-bold">Trunk</span>
-				<Tooltip label="Unmerged upstream commits">
-					<div
-						class="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white"
-					>
-						{$baseBranchStore?.behind}
-					</div>
-				</Tooltip>
+				{#if ($baseBranchStore?.behind || 0) > 0}
+					<Tooltip label="Unmerged upstream commits">
+						<div
+							class="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white"
+						>
+							{$baseBranchStore?.behind}
+						</div>
+					</Tooltip>
+				{/if}
 			</div>
 			<div class="flex">
 				<Tooltip label="Fetch from upstream">
