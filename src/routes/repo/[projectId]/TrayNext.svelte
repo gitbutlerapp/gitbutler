@@ -235,6 +235,7 @@
 							on:keypress|capture={() => select(branch, i)}
 							class="border-b border-light-400 p-2 dark:border-dark-600"
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
+							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
 						>
 							<div class="flex flex-row">
 								<div class="flex flex-grow flex-col gap-y-2">
@@ -381,7 +382,7 @@
 									<Tooltip
 										label="This branch has {branch.ahead} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
 									>
-										<div class="rounded-lg bg-zinc-100 px-1 text-sm">
+										<div class="rounded-lg bg-zinc-100 px-1 text-sm dark:bg-zinc-700">
 											{branch.ahead}/{branch.behind}
 										</div>
 									</Tooltip>
