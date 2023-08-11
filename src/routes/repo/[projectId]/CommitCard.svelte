@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatDistanceToNow } from 'date-fns';
 	import type { Commit } from '$lib/vbranches/types';
+	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 
 	export let commit: Commit;
 	export let url: string | undefined = undefined;
@@ -29,6 +30,8 @@
 			on:error
 		/>
 		<div class="flex-grow truncate">{commit.author.name}</div>
-		<div class="truncate">{formatDistanceToNow(commit.createdAt)} ago</div>
+		<div class="truncate">
+			<TimeAgo date={commit.createdAt} />
+		</div>
 	</div>
 </div>

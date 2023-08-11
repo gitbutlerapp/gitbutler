@@ -2,8 +2,8 @@
 	import { slide } from 'svelte/transition';
 	import { IconTriangleUp, IconTriangleDown } from '$lib/icons';
 	import type { BaseBranch } from '$lib/vbranches/types';
-	import { formatDistanceToNow } from 'date-fns';
 	import type { SettingsStore } from '$lib/userSettings';
+	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 
 	export let base: BaseBranch | undefined;
 	export let userSettings: SettingsStore;
@@ -69,7 +69,11 @@
 						<div
 							class="flex flex-row items-center gap-x-1 border-b border-light-300 px-2 text-light-700 dark:border-dark-700 dark:text-dark-200"
 						>
-							<div class="w-24 shrink-0 truncate">{formatDistanceToNow(commit.createdAt)} ago</div>
+							<div class="w-24 shrink-0 truncate">
+								{#if commit.createdAt}
+									<TimeAgo date={commit.createdAt} />
+								{/if}
+							</div>
 							<div class="flex w-32 shrink-0 flex-row items-center gap-x-1 truncate">
 								<img
 									class="relative inline h-3 w-3 rounded-full ring-1 ring-white dark:ring-black"
