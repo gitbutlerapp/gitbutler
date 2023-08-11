@@ -11,10 +11,10 @@
 
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
-	$: notesRows = branch ? Math.max(2, branch.notes.split('\n').length) : 1;
+	$: notesRows = branch ? Math.min(10, Math.max(2, branch.notes.split('\n').length)) : 2;
 
 	function handleUpdateNotes() {
-		notesRows = Math.max(2, branch.notes.split('\n').length);
+		notesRows = Math.min(10, Math.max(2, branch.notes.split('\n').length));
 		branchController.updateBranchNotes(branch.id, branch.notes);
 	}
 	function toggleBranch(branch: Branch | undefined) {
