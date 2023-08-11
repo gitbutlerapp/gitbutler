@@ -65,6 +65,18 @@ export class BranchController {
 		}
 	}
 
+	async updateBranchUpstreamName(branchId: string, upstream: string) {
+		try {
+			await invoke<void>('update_virtual_branch', {
+				projectId: this.projectId,
+				branch: { id: branchId, upstream }
+			});
+			await this.virtualBranchStore.reload();
+		} catch (err) {
+			toasts.error('Failed to update branch notes');
+		}
+	}
+
 	async updateBranchOrder(branchId: string, order: number) {
 		try {
 			await invoke<void>('update_virtual_branch', {

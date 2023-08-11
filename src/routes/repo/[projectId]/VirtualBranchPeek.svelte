@@ -11,12 +11,37 @@
 
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
+	let remoteName = '';
+	let remoteBranchName = '';
+
 	$: notesRows = branch ? Math.min(12, Math.max(2, branch.notes.split('\n').length)) : 2;
+
+	$: if (branch) {
+		if (branch.upstream) {
+			let parts = branch.upstream.replace('refs/remotes/', '').split('/');
+			remoteName = parts[0];
+			// remoteBranchName is the rest
+			let rbn = parts.slice(1).join('/');
+			if (rbn != remoteBranchName) {
+				remoteBranchName = rbn;
+			}
+		} else {
+			remoteName = '';
+			remoteBranchName = '';
+		}
+	}
 
 	function handleUpdateNotes() {
 		if (branch) {
 			notesRows = Math.min(12, Math.max(2, branch.notes.split('\n').length));
 			branchController.updateBranchNotes(branch.id, branch.notes);
+		}
+	}
+
+	function handleUpdateBranchName(e: any) {
+		if (branch && branch.upstream) {
+			let newBranchName = e.target?.value;
+			branchController.updateBranchUpstreamName(branch.id, newBranchName);
 		}
 	}
 
@@ -64,6 +89,17 @@
 				rows={notesRows}
 			/>
 		</div>
+		{#if branch.upstream}
+			<h2 class="font-mono text-lg text-light-800 dark:text-dark-200">
+				{remoteName} /
+				<input
+					type="text"
+					class="resize-none rounded border border-zinc-100 bg-transparent p-2 text-zinc-800"
+					on:change={handleUpdateBranchName}
+					value={remoteBranchName}
+				/>
+			</h2>
+		{/if}
 		{#if branch.commits && branch.commits.length > 0}
 			<div class="flex w-full flex-col gap-y-2">
 				{#each branch.commits as commit}

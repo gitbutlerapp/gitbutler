@@ -1241,6 +1241,20 @@ pub fn update_branch(
         branch.notes = notes;
     };
 
+    if let Some(upstream_branch_name) = branch_update.upstream {
+        let remote_branch = match get_default_target(&current_session_reader)? {
+            Some(target) => format!(
+                "refs/remotes/{}/{}",
+                target.remote_name,
+                name_to_branch(&upstream_branch_name)
+            )
+            .parse::<project_repository::branch::RemoteName>()
+            .unwrap(),
+            None => bail!("no remote set"),
+        };
+        branch.upstream = Some(remote_branch);
+    };
+
     if let Some(order) = branch_update.order {
         branch.order = order;
     };
