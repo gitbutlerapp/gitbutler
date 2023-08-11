@@ -11,7 +11,12 @@
 
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
+	$: notesRows = branch ? Math.max(2, branch.notes.split('\n').length) : 1;
 
+	function handleUpdateNotes() {
+		notesRows = Math.max(2, branch.notes.split('\n').length);
+		branchController.updateBranchNotes(branch.id, branch.notes);
+	}
 	function toggleBranch(branch: Branch | undefined) {
 		if (!branch) {
 			return;
@@ -42,6 +47,19 @@
 					Delete
 				</Button>
 			{/if}
+		</div>
+		<div class="w-full">
+			<textarea
+				autocomplete="off"
+				autocorrect="off"
+				spellcheck="true"
+				bind:value={branch.notes}
+				on:change={handleUpdateNotes}
+				name="commit-description"
+				class="quick-commit-input outline-none-important w-full resize-none rounded border border-zinc-100 bg-transparent p-2 text-lg text-zinc-800"
+				placeholder="Branch notes (optional)"
+				rows={notesRows}
+			/>
 		</div>
 		{#if branch.commits && branch.commits.length > 0}
 			<div class="flex w-full flex-col gap-y-2">

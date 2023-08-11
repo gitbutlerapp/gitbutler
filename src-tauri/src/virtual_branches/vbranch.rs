@@ -36,6 +36,7 @@ use super::{
 pub struct VirtualBranch {
     pub id: String,
     pub name: String,
+    pub notes: String,
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
@@ -1014,6 +1015,7 @@ pub fn list_virtual_branches(
         let branch = VirtualBranch {
             id: branch.id.to_string(),
             name: branch.name.to_string(),
+            notes: branch.notes.to_string(),
             active: branch.applied,
             files: vfiles,
             order: branch.order,
@@ -1156,6 +1158,7 @@ pub fn create_virtual_branch(
     let mut branch = Branch {
         id: Uuid::new_v4().to_string(),
         name,
+        notes: "".to_string(),
         applied: true,
         upstream: None,
         tree: tree.id(),
@@ -1232,6 +1235,10 @@ pub fn update_branch(
         } else {
             bail!("branch name {} already exists", name);
         }
+    };
+
+    if let Some(notes) = branch_update.notes {
+        branch.notes = notes;
     };
 
     if let Some(order) = branch_update.order {

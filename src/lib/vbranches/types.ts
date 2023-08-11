@@ -30,6 +30,7 @@ export class File {
 export class Branch {
 	id!: string;
 	name!: string;
+	notes!: string;
 	active!: boolean;
 	@Type(() => File)
 	files!: File[];
