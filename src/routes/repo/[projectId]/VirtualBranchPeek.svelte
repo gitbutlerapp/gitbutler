@@ -11,11 +11,11 @@
 
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
-	$: notesRows = branch ? Math.min(10, Math.max(2, branch.notes.split('\n').length)) : 2;
+	$: notesRows = branch ? Math.min(12, Math.max(2, branch.notes.split('\n').length)) : 2;
 
 	function handleUpdateNotes() {
 		if (branch) {
-			notesRows = Math.min(10, Math.max(2, branch.notes.split('\n').length));
+			notesRows = Math.min(12, Math.max(2, branch.notes.split('\n').length));
 			branchController.updateBranchNotes(branch.id, branch.notes);
 		}
 	}
@@ -59,7 +59,7 @@
 				bind:value={branch.notes}
 				on:change={handleUpdateNotes}
 				name="commit-description"
-				class="quick-commit-input outline-none-important w-full resize-none rounded border border-zinc-100 bg-transparent p-2 text-lg text-zinc-800"
+				class="quick-commit-input outline-none-important w-full resize-none rounded border border-zinc-100 bg-transparent p-2 text-zinc-800"
 				placeholder="Branch notes (optional)"
 				rows={notesRows}
 			/>
