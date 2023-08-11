@@ -47,7 +47,7 @@
 	let fetching = false;
 
 	// TODO: Replace this hacky thing when adding ability to resize sections
-	$: yourBranchesMinHeight = Math.min(Math.max($vbranchStore?.length ?? 0, 1), 5) * 3.25;
+	$: yourBranchesMinHeight = Math.min(Math.max($vbranchStore?.length ?? 0, 1), 5) * 3.75;
 
 	function select(detail: Branch | BranchData | BaseBranch | undefined, i: number): void {
 		if (peekTrayExpanded && selectedItem && detail == get(selectedItem)) {
