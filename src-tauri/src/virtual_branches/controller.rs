@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
-use futures::{executor::block_on, future::join_all};
+use futures::future::join_all;
 use tauri::AppHandle;
 use tokio::sync::Semaphore;
 
@@ -144,7 +144,7 @@ impl Controller {
         let gb_repository = self.open_gb_repository(project_id)?;
         let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
         if let Some(branch) = base_branch {
-            Ok(Some(block_on(self.proxy_base_branch(branch))))
+            Ok(Some(self.proxy_base_branch(branch).await))
         } else {
             Ok(None)
         }
@@ -155,22 +155,18 @@ impl Controller {
         project_id: &str,
         target_branch: &str,
     ) -> Result<super::BaseBranch, Error> {
-        let target = self
-            .with_lock(project_id, || {
-                let project = self
-                    .projects_storage
-                    .get_project(project_id)
-                    .context("failed to get project")?
-                    .context("project not found")?;
-                let project_repository = project
-                    .as_ref()
-                    .try_into()
-                    .context("failed to open project repository")?;
-                let gb_repository = self.open_gb_repository(project_id)?;
-                super::set_base_branch(&gb_repository, &project_repository, target_branch)
-                    .map_err(Error::Other)
-            })
-            .await?;
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+        let target = super::set_base_branch(&gb_repository, &project_repository, target_branch)
+            .map_err(Error::Other)?;
 
         let target = self.proxy_base_branch(target).await;
 
