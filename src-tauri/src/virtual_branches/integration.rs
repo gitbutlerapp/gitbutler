@@ -248,7 +248,6 @@ fn verify_head_is_clean(
 
     if integration_commit.is_none() {
         // no integration commit found
-        // TODO: handle that?
         return Err(VerifyError::NoIntegrationCommit);
     }
 
@@ -282,10 +281,11 @@ fn verify_head_is_clean(
     // rebasing the extra commits onto the new branch
     let writer = super::branch::Writer::new(gb_repository);
     extra_commits.reverse();
+    let mut head = new_branch.head;
     for commit in extra_commits {
         let new_branch_head = project_repository
             .git_repository
-            .find_commit(new_branch.head)
+            .find_commit(head)
             .context("failed to find new branch head")?;
 
         let rebased_commit_oid = project_repository
@@ -318,6 +318,8 @@ fn verify_head_is_clean(
                 ..new_branch.clone()
             })
             .context("failed to write branch")?;
+
+        head = rebased_commit.id();
     }
     Ok(())
 }

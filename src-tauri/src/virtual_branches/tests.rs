@@ -3185,3 +3185,69 @@ fn test_apply_conflicting_vbranch() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_verify_branch_commits_to_integration() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
+    assert!(integration::verify_branch(&gb_repo, &project_repository).is_ok());
+
+    //  write two commits
+    let file_path2 = std::path::Path::new("test2.txt");
+    std::fs::write(std::path::Path::new(&project.path).join(file_path2), "file")?;
+    commit_all(&repository)?;
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "update",
+    )?;
+    commit_all(&repository)?;
+
+    // verify puts commits onto the virtual branch
+    assert!(integration::verify_branch(&gb_repo, &project_repository).is_ok());
+
+    // one virtual branch with two commits was created
+    let virtual_branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    assert_eq!(virtual_branches.len(), 1);
+
+    let branch = &virtual_branches.first().unwrap();
+    assert_eq!(branch.commits.len(), 2);
+    assert_eq!(branch.commits.len(), 2);
+
+    Ok(())
+}
+
+#[test]
+fn test_verify_branch_not_integration() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
+    assert!(integration::verify_branch(&gb_repo, &project_repository).is_ok());
+
+    project_repository
+        .git_repository
+        .set_head("refs/heads/master")?;
+
+    let verify_result = integration::verify_branch(&gb_repo, &project_repository);
+    assert!(verify_result.is_err());
+    assert_eq!(
+        verify_result.unwrap_err().to_string(),
+        "head is refs/heads/master"
+    );
+
+    Ok(())
+}
