@@ -129,14 +129,11 @@ impl WatcherInner {
                                 Err(error) => tracing::error!("{}: failed to handle event {}: {:#}", project_id, event, error),
                                 Ok(events) => {
                                     for e in events {
-                                        let send_span = tracing::info_span!("sending event", source = %event, event = %e);
-                                        let span_guard = send_span.enter();
                                         if let Err(e) = tx.send(e.clone()).await {
                                             tracing::error!("{}: failed to post event {}: {:#}", project_id, event, e);
                                         } else {
                                             tracing::info!("{}: sent response event: {}", project_id, event);
                                         }
-                                        drop(span_guard);
                                     }
                                 }
                             }
