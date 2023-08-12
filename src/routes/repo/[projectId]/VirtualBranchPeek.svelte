@@ -39,7 +39,7 @@
 	}
 
 	function handleUpdateBranchName(e: any) {
-		if (branch && branch.upstream) {
+		if (branch) {
 			let newBranchName = e.target?.value;
 			branchController.updateBranchUpstreamName(branch.id, newBranchName);
 		}
@@ -89,17 +89,18 @@
 				rows={notesRows}
 			/>
 		</div>
-		{#if branch.upstream}
-			<h2 class="font-mono text-lg text-light-800 dark:text-dark-200">
+		<h2 class="font-mono text-lg text-light-800 dark:text-dark-200">
+			{#if remoteName}
 				{remoteName} /
-				<input
-					type="text"
-					class="resize-none rounded border border-zinc-100 bg-transparent p-2 text-zinc-800"
-					on:change={handleUpdateBranchName}
-					value={remoteBranchName}
-				/>
-			</h2>
-		{/if}
+			{/if}
+			<input
+				type="text"
+				class="resize-none rounded border border-zinc-100 bg-transparent p-2 text-zinc-800"
+				placeholder="remote branch name"
+				on:change={handleUpdateBranchName}
+				value={remoteBranchName}
+			/>
+		</h2>
 		{#if branch.commits && branch.commits.length > 0}
 			<div class="flex w-full flex-col gap-y-2">
 				{#each branch.commits as commit}
