@@ -133,7 +133,7 @@
 	bind:expanded={peekTrayExpanded}
 />
 <div
-	class="z-30 flex w-80 min-w-[216px] shrink-0 flex-col border-r border-light-400 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
+	class="z-30 flex w-80 min-w-[216px] shrink-0 flex-col border-r border-light-200 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 >
 	<!-- Base branch -->
@@ -194,7 +194,7 @@
 	</div>
 	<!-- Your branches -->
 	<div
-		class="flex items-center justify-between border-b border-t border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
+		class="flex items-center justify-between border-b border-t border-light-300 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
 		<div class="font-bold">Your Virtual Branches</div>
 		<div class="flex h-4 w-4 justify-around">
@@ -215,7 +215,7 @@
 		<div
 			bind:this={vbViewport}
 			on:scroll={onScroll}
-			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
+			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
 		>
 			<div bind:this={vbContents}>
 				{#if $branchesState?.isLoading}
@@ -233,7 +233,7 @@
 							tabindex="0"
 							on:click={() => select(branch, i)}
 							on:keypress|capture={() => select(branch, i)}
-							class="border-b border-light-400 p-2 dark:border-dark-600"
+							class="border-b border-light-200 p-2 last:border-b dark:border-dark-600"
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
 						>
@@ -294,7 +294,7 @@
 
 	<!-- Remote branches -->
 	<div
-		class="flex items-center justify-between border-b border-light-400 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
+		class="flex items-center justify-between border-b border-t border-light-300 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
 		<div class="flex flex-row place-items-center space-x-2">
 			<div class="font-bold">Remote Branches</div>
@@ -321,7 +321,7 @@
 		<div
 			bind:this={rbViewport}
 			on:scroll={onScroll}
-			class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll dark:bg-dark-900"
+			class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
 		>
 			<div bind:this={rbContents}>
 				{#if $remoteBranchesState?.isLoading}
@@ -349,7 +349,7 @@
 							on:click|capture={(e) => select(branch, i)}
 							on:keypress|capture={(e) => select(branch, i)}
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
-							class="flex flex-col justify-between gap-1 border-b border-light-400 px-2 py-1 pt-2 dark:border-dark-600"
+							class="flex flex-col justify-between gap-1 border-b border-light-200 px-2 py-1 pt-2 last:border-b dark:border-dark-600"
 						>
 							<div class="flex flex-row items-center gap-x-2 pr-1">
 								<div class="text-light-600 dark:text-dark-200">
