@@ -115,7 +115,7 @@
 			{curNumber}
 		</span>
 		<span
-			class="pl-1 diff-line-{row.type} overflow-hidden whitespace-nowrap"
+			class="pl-1 diff-line-{row.type} overflow-hidden whitespace-pre"
 			class:line-changed={row.type === RowType.Addition || row.type === RowType.Deletion}
 		>
 			{#each row.render.html as content}
