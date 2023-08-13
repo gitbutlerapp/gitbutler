@@ -20,6 +20,7 @@
 	import { getDeltasStore2 } from '$lib/stores/deltas';
 	import { getFetchesStore } from '$lib/stores/fetches';
 	import { Code } from '$lib/ipc';
+	import Resizer from '$lib/components/Resizer.svelte';
 	// import TopBar from './topbar/TopBar.svelte';
 
 	export let data: PageData;
@@ -56,6 +57,10 @@
 
 	let targetChoice: string | undefined;
 	let deltasUnsubscribe: (() => void) | undefined;
+	let trayViewport: HTMLElement;
+
+	// Used to prevent peek tray from showing while reducing tray size
+	let peekTransitionsDisabled = false;
 
 	// function exists to unsubscribe from delta store when session changes
 	function updateDeltasStore(sessionId: string | undefined) {
@@ -81,7 +86,15 @@
 {#if $baseBranchStore}
 	{#if !$vbrachesState.isError}
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
-			<TrayNext {vbranchStore} {remoteBranchStore} {baseBranchStore} {branchController} />
+			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
+				<TrayNext
+					{vbranchStore}
+					{remoteBranchStore}
+					{baseBranchStore}
+					{branchController}
+					{peekTransitionsDisabled}
+				/>
+			</div>
 			<!-- <Tray
 			branches={$vbranchStore}
 			branchesState={$branchesState}
@@ -89,14 +102,16 @@
 			remoteBranchesState={$remoteBranchesState}
 			{branchController}
 		/> -->
-			<div
-				class="z-30 -ml-[0.250rem] w-[0.250rem] shrink-0 cursor-col-resize hover:bg-orange-200 dark:bg-dark-1000 dark:hover:bg-orange-700"
-				draggable="true"
-				role="separator"
-				on:drag={(e) => {
+			<Resizer
+				viewport={trayViewport}
+				direction="horizontal"
+				on:resizing={(e) => {
+					peekTransitionsDisabled = e.detail;
+				}}
+				on:height={(e) => {
 					userSettings.update((s) => ({
 						...s,
-						trayWidth: e.clientX
+						trayWidth: e.detail
 					}));
 				}}
 			/>

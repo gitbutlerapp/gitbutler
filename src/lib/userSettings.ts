@@ -9,6 +9,7 @@ export interface Settings {
 	peekTrayWidth: number;
 	theme?: string;
 	trayWidth: number;
+	vbranchExpandableHeight: number;
 	zoom: number;
 }
 
@@ -17,6 +18,7 @@ const defaults: Settings = {
 	bottomPanelExpanded: false,
 	peekTrayWidth: 480,
 	trayWidth: 320,
+	vbranchExpandableHeight: 320,
 	zoom: 1
 };
 

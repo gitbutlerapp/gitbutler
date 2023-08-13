@@ -15,6 +15,7 @@
 	export let expanded: boolean;
 	export let offsetTop: number;
 	export let fullHeight = false;
+	export let disabled = false;
 
 	let dragging = false;
 	let hovering = false;
@@ -78,7 +79,7 @@
 	style:top={fullHeight ? 0 : `${offsetTop}px`}
 	style:width={`${$userSettings.peekTrayWidth}px`}
 	style:translate={`${offsetLeft}px`}
-	style:transition-property={expanded ? 'top,translate,height' : 'translate'}
+	style:transition-property={!disabled ? (expanded ? 'top,translate,height' : 'translate') : 'none'}
 	class="absolute z-30 flex shrink-0 overflow-y-auto overflow-x-visible bg-white text-light-800 duration-200 ease-in-out dark:bg-dark-800 dark:text-dark-100"
 >
 	<div class="w-full flex-grow overflow-y-scroll" style:width={`${$userSettings.peekTrayWidth}px`}>

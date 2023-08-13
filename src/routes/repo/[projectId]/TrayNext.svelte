@@ -18,11 +18,13 @@
 	import Checkbox from '$lib/components/Checkbox/Checkbox.svelte';
 	import Button from '$lib/components/Button/Button.svelte';
 	import Modal from '$lib/components/Modal/Modal.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
 	export let baseBranchStore: Readable<BaseBranch | undefined>;
 	export let branchController: BranchController;
+	export let peekTransitionsDisabled = false;
 
 	$: branchesState = vbranchStore?.state;
 	$: remoteBranchesState = remoteBranchStore?.state;
@@ -45,9 +47,6 @@
 	let overlayOffsetTop = 0;
 	let peekTrayExpanded = false;
 	let fetching = false;
-
-	// TODO: Replace this hacky thing when adding ability to resize sections
-	$: yourBranchesMinHeight = Math.min(Math.max($vbranchStore?.length ?? 0, 1), 5) * 3.75;
 
 	function select(detail: Branch | BranchData | BaseBranch | undefined, i: number): void {
 		if (peekTrayExpanded && selectedItem && detail == get(selectedItem)) {
@@ -131,6 +130,7 @@
 	offsetTop={overlayOffsetTop}
 	fullHeight={true}
 	bind:expanded={peekTrayExpanded}
+	disabled={peekTransitionsDisabled}
 />
 <div
 	class="z-30 flex w-80 min-w-[216px] shrink-0 flex-col border-r border-light-200 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
@@ -209,13 +209,13 @@
 	</div>
 	<div
 		use:accordion={yourBranchesOpen}
-		style:min-height={`${yourBranchesMinHeight}rem`}
-		class="relative"
+		style:height={`${$userSettings.vbranchExpandableHeight}px`}
+		class="relative shrink-0"
 	>
 		<div
 			bind:this={vbViewport}
 			on:scroll={onScroll}
-			class="hide-native-scrollbar relative flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
+			class="hide-native-scrollbar relative flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
 		>
 			<div bind:this={vbContents}>
 				{#if $branchesState?.isLoading}
@@ -292,6 +292,17 @@
 		<Scrollbar viewport={vbViewport} contents={vbContents} width="0.5rem" />
 	</div>
 
+	<Resizer
+		viewport={vbViewport}
+		direction="vertical"
+		on:height={(e) => {
+			userSettings.update((s) => ({
+				...s,
+				vbranchExpandableHeight: e.detail
+			}));
+		}}
+	/>
+
 	<!-- Remote branches -->
 	<div
 		class="flex items-center justify-between border-b border-t border-light-300 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
@@ -317,7 +328,7 @@
 		</div>
 	</div>
 
-	<div bind:this={rbSection} use:accordion={remoteBranchesOpen} class="relative">
+	<div bind:this={rbSection} use:accordion={remoteBranchesOpen} class="relative flex-grow">
 		<div
 			bind:this={rbViewport}
 			on:scroll={onScroll}
