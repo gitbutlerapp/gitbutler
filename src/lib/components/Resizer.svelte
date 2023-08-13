@@ -3,10 +3,11 @@
 
 	export let direction: 'horizontal' | 'vertical';
 	export let viewport: HTMLElement;
+	export let reverse = false;
 
 	let dragging = false;
 	let hovering = false;
-	let initialOffset = 0;
+	let initial = 0;
 
 	const dispatch = createEventDispatcher<{
 		height: number;
@@ -17,11 +18,19 @@
 	function onMouseDown(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
-		dragging = true;
-		if (direction == 'horizontal') initialOffset = e.clientX - viewport.clientWidth;
-		if (direction == 'vertical') initialOffset = e.clientY - viewport.clientHeight;
 		document.addEventListener('mouseup', onMouseUp);
 		document.addEventListener('mousemove', onMouseMove);
+		dragging = true;
+
+		if (direction == 'horizontal') {
+			if (!reverse) initial = e.clientX - viewport.clientWidth;
+			if (reverse) initial = window.innerWidth - e.clientX - viewport.clientWidth;
+		}
+		if (direction == 'vertical') {
+			if (!reverse) initial = e.clientY - viewport.clientHeight;
+			if (reverse) initial = window.innerHeight - e.clientY - viewport.clientHeight;
+		}
+
 		dispatch('resizing', true);
 	}
 
@@ -36,8 +45,14 @@
 	}
 
 	function onMouseMove(e: MouseEvent) {
-		if (direction == 'horizontal') dispatch('width', e.clientX - initialOffset);
-		if (direction == 'vertical') dispatch('height', e.clientY - initialOffset);
+		if (direction == 'horizontal') {
+			if (!reverse) dispatch('width', e.clientX - initial);
+			if (reverse) dispatch('width', window.innerWidth - e.clientX - initial);
+		}
+		if (direction == 'vertical') {
+			if (!reverse) dispatch('height', e.clientY - initial);
+			if (reverse) dispatch('height', window.innerHeight - e.clientY - initial);
+		}
 	}
 
 	function onMouseUp() {
