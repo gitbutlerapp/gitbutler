@@ -108,7 +108,7 @@
 				on:resizing={(e) => {
 					peekTransitionsDisabled = e.detail;
 				}}
-				on:height={(e) => {
+				on:width={(e) => {
 					userSettings.update((s) => ({
 						...s,
 						trayWidth: e.detail
