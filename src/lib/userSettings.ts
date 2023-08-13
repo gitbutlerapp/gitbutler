@@ -6,6 +6,7 @@ export const SETTINGS_CONTEXT = Symbol();
 export interface Settings {
 	aiSummariesEnabled?: boolean;
 	bottomPanelExpanded: boolean;
+	bottomPanelHeight: number;
 	peekTrayWidth: number;
 	theme?: string;
 	trayWidth: number;
@@ -16,6 +17,7 @@ export interface Settings {
 const defaults: Settings = {
 	aiSummariesEnabled: false,
 	bottomPanelExpanded: false,
+	bottomPanelHeight: 200,
 	peekTrayWidth: 480,
 	trayWidth: 320,
 	vbranchExpandableHeight: 320,

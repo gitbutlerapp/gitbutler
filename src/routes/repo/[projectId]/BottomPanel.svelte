@@ -4,9 +4,12 @@
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import type { SettingsStore } from '$lib/userSettings';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
 
 	export let base: BaseBranch | undefined;
 	export let userSettings: SettingsStore;
+
+	let viewport: HTMLElement;
 
 	export function createCommitUrl(id: string): string | undefined {
 		if (!base) return undefined;
@@ -19,6 +22,17 @@
 	}
 </script>
 
+<Resizer
+	{viewport}
+	direction="vertical"
+	reverse={true}
+	on:height={(e) => {
+		userSettings.update((s) => ({
+			...s,
+			bottomPanelHeight: e.detail
+		}));
+	}}
+/>
 <div class="flex w-full flex-col border-t border-light-400 dark:border-dark-600">
 	<div
 		class="flex h-5 items-center gap-2 text-light-700 hover:text-light-900 dark:text-dark-200 dark:hover:text-dark-100"
@@ -55,7 +69,11 @@
 		</div>
 	</div>
 	{#if $userSettings.bottomPanelExpanded}
-		<div class="h-64" transition:slide={{ duration: 150 }}>
+		<div
+			bind:this={viewport}
+			style:height={`${$userSettings.bottomPanelHeight}px`}
+			transition:slide={{ duration: 150 }}
+		>
 			<h1
 				class="border-b border-t border-light-400 px-2 text-sm font-bold text-light-700 dark:border-dark-600"
 			>
