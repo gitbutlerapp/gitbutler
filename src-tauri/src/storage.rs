@@ -24,11 +24,12 @@ impl TryFrom<&AppHandle> for Storage {
     type Error = Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
-        value
+        let app_local_data_dir = value
             .path_resolver()
             .app_local_data_dir()
-            .map(|path| Self::from(&path))
-            .ok_or(Error::LocalDataDir)
+            .ok_or(Error::LocalDataDir)?;
+        fs::create_dir_all(&app_local_data_dir).map_err(Error::IO)?;
+        Ok(Self::from(&app_local_data_dir))
     }
 }
 

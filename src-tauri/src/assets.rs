@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path, sync};
+use std::{collections::HashMap, fs, path, sync};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
@@ -25,11 +25,12 @@ impl TryFrom<&AppHandle> for Proxy {
     type Error = anyhow::Error;
 
     fn try_from(handle: &AppHandle) -> Result<Self, Self::Error> {
-        let cache_dir = handle
+        let app_cache_dir = handle
             .path_resolver()
             .app_cache_dir()
-            .context("failed to get cache dir")?
-            .join("images");
+            .context("failed to get cache dir")?;
+        fs::create_dir_all(&app_cache_dir).context("failed to create cache dir")?;
+        let cache_dir = app_cache_dir.join("images");
 
         Ok(Self::from(&cache_dir))
     }
