@@ -1,5 +1,5 @@
 use std::{
-    path,
+    fs, path,
     sync::{Arc, Mutex},
 };
 
@@ -34,6 +34,7 @@ impl TryFrom<&AppHandle> for Database {
             .path_resolver()
             .app_local_data_dir()
             .ok_or_else(|| anyhow::anyhow!("Failed to get local data dir"))?;
+        fs::create_dir_all(&local_data_dir).context("Failed to create local data dir")?;
         Self::try_from(&local_data_dir.join("database.sqlite3"))
     }
 }

@@ -26,11 +26,12 @@ impl TryFrom<&AppHandle> for Zipper {
     type Error = anyhow::Error;
 
     fn try_from(handle: &AppHandle) -> Result<Self> {
-        let cache = handle
+        let cache_dir = handle
             .path_resolver()
             .app_cache_dir()
-            .context("failed to get cache dir")?
-            .join("archives");
+            .context("failed to get cache dir")?;
+        fs::create_dir_all(&cache_dir).context("failed to create cache dir")?;
+        let cache = cache_dir.join("archives");
         Ok(Self::from(&cache))
     }
 }
