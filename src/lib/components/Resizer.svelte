@@ -64,7 +64,7 @@
 	class:-mr-[2px]={hovering && direction == 'horizontal'}
 	class:-ml-[2px]={hovering && direction == 'horizontal'}
 	class:h-full={direction == 'vertical'}
-	style:height={direction == 'vertical' ? (hovering ? '6px' : '2px') : undefined}
-	style:width={direction == 'horizontal' ? (hovering ? '6px' : '2px') : undefined}
+	style:height={direction == 'vertical' ? (hovering ? '5px' : '1px') : undefined}
+	style:width={direction == 'horizontal' ? (hovering ? '5px' : '1px') : undefined}
 	class="z-40 shrink-0 overflow-visible bg-light-50 text-light-600 dark:bg-dark-700"
 />
