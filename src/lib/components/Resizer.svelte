@@ -10,7 +10,7 @@
 
 	const dispatch = createEventDispatcher<{
 		height: number;
-		hover: boolean;
+		width: number;
 		resizing: boolean;
 	}>();
 
@@ -36,7 +36,7 @@
 	}
 
 	function onMouseMove(e: MouseEvent) {
-		if (direction == 'horizontal') dispatch('height', e.clientX - initialOffset);
+		if (direction == 'horizontal') dispatch('width', e.clientX - initialOffset);
 		if (direction == 'vertical') dispatch('height', e.clientY - initialOffset);
 	}
 
