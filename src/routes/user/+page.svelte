@@ -168,7 +168,7 @@
 							id="picture"
 							name="picture"
 							accept={fileTypes.join('')}
-							class="hidden"
+							class="input hidden"
 						/>
 					</label>
 				</div>
@@ -183,7 +183,7 @@
 							name="firstName"
 							bind:value={newName}
 							type="text"
-							class="w-full"
+							class="input w-full"
 							placeholder="Name can't be empty"
 							required
 						/>
@@ -200,7 +200,7 @@
 							name="email"
 							bind:value={$user.email}
 							type="text"
-							class="w-full"
+							class="input w-full"
 						/>
 					</div>
 					<div class="mt-4 basis-full pr-4 text-right">
@@ -261,10 +261,7 @@
 				<input
 					bind:value={sshKey}
 					class="
-                        whitespece-pre
-                        w-full
-												select-all
-                        rounded border border-light-200 bg-white p-2 font-mono dark:border-dark-400 dark:bg-dark-700"
+                        whitespece-pre w-full select-all rounded border border-light-200 bg-white p-2 font-mono dark:border-dark-400 dark:bg-dark-700"
 				/>
 			</div>
 			<div class="flex flex-row justify-end space-x-2">
