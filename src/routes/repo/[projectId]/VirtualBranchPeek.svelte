@@ -47,7 +47,7 @@
 			<div>
 				<button
 					class="p-0 align-middle text-light-500 hover:text-light-700 disabled:cursor-not-allowed disabled:text-light-200 dark:text-dark-400 hover:dark:text-dark-200 dark:disabled:text-dark-400"
-					disabled={!branch.active}
+					disabled={branch.active}
 					title={branch.active ? 'branch cannot be deleted while applied' : 'deletes this branch'}
 					on:click={() => deleteBranchModal.show(branch)}
 				>
