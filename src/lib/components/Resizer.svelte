@@ -5,6 +5,9 @@
 	export let viewport: HTMLElement;
 	export let reverse = false;
 
+	let classes = '';
+	export { classes as class };
+
 	let dragging = false;
 	let hovering = false;
 	let initial = 0;
@@ -81,5 +84,5 @@
 	class:h-full={direction == 'vertical'}
 	style:height={direction == 'vertical' ? (hovering ? '5px' : '1px') : undefined}
 	style:width={direction == 'horizontal' ? (hovering ? '5px' : '1px') : undefined}
-	class="z-40 shrink-0 overflow-visible bg-light-50 text-light-600 dark:bg-dark-700"
+	class="shrink-0 {classes ? ` ${classes}` : ''}"
 />
