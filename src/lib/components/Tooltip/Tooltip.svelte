@@ -52,16 +52,7 @@
 {#if showTooltip}
 	<div
 		role="tooltip"
-		class="
-            absolute
-        z-[9000]
-            rounded-[5px]
-            bg-[#171717]
-            p-2
-            text-sm
-            text-zinc-300
-			shadow-lg
-    "
+		class=" absolute z-50 rounded-[5px] bg-[#171717] p-2 text-sm text-zinc-300 shadow-lg"
 		use:floatingContent
 	>
 		<span>{label}</span>
