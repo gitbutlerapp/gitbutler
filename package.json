@@ -55,7 +55,7 @@
 		"crypto-js": "^4.1.1",
 		"date-fns": "^2.30.0",
 		"diff-match-patch": "^1.0.5",
-		"eslint": "^8.44.0",
+		"eslint": "^8.47.0",
 		"eslint-config-prettier": "^8.8.0",
 		"eslint-import-resolver-typescript": "^3.6.0",
 		"eslint-plugin-import": "^2.27.5",
