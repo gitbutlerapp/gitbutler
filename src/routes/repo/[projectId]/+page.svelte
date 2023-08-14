@@ -105,6 +105,7 @@
 			<Resizer
 				viewport={trayViewport}
 				direction="horizontal"
+				class="z-30"
 				on:resizing={(e) => {
 					peekTransitionsDisabled = e.detail;
 				}}

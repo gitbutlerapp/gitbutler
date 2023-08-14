@@ -295,6 +295,7 @@
 	<Resizer
 		viewport={vbViewport}
 		direction="vertical"
+		class="z-30"
 		on:height={(e) => {
 			userSettings.update((s) => ({
 				...s,

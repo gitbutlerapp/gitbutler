@@ -26,6 +26,7 @@
 	{viewport}
 	direction="vertical"
 	reverse={true}
+	class="z-20"
 	on:height={(e) => {
 		userSettings.update((s) => ({
 			...s,
