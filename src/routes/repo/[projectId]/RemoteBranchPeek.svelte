@@ -10,10 +10,15 @@
 </script>
 
 {#if branch != undefined}
-	<div class="flex w-full max-w-full flex-col items-center gap-y-4 overflow-hidden p-4">
-		<h1 class="text-xl font-medium">
-			{branch.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '')}
-		</h1>
+	<div class="flex w-full max-w-full flex-col gap-y-4 p-4">
+		<div class="flex-grow items-center">
+			<p class="truncate text-lg font-bold" title="remote branch">
+				{branch.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '')}
+			</p>
+			<p class="text-light-700 dark:text-dark-200" title="upstream target">
+				{branch.upstream?.replace('refs/remotes/', '') || ''}
+			</p>
+		</div>
 		<Button
 			color="purple"
 			height="small"

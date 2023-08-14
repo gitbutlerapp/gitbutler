@@ -262,15 +262,15 @@
 												<Tooltip label="Will introduce merge conflicts if applied">
 													<span class="text-yellow-500">&#9679;</span>
 												</Tooltip>
-											{:else if branch.mergeable}
-												<Tooltip label="Can be applied cleanly">
-													<span class="text-green-500">&#9679;</span>
-												</Tooltip>
-											{:else}
+											{:else if !branch.mergeable}
 												<Tooltip
 													label="Canflicts with changes in your working directory, cannot be applied"
 												>
 													<span class="text-red-500">&#9679;</span>
+												</Tooltip>
+											{:else if branch.mergeable && (added > 0 || removed > 0)}
+												<Tooltip label="Can be applied cleanly">
+													<span class="text-green-500">&#9679;</span>
 												</Tooltip>
 											{/if}
 										{/if}
