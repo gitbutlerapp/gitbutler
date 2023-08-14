@@ -91,6 +91,7 @@
 					name="email"
 					placeholder="Provide an email if you want to hear back from us"
 					type="email"
+					class="input"
 					bind:value={emailInputValue}
 				/>
 			</div>
@@ -106,7 +107,7 @@
 				spellcheck="true"
 				name="comments"
 				rows="6"
-				class="h-full w-full resize-none"
+				class="textarea h-full w-full resize-none"
 				bind:value={messageInputValue}
 			/>
 		</div>

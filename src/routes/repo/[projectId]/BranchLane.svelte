@@ -240,14 +240,15 @@
 				>
 					<IconMeatballMenu />
 				</button>
-				<div class="flex-grow">
+				<div class="flex-grow pr-2">
 					<input
 						type="text"
 						bind:value={name}
 						on:change={handleBranchNameChange}
 						title={name}
-						class=" w-full truncate border-0 bg-light-200 font-mono font-bold text-light-800 focus:ring-0 dark:bg-dark-800 dark:text-dark-100"
+						class="w-full truncate rounded border border-transparent bg-light-200 px-2 font-mono font-bold text-light-800 hover:border-light-400 dark:bg-dark-800 dark:text-dark-100 dark:hover:border-dark-600"
 						on:dblclick|stopPropagation
+						on:click={(e) => e.currentTarget.select()}
 					/>
 				</div>
 				<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
