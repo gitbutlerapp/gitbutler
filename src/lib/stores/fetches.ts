@@ -7,10 +7,10 @@ export interface FetchesStore extends Readable<any[]> {
 
 export function getFetchesStore(projectId: string): FetchesStore {
 	const store = writable<any>([]);
-	// TODO: We need to unsubscribe this!
+	let counter = 0; // Store doesn't emit unless it gets new value
 	const subscribeStream = () => {
-		return subscribe({ projectId }, (result) => {
-			store.set(result);
+		return subscribe({ projectId }, () => {
+			store.set(counter++);
 		});
 	};
 	return { ...store, subscribeStream };
