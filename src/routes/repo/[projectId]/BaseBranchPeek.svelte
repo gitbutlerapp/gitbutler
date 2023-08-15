@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { IconBranch, IconRefresh, IconGithub } from '$lib/icons';
 	import { Button, Modal, Tooltip } from '$lib/components';
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import Scrollbar from '$lib/components/Scrollbar.svelte';
 
 	export let base: BaseBranch;
 	export let branchController: BranchController;
