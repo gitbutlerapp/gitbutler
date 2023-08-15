@@ -21,6 +21,7 @@
 	import { getFetchesStore } from '$lib/stores/fetches';
 	import { Code } from '$lib/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
+	import { Loading } from 'svelte-loadable-store';
 	// import TopBar from './topbar/TopBar.svelte';
 
 	export let data: PageData;
@@ -83,7 +84,9 @@
 	});
 </script>
 
-{#if $baseBranchStore}
+{#if $baseBranchesState.isLoading}
+	Loading...
+{:else if $baseBranchStore}
 	{#if !$vbrachesState.isError}
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
