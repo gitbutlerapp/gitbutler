@@ -141,7 +141,7 @@
 						{cloud}
 					/>
 				</div>
-				<BottomPanel base={$baseBranchStore} {userSettings} />
+				<!-- <BottomPanel base={$baseBranchStore} {userSettings} /> -->
 			</div>
 		</div>
 	{:else}
