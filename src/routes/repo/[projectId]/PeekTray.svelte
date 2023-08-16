@@ -47,7 +47,7 @@
 >
 	<div class="flex w-full flex-grow" bind:this={viewport}>
 		<div
-			class="w-full flex-grow overflow-y-scroll"
+			class="h-full max-h-full w-full flex-grow overflow-y-hidden"
 			style:width={`${$userSettings.peekTrayWidth}px`}
 		>
 			{#if $item instanceof BranchData}

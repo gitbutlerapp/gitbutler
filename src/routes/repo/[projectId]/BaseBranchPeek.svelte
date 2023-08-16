@@ -3,48 +3,64 @@
 	import type { BaseBranch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
 
 	export let base: BaseBranch;
 	export let branchController: BranchController;
 
 	let updateTargetModal: Modal;
+	let viewport: HTMLElement;
+	let contents: HTMLElement;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
 </script>
 
-<div class="relative">
-	<div class="flex flex-grow cursor-default flex-col gap-y-4 p-4">
-		<div class="rounded-sm text-center text-sm text-light-700">
-			There {multiple ? 'are' : 'is'}
-			{base.upstreamCommits.length} unmerged upstream
-			{multiple ? 'commits' : 'commit'}
-		</div>
-		{#if base.upstreamCommits?.length > 0}
-			<div>
-				<Tooltip
-					label={'Merges the commits from ' +
-						base.branchName +
-						' into the base of all applied virtual branches'}
-				>
-					<Button
-						width="full-width"
-						height="small"
-						color="purple"
-						on:click={updateTargetModal.show}
+<div class="relative h-full max-h-full">
+	<div
+		bind:this={viewport}
+		class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
+	>
+		<div bind:this={contents} class="flex flex-col gap-y-4 p-4">
+			<h1 class="font-bold text-light-700 dark:text-dark-100">Upstream</h1>
+			<div class="rounded-sm text-sm text-light-700 dark:text-dark-200">
+				There {multiple ? 'are' : 'is'}
+				{base.upstreamCommits.length} unmerged upstream
+				{multiple ? 'commits' : 'commit'}
+			</div>
+			{#if base.upstreamCommits?.length > 0}
+				<div>
+					<Tooltip
+						label={'Merges the commits from ' +
+							base.branchName +
+							' into the base of all applied virtual branches'}
 					>
-						Merge into common base
-					</Button>
-				</Tooltip>
-			</div>
-			<div class="flex h-full">
-				<div class="z-20 flex w-full flex-col gap-2">
-					{#each base.upstreamCommits as commit}
-						<CommitCard {commit} url={base.commitUrl(commit.id)} />
-					{/each}
+						<Button
+							width="full-width"
+							height="small"
+							color="purple"
+							on:click={updateTargetModal.show}
+						>
+							Merge into common base
+						</Button>
+					</Tooltip>
 				</div>
+				<div class="flex h-full px-4">
+					<div class="z-20 flex w-full flex-col gap-2">
+						{#each base.upstreamCommits as commit}
+							<CommitCard {commit} url={base.commitUrl(commit.id)} />
+						{/each}
+					</div>
+				</div>
+			{/if}
+			<h1 class="font-bold text-light-700 dark:text-dark-100">Recent</h1>
+			<div class="flex flex-col gap-y-2">
+				{#each base.recentCommits as commit}
+					<CommitCard url={base.commitUrl(commit.id)} {commit} />
+				{/each}
 			</div>
-		{/if}
+		</div>
 	</div>
+	<Scrollbar {viewport} {contents} width="0.5rem" />
 </div>
 <!-- Confirm target update modal -->
 
