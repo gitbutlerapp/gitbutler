@@ -44,7 +44,7 @@
 						</Button>
 					</Tooltip>
 				</div>
-				<div class="flex h-full px-4">
+				<div class="flex h-full">
 					<div class="z-20 flex w-full flex-col gap-2">
 						{#each base.upstreamCommits as commit}
 							<CommitCard {commit} url={base.commitUrl(commit.id)} />
