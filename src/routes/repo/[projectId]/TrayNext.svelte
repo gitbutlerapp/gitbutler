@@ -215,7 +215,7 @@
 		<div
 			bind:this={vbViewport}
 			on:scroll={onScroll}
-			class="hide-native-scrollbar relative flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
+			class="hide-native-scrollbar flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
 		>
 			<div bind:this={vbContents}>
 				{#if $branchesState?.isLoading}
