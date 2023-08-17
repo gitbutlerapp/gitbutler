@@ -25,10 +25,8 @@
 >
 	<div class="call-to-action h-36 p-8">
 		<div class="flex flex-col items-center gap-y-3 self-center p-2">
-			<p>Drag changes or click button to create new virtual branch</p>
-			<Button color="purple" height="small" on:click={handleNewVirtualBranch}>
-				New virtual branch
-			</Button>
+			<p>Drag changes or click button to create new branch</p>
+			<Button color="purple" height="small" on:click={handleNewVirtualBranch}>New branch</Button>
 		</div>
 	</div>
 	<div class="drop-zone-marker hidden h-36 border border-green-450 p-8">

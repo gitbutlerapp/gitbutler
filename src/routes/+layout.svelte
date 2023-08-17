@@ -94,14 +94,10 @@
 		<div class="mr-6">
 			{#await user.load() then}
 				<Link href="/user/">
-					{#if $user !== null}
-						{#if $user.picture}
-							<img class="inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
-						{/if}
-						<span class="hover:no-underline">{$user.name}</span>
-					{:else}
-						Account
+					{#if $user?.picture}
+						<img class="mr-1 inline-block h-5 w-5 rounded-full" src={$user.picture} alt="Avatar" />
 					{/if}
+					{$user?.name ?? 'Account'}
 				</Link>
 			{/await}
 		</div>
