@@ -237,13 +237,13 @@
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
 						>
-							<div class="flex flex-row">
-								<div class="flex flex-grow flex-col gap-y-2">
+							<div class="relative flex max-w-full flex-row">
+								<div class="flex flex-shrink flex-grow flex-col gap-y-2 overflow-hidden">
 									<div class="flex-grow truncate text-black dark:text-white">
 										{branch.name}
 									</div>
 									<div
-										class="flex items-baseline gap-x-2 text-sm text-light-700 dark:text-dark-300"
+										class="flex shrink-0 items-baseline gap-x-2 text-sm text-light-700 dark:text-dark-300"
 									>
 										{#if latestModifiedAt}
 											<span><TimeAgo date={latestModifiedAt} /></span>
@@ -276,7 +276,7 @@
 										{/if}
 									</div>
 								</div>
-								<div>
+								<div class="shrink-0">
 									<Checkbox
 										on:change={() => toggleBranch(branch)}
 										bind:checked={branch.active}
