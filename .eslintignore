@@ -25,3 +25,6 @@ yarn.lock
 /histoire.config.ts
 /postcss.config.cjs
 /tailwind.config.cjs
+
+# Written to disk when using `act`
+.pnpm-store

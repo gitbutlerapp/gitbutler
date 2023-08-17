@@ -8,20 +8,14 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v3
 
-            - name: Setup node
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 18
-
             - name: Setup pnpm
-              uses: pnpm/action-setup@v2
-              with:
-                  version: 8
-                  run_install: |
-                      args: ["--frozen-lockfile"]
+              uses: ./.github/actions/pnpm-install
 
             - name: Lint frontend
-              run: pnpm lint
+
+              run: |
+                  export NODE_OPTIONS="--max_old_space_size=4096"
+                  pnpm lint
 
     check-frontend:
         runs-on: ubuntu-latest
@@ -29,17 +23,8 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v3
 
-            - name: Setup node
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 18
-
             - name: Setup pnpm
-              uses: pnpm/action-setup@v2
-              with:
-                  version: 8
-                  run_install: |
-                      args: ["--frozen-lockfile"]
+              uses: ./.github/actions/pnpm-install
 
             - name: check frontend
               run: |
@@ -51,17 +36,8 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v3
 
-            - name: Setup node
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 18
-
             - name: Setup pnpm
-              uses: pnpm/action-setup@v2
-              with:
-                  version: 8
-                  run_install: |
-                      args: ["--frozen-lockfile"]
+              uses: ./.github/actions/pnpm-install
 
             - name: check frontend
               run: |
@@ -100,33 +76,8 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v3
 
-            - name: Setup node
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 18
-
-            - name: Install pnpm
-              uses: pnpm/action-setup@v2
-              with:
-                  version: 8
-                  run_install: false
-            
-            - name: Get pnpm store directory
-              id: pnpm-cache
-              shell: bash
-              run: |
-                echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-            - uses: actions/cache@v3
-              name: Setup pnpm cache
-              with:
-                path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-                key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-                restore-keys: |
-                  ${{ runner.os }}-pnpm-store-
-
-            - name: Install pnpm dependencies
-              run: pnpm install
+            - name: Setup pnpm
+              uses: ./.github/actions/pnpm-install
 
             - name: Build storybook
               run: pnpm story:build
@@ -146,38 +97,11 @@ jobs:
                   rust:
                     - 'src-tauri/**'
 
-            - name: Setup node
-              if: ${{ steps.changes.outputs.rust == 'true' }}
-              uses: actions/setup-node@v3
+            - name: Setup pnpm
+              uses: ./.github/actions/pnpm-install
               with:
-                  node-version: 18
+                file-type: 'rust'
 
-            - name: Install pnpm
-              if: ${{ steps.changes.outputs.rust == 'true' }}
-              uses: pnpm/action-setup@v2
-              with:
-                  version: 8
-                  run_install: false
-
-            - name: Get pnpm store directory
-              if: ${{ steps.changes.outputs.rust == 'true' }}
-              id: pnpm-cache
-              shell: bash
-              run: |
-                echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-            - uses: actions/cache@v3
-              if: ${{ steps.changes.outputs.rust == 'true' }}
-              name: Setup pnpm cache
-              with:
-                path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-                key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-                restore-keys: |
-                  ${{ runner.os }}-pnpm-store-
-
-            - name: Install pnpm dependencies
-              if: ${{ steps.changes.outputs.rust == 'true' }}
-              run: pnpm install
 
             - name: Install latest stable rust
               if: ${{ steps.changes.outputs.rust == 'true' }}
