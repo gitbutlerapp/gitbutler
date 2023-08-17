@@ -5,6 +5,13 @@ inputs:
     description: |
         Filter by project type, must be named filter from step `changes`
     default: 'all'
+outputs:
+  frontend:
+    description: "Change affects front end"
+    value: ${{ steps.frontend.outputs.value }}
+  backend:
+    description: "Change affects back end"
+    value: ${{ steps.backend.outputs.value }}
 runs:
   using: 'composite'
   steps:
@@ -23,6 +30,14 @@ runs:
             - 'tsconfig.json'
             - '.npmrc'
             - '.env.*'
+
+    - id: frontend
+      run: echo "value=${{ steps.changes.outputs.frontend}}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - id: backend
+      run: echo "value=${{ steps.changes.outputs.backend}}" >> $GITHUB_OUTPUT
+      shell: bash
 
     - uses: pnpm/action-setup@v2
       name: Install pnpm
