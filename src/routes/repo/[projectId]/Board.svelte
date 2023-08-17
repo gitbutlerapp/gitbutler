@@ -35,6 +35,8 @@
 		}
 		branches = branches;
 	}
+
+	$: activeBranches = branches?.filter((b) => b.active);
 </script>
 
 {#if branchesState.isLoading || baseBranchState.isLoading}
@@ -106,7 +108,7 @@
 			/>
 		{/each}
 
-		{#if branches.length == 0}
+		{#if !activeBranches || activeBranches.length == 0}
 			<div
 				class="m-auto mx-20 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
 			>
