@@ -483,20 +483,26 @@
 									style="height: calc(100% - 1rem);"
 								/>
 
-								<div class="relative flex flex-col gap-2">
+								<div class="relative flex flex-grow flex-col gap-2">
 									<div
 										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
 									/>
 
-									<div class="ml-12 flex items-center py-2 font-mono text-sm">
+									<div
+										class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
+									>
 										{#if upstream}
-											<Link target="_blank" rel="noreferrer" href={url(base, upstream)}>
-												<span class="text-sm font-bold">
-													{upstream.split('refs/remotes/')[1]}
-													{#if integrated}
-														(integrated)
-													{/if}
-												</span>
+											<Link
+												target="_blank"
+												rel="noreferrer"
+												href={url(base, upstream)}
+												class="inline-block max-w-full truncate text-sm font-bold"
+											>
+												something-really-long
+												{upstream.split('refs/remotes/')[1]}
+												{#if integrated}
+													(integrated)
+												{/if}
 											</Link>
 										{/if}
 									</div>
