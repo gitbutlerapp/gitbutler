@@ -1,0 +1,59 @@
+name: prepare
+description: Determine what kind of change has taken place
+inputs:
+  runs-on:
+    description: |
+        Filter by project type, must be named filter from step `changes`
+    default: 'all'
+runs:
+  using: 'composite'
+  steps:
+    - name: Getting changes
+      id: changes
+      uses: dorny/paths-filter@v2
+      with:
+        filters: |
+          backend:
+            - 'src-tauri/**'
+          frontend:
+            - 'src/**'
+            - '.github/**'
+            - 'package.json'
+            - '*.config.*'
+            - 'tsconfig.json'
+            - '.npmrc'
+            - '.env.*'
+
+    - uses: pnpm/action-setup@v2
+      name: Install pnpm
+      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
+      with:
+        version: 8.6
+        run_install: false
+
+    - uses: actions/setup-node@v3
+      name: Setup node
+      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
+      with:
+        node-version: '18'
+        cache: pnpm
+
+    - name: Get pnpm store directory
+      shell: bash
+      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
+      run: |
+        echo 'STORE_PATH=$(pnpm store path --silent)' >> $GITHUB_ENV
+
+    - uses: actions/cache@v3
+      name: Setup pnpm cache
+      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install dependencies
+      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
+      shell: bash
+      run: pnpm install
