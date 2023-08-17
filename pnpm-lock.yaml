@@ -69,7 +69,7 @@ devDependencies:
     specifier: ^7.58.0
     version: 7.58.0(@sveltejs/kit@1.22.3)(svelte@4.0.5)
   '@square/svelte-store':
-    specifier: gitbutlerapp/svelte-store#error-state
+    specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git
     version: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5)
   '@sveltejs/adapter-static':
     specifier: ^2.0.2
@@ -207,10 +207,10 @@ devDependencies:
     specifier: ^3.3.2
     version: 3.3.2
   tauri-plugin-log-api:
-    specifier: tauri-apps/tauri-plugin-log
+    specifier: git+https://git@github.com/tauri-apps/tauri-plugin-log.git
     version: github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab
   tauri-plugin-websocket-api:
-    specifier: tauri-apps/tauri-plugin-websocket
+    specifier: git+https://git@github.com/tauri-apps/tauri-plugin-websocket.git
     version: github.com/tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef
   tinykeys:
     specifier: ^1.4.0
@@ -5562,7 +5562,7 @@ packages:
     dev: true
 
   github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/4cf861db334188389186a6f41ddfc1ba157b4ffd}
+    resolution: {commit: 4cf861db334188389186a6f41ddfc1ba157b4ffd, repo: https://git@github.com/gitbutlerapp/svelte-store.git, type: git}
     id: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
     name: '@square/svelte-store'
     version: 1.0.17
@@ -5574,7 +5574,7 @@ packages:
     dev: true
 
   github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab}
+    resolution: {commit: 9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab, repo: https://git@github.com/tauri-apps/tauri-plugin-log.git, type: git}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
@@ -5582,7 +5582,7 @@ packages:
     dev: true
 
   github.com/tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/c085eb80347e66433570322b8c62028b804dfeef}
+    resolution: {commit: c085eb80347e66433570322b8c62028b804dfeef, repo: https://git@github.com/tauri-apps/tauri-plugin-websocket.git, type: git}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:
