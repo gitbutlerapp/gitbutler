@@ -1,5 +1,9 @@
 lockfileVersion: '6.0'
 
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
 devDependencies:
   '@codemirror/lang-cpp':
     specifier: ^6.0.2
@@ -65,7 +69,7 @@ devDependencies:
     specifier: ^7.58.0
     version: 7.58.0(@sveltejs/kit@1.22.3)(svelte@4.0.5)
   '@square/svelte-store':
-    specifier: github:gitbutlerapp/svelte-store#error-state
+    specifier: gitbutlerapp/svelte-store#error-state
     version: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.0.5)
   '@sveltejs/adapter-static':
     specifier: ^2.0.2
@@ -203,11 +207,11 @@ devDependencies:
     specifier: ^3.3.2
     version: 3.3.2
   tauri-plugin-log-api:
-    specifier: github:tauri-apps/tauri-plugin-log
+    specifier: tauri-apps/tauri-plugin-log
     version: github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab
   tauri-plugin-websocket-api:
-    specifier: github:tauri-apps/tauri-plugin-websocket
-    version: github.com/tauri-apps/tauri-plugin-websocket/4350fdfd0446a9d384b7c00390ce441d69d10a58
+    specifier: tauri-apps/tauri-plugin-websocket
+    version: github.com/tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef
   tinykeys:
     specifier: ^1.4.0
     version: 1.4.0
@@ -5577,8 +5581,8 @@ packages:
       '@tauri-apps/api': 1.4.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/4350fdfd0446a9d384b7c00390ce441d69d10a58:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/4350fdfd0446a9d384b7c00390ce441d69d10a58}
+  github.com/tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/c085eb80347e66433570322b8c62028b804dfeef}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:
