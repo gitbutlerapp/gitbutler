@@ -13,6 +13,7 @@
 		"format": "prettier --plugin-search-dir . --write .",
 		"tauri": "tauri",
 		"story:dev": "histoire dev --open",
+		"prepare": "svelte-kit sync",
 		"story:build": "histoire build",
 		"story:preview": "histoire preview --open"
 	},
