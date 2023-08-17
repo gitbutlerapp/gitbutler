@@ -36,3 +36,6 @@ src-tauri/data.txt
 
 
 /.histoire
+
+# Written to disk when using `act`
+.pnpm-store

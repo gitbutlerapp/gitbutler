@@ -1,0 +1,43 @@
+name: 'pnpm install'
+description: 'Runs the pnpm install process'
+inputs:
+  file-type:  # id of input
+    description: 'What file types to consider'
+    default: 'all'
+runs:
+  using: 'composite'
+  steps:
+    - uses: pnpm/action-setup@v2
+      if: ${{ inputs.file-type == 'all' || steps.changes.outputs[inputs.file-type] == 'true' }}
+      name: Install pnpm
+      with:
+        version: 8.6.12
+        run_install: false
+
+    - uses: actions/setup-node@v3
+      if: ${{ inputs.file-type == 'all' || steps.changes.outputs[inputs.file-type] == 'true' }}
+      name: Setup node
+      with:
+        node-version: '18'
+        cache: 'pnpm'
+
+
+    - name: Get pnpm store directory
+      if: ${{ inputs.file-type == 'all' || steps.changes.outputs[inputs.file-type] == 'true' }}
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+    - uses: actions/cache@v3
+      if: ${{ inputs.file-type == 'all' || steps.changes.outputs[inputs.file-type] == 'true' }}
+      name: Setup pnpm cache
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install dependencies
+      if: ${{ inputs.file-type == 'all' || steps.changes.outputs[inputs.file-type] == 'true' }}
+      shell: bash
+      run: pnpm install
