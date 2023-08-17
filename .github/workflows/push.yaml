@@ -14,8 +14,8 @@ jobs:
                 runs-on: frontend
 
             - name: Lint frontend
-              run: |
-                  pnpm lint
+              if: ${{ steps.init.outputs.frontend == 'true' }}
+              run: pnpm lint
 
     check-frontend:
         runs-on: ubuntu-latest
@@ -29,8 +29,8 @@ jobs:
                 runs-on: frontend
 
             - name: check frontend
-              run: |
-                pnpm check
+              if: ${{ steps.init.outputs.frontend == 'true' }}
+              run: pnpm check
 
     unittest-frontend:
         runs-on: ubuntu-latest
@@ -44,8 +44,8 @@ jobs:
                 runs-on: frontend
 
             - name: check frontend
-              run: |
-                pnpm test
+              if: ${{ steps.init.outputs.frontend == 'true' }}
+              run: pnpm test
 
     lint-rust:
         runs-on: ubuntu-latest
