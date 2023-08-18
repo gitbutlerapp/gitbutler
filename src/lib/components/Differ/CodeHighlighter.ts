@@ -164,7 +164,7 @@ export function languageFromFilename(filename: string): LanguageSupport | null {
 		//     return new LanguageSupport(await CodeMirror.scss());
 
 		case 'svelte':
-			return svelte();
+			return javascript({ typescript: true, jsx: true });
 
 		case 'vue':
 			return vue();
