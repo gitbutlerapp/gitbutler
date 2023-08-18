@@ -16,7 +16,7 @@ import { php } from '@codemirror/lang-php';
 import { python } from '@codemirror/lang-python';
 import { markdown } from '@codemirror/lang-markdown';
 import { wast } from '@codemirror/lang-wast';
-import { svelte } from '@replit/codemirror-lang-svelte';
+// import { svelte } from '@replit/codemirror-lang-svelte';
 import { vue } from '@codemirror/lang-vue';
 import { rust } from '@codemirror/lang-rust';
 
@@ -164,7 +164,11 @@ export function languageFromFilename(filename: string): LanguageSupport | null {
 		//     return new LanguageSupport(await CodeMirror.scss());
 
 		case 'svelte':
-			return svelte();
+			// TODO: is codemirror-lang-svelte broken or just not used correctly?
+			// return svelte();
+
+			// highlighting svelte with js + jsx works much better than the above
+			return javascript({ typescript: true, jsx: true });
 
 		case 'vue':
 			return vue();
