@@ -127,7 +127,7 @@
 				remoteBranches={$remoteBranchStore}
 			/> -->
 				<div
-					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-y-none bg-light-300 dark:bg-dark-1100"
+					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-none bg-light-300 dark:bg-dark-1100"
 				>
 					<Board
 						branches={$branchesWithContent}

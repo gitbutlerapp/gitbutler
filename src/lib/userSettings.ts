@@ -11,6 +11,7 @@ export interface Settings {
 	theme?: string;
 	trayWidth: number;
 	vbranchExpandableHeight: number;
+	defaultLaneWidth: number;
 	zoom: number;
 }
 
@@ -20,6 +21,7 @@ const defaults: Settings = {
 	bottomPanelHeight: 200,
 	peekTrayWidth: 480,
 	trayWidth: 320,
+	defaultLaneWidth: 380,
 	vbranchExpandableHeight: 320,
 	zoom: 1
 };

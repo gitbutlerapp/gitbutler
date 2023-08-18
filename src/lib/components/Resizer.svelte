@@ -4,6 +4,7 @@
 	export let direction: 'horizontal' | 'vertical';
 	export let viewport: HTMLElement;
 	export let reverse = false;
+	export let outside = false; // Overlays from the left rather than center
 
 	let classes = '';
 	export { classes as class };
@@ -26,12 +27,12 @@
 		dragging = true;
 
 		if (direction == 'horizontal') {
-			if (!reverse) initial = e.clientX - viewport.clientWidth;
-			if (reverse) initial = window.innerWidth - e.clientX - viewport.clientWidth;
+			if (!reverse) initial = e.clientX - viewport.scrollWidth;
+			if (reverse) initial = window.innerWidth - e.clientX - viewport.scrollWidth;
 		}
 		if (direction == 'vertical') {
-			if (!reverse) initial = e.clientY - viewport.clientHeight;
-			if (reverse) initial = window.innerHeight - e.clientY - viewport.clientHeight;
+			if (!reverse) initial = e.clientY - viewport.scrollHeight;
+			if (reverse) initial = window.innerHeight - e.clientY - viewport.scrollHeight;
 		}
 
 		dispatch('resizing', true);
@@ -50,11 +51,11 @@
 	function onMouseMove(e: MouseEvent) {
 		if (direction == 'horizontal') {
 			if (!reverse) dispatch('width', e.clientX - initial);
-			if (reverse) dispatch('width', window.innerWidth - e.clientX - initial);
+			if (reverse) dispatch('width', document.body.scrollWidth - e.clientX - initial);
 		}
 		if (direction == 'vertical') {
 			if (!reverse) dispatch('height', e.clientY - initial);
-			if (reverse) dispatch('height', window.innerHeight - e.clientY - initial);
+			if (reverse) dispatch('height', document.body.scrollHeight - e.clientY - initial);
 		}
 	}
 
@@ -79,8 +80,10 @@
 	class:cursor-ns-resize={hovering && direction == 'vertical'}
 	class:-mt-[2px]={hovering && direction == 'vertical'}
 	class:-mb-[2px]={hovering && direction == 'vertical'}
-	class:-mr-[2px]={hovering && direction == 'horizontal'}
-	class:-ml-[2px]={hovering && direction == 'horizontal'}
+	class:-mr-[2px]={hovering && !outside && direction == 'horizontal'}
+	class:-ml-[2px]={hovering && !outside && direction == 'horizontal'}
+	class:-mr-[4px]={hovering && outside && direction == 'horizontal'}
+	class:-ml-[0px]={hovering && outside && direction == 'horizontal'}
 	class:h-full={direction == 'vertical'}
 	style:height={direction == 'vertical' ? (hovering ? '5px' : '1px') : undefined}
 	style:width={direction == 'horizontal' ? (hovering ? '5px' : '1px') : undefined}

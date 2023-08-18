@@ -3,6 +3,10 @@ import { getCloudApiClient } from '$lib/api/cloud/api';
 import { projectsStore } from '$lib/api/ipc/projects';
 import Posthog from '$lib/posthog';
 import Sentry from '$lib/sentry';
+import lscache from 'lscache';
+
+// call on startup so we don't accumulate old items
+lscache.flushExpired();
 
 export const ssr = false;
 export const prerender = false;

@@ -280,26 +280,26 @@
 			</div>
 		{/if}
 	</div>
-	<PopupMenu bind:this={popupMenu} let:item>
-		<PopupMenuItem
-			on:click={() => {
-				if ('expanded' in item.section) {
-					item.section.expanded = false;
-					sections = sections;
-				}
-			}}
-		>
-			Collapse
-		</PopupMenuItem>
-		<PopupMenuItem
-			on:click={() => {
-				console.log(item);
-				const url = `vscode://file${projectPath}/${file.path}:${item.lineNumber}`;
-				console.log(url);
-				open(url);
-			}}
-		>
-			Open in Visual Studio Code
-		</PopupMenuItem>
-	</PopupMenu>
 </div>
+<PopupMenu bind:this={popupMenu} let:item>
+	<PopupMenuItem
+		on:click={() => {
+			if ('expanded' in item.section) {
+				item.section.expanded = false;
+				sections = sections;
+			}
+		}}
+	>
+		Collapse
+	</PopupMenuItem>
+	<PopupMenuItem
+		on:click={() => {
+			console.log(item);
+			const url = `vscode://file${projectPath}/${file.path}:${item.lineNumber}`;
+			console.log(url);
+			open(url);
+		}}
+	>
+		Open in Visual Studio Code
+	</PopupMenuItem>
+</PopupMenu>

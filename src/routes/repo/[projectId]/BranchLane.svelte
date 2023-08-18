@@ -2,7 +2,7 @@
 	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Commit, File } from '$lib/vbranches/types';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
 	import { Button, Link, Tooltip } from '$lib/components';
 	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
@@ -21,6 +21,9 @@
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconNewBadge from '$lib/icons/IconNewBadge.svelte';
+	import Resizer from '$lib/components/Resizer.svelte';
+	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
+	import lscache from 'lscache';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -56,6 +59,8 @@
 	export let branchController: BranchController;
 
 	const user = userStore;
+	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+
 	let commitMessage: string;
 
 	$: remoteCommits = commits.filter((c) => c.isRemote);
@@ -70,9 +75,12 @@
 	let textAreaInput: HTMLTextAreaElement;
 	let viewport: Element;
 	let contents: Element;
+	let rsViewport: HTMLElement;
+	let laneWidth: number;
 
 	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
+	const laneWidthKey = 'laneWidth:';
 
 	function commit() {
 		branchController.commitBranch(branchId, commitMessage);
@@ -87,6 +95,7 @@
 
 	onMount(() => {
 		expandFromCache();
+		laneWidth = lscache.get(laneWidthKey + branchId) ?? $userSettings.defaultLaneWidth;
 	});
 
 	$: {
@@ -192,10 +201,9 @@
 </script>
 
 <div
+	class="flex h-full shrink-0 snap-center"
+	style:width={`${laneWidth}px`}
 	draggable="true"
-	class:w-full={maximized}
-	class:w-80={!maximized}
-	class="flex h-full max-w-[120ch] shrink-0 cursor-default snap-center flex-col border-l border-r border-light-400 bg-light-150 transition-width dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -219,320 +227,337 @@
 	}}
 	on:dblclick={() => (maximized = !maximized)}
 >
-	{#if integrated}
-		<div class="mb-2 flex flex-col">
-			<div class="bg-light-800 text-center text-light-200">Branch is Integrated</div>
-			<div class="text-center text-sm text-light-600">
-				It will be removed when you merge upstream
-			</div>
-		</div>
-	{/if}
 	<div
-		class="flex bg-light-200 text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
+		bind:this={rsViewport}
+		class="flex w-full cursor-default flex-col border-l border-r border-light-400 bg-light-150 dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
 	>
-		<div class="flex shrink-0 flex-grow flex-col border-b border-light-400 dark:border-dark-600">
-			<div class="flex w-full items-center px-1.5 py-1">
-				<button
-					bind:this={meatballButton}
-					class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
-					on:keydown={() => popupMenu.openByElement(meatballButton, branchId)}
-					on:click={() => popupMenu.openByElement(meatballButton, branchId)}
-				>
-					<IconMeatballMenu />
-				</button>
-				<div class="flex-grow pr-2">
-					<input
-						type="text"
-						bind:value={name}
-						on:change={handleBranchNameChange}
-						title={name}
-						class="w-full truncate rounded border border-transparent bg-light-200 px-2 font-mono font-bold text-light-800 hover:border-light-400 dark:bg-dark-800 dark:text-dark-100 dark:hover:border-dark-600"
-						on:dblclick|stopPropagation
-						on:click={(e) => e.currentTarget.select()}
-					/>
-				</div>
-				<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
-					<Button
-						class="w-20"
-						height="small"
-						kind="outlined"
-						color="purple"
-						disabled={files.length == 0}
-						on:click={() => (commitDialogShown = !commitDialogShown)}
-					>
-						<span class="purple">
-							{#if !commitDialogShown}
-								Commit
-							{:else}
-								Cancel
-							{/if}
-						</span>
-					</Button>
+		{#if integrated}
+			<div class="mb-2 flex flex-col">
+				<div class="bg-light-800 text-center text-light-200">Branch is Integrated</div>
+				<div class="text-center text-sm text-light-600">
+					It will be removed when you merge upstream
 				</div>
 			</div>
-
-			{#if commitDialogShown}
-				<div
-					class="flex w-full flex-col border-t border-light-400 bg-light-200 dark:border-dark-400 dark:bg-dark-800"
-					transition:slide={{ duration: 150 }}
-				>
-					{#if annotateCommits}
-						<div class="bg-blue-400 p-2 text-sm text-white">
-							GitButler will be the committer of this commit.
-							<a
-								target="_blank"
-								rel="noreferrer"
-								class="font-bold"
-								href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
-								>Learn more</a
-							>
-						</div>
-					{/if}
-					<div class="flex items-center">
-						<textarea
-							bind:this={textAreaInput}
-							bind:value={commitMessage}
+		{/if}
+		<div
+			class="flex bg-light-200 text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
+		>
+			<div class="flex flex-grow flex-col border-b border-light-400 dark:border-dark-600">
+				<div class="flex w-full items-center px-1.5 py-1">
+					<button
+						bind:this={meatballButton}
+						class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
+						on:keydown={() => popupMenu.openByElement(meatballButton, branchId)}
+						on:click={() => popupMenu.openByElement(meatballButton, branchId)}
+					>
+						<IconMeatballMenu />
+					</button>
+					<div class="flex-grow pr-2">
+						<input
+							type="text"
+							bind:value={name}
+							on:change={handleBranchNameChange}
+							title={name}
+							class="w-full truncate rounded border border-transparent bg-light-200 px-2 font-mono font-bold text-light-800 hover:border-light-400 dark:bg-dark-800 dark:text-dark-100 dark:hover:border-dark-600"
 							on:dblclick|stopPropagation
-							class="shrink-0 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
-							placeholder="Your commit message here"
-							rows={messageRows}
-							required
+							on:click={(e) => e.currentTarget.select()}
 						/>
 					</div>
-					<div class="flex flex-grow justify-end gap-2 p-3 px-5">
-						<div>
-							{#if cloudEnabled && $user}
-								<Button
-									disabled={isGeneratingCommigMessage}
-									tabindex={-1}
-									kind="outlined"
-									class="text-light-500"
-									height="small"
-									id="generate-ai-message"
-									icon={IconAISparkles}
-									loading={isGeneratingCommigMessage}
-									on:click={() => generateCommitMessage(files)}
+					<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
+						<Button
+							class="w-20"
+							height="small"
+							kind="outlined"
+							color="purple"
+							disabled={files.length == 0}
+							on:click={() => (commitDialogShown = !commitDialogShown)}
+						>
+							<span class="purple">
+								{#if !commitDialogShown}
+									Commit
+								{:else}
+									Cancel
+								{/if}
+							</span>
+						</Button>
+					</div>
+				</div>
+
+				{#if commitDialogShown}
+					<div
+						class="flex w-full flex-col border-t border-light-400 bg-light-200 dark:border-dark-400 dark:bg-dark-800"
+						transition:slide={{ duration: 150 }}
+					>
+						{#if annotateCommits}
+							<div class="bg-blue-400 p-2 text-sm text-white">
+								GitButler will be the committer of this commit.
+								<a
+									target="_blank"
+									rel="noreferrer"
+									class="font-bold"
+									href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
+									>Learn more</a
 								>
-									<span class="text-light-700">Generate message</span>
-								</Button>
-							{:else}
-								<Tooltip
-									label="Summary generation requres that you are logged in and have cloud sync enabled for the project"
-								>
+							</div>
+						{/if}
+						<div class="flex items-center">
+							<textarea
+								bind:this={textAreaInput}
+								bind:value={commitMessage}
+								on:dblclick|stopPropagation
+								class="flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+								placeholder="Your commit message here"
+								rows={messageRows}
+								required
+							/>
+						</div>
+						<div class="flex flex-grow justify-end gap-2 p-3 px-5">
+							<div>
+								{#if cloudEnabled && $user}
 									<Button
-										disabled={true}
+										disabled={isGeneratingCommigMessage}
 										tabindex={-1}
 										kind="outlined"
 										class="text-light-500"
 										height="small"
+										id="generate-ai-message"
 										icon={IconAISparkles}
 										loading={isGeneratingCommigMessage}
+										on:click={() => generateCommitMessage(files)}
 									>
 										<span class="text-light-700">Generate message</span>
 									</Button>
-								</Tooltip>
-							{/if}
-						</div>
-						<Button
-							class="w-20"
-							height="small"
-							color="purple"
-							id="commit-to-branch"
-							on:click={() => {
-								if (commitMessage) commit();
-								commitMessage = '';
-								commitDialogShown = false;
-							}}
-						>
-							Commit
-						</Button>
-					</div>
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<div class="relative flex flex-grow overflow-y-hidden" class:opacity-40={integrated}>
-		<div
-			bind:this={viewport}
-			class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8"
-		>
-			<div bind:this={contents}>
-				{#if conflicted}
-					<div class="mb-2 bg-red-500 p-2 font-bold text-white">
-						{#if files.some((f) => f.conflicted)}
-							This virtual branch conflicts with upstream changes. Please resolve all conflicts and
-							commit before you can continue.
-						{:else}
-							Please commit your resolved conflicts to continue.
-						{/if}
-					</div>
-				{/if}
-
-				<div class="flex flex-col py-2">
-					<div class="drop-zone-marker hidden border p-6 text-center">
-						Drop here to add to virtual branch
-					</div>
-					{#if files.length > 0}
-						<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
-							{#each files as file (file.id)}
-								<FileCardNext
-									expanded={file.expanded}
-									conflicted={file.conflicted}
-									{file}
-									{dzType}
-									{projectId}
-									{projectPath}
-									{branchController}
-									on:expanded={(e) => {
-										setExpandedWithCache(file, e.detail);
-										expandFromCache();
-									}}
-								/>
-							{/each}
-						</div>
-					{/if}
-					{#if files.length == 0}
-						{#if commits.length == 0}
-							<div
-								class="no-changes space-y-6 rounded p-8 text-center text-light-700 dark:border-zinc-700"
-								data-dnd-ignore
-							>
-								<p>Nothing on this branch yet.</p>
-								<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
-								<p class="px-12 text-light-600">
-									Get some work done, then throw some files my way!
-								</p>
-							</div>
-						{:else}
-							<!-- attention: these markers have custom css at the bottom of thise file -->
-							<div
-								class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
-								data-dnd-ignore
-							>
-								No uncommitted changes on this branch
-							</div>
-						{/if}
-					{/if}
-				</div>
-				{#if localCommits.length > 0 || remoteCommits.length > 0}
-					<div
-						class="flex w-full flex-grow flex-col gap-2 border-t border-light-400 dark:border-dark-500"
-					>
-						{#if localCommits.length > 0}
-							<div
-								class="relative"
-								class:flex-grow={remoteCommits.length == 0}
-								transition:slide={{ duration: 150 }}
-							>
-								<div
-									class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
-									style={remoteCommits.length == 0 ? 'height: calc(100% - 1rem);' : 'height: 100%;'}
-								/>
-
-								<div class="relative flex flex-col gap-2">
-									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
-									/>
-									<div class="ml-10 mr-2 flex items-center py-2">
-										<div
-											class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
-										>
-											{#if integrated}
-												integrated
-											{:else}
-												local
-											{/if}
-										</div>
-										<Button
-											class="w-20"
-											height="small"
-											kind="outlined"
-											color="purple"
-											id="push-commits"
-											loading={isPushing}
-											on:click={push}
-										>
-											<span class="purple">Push</span>
-										</Button>
-									</div>
-
-									{#each localCommits as commit (commit.id)}
-										<div
-											class="flex w-full items-center pb-2 pr-1.5"
-											in:receive={{ key: commit.id }}
-											out:send={{ key: commit.id }}
-											animate:flip
-										>
-											<div class="ml-[0.4rem] mr-1.5">
-												<div
-													class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
-												/>
-											</div>
-											<CommitCard {commit} />
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/if}
-						{#if remoteCommits.length > 0}
-							<div class="relative flex-grow">
-								<div
-									class="dark:form-dark-600 absolute top-4 ml-[0.75rem]
-						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
-									style="height: calc(100% - 1rem);"
-								/>
-
-								<div class="relative flex flex-grow flex-col gap-2">
-									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
-									/>
-
-									<div
-										class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
+								{:else}
+									<Tooltip
+										label="Summary generation requres that you are logged in and have cloud sync enabled for the project"
 									>
-										{#if upstream}
-											<Link
-												target="_blank"
-												rel="noreferrer"
-												href={url(base, upstream)}
-												class="inline-block max-w-full truncate text-sm font-bold"
-											>
-												something-really-long
-												{upstream.split('refs/remotes/')[1]}
-												{#if integrated}
-													(integrated)
-												{/if}
-											</Link>
-										{/if}
-									</div>
-
-									{#each remoteCommits as commit (commit.id)}
-										<div
-											class="flex w-full items-center pb-2 pr-1.5"
-											in:receive={{ key: commit.id }}
-											out:send={{ key: commit.id }}
-											animate:flip
+										<Button
+											disabled={true}
+											tabindex={-1}
+											kind="outlined"
+											class="text-light-500"
+											height="small"
+											icon={IconAISparkles}
+											loading={isGeneratingCommigMessage}
 										>
-											<div class="ml-[0.4rem] mr-1.5">
-												<div
-													class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
-													class:bg-light-500={commit.isRemote}
-													class:dark:bg-dark-500={commit.isRemote}
-												/>
-											</div>
-											<CommitCard {commit} url={base?.commitUrl(commit.id)} />
-										</div>
-									{/each}
-								</div>
+											<span class="text-light-700">Generate message</span>
+										</Button>
+									</Tooltip>
+								{/if}
 							</div>
-						{/if}
+							<Button
+								class="w-20"
+								height="small"
+								color="purple"
+								id="commit-to-branch"
+								on:click={() => {
+									if (commitMessage) commit();
+									commitMessage = '';
+									commitDialogShown = false;
+								}}
+							>
+								Commit
+							</Button>
+						</div>
 					</div>
 				{/if}
 			</div>
 		</div>
-		<Scrollbar {viewport} {contents} width="0.4rem" />
+
+		<div class="relative flex flex-grow overflow-y-hidden" class:opacity-40={integrated}>
+			<div
+				bind:this={viewport}
+				class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8"
+			>
+				<div bind:this={contents}>
+					{#if conflicted}
+						<div class="mb-2 bg-red-500 p-2 font-bold text-white">
+							{#if files.some((f) => f.conflicted)}
+								This virtual branch conflicts with upstream changes. Please resolve all conflicts
+								and commit before you can continue.
+							{:else}
+								Please commit your resolved conflicts to continue.
+							{/if}
+						</div>
+					{/if}
+
+					<div class="flex flex-col py-2">
+						<div class="drop-zone-marker hidden border p-6 text-center">
+							Drop here to add to virtual branch
+						</div>
+						{#if files.length > 0}
+							<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
+								{#each files as file (file.id)}
+									<FileCardNext
+										expanded={file.expanded}
+										conflicted={file.conflicted}
+										{file}
+										{dzType}
+										{projectId}
+										{projectPath}
+										{branchController}
+										on:expanded={(e) => {
+											setExpandedWithCache(file, e.detail);
+											expandFromCache();
+										}}
+									/>
+								{/each}
+							</div>
+						{/if}
+						{#if files.length == 0}
+							{#if commits.length == 0}
+								<div
+									class="no-changes space-y-6 rounded p-8 text-center text-light-700 dark:border-zinc-700"
+									data-dnd-ignore
+								>
+									<p>Nothing on this branch yet.</p>
+									<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
+									<p class="px-12 text-light-600">
+										Get some work done, then throw some files my way!
+									</p>
+								</div>
+							{:else}
+								<!-- attention: these markers have custom css at the bottom of thise file -->
+								<div
+									class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
+									data-dnd-ignore
+								>
+									No uncommitted changes on this branch
+								</div>
+							{/if}
+						{/if}
+					</div>
+					{#if localCommits.length > 0 || remoteCommits.length > 0}
+						<div
+							class="flex w-full flex-grow flex-col gap-2 border-t border-light-400 dark:border-dark-500"
+						>
+							{#if localCommits.length > 0}
+								<div
+									class="relative"
+									class:flex-grow={remoteCommits.length == 0}
+									transition:slide={{ duration: 150 }}
+								>
+									<div
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+										style={remoteCommits.length == 0
+											? 'height: calc(100% - 1rem);'
+											: 'height: 100%;'}
+									/>
+
+									<div class="relative flex flex-col gap-2">
+										<div
+											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+										/>
+										<div class="ml-10 mr-2 flex items-center py-2">
+											<div
+												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
+											>
+												{#if integrated}
+													integrated
+												{:else}
+													local
+												{/if}
+											</div>
+											<Button
+												class="w-20"
+												height="small"
+												kind="outlined"
+												color="purple"
+												id="push-commits"
+												loading={isPushing}
+												on:click={push}
+											>
+												<span class="purple">Push</span>
+											</Button>
+										</div>
+
+										{#each localCommits as commit (commit.id)}
+											<div
+												class="flex w-full items-center pb-2 pr-1.5"
+												in:receive={{ key: commit.id }}
+												out:send={{ key: commit.id }}
+												animate:flip
+											>
+												<div class="ml-[0.4rem] mr-1.5">
+													<div
+														class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
+													/>
+												</div>
+												<CommitCard {commit} />
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
+							{#if remoteCommits.length > 0}
+								<div class="relative flex-grow">
+									<div
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem]
+						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+										style="height: calc(100% - 1rem);"
+									/>
+
+									<div class="relative flex flex-grow flex-col gap-2">
+										<div
+											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+										/>
+
+										<div
+											class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
+										>
+											{#if upstream}
+												<Link
+													target="_blank"
+													rel="noreferrer"
+													href={url(base, upstream)}
+													class="inline-block max-w-full truncate text-sm font-bold"
+												>
+													something-really-long
+													{upstream.split('refs/remotes/')[1]}
+													{#if integrated}
+														(integrated)
+													{/if}
+												</Link>
+											{/if}
+										</div>
+
+										{#each remoteCommits as commit (commit.id)}
+											<div
+												class="flex w-full items-center pb-2 pr-1.5"
+												in:receive={{ key: commit.id }}
+												out:send={{ key: commit.id }}
+												animate:flip
+											>
+												<div class="ml-[0.4rem] mr-1.5">
+													<div
+														class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+														class:bg-light-500={commit.isRemote}
+														class:dark:bg-dark-500={commit.isRemote}
+													/>
+												</div>
+												<CommitCard {commit} url={base?.commitUrl(commit.id)} />
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			</div>
+			<Scrollbar {viewport} {contents} width="0.4rem" />
+		</div>
 	</div>
+	<Resizer
+		viewport={rsViewport}
+		direction="horizontal"
+		class="z-30"
+		outside={true}
+		on:width={(e) => {
+			laneWidth = e.detail;
+			lscache.set(laneWidthKey + branchId, e.detail, 7 * 1440); // 7 day ttl
+		}}
+	/>
 </div>
 
 <PopupMenu bind:this={popupMenu} let:item={branchId}>
