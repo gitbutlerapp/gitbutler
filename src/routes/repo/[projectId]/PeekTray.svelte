@@ -34,6 +34,17 @@
 
 	$: if (item == undefined || $item == undefined) expanded = false;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
+
+	// Close by clicking on anything that bubbles up to the document. Note
+	// that we need to stop propagation when clicking inside the peek tray,
+	// and that we also want the same in the regular tray.
+	function onDocumentClick() {
+		expanded = false;
+	}
+
+	$: expanded
+		? document.addEventListener('click', onDocumentClick)
+		: document.removeEventListener('click', onDocumentClick);
 </script>
 
 <div
@@ -44,6 +55,10 @@
 	style:translate={`${offsetLeft}px`}
 	style:transition-property={!disabled ? (expanded ? 'top,translate,height' : 'translate') : 'none'}
 	class="absolute z-30 flex shrink-0 overflow-visible bg-white text-light-800 duration-200 ease-in-out dark:bg-dark-800 dark:text-dark-100"
+	on:click|stopPropagation
+	on:keydown|stopPropagation
+	role="menu"
+	tabindex="0"
 >
 	<div class="flex w-full flex-grow" bind:this={viewport}>
 		<div
