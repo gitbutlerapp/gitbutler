@@ -13,7 +13,7 @@ pub async fn start_server(port: usize, app: app::App) -> Result<()> {
 
     while let Ok((stream, _)) = listener.accept().await {
         let app_clone = app.clone();
-        tauri::async_runtime::spawn(async {
+        tokio::spawn(async {
             if let Err(e) = connection::accept_connection(app_clone, stream).await {
                 tracing::error!("pty-ws: failed to accept connection {:#}", e);
             }

@@ -6,6 +6,7 @@ use std::{collections::HashMap, ops, path, time};
 use anyhow::{Context, Result};
 use futures::future::join_all;
 use tauri::{generate_context, Manager};
+use tokio::task::spawn_blocking;
 use tracing::instrument;
 
 use git_butler_tauri::*;
@@ -572,7 +573,10 @@ async fn git_get_global_config(
     Ok(result)
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    tauri::async_runtime::set(tokio::runtime::Handle::current());
+
     let tauri_context = generate_context!();
 
     let _guard = sentry::init(("https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032", sentry::ClientOptions {
@@ -662,7 +666,7 @@ fn main() {
                 app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
             app_handle.manage(app);
 
-            tauri::async_runtime::spawn_blocking(move || {
+            spawn_blocking(move || {
                 if let Err(e) = init(app_handle) {
                     tracing::error!("failed to app: {:#}", e);
                 }
