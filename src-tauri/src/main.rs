@@ -1,18 +1,17 @@
 mod assets;
 mod zip;
 
-use std::{collections::HashMap, fs, ops, path, time};
+use std::{collections::HashMap, ops, path, time};
 
 use anyhow::{Context, Result};
 use futures::future::join_all;
 use tauri::{generate_context, Manager};
 use tracing::instrument;
 
-use git_butler_tauri::{error::Error, *};
+use git_butler_tauri::*;
 
-use project_repository::{activity, branch};
-use tracing::subscriber::set_global_default;
-use tracing_subscriber::fmt::format::FmtSpan;
+use crate::error::Error;
+use crate::project_repository::{activity, branch};
 
 #[tauri::command(async)]
 #[instrument(name = "get_project_archive_path", skip(handle))]
@@ -633,30 +632,7 @@ fn main() {
 
             let app_handle = tauri_app.handle();
 
-            {
-                // setup tracing subscriber to write to logs file
-                let logs_dir = app_handle
-                    .path_resolver()
-                    .app_log_dir()
-                    .expect("failed to get app log dir");
-                if !logs_dir.exists() {
-                    fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
-                }
-                let file_appender = tracing_appender::rolling::never(logs_dir, "GitButler.log");
-                let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
-                app_handle.manage(guard); // keep the guard alive for the lifetime of the app
-
-                use tracing_subscriber::layer::SubscriberExt;
-                let subscriber = tracing_subscriber::fmt()
-                    .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-                    .with_file(true)
-                    .with_line_number(true)
-                    .with_thread_ids(true)
-                    .with_target(false)
-                    .finish()
-                    .with(tracing_subscriber::fmt::Layer::default().with_writer(file_writer));
-                set_global_default(subscriber).expect("failed to set subscriber");
-            }
+            logs::init(&app_handle);
 
             tracing::info!("Starting app");
 

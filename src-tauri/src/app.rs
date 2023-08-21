@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops, path, sync, thread, time};
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
-use tauri::{AppHandle, Manager};
+use tauri::{async_runtime, AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -22,6 +22,7 @@ pub struct App {
     keys_controller: keys::Storage,
     searcher: search::Searcher,
     watchers: sync::Arc<Mutex<HashMap<String, watcher::Watcher>>>,
+    watcher_handles: sync::Arc<Mutex<HashMap<String, async_runtime::JoinHandle<()>>>>,
     sessions_database: sessions::Database,
     files_database: files::Database,
     deltas_database: deltas::Database,
@@ -53,6 +54,7 @@ impl TryFrom<&AppHandle> for App {
             users_storage: users::Storage::try_from(value)?,
             searcher: value.state::<search::Searcher>().inner().clone(),
             watchers: sync::Arc::new(Mutex::new(HashMap::new())),
+            watcher_handles: sync::Arc::new(Mutex::new(HashMap::new())),
             sessions_database: sessions::Database::try_from(value)?,
             deltas_database: deltas::Database::try_from(value)?,
             files_database: files::Database::try_from(value)?,
@@ -105,19 +107,25 @@ impl App {
         let c_watcher = watcher.clone();
         let project_id = project.id.clone();
         let project_path = project.path.clone();
-        thread::spawn(move || {
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .thread_name(format!("watcher-{}", project_id))
-                .enable_time()
-                .build()
-                .unwrap();
-            rt.block_on(async move {
-                if let Err(e) = c_watcher.run(&project_path, &project_id).await {
-                    tracing::error!("watcher error: {:#}", e);
-                }
-                tracing::info!("watcher stopped");
-            });
+
+        // let handle = thread::spawn(move || {
+        //     let rt = tokio::runtime::Builder::new_multi_thread()
+        //         .thread_name(format!("watcher-{}", project_id))
+        //         .enable_time()
+        //         .build()
+        //         .unwrap();
+        let handle = async_runtime::spawn(async move {
+            // rt.block_on(async move {
+            if let Err(e) = c_watcher.run(&project_path, &project_id).await {
+                tracing::error!("watcher error: {:#}", e);
+            }
+            tracing::info!("watcher stopped");
         });
+        // });
+        self.watcher_handles
+            .lock()
+            .await
+            .insert(project.id.clone(), handle);
 
         self.watchers
             .lock()
