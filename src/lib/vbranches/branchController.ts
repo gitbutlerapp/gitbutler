@@ -169,7 +169,7 @@ export class BranchController {
 			if (err.code === 'errors.git.authentication') {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
 			} else {
-				toasts.error(`Failed to push branch: ${err.message}`);
+				toasts.error(`Failed to fetch branch: ${err.message}`);
 			}
 		}
 	}

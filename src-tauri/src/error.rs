@@ -67,10 +67,17 @@ impl From<virtual_branches::controller::Error> for Error {
                 message: "Git authentication failed. Add your GitButler key to your provider and try again."
                     .to_string(),
             },
-            virtual_branches::controller::Error::PushError(e) => Error::UserError {
+            virtual_branches::controller::Error::PushError(project_repository::Error::NoUrl) => Error::UserError {
                 code: Code::PushFailed,
-                message: e.to_string(),
+                message: "Project URL not found. Please check your project's git config and try again."
+                    .to_string(),
             },
+            virtual_branches::controller::Error::PushError(project_repository::Error::NonSSHUrl(_)) => Error::UserError {
+                code: Code::PushFailed,
+                message: "Project URL is not supported. Please set it to either ssh or https and try again."
+                    .to_string(),
+            },
+            virtual_branches::controller::Error::PushError(project_repository::Error::Other(e)) => Error::from(e),
             virtual_branches::controller::Error::Conflicting => Error::UserError {
                 code: Code::Conflicting,
                 message: "Project is in conflicting state. Resolve all conflicts and try again."
@@ -88,7 +95,8 @@ impl From<virtual_branches::controller::Error> for Error {
                 code: Code::InvalidHead,
                 message: "GibButler's integration commit not found on head.".to_string(),
             },
-            e => Error::from(anyhow::Error::from(e))
+            virtual_branches::controller::Error::LockError(e) => Error::from(anyhow::anyhow!(e)),
+            virtual_branches::controller::Error::Other(e) => Error::from(e),
         }
     }
 }
@@ -101,10 +109,17 @@ impl From<app::Error> for Error {
                 message: "Git authentication failed. Add your GitButler key to your provider and try again."
                     .to_string(),
             },
-            app::Error::FetchError(e) => Error::UserError {
+            app::Error::FetchError(project_repository::Error::NoUrl) => Error::UserError {
                 code: Code::FetchFailed,
-                message: e.to_string(),
+                message: "Project URL not found. Please check your project's git config and try again."
+                    .to_string(),
             },
+            app::Error::FetchError(project_repository::Error::NonSSHUrl(_)) => Error::UserError {
+                code: Code::FetchFailed,
+                message: "Project URL is not supported. Please set it to either ssh or https and try again."
+                    .to_string(),
+            },
+            app::Error::FetchError(project_repository::Error::Other(e)) => Error::from(e),
             app::Error::CreateProjectError(message) => Error::UserError {
                 code: Code::ProjectCreateFailed,
                 message,
