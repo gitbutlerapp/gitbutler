@@ -20,6 +20,7 @@ pub mod pty;
 pub mod reader;
 pub mod search;
 pub mod sessions;
+pub mod ssh;
 pub mod storage;
 pub mod users;
 pub mod virtual_branches;
