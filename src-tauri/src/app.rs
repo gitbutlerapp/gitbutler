@@ -75,15 +75,11 @@ impl App {
 
     pub fn init_project(&self, project: &projects::Project) -> Result<()> {
         block_on(async move {
-            self.start_watcher(project)
-                .await
-                .with_context(|| {
-                    format!("failed to start watcher for project {}", project.id.clone())
-                })
-                .expect("failed to start watcher");
-        });
-
-        Ok(())
+            self.start_watcher(project).await.context(format!(
+                "failed to start watcher for project {}",
+                project.id.clone()
+            ))
+        })
     }
 
     pub fn init(&self) -> Result<()> {
@@ -92,9 +88,8 @@ impl App {
             .list_projects()
             .with_context(|| "failed to list projects")?
         {
-            if let Err(e) = self.init_project(&project) {
-                tracing::error!("failed to init project {}: {:#}", project.id, e);
-            }
+            self.init_project(&project)
+                .context(format!("failed to init project {}", project.id.clone()))?;
         }
         Ok(())
     }
@@ -197,7 +192,7 @@ impl App {
             .map_err(Error::Other)?;
 
         self.init_project(&project)
-            .context("failed to init project")
+            .context(format!("failed to init project {}", project.id.clone()))
             .map_err(Error::Other)?;
 
         Ok(project)
