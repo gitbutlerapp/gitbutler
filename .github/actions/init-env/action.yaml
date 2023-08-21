@@ -22,6 +22,7 @@ runs:
         filters: |
           backend:
             - 'src-tauri/**'
+            - 'butler/**'
           frontend:
             - 'src/**'
             - '.github/**'
