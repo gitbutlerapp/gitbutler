@@ -229,7 +229,7 @@
 >
 	<div
 		bind:this={rsViewport}
-		class="flex w-full cursor-default flex-col border-l border-r border-light-400 bg-light-150 dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
+		class="flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-light-400 bg-light-150 dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
 	>
 		{#if integrated}
 			<div class="mb-2 flex flex-col">
@@ -551,7 +551,6 @@
 		viewport={rsViewport}
 		direction="horizontal"
 		class="z-30"
-		outside={true}
 		on:width={(e) => {
 			laneWidth = e.detail;
 			lscache.set(laneWidthKey + branchId, e.detail, 7 * 1440); // 7 day ttl
