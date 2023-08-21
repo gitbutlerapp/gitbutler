@@ -686,11 +686,9 @@ fn main() {
                 app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
             app_handle.manage(app);
 
-            tauri::async_runtime::spawn_blocking(move || {
-                if let Err(e) = init(app_handle) {
-                    tracing::error!("failed to app: {:#}", e);
-                }
-            });
+            if let Err(e) = init(app_handle) {
+                tracing::error!("failed to init app: {:#}", e);
+            }
 
             Ok(())
         })
