@@ -4,10 +4,12 @@
 	export let direction: 'horizontal' | 'vertical';
 	export let viewport: HTMLElement;
 	export let reverse = false;
-	export let outside = false; // Overlays from the left rather than center
+	export let grow = true; // Grow beyond container on hover
 
 	let classes = '';
 	export { classes as class };
+	export let width = 1;
+	export let height = 1;
 
 	let dragging = false;
 	let hovering = false;
@@ -50,7 +52,7 @@
 
 	function onMouseMove(e: MouseEvent) {
 		if (direction == 'horizontal') {
-			if (!reverse) dispatch('width', e.clientX - initial);
+			if (!reverse) dispatch('width', e.clientX - initial + 2); // TODO: Define `+ 2` better
 			if (reverse) dispatch('width', document.body.scrollWidth - e.clientX - initial);
 		}
 		if (direction == 'vertical') {
@@ -78,14 +80,24 @@
 	class:dark:bg-orange-700={hovering}
 	class:cursor-ew-resize={hovering && direction == 'horizontal'}
 	class:cursor-ns-resize={hovering && direction == 'vertical'}
-	class:-mt-[2px]={hovering && direction == 'vertical'}
-	class:-mb-[2px]={hovering && direction == 'vertical'}
-	class:-mr-[2px]={hovering && !outside && direction == 'horizontal'}
-	class:-ml-[2px]={hovering && !outside && direction == 'horizontal'}
-	class:-mr-[4px]={hovering && outside && direction == 'horizontal'}
-	class:-ml-[0px]={hovering && outside && direction == 'horizontal'}
+	class:-mt-[2px]={hovering && grow && direction == 'vertical'}
+	class:-mb-[2px]={hovering && grow && direction == 'vertical'}
+	class:-mr-[2px]={hovering && grow && direction == 'horizontal'}
+	class:-ml-[2px]={hovering && grow && direction == 'horizontal'}
 	class:h-full={direction == 'vertical'}
-	style:height={direction == 'vertical' ? (hovering ? '5px' : '1px') : undefined}
-	style:width={direction == 'horizontal' ? (hovering ? '5px' : '1px') : undefined}
+	style:height={direction == 'vertical'
+		? hovering
+			? grow
+				? `${height + 4}px`
+				: `${height}px`
+			: `${height}px`
+		: undefined}
+	style:width={direction == 'horizontal'
+		? hovering
+			? grow
+				? `${width + 4}px`
+				: `${width}px`
+			: `${width}px`
+		: undefined}
 	class="shrink-0 {classes ? ` ${classes}` : ''}"
 />
