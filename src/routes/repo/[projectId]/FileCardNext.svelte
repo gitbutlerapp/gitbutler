@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import { createEventDispatcher } from 'svelte';
-	import { open } from '@tauri-apps/api/shell';
 	import type { File } from '$lib/vbranches/types';
 	import RenderedLine from './RenderedLine.svelte';
 	import {
@@ -15,14 +14,13 @@
 	import { getContext } from 'svelte';
 	import { dzTrigger } from './dropZone';
 	import IconExpandUpDownSlim from '$lib/icons/IconExpandUpDownSlim.svelte';
-	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
-	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { slide } from 'svelte/transition';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { summarizeHunk } from '$lib/summaries';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import IconLock from '$lib/icons/IconLock.svelte';
+	import HunkContextMenu from './HunkContextMenu.svelte';
 
 	export let file: File;
 	export let conflicted: boolean;
@@ -37,7 +35,10 @@
 		expanded: boolean;
 	}>();
 
-	let popupMenu: PopupMenu;
+	let popupMenu = new HunkContextMenu({
+		target: document.body,
+		props: { projectPath, file }
+	});
 
 	function boldenFilename(filepath: string): string {
 		const parts = filepath.split('/');
@@ -155,7 +156,7 @@
 
 		{#if expanded}
 			<div
-				class="hunk-change-container flex flex-col rounded px-1.5"
+				class="hunk-change-container flex flex-col rounded px-2"
 				transition:slide={{ duration: 150 }}
 			>
 				{#each sections as section}
@@ -281,25 +282,3 @@
 		{/if}
 	</div>
 </div>
-<PopupMenu bind:this={popupMenu} let:item>
-	<PopupMenuItem
-		on:click={() => {
-			if ('expanded' in item.section) {
-				item.section.expanded = false;
-				sections = sections;
-			}
-		}}
-	>
-		Collapse
-	</PopupMenuItem>
-	<PopupMenuItem
-		on:click={() => {
-			console.log(item);
-			const url = `vscode://file${projectPath}/${file.path}:${item.lineNumber}`;
-			console.log(url);
-			open(url);
-		}}
-	>
-		Open in Visual Studio Code
-	</PopupMenuItem>
-</PopupMenu>
