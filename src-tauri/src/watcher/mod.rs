@@ -14,6 +14,7 @@ use tokio::{
         mpsc::{channel, Sender},
         Mutex,
     },
+    time::{timeout, Duration},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -119,7 +120,7 @@ impl WatcherInner {
         loop {
             tokio::select! {
                 Some(event) = rx.recv() => {
-                    spawn({
+                    let handle_task = spawn({
                         let project_id = project_id.to_string();
                         let handler = self.handler.clone();
                         let tx = tx.clone();
@@ -136,6 +137,17 @@ impl WatcherInner {
                                         }
                                     }
                                 }
+                            }
+                        }
+                    });
+
+                    spawn({
+                        let project_id = project_id.to_string();
+                        let event = event.clone();
+                        let handle_task_timeout = Duration::from_secs(30);
+                        async move {
+                            if timeout(handle_task_timeout, handle_task).await.is_err() {
+                                tracing::error!("{}: {} timedout after {:?}", project_id, event, handle_task_timeout);
                             }
                         }
                     });
