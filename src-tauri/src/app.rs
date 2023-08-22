@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops, path, sync, time};
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
-use tokio::{sync::Mutex, spawn};
+use tokio::{spawn, sync::Mutex};
 
 use crate::{
     bookmarks, deltas, files, gb_repository, keys,
