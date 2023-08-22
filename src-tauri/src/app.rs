@@ -1,9 +1,9 @@
-use std::{collections::HashMap, ops, path, sync, thread, time};
+use std::{collections::HashMap, ops, path, sync, time};
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
-use tokio::sync::Mutex;
+use tokio::{spawn, sync::Mutex};
 
 use crate::{
     bookmarks, deltas, files, gb_repository, keys,
@@ -64,7 +64,7 @@ impl TryFrom<&AppHandle> for App {
 impl App {
     pub fn start_pty_server(&self) -> Result<()> {
         let self_ = self.clone();
-        tauri::async_runtime::spawn(async move {
+        spawn(async move {
             let port = if cfg!(debug_assertions) { 7702 } else { 7703 };
             if let Err(e) = pty::start_server(port, self_).await {
                 tracing::error!("failed to start pty server: {:#}", e);
@@ -75,11 +75,15 @@ impl App {
 
     pub fn init_project(&self, project: &projects::Project) -> Result<()> {
         block_on(async move {
-            self.start_watcher(project).await.context(format!(
-                "failed to start watcher for project {}",
-                project.id.clone()
-            ))
-        })
+            self.start_watcher(project)
+                .await
+                .with_context(|| {
+                    format!("failed to start watcher for project {}", project.id.clone())
+                })
+                .expect("failed to start watcher");
+        });
+
+        Ok(())
     }
 
     pub fn init(&self) -> Result<()> {
@@ -88,8 +92,9 @@ impl App {
             .list_projects()
             .with_context(|| "failed to list projects")?
         {
-            self.init_project(&project)
-                .context(format!("failed to init project {}", project.id.clone()))?;
+            if let Err(e) = self.init_project(&project) {
+                tracing::error!("failed to init project {}: {:#}", project.id, e);
+            }
         }
         Ok(())
     }
@@ -100,19 +105,21 @@ impl App {
         let c_watcher = watcher.clone();
         let project_id = project.id.clone();
         let project_path = project.path.clone();
-        thread::spawn(move || {
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .thread_name(format!("watcher-{}", project_id))
-                .enable_time()
-                .build()
-                .unwrap();
-            rt.block_on(async move {
-                if let Err(e) = c_watcher.run(&project_path, &project_id).await {
-                    tracing::error!("watcher error: {:#}", e);
-                }
-                tracing::info!("watcher stopped");
-            });
+
+        // let handle = thread::spawn(move || {
+        //     let rt = tokio::runtime::Builder::new_multi_thread()
+        //         .thread_name(format!("watcher-{}", project_id))
+        //         .enable_time()
+        //         .build()
+        //         .unwrap();
+        spawn(async move {
+            // rt.block_on(async move {
+            if let Err(e) = c_watcher.run(&project_path, &project_id).await {
+                tracing::error!("watcher error: {:#}", e);
+            }
+            tracing::info!("watcher stopped");
         });
+        // });
 
         self.watchers
             .lock()
@@ -192,7 +199,7 @@ impl App {
             .map_err(Error::Other)?;
 
         self.init_project(&project)
-            .context(format!("failed to init project {}", project.id.clone()))
+            .context("failed to init project")
             .map_err(Error::Other)?;
 
         Ok(project)

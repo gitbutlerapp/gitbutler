@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{git, keys, project_repository::activity, projects, reader, ssh};
+use crate::{git, keys, project_repository::activity, projects, reader};
 
 use super::branch;
 
@@ -396,8 +396,6 @@ impl<'repository> Repository<'repository> {
                 return Err(Error::NonSSHUrl(url.to_string()).into());
             }
 
-            ssh::check_known_host(url_host(&url)).context("failed to check known host")?;
-
             Ok(self
                 .git_repository
                 .remote_anonymous(&url)
@@ -456,10 +454,7 @@ impl<'repository> Repository<'repository> {
         let mut remote = self
             .get_remote(remote_name)
             .context("failed to get remote")
-            .map_err(|e| {
-                println!("failed to get remote: {:#}", e);
-                Error::Other(e)
-            })?;
+            .map_err(Error::Other)?;
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
@@ -653,16 +648,6 @@ enum URLType {
     Ssh,
     Https,
     Unknown,
-}
-
-fn url_host(url: &str) -> &str {
-    if url.starts_with("git@") {
-        url.split(':').next().unwrap().split('@').nth(1).unwrap()
-    } else if url.starts_with("https://") {
-        url.split('/').nth(2).unwrap()
-    } else {
-        ""
-    }
 }
 
 fn url_type(url: &str) -> URLType {

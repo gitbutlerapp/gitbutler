@@ -35,7 +35,7 @@ thiserror = "1.0.44"
 tantivy = "0.20.2"
 similar = { version = "2.2.1", features = ["unicode"] }
 fslock = "0.2.1"
-tokio = { version = "1.29.1", features = ["full", "sync"] }
+tokio = { version = "1.29.1", features = [ "full", "sync", "tracing" ] }
 tokio-tungstenite = "0.19.0"
 portable-pty = { version = "0.8.0", features = [ "serde_support" ] }
 bytes = "1.1.0"
@@ -57,7 +57,7 @@ rand = "0.8.5"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 tracing-appender = "0.2.2"
-ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
+console-subscriber = "0.1.10"
 
 [features]
 # by default Tauri runs in production mode

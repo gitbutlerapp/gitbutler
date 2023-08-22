@@ -1,18 +1,18 @@
 mod assets;
 mod zip;
 
-use std::{collections::HashMap, fs, ops, path, time};
+use std::{collections::HashMap, ops, path, time};
 
 use anyhow::{Context, Result};
 use futures::future::join_all;
 use tauri::{generate_context, Manager};
+use tokio::task::spawn_blocking;
 use tracing::instrument;
 
-use git_butler_tauri::{error::Error, *};
+use git_butler_tauri::*;
 
-use project_repository::{activity, branch};
-use tracing::subscriber::set_global_default;
-use tracing_subscriber::fmt::format::FmtSpan;
+use crate::error::Error;
+use crate::project_repository::{activity, branch};
 
 #[tauri::command(async)]
 #[instrument(name = "get_project_archive_path", skip(handle))]
@@ -573,7 +573,10 @@ async fn git_get_global_config(
     Ok(result)
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    tauri::async_runtime::set(tokio::runtime::Handle::current());
+
     let tauri_context = generate_context!();
 
     let _guard = sentry::init(("https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032", sentry::ClientOptions {
@@ -633,30 +636,7 @@ fn main() {
 
             let app_handle = tauri_app.handle();
 
-            {
-                // setup tracing subscriber to write to logs file
-                let logs_dir = app_handle
-                    .path_resolver()
-                    .app_log_dir()
-                    .expect("failed to get app log dir");
-                if !logs_dir.exists() {
-                    fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
-                }
-                let file_appender = tracing_appender::rolling::never(logs_dir, "GitButler.log");
-                let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
-                app_handle.manage(guard); // keep the guard alive for the lifetime of the app
-
-                use tracing_subscriber::layer::SubscriberExt;
-                let subscriber = tracing_subscriber::fmt()
-                    .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-                    .with_file(true)
-                    .with_line_number(true)
-                    .with_thread_ids(true)
-                    .with_target(false)
-                    .finish()
-                    .with(tracing_subscriber::fmt::Layer::default().with_writer(file_writer));
-                set_global_default(subscriber).expect("failed to set subscriber");
-            }
+            logs::init(&app_handle);
 
             tracing::info!("Starting app");
 
@@ -686,9 +666,11 @@ fn main() {
                 app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
             app_handle.manage(app);
 
-            if let Err(e) = init(app_handle) {
-                tracing::error!("failed to init app: {:#}", e);
-            }
+            spawn_blocking(move || {
+                if let Err(e) = init(app_handle) {
+                    tracing::error!("failed to app: {:#}", e);
+                }
+            });
 
             Ok(())
         })

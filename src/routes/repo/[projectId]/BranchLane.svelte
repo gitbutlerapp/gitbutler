@@ -512,6 +512,7 @@
 													href={url(base, upstream)}
 													class="inline-block max-w-full truncate text-sm font-bold"
 												>
+													something-really-long
 													{upstream.split('refs/remotes/')[1]}
 													{#if integrated}
 														(integrated)
