@@ -19,6 +19,9 @@ pub struct ApiProject {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum FetchResult {
+    Fetching {
+        timestamp_ms: u128,
+    },
     Fetched {
         timestamp_ms: u128,
     },
@@ -34,6 +37,12 @@ const TEN_MINUTES: time::Duration = time::Duration::new(10 * 60, 0);
 impl FetchResult {
     pub fn should_fetch(&self, now: &time::SystemTime) -> Result<bool> {
         match self {
+            FetchResult::Fetching { timestamp_ms } => {
+                // if last fetching hang, wait 10 minutes
+                let last_fetch = time::UNIX_EPOCH
+                    + time::Duration::from_millis(TryInto::<u64>::try_into(*timestamp_ms)?);
+                Ok(last_fetch + TEN_MINUTES < *now)
+            }
             FetchResult::Error {
                 timestamp_ms,
                 attempt,

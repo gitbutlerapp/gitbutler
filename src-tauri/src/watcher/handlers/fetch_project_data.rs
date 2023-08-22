@@ -61,6 +61,17 @@ impl Handler {
         let default_target = gb_repo.default_target()?.context("target not set")?;
         let key = self.keys_controller.get_or_create()?;
 
+        // mark fetching
+        self.project_storage
+            .update_project(&projects::UpdateRequest {
+                id: project_id.to_string(),
+                project_data_last_fetched: Some(projects::FetchResult::Fetching {
+                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+                }),
+                ..Default::default()
+            })
+            .context("failed to mark project as fetching")?;
+
         let fetch_result =
             if let Err(err) = project_repository.fetch(&default_target.remote_name, &key) {
                 tracing::error!("{}: failed to fetch project data: {:#}", project_id, err);
@@ -71,6 +82,7 @@ impl Handler {
                         .map_or(0, |r| match r {
                             projects::FetchResult::Error { attempt, .. } => *attempt + 1,
                             projects::FetchResult::Fetched { .. } => 0,
+                            projects::FetchResult::Fetching { .. } => 0,
                         }),
                     timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
                     error: err.to_string(),
@@ -87,7 +99,7 @@ impl Handler {
                 project_data_last_fetched: Some(fetch_result),
                 ..Default::default()
             })
-            .context("failed to update project")?;
+            .context("failed to update fetch result")?;
 
         Ok(vec![])
     }
