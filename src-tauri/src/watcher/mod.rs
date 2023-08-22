@@ -51,7 +51,7 @@ struct WatcherInner {
     dispatcher: dispatchers::Dispatcher,
     cancellation_token: CancellationToken,
 
-    proxy_tx: Arc<Mutex<Option<Sender<Event>>>>,
+    proxy_tx: Arc<Mutex<Option<UnboundedSender<Event>>>>,
 }
 
 impl TryFrom<&AppHandle> for WatcherInner {
@@ -79,7 +79,6 @@ impl WatcherInner {
             tx.as_ref()
                 .unwrap()
                 .send(event)
-                .await
                 .context("failed to send event")?;
             Ok(())
         } else {
@@ -88,7 +87,7 @@ impl WatcherInner {
     }
 
     pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &str) -> Result<()> {
-        let (tx, mut rx) = channel(1);
+        let (tx, mut rx) = unbounded_channel();
         self.proxy_tx.lock().await.replace(tx.clone());
 
         spawn({
@@ -104,7 +103,7 @@ impl WatcherInner {
                     let span =
                         tracing::info_span!("proxying event from dispatcher", source = %event);
                     let _guard = span.enter();
-                    if let Err(e) = tx.send(event.clone()).await {
+                    if let Err(e) = tx.send(event.clone()) {
                         tracing::error!("{}: failed to post event: {:#}", project_id, e);
                     }
                     drop(_guard);
@@ -113,23 +112,22 @@ impl WatcherInner {
         });
 
         tx.send(Event::IndexAll(project_id.to_string()))
-            .await
             .context("failed to send event")?;
 
         loop {
             tokio::select! {
                 Some(event) = rx.recv() => {
-                    spawn({
+                    task::Builder::new().name(&event.to_string()).spawn_blocking({
                         let project_id = project_id.to_string();
                         let handler = self.handler.clone();
                         let tx = tx.clone();
                         let event = event.clone();
-                        async move {
-                            match handler.handle(&event).await {
+                        move || {
+                            match handler.handle(&event) {
                                 Err(error) => tracing::error!("{}: failed to handle event {}: {:#}", project_id, event, error),
                                 Ok(events) => {
                                     for e in events {
-                                        if let Err(e) = tx.send(e.clone()).await {
+                                        if let Err(e) = tx.send(e.clone()) {
                                             tracing::error!("{}: failed to post event {}: {:#}", project_id, event, e);
                                         } else {
                                             tracing::info!("{}: sent response event: {}", project_id, event);
@@ -138,7 +136,7 @@ impl WatcherInner {
                                 }
                             }
                         }
-                    });
+                    })?;
                 },
                 _ = self.cancellation_token.cancelled() => {
                     if let Err(error) = self.dispatcher.stop() {
