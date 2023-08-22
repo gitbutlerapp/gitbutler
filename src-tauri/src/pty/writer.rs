@@ -17,10 +17,7 @@ impl<'writer> PtyWriter<'writer> {
     }
 
     pub fn write(&self, record: &Record) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("failed to unlock");
-        }
+        let _lock = self.repository.lock();
 
         serde_jsonlines::append_json_lines(
             self.repository.session_path().join("pty.jsonl"),

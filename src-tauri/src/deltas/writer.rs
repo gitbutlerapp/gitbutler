@@ -23,10 +23,7 @@ impl<'writer> DeltasWriter<'writer> {
             .get_or_create_current_session()
             .context("failed to create session")?;
 
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().unwrap();
-        }
+        let _lock = self.repository.lock();
 
         let path = path.as_ref();
         let raw_deltas = serde_json::to_string(&deltas)?;
@@ -48,10 +45,7 @@ impl<'writer> DeltasWriter<'writer> {
             .get_or_create_current_session()
             .context("failed to create session")?;
 
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("failed to unlock");
-        }
+        let _lock = self.repository.lock();
 
         let path = path.as_ref();
         self.writer

@@ -17,10 +17,7 @@ impl<'writer> BookmarksWriter<'writer> {
     }
 
     pub fn write(&self, bookmark: &Bookmark) -> Result<()> {
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("failed to unlock");
-        }
+        let _lock = self.repository.lock();
 
         serde_jsonlines::append_json_lines(
             self.repository.session_path().join("bookmarks.jsonl"),
