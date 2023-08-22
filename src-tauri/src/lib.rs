@@ -1,6 +1,3 @@
-#[macro_use(defer)]
-extern crate scopeguard;
-
 pub mod app;
 pub mod assets;
 pub mod bookmarks;
@@ -14,6 +11,7 @@ pub mod fs;
 pub mod gb_repository;
 pub mod git;
 pub mod keys;
+pub mod lock;
 pub mod logs;
 pub mod project_repository;
 pub mod projects;

@@ -3,7 +3,7 @@ use std::{
     fs::File,
     io::{BufReader, Read},
     os::unix::prelude::MetadataExt,
-    path, sync, time,
+    path, time,
 };
 
 use anyhow::{anyhow, Context, Ok, Result};
@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
-    fs, projects, users,
+    fs, lock, projects, users,
     virtual_branches::{self, target},
 };
 
@@ -23,11 +23,10 @@ use crate::{
 };
 
 pub struct Repository {
-    pub(crate) project_id: String,
+    pub project_id: String,
     project_store: projects::Storage,
     users_store: users::Storage,
-    pub(crate) git_repository: git2::Repository,
-    fslock: sync::Arc<sync::Mutex<fslock::LockFile>>,
+    pub git_repository: git2::Repository,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -64,8 +63,6 @@ impl Repository {
         }
 
         let path = root.as_ref().join("projects").join(project_id.clone());
-        let lock_file_path = path.join("lock");
-
         if path.exists() {
             let git_repository = git2::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
@@ -76,16 +73,11 @@ impl Repository {
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .map_err(Error::Git)?;
 
-            let fslock = fslock::LockFile::open(&lock_file_path)
-                .context("failed to open lock file")
-                .map_err(Error::Other)?;
-
             Result::Ok(Self {
                 project_id: project_id.to_string(),
                 git_repository,
                 project_store,
                 users_store,
-                fslock: sync::Arc::new(sync::Mutex::new(fslock)),
             })
         } else {
             let git_repository = git2::Repository::init_opts(
@@ -102,15 +94,11 @@ impl Repository {
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .context("failed to add disk alternate")?;
 
-            let fslock =
-                fslock::LockFile::open(&lock_file_path).context("failed to open lock file")?;
-
             let gb_repository = Self {
                 project_id: project_id.to_string(),
                 git_repository,
                 project_store,
                 users_store,
-                fslock: sync::Arc::new(sync::Mutex::new(fslock)),
             };
 
             if gb_repository
@@ -121,10 +109,10 @@ impl Repository {
                 return Result::Ok(gb_repository);
             }
 
-            gb_repository.lock()?;
+            let _lock = gb_repository.lock();
             let session = gb_repository
                 .create_current_session(&project_repository::Repository::open(&project)?)?;
-            gb_repository.unlock()?;
+            drop(_lock);
 
             gb_repository
                 .flush_session(&project_repository::Repository::open(&project)?, &session)
@@ -377,32 +365,16 @@ impl Repository {
         Ok(session)
     }
 
-    pub(crate) fn lock(&self) -> Result<()> {
-        self.fslock
-            .lock()
-            .unwrap()
-            .lock()
-            .context("failed to lock")?;
-        Ok(())
-    }
-
-    pub(crate) fn unlock(&self) -> Result<()> {
-        self.fslock
-            .lock()
-            .unwrap()
-            .unlock()
-            .context("failed to unlock")?;
-        Ok(())
+    pub fn lock(&self) -> lock::FileLock {
+        lock::FileLock::lock(self.git_repository.path().join("lock"))
     }
 
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
-        self.lock().context("failed to lock")?;
+        let _lock = self.lock();
+
         let reader = reader::DirReader::open(self.root());
         match sessions::Session::try_from(reader) {
-            Result::Ok(session) => {
-                self.unlock().context("failed to unlock")?;
-                Ok(session)
-            }
+            Result::Ok(session) => Ok(session),
             Err(sessions::SessionError::NoSession) => {
                 let project = self
                     .project_store
@@ -417,14 +389,11 @@ impl Repository {
                 let session = self
                     .create_current_session(&project_repository)
                     .context("failed to create current session")?;
-                self.unlock().context("failed to unlock")?;
+                drop(_lock);
                 self.copy_branches().context("failed to unpack branches")?;
                 Ok(session)
             }
-            Err(err) => {
-                self.unlock().context("failed to unlock")?;
-                Err(err).context("failed to read current session")
-            }
+            Err(err) => Err(err).context("failed to read current session"),
         }
     }
 
@@ -466,7 +435,7 @@ impl Repository {
             return Err(anyhow!("nothing to flush"));
         }
 
-        self.lock()?;
+        let _lock = self.lock();
 
         // update last timestamp
         sessions::Writer::new(self).write(session)?;
@@ -521,7 +490,7 @@ impl Repository {
         std::fs::remove_dir_all(self.session_path())
             .context("failed to remove session directory")?;
 
-        self.unlock().context("failed to unlock")?;
+        drop(_lock);
 
         if let Err(e) = self.push() {
             tracing::error!("{}: failed to push to remote: {:#}", self.project_id, e);
@@ -540,21 +509,12 @@ impl Repository {
     }
 
     pub fn get_current_session(&self) -> Result<Option<sessions::Session>> {
-        self.lock().context("failed to lock")?;
+        let _lock = self.lock();
         let reader = reader::DirReader::open(self.root());
         match sessions::Session::try_from(reader) {
-            Result::Ok(session) => {
-                self.unlock().context("failed to unlock")?;
-                Ok(Some(session))
-            }
-            Err(sessions::SessionError::NoSession) => {
-                self.unlock().context("failed to unlock")?;
-                Ok(None)
-            }
-            Err(sessions::SessionError::Err(err)) => {
-                self.unlock().context("failed to unlock")?;
-                Err(err)
-            }
+            Result::Ok(session) => Ok(Some(session)),
+            Err(sessions::SessionError::NoSession) => Ok(None),
+            Err(sessions::SessionError::Err(err)) => Err(err),
         }
     }
 

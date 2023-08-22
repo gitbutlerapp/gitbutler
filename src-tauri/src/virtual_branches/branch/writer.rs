@@ -24,10 +24,7 @@ impl<'writer> BranchWriter<'writer> {
         self.repository
             .get_or_create_current_session()
             .context("Failed to get or create current session")?;
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("Failed to unlock repository");
-        }
+        let _lock = self.repository.lock();
         self.writer.remove(&format!("branches/{}", branch.id))?;
         Ok(())
     }
@@ -37,10 +34,7 @@ impl<'writer> BranchWriter<'writer> {
             .get_or_create_current_session()
             .context("Failed to get or create current session")?;
 
-        self.repository.lock()?;
-        defer! {
-            self.repository.unlock().expect("Failed to unlock repository");
-        }
+        let _lock = self.repository.lock();
 
         self.writer
             .write_string(&format!("branches/{}/id", branch.id), &branch.id)

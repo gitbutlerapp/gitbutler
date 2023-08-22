@@ -34,14 +34,12 @@ urlencoding = "2.1.2"
 thiserror = "1.0.44"
 tantivy = "0.20.2"
 similar = { version = "2.2.1", features = ["unicode"] }
-fslock = "0.2.1"
 tokio = { version = "1.29.1", features = [ "full", "sync", "tracing" ] }
 tokio-tungstenite = "0.19.0"
 portable-pty = { version = "0.8.0", features = [ "serde_support" ] }
 bytes = "1.1.0"
 futures = "0.3"
 serde-jsonlines = "0.4.0"
-scopeguard = "1.2.0"
 sentry-anyhow = "0.31.0"
 sentry-rust-minidump = "0.6.4"
 sentry-debug-images = "0.31.5"
@@ -58,6 +56,10 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 tracing-appender = "0.2.2"
 console-subscriber = "0.1.10"
+rustix = "0.38.8"
+backoff = "0.4.0"
+byteorder = "1.4.3"
+num_cpus = "1.16.0"
 
 [features]
 # by default Tauri runs in production mode
