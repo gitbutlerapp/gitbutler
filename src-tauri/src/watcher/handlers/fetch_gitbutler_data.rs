@@ -59,6 +59,17 @@ impl Handler {
             .filter_map(|s| s.ok())
             .collect::<Vec<_>>();
 
+        // mark fetching
+        self.project_storage
+            .update_project(&projects::UpdateRequest {
+                id: project_id.to_string(),
+                gitbutler_data_last_fetched: Some(projects::FetchResult::Fetching {
+                    timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
+                }),
+                ..Default::default()
+            })
+            .context("failed to mark project as fetching")?;
+
         let fetch_result = if let Err(err) = gb_repo.fetch() {
             tracing::error!("{}: failed to fetch gitbutler data: {:#}", project_id, err);
             projects::FetchResult::Error {
@@ -68,6 +79,7 @@ impl Handler {
                     .map_or(0, |r| match r {
                         projects::FetchResult::Error { attempt, .. } => *attempt + 1,
                         projects::FetchResult::Fetched { .. } => 0,
+                        projects::FetchResult::Fetching { .. } => 0,
                     }),
                 timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
                 error: err.to_string(),
@@ -84,7 +96,7 @@ impl Handler {
                 gitbutler_data_last_fetched: Some(fetch_result),
                 ..Default::default()
             })
-            .context("failed to update project")?;
+            .context("failed to update fetched result")?;
 
         let sessions_after_fetch = gb_repo
             .get_sessions_iterator()?
