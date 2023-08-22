@@ -106,20 +106,12 @@ impl App {
         let project_id = project.id.clone();
         let project_path = project.path.clone();
 
-        // let handle = thread::spawn(move || {
-        //     let rt = tokio::runtime::Builder::new_multi_thread()
-        //         .thread_name(format!("watcher-{}", project_id))
-        //         .enable_time()
-        //         .build()
-        //         .unwrap();
         spawn(async move {
-            // rt.block_on(async move {
             if let Err(e) = c_watcher.run(&project_path, &project_id).await {
                 tracing::error!("watcher error: {:#}", e);
             }
             tracing::info!("watcher stopped");
         });
-        // });
 
         self.watchers
             .lock()

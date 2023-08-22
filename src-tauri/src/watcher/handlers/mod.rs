@@ -8,7 +8,6 @@ mod project_file_change;
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
-use tokio::time::{timeout, Duration};
 use tracing::instrument;
 
 use crate::events as app_events;
@@ -44,28 +43,9 @@ impl TryFrom<&AppHandle> for Handler {
     }
 }
 
-impl<'handler> Handler {
+impl Handler {
     #[instrument(name = "handle", skip(self), fields(event = %event))]
-    pub async fn handle(&self, event: &events::Event) -> Result<Vec<events::Event>> {
-        self.handle_with_timeout(Duration::from_secs(30), event)
-            .await
-    }
-
-    async fn handle_with_timeout(
-        &self,
-        duration: Duration,
-        event: &events::Event,
-    ) -> Result<Vec<events::Event>> {
-        match timeout(duration, self.handle_event(event)).await {
-            Ok(events) => events,
-            Err(_) => Err(anyhow::anyhow!(
-                "handler timed out after {} sec",
-                duration.as_secs()
-            ))?,
-        }
-    }
-
-    async fn handle_event(&self, event: &events::Event) -> Result<Vec<events::Event>> {
+    pub fn handle(&self, event: &events::Event) -> Result<Vec<events::Event>> {
         match event {
             events::Event::ProjectFileChange(project_id, path) => self
                 .project_file_handler
