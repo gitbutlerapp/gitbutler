@@ -1,15 +1,32 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 
-	export let direction: 'horizontal' | 'vertical';
-	export let viewport: HTMLElement;
-	export let reverse = false;
-	export let grow = true; // Grow beyond container on hover
-
 	let classes = '';
 	export { classes as class };
+
+	// The element that is being resized
+	export let viewport: HTMLElement;
+
+	// Sets direction of resizing for viewport
+	export let direction: 'horizontal' | 'vertical';
+
+	// For resizing bottom-up or right-to-left
+	export let reverse = false;
+
+	// Grow beyond container on hover
+	export let grow = true;
+
+	// Width of resize handle when horizontal
 	export let width = 1;
+
+	// Height of resize handle when vertical
 	export let height = 1;
+
+	// Min width of viewport when horizontal
+	export let minWidth = 100;
+
+	// min height of viewport when vertical
+	export let minHeight = 100;
 
 	let dragging = false;
 	let hovering = false;
@@ -52,12 +69,16 @@
 
 	function onMouseMove(e: MouseEvent) {
 		if (direction == 'horizontal') {
-			if (!reverse) dispatch('width', e.clientX - initial + 2); // TODO: Define `+ 2` better
-			if (reverse) dispatch('width', document.body.scrollWidth - e.clientX - initial);
+			let width = !reverse
+				? e.clientX - initial + 2
+				: document.body.scrollWidth - e.clientX - initial;
+			dispatch('width', minWidth ? Math.max(minWidth, width) : width);
 		}
 		if (direction == 'vertical') {
-			if (!reverse) dispatch('height', e.clientY - initial);
-			if (reverse) dispatch('height', document.body.scrollHeight - e.clientY - initial);
+			let height = !reverse
+				? e.clientY - initial
+				: document.body.scrollHeight - e.clientY - initial;
+			dispatch('height', minHeight ? Math.max(minHeight, height) : height);
 		}
 	}
 

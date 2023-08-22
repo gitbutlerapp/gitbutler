@@ -133,7 +133,7 @@
 	disabled={peekTransitionsDisabled}
 />
 <div
-	class="z-30 flex w-80 min-w-[216px] shrink-0 flex-col border-r border-light-200 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
+	class="z-30 flex w-80 shrink-0 flex-col border-r border-light-200 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 	role="menu"
 	on:click|stopPropagation
@@ -297,6 +297,7 @@
 	</div>
 
 	<Resizer
+		minHeight={200}
 		viewport={vbViewport}
 		direction="vertical"
 		class="z-30"
