@@ -43,7 +43,7 @@ impl Handler {
         if !project
             .project_data_last_fetched
             .as_ref()
-            .map_or(Ok(true), |r| r.should_fetch(&now))?
+            .map_or(Ok(true), |r| r.should_fetch(now))?
         {
             return Ok(vec![]);
         }
@@ -63,6 +63,7 @@ impl Handler {
 
         let fetch_result =
             if let Err(err) = project_repository.fetch(&default_target.remote_name, &key) {
+                tracing::error!("{}: failed to fetch project data: {:#}", project_id, err);
                 projects::FetchResult::Error {
                     attempt: project
                         .project_data_last_fetched
