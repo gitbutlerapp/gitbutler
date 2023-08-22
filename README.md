@@ -1,11 +1,11 @@
-## Development
+# Development
 
-### Prerequisites
+## Prerequisites
 
 [see here](https://tauri.app/v1/guides/getting-started/prerequisites)
 for the list of software required to build / develope the app.
 
-### Setup
+## Setup
 
 Then, make sure to install app dependencies:
 
@@ -13,7 +13,9 @@ Then, make sure to install app dependencies:
 $ pnpm install
 ```
 
-### Run
+## Develop
+
+### Running the app
 
 Now you should be able to run the app in development mode:
 
@@ -21,7 +23,7 @@ Now you should be able to run the app in development mode:
 $ pnpm tauri dev
 ```
 
-### Running Stories
+### Run Stories
 
 Stories is our easy way to view our app components. Running the following command will launch in your default browser.
 
@@ -29,21 +31,58 @@ Stories is our easy way to view our app components. Running the following comman
 $ pnpm story:dev
 ```
 
-### Linting
+### Lint & format
 
-Pull requests will not pass unless files are linted for proper Tailwind formatting.
+Frontend:
 
 ```bash
+$ pnpm lint
 $ pnpm format
 ```
 
-## building
+Backend:
+
+```bash
+$ cd ./src-tauri
+$ cargo clippy   # see linting errors
+$ cargo fmt      # format code
+```
+
+## Debug
+
+### Logs
+
+App writes logs into:
+
+1. stdout in development mode
+2. [Logs](https://tauri.app/v1/api/js/path/#platform-specific) directory
+
+### Tokio
+
+We are also collecting tokio's runtime tracing information that could be viewed using [tokio-console](https://github.com/tokio-rs/console#tokio-console-prototypes):
+
+- developlent:
+  ```bash
+  $ tokio-console
+  ```
+- nightly:
+  ```bash
+  $ tokio-console http://127.0.0.1:6668
+  ```
+- production:
+  ```bash
+  $ tokio-console http://127.0.0.1:6667
+  ```
+
+## Build
 
 To build the app in production mode, run:
 
 ```bash
-$ pnpm tauri build
+$ pnpm tauri build --features devtools --config src-tauri/tauri.conf.nightly.json
 ```
+
+This will make an asset similar to our nightly build.
 
 ## Icon generation
 
@@ -51,23 +90,17 @@ $ pnpm tauri build
 $ pnpm tauri icon path/to/icon.png
 ```
 
-## Releasing
+## Release
 
 Building is done via [GitHub Action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml).
 Go to the link and select `Run workflow` from the desired branch.
 
 ### Versioning
 
-When running the [release action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml), you will have to choose one of `major`, `minor`, or `patch` release type. Action will generate a new version based on your input and current version found at `https://app.gitbutler.com/releases`.
+When running the [release action](https://github.com/gitbutlerapp/gitbutler-client/actions/workflows/publish.yaml),
+you will have to choose one of `major`, `minor`, or `patch` release type. Action will generate a new version based on your input and current
+version found at `https://app.gitbutler.com/releases`.
 
-### publishing
+### Publishing
 
 To publish a version that you've just build, use [Release Manager](https://gitbutler.retool.com/apps/cb9cbed6-ae0a-11ed-918c-736c4335d3af/Release%20Manager).
-
-### runners
-
-Note that to build an arm64 macos app, you need to make sure that there is at least one self-hosted runner
-with `macos-aarch64` label is online [here](https://github.com/gitbutlerapp/gitbutler-client-tauri/settings/actions/runners).
-
-If you are a lucky owner of an arm64 macos machine, feel free to [run it yourself](https://github.com/gitbutlerapp/gitbutler-client-tauri/settings/actions/runners/new).
-Make sure to label it with `macos-aarch64`.
