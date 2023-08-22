@@ -11,7 +11,7 @@ pub fn init(app_handle: &AppHandle) {
         .expect("failed to get app log dir");
     fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
 
-    let file_appender = tracing_appender::rolling::never(&logs_dir, "GitButler.log");
+    let file_appender = tracing_appender::rolling::daily(&logs_dir, "GitButler.log");
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
     app_handle.manage(guard); // keep the guard alive for the lifetime of the app
 
