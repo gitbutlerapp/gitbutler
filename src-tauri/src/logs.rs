@@ -1,8 +1,8 @@
 use std::{fs, net::Ipv4Addr, time::Duration};
 
 use tauri::{AppHandle, Manager};
-use tracing::subscriber::set_global_default;
-use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt};
+use tracing::{metadata::LevelFilter, subscriber::set_global_default};
+use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
 pub fn init(app_handle: &AppHandle) {
     let logs_dir = app_handle
@@ -15,12 +15,14 @@ pub fn init(app_handle: &AppHandle) {
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
     app_handle.manage(guard); // keep the guard alive for the lifetime of the app
 
-    let format = tracing_subscriber::fmt::format()
+    let format_for_humans = tracing_subscriber::fmt::format()
         .with_file(true)
         .with_line_number(true)
         .with_thread_ids(true)
         .with_target(false)
         .compact();
+
+    let filter_for_humans = LevelFilter::DEBUG;
 
     let subscriber = tracing_subscriber::registry()
         .with(
@@ -34,14 +36,17 @@ pub fn init(app_handle: &AppHandle) {
         )
         .with(
             // subscriber that writes spans to stdout
-            tracing_subscriber::fmt::layer().event_format(format.clone()),
+            tracing_subscriber::fmt::layer()
+                .event_format(format_for_humans.clone())
+                .with_filter(filter_for_humans),
         )
         .with(
             // subscriber that writes spans to a file
             tracing_subscriber::fmt::layer()
-                .event_format(format)
+                .event_format(format_for_humans)
                 .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-                .with_writer(file_writer),
+                .with_writer(file_writer)
+                .with_filter(filter_for_humans),
         );
 
     set_global_default(subscriber).expect("failed to set subscriber");
