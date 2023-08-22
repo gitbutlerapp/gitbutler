@@ -11,9 +11,10 @@ use tauri::AppHandle;
 use tokio::{
     spawn,
     sync::{
-        mpsc::{channel, Sender},
+        mpsc::{unbounded_channel, UnboundedSender},
         Mutex,
     },
+    task,
 };
 use tokio_util::sync::CancellationToken;
 

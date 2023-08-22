@@ -43,7 +43,7 @@ impl TryFrom<&AppHandle> for Handler {
     }
 }
 
-impl<'handler> Handler {
+impl Handler {
     #[instrument(name = "handle", skip(self), fields(event = %event))]
     pub fn handle(&self, event: &events::Event) -> Result<Vec<events::Event>> {
         match event {
