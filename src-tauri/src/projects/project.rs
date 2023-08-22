@@ -29,7 +29,7 @@ pub enum FetchResult {
     },
 }
 
-const TEN_MINUTES: time::Duration = time::Duration::new(10 * 60, 0);
+const TEN_MINUTES: time::Duration = time::Duration::new(1, 0);
 
 impl FetchResult {
     pub fn should_fetch(&self, now: &time::SystemTime) -> Result<bool> {

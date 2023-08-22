@@ -60,6 +60,7 @@ impl Handler {
             .collect::<Vec<_>>();
 
         let fetch_result = if let Err(err) = gb_repo.fetch() {
+            tracing::error!("{}: failed to fetch gitbutler data: {:#}", project_id, err);
             projects::FetchResult::Error {
                 attempt: project
                     .gitbutler_data_last_fetched
