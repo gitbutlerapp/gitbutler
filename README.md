@@ -71,7 +71,7 @@ We are also collecting tokio's runtime tracing information that could be viewed 
   ```
 - production:
   ```bash
-  $ tokio-console http://127.0.0.1:666&
+  $ tokio-console http://127.0.0.1:6667
   ```
 
 ## Build
