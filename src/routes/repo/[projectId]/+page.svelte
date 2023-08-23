@@ -34,7 +34,11 @@
 	const headStore = getHeadsStore(projectId);
 	const sessionsStore = getSessionStore2(projectId);
 	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore, headStore]);
-	const remoteBranchStore = getRemoteBranchStore(projectId, [fetchStore, headStore]);
+	const remoteBranchStore = getRemoteBranchStore(projectId, [
+		fetchStore,
+		headStore,
+		baseBranchStore
+	]);
 	const vbranchStore = getVirtualBranchStore(projectId, [
 		deltasStore,
 		sessionsStore,

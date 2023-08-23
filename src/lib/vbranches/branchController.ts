@@ -13,11 +13,7 @@ export class BranchController {
 	async setTarget(branch: string) {
 		try {
 			await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
-			await Promise.all([
-				this.virtualBranchStore.reload(),
-				this.remoteBranchStore.reload(),
-				this.targetBranchStore.reload()
-			]);
+			await this.targetBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to set target');
 		}
@@ -133,11 +129,7 @@ export class BranchController {
 	async updateBaseBranch() {
 		try {
 			await invoke<object>('update_base_branch', { projectId: this.projectId });
-			await Promise.all([
-				this.remoteBranchStore.reload(),
-				this.virtualBranchStore.reload(),
-				this.targetBranchStore.reload()
-			]);
+			await this.targetBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to update target');
 		}
@@ -151,6 +143,7 @@ export class BranchController {
 			});
 			await Promise.all([
 				await this.remoteBranchStore.reload(),
+				await this.virtualBranchStore.reload(),
 				await this.targetBranchStore.reload()
 			]);
 		} catch (err) {
@@ -161,10 +154,7 @@ export class BranchController {
 	async fetchFromTarget() {
 		try {
 			await invoke<void>('fetch_from_target', { projectId: this.projectId });
-			await Promise.all([
-				await this.remoteBranchStore.reload(),
-				await this.targetBranchStore.reload()
-			]);
+			await this.targetBranchStore.reload();
 		} catch (err: any) {
 			if (err.code === 'errors.git.authentication') {
 				toasts.error('Failed to authenticate. Did you setup GitButler ssh keys?');
