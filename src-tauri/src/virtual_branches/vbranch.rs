@@ -769,13 +769,6 @@ pub fn list_virtual_branches(
 
     let base_data = target_to_base_branch(project_repository, &default_target)?;
 
-    let virtual_branches = Iterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .collect::<Vec<_>>();
-
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
 
     let repo = &project_repository.git_repository;
@@ -783,13 +776,7 @@ pub fn list_virtual_branches(
 
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
 
-    for branch in &virtual_branches {
-        let files: Vec<VirtualBranchFile> = statuses
-            .iter()
-            .find(|(vbranch, _)| vbranch.id == branch.id)
-            .map(|(_, files)| files.clone())
-            .unwrap_or(vec![]);
-
+    for (branch, files) in &statuses {
         let file_hunks = files
             .iter()
             .cloned()
@@ -814,7 +801,7 @@ pub fn list_virtual_branches(
         //
         // TODO: refactor this to instead have branch.commits[].files[] structure
         let vfiles = if default_target.sha != branch.head {
-            let vtree = write_tree(project_repository, &default_target, &files)?;
+            let vtree = write_tree(project_repository, &default_target, files)?;
             let repo = &project_repository.git_repository;
             // get the trees
             let tree_old = repo.find_commit(branch.head)?.tree()?;
@@ -898,7 +885,7 @@ pub fn list_virtual_branches(
 
             vfiles
         } else {
-            files
+            files.to_vec()
         };
 
         let repo = &project_repository.git_repository;
