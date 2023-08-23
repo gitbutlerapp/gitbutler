@@ -54,9 +54,9 @@ impl Handler {
             .flush_session(&project_repository::Repository::open(&project)?, session)
             .context("failed to flush session")?;
 
-        Ok(vec![events::Event::Session(
-            project_id.to_string(),
-            session,
-        )])
+        Ok(vec![
+            events::Event::Session(project_id.to_string(), session),
+            events::Event::PushGitbutlerData(project_id.to_string()),
+        ])
     }
 }
