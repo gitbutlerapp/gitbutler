@@ -8,6 +8,7 @@ pub enum Event {
     Flush(String, sessions::Session),
 
     FetchGitbutlerData(String, time::SystemTime),
+    PushGitbutlerData(String),
     FetchProjectData(String, time::SystemTime),
 
     GitFileChange(String, path::PathBuf),
@@ -73,6 +74,7 @@ impl Display for Event {
                     delta.timestamp_ms
                 )
             }
+            Event::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
         }
     }
 }

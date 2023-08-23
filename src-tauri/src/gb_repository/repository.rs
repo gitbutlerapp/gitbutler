@@ -490,12 +490,6 @@ impl Repository {
         std::fs::remove_dir_all(self.session_path())
             .context("failed to remove session directory")?;
 
-        drop(_lock);
-
-        if let Err(e) = self.push() {
-            tracing::error!("{}: failed to push to remote: {:#}", self.project_id, e);
-        }
-
         let session = sessions::Session {
             hash: Some(commit_oid.to_string()),
             ..session.clone()
