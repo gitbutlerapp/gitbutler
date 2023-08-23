@@ -4,6 +4,7 @@ mod flush_session;
 mod git_file_change;
 mod index_handler;
 mod project_file_change;
+mod push_gitbutler_data;
 mod tick_handler;
 
 use anyhow::{Context, Result};
@@ -22,6 +23,7 @@ pub struct Handler {
     flush_session_handler: flush_session::Handler,
     fetch_project_handler: fetch_project_data::Handler,
     fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
+    push_gitbutler_handler: push_gitbutler_data::Handler,
     index_handler: index_handler::Handler,
 
     events_sender: app_events::Sender,
@@ -36,6 +38,7 @@ impl TryFrom<&AppHandle> for Handler {
             tick_handler: tick_handler::Handler::try_from(value)?,
             git_file_change_handler: git_file_change::Handler::try_from(value)?,
             flush_session_handler: flush_session::Handler::try_from(value)?,
+            push_gitbutler_handler: push_gitbutler_data::Handler::try_from(value)?,
             fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::try_from(value)?,
             index_handler: index_handler::Handler::try_from(value)?,
@@ -59,6 +62,11 @@ impl Handler {
                 .git_file_change_handler
                 .handle(path, project_id)
                 .context("failed to handle git file change event"),
+
+            events::Event::PushGitbutlerData(project_id) => self
+                .push_gitbutler_handler
+                .handle(project_id)
+                .context("failed to push gitbutler data"),
 
             events::Event::FetchGitbutlerData(project_id, tick) => self
                 .fetch_gitbutler_handler

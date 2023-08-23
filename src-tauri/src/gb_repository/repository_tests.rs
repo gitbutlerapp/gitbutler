@@ -356,6 +356,7 @@ fn test_remote_syncronization() -> Result<()> {
         }],
     )?;
     let session_one = gb_repo_one.flush()?.unwrap();
+    gb_repo_one.push().unwrap();
 
     // create second local project, fetch it and make sure session is there
     let repository_two = test_repository()?;
@@ -448,6 +449,7 @@ fn test_remote_sync_order() -> Result<()> {
         "Hello World",
     )?;
     let session_one_first = gb_repo_one.flush()?.unwrap();
+    gb_repo_one.push().unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
@@ -458,6 +460,7 @@ fn test_remote_sync_order() -> Result<()> {
         "Hello World",
     )?;
     let session_two_first = gb_repo_two.flush()?.unwrap();
+    gb_repo_two.push().unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
@@ -468,6 +471,7 @@ fn test_remote_sync_order() -> Result<()> {
         "Hello World again",
     )?;
     let session_one_second = gb_repo_one.flush()?.unwrap();
+    gb_repo_one.push().unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
@@ -478,6 +482,7 @@ fn test_remote_sync_order() -> Result<()> {
         "Hello World again",
     )?;
     let session_two_second = gb_repo_two.flush()?.unwrap();
+    gb_repo_two.push().unwrap();
 
     gb_repo_one.fetch()?;
     let sessions_one = gb_repo_one
