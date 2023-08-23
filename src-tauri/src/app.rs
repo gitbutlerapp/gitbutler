@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops, path, sync, time};
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
-use tokio::{spawn, sync::Mutex};
+use tokio::{sync::Mutex, task};
 
 use crate::{
     bookmarks, deltas, files, gb_repository, keys,
@@ -64,12 +64,12 @@ impl TryFrom<&AppHandle> for App {
 impl App {
     pub fn start_pty_server(&self) -> Result<()> {
         let self_ = self.clone();
-        spawn(async move {
+        task::Builder::new().name("pty-server").spawn(async move {
             let port = if cfg!(debug_assertions) { 7702 } else { 7703 };
             if let Err(e) = pty::start_server(port, self_).await {
                 tracing::error!("failed to start pty server: {:#}", e);
             }
-        });
+        })?;
         Ok(())
     }
 
@@ -106,12 +106,14 @@ impl App {
         let project_id = project.id.clone();
         let project_path = project.path.clone();
 
-        spawn(async move {
-            if let Err(e) = c_watcher.run(&project_path, &project_id).await {
-                tracing::error!("watcher error: {:#}", e);
-            }
-            tracing::info!("watcher stopped");
-        });
+        task::Builder::new()
+            .name(&format!("{} watcher", project_id))
+            .spawn(async move {
+                if let Err(e) = c_watcher.run(&project_path, &project_id).await {
+                    tracing::error!("watcher error: {:#}", e);
+                }
+                tracing::info!("watcher stopped");
+            })?;
 
         self.watchers
             .lock()

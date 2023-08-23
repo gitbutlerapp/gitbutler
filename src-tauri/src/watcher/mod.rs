@@ -9,7 +9,6 @@ pub use events::Event;
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 use tokio::{
-    spawn,
     sync::{
         mpsc::{unbounded_channel, UnboundedSender},
         Mutex,
@@ -88,53 +87,60 @@ impl WatcherInner {
     }
 
     pub async fn run<P: AsRef<path::Path>>(&self, path: P, project_id: &str) -> Result<()> {
-        let (tx, mut rx) = unbounded_channel();
-        self.proxy_tx.lock().await.replace(tx.clone());
+        let (proxy_tx, mut proxy_rx) = unbounded_channel();
+        self.proxy_tx.lock().await.replace(proxy_tx.clone());
 
-        spawn({
-            let dispatcher = self.dispatcher.clone();
-            let project_id = project_id.to_string();
-            let project_path = path.as_ref().to_path_buf();
-            let tx = tx.clone();
-            async move {
-                let mut dispatcher_rx = dispatcher
-                    .run(&project_id, &project_path)
-                    .expect("failed to start dispatcher");
-                while let Some(event) = dispatcher_rx.recv().await {
-                    if let Err(e) = tx.send(event.clone()) {
-                        tracing::error!("{}: failed to post event: {:#}", project_id, e);
-                    }
-                }
-            }
-        });
+        let dispatcher = self.dispatcher.clone();
+        let mut dispatcher_rx = dispatcher
+            .run(project_id, path.as_ref())
+            .context("failed to run dispatcher")?;
 
-        tx.send(Event::IndexAll(project_id.to_string()))
+        proxy_tx
+            .send(Event::IndexAll(project_id.to_string()))
             .context("failed to send event")?;
 
-        loop {
-            tokio::select! {
-                Some(event) = rx.recv() => {
-                    task::Builder::new().name(&event.to_string()).spawn_blocking({
-                        let project_id = project_id.to_string();
-                        let handler = self.handler.clone();
-                        let tx = tx.clone();
-                        let event = event.clone();
-                        move || {
-                            match handler.handle(&event) {
-                                Err(error) => tracing::error!("{}: failed to handle event {}: {:#}", project_id, event, error),
-                                Ok(events) => {
-                                    for e in events {
-                                        if let Err(e) = tx.send(e.clone()) {
-                                            tracing::error!("{}: failed to post event {}: {:#}", project_id, event, e);
-                                        } else {
-                                            tracing::info!("{}: sent response event: {}", project_id, event);
-                                        }
-                                    }
+        let handle_event = |event: &Event| -> Result<()> {
+            task::Builder::new()
+                .name(&format!("handle {}", event))
+                .spawn_blocking({
+                    let project_id = project_id.to_string();
+                    let handler = self.handler.clone();
+                    let tx = proxy_tx.clone();
+                    let event = event.clone();
+                    move || match handler.handle(&event) {
+                        Err(error) => tracing::error!(
+                            "{}: failed to handle event {}: {:#}",
+                            project_id,
+                            event,
+                            error
+                        ),
+                        Ok(events) => {
+                            for e in events {
+                                if let Err(e) = tx.send(e.clone()) {
+                                    tracing::error!(
+                                        "{}: failed to post event {}: {:#}",
+                                        project_id,
+                                        event,
+                                        e
+                                    );
+                                } else {
+                                    tracing::info!(
+                                        "{}: sent response event: {}",
+                                        project_id,
+                                        event
+                                    );
                                 }
                             }
                         }
-                    })?;
-                },
+                    }
+                })?;
+            Ok(())
+        };
+
+        loop {
+            tokio::select! {
+                Some(event) = dispatcher_rx.recv() => handle_event(&event)?,
+                Some(event) = proxy_rx.recv() => handle_event(&event)?,
                 _ = self.cancellation_token.cancelled() => {
                     if let Err(error) = self.dispatcher.stop() {
                         tracing::error!("{}: failed to stop dispatcher: {:#}", project_id, error);

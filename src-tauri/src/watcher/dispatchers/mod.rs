@@ -5,8 +5,9 @@ use std::{path, time};
 
 use anyhow::{Context, Result};
 use tokio::{
-    select, spawn,
+    select,
     sync::mpsc::{channel, Receiver},
+    task,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -61,7 +62,7 @@ impl Dispatcher {
 
         let (tx, rx) = channel(1);
         let project_id = project_id.to_owned();
-        spawn(async move {
+        task::Builder::new().name(&format!("{} dispatcher", project_id)).spawn(async move {
             loop {
                 select! {
                     _ = self.cancellation_token.cancelled() => {
@@ -80,7 +81,7 @@ impl Dispatcher {
                 }
             }
             tracing::info!("{}: dispatcher stopped", project_id);
-        });
+        })?;
 
         Ok(rx)
     }

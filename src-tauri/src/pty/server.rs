@@ -1,7 +1,9 @@
-use super::connection;
-use crate::app;
 use anyhow::{Context, Result};
-use tokio::net;
+use tokio::{net, task};
+
+use crate::app;
+
+use super::connection;
 
 pub async fn start_server(port: usize, app: app::App) -> Result<()> {
     let pty_ws_address = format!("127.0.0.1:{}", port);
@@ -13,11 +15,11 @@ pub async fn start_server(port: usize, app: app::App) -> Result<()> {
 
     while let Ok((stream, _)) = listener.accept().await {
         let app_clone = app.clone();
-        tokio::spawn(async {
+        task::Builder::new().name("pty-connection").spawn(async {
             if let Err(e) = connection::accept_connection(app_clone, stream).await {
                 tracing::error!("pty-ws: failed to accept connection {:#}", e);
             }
-        });
+        })?;
     }
 
     tracing::info!("pty-ws: server stopped");

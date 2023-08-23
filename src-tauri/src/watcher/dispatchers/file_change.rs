@@ -7,8 +7,8 @@ use anyhow::{Context, Result};
 use futures::executor::block_on;
 use notify::{Config, RecommendedWatcher, Watcher};
 use tokio::{
-    spawn,
     sync::mpsc::{channel, Receiver},
+    task,
 };
 
 use crate::watcher::events;
@@ -68,43 +68,45 @@ impl Dispatcher {
 
         let (tx, rx) = channel(1);
         let project_id = project_id.to_string();
-        spawn({
-            let path = path.to_path_buf();
-            let project_id = project_id.clone();
-            async move {
-                while let Some(file_path) = notify_rx.recv().await {
-                    match file_path.strip_prefix(&path) {
-                        Ok(relative_file_path) => {
-                            let event = if relative_file_path.starts_with(".git") {
-                                events::Event::GitFileChange(
-                                    project_id.to_string(),
-                                    relative_file_path
-                                        .strip_prefix(".git")
-                                        .unwrap()
-                                        .to_path_buf(),
-                                )
-                            } else {
-                                events::Event::ProjectFileChange(
-                                    project_id.to_string(),
-                                    relative_file_path.to_path_buf(),
-                                )
-                            };
-                            if let Err(e) = tx.send(event).await {
-                                tracing::error!(
-                                    "{}: failed to send file change event: {:#}",
-                                    project_id,
-                                    e
-                                );
+        task::Builder::new()
+            .name(&format!("{} file watcher", project_id))
+            .spawn({
+                let path = path.to_path_buf();
+                let project_id = project_id.clone();
+                async move {
+                    while let Some(file_path) = notify_rx.recv().await {
+                        match file_path.strip_prefix(&path) {
+                            Ok(relative_file_path) => {
+                                let event = if relative_file_path.starts_with(".git") {
+                                    events::Event::GitFileChange(
+                                        project_id.to_string(),
+                                        relative_file_path
+                                            .strip_prefix(".git")
+                                            .unwrap()
+                                            .to_path_buf(),
+                                    )
+                                } else {
+                                    events::Event::ProjectFileChange(
+                                        project_id.to_string(),
+                                        relative_file_path.to_path_buf(),
+                                    )
+                                };
+                                if let Err(e) = tx.send(event).await {
+                                    tracing::error!(
+                                        "{}: failed to send file change event: {:#}",
+                                        project_id,
+                                        e
+                                    );
+                                }
+                            }
+                            Err(err) => {
+                                tracing::error!("{}: failed to strip prefix: {:#}", project_id, err)
                             }
                         }
-                        Err(err) => {
-                            tracing::error!("{}: failed to strip prefix: {:#}", project_id, err)
-                        }
                     }
+                    tracing::info!("{}: file watcher stopped", project_id);
                 }
-                tracing::info!("{}: file watcher stopped", project_id);
-            }
-        });
+            })?;
 
         Ok(rx)
     }
