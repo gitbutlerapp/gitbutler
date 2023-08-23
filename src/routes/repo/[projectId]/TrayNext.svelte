@@ -363,8 +363,8 @@
 						<div
 							role="button"
 							tabindex="0"
-							on:click|capture={(e) => select(branch, i)}
-							on:keypress|capture={(e) => select(branch, i)}
+							on:click={() => select(branch, i)}
+							on:keypress={() => select(branch, i)}
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 							class="flex flex-col justify-between gap-1 border-b border-light-200 px-2 py-1 pt-2 last:border-b dark:border-dark-600"
 						>

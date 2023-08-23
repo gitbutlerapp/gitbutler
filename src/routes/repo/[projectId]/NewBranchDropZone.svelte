@@ -1,13 +1,8 @@
 <script lang="ts">
-	import { Button } from '$lib/components';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 
 	export let branchController: BranchController;
-
-	function handleNewVirtualBranch() {
-		branchController.createBranch({});
-	}
 </script>
 
 <div

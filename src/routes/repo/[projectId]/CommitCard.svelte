@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { formatDistanceToNow } from 'date-fns';
 	import type { Commit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 

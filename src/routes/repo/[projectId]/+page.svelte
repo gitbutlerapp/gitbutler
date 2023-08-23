@@ -1,13 +1,11 @@
 <script lang="ts">
 	import Board from './Board.svelte';
-	// import Tray from './Tray.svelte';
 	import TrayNext from './TrayNext.svelte';
 	import type { PageData } from './$types';
 	import { Button, Link } from '$lib/components';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext, onDestroy } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
-	import BottomPanel from './BottomPanel.svelte';
 	import { IconExternalLink } from '$lib/icons';
 	import {
 		getBaseBranchStore,
@@ -21,8 +19,6 @@
 	import { getFetchesStore } from '$lib/stores/fetches';
 	import { Code } from '$lib/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { Loading } from 'svelte-loadable-store';
-	// import TopBar from './topbar/TopBar.svelte';
 
 	export let data: PageData;
 	let { projectId, remoteBranchNames, project, cloud } = data;

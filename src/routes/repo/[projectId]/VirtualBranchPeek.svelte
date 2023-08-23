@@ -21,18 +21,6 @@
 			branchController.updateBranchNotes(branch.id, branch.notes);
 		}
 	}
-
-	function toggleBranch(branch: Branch | undefined) {
-		if (!branch) {
-			return;
-		} else if (!branch.baseCurrent) {
-			applyConflictedModal.show(branch);
-		} else if (branch.active) {
-			branchController.unapplyBranch(branch.id);
-		} else {
-			branchController.applyBranch(branch.id);
-		}
-	}
 </script>
 
 {#if branch != undefined}
