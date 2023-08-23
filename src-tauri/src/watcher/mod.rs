@@ -101,13 +101,9 @@ impl WatcherInner {
                     .run(&project_id, &project_path)
                     .expect("failed to start dispatcher");
                 while let Some(event) = dispatcher_rx.recv().await {
-                    let span =
-                        tracing::info_span!("proxying event from dispatcher", source = %event);
-                    let _guard = span.enter();
                     if let Err(e) = tx.send(event.clone()) {
                         tracing::error!("{}: failed to post event: {:#}", project_id, e);
                     }
-                    drop(_guard);
                 }
             }
         });

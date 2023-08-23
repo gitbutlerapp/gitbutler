@@ -1,10 +1,10 @@
-mod check_current_session;
 mod fetch_gitbutler_data;
 mod fetch_project_data;
 mod flush_session;
 mod git_file_change;
 mod index_handler;
 mod project_file_change;
+mod tick_handler;
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
@@ -18,7 +18,7 @@ use super::events;
 pub struct Handler {
     project_file_handler: project_file_change::Handler,
     git_file_change_handler: git_file_change::Handler,
-    check_current_session_handler: check_current_session::Handler,
+    tick_handler: tick_handler::Handler,
     flush_session_handler: flush_session::Handler,
     fetch_project_handler: fetch_project_data::Handler,
     fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
@@ -33,7 +33,7 @@ impl TryFrom<&AppHandle> for Handler {
         Ok(Self {
             events_sender: app_events::Sender::from(value),
             project_file_handler: project_file_change::Handler::try_from(value)?,
-            check_current_session_handler: check_current_session::Handler::try_from(value)?,
+            tick_handler: tick_handler::Handler::try_from(value)?,
             git_file_change_handler: git_file_change::Handler::try_from(value)?,
             flush_session_handler: flush_session::Handler::try_from(value)?,
             fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
@@ -65,45 +65,15 @@ impl Handler {
                 .handle(project_id, tick)
                 .context("failed to fetch gitbutler data"),
 
-            events::Event::Tick(project_id, tick) => {
-                let one = match self.check_current_session_handler.handle(project_id, tick) {
-                    Ok(events) => events,
-                    Err(err) => {
-                        tracing::error!(
-                            "{}: failed to check current session: {:#}",
-                            project_id,
-                            err
-                        );
-                        vec![]
-                    }
-                };
+            events::Event::FetchProjectData(project_id, tick) => self
+                .fetch_project_handler
+                .handle(project_id, tick)
+                .context("failed to fetch project data"),
 
-                let two = match self.fetch_project_handler.handle(project_id, tick) {
-                    Ok(events) => events,
-                    Err(err) => {
-                        tracing::error!("{}: failed to fetch project data: {:#}", project_id, err);
-                        vec![]
-                    }
-                };
-
-                let three = match self.fetch_gitbutler_handler.handle(project_id, tick) {
-                    Ok(events) => events,
-                    Err(err) => {
-                        tracing::error!(
-                            "{}: failed to fetch gitbutler data: {:#}",
-                            project_id,
-                            err
-                        );
-                        vec![]
-                    }
-                };
-
-                Ok(one
-                    .into_iter()
-                    .chain(two.into_iter())
-                    .chain(three.into_iter())
-                    .collect())
-            }
+            events::Event::Tick(project_id, tick) => self
+                .tick_handler
+                .handle(project_id, tick)
+                .context("failed to handle tick"),
 
             events::Event::Flush(project_id, session) => self
                 .flush_session_handler

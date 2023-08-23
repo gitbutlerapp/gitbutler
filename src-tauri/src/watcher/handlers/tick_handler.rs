@@ -41,22 +41,51 @@ impl Handler {
             self.user_store.clone(),
         )
         .context("failed to open repository")?;
-        match gb_repo
+
+        let project = match self.project_store.get_project(project_id)? {
+            None => return Ok(vec![]),
+            Some(project) => project,
+        };
+
+        let mut events = vec![];
+
+        if project
+            .gitbutler_data_last_fetched
+            .as_ref()
+            .map_or(Ok(true), |f| f.should_fetch(now))
+            .context("failed to check if gitbutler data should be fetched")?
+        {
+            events.push(events::Event::FetchGitbutlerData(
+                project_id.to_string(),
+                *now,
+            ));
+        }
+
+        if project
+            .project_data_last_fetched
+            .as_ref()
+            .map_or(Ok(true), |f| f.should_fetch(now))
+            .context("failed to check if project data should be fetched")?
+        {
+            events.push(events::Event::FetchProjectData(
+                project_id.to_string(),
+                *now,
+            ));
+        }
+
+        if let Some(current_session) = gb_repo
             .get_current_session()
             .context("failed to get current session")?
         {
-            None => Ok(vec![]),
-            Some(current_session) => {
-                if should_flush(now, &current_session)? {
-                    Ok(vec![events::Event::Flush(
-                        project_id.to_string(),
-                        current_session,
-                    )])
-                } else {
-                    Ok(vec![])
-                }
+            if should_flush(now, &current_session)? {
+                events.push(events::Event::Flush(
+                    project_id.to_string(),
+                    current_session,
+                ));
             }
         }
+
+        Ok(events)
     }
 }
 

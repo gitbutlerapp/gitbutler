@@ -8,6 +8,7 @@ pub enum Event {
     Flush(String, sessions::Session),
 
     FetchGitbutlerData(String, time::SystemTime),
+    FetchProjectData(String, time::SystemTime),
 
     GitFileChange(String, path::PathBuf),
 
@@ -38,6 +39,14 @@ impl Display for Event {
                 write!(
                     f,
                     "FetchGitbutlerData({}, {})",
+                    pid,
+                    ts.duration_since(time::UNIX_EPOCH).unwrap().as_millis()
+                )
+            }
+            Event::FetchProjectData(pid, ts) => {
+                write!(
+                    f,
+                    "FetchProjectData({}, {})",
                     pid,
                     ts.duration_since(time::UNIX_EPOCH).unwrap().as_millis()
                 )
