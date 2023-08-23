@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Board from './Board.svelte';
-	import TrayNext from './TrayNext.svelte';
+	import Tray from './Tray.svelte';
 	import type { PageData } from './$types';
 	import { Button, Link } from '$lib/components';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -95,7 +95,7 @@
 	{#if !$vbrachesState.isError}
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
-				<TrayNext
+				<Tray
 					{vbranchStore}
 					{remoteBranchStore}
 					{baseBranchStore}
