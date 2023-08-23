@@ -663,9 +663,17 @@ async fn main() {
 
             let app: app::App =
                 app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
-            app_handle.manage(app);
 
-            init(app_handle).expect("failed to init the app");
+            if let Some(user) = app.get_user().context("failed to get user")? {
+                sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
+            }
+
+            app.start_pty_server()
+                .context("failed to start pty server")?;
+
+            app.init().context("failed to init app")?;
+
+            app_handle.manage(app);
 
             Ok(())
         })
@@ -741,20 +749,6 @@ async fn main() {
             }
             _ => {}
         });
-}
-
-fn init(app_handle: tauri::AppHandle) -> Result<()> {
-    let app = app_handle.state::<app::App>();
-    if let Some(user) = app.get_user().context("failed to get user")? {
-        sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
-    }
-
-    app.start_pty_server()
-        .context("failed to start pty server")?;
-
-    app.init().context("failed to init app")?;
-
-    Ok(())
 }
 
 fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
