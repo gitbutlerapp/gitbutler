@@ -34,22 +34,6 @@ impl TryFrom<&AppHandle> for Handler {
 
 impl Handler {
     pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
-        let project = self
-            .project_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
-
-        if !project
-            .project_data_last_fetched
-            .as_ref()
-            .map_or(Ok(true), |r| r.should_fetch(now))?
-        {
-            return Ok(vec![]);
-        }
-
-        let project_repository = project_repository::Repository::open(&project)?;
-
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
@@ -71,6 +55,14 @@ impl Handler {
                 ..Default::default()
             })
             .context("failed to mark project as fetching")?;
+
+        let project = self
+            .project_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+
+        let project_repository = project_repository::Repository::open(&project)?;
 
         let fetch_result =
             if let Err(err) = project_repository.fetch(&default_target.remote_name, &key) {

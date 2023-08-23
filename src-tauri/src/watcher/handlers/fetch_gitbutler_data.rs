@@ -32,20 +32,6 @@ impl TryFrom<&AppHandle> for Handler {
 
 impl Handler {
     pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
-        let project = self
-            .project_storage
-            .get_project(project_id)
-            .context("failed to get project")?
-            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
-
-        if !project
-            .gitbutler_data_last_fetched
-            .as_ref()
-            .map_or(Ok(true), |r| r.should_fetch(now))?
-        {
-            return Ok(vec![]);
-        }
-
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
@@ -69,6 +55,12 @@ impl Handler {
                 ..Default::default()
             })
             .context("failed to mark project as fetching")?;
+
+        let project = self
+            .project_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 
         let fetch_result = if let Err(err) = gb_repo.fetch() {
             tracing::error!("{}: failed to fetch gitbutler data: {:#}", project_id, err);
