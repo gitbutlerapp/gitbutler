@@ -46,12 +46,12 @@
 		dragging = true;
 
 		if (direction == 'horizontal') {
-			if (!reverse) initial = e.clientX - viewport.scrollWidth;
-			if (reverse) initial = window.innerWidth - e.clientX - viewport.scrollWidth;
+			if (!reverse) initial = e.clientX - viewport.clientWidth;
+			if (reverse) initial = window.innerWidth - e.clientX - viewport.clientWidth;
 		}
 		if (direction == 'vertical') {
-			if (!reverse) initial = e.clientY - viewport.scrollHeight;
-			if (reverse) initial = window.innerHeight - e.clientY - viewport.scrollHeight;
+			if (!reverse) initial = e.clientY - viewport.clientHeight;
+			if (reverse) initial = window.innerHeight - e.clientY - viewport.clientHeight;
 		}
 
 		dispatch('resizing', true);
@@ -84,6 +84,7 @@
 
 	function onMouseUp() {
 		dragging = false;
+		hovering = false;
 		document.removeEventListener('mouseup', onMouseUp);
 		document.removeEventListener('mousemove', onMouseMove);
 		dispatch('resizing', false);
