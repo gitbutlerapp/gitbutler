@@ -2,8 +2,8 @@ use std::time;
 
 use anyhow::Result;
 use tokio::{
-    spawn,
     sync::mpsc::{channel, Receiver},
+    task,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -34,28 +34,30 @@ impl Dispatcher {
         let (tx, rx) = channel(1);
         let mut ticker = tokio::time::interval(interval);
 
-        spawn({
-            let project_id = project_id.to_string();
-            async move {
-                tracing::info!("{}: ticker started", project_id);
-                loop {
-                    ticker.tick().await;
-                    if self.cancellation_token.is_cancelled() {
-                        break;
+        task::Builder::new()
+            .name(&format!("{} ticker", project_id))
+            .spawn({
+                let project_id = project_id.to_string();
+                async move {
+                    tracing::info!("{}: ticker started", project_id);
+                    loop {
+                        ticker.tick().await;
+                        if self.cancellation_token.is_cancelled() {
+                            break;
+                        }
+                        if let Err(e) = tx
+                            .send(events::Event::Tick(
+                                project_id.to_string(),
+                                time::SystemTime::now(),
+                            ))
+                            .await
+                        {
+                            tracing::error!("{}: failed to send tick: {}", project_id, e);
+                        }
                     }
-                    if let Err(e) = tx
-                        .send(events::Event::Tick(
-                            project_id.to_string(),
-                            time::SystemTime::now(),
-                        ))
-                        .await
-                    {
-                        tracing::error!("{}: failed to send tick: {}", project_id, e);
-                    }
+                    tracing::info!("{}: ticker stopped", project_id);
                 }
-                tracing::info!("{}: ticker stopped", project_id);
-            }
-        });
+            })?;
 
         Ok(rx)
     }
@@ -72,7 +74,7 @@ mod tests {
         let dispatcher2 = dispatcher.clone();
         let mut rx = dispatcher2.run("test", Duration::from_millis(10)).unwrap();
 
-        spawn(async move {
+        tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
             dispatcher.stop().unwrap();
         });

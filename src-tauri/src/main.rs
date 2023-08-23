@@ -6,7 +6,6 @@ use std::{collections::HashMap, ops, path, time};
 use anyhow::{Context, Result};
 use futures::future::join_all;
 use tauri::{generate_context, Manager};
-use tokio::task::spawn_blocking;
 use tracing::instrument;
 
 use git_butler_tauri::*;
@@ -666,11 +665,7 @@ async fn main() {
                 app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
             app_handle.manage(app);
 
-            spawn_blocking(move || {
-                if let Err(e) = init(app_handle) {
-                    tracing::error!("failed to app: {:#}", e);
-                }
-            });
+            init(app_handle).expect("failed to init the app");
 
             Ok(())
         })
