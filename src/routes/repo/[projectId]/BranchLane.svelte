@@ -12,7 +12,7 @@
 	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import FileCardNext from './FileCardNext.svelte';
+	import FileCard from './FileCard.svelte';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { crossfade, fade } from 'svelte/transition';
@@ -388,7 +388,7 @@
 						{#if files.length > 0}
 							<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
 								{#each files as file (file.id)}
-									<FileCardNext
+									<FileCard
 										expanded={file.expanded}
 										conflicted={file.conflicted}
 										{file}
