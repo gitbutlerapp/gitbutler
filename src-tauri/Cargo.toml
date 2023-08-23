@@ -22,7 +22,7 @@ notify = { version = "6.0.1" }
 serde_json = {version = "1.0.104", features = [ "std", "arbitrary_precision" ] }
 uuid = "1.4.1"
 git2 = { version = "0.17.2", features = ["vendored-openssl", "vendored-libgit2"] }
-filetime = "0.2.19"
+filetime = "0.2.22"
 sha2 = "0.10.6"
 sentry = {version = "0.31.5", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
 walkdir = "2.3.2"
