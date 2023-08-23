@@ -548,7 +548,7 @@
 		</div>
 	</div>
 	<Resizer
-		minWidth={400}
+		minWidth={180}
 		viewport={rsViewport}
 		direction="horizontal"
 		class="z-30"
