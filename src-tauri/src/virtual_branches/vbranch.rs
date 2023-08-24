@@ -10,7 +10,6 @@ use serde::Serialize;
 
 use uuid::Uuid;
 
-use crate::virtual_branches::target_to_base_branch;
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
@@ -767,15 +766,10 @@ pub fn list_virtual_branches(
         None => return Ok(vec![]),
     };
 
-    let base_data = target_to_base_branch(project_repository, &default_target)?;
+    let wd_tree = get_wd_tree(&project_repository.git_repository)?;
 
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
-
-    let repo = &project_repository.git_repository;
-    let wd_tree = get_wd_tree(repo)?;
-
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
-
     for (branch, files) in &statuses {
         let file_hunks = files
             .iter()
@@ -802,10 +796,12 @@ pub fn list_virtual_branches(
         // TODO: refactor this to instead have branch.commits[].files[] structure
         let vfiles = if default_target.sha != branch.head {
             let vtree = write_tree(project_repository, &default_target, files)?;
-            let repo = &project_repository.git_repository;
             // get the trees
-            let tree_old = repo.find_commit(branch.head)?.tree()?;
-            let vtree_tree = repo.find_tree(vtree)?;
+            let tree_old = project_repository
+                .git_repository
+                .find_commit(branch.head)?
+                .tree()?;
+            let vtree_tree = project_repository.git_repository.find_tree(vtree)?;
 
             // do a diff between branch.head and the tree we _would_ commit
             let diff = diff::trees(project_repository, &tree_old, &vtree_tree)
@@ -959,46 +955,7 @@ pub fn list_virtual_branches(
             }
         }
 
-        // figure out if this branch is integrated into the target
-        let mut integrated = false;
-        // can only be true if there are upstream commits
-        if base_data.behind > 0 && base_data.base_sha != branch.head.to_string() {
-            let target_sha = git2::Oid::from_str(&base_data.current_sha)?;
-            let merge_base = repo.merge_base(target_sha, branch.head)?;
-            if merge_base != branch.head {
-                let head_tree = repo.find_tree(branch.tree)?;
-                let merge_commit = repo.find_commit(merge_base)?;
-                let merge_tree = merge_commit.tree()?;
-                let upstream = repo.find_commit(target_sha)?;
-                let upstream_tree = upstream.tree()?;
-                let upstream_tree_oid = upstream_tree.id();
-
-                // try to merge our tree into the upstream tree
-                let mut merge_index = repo
-                    .merge_trees(
-                        &merge_tree,
-                        &upstream_tree,
-                        &head_tree,
-                        Some(&git2::MergeOptions::new()),
-                    )
-                    .context("failed to merge trees")?;
-
-                if !merge_index.has_conflicts() {
-                    // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
-                    let merge_tree_oid = merge_index
-                        .write_tree_to(repo)
-                        .context("failed to write tree")?;
-                    // then the vbranch is fully merged, so delete it
-                    if merge_tree_oid == upstream_tree_oid {
-                        integrated = true;
-                    }
-                }
-            } else {
-                // merge base is the same as the branch head, so the branch is fully merged
-                integrated = true;
-            }
-        }
-
+        let integrated = is_branch_integrated(project_repository, &default_target, branch)?;
         let branch = VirtualBranch {
             id: branch.id.to_string(),
             name: branch.name.to_string(),
@@ -2018,4 +1975,70 @@ pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<(
         .collect::<Result<Vec<_>, _>>()
         .context("failed to write branches")?;
     Ok(())
+}
+
+fn is_branch_integrated(
+    project_repository: &project_repository::Repository,
+    target: &target::Target,
+    branch: &branch::Branch,
+) -> Result<bool> {
+    let remote_branch = project_repository
+        .git_repository
+        .find_branch(&target.branch_name, git2::BranchType::Remote)?;
+    let remote_head = remote_branch.get().peel_to_commit()?;
+    let upstream_commits = project_repository.l(
+        remote_head.id(),
+        project_repository::LogUntil::Commit(target.sha),
+    )?;
+
+    if target.sha.eq(&branch.head) {
+        // could not be integrated if heads are the same.
+        return Ok(false);
+    }
+
+    if upstream_commits.is_empty() {
+        // could not be integrated if there is nothing new upstream.
+        return Ok(false);
+    }
+
+    let merge_base = project_repository
+        .git_repository
+        .merge_base(target.sha, branch.head)?;
+    if merge_base.eq(&branch.head) {
+        // if merge branch is the same as branch head and there are upstream commits
+        // then it's integrated
+        return Ok(true);
+    }
+
+    let head_tree = project_repository.git_repository.find_tree(branch.tree)?;
+    let merge_commit = project_repository.git_repository.find_commit(merge_base)?;
+    let merge_tree = merge_commit.tree()?;
+    let upstream = project_repository
+        .git_repository
+        .find_commit(remote_head.id())?;
+    let upstream_tree = upstream.tree()?;
+    let upstream_tree_oid = upstream_tree.id();
+
+    // try to merge our tree into the upstream tree
+    let mut merge_index = project_repository
+        .git_repository
+        .merge_trees(
+            &merge_tree,
+            &upstream_tree,
+            &head_tree,
+            Some(&git2::MergeOptions::new()),
+        )
+        .context("failed to merge trees")?;
+
+    if merge_index.has_conflicts() {
+        return Ok(false);
+    }
+
+    let merge_tree_oid = merge_index
+        .write_tree_to(&project_repository.git_repository)
+        .context("failed to write tree")?;
+
+    // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
+    // then the vbranch is fully merged
+    Ok(merge_tree_oid == upstream_tree_oid)
 }
