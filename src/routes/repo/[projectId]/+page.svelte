@@ -19,6 +19,7 @@
 	import { getFetchesStore } from '$lib/stores/fetches';
 	import { Code } from '$lib/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
+	import { projectHttpsWarningBannerDismissed } from '$lib/config/perpetualConfig';
 
 	export let data: PageData;
 	let { projectId, remoteBranchNames, project, cloud } = data;
@@ -57,6 +58,8 @@
 		remoteBranchStore,
 		baseBranchStore
 	);
+
+	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
 
 	$: sessionId = $sessionsStore?.at(-1)?.id;
 	$: updateDeltasStore(sessionId); // has to come before `getVirtualBranchStore`
@@ -132,6 +135,30 @@
 				remoteUrl={$baseBranchStore?.remoteUrl}
 				remoteBranches={$remoteBranchStore}
 			/> -->
+
+				{#if $baseBranchStore?.remoteUrl.startsWith('https') && !$httpsWarningBannerDismissed}
+					<div class="flex items-center bg-yellow-200/70 px-2 py-1 dark:bg-yellow-700/70">
+						<div class="flex flex-grow">
+							HTTPS remote detected. In order to push & fetch, you may need to&nbsp;
+							<a target="_blank" rel="noreferrer" class="font-bold" href="/user">
+								set up
+							</a>&nbsp;an SSH key (
+							<a
+								target="_blank"
+								rel="noreferrer"
+								class="font-bold"
+								href="https://docs.gitbutler.com/features/virtual-branches/pushing-and-fetching#the-ssh-keys"
+							>
+								docs
+							</a>
+							&nbsp;
+							<IconExternalLink class="h-4 w-4" />
+							).
+						</div>
+
+						<button on:click={() => httpsWarningBannerDismissed.set(true)}>Dismiss</button>
+					</div>
+				{/if}
 				<div
 					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-none bg-light-300 dark:bg-dark-1100"
 				>
