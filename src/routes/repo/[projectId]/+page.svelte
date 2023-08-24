@@ -19,7 +19,7 @@
 	import { getFetchesStore } from '$lib/stores/fetches';
 	import { Code } from '$lib/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { projectHttpsWarningBannerDismissed } from '$lib/config/perpetualConfig';
+	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 
 	export let data: PageData;
 	let { projectId, remoteBranchNames, project, cloud } = data;
@@ -140,7 +140,7 @@
 					<div class="flex items-center bg-yellow-200/70 px-2 py-1 dark:bg-yellow-700/70">
 						<div class="flex flex-grow">
 							HTTPS remote detected. In order to push & fetch, you may need to&nbsp;
-							<a target="_blank" rel="noreferrer" class="font-bold" href="/user">
+							<a class="font-bold" href="/user">
 								set up
 							</a>&nbsp;an SSH key (
 							<a
