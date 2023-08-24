@@ -6,6 +6,8 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
+	import { filesToFileTree } from '$lib/vbranches/filetree';
+	import FileTree from './FileTree.svelte';
 
 	export let branch: Branch | undefined;
 	export let branchController: BranchController;
@@ -77,11 +79,19 @@
 				bind:value={branch.notes}
 				on:change={handleUpdateNotes}
 				name="commit-description"
-				class="quick-commit-input outline-none-important w-full resize-none rounded border border-zinc-100 bg-transparent p-2 text-zinc-800"
+				class="quick-commit-input outline-none-important w-full resize-none rounded border border-light-200 bg-transparent p-2 text-light-900 dark:border-dark-200 dark:text-dark-100"
 				placeholder="Branch notes (optional)"
 				rows={notesRows}
 			/>
 		</div>
+		{#if branch.files}
+			<div>
+				<p class="mb-2 font-semibold">Changed files</p>
+				{#each filesToFileTree(branch.files) as node}
+					<FileTree name={node.name} expanded={true} nodes={node.children} />
+				{/each}
+			</div>
+		{/if}
 		{#if branch.commits && branch.commits.length > 0}
 			<div class="flex w-full flex-col gap-y-2">
 				{#each branch.commits as commit}
