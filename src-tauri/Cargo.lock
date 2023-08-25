@@ -1545,6 +1545,7 @@ dependencies = [
  "rand 0.8.5",
  "refinery",
  "reqwest",
+ "rsevents-extra",
  "rusqlite",
  "rustix",
  "sentry",
@@ -3819,6 +3820,24 @@ dependencies = [
  "smallvec",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rsevents"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8e29769fda0194d58e06d876d82337aac382415df547f073f44ffea0bb0c651"
+dependencies = [
+ "parking_lot_core",
+]
+
+[[package]]
+name = "rsevents-extra"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ff64e850751883803e4b4837a37fd5d349d9cea4fe665df3c16887a08e936e4"
+dependencies = [
+ "rsevents",
 ]
 
 [[package]]

@@ -1,6 +1,9 @@
+use std::collections::HashMap;
 use std::path;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
+use rsevents_extra::Semaphore;
 use tauri::AppHandle;
 
 use crate::{gb_repository, projects, users};
@@ -9,12 +12,34 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
-    local_data_dir: path::PathBuf,
-    project_storage: projects::Storage,
-    user_storage: users::Storage,
+    inner: Arc<HandlerInner>,
 }
 
 impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            inner: Arc::new(HandlerInner::try_from(value)?),
+        })
+    }
+}
+
+impl Handler {
+    pub fn handle(&self, project_id: &str) -> Result<Vec<events::Event>> {
+        self.inner.handle(project_id)
+    }
+}
+
+struct HandlerInner {
+    local_data_dir: path::PathBuf,
+    project_storage: projects::Storage,
+    user_storage: users::Storage,
+
+    semaphores: Arc<Mutex<HashMap<String, Semaphore>>>,
+}
+
+impl TryFrom<&AppHandle> for HandlerInner {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
@@ -26,12 +51,20 @@ impl TryFrom<&AppHandle> for Handler {
             local_data_dir: local_data_dir.to_path_buf(),
             project_storage: projects::Storage::try_from(value)?,
             user_storage: users::Storage::try_from(value)?,
+            semaphores: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 }
 
-impl Handler {
+impl HandlerInner {
     pub fn handle(&self, project_id: &str) -> Result<Vec<events::Event>> {
+        // one push at a time
+        let mut semaphores = self.semaphores.lock().unwrap();
+        let _guard = semaphores
+            .entry(project_id.to_string())
+            .or_insert_with(|| Semaphore::new(0, 1))
+            .wait();
+
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
             project_id,
