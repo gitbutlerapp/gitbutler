@@ -60,7 +60,6 @@ rustix = "0.38.8"
 backoff = "0.4.0"
 byteorder = "1.4.3"
 num_cpus = "1.16.0"
-rsevents-extra = "0.2.2"
 
 [features]
 # by default Tauri runs in production mode
