@@ -90,7 +90,7 @@
 		{viewport}
 		direction="horizontal"
 		class="z-30"
-		minWidth={300}
+		minWidth={200}
 		on:width={(e) => {
 			userSettings.update((s) => ({
 				...s,
