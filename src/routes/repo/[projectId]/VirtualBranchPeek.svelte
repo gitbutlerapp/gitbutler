@@ -84,14 +84,16 @@
 				rows={notesRows}
 			/>
 		</div>
-		{#if branch.files}
-			<div>
-				<p class="mb-2 font-semibold">Changed files</p>
+		<div class="w-full overflow-hidden">
+			<p class="mb-1 w-full overflow-hidden font-semibold">Changed files</p>
+			{#if branch.files && branch.files.length > 0}
 				{#each filesToFileTree(branch.files) as node}
 					<FileTree name={node.name} expanded={true} nodes={node.children} />
 				{/each}
-			</div>
-		{/if}
+			{:else}
+				<p class="text-sm">This virtual branch has no changes.</p>
+			{/if}
+		</div>
 		{#if branch.commits && branch.commits.length > 0}
 			<div class="flex w-full flex-col gap-y-2">
 				{#each branch.commits as commit}
