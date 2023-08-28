@@ -81,6 +81,7 @@
 </script>
 
 <div
+	id={`file-${file.id}`}
 	draggable={!isFileLocked}
 	use:dzTrigger={{ type: dzType }}
 	on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', getAllHunksOwnership())}
@@ -282,3 +283,26 @@
 		{/if}
 	</div>
 </div>
+
+<style lang="postcss">
+	@keyframes wiggle {
+		0% {
+			transform: rotate(0deg);
+		}
+		40% {
+			transform: rotate(0deg);
+		}
+		60% {
+			transform: rotate(2deg);
+		}
+		80% {
+			transform: rotate(-2deg);
+		}
+		100% {
+			transform: rotate(0deg);
+		}
+	}
+	:global(.wiggle) {
+		animation: wiggle 0.5s infinite;
+	}
+</style>
