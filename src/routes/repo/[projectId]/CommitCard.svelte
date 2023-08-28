@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { open } from '@tauri-apps/api/shell';
 	import type { Commit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 
@@ -11,7 +12,15 @@
 >
 	<div class="mb-1 truncate">
 		{#if url}
-			<a href={url} target="_blank" title="Open in browser">
+			<!-- on:click required when there is a stopPropagation on a parent -->
+			<a
+				href={url}
+				on:click={() => {
+					if (url) open(url);
+				}}
+				target="_blank"
+				title="Open in browser"
+			>
 				{commit.description}
 			</a>
 		{:else}
