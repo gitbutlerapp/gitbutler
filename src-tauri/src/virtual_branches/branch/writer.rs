@@ -106,9 +106,7 @@ impl<'writer> BranchWriter<'writer> {
 mod tests {
     use std::fs;
 
-    use tempfile::tempdir;
-
-    use crate::{projects, users, virtual_branches::branch};
+    use crate::{projects, test_utils, users, virtual_branches::branch};
 
     use super::*;
 
@@ -150,29 +148,12 @@ mod tests {
         }
     }
 
-    fn test_repository() -> Result<git2::Repository> {
-        let path = tempdir()?.path().to_str().unwrap().to_string();
-        let repository = git2::Repository::init(path)?;
-        let mut index = repository.index()?;
-        let oid = index.write_tree()?;
-        let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        repository.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "Initial commit",
-            &repository.find_tree(oid)?,
-            &[],
-        )?;
-        Ok(repository)
-    }
-
     #[test]
     fn test_write_branch() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let gb_repo_path = test_utils::temp_dir();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -235,10 +216,10 @@ mod tests {
 
     #[test]
     fn test_should_create_session() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let gb_repo_path = test_utils::temp_dir();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -257,10 +238,10 @@ mod tests {
 
     #[test]
     fn test_should_update() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let gb_repo_path = test_utils::temp_dir();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
