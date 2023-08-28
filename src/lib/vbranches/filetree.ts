@@ -25,9 +25,7 @@ function createNode(acc: TreeNode, pathParts: string[]) {
 }
 
 export function sortChildren(node: TreeNode) {
-	console.log(node.name);
 	node.children.sort((a, b) => {
-		console.log(a.file, b.file);
 		if (a.file && !b.file) {
 			return 1;
 		} else if (!a.file && b.file) {
