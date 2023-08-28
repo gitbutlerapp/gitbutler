@@ -37,16 +37,20 @@ test('creates a file tree', () => {
 		})
 	];
 	const fileTree = filesToFileTree(files);
-	expect(fileTree).toHaveLength(2);
+	const children = fileTree.children;
+	expect(children).toHaveLength(2);
 
-	expect(fileTree[0].name).toEqual('test');
-	expect(fileTree[0].children[0].name).toEqual('foo.py');
-	expect(fileTree[0].children[0].file).toEqual(files[0]);
-	expect(fileTree[0].children[1].name).toEqual('bar.rs');
-	expect(fileTree[0].children[1].file).toEqual(files[1]);
+	// Note that the result is sorted
+	//  - folders first
+	//  - then alphanumerically
+	expect(children[1].name).toEqual('test');
+	expect(children[1].children[0].name).toEqual('bar.rs');
+	expect(children[1].children[0].file).toEqual(files[1]);
+	expect(children[1].children[1].name).toEqual('foo.py');
+	expect(children[1].children[1].file).toEqual(files[0]);
 
-	expect(fileTree[1].name).toEqual('src');
-	expect(fileTree[1].children[0].name).toEqual('hello');
-	expect(fileTree[1].children[0].children[0].name).toEqual('world.txt');
-	expect(fileTree[1].children[0].children[0].file).toEqual(files[2]);
+	expect(children[0].name).toEqual('src');
+	expect(children[0].children[0].name).toEqual('hello');
+	expect(children[0].children[0].children[0].name).toEqual('world.txt');
+	expect(children[0].children[0].children[0].file).toEqual(files[2]);
 });
