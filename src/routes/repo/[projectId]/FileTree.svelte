@@ -30,7 +30,16 @@
 {:else if node.file}
 	{@const { status, added, removed } = node.file.getSummary()}
 	<!-- Node is a file -->
-	<div class="flex w-full items-center gap-x-2 py-0 text-left">
+	<button
+		class="flex w-full items-center gap-x-2 py-0 text-left"
+		on:click={() => {
+			const el = document.getElementById('file-' + node.file?.id);
+			console.log(el);
+			el?.scrollIntoView({ behavior: 'smooth' });
+			setTimeout(() => el?.classList.add('wiggle'), 50);
+			setTimeout(() => el?.classList.remove('wiggle'), 550);
+		}}
+	>
 		<div class="w-4 shrink-0 text-center">
 			<IconFile class="h-4 w-4" />
 		</div>
@@ -53,7 +62,7 @@
 				-{removed}
 			</span>
 		</div>
-	</div>
+	</button>
 {:else if node.children.length > 0}
 	<!-- Node is a folder -->
 	<button class="flex w-full items-center py-0 text-left" class:expanded on:click={toggle}>

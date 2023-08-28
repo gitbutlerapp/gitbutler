@@ -24,6 +24,10 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import lscache from 'lscache';
+	import FileTree from './FileTree.svelte';
+	import { filesToFileTree } from '$lib/vbranches/filetree';
+	import IconTriangleUp from '$lib/icons/IconTriangleUp.svelte';
+	import IconTriangleDown from '$lib/icons/IconTriangleDown.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -70,17 +74,23 @@
 	let allExpanded: boolean | undefined;
 	let maximized = false;
 	let isPushing = false;
+	let treeExpanded = false;
 	let popupMenu: PopupMenu;
 	let meatballButton: HTMLButtonElement;
 	let textAreaInput: HTMLTextAreaElement;
 	let viewport: Element;
 	let contents: Element;
 	let rsViewport: HTMLElement;
+	let thViewport: HTMLElement;
+	let thContents: HTMLElement;
 	let laneWidth: number;
+	let treeHeight: number;
 
 	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
 	const laneWidthKey = 'laneWidth:';
+	const treeHeightKey = 'treeHeight:';
+	const treeExpandedKey = 'treeExpanded:';
 
 	function commit() {
 		branchController.commitBranch(branchId, commitMessage);
@@ -96,6 +106,8 @@
 	onMount(() => {
 		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branchId) ?? $userSettings.defaultLaneWidth;
+		treeHeight = lscache.get(treeHeightKey + branchId) ?? $userSettings.defaultTreeHeight;
+		treeExpanded = Boolean(lscache.get(treeExpandedKey + branchId));
 	});
 
 	$: {
@@ -363,7 +375,52 @@
 				{/if}
 			</div>
 		</div>
-
+		{#if files.length >= 2}
+			<div
+				class="border-b border-t border-light-300 bg-light-50 dark:border-dark-500 dark:bg-dark-800"
+			>
+				<button
+					class="flex w-full items-center gap-x-4 py-0 text-left"
+					on:click|stopPropagation={() => {
+						treeExpanded = !treeExpanded;
+						lscache.set(treeExpandedKey + branchId, treeExpanded);
+					}}
+				>
+					<div class="flex-grow p-2 font-semibold">Changed files ({files.length})</div>
+					<div class="pr-2">
+						{#if treeExpanded}
+							<IconTriangleUp />
+						{:else}
+							<IconTriangleDown />
+						{/if}
+					</div>
+				</button>
+				{#if treeExpanded}
+					<div class="relative" transition:slide={{ duration: 250 }}>
+						<div
+							bind:this={thViewport}
+							style:height={`${treeHeight}px`}
+							class="hide-native-scrollbar relative shrink-0 overflow-scroll overscroll-none"
+						>
+							<div bind:this={thContents} class="px-2">
+								<FileTree node={filesToFileTree(files)} isRoot={true} />
+							</div>
+						</div>
+						<Scrollbar viewport={thViewport} contents={thContents} width="0.4rem" />
+					</div>
+				{/if}
+			</div>
+			<Resizer
+				minHeight={100}
+				viewport={thViewport}
+				direction="vertical"
+				class="z-30"
+				on:height={(e) => {
+					treeHeight = e.detail;
+					lscache.set(treeHeightKey + branchId, e.detail, 7 * 1440); // 7 day ttl
+				}}
+			/>
+		{/if}
 		<div class="relative flex flex-grow overflow-y-hidden" class:opacity-40={integrated}>
 			<div
 				bind:this={viewport}
