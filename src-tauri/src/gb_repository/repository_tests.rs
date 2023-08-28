@@ -10,23 +10,6 @@ fn remote_repository() -> Result<git2::Repository> {
     Ok(repository)
 }
 
-fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
-    let mut index = repository.index()?;
-    index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
-    index.write()?;
-    let oid = index.write_tree()?;
-    let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    let commit_oid = repository.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        "some commit",
-        &repository.find_tree(oid)?,
-        &[&repository.find_commit(repository.refname_to_id("HEAD")?)?],
-    )?;
-    Ok(commit_oid)
-}
-
 #[test]
 fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
     let repository = test_utils::test_repository();
@@ -98,7 +81,7 @@ fn test_init_on_non_empty_repository() -> Result<()> {
     let user_store = users::Storage::from(&local_app_data);
 
     std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
 
@@ -116,7 +99,7 @@ fn test_flush_on_existing_repository() -> Result<()> {
     let user_store = users::Storage::from(&local_app_data);
 
     std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     gb_repository::Repository::open(
         gb_repo_path.clone(),

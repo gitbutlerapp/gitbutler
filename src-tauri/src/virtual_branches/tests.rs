@@ -47,23 +47,6 @@ fn new_test_deps() -> Result<TestDeps> {
     })
 }
 
-fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
-    let mut index = repository.index()?;
-    index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
-    index.write()?;
-    let oid = index.write_tree()?;
-    let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    let commit_oid = repository.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        "some commit",
-        &repository.find_tree(oid)?,
-        &[&repository.find_commit(repository.refname_to_id("HEAD")?)?],
-    )?;
-    Ok(commit_oid)
-}
-
 fn set_test_target(
     gb_repo: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
@@ -107,7 +90,7 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "line5\nline6\nline7\nline8\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -181,7 +164,7 @@ fn test_track_binary_files() -> Result<()> {
     ];
     let mut file = fs::File::create(std::path::Path::new(&project.path).join("image.bin"))?;
     file.write_all(&image_data)?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -631,7 +614,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -744,7 +727,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -857,7 +840,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
             std::path::Path::new(&project.path).join(file_path),
             "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
         )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -951,7 +934,7 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
             std::path::Path::new(&project.path).join(file_path),
             "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\n",
         )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -1015,7 +998,7 @@ fn test_update_base_branch_base() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "line5\nline6\nline7\nline8\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -1036,7 +1019,7 @@ fn test_update_base_branch_base() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
     // add a commit to the target branch it's pointing to so there is something "upstream"
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let up_target = repository.head().unwrap().target().unwrap();
     //update repo ref refs/remotes/origin/master to up_target oid
     repository.reference(
@@ -1123,7 +1106,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -1145,7 +1128,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
     // add a commit to the target branch it's pointing to so there is something "upstream"
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let up_target = repository.head().unwrap().target().unwrap();
 
     //update repo ref refs/remotes/origin/master to up_target oid
@@ -1205,7 +1188,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let gb_repo =
         gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
@@ -1229,7 +1212,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
     // add a commit to the target branch it's pointing to so there is something "upstream"
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let up_target = repository.head().unwrap().target().unwrap();
 
     //update repo ref refs/remotes/origin/master to up_target oid
@@ -1287,7 +1270,7 @@ fn test_update_base_branch_no_commits_no_conflict() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -1301,7 +1284,7 @@ fn test_update_base_branch_no_commits_no_conflict() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
     // add a commit to the target branch it's pointing to so there is something "upstream"
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let up_target = repository.head().unwrap().target().unwrap();
 
     //update repo ref refs/remotes/origin/master to up_target oid
@@ -1384,7 +1367,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path3),
         "line1\nline2\nfile3\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
         branch_name: "origin/master".to_string(),
@@ -1410,7 +1393,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path3),
         "line1\nline2\nfile3\nupstream\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let up_target = repository.head().unwrap().target().unwrap();
 
     //update repo ref refs/remotes/origin/master to up_target oid
@@ -1706,7 +1689,7 @@ fn test_apply_unapply_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -1800,7 +1783,7 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -1879,7 +1862,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -1928,7 +1911,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let up_target = repository.head().unwrap().target().unwrap();
     repository.reference(
         "refs/remotes/origin/remote_branch",
@@ -1947,7 +1930,7 @@ fn test_detect_mergeable_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path3),
         "file3\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let up_target = repository.head().unwrap().target().unwrap();
     repository.reference(
         "refs/remotes/origin/remote_branch2",
@@ -2047,7 +2030,7 @@ fn test_detect_remote_commits() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -2131,7 +2114,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -2142,7 +2125,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nbranch\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let upstream: project_repository::branch::Name = "refs/remotes/origin/branch1".parse().unwrap();
 
@@ -2256,7 +2239,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let base_commit = repository.head().unwrap().target().unwrap();
 
@@ -2264,7 +2247,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -2282,7 +2265,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\nremote",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let remote_commit = repository.head().unwrap().target().unwrap();
 
     let remote_branch: project_repository::branch::Name =
@@ -2369,7 +2352,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path3),
         "file3\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let base_commit = repository.head().unwrap().target().unwrap();
 
@@ -2377,7 +2360,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "file1\nversion2\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let upstream_commit = repository.head().unwrap().target().unwrap();
     repository.reference(
@@ -2499,7 +2482,7 @@ fn test_partial_commit() -> Result<()> {
             std::path::Path::new(&project.path).join(file_path),
             "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
         )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -2624,7 +2607,7 @@ fn test_commit_add_and_delete_files() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let commit1_oid = repository.head().unwrap().target().unwrap();
     let commit1 = repository.find_commit(commit1_oid).unwrap();
@@ -2689,7 +2672,7 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -2814,7 +2797,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let base_commit = repository.head().unwrap().target().unwrap();
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -2834,7 +2817,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let upstream_commit = repository.head().unwrap().target().unwrap();
     repository.reference(
@@ -2856,7 +2839,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\nbranch",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let branch_commit = repository.head().unwrap().target().unwrap();
     let branch_commit_obj = repository.find_commit(branch_commit)?;
 
@@ -2949,7 +2932,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let base_commit = repository.head().unwrap().target().unwrap();
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -2969,7 +2952,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     let upstream_commit = repository.head().unwrap().target().unwrap();
     repository.reference(
@@ -2991,7 +2974,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\nbranch",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let branch_commit = repository.head().unwrap().target().unwrap();
     let branch_commit_obj = repository.find_commit(branch_commit)?;
 
@@ -3119,7 +3102,7 @@ fn test_apply_conflicting_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
 
@@ -3132,7 +3115,7 @@ fn test_apply_conflicting_vbranch() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path2),
         "file2\nbranch\n",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     let branch_commit = repository.head().unwrap().target().unwrap();
     let branch_commit_obj = repository.find_commit(branch_commit)?;
 
@@ -3183,12 +3166,12 @@ fn test_verify_branch_commits_to_integration() -> Result<()> {
     //  write two commits
     let file_path2 = std::path::Path::new("test2.txt");
     std::fs::write(std::path::Path::new(&project.path).join(file_path2), "file")?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
     std::fs::write(
         std::path::Path::new(&project.path).join(file_path2),
         "update",
     )?;
-    commit_all(&repository)?;
+    test_utils::commit_all(&repository);
 
     // verify puts commits onto the virtual branch
     assert!(integration::verify_branch(&gb_repo, &project_repository).is_ok());

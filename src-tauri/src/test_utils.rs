@@ -26,3 +26,30 @@ pub fn test_repository() -> git2::Repository {
         .expect("failed to commit");
     repository
 }
+
+pub fn commit_all(repository: &git2::Repository) -> git2::Oid {
+    let mut index = repository.index().expect("failed to get index");
+    index
+        .add_all(["."], git2::IndexAddOption::DEFAULT, None)
+        .expect("failed to add all");
+    index.write().expect("failed to write index");
+    let oid = index.write_tree().expect("failed to write tree");
+    let signature = git2::Signature::now("test", "test@email.com").unwrap();
+    let commit_oid = repository
+        .commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            "some commit",
+            &repository.find_tree(oid).expect("failed to find tree"),
+            &[&repository
+                .find_commit(
+                    repository
+                        .refname_to_id("HEAD")
+                        .expect("failed to get head"),
+                )
+                .expect("failed to find commit")],
+        )
+        .expect("failed to commit");
+    commit_oid
+}

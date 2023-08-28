@@ -279,23 +279,6 @@ mod tests {
 
     use crate::test_utils;
 
-    fn commit(repository: &git2::Repository) -> Result<git2::Oid> {
-        let mut index = repository.index()?;
-        index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
-        index.write()?;
-        let oid = index.write_tree()?;
-        let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        let commit_oid = repository.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "some commit",
-            &repository.find_tree(oid)?,
-            &[&repository.find_commit(repository.refname_to_id("HEAD")?)?],
-        )?;
-        Ok(commit_oid)
-    }
-
     #[test]
     fn test_directory_reader_is_dir() -> Result<()> {
         let dir = test_utils::temp_dir();
@@ -331,7 +314,7 @@ mod tests {
             repository.path().parent().unwrap().join("dir/test.txt"),
             "test",
         )?;
-        let oid = commit(&repository)?;
+        let oid = test_utils::commit_all(&repository);
 
         let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
         assert!(reader.is_dir("dir"));
@@ -347,7 +330,7 @@ mod tests {
         let file_path = "test.txt";
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test")?;
 
-        let oid = commit(&repository)?;
+        let oid = test_utils::commit_all(&repository);
 
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test2")?;
 
@@ -409,7 +392,7 @@ mod tests {
             "test",
         )?;
 
-        let oid = commit(&repository)?;
+        let oid = test_utils::commit_all(&repository);
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
@@ -437,7 +420,7 @@ mod tests {
             "test",
         )?;
 
-        let oid = commit(&repository)?;
+        let oid = test_utils::commit_all(&repository);
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
@@ -469,7 +452,7 @@ mod tests {
 
         std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
 
-        let oid = commit(&repository)?;
+        let oid = test_utils::commit_all(&repository);
 
         std::fs::remove_file(repository.path().parent().unwrap().join("test.txt"))?;
 
