@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, TryLockError};
 use std::{path, time};
 
 use anyhow::{Context, Result};
@@ -60,7 +60,11 @@ impl TryFrom<&AppHandle> for HandlerInner {
 
 impl HandlerInner {
     pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
-        let _lock = self.mutex.lock().unwrap();
+        let _lock = match self.mutex.try_lock() {
+            Ok(lock) => lock,
+            Err(TryLockError::Poisoned(_)) => return Err(anyhow::anyhow!("mutex poisoned")),
+            Err(TryLockError::WouldBlock) => return Ok(vec![]),
+        };
 
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
