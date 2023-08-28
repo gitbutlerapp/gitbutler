@@ -4,13 +4,18 @@
 	import CommitCard from './CommitCard.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 
 	export let base: BaseBranch;
 	export let branchController: BranchController;
+	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
+		branchController.projectId
+	);
 
 	let updateTargetModal: Modal;
 	let viewport: HTMLElement;
 	let contents: HTMLElement;
+	let mergeUpstreamWarningDismissedCheckbox = false;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
 </script>
@@ -71,7 +76,7 @@
 
 <Modal width="small" bind:this={updateTargetModal}>
 	<svelte:fragment slot="title">Merge Upstream Work</svelte:fragment>
-	<div class="flex flex-col space-y-2">
+	<div class="flex flex-col space-y-4">
 		<p class="text-blue-600">You are about to merge upstream work from your base branch.</p>
 		<p class="font-bold">What will this do?</p>
 		<p>
@@ -83,6 +88,10 @@
 			You can merge these manually later.
 		</p>
 		<p>Any virtual branches that are fully integrated upstream will be automatically removed.</p>
+		<label>
+			<input type="checkbox" bind:checked={mergeUpstreamWarningDismissedCheckbox} />
+			Don't show this again
+		</label>
 	</div>
 	<svelte:fragment slot="controls" let:close>
 		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
@@ -91,6 +100,9 @@
 			color="purple"
 			on:click={() => {
 				branchController.updateBaseBranch();
+				if (mergeUpstreamWarningDismissedCheckbox) {
+					mergeUpstreamWarningDismissed.set(true);
+				}
 				close();
 			}}
 		>
