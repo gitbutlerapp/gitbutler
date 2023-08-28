@@ -99,20 +99,13 @@
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
 				<Tray
-					{vbranchStore}
+					vbranchStore={branchesWithContent}
 					{remoteBranchStore}
 					{baseBranchStore}
 					{branchController}
 					{peekTransitionsDisabled}
 				/>
 			</div>
-			<!-- <Tray
-			branches={$vbranchStore}
-			branchesState={$branchesState}
-			remoteBranches={$remoteBranchStore}
-			remoteBranchesState={$remoteBranchesState}
-			{branchController}
-		/> -->
 			<Resizer
 				minWidth={300}
 				viewport={trayViewport}
@@ -129,13 +122,6 @@
 				}}
 			/>
 			<div class="flex w-full flex-col overflow-hidden">
-				<!-- <TopBar
-				vbranches={$vbranchStore}
-				{branchController}
-				remoteUrl={$baseBranchStore?.remoteUrl}
-				remoteBranches={$remoteBranchStore}
-			/> -->
-
 				{#if $baseBranchStore?.remoteUrl.startsWith('https') && !$httpsWarningBannerDismissed}
 					<div class="flex items-center bg-yellow-200/70 px-2 py-1 dark:bg-yellow-700/70">
 						<div class="flex flex-grow">

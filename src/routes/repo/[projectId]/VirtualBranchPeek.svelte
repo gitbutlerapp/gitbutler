@@ -86,7 +86,7 @@
 			/>
 		</div>
 		<div class="w-full overflow-hidden">
-			<p class="mb-1 w-full overflow-hidden font-semibold">Changed files</p>
+			<p class="mb-2 w-full overflow-hidden font-semibold">Changed files</p>
 			{#if branch.files.length > 0}
 				<FileTree node={filesToFileTree(branch.files)} isRoot={true} />
 			{:else}
@@ -94,10 +94,13 @@
 			{/if}
 		</div>
 		{#if branch.commits && branch.commits.length > 0}
-			<div class="flex w-full flex-col gap-y-2">
-				{#each branch.commits as commit}
-					<CommitCard {commit} url={base?.commitUrl(commit.id)} />
-				{/each}
+			<div>
+				<p class="mb-2 w-full overflow-hidden font-semibold">Commits</p>
+				<div class="flex w-full flex-col gap-y-2">
+					{#each branch.commits as commit}
+						<CommitCard {commit} url={base?.commitUrl(commit.id)} />
+					{/each}
+				</div>
 			</div>
 		{/if}
 	</div>
