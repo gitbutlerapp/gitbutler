@@ -4,13 +4,12 @@ use std::{
     io::Write,
     os::unix::fs::{symlink, PermissionsExt},
     thread,
-    time::Duration,
+    time::Duration, path,
 };
 
 use anyhow::{Context, Result};
-use tempfile::tempdir;
 
-use crate::{gb_repository, project_repository, projects, reader, sessions, users};
+use crate::{gb_repository, project_repository, projects, reader, sessions, test_utils, users};
 
 use super::branch::{Branch, BranchCreateRequest, Ownership};
 use super::*;
@@ -19,16 +18,16 @@ pub struct TestDeps {
     repository: git2::Repository,
     project: projects::Project,
     gb_repo: gb_repository::Repository,
-    gb_repo_path: String,
+    gb_repo_path: path::PathBuf,
     user_store: users::Storage,
     project_store: projects::Storage,
 }
 
 fn new_test_deps() -> Result<TestDeps> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_data_dir = tempdir()?.path().to_path_buf();
+    let gb_repo_path = test_utils::temp_dir();
+    let local_data_dir = test_utils::temp_dir();
     let user_store = users::Storage::from(&local_data_dir);
     let project_store = projects::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
@@ -85,25 +84,6 @@ fn set_test_target(
     repository.remote("origin", "http://origin.com/project")?;
     super::integration::update_gitbutler_integration(gb_repo, project_repository)?;
     Ok(())
-}
-
-fn test_repository() -> Result<git2::Repository> {
-    let path = tempdir()?.path().to_str().unwrap().to_string();
-    //dbg!(&path);
-    let repository = git2::Repository::init(path)?;
-    repository.remote_add_fetch("origin/master", "master")?;
-    let mut index = repository.index()?;
-    let oid = index.write_tree()?;
-    let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    repository.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        "Initial commit",
-        &repository.find_tree(oid)?,
-        &[],
-    )?;
-    Ok(repository)
 }
 
 #[test]

@@ -29,9 +29,10 @@ impl<'reader> BranchReader<'reader> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use tempfile::tempdir;
 
-    use crate::{gb_repository, projects, sessions, users, virtual_branches::branch::Ownership};
+    use crate::{
+        gb_repository, projects, sessions, test_utils, users, virtual_branches::branch::Ownership,
+    };
 
     use super::{super::Writer, *};
 
@@ -72,29 +73,12 @@ mod tests {
         }
     }
 
-    fn test_repository() -> Result<git2::Repository> {
-        let path = tempdir()?.path().to_str().unwrap().to_string();
-        let repository = git2::Repository::init(path)?;
-        let mut index = repository.index()?;
-        let oid = index.write_tree()?;
-        let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        repository.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "Initial commit",
-            &repository.find_tree(oid)?,
-            &[],
-        )?;
-        Ok(repository)
-    }
-
     #[test]
     fn test_read_not_found() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let gb_repo_path = test_utils::temp_dir();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -114,10 +98,10 @@ mod tests {
 
     #[test]
     fn test_read_override() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
-        let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let gb_repo_path = test_utils::temp_dir();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;

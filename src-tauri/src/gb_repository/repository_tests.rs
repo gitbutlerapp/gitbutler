@@ -1,29 +1,12 @@
 use std::{thread, time};
 
-use crate::{deltas, gb_repository, projects, sessions, users};
+use crate::{deltas, gb_repository, projects, sessions, test_utils, users};
 use anyhow::Result;
 use tempfile::tempdir;
 
 fn remote_repository() -> Result<git2::Repository> {
     let path = tempdir()?.path().to_str().unwrap().to_string();
     let repository = git2::Repository::init_bare(path)?;
-    Ok(repository)
-}
-
-fn test_repository() -> Result<git2::Repository> {
-    let path = tempdir()?.path().to_str().unwrap().to_string();
-    let repository = git2::Repository::init(path)?;
-    let mut index = repository.index()?;
-    let oid = index.write_tree()?;
-    let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    repository.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        "Initial commit",
-        &repository.find_tree(oid)?,
-        &[],
-    )?;
     Ok(repository)
 }
 
@@ -46,7 +29,7 @@ fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
 
 #[test]
 fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -65,7 +48,7 @@ fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
 
 #[test]
 fn test_must_not_return_init_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -85,7 +68,7 @@ fn test_must_not_return_init_session() -> Result<()> {
 
 #[test]
 fn test_must_not_flush_without_current_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -106,7 +89,7 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
 
 #[test]
 fn test_init_on_non_empty_repository() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -124,7 +107,7 @@ fn test_init_on_non_empty_repository() -> Result<()> {
 
 #[test]
 fn test_flush_on_existing_repository() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -153,7 +136,7 @@ fn test_flush_on_existing_repository() -> Result<()> {
 
 #[test]
 fn test_must_flush_current_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -175,7 +158,7 @@ fn test_must_flush_current_session() -> Result<()> {
 
 #[test]
 fn test_list_deltas_from_current_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -211,7 +194,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
 
 #[test]
 fn test_list_deltas_from_flushed_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -247,7 +230,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
 
 #[test]
 fn test_list_files_from_current_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -277,7 +260,7 @@ fn test_list_files_from_current_session() -> Result<()> {
 
 #[test]
 fn test_list_files_from_flushed_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = projects::Project::try_from(&repository)?;
     let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
     let local_app_data = tempdir()?.path().to_path_buf();
@@ -331,7 +314,7 @@ fn test_remote_syncronization() -> Result<()> {
     })?;
 
     // create first local project, add files, deltas and flush a session
-    let repository_one = test_repository()?;
+    let repository_one = test_utils::test_repository();
     let project_one = projects::Project::try_from(&repository_one)?;
     project_store.add_project(&projects::Project {
         api: Some(api_project.clone()),
@@ -359,7 +342,7 @@ fn test_remote_syncronization() -> Result<()> {
     gb_repo_one.push().unwrap();
 
     // create second local project, fetch it and make sure session is there
-    let repository_two = test_repository()?;
+    let repository_two = test_utils::test_repository();
     let project_two = projects::Project::try_from(&repository_two)?;
     project_store.add_project(&projects::Project {
         api: Some(api_project),
@@ -419,7 +402,7 @@ fn test_remote_sync_order() -> Result<()> {
     })?;
 
     // create first project and repo
-    let repository_one = test_repository()?;
+    let repository_one = test_utils::test_repository();
     let project_one = projects::Project::try_from(&repository_one)?;
     project_store.add_project(&projects::Project {
         api: Some(api_project.clone()),
@@ -433,7 +416,7 @@ fn test_remote_sync_order() -> Result<()> {
     )?;
 
     // create second project and repo
-    let repository_two = test_repository()?;
+    let repository_two = test_utils::test_repository();
     let project_two = projects::Project::try_from(&repository_two)?;
     project_store.add_project(&projects::Project {
         api: Some(api_project),

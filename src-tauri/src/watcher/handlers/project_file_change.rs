@@ -209,11 +209,10 @@ impl Handler {
 
 #[cfg(test)]
 mod test {
-    use tempfile::tempdir;
-
     use crate::{
         deltas, gb_repository, project_repository, projects, sessions, users,
         virtual_branches::{self, branch},
+        test_utils,
     };
 
     use super::*;
@@ -283,29 +282,13 @@ mod test {
         Ok(commit_oid)
     }
 
-    fn test_repository() -> Result<git2::Repository> {
-        let path = tempdir()?.path().to_str().unwrap().to_string();
-        let repository = git2::Repository::init(path)?;
-        let mut index = repository.index()?;
-        let oid = index.write_tree()?;
-        let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        repository.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "Initial commit",
-            &repository.find_tree(oid)?,
-            &[],
-        )?;
-        Ok(repository)
-    }
 
     #[test]
     fn test_register_existing_commited_file() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -345,10 +328,10 @@ mod test {
 
     #[test]
     fn test_register_must_init_current_session() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -372,10 +355,10 @@ mod test {
 
     #[test]
     fn test_register_must_not_override_current_session() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -404,10 +387,10 @@ mod test {
 
     #[test]
     fn test_register_new_file() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -444,10 +427,10 @@ mod test {
 
     #[test]
     fn test_register_new_file_twice() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -503,10 +486,10 @@ mod test {
 
     #[test]
     fn test_register_file_delted() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -555,9 +538,9 @@ mod test {
 
     #[test]
     fn test_flow_with_commits() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -646,9 +629,9 @@ mod test {
 
     #[test]
     fn test_flow_no_commits() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -736,9 +719,9 @@ mod test {
 
     #[test]
     fn test_flow_signle_session() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -796,10 +779,10 @@ mod test {
 
     #[test]
     fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
@@ -859,10 +842,10 @@ mod test {
 
     #[test]
     fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
-        let local_data_dir = tempdir()?.path().to_path_buf();
+        let local_data_dir = test_utils::temp_dir();
         let user_store = users::Storage::from(&local_data_dir);
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;

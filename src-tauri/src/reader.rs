@@ -274,8 +274,10 @@ impl Reader for SubReader<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use anyhow::Result;
-    use tempfile::tempdir;
+
+    use crate::test_utils;
 
     fn commit(repository: &git2::Repository) -> Result<git2::Oid> {
         let mut index = repository.index()?;
@@ -294,29 +296,12 @@ mod tests {
         Ok(commit_oid)
     }
 
-    fn test_repository() -> Result<git2::Repository> {
-        let path = tempdir()?.path().to_str().unwrap().to_string();
-        let repository = git2::Repository::init(path)?;
-        let mut index = repository.index()?;
-        let oid = index.write_tree()?;
-        let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        repository.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "Initial commit",
-            &repository.find_tree(oid)?,
-            &[],
-        )?;
-        Ok(repository)
-    }
-
     #[test]
     fn test_directory_reader_is_dir() -> Result<()> {
-        let dir = tempdir()?;
-        let reader = DirReader::open(dir.path().to_path_buf());
-        std::fs::create_dir(dir.path().join("dir"))?;
-        std::fs::write(dir.path().join("dir/test.txt"), "test")?;
+        let dir = test_utils::temp_dir();
+        let reader = DirReader::open(dir.clone());
+        std::fs::create_dir(dir.join("dir"))?;
+        std::fs::write(dir.join("dir/test.txt"), "test")?;
         assert!(reader.is_dir("."));
         assert!(reader.is_dir("dir"));
         assert!(!reader.is_dir("dir/test.txt"));
@@ -326,12 +311,12 @@ mod tests {
 
     #[test]
     fn test_directory_reader_read_file() -> Result<()> {
-        let dir = tempdir()?;
+        let dir = test_utils::temp_dir();
 
         let file_path = "test.txt";
-        std::fs::write(dir.path().join(file_path), "test")?;
+        std::fs::write(dir.join(file_path), "test")?;
 
-        let reader = DirReader::open(dir.path().to_path_buf());
+        let reader = DirReader::open(dir.to_path_buf());
         assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
         Ok(())
@@ -339,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_commit_reader_is_dir() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
 
         std::fs::create_dir(repository.path().parent().unwrap().join("dir"))?;
         std::fs::write(
@@ -357,7 +342,7 @@ mod tests {
 
     #[test]
     fn test_commit_reader_read_file() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
 
         let file_path = "test.txt";
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test")?;
@@ -374,13 +359,13 @@ mod tests {
 
     #[test]
     fn test_reader_list_files_should_return_relative() -> Result<()> {
-        let dir = tempdir()?;
+        let dir = test_utils::temp_dir();
 
-        std::fs::write(dir.path().join("test1.txt"), "test")?;
-        std::fs::create_dir(dir.path().join("dir"))?;
-        std::fs::write(dir.path().join("dir").join("test.txt"), "test")?;
+        std::fs::write(dir.join("test1.txt"), "test")?;
+        std::fs::create_dir(dir.join("dir"))?;
+        std::fs::write(dir.join("dir").join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.path().to_path_buf());
+        let reader = DirReader::open(dir.to_path_buf());
         let files = reader.list_files("dir")?;
         assert_eq!(files.len(), 1);
         assert!(files.contains(&"test.txt".to_string()));
@@ -390,13 +375,13 @@ mod tests {
 
     #[test]
     fn test_reader_list_files() -> Result<()> {
-        let dir = tempdir()?;
+        let dir = test_utils::temp_dir();
 
-        std::fs::write(dir.path().join("test.txt"), "test")?;
-        std::fs::create_dir(dir.path().join("dir"))?;
-        std::fs::write(dir.path().join("dir").join("test.txt"), "test")?;
+        std::fs::write(dir.join("test.txt"), "test")?;
+        std::fs::create_dir(dir.join("dir"))?;
+        std::fs::write(dir.join("dir").join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.path().to_path_buf());
+        let reader = DirReader::open(dir.to_path_buf());
         let files = reader.list_files("")?;
         assert_eq!(files.len(), 2);
         assert!(files.contains(&"test.txt".to_string()));
@@ -407,7 +392,7 @@ mod tests {
 
     #[test]
     fn test_commit_reader_list_files_should_return_relative() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
 
         std::fs::write(
             repository.path().parent().unwrap().join("test1.txt"),
@@ -438,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_commit_reader_list_files() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
 
         std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
         std::fs::create_dir(repository.path().parent().unwrap().join("dir"))?;
@@ -467,11 +452,11 @@ mod tests {
 
     #[test]
     fn test_directory_reader_exists() -> Result<()> {
-        let dir = tempdir()?;
+        let dir = test_utils::temp_dir();
 
-        std::fs::write(dir.path().join("test.txt"), "test")?;
+        std::fs::write(dir.join("test.txt"), "test")?;
 
-        let reader = DirReader::open(dir.path().to_path_buf());
+        let reader = DirReader::open(dir.to_path_buf());
         assert!(reader.exists("test.txt"));
         assert!(!reader.exists("test2.txt"));
 
@@ -480,7 +465,7 @@ mod tests {
 
     #[test]
     fn test_commit_reader_exists() -> Result<()> {
-        let repository = test_repository()?;
+        let repository = test_utils::test_repository();
 
         std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
 

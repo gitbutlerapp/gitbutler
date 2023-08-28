@@ -1,37 +1,21 @@
 use anyhow::Result;
-use tempfile::tempdir;
 
 use crate::{
     gb_repository,
     projects::{self, Project},
     sessions, users,
+    test_utils,
 };
 
 use super::Writer;
 
-fn test_repository() -> Result<git2::Repository> {
-    let path = tempdir()?.path().to_str().unwrap().to_string();
-    let repository = git2::Repository::init(path)?;
-    let mut index = repository.index()?;
-    let oid = index.write_tree()?;
-    let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    repository.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        "Initial commit",
-        &repository.find_tree(oid)?,
-        &[],
-    )?;
-    Ok(repository)
-}
 
 #[test]
 fn test_should_not_write_session_with_hash() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
+    let gb_repo_path = test_utils::temp_dir();
+    let local_app_data = test_utils::temp_dir();
     let user_store = users::Storage::from(&local_app_data);
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
@@ -56,10 +40,10 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
 
 #[test]
 fn test_should_write_full_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
+    let gb_repo_path = test_utils::temp_dir();
+    let local_app_data = test_utils::temp_dir();
     let user_store = users::Storage::from(&local_app_data);
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
@@ -105,10 +89,10 @@ fn test_should_write_full_session() -> Result<()> {
 
 #[test]
 fn test_should_write_partial_session() -> Result<()> {
-    let repository = test_repository()?;
+    let repository = test_utils::test_repository();
     let project = Project::try_from(&repository)?;
-    let gb_repo_path = tempdir()?.path().to_str().unwrap().to_string();
-    let local_app_data = tempdir()?.path().to_path_buf();
+    let gb_repo_path = test_utils::temp_dir();
+    let local_app_data = test_utils::temp_dir();
     let user_store = users::Storage::from(&local_app_data);
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
