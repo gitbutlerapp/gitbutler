@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { File, type Hunk } from '$lib/vbranches/types';
+import { File, Hunk } from '$lib/vbranches/types';
 import { parseHunkSection, parseFileSections, SectionType } from './fileSections';
 import type { ContentSection, HunkSection } from './fileSections';
 import { plainToInstance } from 'class-transformer';
@@ -104,13 +104,13 @@ const conflitMarkersHunk = `@@ -3,7 +3,11 @@
  	<body`;
 
 test('parses a balanced hunk section', () => {
-	const balancedHunk: Hunk = {
+	const balancedHunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: balancedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
 	expect(hunkSection?.hasConflictMarkers).toBe(false);
@@ -183,13 +183,13 @@ test('parses a balanced hunk section', () => {
 });
 
 test('parses a hunk with conflict markers', () => {
-	const balancedHunk: Hunk = {
+	const balancedHunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: conflitMarkersHunk,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
 	expect(hunkSection?.hunk).toStrictEqual(balancedHunk);
@@ -197,13 +197,13 @@ test('parses a hunk with conflict markers', () => {
 });
 
 test('parses hunk sections with more added', () => {
-	const balancedHunk: Hunk = {
+	const balancedHunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: moreAddedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
 	expect(hunkSection?.hunk).toStrictEqual(balancedHunk);
@@ -283,13 +283,13 @@ test('parses hunk sections with more added', () => {
 });
 
 test('parses a hunk with two changed places', () => {
-	const balancedHunk: Hunk = {
+	const balancedHunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: multiChangeHunk,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const hunkSection = parseHunkSection(balancedHunk);
 	expect(hunkSection).toBeDefined();
 	expect(hunkSection?.hunk).toStrictEqual(balancedHunk);
@@ -397,13 +397,13 @@ test('parses a hunk with two changed places', () => {
 });
 
 test('parses file with one hunk and balanced add-remove', () => {
-	const hunk: Hunk = {
+	const hunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: balancedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
@@ -456,13 +456,13 @@ test('parses file with one hunk and balanced add-remove', () => {
 });
 
 test('parses file with one hunk with more added than removed', () => {
-	const hunk: Hunk = {
+	const hunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: moreAddedHunkDiff,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
@@ -511,20 +511,20 @@ test('parses file with one hunk with more added than removed', () => {
 });
 
 test('parses file with two hunks ordered by position in file', () => {
-	const topHunk: Hunk = {
+	const topHunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: topOfFileHunk,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
-	const bottomHunk: Hunk = {
+	});
+	const bottomHunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: bottomOfFileHunk,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
@@ -591,13 +591,13 @@ test('parses file with two hunks ordered by position in file', () => {
 });
 
 test('parses whole file deleted', () => {
-	const deleteHunk: Hunk = {
+	const deleteHunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: delteWholeFile,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
@@ -618,13 +618,13 @@ test('parses whole file deleted', () => {
 });
 
 test('parses new file created', () => {
-	const newFileHunk: Hunk = {
+	const newFileHunk = plainToInstance(Hunk, {
 		id: '1',
 		diff: addWholeFile,
 		modifiedAt: new Date(2021, 1, 1),
 		filePath: 'foo.py',
 		locked: false
-	};
+	});
 	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
