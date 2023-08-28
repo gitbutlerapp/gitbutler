@@ -264,23 +264,6 @@ mod test {
         }
     }
 
-    fn commit_all(repository: &git2::Repository) -> Result<git2::Oid> {
-        let mut index = repository.index()?;
-        index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
-        index.write()?;
-        let oid = index.write_tree()?;
-        let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        let commit_oid = repository.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "some commit",
-            &repository.find_tree(oid)?,
-            &[&repository.find_commit(repository.refname_to_id("HEAD")?)?],
-        )?;
-        Ok(commit_oid)
-    }
-
     #[test]
     fn test_register_existing_commited_file() -> Result<()> {
         let repository = test_utils::test_repository();
@@ -293,7 +276,7 @@ mod test {
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "test")?;
-        commit_all(&repository)?;
+        test_utils::commit_all(&repository);
 
         let gb_repo = gb_repository::Repository::open(
             local_data_dir.clone(),
@@ -560,7 +543,7 @@ mod test {
                 i.to_string(),
             )?;
 
-            commit_all(&repository)?;
+            test_utils::commit_all(&repository);
             listener.handle(relative_file_path, &project.id)?;
             assert!(gb_repo.flush()?.is_some());
         }
@@ -787,7 +770,7 @@ mod test {
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "hello world")?;
-        commit_all(&repository)?;
+        test_utils::commit_all(&repository);
 
         let gb_repo = gb_repository::Repository::open(
             local_data_dir.clone(),
@@ -850,7 +833,7 @@ mod test {
 
         let file_path = std::path::Path::new("test.txt");
         std::fs::write(project_repo.root().join(file_path), "hello world")?;
-        commit_all(&repository)?;
+        test_utils::commit_all(&repository);
 
         let gb_repo = gb_repository::Repository::open(
             local_data_dir.clone(),
