@@ -15,6 +15,7 @@
 
 	let applyConflictedModal: Modal;
 	let deleteBranchModal: Modal;
+
 	$: notesRows = branch ? Math.min(12, Math.max(2, branch.notes.split('\n').length)) : 2;
 
 	function handleUpdateNotes() {
@@ -86,10 +87,8 @@
 		</div>
 		<div class="w-full overflow-hidden">
 			<p class="mb-1 w-full overflow-hidden font-semibold">Changed files</p>
-			{#if branch.files && branch.files.length > 0}
-				{#each filesToFileTree(branch.files) as node}
-					<FileTree name={node.name} expanded={true} nodes={node.children} />
-				{/each}
+			{#if branch.files.length > 0}
+				<FileTree node={filesToFileTree(branch.files)} isRoot={true} />
 			{:else}
 				<p class="text-sm">This virtual branch has no changes.</p>
 			{/if}
