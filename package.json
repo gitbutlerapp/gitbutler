@@ -91,7 +91,7 @@
 		"tslib": "^2.6.2",
 		"typescript": "^5.2.2",
 		"vite": "^4.4.9",
-		"vitest": "^0.34.2",
+		"vitest": "^0.34.3",
 		"xterm": "^5.2.1",
 		"xterm-addon-canvas": "^0.4.0",
 		"xterm-addon-fit": "^0.7.0",
