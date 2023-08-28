@@ -261,9 +261,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.3.3"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "630be753d4e58660abd17930c71b647fe46c27ea6b63cc59e1e3851406972e42"
+checksum = "b4682ae6287fcf752ecaabbfcc7b6f9b72aa33933dc23a554d853aea8eea8635"
 
 [[package]]
 name = "bitpacking"
@@ -2578,7 +2578,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9301e0f1b08ad0b310f40f92bffb40834461542a472a98814bc6cbb7f43f567"
 dependencies = [
- "bitflags 2.3.3",
+ "bitflags 2.4.0",
  "byteorder",
  "cfg-if",
  "crash-context",
@@ -3450,7 +3450,7 @@ version = "0.16.0-RC1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ee00a90a41543fce203e6a8771bad043bfd6d88de8fd4e3118435a233d0c3c4"
 dependencies = [
- "bitflags 2.3.3",
+ "bitflags 2.4.0",
  "chrono",
  "hex",
 ]
@@ -3827,7 +3827,7 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "549b9d036d571d42e6e85d1c1425e2ac83491075078ca9a15be021c56b1641f2"
 dependencies = [
- "bitflags 2.3.3",
+ "bitflags 2.4.0",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
@@ -3868,11 +3868,11 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.8"
+version = "0.38.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ed4fa021d81c8392ce04db050a3da9a60299050b7ae1cf482d862b54a7218f"
+checksum = "9bfe0f2582b4931a45d1fa608f8a8722e8b3c7ac54dd6d5f3b3212791fedef49"
 dependencies = [
- "bitflags 2.3.3",
+ "bitflags 2.4.0",
  "errno",
  "libc",
  "linux-raw-sys",
@@ -4998,7 +4998,7 @@ version = "0.1.0"
 source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#6647e6ea90bb66c0280f43905f545d2995ded3bc"
 dependencies = [
  "bincode",
- "bitflags 2.3.3",
+ "bitflags 2.4.0",
  "log",
  "serde",
  "serde_json",
