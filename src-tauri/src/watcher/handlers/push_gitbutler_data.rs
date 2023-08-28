@@ -1,5 +1,5 @@
 use std::path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, TryLockError};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
@@ -48,18 +48,34 @@ impl TryFrom<&AppHandle> for HandlerInner {
             .path_resolver()
             .app_local_data_dir()
             .context("failed to get local data dir")?;
-        Ok(Self {
-            local_data_dir: local_data_dir.to_path_buf(),
-            project_storage: projects::Storage::try_from(value)?,
-            user_storage: users::Storage::try_from(value)?,
-            mutex: Mutex::new(()),
-        })
+        Ok(Self::new(
+            local_data_dir.to_path_buf(),
+            projects::Storage::try_from(value)?,
+            users::Storage::try_from(value)?,
+        ))
     }
 }
 
 impl HandlerInner {
+    fn new(
+        local_data_dir: path::PathBuf,
+        project_storage: projects::Storage,
+        user_storage: users::Storage,
+    ) -> Self {
+        Self {
+            local_data_dir,
+            project_storage,
+            user_storage,
+            mutex: Mutex::new(()),
+        }
+    }
+
     pub fn handle(&self, project_id: &str) -> Result<Vec<events::Event>> {
-        let _lock = self.mutex.lock().unwrap();
+        let _lock = match self.mutex.try_lock() {
+            Ok(lock) => lock,
+            Err(TryLockError::Poisoned(_)) => return Err(anyhow::anyhow!("mutex poisoned")),
+            Err(TryLockError::WouldBlock) => return Ok(vec![]),
+        };
 
         let gb_repo = gb_repository::Repository::open(
             &self.local_data_dir,
