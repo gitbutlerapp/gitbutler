@@ -69,6 +69,14 @@ runs:
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
 
+    - name: Git config
+      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
+      shell: bash
+      run: |
+        # This seems the only reliable way of forcing https for forked packages
+        git config --global url."https://".insteadOf git://
+        git config --global url."https://github.com/".insteadOf git@github.com:
+
     - name: Install dependencies
       if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
       shell: bash
