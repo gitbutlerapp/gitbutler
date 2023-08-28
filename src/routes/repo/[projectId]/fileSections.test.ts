@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest';
-import type { File, Hunk } from '$lib/vbranches/types';
+import { File, type Hunk } from '$lib/vbranches/types';
 import { parseHunkSection, parseFileSections, SectionType } from './fileSections';
 import type { ContentSection, HunkSection } from './fileSections';
+import { plainToInstance } from 'class-transformer';
 
 const fileContent = `<!DOCTYPE html>
 <html lang="en">
@@ -403,7 +404,7 @@ test('parses file with one hunk and balanced add-remove', () => {
 		filePath: 'foo.py',
 		locked: false
 	};
-	const file: File = {
+	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [hunk],
@@ -412,7 +413,7 @@ test('parses file with one hunk and balanced add-remove', () => {
 		conflicted: false,
 		content: fileContent,
 		binary: false
-	};
+	});
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
 	const beforeSection = sections[0] as ContentSection;
@@ -462,7 +463,7 @@ test('parses file with one hunk with more added than removed', () => {
 		filePath: 'foo.py',
 		locked: false
 	};
-	const file: File = {
+	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [hunk],
@@ -471,7 +472,7 @@ test('parses file with one hunk with more added than removed', () => {
 		conflicted: false,
 		content: fileContent,
 		binary: false
-	};
+	});
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
 	const beforeSection = sections[0] as ContentSection;
@@ -524,7 +525,7 @@ test('parses file with two hunks ordered by position in file', () => {
 		filePath: 'foo.py',
 		locked: false
 	};
-	const file: File = {
+	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [bottomHunk, topHunk],
@@ -533,7 +534,7 @@ test('parses file with two hunks ordered by position in file', () => {
 		conflicted: false,
 		content: fileContent,
 		binary: false
-	};
+	});
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(3);
 	const topHunkSection = sections[0] as HunkSection;
@@ -597,7 +598,7 @@ test('parses whole file deleted', () => {
 		filePath: 'foo.py',
 		locked: false
 	};
-	const file: File = {
+	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [deleteHunk],
@@ -606,7 +607,7 @@ test('parses whole file deleted', () => {
 		conflicted: false,
 		content: fileContent,
 		binary: false
-	};
+	});
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(1);
 	const deleteHunkSection = sections[0] as HunkSection;
@@ -624,7 +625,7 @@ test('parses new file created', () => {
 		filePath: 'foo.py',
 		locked: false
 	};
-	const file: File = {
+	const file = plainToInstance(File, {
 		id: '1',
 		path: 'foo.py',
 		hunks: [newFileHunk],
@@ -633,7 +634,7 @@ test('parses new file created', () => {
 		conflicted: false,
 		content: fileContent,
 		binary: false
-	};
+	});
 	const sections = parseFileSections(file);
 	expect(sections.length).toBe(1);
 	const deleteHunkSection = sections[0] as HunkSection;
