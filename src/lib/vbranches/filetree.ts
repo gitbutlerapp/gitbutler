@@ -1,3 +1,9 @@
+/**
+ * It's easier to understand a hierarchical structure than a flat list.
+ *
+ * This module provides support for tranforming a list of files into a
+ * hirerarchical structure for easy rendering.
+ */
 import type { File } from './types';
 
 export interface TreeNode {
@@ -18,14 +24,12 @@ function createNode(acc: TreeNode, pathParts: string[]) {
 	return createNode(newDir, pathParts.slice(1));
 }
 
-export function filesToFileTree(files: File[] | undefined): TreeNode[] {
-	if (files == undefined) return [];
+export function filesToFileTree(files: File[]): TreeNode {
 	const acc: TreeNode = { name: 'root', children: [] };
 	files.forEach((f) => {
 		const pathParts = f.path.split('/');
 		const node = createNode(acc, pathParts);
 		node.file = f;
 	});
-	console.log(acc);
-	return acc.children;
+	return acc;
 }

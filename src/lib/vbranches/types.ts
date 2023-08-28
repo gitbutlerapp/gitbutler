@@ -25,6 +25,18 @@ export class File {
 	conflicted!: boolean;
 	content!: string;
 	binary!: boolean;
+
+	getAddedAndRemoved() {
+		return this.hunks
+			.map((h) => h.diff.split('\n'))
+			.reduce(
+				(acc, lines) => ({
+					added: acc.added + lines.filter((l) => l.startsWith('+')).length,
+					removed: acc.removed + lines.filter((l) => l.startsWith('-')).length
+				}),
+				{ added: 0, removed: 0 }
+			);
+	}
 }
 
 export class Branch {
