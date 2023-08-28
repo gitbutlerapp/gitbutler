@@ -42,7 +42,7 @@ futures = "0.3"
 serde-jsonlines = "0.4.0"
 sentry-anyhow = "0.31.0"
 sentry-rust-minidump = "0.6.4"
-sentry-debug-images = "0.31.5"
+sentry-debug-images = "0.31.6"
 zip = "0.6.5"
 rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }
 refinery = { version = "0.8", features = [ "rusqlite" ] }
