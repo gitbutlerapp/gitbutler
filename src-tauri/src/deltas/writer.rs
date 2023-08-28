@@ -65,7 +65,7 @@ impl<'writer> DeltasWriter<'writer> {
 mod tests {
     use std::vec;
 
-    use crate::{deltas, projects, sessions, users, test_utils};
+    use crate::{deltas, projects, sessions, test_utils, users};
 
     use super::*;
 

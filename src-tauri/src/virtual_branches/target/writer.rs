@@ -82,7 +82,7 @@ impl<'writer> TargetWriter<'writer> {
 mod tests {
     use std::fs;
 
-    use crate::{projects, users, virtual_branches::branch, test_utils};
+    use crate::{projects, test_utils, users, virtual_branches::branch};
 
     use super::{super::Target, *};
 

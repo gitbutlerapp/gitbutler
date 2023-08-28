@@ -210,9 +210,8 @@ impl Handler {
 #[cfg(test)]
 mod test {
     use crate::{
-        deltas, gb_repository, project_repository, projects, sessions, users,
+        deltas, gb_repository, project_repository, projects, sessions, test_utils, users,
         virtual_branches::{self, branch},
-        test_utils,
     };
 
     use super::*;
@@ -281,7 +280,6 @@ mod test {
         )?;
         Ok(commit_oid)
     }
-
 
     #[test]
     fn test_register_existing_commited_file() -> Result<()> {

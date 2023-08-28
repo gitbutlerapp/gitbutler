@@ -3,12 +3,10 @@ use anyhow::Result;
 use crate::{
     gb_repository,
     projects::{self, Project},
-    sessions, users,
-    test_utils,
+    sessions, test_utils, users,
 };
 
 use super::Writer;
-
 
 #[test]
 fn test_should_not_write_session_with_hash() -> Result<()> {

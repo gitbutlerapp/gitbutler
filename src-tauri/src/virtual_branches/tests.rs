@@ -3,8 +3,8 @@ use std::{
     fs::{self, Permissions},
     io::Write,
     os::unix::fs::{symlink, PermissionsExt},
-    thread,
-    time::Duration, path,
+    path, thread,
+    time::Duration,
 };
 
 use anyhow::{Context, Result};

@@ -1,4 +1,4 @@
-use std::{path, fs};
+use std::{fs, path};
 
 use tempfile::tempdir;
 
