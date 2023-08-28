@@ -36,7 +36,7 @@ export class File {
 				}),
 				{ added: 0, removed: 0 }
 			);
-		const contentLineCount = this.content.trim().split('\n').length;
+		const contentLineCount = this.content?.trim().split('\n').length;
 		const status = added == contentLineCount ? 'A' : removed == contentLineCount ? 'D' : 'M';
 		return { status, added, removed };
 	}
