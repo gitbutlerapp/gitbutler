@@ -28,28 +28,35 @@
 		{/each}
 	</ul>
 {:else if node.file}
-	{@const { added, removed } = node.file.getAddedAndRemoved()}
+	{@const { status, added, removed } = node.file.getSummary()}
 	<!-- Node is a file -->
 	<div class="flex w-full items-center gap-x-2 py-0 text-left">
-		<div class="w-2 shrink-0" />
 		<div class="w-4 shrink-0 text-center">
 			<IconFile class="h-4 w-4" />
 		</div>
-		<div class="flex-grow truncate">
+		<div
+			class="flex-grow truncate"
+			class:text-red-500={status == 'D'}
+			class:dark:text-red-400={status == 'D'}
+			class:text-green-700={status == 'A'}
+			class:dark:text-green-500={status == 'A'}
+			class:text-orange-800={status == 'M'}
+			class:dark:text-orange-400={status == 'M'}
+		>
 			{node.name}
 		</div>
 		<div class="flex gap-1 font-mono text-xs font-bold">
-			<span class="font-mono text-green-500">
+			<span class="text-green-500">
 				+{added}
 			</span>
-			<span class="font-mono text-red-500">
+			<span class="text-red-500">
 				-{removed}
 			</span>
 		</div>
 	</div>
 {:else if node.children.length > 0}
 	<!-- Node is a folder -->
-	<button class="flex w-full items-center gap-x-2 py-0 text-left" class:expanded on:click={toggle}>
+	<button class="flex w-full items-center py-0 text-left" class:expanded on:click={toggle}>
 		<div class="w-3 shrink-0 text-center">
 			{#if expanded}
 				<IconChevronDownSmall class="scale-90 text-light-600 dark:text-dark-200" />
@@ -57,10 +64,10 @@
 				<IconChevronRightSmall class="scale-90 text-light-600 dark:text-dark-200" />
 			{/if}
 		</div>
-		<div class="w-4 shrink-0 text-center">
-			<IconFolder class="h-4 w-4 text-blue-400" />
+		<div class="w-4 shrink-0 pl-1 text-center">
+			<IconFolder class="h-4 w-4 scale-75 text-blue-400" />
 		</div>
-		<div class="flex-grow truncate">
+		<div class="flex-grow truncate pl-2">
 			{node.name}
 		</div>
 	</button>
