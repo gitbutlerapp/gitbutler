@@ -2156,7 +2156,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
 
     // create a new virtual branch from the remote branch
     let branch2_id =
-        create_virtual_branch_from_branch(&gb_repo, &project_repository, &upstream, None)?;
+        create_virtual_branch_from_branch(&gb_repo, &project_repository, &upstream, None)?.id;
 
     // shouldn't be anything on either of our branches
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -2292,7 +2292,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
 
     // create a new virtual branch from the remote branch
     let branch1_id =
-        create_virtual_branch_from_branch(&gb_repo, &project_repository, &remote_branch, None)?;
+        create_virtual_branch_from_branch(&gb_repo, &project_repository, &remote_branch, None)?.id;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();

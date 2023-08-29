@@ -113,7 +113,7 @@ impl Controller {
     ) -> Result<String, Error> {
         self.with_lock::<Result<String, Error>>(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
-                let branch_id = super::create_virtual_branch_from_branch(
+                let branch = super::create_virtual_branch_from_branch(
                     gb_repository,
                     project_repository,
                     branch,
@@ -122,9 +122,9 @@ impl Controller {
                 .map_err(Error::Other)?;
 
                 // also apply the branch
-                super::apply_branch(gb_repository, project_repository, &branch_id)
+                super::apply_branch(gb_repository, project_repository, &branch.id)
                     .map_err(Error::Other)?;
-                Ok(branch_id)
+                Ok(branch.id)
             })
         })
         .await

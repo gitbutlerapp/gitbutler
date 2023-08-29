@@ -9,7 +9,7 @@ use crate::{
     reader, sessions,
 };
 
-use super::{branch, iterator, target};
+use super::{branch, delete_branch, iterator, target};
 
 pub fn get_base_branch_data(
     gb_repository: &gb_repository::Repository,
@@ -73,9 +73,6 @@ pub fn set_base_branch(
     let target_writer = target::Writer::new(gb_repository);
     target_writer.write_default(&target)?;
 
-    // if target.branch_name != head_name.branch() {
-    // if head is not pointing to the target branch, create initial virtual branch using the
-    // head
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get current session")?;
@@ -93,14 +90,16 @@ pub fn set_base_branch(
         .collect::<Vec<_>>();
 
     if active_virtual_branches.is_empty() {
-        create_virtual_branch_from_branch(
+        let branch = create_virtual_branch_from_branch(
             gb_repository,
             project_repository,
             &head_name,
             Some(true),
         )?;
+        if branch.ownership.is_empty() && branch.head == target.sha {
+            delete_branch(gb_repository, project_repository, &branch.id)?;
+        }
     }
-    // }
 
     set_exclude_decoration(project_repository)?;
 
@@ -502,7 +501,7 @@ pub fn create_virtual_branch_from_branch(
     project_repository: &project_repository::Repository,
     upstream: &project_repository::branch::Name,
     applied: Option<bool>,
-) -> Result<String> {
+) -> Result<branch::Branch> {
     let current_session = gb_repository
         .get_or_create_current_session()
         .context("failed to get or create current session")?;
@@ -612,5 +611,5 @@ pub fn create_virtual_branch_from_branch(
 
     let writer = branch::Writer::new(gb_repository);
     writer.write(&branch).context("failed to write branch")?;
-    Ok(branch_id)
+    Ok(branch)
 }
