@@ -2,19 +2,20 @@ use std::{collections::HashMap, path, sync::Arc};
 
 use anyhow::Context;
 use futures::future::join_all;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
 
 use crate::{
     assets, gb_repository, keys,
     project_repository::{self, conflicts},
-    projects, users,
+    projects, users, watcher,
 };
 
 pub struct Controller {
     local_data_dir: path::PathBuf,
     semaphores: Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
 
+    watchers: watcher::Watchers,
     assets_proxy: assets::Proxy,
     projects_storage: projects::Storage,
     users_storage: users::Storage,
@@ -49,6 +50,7 @@ impl TryFrom<&AppHandle> for Controller {
             .context("Failed to get local data dir")?;
         Ok(Self {
             local_data_dir,
+            watchers: value.state::<watcher::Watchers>().inner().clone(),
             semaphores: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             assets_proxy: assets::Proxy::try_from(value)?,
             projects_storage: projects::Storage::from(value),
@@ -164,9 +166,17 @@ impl Controller {
             .as_ref()
             .try_into()
             .context("failed to open project repository")?;
+
         let gb_repository = self.open_gb_repository(project_id)?;
         let target = super::set_base_branch(&gb_repository, &project_repository, target_branch)
             .map_err(Error::Other)?;
+        let current_session = gb_repository.get_current_session()?;
+
+        if let Some(session) = current_session {
+            self.watchers
+                .post(watcher::Event::Session(project_id.to_string(), session))
+                .await?;
+        }
 
         let target = self.proxy_base_branch(target).await;
 

@@ -2,7 +2,7 @@ mod dispatchers;
 mod events;
 mod handlers;
 
-use std::{path, sync::Arc};
+use std::{collections::HashMap, path, sync::Arc};
 
 pub use events::Event;
 
@@ -17,8 +17,72 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
+use crate::projects;
+
 #[derive(Clone)]
-pub struct Watcher {
+pub struct Watchers {
+    app_handle: AppHandle,
+    watchers: Arc<Mutex<HashMap<String, Watcher>>>,
+}
+
+impl TryFrom<&AppHandle> for Watchers {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            app_handle: value.clone(),
+            watchers: Arc::new(Mutex::new(HashMap::new())),
+        })
+    }
+}
+
+impl Watchers {
+    pub async fn watch(&self, project: &projects::Project) -> Result<()> {
+        let watcher = Watcher::try_from(&self.app_handle)?;
+
+        let c_watcher = watcher.clone();
+        let project_id = project.id.clone();
+        let project_path = project.path.clone();
+
+        task::Builder::new()
+            .name(&format!("{} watcher", project_id))
+            .spawn(async move {
+                if let Err(e) = c_watcher.run(&project_path, &project_id).await {
+                    tracing::error!("watcher error: {:#}", e);
+                }
+                tracing::info!("watcher stopped");
+            })?;
+
+        self.watchers
+            .lock()
+            .await
+            .insert(project.id.clone(), watcher.clone());
+
+        Ok(())
+    }
+
+    pub async fn post(&self, event: Event) -> Result<()> {
+        let watchers = self.watchers.lock().await;
+        if let Some(watcher) = watchers.get(event.project_id()) {
+            watcher.post(event).await.context("failed to post event")
+        } else {
+            Err(anyhow::anyhow!(
+                "watcher for project {} not found",
+                event.project_id()
+            ))
+        }
+    }
+
+    pub async fn stop(&self, project_id: &str) -> Result<()> {
+        if let Some((_, watcher)) = self.watchers.lock().await.remove_entry(project_id) {
+            watcher.stop()?;
+        };
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct Watcher {
     inner: Arc<WatcherInner>,
 }
 
@@ -51,7 +115,7 @@ struct WatcherInner {
     dispatcher: dispatchers::Dispatcher,
     cancellation_token: CancellationToken,
 
-    proxy_tx: Arc<Mutex<Option<UnboundedSender<Event>>>>,
+    proxy_tx: Arc<tokio::sync::Mutex<Option<UnboundedSender<Event>>>>,
 }
 
 impl TryFrom<&AppHandle> for WatcherInner {
@@ -62,7 +126,7 @@ impl TryFrom<&AppHandle> for WatcherInner {
             handler: handlers::Handler::try_from(value)?,
             dispatcher: dispatchers::Dispatcher::new(),
             cancellation_token: CancellationToken::new(),
-            proxy_tx: Arc::new(Mutex::new(None)),
+            proxy_tx: Arc::new(tokio::sync::Mutex::new(None)),
         })
     }
 }
