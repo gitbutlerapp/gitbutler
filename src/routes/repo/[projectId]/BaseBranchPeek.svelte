@@ -43,7 +43,13 @@
 							width="full-width"
 							height="small"
 							color="purple"
-							on:click={updateTargetModal.show}
+							on:click={() => {
+								if ($mergeUpstreamWarningDismissed) {
+									branchController.updateBaseBranch();
+								} else {
+									updateTargetModal.show;
+								}
+							}}
 						>
 							Merge into common base
 						</Button>
