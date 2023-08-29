@@ -5,7 +5,7 @@
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 
 	export let commit: Commit;
-    export let isIntegrated = false;
+	export let isIntegrated = false;
 	export let url: string | undefined = undefined;
 </script>
 
