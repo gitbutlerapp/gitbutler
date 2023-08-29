@@ -14,6 +14,7 @@ export function getSessionStore2(projectId: string): SessionsStore {
 		[],
 		async () => {
 			const sessions = await list({ projectId: projectId });
+            console.log('sessions', sessions);
 			sessions.sort((a, b) => a.meta.startTimestampMs - b.meta.startTimestampMs);
 			return sessions;
 		},

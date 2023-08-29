@@ -1,9 +1,9 @@
-use std::{collections::HashMap, ops, path, sync, time};
+use std::{collections::HashMap, ops, path, time};
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
-use tokio::{sync::Mutex, task};
+use tokio::task;
 
 use crate::{
     bookmarks, deltas, files, gb_repository, keys,
@@ -15,13 +15,12 @@ use crate::{
 
 #[derive(Clone)]
 pub struct App {
-    app_handle: AppHandle,
     local_data_dir: std::path::PathBuf,
     projects_storage: projects::Storage,
     users_storage: users::Storage,
     keys_controller: keys::Storage,
     searcher: search::Searcher,
-    watchers: sync::Arc<Mutex<HashMap<String, watcher::Watcher>>>,
+    watchers: watcher::Watchers,
     sessions_database: sessions::Database,
     files_database: files::Database,
     deltas_database: deltas::Database,
@@ -43,7 +42,6 @@ impl TryFrom<&AppHandle> for App {
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
-            app_handle: value.clone(),
             local_data_dir: value
                 .path_resolver()
                 .app_local_data_dir()
@@ -52,7 +50,7 @@ impl TryFrom<&AppHandle> for App {
             projects_storage: projects::Storage::try_from(value)?,
             users_storage: users::Storage::try_from(value)?,
             searcher: value.state::<search::Searcher>().inner().clone(),
-            watchers: sync::Arc::new(Mutex::new(HashMap::new())),
+            watchers: value.state::<watcher::Watchers>().inner().clone(),
             sessions_database: sessions::Database::try_from(value)?,
             deltas_database: deltas::Database::try_from(value)?,
             files_database: files::Database::try_from(value)?,
@@ -75,7 +73,8 @@ impl App {
 
     pub fn init_project(&self, project: &projects::Project) -> Result<()> {
         block_on(async move {
-            self.start_watcher(project)
+            self.watchers
+                .watch(project)
                 .await
                 .with_context(|| {
                     format!("failed to start watcher for project {}", project.id.clone())
@@ -96,49 +95,6 @@ impl App {
                 tracing::error!("failed to init project {}: {:#}", project.id, e);
             }
         }
-        Ok(())
-    }
-
-    async fn start_watcher(&self, project: &projects::Project) -> Result<()> {
-        let watcher = watcher::Watcher::try_from(&self.app_handle)?;
-
-        let c_watcher = watcher.clone();
-        let project_id = project.id.clone();
-        let project_path = project.path.clone();
-
-        task::Builder::new()
-            .name(&format!("{} watcher", project_id))
-            .spawn(async move {
-                if let Err(e) = c_watcher.run(&project_path, &project_id).await {
-                    tracing::error!("watcher error: {:#}", e);
-                }
-                tracing::info!("watcher stopped");
-            })?;
-
-        self.watchers
-            .lock()
-            .await
-            .insert(project.id.clone(), watcher.clone());
-
-        Ok(())
-    }
-
-    async fn send_event(&self, project_id: &str, event: watcher::Event) -> Result<()> {
-        let watchers = self.watchers.lock().await;
-        if let Some(watcher) = watchers.get(project_id) {
-            watcher.post(event).await.context("failed to post event")
-        } else {
-            Err(anyhow::anyhow!(
-                "watcher for project {} not found",
-                project_id
-            ))
-        }
-    }
-
-    async fn stop_watcher(&self, project_id: &str) -> Result<()> {
-        if let Some((_, watcher)) = self.watchers.lock().await.remove_entry(project_id) {
-            watcher.stop()?;
-        };
         Ok(())
     }
 
@@ -204,10 +160,11 @@ impl App {
 
         block_on(async move {
             if let Err(err) = self
-                .send_event(
-                    &project.id,
-                    watcher::Event::FetchGitbutlerData(project.id.clone(), time::SystemTime::now()),
-                )
+                .watchers
+                .post(watcher::Event::FetchGitbutlerData(
+                    project.id.clone(),
+                    time::SystemTime::now(),
+                ))
                 .await
             {
                 tracing::error!("{}: failed to fetch project: {:#}", &project.id, err);
@@ -242,7 +199,7 @@ impl App {
                 block_on({
                     let project_id = project.id.clone();
                     async move {
-                        if let Err(e) = self.stop_watcher(&project_id).await {
+                        if let Err(e) = self.watchers.stop(&project_id).await {
                             tracing::error!(
                                 "failed to stop watcher for project {}: {}",
                                 project_id,
@@ -328,10 +285,8 @@ impl App {
             let bookmark = bookmark.clone();
             async move {
                 if let Err(err) = self
-                    .send_event(
-                        &bookmark.project_id,
-                        watcher::Event::Bookmark(bookmark.clone()),
-                    )
+                    .watchers
+                    .post(watcher::Event::Bookmark(bookmark.clone()))
                     .await
                 {
                     tracing::error!("failed to send session event: {:#}", err);

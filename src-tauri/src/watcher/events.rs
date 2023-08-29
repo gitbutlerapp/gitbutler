@@ -25,6 +25,26 @@ pub enum Event {
     Emit(events::Event),
 }
 
+impl Event {
+    pub fn project_id(&self) -> &str {
+        match self {
+            Event::Emit(event) => event.project_id(),
+            Event::IndexAll(project_id) => project_id,
+            Event::Tick(project_id, _) => project_id,
+            Event::FetchGitbutlerData(project_id, _) => project_id,
+            Event::FetchProjectData(project_id, _) => project_id,
+            Event::Flush(project_id, _) => project_id,
+            Event::GitFileChange(project_id, _) => project_id,
+            Event::ProjectFileChange(project_id, _) => project_id,
+            Event::Session(project_id, _) => project_id,
+            Event::Bookmark(bookmark) => &bookmark.project_id,
+            Event::SessionFile((project_id, _, _, _)) => project_id,
+            Event::SessionDelta((project_id, _, _, _)) => project_id,
+            Event::PushGitbutlerData(project_id) => project_id,
+        }
+    }
+}
+
 impl Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

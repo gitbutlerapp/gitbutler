@@ -94,6 +94,7 @@ async fn list_sessions(
     let sessions = app
         .list_sessions(project_id, earliest_timestamp_ms)
         .with_context(|| format!("failed to list sessions for project {}", project_id))?;
+    dbg!(&sessions);
     Ok(sessions)
 }
 
@@ -638,6 +639,10 @@ async fn main() {
             logs::init(&app_handle);
 
             tracing::info!("Starting app");
+
+            let watchers =
+                watcher::Watchers::try_from(&app_handle).expect("failed to initialize watchers");
+            tauri_app.manage(watchers);
 
             let zipper = zip::Zipper::try_from(&app_handle).expect("failed to initialize zipper");
             tauri_app.manage(zipper);

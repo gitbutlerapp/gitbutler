@@ -40,28 +40,12 @@ pub fn set_base_branch(
 
     // get a list of currently active virtual branches
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session for reading")?;
-
-    let virtual_branches = iterator::BranchIterator::new(&current_session_reader)
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?;
-
-    let active_virtual_branches = virtual_branches
-        .iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
-
     // if there are no applied virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
     let commit = branch.get().peel_to_commit()?;
     let mut commit_oid = commit.id();
 
     let head_ref = repo.head().context("Failed to get HEAD reference")?;
-    let head_branch: project_repository::branch::Name = head_ref
+    let head_name: project_repository::branch::Name = head_ref
         .name()
         .context("Failed to get HEAD reference name")?
         .parse()
@@ -89,14 +73,34 @@ pub fn set_base_branch(
     let target_writer = target::Writer::new(gb_repository);
     target_writer.write_default(&target)?;
 
+    // if target.branch_name != head_name.branch() {
+    // if head is not pointing to the target branch, create initial virtual branch using the
+    // head
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get current session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session for reading")?;
+
+    let virtual_branches = iterator::BranchIterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?;
+
+    let active_virtual_branches = virtual_branches
+        .iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
+
     if active_virtual_branches.is_empty() {
         create_virtual_branch_from_branch(
             gb_repository,
             project_repository,
-            &head_branch,
+            &head_name,
             Some(true),
         )?;
     }
+    // }
 
     set_exclude_decoration(project_repository)?;
 

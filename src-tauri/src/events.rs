@@ -30,6 +30,7 @@ impl Sender {
 pub struct Event {
     name: String,
     payload: serde_json::Value,
+    project_id: String,
 }
 
 impl Event {
@@ -37,10 +38,15 @@ impl Event {
         &self.name
     }
 
+    pub fn project_id(&self) -> &str {
+        &self.project_id
+    }
+
     pub fn git_index(project_id: &str) -> Self {
         Event {
             name: format!("project://{}/git/index", project_id),
             payload: serde_json::json!({}),
+            project_id: project_id.to_string(),
         }
     }
 
@@ -48,6 +54,7 @@ impl Event {
         Event {
             name: format!("project://{}/git/fetch", project_id),
             payload: serde_json::json!({}),
+            project_id: project_id.to_string(),
         }
     }
 
@@ -55,6 +62,7 @@ impl Event {
         Event {
             name: format!("project://{}/git/head", project_id),
             payload: serde_json::json!({ "head": head }),
+            project_id: project_id.to_string(),
         }
     }
 
@@ -62,6 +70,7 @@ impl Event {
         Event {
             name: format!("project://{}/git/activity", project_id),
             payload: serde_json::json!({}),
+            project_id: project_id.to_string(),
         }
     }
 
@@ -72,6 +81,7 @@ impl Event {
                 "filePath": file_path,
                 "contents": contents,
             }),
+            project_id: project_id.to_string(),
         }
     }
 
@@ -79,6 +89,7 @@ impl Event {
         Event {
             name: format!("project://{}/sessions", project_id),
             payload: serde_json::to_value(session).unwrap(),
+            project_id: project_id.to_string(),
         }
     }
 
@@ -86,6 +97,7 @@ impl Event {
         Event {
             name: format!("project://{}/bookmarks", project_id),
             payload: serde_json::to_value(bookmark).unwrap(),
+            project_id: project_id.to_string(),
         }
     }
 
@@ -101,6 +113,7 @@ impl Event {
                 "deltas": deltas,
                 "filePath": relative_file_path,
             }),
+            project_id: project_id.to_string(),
         }
     }
 }
