@@ -1,4 +1,8 @@
-use std::{path, time};
+use std::{
+    path,
+    sync::{Arc, Mutex, TryLockError},
+    time,
+};
 
 use anyhow::{Context, Result};
 use tauri::AppHandle;
@@ -9,13 +13,39 @@ use super::events;
 
 #[derive(Clone)]
 pub struct Handler {
+    inner: Arc<HandlerInner>,
+}
+
+impl TryFrom<&AppHandle> for Handler {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
+        let inner = HandlerInner::try_from(value)?;
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
+    }
+}
+
+impl Handler {
+    pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
+        self.inner.handle(project_id, now)
+    }
+}
+
+struct HandlerInner {
     local_data_dir: path::PathBuf,
     project_storage: projects::Storage,
     user_storage: users::Storage,
     keys_controller: keys::Storage,
+
+    // it's ok to use mutex here, because even though project_id is a paramenter, we create
+    // and use a handler per project.
+    // if that changes, we'll need to use a more granular locking mechanism
+    mutex: Mutex<()>,
 }
 
-impl TryFrom<&AppHandle> for Handler {
+impl TryFrom<&AppHandle> for HandlerInner {
     type Error = anyhow::Error;
 
     fn try_from(value: &AppHandle) -> std::result::Result<Self, Self::Error> {
@@ -28,12 +58,19 @@ impl TryFrom<&AppHandle> for Handler {
             keys_controller: keys::Storage::try_from(value)?,
             project_storage: projects::Storage::try_from(value)?,
             user_storage: users::Storage::try_from(value)?,
+            mutex: Mutex::new(()),
         })
     }
 }
 
-impl Handler {
+impl HandlerInner {
     pub fn handle(&self, project_id: &str, now: &time::SystemTime) -> Result<Vec<events::Event>> {
+        let _lock = match self.mutex.try_lock() {
+            Ok(lock) => lock,
+            Err(TryLockError::Poisoned(_)) => return Err(anyhow::anyhow!("mutex poisoned")),
+            Err(TryLockError::WouldBlock) => return Ok(vec![]),
+        };
+
         let gb_repo = gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
