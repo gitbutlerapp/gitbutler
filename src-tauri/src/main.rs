@@ -289,6 +289,25 @@ async fn git_wd_diff(
 }
 
 #[tauri::command(async)]
+#[instrument(name = "git_commit_diff", skip(handle))]
+async fn git_commit_diff(
+    handle: tauri::AppHandle,
+    project_id: &str,
+    commit_id: &str,
+) -> Result<HashMap<path::PathBuf, String>, Error> {
+    let app = handle.state::<app::App>();
+    let diff = app
+        .git_commit_diff(project_id, commit_id)
+        .with_context(|| {
+            format!(
+                "failed to get git diff for project {} and commit {}",
+                project_id, commit_id
+            )
+        })?;
+    Ok(diff)
+}
+
+#[tauri::command(async)]
 #[instrument(name = "git_match_paths", skip(handle))]
 async fn git_match_paths(
     handle: tauri::AppHandle,
@@ -708,6 +727,7 @@ async fn main() {
             git_stage,
             git_unstage,
             git_wd_diff,
+            git_commit_diff,
             delete_all_data,
             get_logs_archive_path,
             get_project_archive_path,

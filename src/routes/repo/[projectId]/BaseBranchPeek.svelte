@@ -5,6 +5,7 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
+	// import { getCommitDiff } from '$lib/api/git/diffs';
 
 	export let base: BaseBranch;
 	export let branchController: BranchController;
@@ -72,6 +73,16 @@
 			<div class="flex flex-col gap-y-2">
 				{#each base.recentCommits as commit}
 					<CommitCard url={base.commitUrl(commit.id)} {commit} />
+					<!-- <button
+						on:click={() => {
+							getCommitDiff({ projectId: branchController.projectId, commitId: commit.id }).then(
+								(result) => {
+									console.log(result);
+								}
+							);
+						}}
+						class="w-full bg-red-400">{commit.id}</button
+					> -->
 				{/each}
 			</div>
 		</div>
