@@ -375,7 +375,7 @@
 				{/if}
 			</div>
 		</div>
-		{#if files.length >= 2}
+		{#if files.length !== 0}
 			<div
 				class="border-b border-t border-light-300 bg-light-50 dark:border-dark-500 dark:bg-dark-800"
 			>
