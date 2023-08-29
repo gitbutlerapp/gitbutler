@@ -43,7 +43,6 @@
 		baseBranchStore
 	]);
 	const branchesWithContent = getWithContentStore(projectId, sessionsStore, vbranchStore);
-    $: console.log('with content', $branchesWithContent)
 
 	const fetchUnsubscribe = fetchStore.subscribeStream();
 	const gitHeadUnsubscribe = headStore.subscribeStream();

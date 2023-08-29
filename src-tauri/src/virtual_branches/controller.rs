@@ -171,9 +171,8 @@ impl Controller {
         let target = super::set_base_branch(&gb_repository, &project_repository, target_branch)
             .map_err(Error::Other)?;
         let current_session = gb_repository.get_current_session()?;
-        drop(gb_repository);
 
-        if let Some(session) = current_session {
+        if let Some(session) = current_session{
             self.watchers
                 .post(watcher::Event::Session(project_id.to_string(), session))
                 .await?;

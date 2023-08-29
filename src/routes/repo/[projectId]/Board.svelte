@@ -37,7 +37,6 @@
 	}
 
 	$: activeBranches = branches?.filter((b) => b.active);
-    $: console.log('branches', activeBranches);
 </script>
 
 {#if branchesState.isLoading || baseBranchState.isLoading}
