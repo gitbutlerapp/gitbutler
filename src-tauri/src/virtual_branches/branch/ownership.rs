@@ -47,6 +47,10 @@ impl FromStr for Ownership {
 }
 
 impl Ownership {
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
     pub fn put(&mut self, ownership: &FileOwnership) {
         let target = self
             .files

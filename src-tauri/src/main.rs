@@ -94,7 +94,6 @@ async fn list_sessions(
     let sessions = app
         .list_sessions(project_id, earliest_timestamp_ms)
         .with_context(|| format!("failed to list sessions for project {}", project_id))?;
-    dbg!(&sessions);
     Ok(sessions)
 }
 
