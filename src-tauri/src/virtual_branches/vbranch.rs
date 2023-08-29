@@ -45,7 +45,6 @@ pub struct VirtualBranch {
     pub order: usize,     // the order in which this branch should be displayed in the UI
     pub upstream: Option<project_repository::branch::RemoteName>, // the name of the upstream branch this branch this pushes to
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
-    pub integrated: bool, // this branch is already integrated into upstream base branch work that is not yet merged
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -64,8 +63,9 @@ pub struct VirtualBranchCommit {
     pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
-    // only present if is_remove is false
+    // only present if is_remote is false
     pub files: Vec<VirtualBranchFile>,
+    pub is_integrated: bool,
 }
 
 // this struct is a mapping to the view `File` type in Typescript
@@ -660,10 +660,14 @@ pub fn list_remote_branches(
                             commits: ahead
                                 .into_iter()
                                 .map(|commit| {
-                                    commit_to_vbranch_commit(project_repository, &commit, None)
-                                        .unwrap()
+                                    commit_to_vbranch_commit(
+                                        project_repository,
+                                        &default_target,
+                                        &commit,
+                                        None,
+                                    )
                                 })
-                                .collect(),
+                                .collect::<Result<Vec<_>>>()?,
                         });
                     };
                 }
@@ -921,8 +925,12 @@ pub fn list_virtual_branches(
             .log(branch.head, LogUntil::Commit(default_target.sha))
             .context(format!("failed to get log for branch {}", branch.name))?
         {
-            let commit =
-                commit_to_vbranch_commit(project_repository, &commit, Some(&upstream_commits))?;
+            let commit = commit_to_vbranch_commit(
+                project_repository,
+                &default_target,
+                &commit,
+                Some(&upstream_commits),
+            )?;
             commits.push(commit);
         }
 
@@ -955,7 +963,6 @@ pub fn list_virtual_branches(
             }
         }
 
-        let integrated = is_branch_integrated(project_repository, &default_target, branch)?;
         let branch = VirtualBranch {
             id: branch.id.to_string(),
             name: branch.name.to_string(),
@@ -969,7 +976,6 @@ pub fn list_virtual_branches(
             upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
-            integrated,
         };
         branches.push(branch);
     }
@@ -1001,6 +1007,7 @@ fn list_commit_files(
 
 pub fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
+    target: &target::Target,
     commit: &git2::Commit,
     upstream_commits: Option<&HashMap<git2::Oid, bool>>,
 ) -> Result<VirtualBranchCommit> {
@@ -1020,6 +1027,8 @@ pub fn commit_to_vbranch_commit(
         list_commit_files(repository, commit).context("failed to list commit files")?
     };
 
+    let is_integrated = is_commit_integrated(repository, target, commit)?;
+
     let commit = VirtualBranchCommit {
         id: sha,
         created_at: timestamp * 1000,
@@ -1027,6 +1036,7 @@ pub fn commit_to_vbranch_commit(
         description: message,
         is_remote,
         files,
+        is_integrated,
     };
 
     Ok(commit)
@@ -1977,10 +1987,10 @@ pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<(
     Ok(())
 }
 
-fn is_branch_integrated(
+fn is_commit_integrated(
     project_repository: &project_repository::Repository,
     target: &target::Target,
-    branch: &branch::Branch,
+    commit: &git2::Commit,
 ) -> Result<bool> {
     let remote_branch = project_repository
         .git_repository
@@ -1991,7 +2001,7 @@ fn is_branch_integrated(
         project_repository::LogUntil::Commit(target.sha),
     )?;
 
-    if target.sha.eq(&branch.head) {
+    if target.sha.eq(&commit.id()) {
         // could not be integrated if heads are the same.
         return Ok(false);
     }
@@ -2003,14 +2013,13 @@ fn is_branch_integrated(
 
     let merge_base = project_repository
         .git_repository
-        .merge_base(target.sha, branch.head)?;
-    if merge_base.eq(&branch.head) {
+        .merge_base(target.sha, commit.id())?;
+    if merge_base.eq(&commit.id()) {
         // if merge branch is the same as branch head and there are upstream commits
         // then it's integrated
         return Ok(true);
     }
 
-    let head_tree = project_repository.git_repository.find_tree(branch.tree)?;
     let merge_commit = project_repository.git_repository.find_commit(merge_base)?;
     let merge_tree = merge_commit.tree()?;
     let upstream = project_repository
@@ -2025,7 +2034,7 @@ fn is_branch_integrated(
         .merge_trees(
             &merge_tree,
             &upstream_tree,
-            &head_tree,
+            &commit.tree()?,
             Some(&git2::MergeOptions::new()),
         )
         .context("failed to merge trees")?;

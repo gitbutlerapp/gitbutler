@@ -55,7 +55,6 @@
 	export let projectId: string;
 	export let order: number;
 	export let conflicted: boolean;
-	export let integrated: boolean;
 	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
@@ -243,14 +242,6 @@
 		bind:this={rsViewport}
 		class="flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-light-400 bg-light-150 dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
 	>
-		{#if integrated}
-			<div class="mb-2 flex flex-col">
-				<div class="bg-light-800 text-center text-light-200">Branch is Integrated</div>
-				<div class="text-center text-sm text-light-600">
-					It will be removed when you merge upstream
-				</div>
-			</div>
-		{/if}
 		<div
 			class="flex bg-light-200 text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
 		>
@@ -421,7 +412,7 @@
 				}}
 			/>
 		{/if}
-		<div class="relative flex flex-grow overflow-y-hidden" class:opacity-40={integrated}>
+		<div class="relative flex flex-grow overflow-y-hidden">
 			<div
 				bind:this={viewport}
 				class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8"
@@ -496,9 +487,7 @@
 								>
 									<div
 										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
-										style={remoteCommits.length == 0
-											? 'height: calc(100% - 1rem);'
-											: 'height: 100%;'}
+										style={remoteCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
 									/>
 
 									<div class="relative flex flex-col gap-2">
@@ -509,11 +498,7 @@
 											<div
 												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
 											>
-												{#if integrated}
-													integrated
-												{:else}
-													local
-												{/if}
+												local
 											</div>
 											<Button
 												class="w-20"
@@ -540,7 +525,7 @@
 														class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
 													/>
 												</div>
-												<CommitCard {commit} />
+												<CommitCard {commit} isIntegrated={commit.isRemote} />
 											</div>
 										{/each}
 									</div>
@@ -570,9 +555,6 @@
 													class="inline-block max-w-full truncate text-sm font-bold"
 												>
 													{upstream.split('refs/remotes/')[1]}
-													{#if integrated}
-														(integrated)
-													{/if}
 												</Link>
 											{/if}
 										</div>
@@ -591,7 +573,7 @@
 														class:dark:bg-dark-500={commit.isRemote}
 													/>
 												</div>
-												<CommitCard {commit} url={base?.commitUrl(commit.id)} />
+												<CommitCard {commit} url={base?.commitUrl(commit.id)} isIntegrated={commit.isIntegrated} />
 											</div>
 										{/each}
 									</div>

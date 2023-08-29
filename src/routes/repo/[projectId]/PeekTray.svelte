@@ -9,7 +9,6 @@
 	import BaseBranchPeek from './BaseBranchPeek.svelte';
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import { Tooltip } from '$lib/components';
 
 	export let item: Readable<BranchData | Branch | BaseBranch | undefined> | undefined;
 	export let base: BaseBranch | undefined;

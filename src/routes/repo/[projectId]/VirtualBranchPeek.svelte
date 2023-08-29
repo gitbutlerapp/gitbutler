@@ -98,7 +98,7 @@
 				<p class="mb-2 w-full overflow-hidden font-semibold">Commits</p>
 				<div class="flex w-full flex-col gap-y-2">
 					{#each branch.commits as commit}
-						<CommitCard {commit} url={base?.commitUrl(commit.id)} />
+						<CommitCard {commit} url={base?.commitUrl(commit.id)} isIntegrated={commit.isIntegrated} />
 					{/each}
 				</div>
 			</div>
