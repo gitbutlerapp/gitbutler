@@ -58,7 +58,6 @@ export class Branch {
 	upstream?: string;
 	conflicted!: boolean;
 	baseCurrent!: boolean;
-	integrated!: boolean;
 }
 
 export class Commit {
@@ -68,6 +67,7 @@ export class Commit {
 	@Transform((obj) => new Date(obj.value))
 	createdAt!: Date;
 	isRemote!: boolean;
+	isIntegrated!: boolean;
 	@Type(() => File)
 	files!: File[];
 }

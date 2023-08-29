@@ -472,7 +472,7 @@ pub fn target_to_base_branch(
         .log(oid, project_repository::LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
-        .map(|c| super::commit_to_vbranch_commit(project_repository, c, None))
+        .map(|c| super::commit_to_vbranch_commit(project_repository, target, c, None))
         .collect::<Result<Vec<_>>>()?;
 
     // get some recent commits
@@ -480,7 +480,7 @@ pub fn target_to_base_branch(
         .log(target.sha, LogUntil::Take(20))
         .context("failed to get recent commits")?
         .iter()
-        .map(|c| super::commit_to_vbranch_commit(project_repository, c, None))
+        .map(|c| super::commit_to_vbranch_commit(project_repository, target, c, None))
         .collect::<Result<Vec<_>>>()?;
 
     let base = super::BaseBranch {

@@ -2450,17 +2450,17 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
 
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-    assert!(branch1.integrated);
+    assert!(branch1.commits.iter().any(|c| c.is_integrated));
     assert_eq!(branch1.files.len(), 0);
     assert_eq!(branch1.commits.len(), 1);
 
     let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
-    assert!(!branch2.integrated);
+    assert!(!branch2.commits.iter().any(|c| c.is_integrated));
     assert_eq!(branch2.files.len(), 0);
     assert_eq!(branch2.commits.len(), 1);
 
     let branch3 = &branches.iter().find(|b| b.id == branch3_id).unwrap();
-    assert!(!branch3.integrated);
+    assert!(!branch3.commits.iter().any(|c| c.is_integrated));
     assert_eq!(branch3.files.len(), 1);
     assert_eq!(branch3.commits.len(), 0);
 
