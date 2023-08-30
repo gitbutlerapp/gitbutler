@@ -56,7 +56,7 @@ impl<'reader> SessionReader<'reader> {
                 reader: Box::new(wd_reader),
                 previous_reader: CommitReader::from_commit(
                     &repository.git_repository,
-                    head_commit,
+                    &head_commit,
                 )?,
             });
         }
@@ -77,14 +77,13 @@ impl<'reader> SessionReader<'reader> {
             .git_repository
             .find_commit(oid)
             .context("failed to get commit")?;
-        let commit_reader =
-            reader::CommitReader::from_commit(&repository.git_repository, commit.clone())?;
+        let commit_reader = reader::CommitReader::from_commit(&repository.git_repository, &commit)?;
 
         Ok(SessionReader {
             reader: Box::new(commit_reader),
             previous_reader: reader::CommitReader::from_commit(
                 &repository.git_repository,
-                commit.parent(0)?,
+                &commit.parent(0)?,
             )?,
         })
     }

@@ -1,14 +1,16 @@
-pub struct Reference<'a> {
-    reference: git2::Reference<'a>,
+use super::{Commit, Result};
+
+pub struct Reference<'repo> {
+    reference: git2::Reference<'repo>,
 }
 
-impl<'a> From<git2::Reference<'a>> for Reference<'a> {
-    fn from(reference: git2::Reference<'a>) -> Self {
+impl<'repo> From<git2::Reference<'repo>> for Reference<'repo> {
+    fn from(reference: git2::Reference<'repo>) -> Self {
         Reference { reference }
     }
 }
 
-impl<'a> Reference<'a> {
+impl<'repo> Reference<'repo> {
     pub fn name(&self) -> Option<&str> {
         self.reference.name()
     }
@@ -17,11 +19,11 @@ impl<'a> Reference<'a> {
         self.reference.target()
     }
 
-    pub fn peel_to_commit(&self) -> super::Result<git2::Commit<'a>> {
-        self.reference.peel_to_commit()
+    pub fn peel_to_commit(&self) -> Result<Commit<'repo>> {
+        self.reference.peel_to_commit().map(Commit::from)
     }
 
-    pub fn peel_to_tree(&self) -> super::Result<git2::Tree<'a>> {
+    pub fn peel_to_tree(&self) -> Result<git2::Tree<'repo>> {
         self.reference.peel_to_tree()
     }
 }

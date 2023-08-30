@@ -126,7 +126,7 @@ pub struct CommitReader<'reader> {
 impl<'reader> CommitReader<'reader> {
     pub fn from_commit(
         repository: &'reader git::Repository,
-        commit: git2::Commit<'reader>,
+        commit: &git::Commit<'reader>,
     ) -> Result<CommitReader<'reader>> {
         let tree = commit
             .tree()
@@ -316,7 +316,7 @@ mod tests {
         )?;
         let oid = test_utils::commit_all(&repository);
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         assert!(reader.is_dir("dir"));
         assert!(!reader.is_dir("dir/test.txt"));
         assert!(!reader.is_dir("404.txt"));
@@ -334,7 +334,7 @@ mod tests {
 
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test2")?;
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
         Ok(())
@@ -396,7 +396,7 @@ mod tests {
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         let files = reader.list_files("dir")?;
         assert_eq!(files.len(), 1);
         assert!(files.contains(&"test.txt".to_string()));
@@ -424,7 +424,7 @@ mod tests {
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         let files = reader.list_files("")?;
         assert_eq!(files.len(), 2);
         assert!(files.contains(&"test.txt".to_string()));
@@ -456,7 +456,7 @@ mod tests {
 
         std::fs::remove_file(repository.path().parent().unwrap().join("test.txt"))?;
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         assert!(reader.exists("test.txt"));
         assert!(!reader.exists("test2.txt"));
 

@@ -49,7 +49,7 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
                     return self.next();
                 }
 
-                let commit_reader = match CommitReader::from_commit(self.git_repository, commit) {
+                let commit_reader = match CommitReader::from_commit(self.git_repository, &commit) {
                     Result::Ok(commit_reader) => commit_reader,
                     Err(err) => return Some(Err(err)),
                 };
