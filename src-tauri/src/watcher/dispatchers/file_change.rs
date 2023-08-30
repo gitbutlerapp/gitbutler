@@ -11,7 +11,7 @@ use tokio::{
     task,
 };
 
-use crate::{watcher::events, git};
+use crate::{git, watcher::events};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
