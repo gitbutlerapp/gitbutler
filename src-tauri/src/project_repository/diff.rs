@@ -2,6 +2,8 @@ use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
 
+use crate::git;
+
 use super::Repository;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -68,7 +70,7 @@ pub fn trees(
 }
 
 fn hunks_by_filepath(
-    repo: &git2::Repository,
+    repo: &git::Repository,
     diff: &git2::Diff,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     // find all the hunks

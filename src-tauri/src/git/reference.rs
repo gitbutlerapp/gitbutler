@@ -26,4 +26,19 @@ impl<'repo> Reference<'repo> {
     pub fn peel_to_tree(&self) -> Result<git2::Tree<'repo>> {
         self.reference.peel_to_tree()
     }
+
+    pub fn rename(
+        &mut self,
+        new_name: &str,
+        force: bool,
+        log_message: &str,
+    ) -> Result<Reference<'repo>> {
+        self.reference
+            .rename(new_name, force, log_message)
+            .map(Reference::from)
+    }
+
+    pub fn delete(&mut self) -> Result<()> {
+        self.reference.delete()
+    }
 }

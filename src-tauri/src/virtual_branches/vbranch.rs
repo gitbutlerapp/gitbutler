@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     dedup::{dedup, dedup_fmt},
-    gb_repository,
+    gb_repository, git,
     keys::PrivateKey,
     project_repository::{self, conflicts, diff, LogUntil},
     reader, sessions,
@@ -281,7 +281,7 @@ pub fn apply_branch(
             let (author, committer) = gb_repository.git_signatures()?;
             let message = "merge upstream";
             // write the merge commit
-            let branch_tree_oid = merge_index.write_tree_to(repo)?;
+            let branch_tree_oid = merge_index.write_tree_to(repo.into())?;
             branch_tree = repo.find_tree(branch_tree_oid)?;
 
             let new_branch_head = repo.commit(
@@ -381,7 +381,6 @@ pub fn unapply_branch(
 
     let target_commit = gb_repository
         .git_repository
-        .inner()
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
@@ -409,14 +408,14 @@ pub fn unapply_branch(
             if let Ok(mut result) =
                 repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
             {
-                let final_tree_oid = result.write_tree_to(repo)?;
+                let final_tree_oid = result.write_tree_to(repo.into())?;
                 final_tree = repo.find_tree(final_tree_oid)?;
             }
         }
     }
     // convert the final tree into an object
     let final_tree_oid = final_tree.id();
-    let final_tree = repo.find_object(final_tree_oid, Some(git2::ObjectType::Tree))?;
+    let final_tree = repo.find_tree(final_tree_oid)?;
 
     // checkout final_tree into the working directory
     let mut checkout_options = git2::build::CheckoutBuilder::new();
@@ -694,7 +693,7 @@ pub fn list_remote_branches(
     Ok(branches)
 }
 
-pub fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
+pub fn get_wd_tree(repo: &git::Repository) -> Result<git2::Tree> {
     let mut index = repo.index()?;
     index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
     let oid = index.write_tree()?;
@@ -703,9 +702,9 @@ pub fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
 }
 
 fn find_base_tree<'a>(
-    repo: &'a git2::Repository,
-    branch_commit: &'a git2::Commit<'a>,
-    target_commit: &'a git2::Commit<'a>,
+    repo: &'a git::Repository,
+    branch_commit: &'a git::Commit<'a>,
+    target_commit: &'a git::Commit<'a>,
 ) -> Result<git2::Tree<'a>> {
     // find merge base between target_commit and branch_commit
     let merge_base = repo
@@ -722,7 +721,7 @@ fn find_base_tree<'a>(
 }
 
 fn check_mergeable(
-    repo: &git2::Repository,
+    repo: &git::Repository,
     base_tree: &git2::Tree,
     branch_tree: &git2::Tree,
     wd_tree: &git2::Tree,
@@ -986,7 +985,7 @@ pub fn list_virtual_branches(
 
 fn list_commit_files(
     project_repository: &project_repository::Repository,
-    commit: &git2::Commit,
+    commit: &git::Commit,
 ) -> Result<Vec<VirtualBranchFile>> {
     if commit.parent_count() == 0 {
         return Ok(vec![]);
@@ -1009,7 +1008,7 @@ fn list_commit_files(
 pub fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
     target: &target::Target,
-    commit: &git2::Commit,
+    commit: &git::Commit,
     upstream_commits: Option<&HashMap<git2::Oid, bool>>,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = commit.time().seconds() as u128;
@@ -1060,7 +1059,6 @@ pub fn create_virtual_branch(
 
     let repo = &gb_repository.git_repository;
     let commit = repo
-        .inner()
         .find_commit(default_target.sha)
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
@@ -1745,7 +1743,7 @@ pub fn write_tree(
                 } else {
                     // blob from tree_entry
                     let blob = tree_entry
-                        .to_object(git_repository)
+                        .to_object(git_repository.into())
                         .unwrap()
                         .peel_to_blob()
                         .context("failed to get blob")?;
@@ -1990,7 +1988,7 @@ pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<(
 fn is_commit_integrated(
     project_repository: &project_repository::Repository,
     target: &target::Target,
-    commit: &git2::Commit,
+    commit: &git::Commit,
 ) -> Result<bool> {
     let remote_branch = project_repository
         .git_repository
@@ -2044,7 +2042,7 @@ fn is_commit_integrated(
     }
 
     let merge_tree_oid = merge_index
-        .write_tree_to(&project_repository.git_repository)
+        .write_tree_to((&project_repository.git_repository).into())
         .context("failed to write tree")?;
 
     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)

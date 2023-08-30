@@ -10,6 +10,12 @@ impl<'repo> From<git2::Commit<'repo>> for Commit<'repo> {
     }
 }
 
+impl<'repo> From<&'repo git2::Commit<'repo>> for Commit<'repo> {
+    fn from(commit: &'repo git2::Commit<'repo>) -> Self {
+        Self { commit: commit.clone() }
+    }
+}
+
 impl<'repo> From<&'repo Commit<'repo>> for &'repo git2::Commit<'repo> {
     fn from(val: &'repo Commit<'repo>) -> Self {
         &val.commit
@@ -29,7 +35,27 @@ impl<'repo> Commit<'repo> {
         self.commit.tree()
     }
 
+    pub fn tree_id(&self) -> git2::Oid {
+        self.commit.tree_id()
+    }
+
     pub fn parent(&self, n: usize) -> Result<Commit<'repo>> {
         self.commit.parent(n).map(Commit::from)
+    }
+
+    pub fn time(&self) -> git2::Time {
+        self.commit.time()
+    }
+
+    pub fn author(&self) -> git2::Signature<'_> {
+        self.commit.author()
+    }
+
+    pub fn message(&self) -> Option<&str> {
+        self.commit.message()
+    }
+
+    pub fn committer(&self) -> git2::Signature<'_> {
+        self.commit.committer()
     }
 }

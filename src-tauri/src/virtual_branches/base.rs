@@ -35,7 +35,7 @@ pub fn set_base_branch(
     let branch = repo.find_branch(target_branch, git2::BranchType::Remote)?;
 
     let remote_name = repo.branch_remote_name(branch.get().name().unwrap())?;
-    let remote = repo.find_remote(remote_name.as_str().unwrap())?;
+    let remote = repo.find_remote(&remote_name)?;
     let remote_url = remote.url().unwrap();
 
     // get a list of currently active virtual branches
@@ -64,7 +64,7 @@ pub fn set_base_branch(
     }
 
     let target = target::Target {
-        branch_name: branch.name()?.unwrap().to_string(),
+        branch_name: branch.name().unwrap().to_string(),
         remote_name: remote.name().unwrap().to_string(),
         remote_url: remote_url.to_string(),
         sha: commit_oid,
@@ -258,7 +258,7 @@ pub fn update_base_branch(
                 if !merge_index.has_conflicts() {
                     // does not conflict with head, so lets merge it and update the head
                     let merge_tree_oid = merge_index
-                        .write_tree_to(repo)
+                        .write_tree_to(repo.into())
                         .context("failed to write tree")?;
                     // get tree from merge_tree_oid
                     let merge_tree = repo
@@ -282,7 +282,7 @@ pub fn update_base_branch(
         } else {
             // get the merge tree oid from writing the index out
             let merge_tree_oid = merge_index
-                .write_tree_to(repo)
+                .write_tree_to(repo.into())
                 .context("failed to write tree")?;
 
             // branch head does not have conflicts, so don't unapply it, but still try to merge it's head if there are commits
@@ -318,7 +318,7 @@ pub fn update_base_branch(
                         super::list_virtual_branches(gb_repository, project_repository)?;
                 } else {
                     let merge_tree_oid = merge_index
-                        .write_tree_to(repo)
+                        .write_tree_to(repo.into())
                         .context("failed to write tree")?;
                     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
                     // then the vbranch is fully merged, so delete it
@@ -513,7 +513,7 @@ pub fn create_virtual_branch_from_branch(
         .context("no default target found")?;
 
     let repo = &project_repository.git_repository;
-    let head = repo.revparse_single(&upstream.to_string())?;
+    let head = repo.find_reference(&upstream.to_string())?;
     let head_commit = head.peel_to_commit()?;
     let tree = head_commit.tree().context("failed to find tree")?;
 
@@ -576,7 +576,7 @@ pub fn create_virtual_branch_from_branch(
         } else {
             let (author, committer) = gb_repository.git_signatures()?;
             let new_head_tree_oid = merge_index
-                .write_tree_to(repo)
+                .write_tree_to(repo.into())
                 .context("failed to write merge tree")?;
             let new_head_tree = repo
                 .find_tree(new_head_tree_oid)

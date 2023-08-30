@@ -68,7 +68,6 @@ impl Repository {
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
 
             git_repository
-                .inner()
                 .odb()
                 .map_err(Error::Git)?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
@@ -91,7 +90,6 @@ impl Repository {
             .with_context(|| format!("{}: failed to initialize git repository", path.display()))?;
 
             git_repository
-                .inner()
                 .odb()?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .context("failed to add disk alternate")?;
@@ -742,7 +740,7 @@ fn build_wd_tree(
             }
 
             let wd_tree_oid = index
-                .write_tree_to(gb_repository.git_repository.inner())
+                .write_tree_to((&gb_repository.git_repository).into())
                 .with_context(|| "failed to write wd tree".to_string())?;
             Ok(wd_tree_oid)
         }
@@ -842,7 +840,7 @@ fn build_wd_tree_from_repo(
     }
 
     let tree_oid = index
-        .write_tree_to(gb_repository.git_repository.inner())
+        .write_tree_to((&gb_repository.git_repository).into())
         .context("failed to write tree to repo")?;
     Ok(tree_oid)
 }
@@ -977,7 +975,7 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to(gb_repository.git_repository.inner())
+        .write_tree_to((&gb_repository.git_repository).into())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -1001,7 +999,7 @@ fn build_log_tree(
     }
 
     let tree_oid = index
-        .write_tree_to(gb_repository.git_repository.inner())
+        .write_tree_to((&gb_repository.git_repository).into())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -1061,7 +1059,7 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to(gb_repository.git_repository.inner())
+        .write_tree_to((&gb_repository.git_repository).into())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)

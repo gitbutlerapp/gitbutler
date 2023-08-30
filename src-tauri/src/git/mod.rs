@@ -11,3 +11,6 @@ pub use repository::*;
 
 mod commit;
 pub use commit::*;
+
+mod branch;
+pub use branch::*;

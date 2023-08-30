@@ -9,7 +9,7 @@ use crate::{git, keys, project_repository::activity, projects, reader};
 use super::branch;
 
 pub struct Repository<'repository> {
-    pub(crate) git_repository: git2::Repository,
+    pub git_repository: git::Repository,
     project: &'repository projects::Project,
 }
 
@@ -17,7 +17,7 @@ impl<'project> TryFrom<&'project projects::Project> for Repository<'project> {
     type Error = git2::Error;
 
     fn try_from(project: &'project projects::Project) -> std::result::Result<Self, Self::Error> {
-        let git_repository = git2::Repository::open(&project.path)?;
+        let git_repository = git::Repository::open(&project.path)?;
         Ok(Self {
             git_repository,
             project,
@@ -31,7 +31,7 @@ impl<'repository> Repository<'repository> {
     }
 
     pub fn open(project: &'repository projects::Project) -> Result<Self> {
-        let git_repository = git2::Repository::open(&project.path)
+        let git_repository = git::Repository::open(&project.path)
             .with_context(|| format!("{}: failed to open git repository", project.path))?;
         Ok(Self {
             git_repository,
@@ -39,7 +39,7 @@ impl<'repository> Repository<'repository> {
         })
     }
 
-    pub fn get_head(&self) -> Result<git2::Reference, git2::Error> {
+    pub fn get_head(&self) -> Result<git::Reference, git2::Error> {
         let head = self.git_repository.head()?;
         Ok(head)
     }
@@ -301,7 +301,7 @@ impl<'repository> Repository<'repository> {
     }
 
     // returns a list of commits from the first oid to the second oid
-    pub fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
+    pub fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git::Commit>> {
         self.l(from, to)?
             .into_iter()
             .map(|oid| self.git_repository.find_commit(oid))
@@ -557,8 +557,7 @@ impl<'repository> Repository<'repository> {
             let head = self.git_repository.head()?;
             let branch = head.name().unwrap();
 
-            let branch_remote = self.git_repository.branch_upstream_remote(branch)?;
-            let branch_remote_name = branch_remote.as_str().unwrap();
+            let branch_remote_name = self.git_repository.branch_upstream_remote(branch)?;
             let branch_name = self.git_repository.branch_upstream_name(branch)?;
 
             tracing::info!(
@@ -566,7 +565,7 @@ impl<'repository> Repository<'repository> {
                 self.project.id,
                 branch,
                 branch_remote_name,
-                branch_name.as_str().unwrap()
+                branch_name,
             );
 
             // Set the remote's callbacks
@@ -596,7 +595,7 @@ impl<'repository> Repository<'repository> {
             push_options.remote_callbacks(callbacks);
 
             // Push to the remote
-            let mut remote = self.git_repository.find_remote(branch_remote_name)?;
+            let mut remote = self.git_repository.find_remote(&branch_remote_name)?;
             remote
                 .push(&[branch], Some(&mut push_options))
                 .with_context(|| {
@@ -693,7 +692,7 @@ pub enum Error {
     Other(anyhow::Error),
 }
 
-type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;
+type OidFilter = dyn Fn(&git::Commit) -> Result<bool>;
 
 pub enum LogUntil {
     Commit(git2::Oid),

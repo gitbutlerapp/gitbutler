@@ -1,9 +1,15 @@
 use std::path;
 
-use super::{Commit, Reference, Result};
+use super::{Branch, Commit, Reference, Result};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
+
+impl<'a> From<&'a Repository> for &'a git2::Repository {
+    fn from(repo: &'a Repository) -> Self {
+        &repo.0
+    }
+}
 
 impl Repository {
     pub fn init<P: AsRef<path::Path>>(path: P) -> Result<Self> {
@@ -15,7 +21,6 @@ impl Repository {
         let inner = git2::Repository::open(path)?;
         Ok(Repository(inner))
     }
-
     pub fn init_opts<P: AsRef<path::Path>>(
         path: P,
         opts: &git2::RepositoryInitOptions,
@@ -24,8 +29,68 @@ impl Repository {
         Ok(Repository(inner))
     }
 
-    pub fn inner(&self) -> &git2::Repository {
-        &self.0
+    pub fn odb(&self) -> Result<git2::Odb> {
+        self.0.odb()
+    }
+
+    pub fn revparse_single(&self, spec: &str) -> Result<git2::Object> {
+        self.0.revparse_single(spec)
+    }
+
+    pub fn find_annotated_commit(&self, id: git2::Oid) -> Result<git2::AnnotatedCommit<'_>> {
+        self.0.find_annotated_commit(id)
+    }
+
+    pub fn rebase(
+        &self,
+        branch: Option<&git2::AnnotatedCommit<'_>>,
+        upstream: Option<&git2::AnnotatedCommit<'_>>,
+        onto: Option<&git2::AnnotatedCommit<'_>>,
+        opts: Option<&mut git2::RebaseOptions<'_>>,
+    ) -> Result<git2::Rebase<'_>> {
+        self.0.rebase(branch, upstream, onto, opts)
+    }
+
+    pub fn merge_base(&self, one: git2::Oid, two: git2::Oid) -> Result<git2::Oid> {
+        self.0.merge_base(one, two)
+    }
+
+    pub fn merge_trees(
+        &self,
+        ancestor_tree: &git2::Tree<'_>,
+        our_tree: &git2::Tree<'_>,
+        their_tree: &git2::Tree<'_>,
+        opts: Option<&git2::MergeOptions>,
+    ) -> Result<git2::Index> {
+        self.0
+            .merge_trees(ancestor_tree, our_tree, their_tree, opts)
+    }
+
+    pub fn diff_tree_to_tree(
+        &self,
+        old_tree: Option<&git2::Tree<'_>>,
+        new_tree: Option<&git2::Tree<'_>>,
+        opts: Option<&mut git2::DiffOptions>,
+    ) -> Result<git2::Diff<'_>> {
+        self.0.diff_tree_to_tree(old_tree, new_tree, opts)
+    }
+
+    pub fn diff_tree_to_workdir(
+        &self,
+        old_tree: Option<&git2::Tree<'_>>,
+        opts: Option<&mut git2::DiffOptions>,
+    ) -> Result<git2::Diff<'_>> {
+        self.0.diff_tree_to_workdir(old_tree, opts)
+    }
+
+    pub fn reset(
+        &self,
+        commit: &Commit<'_>,
+        kind: git2::ResetType,
+        checkout: Option<&mut git2::build::CheckoutBuilder<'_>>,
+    ) -> Result<()> {
+        let commit: &git2::Commit = commit.into();
+        self.0.reset(commit.as_object(), kind, checkout)
     }
 
     pub fn find_reference(&self, name: &str) -> Result<Reference> {
@@ -50,6 +115,10 @@ impl Repository {
 
     pub fn revwalk(&self) -> Result<git2::Revwalk> {
         self.0.revwalk()
+    }
+
+    pub fn is_path_ignored<P: AsRef<path::Path>>(&self, path: P) -> Result<bool> {
+        self.0.is_path_ignored(path)
     }
 
     pub fn branches(
@@ -100,26 +169,75 @@ impl Repository {
         self.0.path()
     }
 
+    pub fn workdir(&self) -> Option<&path::Path> {
+        self.0.workdir()
+    }
+
+    pub fn branch_upstream_name(&self, branch_name: &str) -> Result<String> {
+        self.0
+            .branch_upstream_name(branch_name)
+            .map(|s| s.as_str().unwrap().to_string())
+    }
+
+    pub fn branch_remote_name(&self, refname: &str) -> Result<String> {
+        self.0
+            .branch_remote_name(refname)
+            .map(|s| s.as_str().unwrap().to_string())
+    }
+
+    pub fn branch_upstream_remote(&self, branch_name: &str) -> Result<String> {
+        self.0
+            .branch_upstream_remote(branch_name)
+            .map(|s| s.as_str().unwrap().to_string())
+    }
+
+    pub fn statuses(
+        &self,
+        options: Option<&mut git2::StatusOptions>,
+    ) -> Result<git2::Statuses<'_>> {
+        self.0.statuses(options)
+    }
+
     pub fn remote_anonymous(&self, url: &str) -> Result<git2::Remote> {
         self.0.remote_anonymous(url)
     }
 
-    #[cfg(test)]
+    pub fn find_remote(&self, name: &str) -> Result<git2::Remote> {
+        self.0.find_remote(name)
+    }
+
+    pub fn find_branch(&self, name: &str, branch_type: git2::BranchType) -> Result<Branch> {
+        self.0.find_branch(name, branch_type).map(Branch::from)
+    }
+
     pub fn refname_to_id(&self, name: &str) -> Result<git2::Oid> {
         self.0.refname_to_id(name)
     }
 
-    #[cfg(test)]
     pub fn checkout_head(&self, opts: Option<&mut git2::build::CheckoutBuilder<'_>>) -> Result<()> {
         self.0.checkout_head(opts)
     }
 
-    #[cfg(test)]
+    pub fn checkout_index(
+        &self,
+        index: Option<&mut git2::Index>,
+        opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
+    ) -> Result<()> {
+        self.0.checkout_index(index, opts)
+    }
+
+    pub fn checkout_tree(
+        &self,
+        tree: &git2::Tree<'_>,
+        opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
+    ) -> Result<()> {
+        self.0.checkout_tree(tree.as_object(), opts)
+    }
+
     pub fn set_head(&self, refname: &str) -> Result<()> {
         self.0.set_head(refname)
     }
 
-    #[cfg(test)]
     pub fn reference(
         &self,
         name: &str,

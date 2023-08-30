@@ -2732,7 +2732,7 @@ fn tree_to_file_list(repository: &git::Repository, tree: &git2::Tree) -> Result<
             .get_path(std::path::Path::new(path))
             .context(format!("failed to get tree entry for path {}", path))?;
         let object = entry
-            .to_object(repository.inner())
+            .to_object(repository.into())
             .context(format!("failed to get object for tree entry {}", path))?;
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
@@ -2752,7 +2752,7 @@ fn tree_to_entry_list(
             .get_path(std::path::Path::new(path))
             .context(format!("failed to get tree entry for path {}", path))?;
         let object = entry
-            .to_object(repository.inner())
+            .to_object(repository.into())
             .context(format!("failed to get object for tree entry {}", path))?;
         let blob = object.as_blob().context("failed to get blob")?;
         // convert content to string

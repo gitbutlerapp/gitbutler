@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use anyhow::{Context, Result};
 
 use crate::{
-    gb_repository,
+    gb_repository, git,
     project_repository::{self, LogUntil},
     reader, sessions,
     virtual_branches::branch::BranchCreateRequest,
@@ -93,7 +93,7 @@ pub fn update_gitbutler_integration(
             repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
         {
             if !result.has_conflicts() {
-                let final_tree_oid = result.write_tree_to(repo)?;
+                let final_tree_oid = result.write_tree_to(repo.into())?;
                 final_tree = repo.find_tree(final_tree_oid)?;
             }
         }
@@ -248,7 +248,7 @@ fn verify_head_is_clean(
     project_repository
         .git_repository
         .reset(
-            integration_commit.as_ref().unwrap().as_object(),
+            integration_commit.as_ref().unwrap(),
             git2::ResetType::Soft,
             None,
         )
@@ -335,15 +335,15 @@ fn verify_head_is_set(
     }
 }
 
-fn is_integration_commit(commit: &git2::Commit) -> bool {
+fn is_integration_commit(commit: &git::Commit) -> bool {
     is_integration_commit_author(commit) && is_integration_commit_message(commit)
 }
 
-fn is_integration_commit_author(commit: &git2::Commit) -> bool {
+fn is_integration_commit_author(commit: &git::Commit) -> bool {
     is_integration_commit_author_email(commit) && is_integration_commit_author_name(commit)
 }
 
-fn is_integration_commit_author_email(commit: &git2::Commit) -> bool {
+fn is_integration_commit_author_email(commit: &git::Commit) -> bool {
     commit
         .author()
         .email()
@@ -351,7 +351,7 @@ fn is_integration_commit_author_email(commit: &git2::Commit) -> bool {
         .unwrap_or(false)
 }
 
-fn is_integration_commit_author_name(commit: &git2::Commit) -> bool {
+fn is_integration_commit_author_name(commit: &git::Commit) -> bool {
     commit
         .author()
         .name()
@@ -359,7 +359,7 @@ fn is_integration_commit_author_name(commit: &git2::Commit) -> bool {
         .unwrap_or(false)
 }
 
-fn is_integration_commit_message(commit: &git2::Commit) -> bool {
+fn is_integration_commit_message(commit: &git::Commit) -> bool {
     commit
         .message()
         .map(|message| message.starts_with("GitButler Integration Commit"))
