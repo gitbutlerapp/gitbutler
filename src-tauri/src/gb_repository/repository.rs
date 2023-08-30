@@ -67,7 +67,8 @@ impl Repository {
             let git_repository = git::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
 
-            git_repository.inner()
+            git_repository
+                .inner()
                 .odb()
                 .map_err(Error::Git)?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
@@ -89,7 +90,8 @@ impl Repository {
             )
             .with_context(|| format!("{}: failed to initialize git repository", path.display()))?;
 
-            git_repository.inner()
+            git_repository
+                .inner()
                 .odb()?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .context("failed to add disk alternate")?;
@@ -1114,10 +1116,10 @@ fn write_gb_commit(
 
     match gb_repository
         .git_repository
-        .revparse_single("refs/heads/current")
+        .find_reference("refs/heads/current")
     {
-        Result::Ok(obj) => {
-            let last_commit = gb_repository.git_repository.find_commit(obj.id())?;
+        Result::Ok(reference) => {
+            let last_commit = reference.peel_to_commit()?;
             let new_commit = gb_repository.git_repository.commit(
                 Some("refs/heads/current"),
                 &author,                                                   // author

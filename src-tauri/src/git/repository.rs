@@ -28,10 +28,6 @@ impl Repository {
         &self.0
     }
 
-    pub fn revparse_single(&self, spec: &str) -> Result<git2::Object> {
-        self.0.revparse_single(spec)
-    }
-
     pub fn find_reference(&self, name: &str) -> Result<git2::Reference> {
         self.0.find_reference(name)
     }
