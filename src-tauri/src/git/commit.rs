@@ -61,3 +61,19 @@ impl<'repo> Commit<'repo> {
         self.commit.committer()
     }
 }
+
+pub struct AnnotatedCommit<'repo> {
+    annotated_commit: git2::AnnotatedCommit<'repo>,
+}
+
+impl<'repo> From<git2::AnnotatedCommit<'repo>> for AnnotatedCommit<'repo> {
+    fn from(annotated_commit: git2::AnnotatedCommit<'repo>) -> Self {
+        Self { annotated_commit }
+    }
+}
+
+impl<'repo> From<&'repo AnnotatedCommit<'repo>> for &'repo git2::AnnotatedCommit<'repo> {
+    fn from(val: &'repo AnnotatedCommit<'repo>) -> Self {
+        &val.annotated_commit
+    }
+}

@@ -753,7 +753,7 @@ fn build_wd_tree_from_repo(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<git2::Oid> {
-    let mut index = git2::Index::new()?;
+    let mut index = git::Index::new()?;
 
     // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
     let repo_index = &mut project_repository
@@ -843,8 +843,8 @@ fn build_wd_tree_from_repo(
 // and also looks for large files and puts in a placeholder hash in the LFS format
 // TODO: actually upload the file to LFS
 fn add_wd_path(
-    index: &mut git2::Index,
-    repo_index: &mut git2::Index,
+    index: &mut git::Index,
+    repo_index: &mut git::Index,
     dir: &std::path::Path,
     rel_file_path: &std::path::Path,
     gb_repository: &Repository,

@@ -1,6 +1,6 @@
 use std::path;
 
-use super::{Branch, Commit, Reference, Remote, Result, Tree};
+use super::{AnnotatedCommit, Branch, Commit, Index, Reference, Remote, Result, Tree};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -33,18 +33,23 @@ impl Repository {
         self.0.odb().and_then(|odb| odb.add_disk_alternate(path))
     }
 
-    pub fn find_annotated_commit(&self, id: git2::Oid) -> Result<git2::AnnotatedCommit<'_>> {
-        self.0.find_annotated_commit(id)
+    pub fn find_annotated_commit(&self, id: git2::Oid) -> Result<AnnotatedCommit<'_>> {
+        self.0.find_annotated_commit(id).map(AnnotatedCommit::from)
     }
 
     pub fn rebase(
         &self,
-        branch: Option<&git2::AnnotatedCommit<'_>>,
-        upstream: Option<&git2::AnnotatedCommit<'_>>,
-        onto: Option<&git2::AnnotatedCommit<'_>>,
+        branch: Option<&AnnotatedCommit<'_>>,
+        upstream: Option<&AnnotatedCommit<'_>>,
+        onto: Option<&AnnotatedCommit<'_>>,
         opts: Option<&mut git2::RebaseOptions<'_>>,
     ) -> Result<git2::Rebase<'_>> {
-        self.0.rebase(branch, upstream, onto, opts)
+        self.0.rebase(
+            branch.map(|commit| commit.into()),
+            upstream.map(|commit| commit.into()),
+            onto.map(|commit| commit.into()),
+            opts,
+        )
     }
 
     pub fn merge_base(&self, one: git2::Oid, two: git2::Oid) -> Result<git2::Oid> {
@@ -56,13 +61,15 @@ impl Repository {
         ancestor_tree: &Tree<'_>,
         our_tree: &Tree<'_>,
         their_tree: &Tree<'_>,
-    ) -> Result<git2::Index> {
-        self.0.merge_trees(
-            ancestor_tree.into(),
-            our_tree.into(),
-            their_tree.into(),
-            None,
-        )
+    ) -> Result<Index> {
+        self.0
+            .merge_trees(
+                ancestor_tree.into(),
+                our_tree.into(),
+                their_tree.into(),
+                None,
+            )
+            .map(Index::from)
     }
 
     pub fn diff_tree_to_tree(
@@ -132,8 +139,8 @@ impl Repository {
         self.0.branches(filter)
     }
 
-    pub fn index(&self) -> Result<git2::Index> {
-        self.0.index()
+    pub fn index(&self) -> Result<Index> {
+        self.0.index().map(Index::from)
     }
 
     pub fn blob_path(&self, path: &path::Path) -> Result<git2::Oid> {
@@ -230,10 +237,10 @@ impl Repository {
 
     pub fn checkout_index(
         &self,
-        index: Option<&mut git2::Index>,
+        index: Option<&mut Index>,
         opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
     ) -> Result<()> {
-        self.0.checkout_index(index, opts)
+        self.0.checkout_index(index.map(|i| i.into()), opts)
     }
 
     pub fn checkout_tree(

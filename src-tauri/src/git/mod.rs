@@ -20,3 +20,6 @@ pub use tree::*;
 
 mod remote;
 pub use remote::*;
+
+mod index;
+pub use index::*;
