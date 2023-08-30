@@ -1,4 +1,4 @@
-use super::Result;
+use super::{Result, Tree};
 
 pub struct Commit<'repo> {
     commit: git2::Commit<'repo>,
@@ -12,7 +12,9 @@ impl<'repo> From<git2::Commit<'repo>> for Commit<'repo> {
 
 impl<'repo> From<&'repo git2::Commit<'repo>> for Commit<'repo> {
     fn from(commit: &'repo git2::Commit<'repo>) -> Self {
-        Self { commit: commit.clone() }
+        Self {
+            commit: commit.clone(),
+        }
     }
 }
 
@@ -31,8 +33,8 @@ impl<'repo> Commit<'repo> {
         self.commit.parent_count()
     }
 
-    pub fn tree(&self) -> Result<git2::Tree<'repo>> {
-        self.commit.tree()
+    pub fn tree(&self) -> Result<Tree<'repo>> {
+        self.commit.tree().map(Tree::from)
     }
 
     pub fn tree_id(&self) -> git2::Oid {

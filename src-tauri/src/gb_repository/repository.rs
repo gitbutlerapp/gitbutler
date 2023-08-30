@@ -685,7 +685,7 @@ fn build_wd_tree(
             let tree = reference.peel_to_tree()?;
             let wd_tree_entry = tree.get_name("wd").unwrap();
             let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
-            index.read_tree(&wd_tree)?;
+            index.read_tree((&wd_tree).into())?;
 
             let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
             let session_wd_files = session_wd_reader

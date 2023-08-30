@@ -120,7 +120,7 @@ impl Reader for DirReader {
 pub struct CommitReader<'reader> {
     repository: &'reader git::Repository,
     commit_oid: git2::Oid,
-    tree: git2::Tree<'reader>,
+    tree: git::Tree<'reader>,
 }
 
 impl<'reader> CommitReader<'reader> {

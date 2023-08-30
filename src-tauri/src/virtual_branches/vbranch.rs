@@ -683,7 +683,7 @@ pub fn list_remote_branches(
     Ok(branches)
 }
 
-pub fn get_wd_tree(repo: &git::Repository) -> Result<git2::Tree> {
+pub fn get_wd_tree(repo: &git::Repository) -> Result<git::Tree> {
     let mut index = repo.index()?;
     index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
     let oid = index.write_tree()?;
@@ -695,7 +695,7 @@ fn find_base_tree<'a>(
     repo: &'a git::Repository,
     branch_commit: &'a git::Commit<'a>,
     target_commit: &'a git::Commit<'a>,
-) -> Result<git2::Tree<'a>> {
+) -> Result<git::Tree<'a>> {
     // find merge base between target_commit and branch_commit
     let merge_base = repo
         .merge_base(target_commit.id(), branch_commit.id())
@@ -707,14 +707,14 @@ fn find_base_tree<'a>(
     let base_tree = merge_base_commit
         .tree()
         .context("failed to get base tree object")?;
-    Ok(base_tree.clone())
+    Ok(base_tree)
 }
 
 fn check_mergeable(
     repo: &git::Repository,
-    base_tree: &git2::Tree,
-    branch_tree: &git2::Tree,
-    wd_tree: &git2::Tree,
+    base_tree: &git::Tree,
+    branch_tree: &git::Tree,
+    wd_tree: &git::Tree,
 ) -> Result<(bool, Vec<String>)> {
     let mut merge_conflicts = Vec::new();
 

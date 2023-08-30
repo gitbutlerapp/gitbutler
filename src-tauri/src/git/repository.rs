@@ -1,6 +1,6 @@
 use std::path;
 
-use super::{Branch, Commit, Reference, Result};
+use super::{Branch, Commit, Reference, Result, Tree};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -57,29 +57,38 @@ impl Repository {
 
     pub fn merge_trees(
         &self,
-        ancestor_tree: &git2::Tree<'_>,
-        our_tree: &git2::Tree<'_>,
-        their_tree: &git2::Tree<'_>,
+        ancestor_tree: &Tree<'_>,
+        our_tree: &Tree<'_>,
+        their_tree: &Tree<'_>,
     ) -> Result<git2::Index> {
-        self.0
-            .merge_trees(ancestor_tree, our_tree, their_tree, None)
+        self.0.merge_trees(
+            ancestor_tree.into(),
+            our_tree.into(),
+            their_tree.into(),
+            None,
+        )
     }
 
     pub fn diff_tree_to_tree(
         &self,
-        old_tree: Option<&git2::Tree<'_>>,
-        new_tree: Option<&git2::Tree<'_>>,
+        old_tree: Option<&Tree<'_>>,
+        new_tree: Option<&Tree<'_>>,
         opts: Option<&mut git2::DiffOptions>,
     ) -> Result<git2::Diff<'_>> {
-        self.0.diff_tree_to_tree(old_tree, new_tree, opts)
+        self.0.diff_tree_to_tree(
+            old_tree.map(|tree| tree.into()),
+            new_tree.map(|tree| tree.into()),
+            opts,
+        )
     }
 
     pub fn diff_tree_to_workdir(
         &self,
-        old_tree: Option<&git2::Tree<'_>>,
+        old_tree: Option<&Tree<'_>>,
         opts: Option<&mut git2::DiffOptions>,
     ) -> Result<git2::Diff<'_>> {
-        self.0.diff_tree_to_workdir(old_tree, opts)
+        self.0
+            .diff_tree_to_workdir(old_tree.map(|tree| tree.into()), opts)
     }
 
     pub fn reset(
@@ -100,8 +109,8 @@ impl Repository {
         self.0.head().map(Reference::from)
     }
 
-    pub fn find_tree(&self, id: git2::Oid) -> Result<git2::Tree> {
-        self.0.find_tree(id)
+    pub fn find_tree(&self, id: git2::Oid) -> Result<Tree> {
+        self.0.find_tree(id).map(Tree::from)
     }
 
     pub fn find_commit(&self, id: git2::Oid) -> Result<Commit> {
@@ -145,23 +154,29 @@ impl Repository {
         author: &git2::Signature<'_>,
         committer: &git2::Signature<'_>,
         message: &str,
-        tree: &git2::Tree<'_>,
+        tree: &Tree<'_>,
         parents: &[&Commit<'_>],
     ) -> Result<git2::Oid> {
         let parents: Vec<&git2::Commit> = parents
             .iter()
             .map(|c| c.to_owned().into())
             .collect::<Vec<_>>();
-        self.0
-            .commit(update_ref, author, committer, message, tree, &parents)
+        self.0.commit(
+            update_ref,
+            author,
+            committer,
+            message,
+            tree.into(),
+            &parents,
+        )
     }
 
     pub fn config(&self) -> Result<git2::Config> {
         self.0.config()
     }
 
-    pub fn treebuilder(&self, tree: Option<&git2::Tree>) -> Result<git2::TreeBuilder> {
-        self.0.treebuilder(tree)
+    pub fn treebuilder(&self, tree: Option<&Tree>) -> Result<git2::TreeBuilder> {
+        self.0.treebuilder(tree.map(|t| t.into()))
     }
 
     pub fn path(&self) -> &path::Path {
@@ -227,9 +242,10 @@ impl Repository {
 
     pub fn checkout_tree(
         &self,
-        tree: &git2::Tree<'_>,
+        tree: &Tree<'_>,
         opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
     ) -> Result<()> {
+        let tree: &git2::Tree = tree.into();
         self.0.checkout_tree(tree.as_object(), opts)
     }
 

@@ -153,7 +153,7 @@ pub fn update_gitbutler_integration(
 
     // write final_tree as the current index
     let mut index = repo.index()?;
-    index.read_tree(&final_tree)?;
+    index.read_tree((&final_tree).into())?;
     index.write()?;
 
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches

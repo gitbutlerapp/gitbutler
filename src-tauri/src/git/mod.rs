@@ -14,3 +14,6 @@ pub use commit::*;
 
 mod branch;
 pub use branch::*;
+
+mod tree;
+pub use tree::*;
