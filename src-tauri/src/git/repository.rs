@@ -60,10 +60,9 @@ impl Repository {
         ancestor_tree: &git2::Tree<'_>,
         our_tree: &git2::Tree<'_>,
         their_tree: &git2::Tree<'_>,
-        opts: Option<&git2::MergeOptions>,
     ) -> Result<git2::Index> {
         self.0
-            .merge_trees(ancestor_tree, our_tree, their_tree, opts)
+            .merge_trees(ancestor_tree, our_tree, their_tree, None)
     }
 
     pub fn diff_tree_to_tree(

@@ -82,16 +82,13 @@ pub fn update_gitbutler_integration(
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    let merge_options = git2::MergeOptions::new();
     let base_tree = target_commit.tree()?;
     let mut final_tree = target_commit.tree()?;
     for branch in &applied_virtual_branches {
         // merge this branches tree with our tree
         let branch_head = repo.find_commit(branch.head)?;
         let branch_tree = branch_head.tree()?;
-        if let Ok(mut result) =
-            repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
-        {
+        if let Ok(mut result) = repo.merge_trees(&base_tree, &final_tree, &branch_tree) {
             if !result.has_conflicts() {
                 let final_tree_oid = result.write_tree_to(repo.into())?;
                 final_tree = repo.find_tree(final_tree_oid)?;

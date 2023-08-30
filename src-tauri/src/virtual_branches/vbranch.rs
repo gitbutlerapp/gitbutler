@@ -226,19 +226,12 @@ pub fn apply_branch(
     // calculate the merge base and make sure it's the same as the target commit
     // if not, we need to merge or rebase the branch to get it up to date
 
-    let merge_options = git2::MergeOptions::new();
-
     let merge_base = repo.merge_base(default_target.sha, apply_branch.head)?;
     if merge_base != default_target.sha {
         // Branch is out of date, merge or rebase it
         let merge_base_tree = repo.find_commit(merge_base)?.tree()?;
         let mut merge_index = repo
-            .merge_trees(
-                &merge_base_tree,
-                &branch_tree,
-                &target_tree,
-                Some(&merge_options),
-            )
+            .merge_trees(&merge_base_tree, &branch_tree, &target_tree)
             .context("failed to merge trees")?;
 
         if merge_index.has_conflicts() {
@@ -304,7 +297,7 @@ pub fn apply_branch(
 
     // check index for conflicts
     let mut merge_index = repo
-        .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
+        .merge_trees(&target_tree, &wd_tree, &branch_tree)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -395,7 +388,6 @@ pub fn unapply_branch(
     }
 
     // ok, update the wd with the union of the rest of the branches
-    let merge_options = git2::MergeOptions::new();
     let base_tree = target_commit.tree()?;
     let mut final_tree = target_commit.tree()?;
 
@@ -405,9 +397,7 @@ pub fn unapply_branch(
         if branch.id != branch_id {
             let tree_oid = write_tree(project_repository, &default_target, &files)?;
             let branch_tree = repo.find_tree(tree_oid)?;
-            if let Ok(mut result) =
-                repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
-            {
+            if let Ok(mut result) = repo.merge_trees(&base_tree, &final_tree, &branch_tree) {
                 let final_tree_oid = result.write_tree_to(repo.into())?;
                 final_tree = repo.find_tree(final_tree_oid)?;
             }
@@ -728,9 +718,8 @@ fn check_mergeable(
 ) -> Result<(bool, Vec<String>)> {
     let mut merge_conflicts = Vec::new();
 
-    let merge_options = git2::MergeOptions::new();
     let merge_index = repo
-        .merge_trees(base_tree, wd_tree, branch_tree, Some(&merge_options))
+        .merge_trees(base_tree, wd_tree, branch_tree)
         .context("failed to merge trees")?;
     let mergeable = !merge_index.has_conflicts();
     if merge_index.has_conflicts() {
@@ -2029,12 +2018,7 @@ fn is_commit_integrated(
     // try to merge our tree into the upstream tree
     let mut merge_index = project_repository
         .git_repository
-        .merge_trees(
-            &merge_tree,
-            &upstream_tree,
-            &commit.tree()?,
-            Some(&git2::MergeOptions::new()),
-        )
+        .merge_trees(&merge_tree, &upstream_tree, &commit.tree()?)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {

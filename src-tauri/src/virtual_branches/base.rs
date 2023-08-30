@@ -214,12 +214,7 @@ pub fn update_base_branch(
 
         // check for conflicts with this tree
         let mut merge_index = repo
-            .merge_trees(
-                &old_target_tree,
-                &branch_tree,
-                &new_target_tree,
-                Some(&git2::MergeOptions::new()),
-            )
+            .merge_trees(&old_target_tree, &branch_tree, &new_target_tree)
             .context(format!(
                 "failed to merge trees for branch {}",
                 virtual_branch.id
@@ -245,12 +240,7 @@ pub fn update_base_branch(
                 let head_tree = head_commit.tree()?;
 
                 let mut merge_index = repo
-                    .merge_trees(
-                        &old_target_tree,
-                        &head_tree,
-                        &new_target_tree,
-                        Some(&git2::MergeOptions::new()),
-                    )
+                    .merge_trees(&old_target_tree, &head_tree, &new_target_tree)
                     .context("failed to merge trees")?;
 
                 // check index for conflicts
@@ -300,12 +290,7 @@ pub fn update_base_branch(
                 let head_tree = repo.find_tree(virtual_branch.tree)?;
 
                 let mut merge_index = repo
-                    .merge_trees(
-                        &old_target_tree,
-                        &head_tree,
-                        &new_target_tree,
-                        Some(&git2::MergeOptions::new()),
-                    )
+                    .merge_trees(&old_target_tree, &head_tree, &new_target_tree)
                     .context("failed to merge trees")?;
 
                 // check index for conflicts
@@ -429,12 +414,7 @@ pub fn update_base_branch(
 
     // and try to merge it
     let mut merge_index = repo
-        .merge_trees(
-            &old_target_tree,
-            &wd_tree,
-            &new_target_tree,
-            Some(&git2::MergeOptions::new()),
-        )
+        .merge_trees(&old_target_tree, &wd_tree, &new_target_tree)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -566,9 +546,8 @@ pub fn create_virtual_branch_from_branch(
         let head_tree = head_commit.tree()?;
 
         // merge target and head
-        let merge_options = git2::MergeOptions::new();
         let mut merge_index = repo
-            .merge_trees(&merge_tree, &head_tree, &target_tree, Some(&merge_options))
+            .merge_trees(&merge_tree, &head_tree, &target_tree)
             .context("failed to merge trees")?;
 
         if merge_index.has_conflicts() {
