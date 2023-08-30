@@ -380,8 +380,7 @@ impl App {
     fn diff_hunks_to_string(
         diff: HashMap<path::PathBuf, Vec<project_repository::diff::Hunk>>,
     ) -> HashMap<path::PathBuf, String> {
-        diff
-            .into_iter()
+        diff.into_iter()
             .map(|(file_path, hunks)| {
                 (
                     file_path,

@@ -52,7 +52,10 @@ impl Repository {
         self.0.revwalk()
     }
 
-    pub fn branches(&self, filter: Option<git2::BranchType>) -> Result<git2::Branches> {
+    pub fn branches(
+        &self,
+        filter: Option<git2::BranchType>,
+    ) -> Result<impl Iterator<Item = Result<(git2::Branch, git2::BranchType)>>> {
         self.0.branches(filter)
     }
 
@@ -129,7 +132,7 @@ impl Repository {
     }
 
     #[cfg(test)]
-    pub fn references(&self) -> Result<git2::References> {
+    pub fn references(&self) -> Result<impl Iterator<Item = Result<git2::Reference>>> {
         self.0.references()
     }
 }

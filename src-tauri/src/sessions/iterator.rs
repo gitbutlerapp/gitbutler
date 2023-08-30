@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::{reader::CommitReader, git};
+use crate::{git, reader::CommitReader};
 
 use super::{Session, SessionError};
 
