@@ -380,7 +380,7 @@ impl App {
     fn diff_hunks_to_string(
         diff: HashMap<path::PathBuf, Vec<project_repository::diff::Hunk>>,
     ) -> HashMap<path::PathBuf, String> {
-        return diff
+        diff
             .into_iter()
             .map(|(file_path, hunks)| {
                 (
@@ -392,7 +392,7 @@ impl App {
                         .join("\n"),
                 )
             })
-            .collect::<HashMap<_, _>>();
+            .collect::<HashMap<_, _>>()
     }
 
     pub fn git_match_paths(&self, project_id: &str, pattern: &str) -> Result<Vec<String>> {

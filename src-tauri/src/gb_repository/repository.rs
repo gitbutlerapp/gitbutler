@@ -742,7 +742,7 @@ fn build_wd_tree(
             }
 
             let wd_tree_oid = index
-                .write_tree_to(&gb_repository.git_repository.inner())
+                .write_tree_to(gb_repository.git_repository.inner())
                 .with_context(|| "failed to write wd tree".to_string())?;
             Ok(wd_tree_oid)
         }
@@ -842,7 +842,7 @@ fn build_wd_tree_from_repo(
     }
 
     let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository.inner())
+        .write_tree_to(gb_repository.git_repository.inner())
         .context("failed to write tree to repo")?;
     Ok(tree_oid)
 }
@@ -977,7 +977,7 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository.inner())
+        .write_tree_to(gb_repository.git_repository.inner())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -1001,7 +1001,7 @@ fn build_log_tree(
     }
 
     let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository.inner())
+        .write_tree_to(gb_repository.git_repository.inner())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -1061,7 +1061,7 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository.inner())
+        .write_tree_to(gb_repository.git_repository.inner())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
