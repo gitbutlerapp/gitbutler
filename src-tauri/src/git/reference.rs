@@ -1,4 +1,4 @@
-use super::{Commit, Result};
+use super::{Commit, Result, Tree};
 
 pub struct Reference<'repo> {
     reference: git2::Reference<'repo>,
@@ -23,8 +23,8 @@ impl<'repo> Reference<'repo> {
         self.reference.peel_to_commit().map(Commit::from)
     }
 
-    pub fn peel_to_tree(&self) -> Result<git2::Tree<'repo>> {
-        self.reference.peel_to_tree()
+    pub fn peel_to_tree(&self) -> Result<Tree<'repo>> {
+        self.reference.peel_to_tree().map(Tree::from)
     }
 
     pub fn rename(

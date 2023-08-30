@@ -68,8 +68,6 @@ impl Repository {
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
 
             git_repository
-                .odb()
-                .map_err(Error::Git)?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .map_err(Error::Git)?;
 
@@ -90,7 +88,6 @@ impl Repository {
             .with_context(|| format!("{}: failed to initialize git repository", path.display()))?;
 
             git_repository
-                .odb()?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .context("failed to add disk alternate")?;
 
@@ -126,7 +123,7 @@ impl Repository {
         &self.project_id
     }
 
-    fn remote(&self) -> Result<Option<(git2::Remote, String)>> {
+    fn remote(&self) -> Result<Option<(git::Remote, String)>> {
         let user = self.users_store.get().context("failed to get user")?;
         let project = self
             .project_store
@@ -193,11 +190,7 @@ impl Repository {
         fetch_opts.custom_headers(headers);
 
         remote
-            .fetch(
-                &["refs/heads/*:refs/remotes/*"],
-                Some(&mut fetch_opts),
-                None,
-            )
+            .fetch(&["refs/heads/*:refs/remotes/*"], Some(&mut fetch_opts))
             .with_context(|| format!("failed to pull from remote {}", remote.url().unwrap()))?;
 
         tracing::info!(
@@ -246,7 +239,7 @@ impl Repository {
 
         // Push to the remote
         remote
-            .push(&[remote_refspec], Some(&mut push_options))
+            .push(&[&remote_refspec], Some(&mut push_options))
             .with_context(|| {
                 format!(
                     "failed to push refs/heads/current to {}",

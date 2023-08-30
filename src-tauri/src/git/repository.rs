@@ -1,6 +1,6 @@
 use std::path;
 
-use super::{Branch, Commit, Reference, Result, Tree};
+use super::{Branch, Commit, Reference, Remote, Result, Tree};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -29,12 +29,8 @@ impl Repository {
         Ok(Repository(inner))
     }
 
-    pub fn odb(&self) -> Result<git2::Odb> {
-        self.0.odb()
-    }
-
-    pub fn revparse_single(&self, spec: &str) -> Result<git2::Object> {
-        self.0.revparse_single(spec)
+    pub fn add_disk_alternate(&self, path: &str) -> Result<()> {
+        self.0.odb().and_then(|odb| odb.add_disk_alternate(path))
     }
 
     pub fn find_annotated_commit(&self, id: git2::Oid) -> Result<git2::AnnotatedCommit<'_>> {
@@ -212,12 +208,12 @@ impl Repository {
         self.0.statuses(options)
     }
 
-    pub fn remote_anonymous(&self, url: &str) -> Result<git2::Remote> {
-        self.0.remote_anonymous(url)
+    pub fn remote_anonymous(&self, url: &str) -> Result<Remote> {
+        self.0.remote_anonymous(url).map(Remote::from)
     }
 
-    pub fn find_remote(&self, name: &str) -> Result<git2::Remote> {
-        self.0.find_remote(name)
+    pub fn find_remote(&self, name: &str) -> Result<Remote> {
+        self.0.find_remote(name).map(Remote::from)
     }
 
     pub fn find_branch(&self, name: &str, branch_type: git2::BranchType) -> Result<Branch> {
@@ -228,7 +224,7 @@ impl Repository {
         self.0.refname_to_id(name)
     }
 
-    pub fn checkout_head(&self, opts: Option<&mut git2::build::CheckoutBuilder<'_>>) -> Result<()> {
+    pub fn checkout_head(&self, opts: Option<&mut git2::build::CheckoutBuilder>) -> Result<()> {
         self.0.checkout_head(opts)
     }
 
@@ -266,12 +262,12 @@ impl Repository {
     }
 
     #[cfg(test)]
-    pub fn remote(&self, name: &str, url: &str) -> Result<git2::Remote> {
-        self.0.remote(name, url)
+    pub fn remote(&self, name: &str, url: &str) -> Result<Remote> {
+        self.0.remote(name, url).map(Remote::from)
     }
 
     #[cfg(test)]
-    pub fn references(&self) -> Result<impl Iterator<Item = Result<super::Reference>>> {
+    pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
         self.0
             .references()
             .map(|iter| iter.map(|reference| reference.map(Reference::from)))

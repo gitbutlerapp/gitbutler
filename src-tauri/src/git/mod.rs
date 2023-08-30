@@ -17,3 +17,6 @@ pub use branch::*;
 
 mod tree;
 pub use tree::*;
+
+mod remote;
+pub use remote::*;

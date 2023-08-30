@@ -1,5 +1,7 @@
 use std::path;
 
+use git2::TreeEntry;
+
 use super::Result;
 
 pub struct Tree<'repo> {
@@ -33,5 +35,9 @@ impl<'repo> Tree<'repo> {
         T: Into<i32>,
     {
         self.tree.walk(mode, callback)
+    }
+
+    pub fn get_name(&self, filename: &str) -> Option<TreeEntry> {
+        self.tree.get_name(filename)
     }
 }

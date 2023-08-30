@@ -353,7 +353,7 @@ impl<'repository> Repository<'repository> {
     pub fn git_unstage_files<P: AsRef<std::path::Path>>(&self, paths: Vec<P>) -> Result<()> {
         let head_tree = self.git_repository.head()?.peel_to_tree()?;
         let mut head_index = git2::Index::new()?;
-        head_index.read_tree(&head_tree)?;
+        head_index.read_tree((&head_tree).into())?;
         let mut index = self.git_repository.index()?;
         for path in paths {
             let path = path.as_ref();
@@ -380,7 +380,7 @@ impl<'repository> Repository<'repository> {
 
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_remote(&'repository self, name: &str) -> Result<git2::Remote<'repository>> {
+    fn get_remote(&'repository self, name: &str) -> Result<git::Remote<'repository>> {
         let remote = self
             .git_repository
             .find_remote(name)
@@ -429,7 +429,7 @@ impl<'repository> Repository<'repository> {
             );
 
             match remote.push(
-                &[format!("{}:refs/heads/{}", head, branch.branch())],
+                &[&format!("{}:refs/heads/{}", head, branch.branch())],
                 Some(&mut git2::PushOptions::new().remote_callbacks(remote_callbacks)),
             ) {
                 Ok(()) => {
@@ -500,10 +500,10 @@ impl<'repository> Repository<'repository> {
             fetch_opts.remote_callbacks(remote_callbacks);
             fetch_opts.prune(git2::FetchPrune::On);
 
-            let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
+            let refspec = &format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
             tracing::info!("{}: git fetch {}", self.project.id, &refspec);
 
-            match remote.fetch(&[refspec], Some(&mut fetch_opts), None) {
+            match remote.fetch(&[refspec], Some(&mut fetch_opts)) {
                 Ok(()) => {
                     tracing::info!("{}: fetched {}", self.project.id, remote_name);
                     return Ok(());
