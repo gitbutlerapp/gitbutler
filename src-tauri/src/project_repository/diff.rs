@@ -28,7 +28,7 @@ impl Default for Options {
 
 pub fn workdir(
     repository: &Repository,
-    commit_oid: &git2::Oid,
+    commit_oid: &git::Oid,
     opts: &Options,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     let commit = repository

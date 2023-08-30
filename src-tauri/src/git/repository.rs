@@ -1,6 +1,6 @@
 use std::path;
 
-use super::{AnnotatedCommit, Branch, Commit, Index, Reference, Remote, Result, Tree};
+use super::{AnnotatedCommit, Branch, Commit, Index, Oid, Reference, Remote, Result, Tree};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -33,8 +33,10 @@ impl Repository {
         self.0.odb().and_then(|odb| odb.add_disk_alternate(path))
     }
 
-    pub fn find_annotated_commit(&self, id: git2::Oid) -> Result<AnnotatedCommit<'_>> {
-        self.0.find_annotated_commit(id).map(AnnotatedCommit::from)
+    pub fn find_annotated_commit(&self, id: Oid) -> Result<AnnotatedCommit<'_>> {
+        self.0
+            .find_annotated_commit(id.into())
+            .map(AnnotatedCommit::from)
     }
 
     pub fn rebase(
@@ -52,8 +54,8 @@ impl Repository {
         )
     }
 
-    pub fn merge_base(&self, one: git2::Oid, two: git2::Oid) -> Result<git2::Oid> {
-        self.0.merge_base(one, two)
+    pub fn merge_base(&self, one: Oid, two: Oid) -> Result<Oid> {
+        self.0.merge_base(one.into(), two.into()).map(Oid::from)
     }
 
     pub fn merge_trees(
@@ -112,16 +114,16 @@ impl Repository {
         self.0.head().map(Reference::from)
     }
 
-    pub fn find_tree(&self, id: git2::Oid) -> Result<Tree> {
-        self.0.find_tree(id).map(Tree::from)
+    pub fn find_tree(&self, id: Oid) -> Result<Tree> {
+        self.0.find_tree(id.into()).map(Tree::from)
     }
 
-    pub fn find_commit(&self, id: git2::Oid) -> Result<Commit> {
-        self.0.find_commit(id).map(Commit::from)
+    pub fn find_commit(&self, id: Oid) -> Result<Commit> {
+        self.0.find_commit(id.into()).map(Commit::from)
     }
 
-    pub fn find_blob(&self, id: git2::Oid) -> Result<git2::Blob> {
-        self.0.find_blob(id)
+    pub fn find_blob(&self, id: Oid) -> Result<git2::Blob> {
+        self.0.find_blob(id.into())
     }
 
     pub fn revwalk(&self) -> Result<git2::Revwalk> {
@@ -135,20 +137,24 @@ impl Repository {
     pub fn branches(
         &self,
         filter: Option<git2::BranchType>,
-    ) -> Result<impl Iterator<Item = Result<(git2::Branch, git2::BranchType)>>> {
-        self.0.branches(filter)
+    ) -> Result<impl Iterator<Item = Result<(Branch, git2::BranchType)>>> {
+        self.0.branches(filter).map(|branches| {
+            branches.map(|branch| {
+                branch.map(|(branch, branch_type)| (Branch::from(branch), branch_type))
+            })
+        })
     }
 
     pub fn index(&self) -> Result<Index> {
-        self.0.index().map(Index::from)
+        self.0.index().map(Into::into)
     }
 
-    pub fn blob_path(&self, path: &path::Path) -> Result<git2::Oid> {
-        self.0.blob_path(path)
+    pub fn blob_path(&self, path: &path::Path) -> Result<Oid> {
+        self.0.blob_path(path).map(Into::into)
     }
 
-    pub fn blob(&self, data: &[u8]) -> Result<git2::Oid> {
-        self.0.blob(data)
+    pub fn blob(&self, data: &[u8]) -> Result<Oid> {
+        self.0.blob(data).map(Into::into)
     }
 
     pub fn commit(
@@ -159,19 +165,21 @@ impl Repository {
         message: &str,
         tree: &Tree<'_>,
         parents: &[&Commit<'_>],
-    ) -> Result<git2::Oid> {
+    ) -> Result<Oid> {
         let parents: Vec<&git2::Commit> = parents
             .iter()
             .map(|c| c.to_owned().into())
             .collect::<Vec<_>>();
-        self.0.commit(
-            update_ref,
-            author,
-            committer,
-            message,
-            tree.into(),
-            &parents,
-        )
+        self.0
+            .commit(
+                update_ref,
+                author,
+                committer,
+                message,
+                tree.into(),
+                &parents,
+            )
+            .map(Into::into)
     }
 
     pub fn config(&self) -> Result<git2::Config> {
@@ -179,7 +187,7 @@ impl Repository {
     }
 
     pub fn treebuilder(&self, tree: Option<&Tree>) -> Result<git2::TreeBuilder> {
-        self.0.treebuilder(tree.map(|t| t.into()))
+        self.0.treebuilder(tree.map(Into::into))
     }
 
     pub fn path(&self) -> &path::Path {
@@ -216,19 +224,19 @@ impl Repository {
     }
 
     pub fn remote_anonymous(&self, url: &str) -> Result<Remote> {
-        self.0.remote_anonymous(url).map(Remote::from)
+        self.0.remote_anonymous(url).map(Into::into)
     }
 
     pub fn find_remote(&self, name: &str) -> Result<Remote> {
-        self.0.find_remote(name).map(Remote::from)
+        self.0.find_remote(name).map(Into::into)
     }
 
     pub fn find_branch(&self, name: &str, branch_type: git2::BranchType) -> Result<Branch> {
-        self.0.find_branch(name, branch_type).map(Branch::from)
+        self.0.find_branch(name, branch_type).map(Into::into)
     }
 
-    pub fn refname_to_id(&self, name: &str) -> Result<git2::Oid> {
-        self.0.refname_to_id(name)
+    pub fn refname_to_id(&self, name: &str) -> Result<Oid> {
+        self.0.refname_to_id(name).map(Into::into)
     }
 
     pub fn checkout_head(&self, opts: Option<&mut git2::build::CheckoutBuilder>) -> Result<()> {
@@ -240,7 +248,7 @@ impl Repository {
         index: Option<&mut Index>,
         opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
     ) -> Result<()> {
-        self.0.checkout_index(index.map(|i| i.into()), opts)
+        self.0.checkout_index(index.map(Into::into), opts)
     }
 
     pub fn checkout_tree(
@@ -259,24 +267,24 @@ impl Repository {
     pub fn reference(
         &self,
         name: &str,
-        id: git2::Oid,
+        id: Oid,
         force: bool,
         log_message: &str,
     ) -> Result<Reference> {
         self.0
-            .reference(name, id, force, log_message)
-            .map(Reference::from)
+            .reference(name, id.into(), force, log_message)
+            .map(Into::into)
     }
 
     #[cfg(test)]
     pub fn remote(&self, name: &str, url: &str) -> Result<Remote> {
-        self.0.remote(name, url).map(Remote::from)
+        self.0.remote(name, url).map(Into::into)
     }
 
     #[cfg(test)]
     pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
         self.0
             .references()
-            .map(|iter| iter.map(|reference| reference.map(Reference::from)))
+            .map(|iter| iter.map(|reference| reference.map(Into::into)))
     }
 }

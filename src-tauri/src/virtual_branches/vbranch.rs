@@ -274,7 +274,7 @@ pub fn apply_branch(
             let (author, committer) = gb_repository.git_signatures()?;
             let message = "merge upstream";
             // write the merge commit
-            let branch_tree_oid = merge_index.write_tree_to(repo.into())?;
+            let branch_tree_oid = merge_index.write_tree_to(repo)?;
             branch_tree = repo.find_tree(branch_tree_oid)?;
 
             let new_branch_head = repo.commit(
@@ -398,7 +398,7 @@ pub fn unapply_branch(
             let tree_oid = write_tree(project_repository, &default_target, &files)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             if let Ok(mut result) = repo.merge_trees(&base_tree, &final_tree, &branch_tree) {
-                let final_tree_oid = result.write_tree_to(repo.into())?;
+                let final_tree_oid = result.write_tree_to(repo)?;
                 final_tree = repo.find_tree(final_tree_oid)?;
             }
         }
@@ -483,10 +483,10 @@ pub fn list_remote_branches(
         .filter_map(|branch| branch.upstream)
         .map(|upstream| upstream.branch().to_string())
         .collect::<HashSet<_>>();
-    let mut most_recent_branches_by_hash: HashMap<git2::Oid, (git2::Branch, u64)> = HashMap::new();
+    let mut most_recent_branches_by_hash: HashMap<git::Oid, (git::Branch, u64)> = HashMap::new();
 
     for (branch, _) in repo.branches(None)?.flatten() {
-        if let Some(branch_oid) = branch.get().target() {
+        if let Some(branch_oid) = branch.target() {
             // get the branch ref
             let branch_commit = repo
                 .find_commit(branch_oid)
@@ -504,6 +504,7 @@ pub fn list_remote_branches(
                 continue;
             }
 
+            dbg!(&branch.is_remote());
             let branch_name = project_repository::branch::Name::try_from(&branch)
                 .context("could not get branch name")?;
 
@@ -550,7 +551,7 @@ pub fn list_remote_branches(
 
             match most_recent_branches_by_hash.get(&branch_oid) {
                 Some((_, existing_seconds)) => {
-                    let branch_name = branch.get().name().context("could not get branch name")?;
+                    let branch_name = branch.refname().context("could not get branch name")?;
                     if seconds < *existing_seconds {
                         // this branch is older than the one we already have
                         continue;
@@ -575,12 +576,12 @@ pub fn list_remote_branches(
         }
     }
 
-    let mut most_recent_branches: Vec<(git2::Branch, u64)> =
+    let mut most_recent_branches: Vec<(git::Branch, u64)> =
         most_recent_branches_by_hash.into_values().collect();
 
     // take the most recent 20 branches
     most_recent_branches.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by timestamp in descending order.
-    let sorted_branches: Vec<git2::Branch> = most_recent_branches
+    let sorted_branches: Vec<git::Branch> = most_recent_branches
         .into_iter()
         .map(|(branch, _)| branch)
         .collect();
@@ -588,8 +589,8 @@ pub fn list_remote_branches(
 
     let mut branches: Vec<RemoteBranch> = Vec::new();
     for branch in &top_branches {
-        let branch_name = branch.get().name().context("could not get branch name")?;
-        match branch.get().target() {
+        let branch_name = branch.refname().context("could not get branch name")?;
+        match branch.target() {
             Some(branch_oid) => {
                 // get the branch ref
                 let branch_commit = repo
@@ -998,7 +999,7 @@ pub fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
     target: &target::Target,
     commit: &git::Commit,
-    upstream_commits: Option<&HashMap<git2::Oid, bool>>,
+    upstream_commits: Option<&HashMap<git::Oid, bool>>,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = commit.time().seconds() as u128;
     let signature = commit.author();
@@ -1682,7 +1683,7 @@ pub fn write_tree(
     project_repository: &project_repository::Repository,
     target: &target::Target,
     files: &Vec<VirtualBranchFile>,
-) -> Result<git2::Oid> {
+) -> Result<git::Oid> {
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
 
@@ -1722,7 +1723,7 @@ pub fn write_tree(
                 let bytes: &[u8] = path_str.as_bytes();
 
                 let blob_oid = git_repository.blob(bytes)?;
-                builder.insert(rel_path, blob_oid, filemode.into())?;
+                builder.insert(rel_path, blob_oid.into(), filemode.into())?;
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if file.binary {
                     let new_blob_oid = &file.hunks[0].diff;
@@ -1756,12 +1757,12 @@ pub fn write_tree(
                     // create a blob
                     let new_blob_oid = git_repository.blob(&new_content)?;
                     // upsert into the builder
-                    builder.insert(rel_path, new_blob_oid, filemode.into())?;
+                    builder.insert(rel_path, new_blob_oid.into(), filemode.into())?;
                 }
             } else {
                 // create a git blob from a file on disk
                 let blob_oid = git_repository.blob_path(&full_path)?;
-                builder.insert(rel_path, blob_oid, filemode.into())?;
+                builder.insert(rel_path, blob_oid.into(), filemode.into())?;
             }
         } else if base_tree.get_path(rel_path).is_ok() {
             // remove file from index if it exists in the base tree
@@ -1775,7 +1776,7 @@ pub fn write_tree(
     // now write out the tree
     let tree_oid = builder.write().context("failed to create updated tree")?;
 
-    Ok(tree_oid)
+    Ok(tree_oid.into())
 }
 
 fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
@@ -1982,7 +1983,7 @@ fn is_commit_integrated(
     let remote_branch = project_repository
         .git_repository
         .find_branch(&target.branch_name, git2::BranchType::Remote)?;
-    let remote_head = remote_branch.get().peel_to_commit()?;
+    let remote_head = remote_branch.peel_to_commit()?;
     let upstream_commits = project_repository.l(
         remote_head.id(),
         project_repository::LogUntil::Commit(target.sha),
@@ -2026,7 +2027,7 @@ fn is_commit_integrated(
     }
 
     let merge_tree_oid = merge_index
-        .write_tree_to((&project_repository.git_repository).into())
+        .write_tree_to(&project_repository.git_repository)
         .context("failed to write tree")?;
 
     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)

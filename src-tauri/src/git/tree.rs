@@ -2,7 +2,7 @@ use std::path;
 
 use git2::TreeEntry;
 
-use super::Result;
+use super::{Oid, Result};
 
 pub struct Tree<'repo> {
     tree: git2::Tree<'repo>,
@@ -21,8 +21,8 @@ impl<'repo> From<&'repo Tree<'repo>> for &'repo git2::Tree<'repo> {
 }
 
 impl<'repo> Tree<'repo> {
-    pub fn id(&self) -> git2::Oid {
-        self.tree.id()
+    pub fn id(&self) -> Oid {
+        self.tree.id().into()
     }
 
     pub fn get_path(&self, path: &path::Path) -> Result<git2::TreeEntry<'repo>> {

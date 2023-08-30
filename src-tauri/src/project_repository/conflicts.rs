@@ -9,9 +9,11 @@ use std::io::{BufRead, Write};
 
 use anyhow::Result;
 
+use crate::git;
+
 use super::Repository;
 
-pub fn mark(repository: &Repository, paths: &[String], parent: Option<git2::Oid>) -> Result<()> {
+pub fn mark(repository: &Repository, paths: &[String], parent: Option<git::Oid>) -> Result<()> {
     let conflicts_path = repository.git_repository.path().join("conflicts");
     // write all the file paths to a file on disk
     let mut file = std::fs::File::create(conflicts_path)?;
@@ -30,7 +32,7 @@ pub fn mark(repository: &Repository, paths: &[String], parent: Option<git2::Oid>
     Ok(())
 }
 
-pub fn merge_parent(repository: &Repository) -> Result<Option<git2::Oid>> {
+pub fn merge_parent(repository: &Repository) -> Result<Option<git::Oid>> {
     let merge_path = repository.git_repository.path().join("base_merge_parent");
     if !merge_path.exists() {
         return Ok(None);
@@ -41,7 +43,7 @@ pub fn merge_parent(repository: &Repository) -> Result<Option<git2::Oid>> {
     let mut lines = reader.lines();
     if let Some(parent) = lines.next() {
         let parent = parent?;
-        let parent = git2::Oid::from_str(&parent)?;
+        let parent: git::Oid = parent.parse()?;
         Ok(Some(parent))
     } else {
         Ok(None)

@@ -3,7 +3,7 @@ use std::{collections::HashMap, path};
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    gb_repository,
+    gb_repository, git,
     reader::{self, CommitReader, Reader},
 };
 
@@ -70,8 +70,9 @@ impl<'reader> SessionReader<'reader> {
             ));
         };
 
-        let oid = git2::Oid::from_str(session_hash)
-            .with_context(|| format!("failed to parse commit hash {}", session_hash))?;
+        let oid: git::Oid = session_hash
+            .parse()
+            .context(format!("failed to parse commit hash {}", session_hash))?;
 
         let commit = repository
             .git_repository

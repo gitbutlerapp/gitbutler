@@ -1,4 +1,4 @@
-use super::{Commit, Result, Tree};
+use super::{Commit, Oid, Result, Tree};
 
 pub struct Reference<'repo> {
     reference: git2::Reference<'repo>,
@@ -15,16 +15,20 @@ impl<'repo> Reference<'repo> {
         self.reference.name()
     }
 
-    pub fn target(&self) -> Option<git2::Oid> {
-        self.reference.target()
+    pub fn name_bytes(&self) -> &[u8] {
+        self.reference.name_bytes()
+    }
+
+    pub fn target(&self) -> Option<Oid> {
+        self.reference.target().map(Into::into)
     }
 
     pub fn peel_to_commit(&self) -> Result<Commit<'repo>> {
-        self.reference.peel_to_commit().map(Commit::from)
+        self.reference.peel_to_commit().map(Into::into)
     }
 
     pub fn peel_to_tree(&self) -> Result<Tree<'repo>> {
-        self.reference.peel_to_tree().map(Tree::from)
+        self.reference.peel_to_tree().map(Into::into)
     }
 
     pub fn rename(
@@ -35,10 +39,14 @@ impl<'repo> Reference<'repo> {
     ) -> Result<Reference<'repo>> {
         self.reference
             .rename(new_name, force, log_message)
-            .map(Reference::from)
+            .map(Into::into)
     }
 
     pub fn delete(&mut self) -> Result<()> {
         self.reference.delete()
+    }
+
+    pub fn is_remote(&self) -> bool {
+        self.reference.is_remote()
     }
 }

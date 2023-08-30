@@ -104,15 +104,15 @@ mod tests {
                     .unwrap(),
             ),
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
-            head: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef0123456{}",
-                unsafe { TEST_INDEX }
-            ))
+            head: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
+                TEST_INDEX
+            })
+            .parse()
             .unwrap(),
-            tree: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef012345{}",
-                unsafe { TEST_INDEX + 10 }
-            ))
+            tree: format!("0123456789abcdef0123456789abcdef012345{}", unsafe {
+                TEST_INDEX + 10
+            })
+            .parse()
             .unwrap(),
             ownership: branch::Ownership {
                 files: vec![branch::FileOwnership {
@@ -141,7 +141,7 @@ mod tests {
             branch_name: "branch name".to_string(),
             remote_name: "remote name".to_string(),
             remote_url: "remote url".to_string(),
-            sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
+            sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
         let branch_writer = branch::Writer::new(&gb_repo);
@@ -233,7 +233,7 @@ mod tests {
             remote_name: "remote name".to_string(),
             branch_name: "branch name".to_string(),
             remote_url: "remote url".to_string(),
-            sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
+            sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
         let branch_writer = branch::Writer::new(&gb_repo);
@@ -245,7 +245,7 @@ mod tests {
             remote_name: "updated remote name".to_string(),
             branch_name: "updated branch name".to_string(),
             remote_url: "updated remote url".to_string(),
-            sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
+            sha: "fedcba9876543210fedcba9876543210fedcba98".parse().unwrap(),
         };
 
         target_writer.write(&branch.id, &updated_target)?;

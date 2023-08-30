@@ -23,3 +23,6 @@ pub use remote::*;
 
 mod index;
 pub use index::*;
+
+mod oid;
+pub use oid::*;

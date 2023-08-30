@@ -119,7 +119,7 @@ impl Reader for DirReader {
 
 pub struct CommitReader<'reader> {
     repository: &'reader git::Repository,
-    commit_oid: git2::Oid,
+    commit_oid: git::Oid,
     tree: git::Tree<'reader>,
 }
 
@@ -138,7 +138,7 @@ impl<'reader> CommitReader<'reader> {
         })
     }
 
-    pub fn get_commit_oid(&self) -> git2::Oid {
+    pub fn get_commit_oid(&self) -> git::Oid {
         self.commit_oid
     }
 }
@@ -165,7 +165,7 @@ impl Reader for CommitReader<'_> {
             Ok(entry) => entry,
             Err(_) => return Ok(0),
         };
-        let blob = match self.repository.find_blob(entry.id()) {
+        let blob = match self.repository.find_blob(entry.id().into()) {
             Ok(blob) => blob,
             Err(_) => return Ok(0),
         };
@@ -181,7 +181,7 @@ impl Reader for CommitReader<'_> {
             Ok(entry) => entry,
             Err(_) => return Err(Error::NotFound),
         };
-        let blob = match self.repository.find_blob(entry.id()) {
+        let blob = match self.repository.find_blob(entry.id().into()) {
             Ok(blob) => blob,
             Err(_) => return Err(Error::NotFound),
         };

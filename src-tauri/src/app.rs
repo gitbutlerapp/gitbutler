@@ -366,7 +366,7 @@ impl App {
 
         let commit = project_repository
             .git_repository
-            .find_commit(git2::Oid::from_str(commit_id).unwrap())?;
+            .find_commit(commit_id.parse()?)?;
 
         let parent = commit.parent(0).context("failed to get parent commit")?;
         let commit_tree = commit.tree().context("failed to get commit tree")?;

@@ -440,7 +440,9 @@ impl Repository {
         tree_builder
             .insert(
                 "session",
-                build_session_tree(self).context("failed to build session tree")?,
+                build_session_tree(self)
+                    .context("failed to build session tree")?
+                    .into(),
                 0o040000,
             )
             .context("failed to insert session tree")?;
@@ -448,30 +450,36 @@ impl Repository {
             .insert(
                 "wd",
                 build_wd_tree(self, project_repository)
-                    .context("failed to build working directory tree")?,
+                    .context("failed to build working directory tree")?
+                    .into(),
                 0o040000,
             )
             .context("failed to insert wd tree")?;
         tree_builder
             .insert(
                 "logs",
-                build_log_tree(self, project_repository).context("failed to build logs tree")?,
+                build_log_tree(self, project_repository)
+                    .context("failed to build logs tree")?
+                    .into(),
                 0o040000,
             )
             .context("failed to insert logs tree")?;
         tree_builder
             .insert(
                 "branches",
-                build_branches_tree(self).context("failed to build branches tree")?,
+                build_branches_tree(self)
+                    .context("failed to build branches tree")?
+                    .into(),
                 0o040000,
             )
             .context("failed to insert branches tree")?;
 
-        let tree = tree_builder.write().context("failed to write tree")?;
+        let tree_id = tree_builder.write().context("failed to write tree")?.into();
 
         let user = self.users_store.get().context("failed to get user")?;
 
-        let commit_oid = write_gb_commit(tree, self, &user).context("failed to write gb commit")?;
+        let commit_oid =
+            write_gb_commit(tree_id, self, &user).context("failed to write gb commit")?;
 
         tracing::info!(
             "{}: flushed session {} into commit {}",
@@ -581,7 +589,7 @@ impl Repository {
 
     fn migrate_history(&self, project: &projects::Project) -> Result<bool> {
         let refname = format!("refs/gitbutler-{}/current", project.id);
-        let repo = git2::Repository::open(&project.path).context("failed to open repository")?;
+        let repo = git::Repository::open(&project.path).context("failed to open repository")?;
         let reference = repo.find_reference(&refname);
         match reference {
             Err(e) => {
@@ -597,29 +605,21 @@ impl Repository {
             }
             Result::Ok(reference) => {
                 let mut walker = repo.revwalk()?;
-                walker.push(reference.target().unwrap())?;
+                walker.push(reference.target().unwrap().into())?;
                 walker.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)?;
 
                 let mut migrated = false;
                 for id in walker {
                     let id = id?;
-                    let commit = repo.find_commit(id)?;
+                    let commit = repo.find_commit(id.into())?;
 
-                    let copy_tree = |tree: git2::Tree| -> Result<git2::Oid> {
-                        let mut tree_builder = self.git_repository.treebuilder(None)?;
-                        for tree_entry in tree.iter() {
-                            let path = tree_entry.name().unwrap();
-                            let oid = tree_entry.id();
-                            let mode = tree_entry.filemode();
-                            tree_builder
-                                .insert(path, oid, mode)
-                                .context("failed to insert tree entry")?;
-                        }
+                    let copy_tree = |tree: &git::Tree| -> Result<git::Oid> {
+                        let tree_builder = self.git_repository.treebuilder(Some(tree))?;
                         let tree_oid = tree_builder.write()?;
-                        Ok(tree_oid)
+                        Ok(tree_oid.into())
                     };
 
-                    let tree = self.git_repository.find_tree(copy_tree(commit.tree()?)?)?;
+                    let tree = self.git_repository.find_tree(copy_tree(&commit.tree()?)?)?;
 
                     match self.git_repository.head() {
                         Result::Ok(head) => {
@@ -666,7 +666,7 @@ impl Repository {
 fn build_wd_tree(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
-) -> Result<git2::Oid> {
+) -> Result<git::Oid> {
     match gb_repository
         .git_repository
         .find_reference("refs/heads/current")
@@ -677,7 +677,9 @@ fn build_wd_tree(
             // and the session files
             let tree = reference.peel_to_tree()?;
             let wd_tree_entry = tree.get_name("wd").unwrap();
-            let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
+            let wd_tree = gb_repository
+                .git_repository
+                .find_tree(wd_tree_entry.id().into())?;
             index.read_tree((&wd_tree).into())?;
 
             let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
@@ -727,15 +729,18 @@ fn build_wd_tree(
                         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
                         flags_extended: 0, // no extended flags
                         path: file_path.clone().into(),
-                        id: gb_repository.git_repository.blob(file_content.as_bytes())?,
+                        id: gb_repository
+                            .git_repository
+                            .blob(file_content.as_bytes())?
+                            .into(),
                     })
                     .with_context(|| format!("failed to add index entry for {}", file_path))?;
             }
 
             let wd_tree_oid = index
                 .write_tree_to((&gb_repository.git_repository).into())
-                .with_context(|| "failed to write wd tree".to_string())?;
-            Ok(wd_tree_oid)
+                .context("failed to write wd tree")?;
+            Ok(wd_tree_oid.into())
         }
         Err(e) => {
             if e.code() != git2::ErrorCode::NotFound {
@@ -752,7 +757,7 @@ fn build_wd_tree(
 fn build_wd_tree_from_repo(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
-) -> Result<git2::Oid> {
+) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
 
     // create a new in-memory git2 index and open the working one so we can cheat if none of the metadata of an entry has changed
@@ -833,7 +838,7 @@ fn build_wd_tree_from_repo(
     }
 
     let tree_oid = index
-        .write_tree_to((&gb_repository.git_repository).into())
+        .write_tree_to(&gb_repository.git_repository)
         .context("failed to write tree to repo")?;
     Ok(tree_oid)
 }
@@ -924,7 +929,7 @@ fn add_wd_path(
             flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
             flags_extended: 0, // no extended flags
             path: rel_file_path.to_str().unwrap().to_string().into(),
-            id: blob,
+            id: blob.into(),
         })
         .with_context(|| format!("failed to add index entry for {}", rel_file_path.display()))?;
 
@@ -952,8 +957,8 @@ fn sha256_digest(path: &std::path::Path) -> Result<String> {
     Ok(format!("{:X}", digest))
 }
 
-fn build_branches_tree(gb_repository: &Repository) -> Result<git2::Oid> {
-    let mut index = git2::Index::new()?;
+fn build_branches_tree(gb_repository: &Repository) -> Result<git::Oid> {
+    let mut index = git::Index::new()?;
 
     let branches_dir = gb_repository.root().join("branches");
     for file_path in fs::list_files(&branches_dir).context("failed to find branches directory")? {
@@ -968,7 +973,7 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to((&gb_repository.git_repository).into())
+        .write_tree_to(&gb_repository.git_repository)
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -977,8 +982,8 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git2::Oid> {
 fn build_log_tree(
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
-) -> Result<git2::Oid> {
-    let mut index = git2::Index::new()?;
+) -> Result<git::Oid> {
+    let mut index = git::Index::new()?;
 
     let logs_dir = project_repository.git_repository.path().join("logs");
     for file_path in fs::list_files(logs_dir).context("failed to list log files")? {
@@ -992,7 +997,7 @@ fn build_log_tree(
     }
 
     let tree_oid = index
-        .write_tree_to((&gb_repository.git_repository).into())
+        .write_tree_to(&gb_repository.git_repository)
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -1000,7 +1005,7 @@ fn build_log_tree(
 
 fn add_log_path(
     rel_file_path: &std::path::Path,
-    index: &mut git2::Index,
+    index: &mut git::Index,
     gb_repository: &Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<()> {
@@ -1025,14 +1030,14 @@ fn add_log_path(
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
         path: rel_file_path.to_str().unwrap().to_string().into(),
-        id: gb_repository.git_repository.blob_path(&file_path)?,
+        id: gb_repository.git_repository.blob_path(&file_path)?.into(),
     })?;
 
     Ok(())
 }
 
-fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
-    let mut index = git2::Index::new()?;
+fn build_session_tree(gb_repository: &Repository) -> Result<git::Oid> {
+    let mut index = git::Index::new()?;
 
     // add all files in the working directory to the in-memory index, skipping for matching entries in the repo index
     for file_path in
@@ -1052,7 +1057,7 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to((&gb_repository.git_repository).into())
+        .write_tree_to(&gb_repository.git_repository)
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -1061,7 +1066,7 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
 // this is a helper function for build_gb_tree that takes paths under .git/gb/session and adds them to the in-memory index
 fn add_file_to_index(
     gb_repository: &Repository,
-    index: &mut git2::Index,
+    index: &mut git::Index,
     rel_file_path: &std::path::Path,
     abs_file_path: &std::path::Path,
 ) -> Result<()> {
@@ -1084,7 +1089,7 @@ fn add_file_to_index(
             flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
             flags_extended: 0, // no extended flags
             path: rel_file_path.to_str().unwrap().into(),
-            id: blob,
+            id: blob.into(),
         })
         .with_context(|| format!("Failed to add file to index: {}", abs_file_path.display()))?;
 
@@ -1095,10 +1100,10 @@ fn add_file_to_index(
 // this is called once we have a tree of deltas, metadata and current wd snapshot
 // and either creates or updates the refs/heads/current ref
 fn write_gb_commit(
-    tree_id: git2::Oid,
+    tree_id: git::Oid,
     gb_repository: &Repository,
     user: &Option<users::User>,
-) -> Result<git2::Oid> {
+) -> Result<git::Oid> {
     let comitter = git2::Signature::now("gitbutler", "gitbutler@localhost")?;
     let author = match user {
         None => comitter.clone(),

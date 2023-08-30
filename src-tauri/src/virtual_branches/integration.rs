@@ -90,7 +90,7 @@ pub fn update_gitbutler_integration(
         let branch_tree = branch_head.tree()?;
         if let Ok(mut result) = repo.merge_trees(&base_tree, &final_tree, &branch_tree) {
             if !result.has_conflicts() {
-                let final_tree_oid = result.write_tree_to(repo.into())?;
+                let final_tree_oid = result.write_tree_to(repo)?;
                 final_tree = repo.find_tree(final_tree_oid)?;
             }
         }
@@ -153,7 +153,7 @@ pub fn update_gitbutler_integration(
 
     // write final_tree as the current index
     let mut index = repo.index()?;
-    index.read_tree((&final_tree).into())?;
+    index.read_tree(&final_tree)?;
     index.write()?;
 
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches

@@ -211,7 +211,7 @@ fn test_track_binary_files() -> Result<()> {
     // status (no files)
     let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
-    let commit_obj = repository.find_commit(git2::Oid::from_str(commit_id).unwrap())?;
+    let commit_obj = repository.find_commit(commit_id.parse().unwrap())?;
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(&repository, &tree);
     assert_eq!(files[0].0, "image.bin");
@@ -232,7 +232,7 @@ fn test_track_binary_files() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     // get tree from commit_id
-    let commit_obj = repository.find_commit(git2::Oid::from_str(commit_id).unwrap())?;
+    let commit_obj = repository.find_commit(commit_id.parse().unwrap())?;
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(&repository, &tree);
 
@@ -1083,7 +1083,7 @@ fn test_update_base_branch_base() -> Result<()> {
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 1); // branch commit, rebased
-    let head_sha = git2::Oid::from_str(&branch.commits[0].id)?;
+    let head_sha = branch.commits[0].id.parse::<git::Oid>()?;
 
     let head_commit = repository.find_commit(head_sha)?;
     let parent = head_commit.parent(0)?;
@@ -2638,7 +2638,9 @@ fn test_commit_add_and_delete_files() -> Result<()> {
 
     // branch one test.txt has just the 1st and 3rd hunks applied
     let commit2 = &branch1.commits[0].id;
-    let commit2 = git2::Oid::from_str(commit2).expect("failed to parse oid");
+    let commit2 = commit2
+        .parse::<git::Oid>()
+        .expect("failed to parse commit id");
     let commit2 = repository
         .find_commit(commit2)
         .expect("failed to get commit object");
@@ -2704,7 +2706,9 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     let commit = &branch1.commits[0].id;
-    let commit = git2::Oid::from_str(commit).expect("failed to parse oid");
+    let commit = commit
+        .parse::<git::Oid>()
+        .expect("failed to parse commit id");
     let commit = repository
         .find_commit(commit)
         .expect("failed to get commit object");
@@ -3080,7 +3084,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
     let last_commit = branch1.commits.first().unwrap();
-    let last_commit_oid = git2::Oid::from_str(&last_commit.id)?;
+    let last_commit_oid = last_commit.id.parse::<git::Oid>()?;
     let commit = gb_repo.git_repository.find_commit(last_commit_oid)?;
     assert!(!branch1.conflicted);
     assert_eq!(commit.parent_count(), 2);

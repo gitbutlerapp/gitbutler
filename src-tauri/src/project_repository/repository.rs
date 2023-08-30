@@ -237,7 +237,7 @@ impl<'repository> Repository<'repository> {
     }
 
     // returns a list of commit oids from the first oid to the second oid
-    pub fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
+    pub fn l(&self, from: git::Oid, to: LogUntil) -> Result<Vec<git::Oid>> {
         match to {
             LogUntil::Commit(oid) => {
                 let mut revwalk = self
@@ -245,12 +245,14 @@ impl<'repository> Repository<'repository> {
                     .revwalk()
                     .context("failed to create revwalk")?;
                 revwalk
-                    .push(from)
+                    .push(from.into())
                     .context(format!("failed to push {}", from))?;
                 revwalk
-                    .hide(oid)
+                    .hide(oid.into())
                     .context(format!("failed to push {}", oid))?;
-                revwalk.collect::<Result<Vec<_>, _>>()
+                revwalk
+                    .map(|oid| oid.map(|oid| oid.into()))
+                    .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::Take(n) => {
                 let mut revwalk = self
@@ -258,9 +260,12 @@ impl<'repository> Repository<'repository> {
                     .revwalk()
                     .context("failed to create revwalk")?;
                 revwalk
-                    .push(from)
+                    .push(from.into())
                     .context(format!("failed to push {}", from))?;
-                revwalk.take(n).collect::<Result<Vec<_>, _>>()
+                revwalk
+                    .take(n)
+                    .map(|oid| oid.map(|oid| oid.into()))
+                    .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::When(cond) => {
                 let mut revwalk = self
@@ -268,16 +273,16 @@ impl<'repository> Repository<'repository> {
                     .revwalk()
                     .context("failed to create revwalk")?;
                 revwalk
-                    .push(from)
+                    .push(from.into())
                     .context(format!("failed to push {}", from))?;
-                let mut oids = vec![];
+                let mut oids: Vec<git::Oid> = vec![];
                 for oid in revwalk {
                     let oid = oid.context("failed to get oid")?;
-                    oids.push(oid);
+                    oids.push(oid.into());
 
                     let commit = self
                         .git_repository
-                        .find_commit(oid)
+                        .find_commit(oid.into())
                         .context("failed to find commit")?;
 
                     if cond(&commit).context("failed to check condition")? {
@@ -292,16 +297,18 @@ impl<'repository> Repository<'repository> {
                     .revwalk()
                     .context("failed to create revwalk")?;
                 revwalk
-                    .push(from)
+                    .push(from.into())
                     .context(format!("failed to push {}", from))?;
-                revwalk.collect::<Result<Vec<_>, _>>()
+                revwalk
+                    .map(|oid| oid.map(|oid| oid.into()))
+                    .collect::<Result<Vec<_>, _>>()
             }
         }
         .context("failed to collect oids")
     }
 
     // returns a list of commits from the first oid to the second oid
-    pub fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git::Commit>> {
+    pub fn log(&self, from: git::Oid, to: LogUntil) -> Result<Vec<git::Commit>> {
         self.l(from, to)?
             .into_iter()
             .map(|oid| self.git_repository.find_commit(oid))
@@ -310,7 +317,7 @@ impl<'repository> Repository<'repository> {
     }
 
     // returns the number of commits between the first oid to the second oid
-    pub fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
+    pub fn distance(&self, from: git::Oid, to: git::Oid) -> Result<u32> {
         let oids = self.l(from, LogUntil::Commit(to))?;
         Ok(oids.len().try_into()?)
     }
@@ -319,7 +326,6 @@ impl<'repository> Repository<'repository> {
         let branch = self
             .git_repository
             .find_branch(branch, git2::BranchType::Local)?;
-        let branch = branch.into_reference();
         self.git_repository
             .set_head(branch.name().unwrap())
             .context("failed to set head")?;
@@ -407,7 +413,7 @@ impl<'repository> Repository<'repository> {
 
     pub fn push(
         &self,
-        head: &git2::Oid,
+        head: &git::Oid,
         branch: &branch::RemoteName,
         key: &keys::PrivateKey,
     ) -> Result<(), Error> {
@@ -695,7 +701,7 @@ pub enum Error {
 type OidFilter = dyn Fn(&git::Commit) -> Result<bool>;
 
 pub enum LogUntil {
-    Commit(git2::Oid),
+    Commit(git::Oid),
     Take(usize),
     When(Box<OidFilter>),
     End,

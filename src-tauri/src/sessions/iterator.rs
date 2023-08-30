@@ -21,7 +21,7 @@ impl<'iterator> SessionsIterator<'iterator> {
         let branches = git_repository.branches(None)?;
         for branch in branches {
             let (branch, _) = branch.context("failed to get branch")?;
-            iter.push(branch.get().peel_to_commit()?.id())
+            iter.push(branch.peel_to_commit()?.id().into())
                 .with_context(|| format!("failed to push branch {:?}", branch.name()))?;
         }
 
@@ -38,7 +38,7 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
             Some(Result::Ok(oid)) => {
-                let commit = match self.git_repository.find_commit(oid) {
+                let commit = match self.git_repository.find_commit(oid.into()) {
                     Result::Ok(commit) => commit,
                     Err(err) => return Some(Err(err.into())),
                 };

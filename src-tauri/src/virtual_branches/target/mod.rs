@@ -6,13 +6,15 @@ use serde::{ser::SerializeStruct, Serialize, Serializer};
 pub use reader::TargetReader as Reader;
 pub use writer::TargetWriter as Writer;
 
+use crate::git;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {
     // TODO: use project_repository::branch::RemoteName here.
     pub branch_name: String,
     pub remote_name: String,
     pub remote_url: String,
-    pub sha: git2::Oid,
+    pub sha: git::Oid,
 }
 
 impl Serialize for Target {

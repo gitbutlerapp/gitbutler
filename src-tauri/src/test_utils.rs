@@ -29,7 +29,7 @@ pub fn test_repository() -> git::Repository {
     repository
 }
 
-pub fn commit_all(repository: &git::Repository) -> git2::Oid {
+pub fn commit_all(repository: &git::Repository) -> git::Oid {
     let mut index = repository.index().expect("failed to get index");
     index
         .add_all(["."], git2::IndexAddOption::DEFAULT, None)

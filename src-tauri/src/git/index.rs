@@ -1,6 +1,6 @@
 use std::path;
 
-use super::{Repository, Result, Tree};
+use super::{Oid, Repository, Result, Tree};
 
 pub struct Index {
     index: git2::Index,
@@ -46,16 +46,16 @@ impl Index {
         self.index.read_tree(tree.into())
     }
 
-    pub fn write_tree_to(&mut self, repo: &Repository) -> Result<git2::Oid> {
-        self.index.write_tree_to(repo.into())
+    pub fn write_tree_to(&mut self, repo: &Repository) -> Result<Oid> {
+        self.index.write_tree_to(repo.into()).map(Into::into)
     }
 
     pub fn has_conflicts(&self) -> bool {
         self.index.has_conflicts()
     }
 
-    pub fn write_tree(&mut self) -> Result<git2::Oid> {
-        self.index.write_tree()
+    pub fn write_tree(&mut self) -> Result<Oid> {
+        self.index.write_tree().map(Into::into)
     }
 
     pub fn add(&mut self, entry: &git2::IndexEntry) -> Result<()> {

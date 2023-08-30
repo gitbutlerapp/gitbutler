@@ -61,15 +61,15 @@ mod tests {
             ),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
-            head: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef0123456{}",
-                unsafe { TEST_INDEX }
-            ))
+            head: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
+                TEST_INDEX
+            })
+            .parse()
             .unwrap(),
-            tree: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef012345{}",
-                unsafe { TEST_INDEX + 10 }
-            ))
+            tree: format!("0123456789abcdef0123456789abcdef012345{}", unsafe {
+                TEST_INDEX + 10
+            })
+            .parse()
             .unwrap(),
             ownership: branch::Ownership {
                 files: vec![branch::FileOwnership {
@@ -145,8 +145,8 @@ mod tests {
             "git@github.com:gitbutlerapp/gitbutler-client.git"
         );
         assert_eq!(
-            read.sha,
-            git2::Oid::from_str("dd945831869e9593448aa622fa4342bbfb84813d").unwrap()
+            read.sha.to_string(),
+            "dd945831869e9593448aa622fa4342bbfb84813d"
         );
 
         Ok(())
@@ -170,14 +170,14 @@ mod tests {
             remote_name: "remote".to_string(),
             branch_name: "branch".to_string(),
             remote_url: "remote url".to_string(),
-            sha: git2::Oid::from_str("fedcba9876543210fedcba9876543210fedcba98").unwrap(),
+            sha: "fedcba9876543210fedcba9876543210fedcba98".parse().unwrap(),
         };
 
         let default_target = Target {
             remote_name: "default remote".to_string(),
             branch_name: "default branch".to_string(),
             remote_url: "default remote url".to_string(),
-            sha: git2::Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
+            sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
 
         let branch_writer = branch::Writer::new(&gb_repo);
