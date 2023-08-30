@@ -381,6 +381,7 @@ pub fn unapply_branch(
 
     let target_commit = gb_repository
         .git_repository
+        .inner()
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
@@ -1059,6 +1060,7 @@ pub fn create_virtual_branch(
 
     let repo = &gb_repository.git_repository;
     let commit = repo
+        .inner()
         .find_commit(default_target.sha)
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;

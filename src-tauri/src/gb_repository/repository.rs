@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
-    fs, lock, projects, users,
+    fs, git, lock, projects, users,
     virtual_branches::{self, target},
 };
 
@@ -26,7 +26,7 @@ pub struct Repository {
     pub project_id: String,
     project_store: projects::Storage,
     users_store: users::Storage,
-    pub git_repository: git2::Repository,
+    pub git_repository: git::Repository,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -64,10 +64,10 @@ impl Repository {
 
         let path = root.as_ref().join("projects").join(project_id.clone());
         if path.exists() {
-            let git_repository = git2::Repository::open(path.clone())
+            let git_repository = git::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
 
-            git_repository
+            git_repository.inner()
                 .odb()
                 .map_err(Error::Git)?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
@@ -80,7 +80,7 @@ impl Repository {
                 users_store,
             })
         } else {
-            let git_repository = git2::Repository::init_opts(
+            let git_repository = git::Repository::init_opts(
                 &path,
                 git2::RepositoryInitOptions::new()
                     .bare(true)
@@ -89,7 +89,7 @@ impl Repository {
             )
             .with_context(|| format!("{}: failed to initialize git repository", path.display()))?;
 
-            git_repository
+            git_repository.inner()
                 .odb()?
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .context("failed to add disk alternate")?;
@@ -740,7 +740,7 @@ fn build_wd_tree(
             }
 
             let wd_tree_oid = index
-                .write_tree_to(&gb_repository.git_repository)
+                .write_tree_to(&gb_repository.git_repository.inner())
                 .with_context(|| "failed to write wd tree".to_string())?;
             Ok(wd_tree_oid)
         }
@@ -840,7 +840,7 @@ fn build_wd_tree_from_repo(
     }
 
     let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository)
+        .write_tree_to(&gb_repository.git_repository.inner())
         .context("failed to write tree to repo")?;
     Ok(tree_oid)
 }
@@ -975,7 +975,7 @@ fn build_branches_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository)
+        .write_tree_to(&gb_repository.git_repository.inner())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -999,7 +999,7 @@ fn build_log_tree(
     }
 
     let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository)
+        .write_tree_to(&gb_repository.git_repository.inner())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)
@@ -1059,7 +1059,7 @@ fn build_session_tree(gb_repository: &Repository) -> Result<git2::Oid> {
     }
 
     let tree_oid = index
-        .write_tree_to(&gb_repository.git_repository)
+        .write_tree_to(&gb_repository.git_repository.inner())
         .context("failed to write index to tree")?;
 
     Ok(tree_oid)

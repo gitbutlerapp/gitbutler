@@ -9,13 +9,15 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use crate::{gb_repository, project_repository, projects, reader, sessions, test_utils, users};
+use crate::{
+    gb_repository, git, project_repository, projects, reader, sessions, test_utils, users,
+};
 
 use super::branch::{Branch, BranchCreateRequest, Ownership};
 use super::*;
 
 pub struct TestDeps {
-    repository: git2::Repository,
+    repository: git::Repository,
     project: projects::Project,
     gb_repo: gb_repository::Repository,
     gb_repo_path: path::PathBuf,
@@ -50,7 +52,7 @@ fn new_test_deps() -> Result<TestDeps> {
 fn set_test_target(
     gb_repo: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    repository: &git2::Repository,
+    repository: &git::Repository,
 ) -> Result<()> {
     target::Writer::new(gb_repo).write_default(&target::Target {
         branch_name: "origin/master".to_string(),
@@ -2722,7 +2724,7 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     Ok(())
 }
 
-fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result<Vec<String>> {
+fn tree_to_file_list(repository: &git::Repository, tree: &git2::Tree) -> Result<Vec<String>> {
     let mut file_list = Vec::new();
     for entry in tree.iter() {
         let path = entry.name().unwrap();
@@ -2730,7 +2732,7 @@ fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result
             .get_path(std::path::Path::new(path))
             .context(format!("failed to get tree entry for path {}", path))?;
         let object = entry
-            .to_object(repository)
+            .to_object(repository.inner())
             .context(format!("failed to get object for tree entry {}", path))?;
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
@@ -2740,7 +2742,7 @@ fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result
 }
 
 fn tree_to_entry_list(
-    repository: &git2::Repository,
+    repository: &git::Repository,
     tree: &git2::Tree,
 ) -> Result<Vec<(String, String, String, String)>> {
     let mut file_list = Vec::new();
@@ -2750,7 +2752,7 @@ fn tree_to_entry_list(
             .get_path(std::path::Path::new(path))
             .context(format!("failed to get tree entry for path {}", path))?;
         let object = entry
-            .to_object(repository)
+            .to_object(repository.inner())
             .context(format!("failed to get object for tree entry {}", path))?;
         let blob = object.as_blob().context("failed to get blob")?;
         // convert content to string

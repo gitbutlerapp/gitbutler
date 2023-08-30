@@ -2,7 +2,7 @@ use std::{path, str};
 
 use anyhow::{Context, Result};
 
-use crate::fs;
+use crate::{fs, git};
 
 #[derive(Debug, PartialEq)]
 pub enum Content {
@@ -118,14 +118,14 @@ impl Reader for DirReader {
 }
 
 pub struct CommitReader<'reader> {
-    repository: &'reader git2::Repository,
+    repository: &'reader git::Repository,
     commit_oid: git2::Oid,
     tree: git2::Tree<'reader>,
 }
 
 impl<'reader> CommitReader<'reader> {
     pub fn from_commit(
-        repository: &'reader git2::Repository,
+        repository: &'reader git::Repository,
         commit: git2::Commit<'reader>,
     ) -> Result<CommitReader<'reader>> {
         let tree = commit

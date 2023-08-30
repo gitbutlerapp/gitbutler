@@ -1,16 +1,16 @@
 use anyhow::{Context, Result};
 
-use crate::reader::CommitReader;
+use crate::{reader::CommitReader, git};
 
 use super::{Session, SessionError};
 
 pub struct SessionsIterator<'iterator> {
-    git_repository: &'iterator git2::Repository,
+    git_repository: &'iterator git::Repository,
     iter: git2::Revwalk<'iterator>,
 }
 
 impl<'iterator> SessionsIterator<'iterator> {
-    pub(crate) fn new(git_repository: &'iterator git2::Repository) -> Result<Self> {
+    pub(crate) fn new(git_repository: &'iterator git::Repository) -> Result<Self> {
         let mut iter = git_repository
             .revwalk()
             .context("failed to create revwalk")?;

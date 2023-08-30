@@ -4,6 +4,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::git;
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ApiProject {
     pub name: String,
@@ -137,10 +139,10 @@ impl Project {
     }
 }
 
-impl TryFrom<&git2::Repository> for Project {
+impl TryFrom<&git::Repository> for Project {
     type Error = CreateError;
 
-    fn try_from(repository: &git2::Repository) -> std::result::Result<Self, Self::Error> {
+    fn try_from(repository: &git::Repository) -> std::result::Result<Self, Self::Error> {
         Project::from_path(
             repository
                 .path()
