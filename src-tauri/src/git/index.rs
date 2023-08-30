@@ -1,5 +1,7 @@
 use std::path;
 
+use filetime::FileTime;
+
 use super::{Oid, Repository, Result, Tree};
 
 pub struct Index {
@@ -58,8 +60,8 @@ impl Index {
         self.index.write_tree().map(Into::into)
     }
 
-    pub fn add(&mut self, entry: &git2::IndexEntry) -> Result<()> {
-        self.index.add(entry)
+    pub fn add(&mut self, entry: &IndexEntry) -> Result<()> {
+        self.index.add(&entry.clone().into())
     }
 
     pub fn write(&mut self) -> Result<()> {
@@ -74,7 +76,67 @@ impl Index {
         self.index.remove_path(path)
     }
 
-    pub fn get_path(&self, path: &path::Path, stage: i32) -> Option<git2::IndexEntry> {
-        self.index.get_path(path, stage)
+    pub fn get_path(&self, path: &path::Path, stage: i32) -> Option<IndexEntry> {
+        self.index.get_path(path, stage).map(Into::into)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IndexEntry {
+    pub ctime: FileTime,
+    pub mtime: FileTime,
+    pub dev: u32,
+    pub ino: u32,
+    pub mode: u32,
+    pub uid: u32,
+    pub gid: u32,
+    pub file_size: u32,
+    pub id: Oid,
+    pub flags: u16,
+    pub flags_extended: u16,
+    pub path: Vec<u8>,
+}
+
+impl From<git2::IndexEntry> for IndexEntry {
+    fn from(value: git2::IndexEntry) -> Self {
+        Self {
+            ctime: FileTime::from_unix_time(
+                value.ctime.seconds() as i64,
+                value.ctime.nanoseconds(),
+            ),
+            mtime: FileTime::from_unix_time(
+                value.mtime.seconds() as i64,
+                value.mtime.nanoseconds(),
+            ),
+            dev: value.dev,
+            ino: value.ino,
+            mode: value.mode,
+            uid: value.uid,
+            gid: value.gid,
+            file_size: value.file_size,
+            id: value.id.into(),
+            flags: value.flags,
+            flags_extended: value.flags_extended,
+            path: value.path,
+        }
+    }
+}
+
+impl From<IndexEntry> for git2::IndexEntry {
+    fn from(entry: IndexEntry) -> Self {
+        Self {
+            ctime: git2::IndexTime::new(entry.ctime.seconds() as i32, entry.ctime.nanoseconds()),
+            mtime: git2::IndexTime::new(entry.mtime.seconds() as i32, entry.mtime.nanoseconds()),
+            dev: entry.dev,
+            ino: entry.ino,
+            mode: entry.mode,
+            uid: entry.uid,
+            gid: entry.gid,
+            file_size: entry.file_size,
+            id: entry.id.into(),
+            flags: entry.flags,
+            flags_extended: entry.flags_extended,
+            path: entry.path,
+        }
     }
 }

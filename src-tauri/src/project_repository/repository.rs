@@ -358,18 +358,15 @@ impl<'repository> Repository<'repository> {
 
     pub fn git_unstage_files<P: AsRef<std::path::Path>>(&self, paths: Vec<P>) -> Result<()> {
         let head_tree = self.git_repository.head()?.peel_to_tree()?;
-        let mut head_index = git2::Index::new()?;
-        head_index.read_tree((&head_tree).into())?;
+        let mut head_index = git::Index::new()?;
+        head_index.read_tree(&head_tree)?;
         let mut index = self.git_repository.index()?;
         for path in paths {
             let path = path.as_ref();
             // to "unstage" a file means to:
             // - put head version of the file in the index if it exists
             // - remove it from the index otherwise
-            let head_index_entry = head_index.iter().find(|entry| {
-                let entry_path = String::from_utf8(entry.path.clone());
-                entry_path.as_ref().unwrap() == path.to_str().unwrap()
-            });
+            let head_index_entry = head_index.get_path(path, 0);
             if let Some(entry) = head_index_entry {
                 index
                     .add(&entry)

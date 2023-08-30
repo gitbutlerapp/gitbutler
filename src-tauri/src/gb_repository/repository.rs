@@ -864,8 +864,7 @@ fn add_wd_path(
 
     if let Some(entry) = repo_index.get_path(rel_file_path, 0) {
         // if we find the entry and the metadata of the file has not changed, we can just use the existing entry
-        if entry.mtime.seconds() == i32::try_from(mtime.seconds())?
-            && entry.mtime.nanoseconds() == mtime.nanoseconds()
+        if entry.mtime == mtime
             && entry.file_size == u32::try_from(metadata.len())?
             && entry.mode == metadata.mode()
         // TODO: we need to normalize this mode to an acceptable git mode
@@ -917,9 +916,9 @@ fn add_wd_path(
 
     // create a new IndexEntry from the file metadata
     index
-        .add(&git2::IndexEntry {
-            ctime: git2::IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds()),
-            mtime: git2::IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds()),
+        .add(&git::IndexEntry {
+            ctime,
+            mtime,
             dev: metadata.dev().try_into()?,
             ino: metadata.ino().try_into()?,
             mode: 33188,
@@ -929,7 +928,7 @@ fn add_wd_path(
             flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
             flags_extended: 0, // no extended flags
             path: rel_file_path.to_str().unwrap().to_string().into(),
-            id: blob.into(),
+            id: blob,
         })
         .with_context(|| format!("failed to add index entry for {}", rel_file_path.display()))?;
 
@@ -1018,9 +1017,9 @@ fn add_log_path(
     let mtime = FileTime::from_last_modification_time(&metadata);
     let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
-    index.add(&git2::IndexEntry {
-        ctime: git2::IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds()),
-        mtime: git2::IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds()),
+    index.add(&git::IndexEntry {
+        ctime,
+        mtime,
         dev: metadata.dev().try_into()?,
         ino: metadata.ino().try_into()?,
         mode: 33188,
@@ -1030,7 +1029,7 @@ fn add_log_path(
         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
         flags_extended: 0, // no extended flags
         path: rel_file_path.to_str().unwrap().to_string().into(),
-        id: gb_repository.git_repository.blob_path(&file_path)?.into(),
+        id: gb_repository.git_repository.blob_path(&file_path)?,
     })?;
 
     Ok(())
@@ -1077,9 +1076,9 @@ fn add_file_to_index(
 
     // create a new IndexEntry from the file metadata
     index
-        .add(&git2::IndexEntry {
-            ctime: git2::IndexTime::new(ctime.seconds().try_into()?, ctime.nanoseconds()),
-            mtime: git2::IndexTime::new(mtime.seconds().try_into()?, mtime.nanoseconds()),
+        .add(&git::IndexEntry {
+            ctime,
+            mtime,
             dev: metadata.dev().try_into()?,
             ino: metadata.ino().try_into()?,
             mode: 33188,
@@ -1089,7 +1088,7 @@ fn add_file_to_index(
             flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
             flags_extended: 0, // no extended flags
             path: rel_file_path.to_str().unwrap().into(),
-            id: blob.into(),
+            id: blob,
         })
         .with_context(|| format!("Failed to add file to index: {}", abs_file_path.display()))?;
 
