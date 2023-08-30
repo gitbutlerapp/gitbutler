@@ -2,7 +2,7 @@ use std::{path, str};
 
 use anyhow::{Context, Result};
 
-use crate::fs;
+use crate::{fs, git};
 
 #[derive(Debug, PartialEq)]
 pub enum Content {
@@ -118,15 +118,15 @@ impl Reader for DirReader {
 }
 
 pub struct CommitReader<'reader> {
-    repository: &'reader git2::Repository,
-    commit_oid: git2::Oid,
-    tree: git2::Tree<'reader>,
+    repository: &'reader git::Repository,
+    commit_oid: git::Oid,
+    tree: git::Tree<'reader>,
 }
 
 impl<'reader> CommitReader<'reader> {
     pub fn from_commit(
-        repository: &'reader git2::Repository,
-        commit: git2::Commit<'reader>,
+        repository: &'reader git::Repository,
+        commit: &git::Commit<'reader>,
     ) -> Result<CommitReader<'reader>> {
         let tree = commit
             .tree()
@@ -138,7 +138,7 @@ impl<'reader> CommitReader<'reader> {
         })
     }
 
-    pub fn get_commit_oid(&self) -> git2::Oid {
+    pub fn get_commit_oid(&self) -> git::Oid {
         self.commit_oid
     }
 }
@@ -165,7 +165,7 @@ impl Reader for CommitReader<'_> {
             Ok(entry) => entry,
             Err(_) => return Ok(0),
         };
-        let blob = match self.repository.find_blob(entry.id()) {
+        let blob = match self.repository.find_blob(entry.id().into()) {
             Ok(blob) => blob,
             Err(_) => return Ok(0),
         };
@@ -181,7 +181,7 @@ impl Reader for CommitReader<'_> {
             Ok(entry) => entry,
             Err(_) => return Err(Error::NotFound),
         };
-        let blob = match self.repository.find_blob(entry.id()) {
+        let blob = match self.repository.find_blob(entry.id().into()) {
             Ok(blob) => blob,
             Err(_) => return Err(Error::NotFound),
         };
@@ -316,7 +316,7 @@ mod tests {
         )?;
         let oid = test_utils::commit_all(&repository);
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         assert!(reader.is_dir("dir"));
         assert!(!reader.is_dir("dir/test.txt"));
         assert!(!reader.is_dir("404.txt"));
@@ -334,7 +334,7 @@ mod tests {
 
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test2")?;
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         assert_eq!(reader.read(file_path)?, Content::UTF8("test".to_string()));
 
         Ok(())
@@ -396,7 +396,7 @@ mod tests {
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         let files = reader.list_files("dir")?;
         assert_eq!(files.len(), 1);
         assert!(files.contains(&"test.txt".to_string()));
@@ -424,7 +424,7 @@ mod tests {
 
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         let files = reader.list_files("")?;
         assert_eq!(files.len(), 2);
         assert!(files.contains(&"test.txt".to_string()));
@@ -456,7 +456,7 @@ mod tests {
 
         std::fs::remove_file(repository.path().parent().unwrap().join("test.txt"))?;
 
-        let reader = CommitReader::from_commit(&repository, repository.find_commit(oid)?)?;
+        let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
         assert!(reader.exists("test.txt"));
         assert!(!reader.exists("test2.txt"));
 

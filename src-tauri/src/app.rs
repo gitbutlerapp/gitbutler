@@ -366,7 +366,7 @@ impl App {
 
         let commit = project_repository
             .git_repository
-            .find_commit(git2::Oid::from_str(commit_id).unwrap())?;
+            .find_commit(commit_id.parse()?)?;
 
         let parent = commit.parent(0).context("failed to get parent commit")?;
         let commit_tree = commit.tree().context("failed to get commit tree")?;
@@ -380,8 +380,7 @@ impl App {
     fn diff_hunks_to_string(
         diff: HashMap<path::PathBuf, Vec<project_repository::diff::Hunk>>,
     ) -> HashMap<path::PathBuf, String> {
-        return diff
-            .into_iter()
+        diff.into_iter()
             .map(|(file_path, hunks)| {
                 (
                     file_path,
@@ -392,7 +391,7 @@ impl App {
                         .join("\n"),
                 )
             })
-            .collect::<HashMap<_, _>>();
+            .collect::<HashMap<_, _>>()
     }
 
     pub fn git_match_paths(&self, project_id: &str, pattern: &str) -> Result<Vec<String>> {

@@ -10,6 +10,8 @@ pub use error::Error;
 pub use local::Name as LocalName;
 pub use remote::Name as RemoteName;
 
+use crate::git;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Name {
     Remote(RemoteName),
@@ -43,11 +45,12 @@ impl FromStr for Name {
     }
 }
 
-impl TryFrom<&git2::Branch<'_>> for Name {
+impl TryFrom<&git::Branch<'_>> for Name {
     type Error = Error;
 
-    fn try_from(value: &git2::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        if value.get().is_remote() {
+    fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
+        dbg!(value.is_remote());
+        if value.is_remote() {
             Ok(Self::Remote(RemoteName::try_from(value)?))
         } else {
             Ok(Self::Local(LocalName::try_from(value)?))

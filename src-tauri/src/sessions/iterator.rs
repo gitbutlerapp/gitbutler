@@ -1,16 +1,16 @@
 use anyhow::{Context, Result};
 
-use crate::reader::CommitReader;
+use crate::{git, reader::CommitReader};
 
 use super::{Session, SessionError};
 
 pub struct SessionsIterator<'iterator> {
-    git_repository: &'iterator git2::Repository,
+    git_repository: &'iterator git::Repository,
     iter: git2::Revwalk<'iterator>,
 }
 
 impl<'iterator> SessionsIterator<'iterator> {
-    pub(crate) fn new(git_repository: &'iterator git2::Repository) -> Result<Self> {
+    pub(crate) fn new(git_repository: &'iterator git::Repository) -> Result<Self> {
         let mut iter = git_repository
             .revwalk()
             .context("failed to create revwalk")?;
@@ -21,7 +21,7 @@ impl<'iterator> SessionsIterator<'iterator> {
         let branches = git_repository.branches(None)?;
         for branch in branches {
             let (branch, _) = branch.context("failed to get branch")?;
-            iter.push(branch.get().peel_to_commit()?.id())
+            iter.push(branch.peel_to_commit()?.id().into())
                 .with_context(|| format!("failed to push branch {:?}", branch.name()))?;
         }
 
@@ -38,7 +38,7 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
             Some(Result::Ok(oid)) => {
-                let commit = match self.git_repository.find_commit(oid) {
+                let commit = match self.git_repository.find_commit(oid.into()) {
                     Result::Ok(commit) => commit,
                     Err(err) => return Some(Err(err.into())),
                 };
@@ -49,7 +49,7 @@ impl<'iterator> Iterator for SessionsIterator<'iterator> {
                     return self.next();
                 }
 
-                let commit_reader = match CommitReader::from_commit(self.git_repository, commit) {
+                let commit_reader = match CommitReader::from_commit(self.git_repository, &commit) {
                     Result::Ok(commit_reader) => commit_reader,
                     Err(err) => return Some(Err(err)),
                 };

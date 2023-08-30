@@ -34,14 +34,14 @@ pub fn set_base_branch(
     // lookup a branch by name
     let branch = repo.find_branch(target_branch, git2::BranchType::Remote)?;
 
-    let remote_name = repo.branch_remote_name(branch.get().name().unwrap())?;
-    let remote = repo.find_remote(remote_name.as_str().unwrap())?;
+    let remote_name = repo.branch_remote_name(branch.refname().unwrap())?;
+    let remote = repo.find_remote(&remote_name)?;
     let remote_url = remote.url().unwrap();
 
     // get a list of currently active virtual branches
 
     // if there are no applied virtual branches, calculate the sha as the merge-base between HEAD in project_repository and this target commit
-    let commit = branch.get().peel_to_commit()?;
+    let commit = branch.peel_to_commit()?;
     let mut commit_oid = commit.id();
 
     let head_ref = repo.head().context("Failed to get HEAD reference")?;
@@ -64,7 +64,7 @@ pub fn set_base_branch(
     }
 
     let target = target::Target {
-        branch_name: branch.name()?.unwrap().to_string(),
+        branch_name: branch.name().unwrap().to_string(),
         remote_name: remote.name().unwrap().to_string(),
         remote_url: remote_url.to_string(),
         sha: commit_oid,
@@ -147,7 +147,7 @@ pub fn update_base_branch(
         .find_branch(&target.branch_name, git2::BranchType::Remote)
         .context(format!("failed to find branch {}", target.branch_name))?;
 
-    let new_target_commit = target_branch.get().peel_to_commit().context(format!(
+    let new_target_commit = target_branch.peel_to_commit().context(format!(
         "failed to peel branch {} to commit",
         target.branch_name
     ))?;
@@ -214,12 +214,7 @@ pub fn update_base_branch(
 
         // check for conflicts with this tree
         let mut merge_index = repo
-            .merge_trees(
-                &old_target_tree,
-                &branch_tree,
-                &new_target_tree,
-                Some(&git2::MergeOptions::new()),
-            )
+            .merge_trees(&old_target_tree, &branch_tree, &new_target_tree)
             .context(format!(
                 "failed to merge trees for branch {}",
                 virtual_branch.id
@@ -245,12 +240,7 @@ pub fn update_base_branch(
                 let head_tree = head_commit.tree()?;
 
                 let mut merge_index = repo
-                    .merge_trees(
-                        &old_target_tree,
-                        &head_tree,
-                        &new_target_tree,
-                        Some(&git2::MergeOptions::new()),
-                    )
+                    .merge_trees(&old_target_tree, &head_tree, &new_target_tree)
                     .context("failed to merge trees")?;
 
                 // check index for conflicts
@@ -300,12 +290,7 @@ pub fn update_base_branch(
                 let head_tree = repo.find_tree(virtual_branch.tree)?;
 
                 let mut merge_index = repo
-                    .merge_trees(
-                        &old_target_tree,
-                        &head_tree,
-                        &new_target_tree,
-                        Some(&git2::MergeOptions::new()),
-                    )
+                    .merge_trees(&old_target_tree, &head_tree, &new_target_tree)
                     .context("failed to merge trees")?;
 
                 // check index for conflicts
@@ -361,7 +346,7 @@ pub fn update_base_branch(
                                     let commit_result = rebase.commit(None, &committer, None);
                                     match commit_result {
                                         Ok(commit_id) => {
-                                            last_rebase_head = commit_id;
+                                            last_rebase_head = commit_id.into();
                                         }
                                         Err(_e) => {
                                             rebase_success = false;
@@ -429,12 +414,7 @@ pub fn update_base_branch(
 
     // and try to merge it
     let mut merge_index = repo
-        .merge_trees(
-            &old_target_tree,
-            &wd_tree,
-            &new_target_tree,
-            Some(&git2::MergeOptions::new()),
-        )
+        .merge_trees(&old_target_tree, &wd_tree, &new_target_tree)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -464,7 +444,7 @@ pub fn target_to_base_branch(
 ) -> Result<super::BaseBranch> {
     let repo = &project_repository.git_repository;
     let branch = repo.find_branch(&target.branch_name, git2::BranchType::Remote)?;
-    let commit = branch.get().peel_to_commit()?;
+    let commit = branch.peel_to_commit()?;
     let oid = commit.id();
 
     // gather a list of commits between oid and target.sha
@@ -513,7 +493,7 @@ pub fn create_virtual_branch_from_branch(
         .context("no default target found")?;
 
     let repo = &project_repository.git_repository;
-    let head = repo.revparse_single(&upstream.to_string())?;
+    let head = repo.find_reference(&upstream.to_string())?;
     let head_commit = head.peel_to_commit()?;
     let tree = head_commit.tree().context("failed to find tree")?;
 
@@ -566,9 +546,8 @@ pub fn create_virtual_branch_from_branch(
         let head_tree = head_commit.tree()?;
 
         // merge target and head
-        let merge_options = git2::MergeOptions::new();
         let mut merge_index = repo
-            .merge_trees(&merge_tree, &head_tree, &target_tree, Some(&merge_options))
+            .merge_trees(&merge_tree, &head_tree, &target_tree)
             .context("failed to merge trees")?;
 
         if merge_index.has_conflicts() {

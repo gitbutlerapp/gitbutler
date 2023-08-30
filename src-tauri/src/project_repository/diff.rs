@@ -2,6 +2,8 @@ use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
 
+use crate::git;
+
 use super::Repository;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -26,7 +28,7 @@ impl Default for Options {
 
 pub fn workdir(
     repository: &Repository,
-    commit_oid: &git2::Oid,
+    commit_oid: &git::Oid,
     opts: &Options,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     let commit = repository
@@ -51,8 +53,8 @@ pub fn workdir(
 
 pub fn trees(
     repository: &Repository,
-    old_tree: &git2::Tree,
-    new_tree: &git2::Tree,
+    old_tree: &git::Tree,
+    new_tree: &git::Tree,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
@@ -68,7 +70,7 @@ pub fn trees(
 }
 
 fn hunks_by_filepath(
-    repo: &git2::Repository,
+    repo: &git::Repository,
     diff: &git2::Diff,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     // find all the hunks

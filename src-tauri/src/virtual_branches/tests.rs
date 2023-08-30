@@ -8,14 +8,17 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use git2::TreeWalkResult;
 
-use crate::{gb_repository, project_repository, projects, reader, sessions, test_utils, users};
+use crate::{
+    gb_repository, git, project_repository, projects, reader, sessions, test_utils, users,
+};
 
 use super::branch::{Branch, BranchCreateRequest, Ownership};
 use super::*;
 
 pub struct TestDeps {
-    repository: git2::Repository,
+    repository: git::Repository,
     project: projects::Project,
     gb_repo: gb_repository::Repository,
     gb_repo_path: path::PathBuf,
@@ -50,7 +53,7 @@ fn new_test_deps() -> Result<TestDeps> {
 fn set_test_target(
     gb_repo: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    repository: &git2::Repository,
+    repository: &git::Repository,
 ) -> Result<()> {
     target::Writer::new(gb_repo).write_default(&target::Target {
         branch_name: "origin/master".to_string(),
@@ -208,9 +211,9 @@ fn test_track_binary_files() -> Result<()> {
     // status (no files)
     let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
-    let commit_obj = repository.find_commit(git2::Oid::from_str(commit_id).unwrap())?;
+    let commit_obj = repository.find_commit(commit_id.parse().unwrap())?;
     let tree = commit_obj.tree()?;
-    let files = tree_to_entry_list(&repository, &tree)?;
+    let files = tree_to_entry_list(&repository, &tree);
     assert_eq!(files[0].0, "image.bin");
     assert_eq!(files[0].3, "944996dd82015a616247c72b251e41661e528ae1");
 
@@ -229,9 +232,9 @@ fn test_track_binary_files() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     // get tree from commit_id
-    let commit_obj = repository.find_commit(git2::Oid::from_str(commit_id).unwrap())?;
+    let commit_obj = repository.find_commit(commit_id.parse().unwrap())?;
     let tree = commit_obj.tree()?;
-    let files = tree_to_entry_list(&repository, &tree)?;
+    let files = tree_to_entry_list(&repository, &tree);
 
     assert_eq!(files[0].0, "image.bin");
     assert_eq!(files[0].3, "ea6901a04d1eed6ebf6822f4360bda9f008fa317");
@@ -1080,7 +1083,7 @@ fn test_update_base_branch_base() -> Result<()> {
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 1); // branch commit, rebased
-    let head_sha = git2::Oid::from_str(&branch.commits[0].id)?;
+    let head_sha = branch.commits[0].id.parse::<git::Oid>()?;
 
     let head_commit = repository.find_commit(head_sha)?;
     let parent = head_commit.parent(0)?;
@@ -2635,18 +2638,20 @@ fn test_commit_add_and_delete_files() -> Result<()> {
 
     // branch one test.txt has just the 1st and 3rd hunks applied
     let commit2 = &branch1.commits[0].id;
-    let commit2 = git2::Oid::from_str(commit2).expect("failed to parse oid");
+    let commit2 = commit2
+        .parse::<git::Oid>()
+        .expect("failed to parse commit id");
     let commit2 = repository
         .find_commit(commit2)
         .expect("failed to get commit object");
 
     let tree = commit1.tree().expect("failed to get tree");
-    let file_list = tree_to_file_list(&repository, &tree).unwrap();
+    let file_list = tree_to_file_list(&repository, &tree);
     assert_eq!(file_list, vec!["test.txt", "test2.txt"]);
 
     // get the tree
     let tree = commit2.tree().expect("failed to get tree");
-    let file_list = tree_to_file_list(&repository, &tree).unwrap();
+    let file_list = tree_to_file_list(&repository, &tree);
     assert_eq!(file_list, vec!["test.txt", "test3.txt"]);
 
     Ok(())
@@ -2701,14 +2706,16 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     let commit = &branch1.commits[0].id;
-    let commit = git2::Oid::from_str(commit).expect("failed to parse oid");
+    let commit = commit
+        .parse::<git::Oid>()
+        .expect("failed to parse commit id");
     let commit = repository
         .find_commit(commit)
         .expect("failed to get commit object");
 
     let tree = commit.tree().expect("failed to get tree");
 
-    let list = tree_to_entry_list(&repository, &tree).unwrap();
+    let list = tree_to_entry_list(&repository, &tree);
     assert_eq!(list[0].0, "test.txt");
     assert_eq!(list[0].1, "100644");
     assert_eq!(list[1].0, "test2.txt");
@@ -2722,37 +2729,39 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
     Ok(())
 }
 
-fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Result<Vec<String>> {
+fn tree_to_file_list(repository: &git::Repository, tree: &git::Tree) -> Vec<String> {
     let mut file_list = Vec::new();
-    for entry in tree.iter() {
+    tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
         let path = entry.name().unwrap();
         let entry = tree
             .get_path(std::path::Path::new(path))
-            .context(format!("failed to get tree entry for path {}", path))?;
+            .unwrap_or_else(|_| panic!("failed to get tree entry for path {}", path));
         let object = entry
-            .to_object(repository)
-            .context(format!("failed to get object for tree entry {}", path))?;
+            .to_object(repository.into())
+            .unwrap_or_else(|_| panic!("failed to get object for tree entry {}", path));
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
         }
-    }
-    Ok(file_list)
+        TreeWalkResult::Ok
+    })
+    .expect("failed to walk tree");
+    file_list
 }
 
 fn tree_to_entry_list(
-    repository: &git2::Repository,
-    tree: &git2::Tree,
-) -> Result<Vec<(String, String, String, String)>> {
+    repository: &git::Repository,
+    tree: &git::Tree,
+) -> Vec<(String, String, String, String)> {
     let mut file_list = Vec::new();
-    for entry in tree.iter() {
+    tree.walk(git2::TreeWalkMode::PreOrder, |_root, entry| {
         let path = entry.name().unwrap();
         let entry = tree
             .get_path(std::path::Path::new(path))
-            .context(format!("failed to get tree entry for path {}", path))?;
+            .unwrap_or_else(|_| panic!("failed to get tree entry for path {}", path));
         let object = entry
-            .to_object(repository)
-            .context(format!("failed to get object for tree entry {}", path))?;
-        let blob = object.as_blob().context("failed to get blob")?;
+            .to_object(repository.into())
+            .unwrap_or_else(|_| panic!("failed to get object for tree entry {}", path));
+        let blob = object.as_blob().expect("failed to get blob");
         // convert content to string
         let octal_mode = format!("{:o}", entry.filemode());
         if let Ok(content) =
@@ -2772,8 +2781,10 @@ fn tree_to_entry_list(
                 blob.id().to_string(),
             ));
         }
-    }
-    Ok(file_list)
+        TreeWalkResult::Ok
+    })
+    .expect("failed to walk tree");
+    file_list
 }
 
 #[test]
@@ -3073,7 +3084,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
     let last_commit = branch1.commits.first().unwrap();
-    let last_commit_oid = git2::Oid::from_str(&last_commit.id)?;
+    let last_commit_oid = last_commit.id.parse::<git::Oid>()?;
     let commit = gb_repo.git_repository.find_commit(last_commit_oid)?;
     assert!(!branch1.conflicted);
     assert_eq!(commit.parent_count(), 2);

@@ -55,15 +55,15 @@ mod tests {
             ),
             created_timestamp_ms: unsafe { TEST_INDEX } as u128,
             updated_timestamp_ms: unsafe { TEST_INDEX + 100 } as u128,
-            head: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef0123456{}",
-                unsafe { TEST_INDEX }
-            ))
+            head: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
+                TEST_INDEX
+            })
+            .parse()
             .unwrap(),
-            tree: git2::Oid::from_str(&format!(
-                "0123456789abcdef0123456789abcdef012345{}",
-                unsafe { TEST_INDEX + 10 }
-            ))
+            tree: format!("0123456789abcdef0123456789abcdef012345{}", unsafe {
+                TEST_INDEX + 10
+            })
+            .parse()
             .unwrap(),
             ownership: Ownership {
                 files: vec![format!("file/{}:1-2", unsafe { TEST_INDEX })

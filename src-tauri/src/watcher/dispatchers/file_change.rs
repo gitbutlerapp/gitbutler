@@ -11,7 +11,7 @@ use tokio::{
     task,
 };
 
-use crate::watcher::events;
+use crate::{git, watcher::events};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -31,7 +31,7 @@ impl Dispatcher {
     }
 
     pub fn run(self, project_id: &str, path: &path::Path) -> Result<Receiver<events::Event>> {
-        let repo = git2::Repository::open(path)
+        let repo = git::Repository::open(path)
             .with_context(|| format!("failed to open project repository: {}", path.display()))?;
 
         let (notify_tx, mut notify_rx) = channel(1);
@@ -122,7 +122,7 @@ fn is_interesting_kind(kind: &notify::EventKind) -> bool {
     )
 }
 
-fn is_interesting_file(git_repo: &git2::Repository, file_path: &path::Path) -> bool {
+fn is_interesting_file(git_repo: &git::Repository, file_path: &path::Path) -> bool {
     if file_path.starts_with(git_repo.path()) {
         let check_file_path = file_path.strip_prefix(git_repo.path()).unwrap();
         check_file_path.ends_with("FETCH_HEAD")

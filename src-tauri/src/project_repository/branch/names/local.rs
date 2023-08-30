@@ -2,6 +2,8 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
+use crate::git;
+
 use super::{error::Error, RemoteName};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -60,12 +62,12 @@ impl FromStr for Name {
     }
 }
 
-impl TryFrom<&git2::Branch<'_>> for Name {
+impl TryFrom<&git::Branch<'_>> for Name {
     type Error = Error;
 
-    fn try_from(value: &git2::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        let branch = String::from_utf8(value.name_bytes()?.to_vec()).map_err(Error::Utf8Error)?;
-        if value.get().is_remote() {
+    fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
+        let branch = String::from_utf8(value.refname_bytes().to_vec()).map_err(Error::Utf8Error)?;
+        if value.is_remote() {
             Err(Error::NotLocal(branch))
         } else {
             match value.upstream() {

@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     dedup::{dedup, dedup_fmt},
-    gb_repository,
+    gb_repository, git,
     keys::PrivateKey,
     project_repository::{self, conflicts, diff, LogUntil},
     reader, sessions,
@@ -226,19 +226,12 @@ pub fn apply_branch(
     // calculate the merge base and make sure it's the same as the target commit
     // if not, we need to merge or rebase the branch to get it up to date
 
-    let merge_options = git2::MergeOptions::new();
-
     let merge_base = repo.merge_base(default_target.sha, apply_branch.head)?;
     if merge_base != default_target.sha {
         // Branch is out of date, merge or rebase it
         let merge_base_tree = repo.find_commit(merge_base)?.tree()?;
         let mut merge_index = repo
-            .merge_trees(
-                &merge_base_tree,
-                &branch_tree,
-                &target_tree,
-                Some(&merge_options),
-            )
+            .merge_trees(&merge_base_tree, &branch_tree, &target_tree)
             .context("failed to merge trees")?;
 
         if merge_index.has_conflicts() {
@@ -304,7 +297,7 @@ pub fn apply_branch(
 
     // check index for conflicts
     let mut merge_index = repo
-        .merge_trees(&target_tree, &wd_tree, &branch_tree, Some(&merge_options))
+        .merge_trees(&target_tree, &wd_tree, &branch_tree)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -395,7 +388,6 @@ pub fn unapply_branch(
     }
 
     // ok, update the wd with the union of the rest of the branches
-    let merge_options = git2::MergeOptions::new();
     let base_tree = target_commit.tree()?;
     let mut final_tree = target_commit.tree()?;
 
@@ -405,9 +397,7 @@ pub fn unapply_branch(
         if branch.id != branch_id {
             let tree_oid = write_tree(project_repository, &default_target, &files)?;
             let branch_tree = repo.find_tree(tree_oid)?;
-            if let Ok(mut result) =
-                repo.merge_trees(&base_tree, &final_tree, &branch_tree, Some(&merge_options))
-            {
+            if let Ok(mut result) = repo.merge_trees(&base_tree, &final_tree, &branch_tree) {
                 let final_tree_oid = result.write_tree_to(repo)?;
                 final_tree = repo.find_tree(final_tree_oid)?;
             }
@@ -415,7 +405,7 @@ pub fn unapply_branch(
     }
     // convert the final tree into an object
     let final_tree_oid = final_tree.id();
-    let final_tree = repo.find_object(final_tree_oid, Some(git2::ObjectType::Tree))?;
+    let final_tree = repo.find_tree(final_tree_oid)?;
 
     // checkout final_tree into the working directory
     let mut checkout_options = git2::build::CheckoutBuilder::new();
@@ -493,10 +483,10 @@ pub fn list_remote_branches(
         .filter_map(|branch| branch.upstream)
         .map(|upstream| upstream.branch().to_string())
         .collect::<HashSet<_>>();
-    let mut most_recent_branches_by_hash: HashMap<git2::Oid, (git2::Branch, u64)> = HashMap::new();
+    let mut most_recent_branches_by_hash: HashMap<git::Oid, (git::Branch, u64)> = HashMap::new();
 
     for (branch, _) in repo.branches(None)?.flatten() {
-        if let Some(branch_oid) = branch.get().target() {
+        if let Some(branch_oid) = branch.target() {
             // get the branch ref
             let branch_commit = repo
                 .find_commit(branch_oid)
@@ -514,6 +504,7 @@ pub fn list_remote_branches(
                 continue;
             }
 
+            dbg!(&branch.is_remote());
             let branch_name = project_repository::branch::Name::try_from(&branch)
                 .context("could not get branch name")?;
 
@@ -560,7 +551,7 @@ pub fn list_remote_branches(
 
             match most_recent_branches_by_hash.get(&branch_oid) {
                 Some((_, existing_seconds)) => {
-                    let branch_name = branch.get().name().context("could not get branch name")?;
+                    let branch_name = branch.refname().context("could not get branch name")?;
                     if seconds < *existing_seconds {
                         // this branch is older than the one we already have
                         continue;
@@ -585,12 +576,12 @@ pub fn list_remote_branches(
         }
     }
 
-    let mut most_recent_branches: Vec<(git2::Branch, u64)> =
+    let mut most_recent_branches: Vec<(git::Branch, u64)> =
         most_recent_branches_by_hash.into_values().collect();
 
     // take the most recent 20 branches
     most_recent_branches.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by timestamp in descending order.
-    let sorted_branches: Vec<git2::Branch> = most_recent_branches
+    let sorted_branches: Vec<git::Branch> = most_recent_branches
         .into_iter()
         .map(|(branch, _)| branch)
         .collect();
@@ -598,8 +589,8 @@ pub fn list_remote_branches(
 
     let mut branches: Vec<RemoteBranch> = Vec::new();
     for branch in &top_branches {
-        let branch_name = branch.get().name().context("could not get branch name")?;
-        match branch.get().target() {
+        let branch_name = branch.refname().context("could not get branch name")?;
+        match branch.target() {
             Some(branch_oid) => {
                 // get the branch ref
                 let branch_commit = repo
@@ -693,7 +684,7 @@ pub fn list_remote_branches(
     Ok(branches)
 }
 
-pub fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
+pub fn get_wd_tree(repo: &git::Repository) -> Result<git::Tree> {
     let mut index = repo.index()?;
     index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
     let oid = index.write_tree()?;
@@ -702,10 +693,10 @@ pub fn get_wd_tree(repo: &git2::Repository) -> Result<git2::Tree> {
 }
 
 fn find_base_tree<'a>(
-    repo: &'a git2::Repository,
-    branch_commit: &'a git2::Commit<'a>,
-    target_commit: &'a git2::Commit<'a>,
-) -> Result<git2::Tree<'a>> {
+    repo: &'a git::Repository,
+    branch_commit: &'a git::Commit<'a>,
+    target_commit: &'a git::Commit<'a>,
+) -> Result<git::Tree<'a>> {
     // find merge base between target_commit and branch_commit
     let merge_base = repo
         .merge_base(target_commit.id(), branch_commit.id())
@@ -717,20 +708,19 @@ fn find_base_tree<'a>(
     let base_tree = merge_base_commit
         .tree()
         .context("failed to get base tree object")?;
-    Ok(base_tree.clone())
+    Ok(base_tree)
 }
 
 fn check_mergeable(
-    repo: &git2::Repository,
-    base_tree: &git2::Tree,
-    branch_tree: &git2::Tree,
-    wd_tree: &git2::Tree,
+    repo: &git::Repository,
+    base_tree: &git::Tree,
+    branch_tree: &git::Tree,
+    wd_tree: &git::Tree,
 ) -> Result<(bool, Vec<String>)> {
     let mut merge_conflicts = Vec::new();
 
-    let merge_options = git2::MergeOptions::new();
     let merge_index = repo
-        .merge_trees(base_tree, wd_tree, branch_tree, Some(&merge_options))
+        .merge_trees(base_tree, wd_tree, branch_tree)
         .context("failed to merge trees")?;
     let mergeable = !merge_index.has_conflicts();
     if merge_index.has_conflicts() {
@@ -985,7 +975,7 @@ pub fn list_virtual_branches(
 
 fn list_commit_files(
     project_repository: &project_repository::Repository,
-    commit: &git2::Commit,
+    commit: &git::Commit,
 ) -> Result<Vec<VirtualBranchFile>> {
     if commit.parent_count() == 0 {
         return Ok(vec![]);
@@ -1008,8 +998,8 @@ fn list_commit_files(
 pub fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
     target: &target::Target,
-    commit: &git2::Commit,
-    upstream_commits: Option<&HashMap<git2::Oid, bool>>,
+    commit: &git::Commit,
+    upstream_commits: Option<&HashMap<git::Oid, bool>>,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = commit.time().seconds() as u128;
     let signature = commit.author();
@@ -1693,14 +1683,14 @@ pub fn write_tree(
     project_repository: &project_repository::Repository,
     target: &target::Target,
     files: &Vec<VirtualBranchFile>,
-) -> Result<git2::Oid> {
+) -> Result<git::Oid> {
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
 
     let head_commit = git_repository.find_commit(target.sha)?;
     let base_tree = head_commit.tree()?;
 
-    let mut builder = git2::build::TreeUpdateBuilder::new();
+    let mut builder = git_repository.treebuilder(Some(&base_tree))?;
     // now update the index with content in the working directory for each file
     for file in files {
         // convert this string to a Path
@@ -1733,17 +1723,17 @@ pub fn write_tree(
                 let bytes: &[u8] = path_str.as_bytes();
 
                 let blob_oid = git_repository.blob(bytes)?;
-                builder.upsert(rel_path, blob_oid, filemode);
+                builder.insert(rel_path, blob_oid.into(), filemode.into())?;
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if file.binary {
                     let new_blob_oid = &file.hunks[0].diff;
                     // convert string to Oid
                     let new_blob_oid = git2::Oid::from_str(new_blob_oid)?;
-                    builder.upsert(rel_path, new_blob_oid, filemode);
+                    builder.insert(rel_path, new_blob_oid, filemode.into())?;
                 } else {
                     // blob from tree_entry
                     let blob = tree_entry
-                        .to_object(git_repository)
+                        .to_object(git_repository.into())
                         .unwrap()
                         .peel_to_blob()
                         .context("failed to get blob")?;
@@ -1767,16 +1757,16 @@ pub fn write_tree(
                     // create a blob
                     let new_blob_oid = git_repository.blob(&new_content)?;
                     // upsert into the builder
-                    builder.upsert(rel_path, new_blob_oid, filemode);
+                    builder.insert(rel_path, new_blob_oid.into(), filemode.into())?;
                 }
             } else {
                 // create a git blob from a file on disk
                 let blob_oid = git_repository.blob_path(&full_path)?;
-                builder.upsert(rel_path, blob_oid, filemode);
+                builder.insert(rel_path, blob_oid.into(), filemode.into())?;
             }
         } else if base_tree.get_path(rel_path).is_ok() {
             // remove file from index if it exists in the base tree
-            builder.remove(rel_path);
+            builder.remove(rel_path)?;
         } else {
             // file not in index or base tree, do nothing
             // this is the
@@ -1784,11 +1774,9 @@ pub fn write_tree(
     }
 
     // now write out the tree
-    let tree_oid = builder
-        .create_updated(git_repository, &base_tree)
-        .context("failed to create updated tree")?;
+    let tree_oid = builder.write().context("failed to create updated tree")?;
 
-    Ok(tree_oid)
+    Ok(tree_oid.into())
 }
 
 fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
@@ -1990,12 +1978,12 @@ pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<(
 fn is_commit_integrated(
     project_repository: &project_repository::Repository,
     target: &target::Target,
-    commit: &git2::Commit,
+    commit: &git::Commit,
 ) -> Result<bool> {
     let remote_branch = project_repository
         .git_repository
         .find_branch(&target.branch_name, git2::BranchType::Remote)?;
-    let remote_head = remote_branch.get().peel_to_commit()?;
+    let remote_head = remote_branch.peel_to_commit()?;
     let upstream_commits = project_repository.l(
         remote_head.id(),
         project_repository::LogUntil::Commit(target.sha),
@@ -2031,12 +2019,7 @@ fn is_commit_integrated(
     // try to merge our tree into the upstream tree
     let mut merge_index = project_repository
         .git_repository
-        .merge_trees(
-            &merge_tree,
-            &upstream_tree,
-            &commit.tree()?,
-            Some(&git2::MergeOptions::new()),
-        )
+        .merge_trees(&merge_tree, &upstream_tree, &commit.tree()?)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {

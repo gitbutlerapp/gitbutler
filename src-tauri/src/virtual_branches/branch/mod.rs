@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
 
-use crate::project_repository::branch;
+use crate::{git, project_repository::branch};
 
 // this is the struct for the virtual branch data that is stored in our data
 // store. it is more or less equivalent to a git branch reference, but it is not
@@ -30,8 +30,8 @@ pub struct Branch {
     pub created_timestamp_ms: u128,
     pub updated_timestamp_ms: u128,
     // tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-    pub tree: git2::Oid,
-    pub head: git2::Oid,
+    pub tree: git::Oid,
+    pub head: git::Oid,
     pub ownership: Ownership,
     // order is the number by which UI should sort branches
     pub order: usize,
@@ -162,8 +162,18 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
             notes,
             applied,
             upstream,
-            tree: git2::Oid::from_str(&tree).unwrap(),
-            head: git2::Oid::from_str(&head).unwrap(),
+            tree: tree.parse().map_err(|e| {
+                crate::reader::Error::IOError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("meta/tree: {}", e),
+                ))
+            })?,
+            head: head.parse().map_err(|e| {
+                crate::reader::Error::IOError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("meta/head: {}", e),
+                ))
+            })?,
             created_timestamp_ms,
             updated_timestamp_ms,
             ownership,
