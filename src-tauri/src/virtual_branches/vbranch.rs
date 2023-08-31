@@ -1722,7 +1722,7 @@ pub fn write_tree(
                 let bytes: &[u8] = path_str.as_bytes();
 
                 let blob_oid = git_repository.blob(bytes)?;
-                builder.upsert(rel_path, blob_oid.into(), filemode);
+                builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if file.binary {
                     let new_blob_oid = &file.hunks[0].diff;
@@ -1756,12 +1756,12 @@ pub fn write_tree(
                     // create a blob
                     let new_blob_oid = git_repository.blob(&new_content)?;
                     // upsert into the builder
-                    builder.upsert(rel_path, new_blob_oid.into(), filemode);
+                    builder.upsert(rel_path, new_blob_oid, filemode);
                 }
             } else {
                 // create a git blob from a file on disk
                 let blob_oid = git_repository.blob_path(&full_path)?;
-                builder.upsert(rel_path, blob_oid.into(), filemode);
+                builder.upsert(rel_path, blob_oid, filemode);
             }
         } else if base_tree.get_path(rel_path).is_ok() {
             // remove file from index if it exists in the base tree
@@ -1775,7 +1775,7 @@ pub fn write_tree(
     // now write out the tree
     let tree_oid = builder.write().context("failed to write updated tree")?;
 
-    Ok(tree_oid.into())
+    Ok(tree_oid)
 }
 
 fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {

@@ -437,29 +437,25 @@ impl Repository {
         tree_builder.upsert(
             "session",
             build_session_tree(self)
-                .context("failed to build session tree")?
-                .into(),
+                .context("failed to build session tree")?,
             git::FileMode::Tree,
         );
         tree_builder.upsert(
             "wd",
             build_wd_tree(self, project_repository)
-                .context("failed to build working directory tree")?
-                .into(),
+                .context("failed to build working directory tree")?,
             git::FileMode::Tree,
         );
         tree_builder.upsert(
             "logs",
             build_log_tree(self, project_repository)
-                .context("failed to build logs tree")?
-                .into(),
+                .context("failed to build logs tree")?,
             git::FileMode::Tree,
         );
         tree_builder.upsert(
             "branches",
             build_branches_tree(self)
-                .context("failed to build branches tree")?
-                .into(),
+                .context("failed to build branches tree")?,
             git::FileMode::Tree,
         );
 
@@ -658,7 +654,7 @@ fn build_wd_tree(
             let wd_tree_entry = tree.get_name("wd").unwrap();
             let wd_tree = gb_repository
                 .git_repository
-                .find_tree(wd_tree_entry.id().into())?;
+                .find_tree(wd_tree_entry.id())?;
             index.read_tree((&wd_tree).into())?;
 
             let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
@@ -724,7 +720,7 @@ fn build_wd_tree(
         Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(gb_repository, project_repository)
             .context("failed to build wd index"),
         Err(e) => {
-            return Err(e.into());
+            Err(e.into())
         }
     }
 }

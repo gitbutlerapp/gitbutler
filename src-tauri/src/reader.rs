@@ -165,7 +165,7 @@ impl Reader for CommitReader<'_> {
             Ok(entry) => entry,
             Err(_) => return Ok(0),
         };
-        let blob = match self.repository.find_blob(entry.id().into()) {
+        let blob = match self.repository.find_blob(entry.id()) {
             Ok(blob) => blob,
             Err(_) => return Ok(0),
         };
@@ -181,7 +181,7 @@ impl Reader for CommitReader<'_> {
             Ok(entry) => entry,
             Err(_) => return Err(Error::NotFound),
         };
-        let blob = match self.repository.find_blob(entry.id().into()) {
+        let blob = match self.repository.find_blob(entry.id()) {
             Ok(blob) => blob,
             Err(_) => return Err(Error::NotFound),
         };
