@@ -1,6 +1,8 @@
 use std::path;
 
-use super::{AnnotatedCommit, Branch, Commit, Index, Oid, Reference, Remote, Result, Tree};
+use super::{
+    AnnotatedCommit, Branch, Commit, Index, Oid, Reference, Remote, Result, Tree, TreeBuilder,
+};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -186,8 +188,8 @@ impl Repository {
         self.0.config()
     }
 
-    pub fn treebuilder(&self, tree: Option<&Tree>) -> Result<git2::TreeBuilder> {
-        self.0.treebuilder(tree.map(Into::into))
+    pub fn treebuilder<'repo>(&'repo self, tree: Option<&'repo Tree>) -> TreeBuilder<'repo> {
+        TreeBuilder::new(self, tree)
     }
 
     pub fn path(&self) -> &path::Path {
