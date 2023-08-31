@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
-	import type { BaseBranch, Commit, File } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, Commit, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
 	import { Button, Link, Tooltip } from '$lib/components';
@@ -47,19 +47,12 @@
 		}
 	});
 
-	export let branchId: string;
+	export let branch: Branch;
 	export let projectPath: string;
-	export let name: string;
-	export let files: File[];
-	export let commits: Commit[];
 	export let projectId: string;
-	export let order: number;
-	export let conflicted: boolean;
 	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
-	export let upstream: string | undefined;
-	export let notes: string | undefined;
 	export let branchController: BranchController;
 
 	const user = userStore;
@@ -67,8 +60,8 @@
 
 	let commitMessage: string;
 
-	$: remoteCommits = commits.filter((c) => c.isRemote);
-	$: localCommits = commits.filter((c) => !c.isRemote);
+	$: remoteCommits = branch.commits.filter((c) => c.isRemote);
+	$: localCommits = branch.commits.filter((c) => !c.isRemote);
 	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
 
 	let allExpanded: boolean | undefined;
@@ -86,49 +79,49 @@
 	const laneWidthKey = 'laneWidth:';
 
 	function commit() {
-		branchController.commitBranch(branchId, commitMessage);
+		branchController.commitBranch(branch.id, commitMessage);
 	}
 
 	function push() {
 		if (localCommits[0]?.id) {
 			isPushing = true;
-			branchController.pushBranch(branchId).finally(() => (isPushing = false));
+			branchController.pushBranch(branch.id).finally(() => (isPushing = false));
 		}
 	}
 
 	$: {
 		// On refresh we need to check expansion status from localStorage
-		files && expandFromCache();
+		branch.files && expandFromCache();
 	}
 
 	function expandFromCache() {
 		// Exercise cache lookup for all files.
-		files.forEach((f) => getExpandedWithCacheFallback(f));
-		if (files.every((f) => getExpandedWithCacheFallback(f))) {
+		branch.files.forEach((f) => getExpandedWithCacheFallback(f));
+		if (branch.files.every((f) => getExpandedWithCacheFallback(f))) {
 			allExpanded = true;
-		} else if (files.every((f) => getExpandedWithCacheFallback(f) === false)) {
+		} else if (branch.files.every((f) => getExpandedWithCacheFallback(f) === false)) {
 			allExpanded = false;
 		} else {
 			allExpanded = undefined;
 		}
 	}
 
-	$: allCollapsed = files.every((f) => getExpandedWithCacheFallback(f) === false);
+	$: allCollapsed = branch.files.every((f) => getExpandedWithCacheFallback(f) === false);
 
 	function handleCollapseAll() {
-		files.forEach((f) => setExpandedWithCache(f, false));
+		branch.files.forEach((f) => setExpandedWithCache(f, false));
 		allExpanded = false;
-		files = files;
+		branch.files = branch.files;
 	}
 
 	function handleExpandAll() {
-		files.forEach((f) => setExpandedWithCache(f, true));
+		branch.files.forEach((f) => setExpandedWithCache(f, true));
 		allExpanded = true;
-		files = files;
+		branch.files = branch.files;
 	}
 
 	function handleBranchNameChange() {
-		branchController.updateBranchName(branchId, name);
+		branchController.updateBranchName(branch.id, branch.name);
 	}
 
 	function url(target: BaseBranch | undefined, upstreamBranchName: string) {
@@ -141,7 +134,7 @@
 
 	let commitDialogShown = false;
 
-	$: if (commitDialogShown && files.length === 0) {
+	$: if (commitDialogShown && branch.files.length === 0) {
 		commitDialogShown = false;
 	}
 
@@ -201,12 +194,12 @@
 	// TODO: Use document.body.addEventListener to avoid having to use backdrop
 	let popupMenu = new BranchLanePopupMenu({
 		target: document.body,
-		props: { allExpanded, allCollapsed, order, branchController }
+		props: { allExpanded, allCollapsed, order: branch?.order, branchController }
 	});
 
 	onMount(() => {
 		expandFromCache();
-		laneWidth = lscache.get(laneWidthKey + branchId) ?? $userSettings.defaultLaneWidth;
+		laneWidth = lscache.get(laneWidthKey + branch.id) ?? $userSettings.defaultLaneWidth;
 		return popupMenu.$on('action', (e) => {
 			if (e.detail == 'expand') {
 				handleExpandAll();
@@ -231,16 +224,17 @@
 		}
 		const data = e.dataTransfer.getData(dzType);
 		const [newFileId, newHunks] = data.split(':');
-		const existingHunkIds = files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
+		const existingHunkIds =
+			branch.files.find((f) => f.id === newFileId)?.hunks.map((h) => h.id) || [];
 		const newHunkIds = newHunks.split(',').filter((h) => !existingHunkIds.includes(h));
 		if (newHunkIds.length == 0) {
 			// don't allow dropping hunk to the line where it already is
 			return;
 		}
-		const ownership = files
+		const ownership = branch.files
 			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
 			.join('\n');
-		branchController.updateBranchOwnership(branchId, (data + '\n' + ownership).trim());
+		branchController.updateBranchOwnership(branch.id, (data + '\n' + ownership).trim());
 	}}
 	on:dblclick={() => (maximized = !maximized)}
 >
@@ -258,27 +252,27 @@
 							icon={IconKebabMenu}
 							title=""
 							class="flex h-6 w-3 flex-grow-0 scale-90 items-center justify-center"
-							on:click={() => popupMenu.openByElement(meatballButton, branchId)}
+							on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
 						/>
 					</div>
 					<div class="flex-grow pr-2">
 						<input
 							type="text"
-							bind:value={name}
+							bind:value={branch.name}
 							on:change={handleBranchNameChange}
-							title={name}
+							title={branch.name}
 							class="w-full truncate rounded border border-transparent bg-light-200 px-1 font-mono font-bold text-light-800 hover:border-light-400 dark:bg-dark-800 dark:text-dark-100 dark:hover:border-dark-600"
 							on:dblclick|stopPropagation
 							on:click={(e) => e.currentTarget.select()}
 						/>
 					</div>
-					<div class:invisible={files.length == 0} transition:fade={{ duration: 150 }}>
+					<div class:invisible={branch.files.length == 0} transition:fade={{ duration: 150 }}>
 						<Button
 							class="w-20"
 							height="small"
 							kind="outlined"
 							color="purple"
-							disabled={files.length == 0}
+							disabled={branch.files.length == 0}
 							on:click={() => (commitDialogShown = !commitDialogShown)}
 						>
 							<span class="purple">
@@ -294,7 +288,7 @@
 						class="scale-90 px-2 py-2 text-light-600 hover:text-light-800"
 						title="Stash this branch"
 						on:click={() => {
-							if (branchId) branchController.unapplyBranch(branchId);
+							if (branch.id) branchController.unapplyBranch(branch.id);
 						}}
 					>
 						<IconCloseSmall />
@@ -341,7 +335,7 @@
 										id="generate-ai-message"
 										icon={IconAISparkles}
 										loading={isGeneratingCommigMessage}
-										on:click={() => generateCommitMessage(files)}
+										on:click={() => generateCommitMessage(branch.files)}
 									>
 										<span class="text-light-700">Generate message</span>
 									</Button>
@@ -381,21 +375,21 @@
 				{/if}
 			</div>
 		</div>
-		{#if files.length !== 0}
+		{#if branch.files.length !== 0}
 			<Tabs
-				{branchId}
+				branchId={branch.id}
 				items={[
 					{
 						name: 'files',
-						displayName: 'Changed files (' + files.length + ')',
+						displayName: 'Changed files (' + branch.files.length + ')',
 						component: FileTreeTabPanel,
-						props: { files }
+						props: { files: branch.files }
 					},
 					{
 						name: 'notes',
 						displayName: 'Notes',
 						component: NotesTabPanel,
-						props: { notes: notes, branchId, branchController }
+						props: { notes: branch.notes, branch: branch.id, branchController }
 					}
 				]}
 			/>
@@ -406,9 +400,9 @@
 				class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8"
 			>
 				<div bind:this={contents}>
-					{#if conflicted}
+					{#if branch.conflicted}
 						<div class="mb-2 bg-red-500 p-2 font-bold text-white">
-							{#if files.some((f) => f.conflicted)}
+							{#if branch.files.some((f) => f.conflicted)}
 								This virtual branch conflicts with upstream changes. Please resolve all conflicts
 								and commit before you can continue.
 							{:else}
@@ -421,9 +415,9 @@
 						<div class="drop-zone-marker hidden border p-6 text-center">
 							Drop here to add to virtual branch
 						</div>
-						{#if files.length > 0}
+						{#if branch.files.length > 0}
 							<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
-								{#each files as file (file.id)}
+								{#each branch.files as file (file.id)}
 									<FileCard
 										expanded={file.expanded}
 										conflicted={file.conflicted}
@@ -440,8 +434,8 @@
 								{/each}
 							</div>
 						{/if}
-						{#if files.length == 0}
-							{#if commits.length == 0}
+						{#if branch.files.length == 0}
+							{#if branch.commits.length == 0}
 								<div
 									class="no-changes space-y-6 rounded p-8 text-center text-light-700 dark:border-zinc-700"
 									data-dnd-ignore
@@ -535,14 +529,14 @@
 										<div
 											class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
 										>
-											{#if upstream}
+											{#if branch.upstream}
 												<Link
 													target="_blank"
 													rel="noreferrer"
-													href={url(base, upstream)}
+													href={url(base, branch.upstream)}
 													class="inline-block max-w-full truncate text-sm font-bold"
 												>
-													{upstream.split('refs/remotes/')[1]}
+													{branch.upstream.split('refs/remotes/')[1]}
 												</Link>
 											{/if}
 										</div>
@@ -585,7 +579,7 @@
 		class="z-30"
 		on:width={(e) => {
 			laneWidth = e.detail;
-			lscache.set(laneWidthKey + branchId, e.detail, 7 * 1440); // 7 day ttl
+			lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
 		}}
 	/>
 </div>

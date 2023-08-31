@@ -82,7 +82,7 @@
 			}
 		}}
 	>
-		{#each branches.filter((c) => c.active) as { id, name, files, commits, order, conflicted, upstream, notes } (id)}
+		{#each branches.filter((c) => c.active) as branch (branch.id)}
 			<Lane
 				on:dragstart={(e) => {
 					if (!e.dataTransfer) return;
@@ -90,21 +90,14 @@
 					dragged = e.currentTarget;
 					priorPosition = Array.from(dropZone.children).indexOf(dragged);
 				}}
-				{name}
-				{files}
-				{commits}
-				{conflicted}
 				on:empty={handleEmpty}
-				{order}
+				{branch}
 				{projectId}
-				branchId={id}
 				{projectPath}
 				{base}
 				{cloudEnabled}
 				{cloud}
-				{upstream}
 				{branchController}
-				{notes}
 			/>
 		{/each}
 
