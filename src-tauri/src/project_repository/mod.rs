@@ -1,5 +1,4 @@
 pub mod activity;
-pub mod branch;
 pub mod conflicts;
 pub mod diff;
 mod repository;

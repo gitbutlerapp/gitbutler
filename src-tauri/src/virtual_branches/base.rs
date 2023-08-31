@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use uuid::Uuid;
 
 use crate::{
-    gb_repository,
+    gb_repository, git,
     project_repository::{self, LogUntil},
     reader, sessions,
 };
@@ -45,7 +45,7 @@ pub fn set_base_branch(
     let mut commit_oid = commit.id();
 
     let head_ref = repo.head().context("Failed to get HEAD reference")?;
-    let head_name: project_repository::branch::Name = head_ref
+    let head_name: git::BranchName = head_ref
         .name()
         .context("Failed to get HEAD reference name")?
         .parse()
@@ -479,7 +479,7 @@ pub fn target_to_base_branch(
 pub fn create_virtual_branch_from_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    upstream: &project_repository::branch::Name,
+    upstream: &git::BranchName,
     applied: Option<bool>,
 ) -> Result<branch::Branch> {
     let current_session = gb_repository
@@ -511,8 +511,8 @@ pub fn create_virtual_branch_from_branch(
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
-        project_repository::branch::Name::Remote(remote) => Some(remote.clone()),
-        project_repository::branch::Name::Local(local) => {
+        git::BranchName::Remote(remote) => Some(remote.clone()),
+        git::BranchName::Local(local) => {
             let remote_name = format!("{}/{}", default_target.remote_name, local.branch());
             if remote_name != default_target.branch_name {
                 Some(format!("refs/remotes/{}", remote_name).parse().unwrap())

@@ -10,8 +10,7 @@ use tracing::instrument;
 
 use git_butler_tauri::*;
 
-use crate::error::Error;
-use crate::project_repository::{activity, branch};
+use crate::{error::Error, git, project_repository::activity};
 
 #[tauri::command(async)]
 #[instrument(name = "get_project_archive_path", skip(handle))]
@@ -331,7 +330,7 @@ async fn git_match_paths(
 async fn git_branches(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<Vec<branch::LocalName>, Error> {
+) -> Result<Vec<git::LocalBranchName>, Error> {
     let app = handle.state::<app::App>();
     let branches = app
         .git_branches(project_id)
@@ -344,7 +343,7 @@ async fn git_branches(
 async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
-) -> Result<Vec<branch::RemoteName>, Error> {
+) -> Result<Vec<git::RemoteBranchName>, Error> {
     let app = handle.state::<app::App>();
     let branches = app.git_remote_branches(project_id).with_context(|| {
         format!(
