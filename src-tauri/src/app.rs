@@ -272,7 +272,7 @@ impl App {
             .map_err(|e| Error::Other(e.into()))?;
 
         project_repository
-            .fetch(&default_target.branch.remote(), &key)
+            .fetch(default_target.branch.remote(), &key)
             .map_err(Error::FetchError)
     }
 

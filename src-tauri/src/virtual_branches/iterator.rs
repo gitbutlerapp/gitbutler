@@ -92,7 +92,9 @@ mod tests {
                 "refs/remotes/branch name{}/remote name {}",
                 unsafe { TEST_TARGET_INDEX },
                 unsafe { TEST_TARGET_INDEX }
-            ).parse().unwrap(),
+            )
+            .parse()
+            .unwrap(),
             remote_url: format!("remote url {}", unsafe { TEST_TARGET_INDEX }),
             sha: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
                 TEST_TARGET_INDEX

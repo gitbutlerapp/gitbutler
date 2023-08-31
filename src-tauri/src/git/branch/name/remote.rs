@@ -82,8 +82,7 @@ impl TryFrom<&git::Branch<'_>> for Name {
     type Error = Error;
 
     fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        let refname =
-            String::from_utf8(value.refname_bytes().to_vec()).map_err(Error::Utf8Error)?;
+        let refname = String::from_utf8(value.refname_bytes().to_vec()).map_err(Error::Utf8)?;
 
         if !value.is_remote() {
             return Err(Error::NotRemote(refname));

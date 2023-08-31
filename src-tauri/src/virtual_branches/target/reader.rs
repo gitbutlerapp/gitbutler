@@ -138,7 +138,7 @@ mod tests {
         let reader = TargetReader::new(&session_reader);
 
         let read = reader.read_default().unwrap();
-        assert_eq!(read.branch.branch(), "origin/master");
+        assert_eq!(read.branch.branch(), "master");
         assert_eq!(read.branch.remote(), "origin");
         assert_eq!(
             read.remote_url,

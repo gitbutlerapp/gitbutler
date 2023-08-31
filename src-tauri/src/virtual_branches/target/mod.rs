@@ -62,7 +62,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Target {
     type Error = crate::reader::Error;
 
     fn try_from(reader: &dyn crate::reader::Reader) -> Result<Self, Self::Error> {
-        let (remote_name, branch_name) = read_remote_name_branch_name(reader).map_err(|e| {
+        let (_, branch_name) = read_remote_name_branch_name(reader).map_err(|e| {
             crate::reader::Error::IOError(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("branch: {}", e),
@@ -91,7 +91,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Target {
             })?;
 
         Ok(Self {
-            branch: git::RemoteBranchName::new(&remote_name, &branch_name),
+            branch: format!("refs/remotes/{}", branch_name).parse().unwrap(),
             remote_url,
             sha,
         })
