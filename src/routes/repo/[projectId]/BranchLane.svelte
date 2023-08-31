@@ -402,13 +402,14 @@
 				{/if}
 			</div>
 			<Resizer
-				minHeight={100}
+				minHeight={40}
 				viewport={thViewport}
 				direction="vertical"
 				class="z-30"
 				on:height={(e) => {
 					treeHeight = e.detail;
 					lscache.set(treeHeightKey + branchId, e.detail, 7 * 1440); // 7 day ttl
+					userSettings.update((s) => ({ ...s, defaultTreeHeight: e.detail }));
 				}}
 			/>
 		{/if}
