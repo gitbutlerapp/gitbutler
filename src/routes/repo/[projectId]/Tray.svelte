@@ -397,7 +397,7 @@
 								</div>
 							</div>
 							<div
-								class="flex flex-row justify-between space-x-2 rounded p-1 pr-1 text-light-700 dark:text-dark-300"
+								class="flex flex-row justify-between space-x-2 rounded p-1 pr-1 text-light-700 dark:text-dark-200"
 							>
 								<div class="flex-grow-0 text-sm">
 									<TimeAgo date={branch.lastCommitTs} />
@@ -406,7 +406,9 @@
 									<Tooltip
 										label="This branch has {branch.ahead} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
 									>
-										<div class="rounded-lg bg-zinc-100 px-1 text-sm dark:bg-zinc-700">
+										<div
+											class="rounded-lg bg-light-100 px-2 text-sm dark:bg-dark-700 dark:text-dark-200"
+										>
 											{branch.ahead}/{branch.behind}
 										</div>
 									</Tooltip>
