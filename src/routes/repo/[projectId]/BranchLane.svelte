@@ -5,11 +5,9 @@
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
 	import { Button, Link, Tooltip } from '$lib/components';
-	import IconMeatballMenu from '$lib/icons/IconMeatballMenu.svelte';
+	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
-	import PopupMenu from '../../../lib/components/PopupMenu/PopupMenu.svelte';
-	import PopupMenuItem from '../../../lib/components/PopupMenu/PopupMenuItem.svelte';
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import FileCard from './FileCard.svelte';
@@ -28,6 +26,8 @@
 	import Tabs from './Tabs.svelte';
 	import NotesTabPanel from './NotesTabPanel.svelte';
 	import FileTreeTabPanel from './FileTreeTabPanel.svelte';
+	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
+	import IconButton from '$lib/components/IconButton.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -74,8 +74,7 @@
 	let allExpanded: boolean | undefined;
 	let maximized = false;
 	let isPushing = false;
-	let popupMenu: PopupMenu;
-	let meatballButton: HTMLButtonElement;
+	let meatballButton: HTMLDivElement;
 	let textAreaInput: HTMLTextAreaElement;
 	let viewport: Element;
 	let contents: Element;
@@ -96,11 +95,6 @@
 			branchController.pushBranch(branchId).finally(() => (isPushing = false));
 		}
 	}
-
-	onMount(() => {
-		expandFromCache();
-		laneWidth = lscache.get(laneWidthKey + branchId) ?? $userSettings.defaultLaneWidth;
-	});
 
 	$: {
 		// On refresh we need to check expansion status from localStorage
@@ -202,6 +196,25 @@
 				isGeneratingCommigMessage = false;
 			});
 	}
+
+	// We have to create this manually for now.
+	// TODO: Use document.body.addEventListener to avoid having to use backdrop
+	let popupMenu = new BranchLanePopupMenu({
+		target: document.body,
+		props: { allExpanded, allCollapsed, order, branchController }
+	});
+
+	onMount(() => {
+		expandFromCache();
+		laneWidth = lscache.get(laneWidthKey + branchId) ?? $userSettings.defaultLaneWidth;
+		return popupMenu.$on('action', (e) => {
+			if (e.detail == 'expand') {
+				handleExpandAll();
+			} else if (e.detail == 'collapse') {
+				handleCollapseAll();
+			}
+		});
+	});
 </script>
 
 <div
@@ -240,21 +253,21 @@
 		>
 			<div class="flex flex-grow flex-col border-b border-light-400 dark:border-dark-600">
 				<div class="flex w-full items-center py-1 pl-1.5">
-					<button
-						bind:this={meatballButton}
-						class="h-8 w-8 flex-grow-0 p-2 text-light-600 transition-colors hover:bg-zinc-300 dark:text-dark-200 dark:hover:bg-zinc-800"
-						on:keydown={() => popupMenu.openByElement(meatballButton, branchId)}
-						on:click={() => popupMenu.openByElement(meatballButton, branchId)}
-					>
-						<IconMeatballMenu />
-					</button>
+					<div bind:this={meatballButton}>
+						<IconButton
+							icon={IconKebabMenu}
+							title=""
+							class="flex h-6 w-3 flex-grow-0 scale-90 items-center justify-center"
+							on:click={() => popupMenu.openByElement(meatballButton, branchId)}
+						/>
+					</div>
 					<div class="flex-grow pr-2">
 						<input
 							type="text"
 							bind:value={name}
 							on:change={handleBranchNameChange}
 							title={name}
-							class="w-full truncate rounded border border-transparent bg-light-200 px-2 font-mono font-bold text-light-800 hover:border-light-400 dark:bg-dark-800 dark:text-dark-100 dark:hover:border-dark-600"
+							class="w-full truncate rounded border border-transparent bg-light-200 px-1 font-mono font-bold text-light-800 hover:border-light-400 dark:bg-dark-800 dark:text-dark-100 dark:hover:border-dark-600"
 							on:dblclick|stopPropagation
 							on:click={(e) => e.currentTarget.select()}
 						/>
@@ -576,35 +589,3 @@
 		}}
 	/>
 </div>
-
-<PopupMenu bind:this={popupMenu} let:item={branchId}>
-	{#if !maximized}
-		<PopupMenuItem on:click={() => (maximized = !maximized)}>Maximize</PopupMenuItem>
-	{:else}
-		<PopupMenuItem on:click={() => (maximized = !maximized)}>Minimize</PopupMenuItem>
-	{/if}
-
-	<div class="mx-3">
-		<div class="my-2 h-[0.0625rem] w-full bg-light-300 dark:bg-dark-500" />
-	</div>
-
-	<PopupMenuItem on:click={() => branchId && branchController.unapplyBranch(branchId)}>
-		Unapply
-	</PopupMenuItem>
-
-	<PopupMenuItem on:click={handleExpandAll} disabled={allExpanded}>Expand all</PopupMenuItem>
-
-	<PopupMenuItem on:click={handleCollapseAll} disabled={allCollapsed}>Collapse all</PopupMenuItem>
-
-	<div class="mx-3">
-		<div class="my-2 h-[0.0625rem] w-full bg-light-300 dark:bg-dark-500" />
-	</div>
-
-	<PopupMenuItem on:click={() => branchController.createBranch({ order })}>
-		Create branch before
-	</PopupMenuItem>
-
-	<PopupMenuItem on:click={() => branchController.createBranch({ order: order + 1 })}>
-		Create branch after
-	</PopupMenuItem>
-</PopupMenu>
