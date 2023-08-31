@@ -391,9 +391,9 @@
 						<div
 							bind:this={thViewport}
 							style:height={`${treeHeight}px`}
-							class="hide-native-scrollbar relative shrink-0 overflow-scroll overscroll-none"
+							class="hide-native-scrollbar relative max-h-fit shrink-0 overflow-scroll overscroll-none"
 						>
-							<div bind:this={thContents} class="px-2">
+							<div bind:this={thContents} class="px-2 pb-2">
 								<FileTree node={filesToFileTree(files)} isRoot={true} />
 							</div>
 						</div>
