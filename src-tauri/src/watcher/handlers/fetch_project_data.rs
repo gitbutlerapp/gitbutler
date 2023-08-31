@@ -102,7 +102,7 @@ impl HandlerInner {
         let project_repository = project_repository::Repository::open(&project)?;
 
         let fetch_result =
-            if let Err(err) = project_repository.fetch(&default_target.remote_name, &key) {
+            if let Err(err) = project_repository.fetch(&default_target.branch.remote(), &key) {
                 tracing::error!("{}: failed to fetch project data: {:#}", project_id, err);
                 projects::FetchResult::Error {
                     attempt: project

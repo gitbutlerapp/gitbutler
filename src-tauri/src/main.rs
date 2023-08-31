@@ -423,10 +423,10 @@ async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, 
 async fn git_switch_branch(
     handle: tauri::AppHandle,
     project_id: &str,
-    branch: &str,
+    branch: git::LocalBranchName,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.git_switch_branch(project_id, branch)
+    app.git_switch_branch(project_id, &branch)
         .with_context(|| format!("failed to switch git branch for project {}", project_id))?;
     Ok(())
 }

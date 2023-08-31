@@ -28,10 +28,10 @@ impl<'writer> TargetWriter<'writer> {
         let _lock = self.repository.lock();
 
         self.writer
-            .write_string("branches/target/branch_name", &target.branch_name)
+            .write_string("branches/target/branch_name", &target.branch.branch())
             .context("Failed to write default target branch name")?;
         self.writer
-            .write_string("branches/target/remote_name", &target.remote_name)
+            .write_string("branches/target/remote_name", &target.branch.remote())
             .context("Failed to write default target remote name ")?;
         self.writer
             .write_string("branches/target/remote_url", &target.remote_url)
@@ -52,13 +52,13 @@ impl<'writer> TargetWriter<'writer> {
         self.writer
             .write_string(
                 &format!("branches/{}/target/branch_name", id),
-                &target.branch_name,
+                &target.branch.branch(),
             )
             .context("Failed to write branch target branch name")?;
         self.writer
             .write_string(
                 &format!("branches/{}/target/remote_name", id),
-                &target.remote_name,
+                &target.branch.remote(),
             )
             .context("Failed to write branch target remote")?;
         self.writer
@@ -138,8 +138,9 @@ mod tests {
 
         let branch = test_branch();
         let target = Target {
-            branch_name: "branch name".to_string(),
-            remote_name: "remote name".to_string(),
+            branch: format!("refs/remotes/remote name/branch name")
+                .parse()
+                .unwrap(),
             remote_url: "remote url".to_string(),
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
@@ -160,12 +161,12 @@ mod tests {
         assert_eq!(
             fs::read_to_string(root.join("target").join("branch_name").to_str().unwrap())
                 .context("Failed to read branch target name")?,
-            target.branch_name
+            target.branch.branch()
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("remote_name").to_str().unwrap())
                 .context("Failed to read branch target name name")?,
-            target.remote_name
+            target.branch.remote()
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("remote_url").to_str().unwrap())
@@ -230,8 +231,9 @@ mod tests {
 
         let branch = test_branch();
         let target = Target {
-            remote_name: "remote name".to_string(),
-            branch_name: "branch name".to_string(),
+            branch: format!("refs/remotes/remote name/branch name")
+                .parse()
+                .unwrap(),
             remote_url: "remote url".to_string(),
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };
@@ -242,8 +244,9 @@ mod tests {
         target_writer.write(&branch.id, &target)?;
 
         let updated_target = Target {
-            remote_name: "updated remote name".to_string(),
-            branch_name: "updated branch name".to_string(),
+            branch: format!("refs/remotes/updated remote name/updated branch name")
+                .parse()
+                .unwrap(),
             remote_url: "updated remote url".to_string(),
             sha: "fedcba9876543210fedcba9876543210fedcba98".parse().unwrap(),
         };
@@ -255,13 +258,13 @@ mod tests {
         assert_eq!(
             fs::read_to_string(root.join("target").join("branch_name").to_str().unwrap())
                 .context("Failed to read branch target branch name")?,
-            updated_target.branch_name
+            updated_target.branch.branch()
         );
 
         assert_eq!(
             fs::read_to_string(root.join("target").join("remote_name").to_str().unwrap())
                 .context("Failed to read branch target remote name")?,
-            updated_target.remote_name
+            updated_target.branch.remote()
         );
         assert_eq!(
             fs::read_to_string(root.join("target").join("remote_url").to_str().unwrap())

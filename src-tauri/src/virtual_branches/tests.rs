@@ -56,8 +56,7 @@ fn set_test_target(
     repository: &git::Repository,
 ) -> Result<()> {
     target::Writer::new(gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -253,8 +252,7 @@ fn test_create_branch_with_ownership() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        remote_name: "origin".to_string(),
-        branch_name: "master".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -312,8 +310,7 @@ fn test_create_branch_in_the_middle() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -358,8 +355,7 @@ fn test_create_branch_no_arguments() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -541,8 +537,7 @@ fn test_get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -567,8 +562,7 @@ fn test_get_status_files_by_branch() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -624,8 +618,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -737,8 +730,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -851,8 +843,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -945,8 +936,7 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -1008,8 +998,7 @@ fn test_update_base_branch_base() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -1116,8 +1105,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -1198,8 +1186,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -1373,8 +1360,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     test_utils::commit_all(&repository);
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: repository.head().unwrap().target().unwrap(),
     })?;
@@ -2372,8 +2358,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
     )?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        remote_name: "origin".to_string(),
-        branch_name: "origin/master".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
         sha: base_commit,
     })?;
@@ -2810,8 +2795,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
 
     let base_commit = repository.head().unwrap().target().unwrap();
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
         sha: base_commit,
     })?;
@@ -2945,8 +2929,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
 
     let base_commit = repository.head().unwrap().target().unwrap();
     target::Writer::new(&gb_repo).write_default(&target::Target {
-        branch_name: "origin/master".to_string(),
-        remote_name: "origin".to_string(),
+        branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
         sha: base_commit,
     })?;

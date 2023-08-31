@@ -272,7 +272,7 @@ impl App {
             .map_err(|e| Error::Other(e.into()))?;
 
         project_repository
-            .fetch(&default_target.remote_name, &key)
+            .fetch(&default_target.branch.remote(), &key)
             .map_err(Error::FetchError)
     }
 
@@ -484,7 +484,7 @@ impl App {
         }
     }
 
-    pub fn git_switch_branch(&self, project_id: &str, branch: &str) -> Result<()> {
+    pub fn git_switch_branch(&self, project_id: &str, branch: &git::LocalBranchName) -> Result<()> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;

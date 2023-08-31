@@ -320,10 +320,8 @@ impl<'repository> Repository<'repository> {
         Ok(oids.len().try_into()?)
     }
 
-    pub fn git_switch_branch(&self, branch: &str) -> Result<()> {
-        let branch = self
-            .git_repository
-            .find_branch(branch, git2::BranchType::Local)?;
+    pub fn git_switch_branch(&self, branch: &git::LocalBranchName) -> Result<()> {
+        let branch = self.git_repository.find_branch(&branch.clone().into())?;
         self.git_repository
             .set_head(branch.name().unwrap())
             .context("failed to set head")?;

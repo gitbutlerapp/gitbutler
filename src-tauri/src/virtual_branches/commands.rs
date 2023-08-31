@@ -79,11 +79,11 @@ pub async fn get_base_branch_data(
 pub async fn set_base_branch(
     handle: AppHandle,
     project_id: &str,
-    branch: &str,
+    branch: git::RemoteBranchName,
 ) -> Result<super::BaseBranch, Error> {
     handle
         .state::<Controller>()
-        .set_base_branch(project_id, branch)
+        .set_base_branch(project_id, &branch)
         .await
         .map_err(Into::into)
 }

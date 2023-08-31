@@ -88,8 +88,11 @@ mod tests {
 
     fn test_target() -> target::Target {
         target::Target {
-            branch_name: format!("branch name{}", unsafe { TEST_TARGET_INDEX }),
-            remote_name: format!("remote name {}", unsafe { TEST_TARGET_INDEX }),
+            branch: format!(
+                "refs/remotes/branch name{}/remote name {}",
+                unsafe { TEST_TARGET_INDEX },
+                unsafe { TEST_TARGET_INDEX }
+            ).parse().unwrap(),
             remote_url: format!("remote url {}", unsafe { TEST_TARGET_INDEX }),
             sha: format!("0123456789abcdef0123456789abcdef0123456{}", unsafe {
                 TEST_TARGET_INDEX

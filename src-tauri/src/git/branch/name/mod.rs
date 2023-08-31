@@ -18,6 +18,18 @@ pub enum Name {
     Local(LocalName),
 }
 
+impl From<RemoteName> for Name {
+    fn from(value: RemoteName) -> Self {
+        Self::Remote(value)
+    }
+}
+
+impl From<LocalName> for Name {
+    fn from(value: LocalName) -> Self {
+        Self::Local(value)
+    }
+}
+
 impl Name {
     pub fn branch(&self) -> &str {
         match self {

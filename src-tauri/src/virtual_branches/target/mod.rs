@@ -10,9 +10,7 @@ use crate::git;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {
-    // TODO: use project_repository::branch::RemoteName here.
-    pub branch_name: String,
-    pub remote_name: String,
+    pub branch: git::RemoteBranchName,
     pub remote_url: String,
     pub sha: git::Oid,
 }
@@ -23,8 +21,8 @@ impl Serialize for Target {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("Target", 5)?;
-        state.serialize_field("branchName", &self.branch_name)?;
-        state.serialize_field("remoteName", &self.remote_name)?;
+        state.serialize_field("branchName", &self.branch.branch())?;
+        state.serialize_field("remoteName", &self.branch.remote())?;
         state.serialize_field("remoteUrl", &self.remote_url)?;
         state.serialize_field("sha", &self.sha.to_string())?;
         state.end()
@@ -93,8 +91,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Target {
             })?;
 
         Ok(Self {
-            branch_name,
-            remote_name,
+            branch: git::RemoteBranchName::new(&remote_name, &branch_name),
             remote_url,
             sha,
         })

@@ -15,6 +15,13 @@ pub struct Name {
 }
 
 impl Name {
+    pub fn new(remote: &str, branch: &str) -> Self {
+        Self {
+            remote: remote.to_string(),
+            branch: branch.to_string(),
+        }
+    }
+
     pub fn with_branch(&self, branch: &str) -> Self {
         Self {
             branch: branch.to_string(),
