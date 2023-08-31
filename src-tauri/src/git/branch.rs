@@ -24,7 +24,7 @@ impl<'repo> Branch<'repo> {
     }
 
     pub fn upstream(&self) -> Result<Branch<'repo>> {
-        self.branch.upstream().map(Into::into)
+        self.branch.upstream().map(Into::into).map_err(Into::into)
     }
 
     pub fn refname_bytes(&self) -> &[u8] {
@@ -32,7 +32,11 @@ impl<'repo> Branch<'repo> {
     }
 
     pub fn peel_to_commit(&self) -> Result<Commit<'repo>> {
-        self.branch.get().peel_to_commit().map(Into::into)
+        self.branch
+            .get()
+            .peel_to_commit()
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn is_remote(&self) -> bool {

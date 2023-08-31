@@ -75,16 +75,11 @@ impl TryFrom<&git::Branch<'_>> for Name {
                     branch,
                     remote: Some(RemoteName::try_from(&upstream)?),
                 }),
-                Err(error) => {
-                    if error.code() == git2::ErrorCode::NotFound {
-                        Ok(Self {
-                            branch,
-                            remote: None,
-                        })
-                    } else {
-                        Err(error.into())
-                    }
-                }
+                Err(git::Error::NotFound(_)) => Ok(Self {
+                    branch,
+                    remote: None,
+                }),
+                Err(error) => Err(error.into()),
             }
         }
     }

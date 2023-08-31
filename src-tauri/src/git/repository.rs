@@ -32,13 +32,17 @@ impl Repository {
     }
 
     pub fn add_disk_alternate(&self, path: &str) -> Result<()> {
-        self.0.odb().and_then(|odb| odb.add_disk_alternate(path))
+        self.0
+            .odb()
+            .and_then(|odb| odb.add_disk_alternate(path))
+            .map_err(Into::into)
     }
 
     pub fn find_annotated_commit(&self, id: Oid) -> Result<AnnotatedCommit<'_>> {
         self.0
             .find_annotated_commit(id.into())
             .map(AnnotatedCommit::from)
+            .map_err(Into::into)
     }
 
     pub fn rebase(
@@ -48,16 +52,21 @@ impl Repository {
         onto: Option<&AnnotatedCommit<'_>>,
         opts: Option<&mut git2::RebaseOptions<'_>>,
     ) -> Result<git2::Rebase<'_>> {
-        self.0.rebase(
-            branch.map(|commit| commit.into()),
-            upstream.map(|commit| commit.into()),
-            onto.map(|commit| commit.into()),
-            opts,
-        )
+        self.0
+            .rebase(
+                branch.map(|commit| commit.into()),
+                upstream.map(|commit| commit.into()),
+                onto.map(|commit| commit.into()),
+                opts,
+            )
+            .map_err(Into::into)
     }
 
     pub fn merge_base(&self, one: Oid, two: Oid) -> Result<Oid> {
-        self.0.merge_base(one.into(), two.into()).map(Oid::from)
+        self.0
+            .merge_base(one.into(), two.into())
+            .map(Oid::from)
+            .map_err(Into::into)
     }
 
     pub fn merge_trees(
@@ -74,6 +83,7 @@ impl Repository {
                 None,
             )
             .map(Index::from)
+            .map_err(Into::into)
     }
 
     pub fn diff_tree_to_tree(
@@ -82,11 +92,13 @@ impl Repository {
         new_tree: Option<&Tree<'_>>,
         opts: Option<&mut git2::DiffOptions>,
     ) -> Result<git2::Diff<'_>> {
-        self.0.diff_tree_to_tree(
-            old_tree.map(|tree| tree.into()),
-            new_tree.map(|tree| tree.into()),
-            opts,
-        )
+        self.0
+            .diff_tree_to_tree(
+                old_tree.map(|tree| tree.into()),
+                new_tree.map(|tree| tree.into()),
+                opts,
+            )
+            .map_err(Into::into)
     }
 
     pub fn diff_tree_to_workdir(
@@ -96,6 +108,7 @@ impl Repository {
     ) -> Result<git2::Diff<'_>> {
         self.0
             .diff_tree_to_workdir(old_tree.map(|tree| tree.into()), opts)
+            .map_err(Into::into)
     }
 
     pub fn reset(
@@ -105,58 +118,74 @@ impl Repository {
         checkout: Option<&mut git2::build::CheckoutBuilder<'_>>,
     ) -> Result<()> {
         let commit: &git2::Commit = commit.into();
-        self.0.reset(commit.as_object(), kind, checkout)
+        self.0
+            .reset(commit.as_object(), kind, checkout)
+            .map_err(Into::into)
     }
 
     pub fn find_reference(&self, name: &str) -> Result<Reference> {
-        self.0.find_reference(name).map(Reference::from)
+        self.0
+            .find_reference(name)
+            .map(Reference::from)
+            .map_err(Into::into)
     }
 
     pub fn head(&self) -> Result<Reference> {
-        self.0.head().map(Reference::from)
+        self.0.head().map(Reference::from).map_err(Into::into)
     }
 
     pub fn find_tree(&self, id: Oid) -> Result<Tree> {
-        self.0.find_tree(id.into()).map(Tree::from)
+        self.0
+            .find_tree(id.into())
+            .map(Tree::from)
+            .map_err(Into::into)
     }
 
     pub fn find_commit(&self, id: Oid) -> Result<Commit> {
-        self.0.find_commit(id.into()).map(Commit::from)
+        self.0
+            .find_commit(id.into())
+            .map(Commit::from)
+            .map_err(Into::into)
     }
 
     pub fn find_blob(&self, id: Oid) -> Result<git2::Blob> {
-        self.0.find_blob(id.into())
+        self.0.find_blob(id.into()).map_err(Into::into)
     }
 
     pub fn revwalk(&self) -> Result<git2::Revwalk> {
-        self.0.revwalk()
+        self.0.revwalk().map_err(Into::into)
     }
 
     pub fn is_path_ignored<P: AsRef<path::Path>>(&self, path: P) -> Result<bool> {
-        self.0.is_path_ignored(path)
+        self.0.is_path_ignored(path).map_err(Into::into)
     }
 
     pub fn branches(
         &self,
         filter: Option<git2::BranchType>,
     ) -> Result<impl Iterator<Item = Result<(Branch, git2::BranchType)>>> {
-        self.0.branches(filter).map(|branches| {
-            branches.map(|branch| {
-                branch.map(|(branch, branch_type)| (Branch::from(branch), branch_type))
+        self.0
+            .branches(filter)
+            .map(|branches| {
+                branches.map(|branch| {
+                    branch
+                        .map(|(branch, branch_type)| (Branch::from(branch), branch_type))
+                        .map_err(Into::into)
+                })
             })
-        })
+            .map_err(Into::into)
     }
 
     pub fn index(&self) -> Result<Index> {
-        self.0.index().map(Into::into)
+        self.0.index().map(Into::into).map_err(Into::into)
     }
 
     pub fn blob_path(&self, path: &path::Path) -> Result<Oid> {
-        self.0.blob_path(path).map(Into::into)
+        self.0.blob_path(path).map(Into::into).map_err(Into::into)
     }
 
     pub fn blob(&self, data: &[u8]) -> Result<Oid> {
-        self.0.blob(data).map(Into::into)
+        self.0.blob(data).map(Into::into).map_err(Into::into)
     }
 
     pub fn commit(
@@ -182,10 +211,11 @@ impl Repository {
                 &parents,
             )
             .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn config(&self) -> Result<git2::Config> {
-        self.0.config()
+        self.0.config().map_err(Into::into)
     }
 
     pub fn treebuilder<'repo>(&'repo self, tree: Option<&'repo Tree>) -> TreeBuilder<'repo> {
@@ -204,45 +234,57 @@ impl Repository {
         self.0
             .branch_upstream_name(branch_name)
             .map(|s| s.as_str().unwrap().to_string())
+            .map_err(Into::into)
     }
 
     pub fn branch_remote_name(&self, refname: &str) -> Result<String> {
         self.0
             .branch_remote_name(refname)
             .map(|s| s.as_str().unwrap().to_string())
+            .map_err(Into::into)
     }
 
     pub fn branch_upstream_remote(&self, branch_name: &str) -> Result<String> {
         self.0
             .branch_upstream_remote(branch_name)
             .map(|s| s.as_str().unwrap().to_string())
+            .map_err(Into::into)
     }
 
     pub fn statuses(
         &self,
         options: Option<&mut git2::StatusOptions>,
     ) -> Result<git2::Statuses<'_>> {
-        self.0.statuses(options)
+        self.0.statuses(options).map_err(Into::into)
     }
 
     pub fn remote_anonymous(&self, url: &str) -> Result<Remote> {
-        self.0.remote_anonymous(url).map(Into::into)
+        self.0
+            .remote_anonymous(url)
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn find_remote(&self, name: &str) -> Result<Remote> {
-        self.0.find_remote(name).map(Into::into)
+        self.0.find_remote(name).map(Into::into).map_err(Into::into)
     }
 
     pub fn find_branch(&self, name: &str, branch_type: git2::BranchType) -> Result<Branch> {
-        self.0.find_branch(name, branch_type).map(Into::into)
+        self.0
+            .find_branch(name, branch_type)
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn refname_to_id(&self, name: &str) -> Result<Oid> {
-        self.0.refname_to_id(name).map(Into::into)
+        self.0
+            .refname_to_id(name)
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn checkout_head(&self, opts: Option<&mut git2::build::CheckoutBuilder>) -> Result<()> {
-        self.0.checkout_head(opts)
+        self.0.checkout_head(opts).map_err(Into::into)
     }
 
     pub fn checkout_index(
@@ -250,7 +292,9 @@ impl Repository {
         index: Option<&mut Index>,
         opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
     ) -> Result<()> {
-        self.0.checkout_index(index.map(Into::into), opts)
+        self.0
+            .checkout_index(index.map(Into::into), opts)
+            .map_err(Into::into)
     }
 
     pub fn checkout_tree(
@@ -259,11 +303,13 @@ impl Repository {
         opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
     ) -> Result<()> {
         let tree: &git2::Tree = tree.into();
-        self.0.checkout_tree(tree.as_object(), opts)
+        self.0
+            .checkout_tree(tree.as_object(), opts)
+            .map_err(Into::into)
     }
 
     pub fn set_head(&self, refname: &str) -> Result<()> {
-        self.0.set_head(refname)
+        self.0.set_head(refname).map_err(Into::into)
     }
 
     pub fn reference(
@@ -276,17 +322,19 @@ impl Repository {
         self.0
             .reference(name, id.into(), force, log_message)
             .map(Into::into)
+            .map_err(Into::into)
     }
 
     #[cfg(test)]
     pub fn remote(&self, name: &str, url: &str) -> Result<Remote> {
-        self.0.remote(name, url).map(Into::into)
+        self.0.remote(name, url).map(Into::into).map_err(Into::into)
     }
 
     #[cfg(test)]
     pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
         self.0
             .references()
-            .map(|iter| iter.map(|reference| reference.map(Into::into)))
+            .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
+            .map_err(Into::into)
     }
 }
