@@ -34,7 +34,7 @@ impl<'repo> Commit<'repo> {
     }
 
     pub fn tree(&self) -> Result<Tree<'repo>> {
-        self.commit.tree().map(Into::into)
+        self.commit.tree().map(Into::into).map_err(Into::into)
     }
 
     pub fn tree_id(&self) -> Oid {
@@ -42,7 +42,7 @@ impl<'repo> Commit<'repo> {
     }
 
     pub fn parent(&self, n: usize) -> Result<Commit<'repo>> {
-        self.commit.parent(n).map(Into::into)
+        self.commit.parent(n).map(Into::into).map_err(Into::into)
     }
 
     pub fn time(&self) -> git2::Time {

@@ -24,7 +24,7 @@ impl<'repo> Tree<'repo> {
     }
 
     pub fn get_path(&self, path: &path::Path) -> Result<TreeEntry<'repo>> {
-        self.tree.get_path(path).map(Into::into)
+        self.tree.get_path(path).map(Into::into).map_err(Into::into)
     }
 
     pub fn walk<C, T>(&self, mode: git2::TreeWalkMode, mut callback: C) -> Result<()>
@@ -34,6 +34,7 @@ impl<'repo> Tree<'repo> {
     {
         self.tree
             .walk(mode, |root, entry| callback(root, &entry.clone().into()))
+            .map_err(Into::into)
     }
 
     pub fn get_name(&self, filename: &str) -> Option<TreeEntry> {
@@ -57,7 +58,7 @@ impl<'repo> TreeEntry<'repo> {
     }
 
     pub fn to_object(&self, repo: &'repo Repository) -> Result<git2::Object> {
-        self.entry.to_object(repo.into())
+        self.entry.to_object(repo.into()).map_err(Into::into)
     }
 
     pub fn kind(&self) -> Option<git2::ObjectType> {

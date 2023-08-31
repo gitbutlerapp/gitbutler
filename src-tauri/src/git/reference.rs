@@ -24,11 +24,17 @@ impl<'repo> Reference<'repo> {
     }
 
     pub fn peel_to_commit(&self) -> Result<Commit<'repo>> {
-        self.reference.peel_to_commit().map(Into::into)
+        self.reference
+            .peel_to_commit()
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn peel_to_tree(&self) -> Result<Tree<'repo>> {
-        self.reference.peel_to_tree().map(Into::into)
+        self.reference
+            .peel_to_tree()
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn rename(
@@ -40,10 +46,11 @@ impl<'repo> Reference<'repo> {
         self.reference
             .rename(new_name, force, log_message)
             .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn delete(&mut self) -> Result<()> {
-        self.reference.delete()
+        self.reference.delete().map_err(Into::into)
     }
 
     pub fn is_remote(&self) -> bool {

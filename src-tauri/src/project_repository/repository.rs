@@ -14,7 +14,7 @@ pub struct Repository<'repository> {
 }
 
 impl<'project> TryFrom<&'project projects::Project> for Repository<'project> {
-    type Error = git2::Error;
+    type Error = git::Error;
 
     fn try_from(project: &'project projects::Project) -> std::result::Result<Self, Self::Error> {
         let git_repository = git::Repository::open(&project.path)?;
@@ -39,7 +39,7 @@ impl<'repository> Repository<'repository> {
         })
     }
 
-    pub fn get_head(&self) -> Result<git::Reference, git2::Error> {
+    pub fn get_head(&self) -> Result<git::Reference, git::Error> {
         let head = self.git_repository.head()?;
         Ok(head)
     }
@@ -439,14 +439,11 @@ impl<'repository> Repository<'repository> {
                     tracing::info!("{}: git push succeeded", self.project.id);
                     return Ok(());
                 }
-                Err(e) => {
-                    if e.code() == git2::ErrorCode::Auth {
-                        tracing::info!("{}: git push failed: {:#}", self.project.id, e);
-                        continue;
-                    } else {
-                        return Err(Error::Other(e.into()));
-                    }
+                Err(git::Error::Auth(e)) => {
+                    tracing::info!("{}: git push failed: {:#}", self.project.id, e);
+                    continue;
                 }
+                Err(e) => return Err(Error::Other(e.into())),
             }
         }
 
@@ -511,14 +508,11 @@ impl<'repository> Repository<'repository> {
                     tracing::info!("{}: fetched {}", self.project.id, remote_name);
                     return Ok(());
                 }
-                Err(e) => {
-                    if e.code() == git2::ErrorCode::Auth {
-                        tracing::warn!("{}: auth error", self.project.id);
-                        continue;
-                    } else {
-                        return Err(Error::Other(e.into()));
-                    }
+                Err(git::Error::Auth(e)) => {
+                    tracing::info!("{}: fetch failed: {:#}", self.project.id, e);
+                    continue;
                 }
+                Err(e) => return Err(Error::Other(e.into())),
             }
         }
 

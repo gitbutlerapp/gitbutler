@@ -36,7 +36,7 @@ pub enum Error {
     #[error("path not found: {0}")]
     ProjectPathNotFound(path::PathBuf),
     #[error(transparent)]
-    Git(#[from] git2::Error),
+    Git(#[from] git::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -581,17 +581,15 @@ impl Repository {
         let repo = git::Repository::open(&project.path).context("failed to open repository")?;
         let reference = repo.find_reference(&refname);
         match reference {
-            Err(e) => {
-                if e.code() == git2::ErrorCode::NotFound {
-                    tracing::warn!(
-                        "{}: reference {} not found, no migration",
-                        project.id,
-                        refname
-                    );
-                    return Ok(false);
-                }
-                Err(e.into())
+            Err(git::Error::NotFound(_)) => {
+                tracing::warn!(
+                    "{}: reference {} not found, no migration",
+                    project.id,
+                    refname
+                );
+                Ok(false)
             }
+            Err(e) => Err(e.into()),
             Result::Ok(reference) => {
                 let mut walker = repo.revwalk()?;
                 walker.push(reference.target().unwrap().into())?;
@@ -723,12 +721,10 @@ fn build_wd_tree(
                 .context("failed to write wd tree")?;
             Ok(wd_tree_oid.into())
         }
+        Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(gb_repository, project_repository)
+            .context("failed to build wd index"),
         Err(e) => {
-            if e.code() != git2::ErrorCode::NotFound {
-                return Err(e.into());
-            }
-            build_wd_tree_from_repo(gb_repository, project_repository)
-                .context("failed to build wd index")
+            return Err(e.into());
         }
     }
 }
@@ -1106,20 +1102,17 @@ fn write_gb_commit(
             )?;
             Ok(new_commit)
         }
-        Err(e) => {
-            if e.code() == git2::ErrorCode::NotFound {
-                let new_commit = gb_repository.git_repository.commit(
-                    Some("refs/heads/current"),
-                    &author,                                                   // author
-                    &comitter,                                                 // committer
-                    "gitbutler check",                                         // commit message
-                    &gb_repository.git_repository.find_tree(tree_id).unwrap(), // tree
-                    &[],                                                       // parents
-                )?;
-                Ok(new_commit)
-            } else {
-                Err(e.into())
-            }
+        Err(git::Error::NotFound(_)) => {
+            let new_commit = gb_repository.git_repository.commit(
+                Some("refs/heads/current"),
+                &author,                                                   // author
+                &comitter,                                                 // committer
+                "gitbutler check",                                         // commit message
+                &gb_repository.git_repository.find_tree(tree_id).unwrap(), // tree
+                &[],                                                       // parents
+            )?;
+            Ok(new_commit)
         }
+        Err(e) => Err(e.into()),
     }
 }

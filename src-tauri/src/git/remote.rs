@@ -24,7 +24,7 @@ impl<'repo> Remote<'repo> {
         refspec: &[&str],
         opts: Option<&mut git2::PushOptions<'_>>,
     ) -> Result<()> {
-        self.inner.push(refspec, opts)
+        self.inner.push(refspec, opts).map_err(Into::into)
     }
 
     pub fn fetch(
@@ -32,6 +32,6 @@ impl<'repo> Remote<'repo> {
         refspec: &[&str],
         opts: Option<&mut git2::FetchOptions<'_>>,
     ) -> Result<()> {
-        self.inner.fetch(refspec, opts, None)
+        self.inner.fetch(refspec, opts, None).map_err(Into::into)
     }
 }

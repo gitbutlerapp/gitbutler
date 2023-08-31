@@ -37,19 +37,22 @@ impl Index {
         T: git2::IntoCString,
         I: IntoIterator<Item = T>,
     {
-        self.index.add_all(pathspecs, flag, cb)
+        self.index.add_all(pathspecs, flag, cb).map_err(Into::into)
     }
 
     pub fn conflicts(&self) -> Result<git2::IndexConflicts> {
-        self.index.conflicts()
+        self.index.conflicts().map_err(Into::into)
     }
 
     pub fn read_tree(&mut self, tree: &Tree) -> Result<()> {
-        self.index.read_tree(tree.into())
+        self.index.read_tree(tree.into()).map_err(Into::into)
     }
 
     pub fn write_tree_to(&mut self, repo: &Repository) -> Result<Oid> {
-        self.index.write_tree_to(repo.into()).map(Into::into)
+        self.index
+            .write_tree_to(repo.into())
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn has_conflicts(&self) -> bool {
@@ -57,23 +60,23 @@ impl Index {
     }
 
     pub fn write_tree(&mut self) -> Result<Oid> {
-        self.index.write_tree().map(Into::into)
+        self.index.write_tree().map(Into::into).map_err(Into::into)
     }
 
     pub fn add(&mut self, entry: &IndexEntry) -> Result<()> {
-        self.index.add(&entry.clone().into())
+        self.index.add(&entry.clone().into()).map_err(Into::into)
     }
 
     pub fn write(&mut self) -> Result<()> {
-        self.index.write()
+        self.index.write().map_err(Into::into)
     }
 
     pub fn add_path(&mut self, path: &path::Path) -> Result<()> {
-        self.index.add_path(path)
+        self.index.add_path(path).map_err(Into::into)
     }
 
     pub fn remove_path(&mut self, path: &path::Path) -> Result<()> {
-        self.index.remove_path(path)
+        self.index.remove_path(path).map_err(Into::into)
     }
 
     pub fn get_path(&self, path: &path::Path, stage: i32) -> Option<IndexEntry> {
