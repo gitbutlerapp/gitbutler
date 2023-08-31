@@ -48,7 +48,7 @@
 								if ($mergeUpstreamWarningDismissed) {
 									branchController.updateBaseBranch();
 								} else {
-									updateTargetModal.show;
+									updateTargetModal.show();
 								}
 							}}
 						>
