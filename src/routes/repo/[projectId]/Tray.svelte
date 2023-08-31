@@ -15,10 +15,12 @@
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
-	import Checkbox from '$lib/components/Checkbox/Checkbox.svelte';
 	import Button from '$lib/components/Button/Button.svelte';
 	import Modal from '$lib/components/Modal/Modal.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
+	import IconDelete from '$lib/icons/IconDelete.svelte';
+	import IconAdd from '$lib/icons/IconAdd.svelte';
+	import IconButton from '$lib/components/IconButton.svelte';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
@@ -42,6 +44,7 @@
 	let rbContents: HTMLElement;
 	let rbSection: HTMLElement;
 	let baseContents: HTMLElement;
+	let deleteBranchModal: Modal;
 
 	let selectedItem: Readable<Branch | BranchData | BaseBranch | undefined> | undefined;
 	let overlayOffsetTop = 0;
@@ -110,16 +113,6 @@
 			added: comitted.added + uncomitted.added,
 			removed: comitted.removed + uncomitted.removed
 		};
-	}
-
-	function toggleBranch(branch: Branch) {
-		if (branch.active) {
-			branchController.unapplyBranch(branch.id);
-		} else if (!branch.baseCurrent) {
-			applyConflictedModal.show(branch);
-		} else {
-			branchController.applyBranch(branch.id);
-		}
 	}
 </script>
 
@@ -200,7 +193,7 @@
 	<div
 		class="flex items-center justify-between border-b border-t border-light-300 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
 	>
-		<div class="font-bold">Your Virtual Branches</div>
+		<div class="font-bold">Stashed branches</div>
 		<div class="flex h-4 w-4 justify-around">
 			<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
 				{#if yourBranchesOpen}
@@ -227,9 +220,11 @@
 				{:else if $branchesState?.isError}
 					<div class="px-2 py-1">Something went wrong!</div>
 				{:else if !$vbranchStore || $vbranchStore.length == 0}
-					<div class="p-4 text-light-700">You currently have no virtual branches.</div>
+					<div class="p-2 text-light-700">You currently have no virtual branches</div>
+				{:else if $vbranchStore.filter((b) => !b.active).length == 0}
+					<div class="p-2 text-light-700">You have no stashed branches</div>
 				{:else}
-					{#each $vbranchStore as branch, i (branch.id)}
+					{#each $vbranchStore.filter((b) => !b.active) as branch, i (branch.id)}
 						{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
 						{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 						<div
@@ -237,7 +232,7 @@
 							tabindex="0"
 							on:click={() => select(branch, i)}
 							on:keypress|capture={() => select(branch, i)}
-							class="border-b border-light-200 p-2 last:border-b dark:border-dark-600"
+							class="group border-b border-light-200 p-2 pr-0 last:border-b dark:border-dark-600"
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
 						>
@@ -280,11 +275,23 @@
 										{/if}
 									</div>
 								</div>
-								<div class="shrink-0">
-									<Checkbox
-										on:change={() => toggleBranch(branch)}
-										bind:checked={branch.active}
-										disabled={!(branch.mergeable || !branch.baseCurrent) || branch.conflicted}
+								<div
+									class="w-0 shrink-0 self-center overflow-hidden whitespace-nowrap transition-width group-hover:w-12 group-focus:w-12"
+								>
+									<IconButton
+										icon={IconDelete}
+										class="scale-90 p-0"
+										title="delete branch"
+										on:click={() => deleteBranchModal.show(branch)}
+									/>
+									<IconButton
+										icon={IconAdd}
+										class="scale-90 p-0"
+										title="apply branch"
+										on:click={() => {
+											peekTrayExpanded = false;
+											branchController.applyBranch(branch.id);
+										}}
 									/>
 								</div>
 							</div>
@@ -446,6 +453,28 @@
 			}}
 		>
 			Update
+		</Button>
+	</svelte:fragment>
+</Modal>
+
+<!-- Delete branch confirmation modal -->
+
+<Modal width="small" bind:this={deleteBranchModal} let:item>
+	<svelte:fragment slot="title">Delete branch</svelte:fragment>
+	<div>
+		Deleting <code>{item.name}</code> cannot be undone.
+	</div>
+	<svelte:fragment slot="controls" let:close let:item>
+		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			height="small"
+			color="destructive"
+			on:click={() => {
+				branchController.deleteBranch(item.id);
+				close();
+			}}
+		>
+			Delete
 		</Button>
 	</svelte:fragment>
 </Modal>

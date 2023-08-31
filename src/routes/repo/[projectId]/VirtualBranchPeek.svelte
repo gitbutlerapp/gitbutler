@@ -28,23 +28,11 @@
 
 {#if branch != undefined}
 	<div class="flex w-full max-w-full flex-col gap-y-4 p-4">
-		<div class="flex">
-			<div class="flex-grow items-center">
-				<p class="text-lg font-bold" title="name of virtual branch">{branch.name}</p>
-				<p class="text-light-700 dark:text-dark-200" title="upstream target">
-					{branch.upstream?.replace('refs/remotes/', '') || ''}
-				</p>
-			</div>
-			<div>
-				<button
-					class="p-0 align-middle text-light-500 hover:text-light-700 disabled:cursor-not-allowed disabled:text-light-200 dark:text-dark-400 hover:dark:text-dark-200 dark:disabled:text-dark-400"
-					disabled={branch.active}
-					title={branch.active ? 'branch cannot be deleted while applied' : 'deletes this branch'}
-					on:click={() => deleteBranchModal.show(branch)}
-				>
-					<IconDelete class="h-4 w-4" />
-				</button>
-			</div>
+		<div>
+			<p class="text-lg font-bold" title="name of virtual branch">{branch.name}</p>
+			<p class="text-light-700 dark:text-dark-200" title="upstream target">
+				{branch.upstream?.replace('refs/remotes/', '') || ''}
+			</p>
 		</div>
 		<div>
 			{#if branch.active}
@@ -125,28 +113,6 @@
 				}}
 			>
 				Update
-			</Button>
-		</svelte:fragment>
-	</Modal>
-
-	<!-- Delete branch confirmation modal -->
-
-	<Modal width="small" bind:this={deleteBranchModal} let:item>
-		<svelte:fragment slot="title">Delete branch</svelte:fragment>
-		<div>
-			Deleting <code>{item.name}</code> cannot be undone.
-		</div>
-		<svelte:fragment slot="controls" let:close let:item>
-			<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
-			<Button
-				height="small"
-				color="destructive"
-				on:click={() => {
-					branchController.deleteBranch(item.id);
-					close();
-				}}
-			>
-				Delete
 			</Button>
 		</svelte:fragment>
 	</Modal>
