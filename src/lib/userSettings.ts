@@ -23,7 +23,7 @@ const defaults: Settings = {
 	peekTrayWidth: 480,
 	trayWidth: 320,
 	defaultLaneWidth: 380,
-	defaultTreeHeight: 140,
+	defaultTreeHeight: 100,
 	vbranchExpandableHeight: 320,
 	zoom: 1
 };
