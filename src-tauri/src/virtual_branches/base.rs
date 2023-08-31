@@ -27,12 +27,12 @@ pub fn get_base_branch_data(
 pub fn set_base_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-    target_branch: &str,
+    target_branch: &git::RemoteBranchName,
 ) -> Result<super::BaseBranch> {
     let repo = &project_repository.git_repository;
 
     // lookup a branch by name
-    let branch = repo.find_branch(target_branch, git2::BranchType::Remote)?;
+    let branch = repo.find_branch(&target_branch.clone().into())?;
 
     let remote_name = repo.branch_remote_name(branch.refname().unwrap())?;
     let remote = repo.find_remote(&remote_name)?;
@@ -64,8 +64,7 @@ pub fn set_base_branch(
     }
 
     let target = target::Target {
-        branch_name: branch.name().unwrap().to_string(),
-        remote_name: remote.name().unwrap().to_string(),
+        branch: target_branch.clone(),
         remote_url: remote_url.to_string(),
         sha: commit_oid,
     };
@@ -144,13 +143,12 @@ pub fn update_base_branch(
 
     let repo = &project_repository.git_repository;
     let target_branch = repo
-        .find_branch(&target.branch_name, git2::BranchType::Remote)
-        .context(format!("failed to find branch {}", target.branch_name))?;
+        .find_branch(&target.branch.clone().into())
+        .context(format!("failed to find branch {}", target.branch))?;
 
-    let new_target_commit = target_branch.peel_to_commit().context(format!(
-        "failed to peel branch {} to commit",
-        target.branch_name
-    ))?;
+    let new_target_commit = target_branch
+        .peel_to_commit()
+        .context(format!("failed to peel branch {} to commit", target.branch))?;
     let new_target_commit_oid = new_target_commit.id();
 
     // if the target has not changed, do nothing
@@ -443,7 +441,7 @@ pub fn target_to_base_branch(
     target: &target::Target,
 ) -> Result<super::BaseBranch> {
     let repo = &project_repository.git_repository;
-    let branch = repo.find_branch(&target.branch_name, git2::BranchType::Remote)?;
+    let branch = repo.find_branch(&target.branch.clone().into())?;
     let commit = branch.peel_to_commit()?;
     let oid = commit.id();
 
@@ -464,8 +462,8 @@ pub fn target_to_base_branch(
         .collect::<Result<Vec<_>>>()?;
 
     let base = super::BaseBranch {
-        branch_name: target.branch_name.clone(),
-        remote_name: target.remote_name.clone(),
+        branch_name: target.branch.branch().to_string(),
+        remote_name: target.branch.remote().to_string(),
         remote_url: target.remote_url.clone(),
         base_sha: target.sha.to_string(),
         current_sha: oid.to_string(),
@@ -513,8 +511,8 @@ pub fn create_virtual_branch_from_branch(
     let upstream_branch = match upstream {
         git::BranchName::Remote(remote) => Some(remote.clone()),
         git::BranchName::Local(local) => {
-            let remote_name = format!("{}/{}", default_target.remote_name, local.branch());
-            if remote_name != default_target.branch_name {
+            let remote_name = format!("{}/{}", default_target.branch.remote(), local.branch());
+            if remote_name != default_target.branch.branch() {
                 Some(format!("refs/remotes/{}", remote_name).parse().unwrap())
             } else {
                 None

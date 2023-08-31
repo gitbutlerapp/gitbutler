@@ -1,7 +1,8 @@
 use std::path;
 
 use super::{
-    AnnotatedCommit, Branch, Commit, Index, Oid, Reference, Remote, Result, Tree, TreeBuilder,
+    AnnotatedCommit, Branch, BranchName, Commit, Index, Oid, Reference, Remote, Result, Tree,
+    TreeBuilder,
 };
 
 // wrapper around git2::Repository to get control over how it's used.
@@ -269,9 +270,20 @@ impl Repository {
         self.0.find_remote(name).map(Into::into).map_err(Into::into)
     }
 
-    pub fn find_branch(&self, name: &str, branch_type: git2::BranchType) -> Result<Branch> {
+    pub fn find_branch(&self, name: &BranchName) -> Result<Branch> {
         self.0
-            .find_branch(name, branch_type)
+            .find_branch(
+                &match name {
+                    BranchName::Local(local) => local.branch().to_string(),
+                    BranchName::Remote(remote) => {
+                        format!("{}/{}", remote.remote(), remote.branch())
+                    }
+                },
+                match name {
+                    BranchName::Local(_) => git2::BranchType::Local,
+                    BranchName::Remote(_) => git2::BranchType::Remote,
+                },
+            )
             .map(Into::into)
             .map_err(Into::into)
     }

@@ -138,8 +138,8 @@ mod tests {
         let reader = TargetReader::new(&session_reader);
 
         let read = reader.read_default().unwrap();
-        assert_eq!(read.branch_name, "origin/master");
-        assert_eq!(read.remote_name, "origin");
+        assert_eq!(read.branch.branch(), "master");
+        assert_eq!(read.branch.remote(), "origin");
         assert_eq!(
             read.remote_url,
             "git@github.com:gitbutlerapp/gitbutler-client.git"
@@ -167,15 +167,15 @@ mod tests {
         let branch = test_branch();
 
         let target = Target {
-            remote_name: "remote".to_string(),
-            branch_name: "branch".to_string(),
+            branch: "refs/remotes/remote/branch".parse().unwrap(),
             remote_url: "remote url".to_string(),
             sha: "fedcba9876543210fedcba9876543210fedcba98".parse().unwrap(),
         };
 
         let default_target = Target {
-            remote_name: "default remote".to_string(),
-            branch_name: "default branch".to_string(),
+            branch: "refs/remotes/default remote/default branch"
+                .parse()
+                .unwrap(),
             remote_url: "default remote url".to_string(),
             sha: "0123456789abcdef0123456789abcdef01234567".parse().unwrap(),
         };

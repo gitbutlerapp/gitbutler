@@ -510,25 +510,13 @@ pub fn list_remote_branches(
             // skip the default target branch (both local and remote)
             match branch_name {
                 git::BranchName::Remote(ref remote_branch_name) => {
-                    if format!(
-                        "{}/{}",
-                        remote_branch_name.remote(),
-                        remote_branch_name.branch()
-                    )
-                    .eq(&default_target.branch_name)
-                    {
+                    if *remote_branch_name == default_target.branch {
                         continue;
                     }
                 }
                 git::BranchName::Local(ref local_branch_name) => {
                     if let Some(upstream_branch_name) = local_branch_name.remote() {
-                        if format!(
-                            "{}/{}",
-                            upstream_branch_name.remote(),
-                            upstream_branch_name.branch()
-                        )
-                        .eq(&default_target.branch_name)
-                        {
+                        if *upstream_branch_name == default_target.branch {
                             continue;
                         }
                     }
@@ -1920,7 +1908,7 @@ pub fn push(
         let remote_branch = match get_default_target(&current_session_reader)? {
             Some(target) => format!(
                 "refs/remotes/{}/{}",
-                target.remote_name,
+                target.branch.remote(),
                 name_to_branch(&vbranch.name)
             )
             .parse::<git::RemoteBranchName>()
@@ -1979,7 +1967,7 @@ fn is_commit_integrated(
 ) -> Result<bool> {
     let remote_branch = project_repository
         .git_repository
-        .find_branch(&target.branch_name, git2::BranchType::Remote)?;
+        .find_branch(&target.branch.clone().into())?;
     let remote_head = remote_branch.peel_to_commit()?;
     let upstream_commits = project_repository.l(
         remote_head.id(),

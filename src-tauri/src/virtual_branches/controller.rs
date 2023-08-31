@@ -155,7 +155,7 @@ impl Controller {
     pub async fn set_base_branch(
         &self,
         project_id: &str,
-        target_branch: &str,
+        target_branch: &git::RemoteBranchName,
     ) -> Result<super::BaseBranch, Error> {
         let project = self
             .projects_storage

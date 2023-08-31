@@ -1,3 +1,4 @@
+use anyhow::Context;
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
@@ -81,9 +82,12 @@ pub async fn set_base_branch(
     project_id: &str,
     branch: &str,
 ) -> Result<super::BaseBranch, Error> {
+    let branch_name = format!("refs/remotes/{}", branch)
+        .parse()
+        .context("Invalid branch name")?;
     handle
         .state::<Controller>()
-        .set_base_branch(project_id, branch)
+        .set_base_branch(project_id, &branch_name)
         .await
         .map_err(Into::into)
 }
