@@ -49,7 +49,6 @@ impl TryFrom<&git::Branch<'_>> for Name {
     type Error = Error;
 
     fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        dbg!(value.is_remote());
         if value.is_remote() {
             Ok(Self::Remote(RemoteName::try_from(value)?))
         } else {
