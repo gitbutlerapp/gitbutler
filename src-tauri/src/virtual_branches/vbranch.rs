@@ -1689,7 +1689,7 @@ pub fn write_tree(
     let head_commit = git_repository.find_commit(target.sha)?;
     let base_tree = head_commit.tree()?;
 
-    let mut builder = git2::build::TreeUpdateBuilder::new();
+    let mut builder = git_repository.treebuilder(Some(&base_tree));
     // now update the index with content in the working directory for each file
     for file in files {
         // convert this string to a Path
@@ -1699,19 +1699,19 @@ pub fn write_tree(
         // if file exists
         if full_path.exists() {
             // if file is executable, use 755, otherwise 644
-            let mut filemode = git2::FileMode::Blob;
+            let mut filemode = git::FileMode::Blob;
             // check if full_path file is executable
             if let Ok(metadata) = std::fs::symlink_metadata(&full_path) {
                 if metadata.permissions().mode() & 0o111 != 0 {
-                    filemode = git2::FileMode::BlobExecutable;
+                    filemode = git::FileMode::BlobExecutable;
                 }
                 if metadata.file_type().is_symlink() {
-                    filemode = git2::FileMode::Link;
+                    filemode = git::FileMode::Link;
                 }
             }
 
             // get the blob
-            if filemode == git2::FileMode::Link {
+            if filemode == git::FileMode::Link {
                 // it's a symlink, make the content the path of the link
                 let link_target = std::fs::read_link(&full_path)?;
                 // make link_target into a relative path
@@ -1727,7 +1727,7 @@ pub fn write_tree(
                 if file.binary {
                     let new_blob_oid = &file.hunks[0].diff;
                     // convert string to Oid
-                    let new_blob_oid = git2::Oid::from_str(new_blob_oid)?;
+                    let new_blob_oid = new_blob_oid.parse().context("failed to diff as oid")?;
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 } else {
                     // blob from tree_entry
@@ -1773,9 +1773,7 @@ pub fn write_tree(
     }
 
     // now write out the tree
-    let tree_oid = builder
-        .create_updated(git_repository.into(), (&base_tree).into())
-        .context("failed to create updated tree")?;
+    let tree_oid = builder.write().context("failed to write updated tree")?;
 
     Ok(tree_oid.into())
 }

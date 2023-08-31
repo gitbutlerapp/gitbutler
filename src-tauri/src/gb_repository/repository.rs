@@ -433,48 +433,37 @@ impl Repository {
         // update last timestamp
         sessions::Writer::new(self).write(session)?;
 
-        let mut tree_builder = self
-            .git_repository
-            .treebuilder(None)
-            .context("failed to create tree builder")?;
-        tree_builder
-            .insert(
-                "session",
-                build_session_tree(self)
-                    .context("failed to build session tree")?
-                    .into(),
-                0o040000,
-            )
-            .context("failed to insert session tree")?;
-        tree_builder
-            .insert(
-                "wd",
-                build_wd_tree(self, project_repository)
-                    .context("failed to build working directory tree")?
-                    .into(),
-                0o040000,
-            )
-            .context("failed to insert wd tree")?;
-        tree_builder
-            .insert(
-                "logs",
-                build_log_tree(self, project_repository)
-                    .context("failed to build logs tree")?
-                    .into(),
-                0o040000,
-            )
-            .context("failed to insert logs tree")?;
-        tree_builder
-            .insert(
-                "branches",
-                build_branches_tree(self)
-                    .context("failed to build branches tree")?
-                    .into(),
-                0o040000,
-            )
-            .context("failed to insert branches tree")?;
+        let mut tree_builder = self.git_repository.treebuilder(None);
+        tree_builder.upsert(
+            "session",
+            build_session_tree(self)
+                .context("failed to build session tree")?
+                .into(),
+            git::FileMode::Tree,
+        );
+        tree_builder.upsert(
+            "wd",
+            build_wd_tree(self, project_repository)
+                .context("failed to build working directory tree")?
+                .into(),
+            git::FileMode::Tree,
+        );
+        tree_builder.upsert(
+            "logs",
+            build_log_tree(self, project_repository)
+                .context("failed to build logs tree")?
+                .into(),
+            git::FileMode::Tree,
+        );
+        tree_builder.upsert(
+            "branches",
+            build_branches_tree(self)
+                .context("failed to build branches tree")?
+                .into(),
+            git::FileMode::Tree,
+        );
 
-        let tree_id = tree_builder.write().context("failed to write tree")?.into();
+        let tree_id = tree_builder.write().context("failed to write tree")?;
 
         let user = self.users_store.get().context("failed to get user")?;
 
@@ -613,14 +602,6 @@ impl Repository {
                     let id = id?;
                     let commit = repo.find_commit(id.into())?;
 
-                    let copy_tree = |tree: &git::Tree| -> Result<git::Oid> {
-                        let tree_builder = self.git_repository.treebuilder(Some(tree))?;
-                        let tree_oid = tree_builder.write()?;
-                        Ok(tree_oid.into())
-                    };
-
-                    let tree = self.git_repository.find_tree(copy_tree(&commit.tree()?)?)?;
-
                     match self.git_repository.head() {
                         Result::Ok(head) => {
                             let parent = head.peel_to_commit()?;
@@ -630,7 +611,7 @@ impl Repository {
                                     &commit.author(),
                                     &commit.committer(),
                                     commit.message().unwrap(),
-                                    &tree,
+                                    &commit.tree()?,
                                     &[&parent],
                                 )
                                 .context("failed to commit")?;
@@ -642,7 +623,7 @@ impl Repository {
                                     &commit.author(),
                                     &commit.committer(),
                                     commit.message().unwrap(),
-                                    &tree,
+                                    &commit.tree()?,
                                     &[],
                                 )
                                 .context("failed to commit")?;
