@@ -82,7 +82,7 @@
 			}
 		}}
 	>
-		{#each branches.filter((c) => c.active) as { id, name, files, commits, order, conflicted, upstream } (id)}
+		{#each branches.filter((c) => c.active) as { id, name, files, commits, order, conflicted, upstream, notes } (id)}
 			<Lane
 				on:dragstart={(e) => {
 					if (!e.dataTransfer) return;
@@ -104,6 +104,7 @@
 				{cloud}
 				{upstream}
 				{branchController}
+				{notes}
 			/>
 		{/each}
 
