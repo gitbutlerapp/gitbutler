@@ -43,7 +43,7 @@ pub struct VirtualBranch {
     pub merge_conflicts: Vec<String>, // if mergeable is false, this will contain a list of files that have merge conflicts (only for unapplied branches)
     pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
     pub order: usize,     // the order in which this branch should be displayed in the UI
-    pub upstream: Option<project_repository::branch::RemoteName>, // the name of the upstream branch this branch this pushes to
+    pub upstream: Option<git::RemoteBranchName>, // the name of the upstream branch this branch this pushes to
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
 }
 
@@ -127,7 +127,7 @@ pub struct RemoteBranch {
     pub first_commit_ts: u128,
     pub ahead: u32,
     pub behind: u32,
-    pub upstream: Option<project_repository::branch::RemoteName>,
+    pub upstream: Option<git::RemoteBranchName>,
     pub authors: Vec<Author>,
     pub mergeable: bool,
     pub merge_conflicts: Vec<String>,
@@ -504,12 +504,12 @@ pub fn list_remote_branches(
                 continue;
             }
 
-            let branch_name = project_repository::branch::Name::try_from(&branch)
-                .context("could not get branch name")?;
+            let branch_name =
+                git::BranchName::try_from(&branch).context("could not get branch name")?;
 
             // skip the default target branch (both local and remote)
             match branch_name {
-                project_repository::branch::Name::Remote(ref remote_branch_name) => {
+                git::BranchName::Remote(ref remote_branch_name) => {
                     if format!(
                         "{}/{}",
                         remote_branch_name.remote(),
@@ -520,7 +520,7 @@ pub fn list_remote_branches(
                         continue;
                     }
                 }
-                project_repository::branch::Name::Local(ref local_branch_name) => {
+                git::BranchName::Local(ref local_branch_name) => {
                     if let Some(upstream_branch_name) = local_branch_name.remote() {
                         if format!(
                             "{}/{}",
@@ -616,9 +616,7 @@ pub fn list_remote_branches(
                 let upstream = branch
                     .upstream()
                     .ok()
-                    .map(|upstream_branch| {
-                        project_repository::branch::RemoteName::try_from(&upstream_branch)
-                    })
+                    .map(|upstream_branch| git::RemoteBranchName::try_from(&upstream_branch))
                     .transpose()?;
 
                 if count_ahead > 0 {
@@ -1925,7 +1923,7 @@ pub fn push(
                 target.remote_name,
                 name_to_branch(&vbranch.name)
             )
-            .parse::<project_repository::branch::RemoteName>()
+            .parse::<git::RemoteBranchName>()
             .unwrap(),
             None => return Err(PushError::Other(anyhow::anyhow!("no default target set"))),
         };

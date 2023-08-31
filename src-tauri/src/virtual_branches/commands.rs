@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use crate::{error::Error, project_repository::branch};
+use crate::{error::Error, git};
 
 use super::controller::Controller;
 
@@ -52,7 +52,7 @@ pub async fn create_virtual_branch(
 pub async fn create_virtual_branch_from_branch(
     handle: AppHandle,
     project_id: &str,
-    branch: branch::Name,
+    branch: git::BranchName,
 ) -> Result<String, Error> {
     handle
         .state::<Controller>()

@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
 
-use crate::{git, project_repository::branch};
+use crate::git;
 
 // this is the struct for the virtual branch data that is stored in our data
 // store. it is more or less equivalent to a git branch reference, but it is not
@@ -26,7 +26,7 @@ pub struct Branch {
     pub name: String,
     pub notes: String,
     pub applied: bool,
-    pub upstream: Option<branch::RemoteName>,
+    pub upstream: Option<git::RemoteBranchName>,
     pub created_timestamp_ms: u128,
     pub updated_timestamp_ms: u128,
     // tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
@@ -104,7 +104,7 @@ impl TryFrom<&dyn crate::reader::Reader> for Branch {
                     Ok(None)
                 } else {
                     upstream
-                        .parse::<branch::RemoteName>()
+                        .parse::<git::RemoteBranchName>()
                         .map(Some)
                         .map_err(|e| {
                             crate::reader::Error::IOError(std::io::Error::new(

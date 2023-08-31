@@ -6,8 +6,6 @@ use walkdir::WalkDir;
 
 use crate::{git, keys, project_repository::activity, projects, reader};
 
-use super::branch;
-
 pub struct Repository<'repository> {
     pub git_repository: git::Repository,
     project: &'repository projects::Project,
@@ -212,28 +210,28 @@ impl<'repository> Repository<'repository> {
         Ok(files)
     }
 
-    pub fn git_branches(&self) -> Result<Vec<branch::LocalName>> {
+    pub fn git_branches(&self) -> Result<Vec<git::LocalBranchName>> {
         self.git_repository
             .branches(Some(git2::BranchType::Local))?
             .flatten()
             .map(|(branch, _)| branch)
             .map(|branch| {
-                branch::LocalName::try_from(&branch)
+                git::LocalBranchName::try_from(&branch)
                     .context("failed to convert branch to local name")
             })
-            .collect::<Result<Vec<branch::LocalName>>>()
+            .collect::<Result<Vec<_>>>()
     }
 
-    pub fn git_remote_branches(&self) -> Result<Vec<branch::RemoteName>> {
+    pub fn git_remote_branches(&self) -> Result<Vec<git::RemoteBranchName>> {
         self.git_repository
             .branches(Some(git2::BranchType::Remote))?
             .flatten()
             .map(|(branch, _)| branch)
             .map(|branch| {
-                branch::RemoteName::try_from(&branch)
+                git::RemoteBranchName::try_from(&branch)
                     .context("failed to convert branch to remote name")
             })
-            .collect::<Result<Vec<branch::RemoteName>>>()
+            .collect::<Result<Vec<_>>>()
     }
 
     // returns a list of commit oids from the first oid to the second oid
@@ -411,7 +409,7 @@ impl<'repository> Repository<'repository> {
     pub fn push(
         &self,
         head: &git::Oid,
-        branch: &branch::RemoteName,
+        branch: &git::RemoteBranchName,
         key: &keys::PrivateKey,
     ) -> Result<(), Error> {
         let mut remote = self

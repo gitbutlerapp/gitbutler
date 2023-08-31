@@ -6,8 +6,8 @@ use tauri::{AppHandle, Manager};
 use tokio::task;
 
 use crate::{
-    bookmarks, deltas, files, gb_repository, keys,
-    project_repository::{self, activity, branch, conflicts, diff},
+    bookmarks, deltas, files, gb_repository, git, keys,
+    project_repository::{self, activity, conflicts, diff},
     projects, pty, reader, search, sessions, users,
     virtual_branches::{self, target},
     watcher,
@@ -401,14 +401,14 @@ impl App {
         project_repository.git_match_paths(pattern)
     }
 
-    pub fn git_branches(&self, project_id: &str) -> Result<Vec<branch::LocalName>> {
+    pub fn git_branches(&self, project_id: &str) -> Result<Vec<git::LocalBranchName>> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
         project_repository.git_branches()
     }
 
-    pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<branch::RemoteName>> {
+    pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<git::RemoteBranchName>> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;

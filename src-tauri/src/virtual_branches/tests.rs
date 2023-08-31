@@ -2070,8 +2070,7 @@ fn test_detect_remote_commits() -> Result<()> {
     // push the commit upstream
     let branch1 = branch_reader.read(&branch1_id)?;
     let up_target = branch1.head;
-    let remote_branch: project_repository::branch::RemoteName =
-        "refs/remotes/origin/remote_branch".parse().unwrap();
+    let remote_branch: git::RemoteBranchName = "refs/remotes/origin/remote_branch".parse().unwrap();
     repository.reference(&remote_branch.to_string(), up_target, true, "update target")?;
     // set the upstream reference
     branch_writer.write(&Branch {
@@ -2130,7 +2129,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     )?;
     test_utils::commit_all(&repository);
 
-    let upstream: project_repository::branch::Name = "refs/remotes/origin/branch1".parse().unwrap();
+    let upstream: git::BranchName = "refs/remotes/origin/branch1".parse().unwrap();
 
     repository.reference(
         &upstream.to_string(),
@@ -2271,8 +2270,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
     test_utils::commit_all(&repository);
     let remote_commit = repository.head().unwrap().target().unwrap();
 
-    let remote_branch: project_repository::branch::Name =
-        "refs/remotes/origin/branch1".parse().unwrap();
+    let remote_branch: git::BranchName = "refs/remotes/origin/branch1".parse().unwrap();
     repository.reference(
         &remote_branch.to_string(),
         remote_commit,

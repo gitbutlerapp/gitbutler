@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 use tokio::sync::Semaphore;
 
 use crate::{
-    assets, gb_repository, keys,
+    assets, gb_repository, git, keys,
     project_repository::{self, conflicts},
     projects, users, watcher,
 };
@@ -109,7 +109,7 @@ impl Controller {
     pub async fn create_virtual_branch_from_branch(
         &self,
         project_id: &str,
-        branch: &project_repository::branch::Name,
+        branch: &git::BranchName,
     ) -> Result<String, Error> {
         self.with_lock::<Result<String, Error>>(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
