@@ -51,6 +51,13 @@ jobs:
               with:
                   version: 7.x.x
                   run_install: false
+
+            - name: Git config
+              shell: bash
+              run: |
+                # This seems the only reliable way of forcing https for forked packages
+                git config --global url."https://".insteadOf git://
+                git config --global url."https://github.com/".insteadOf git@github.com:
             
             - name: Get pnpm store directory
               id: pnpm-cache
