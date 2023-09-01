@@ -19,7 +19,7 @@ impl PrivateKey {
 
 impl Default for PrivateKey {
     fn default() -> Self {
-        let ed25519_keypair = ssh_key::private::Ed25519Keypair::random(OsRng);
+        let ed25519_keypair = ssh_key::private::Ed25519Keypair::random(&mut OsRng);
         let ed25519_key = ssh_key::PrivateKey::from(ed25519_keypair);
         Self(ed25519_key)
     }
