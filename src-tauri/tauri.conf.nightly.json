@@ -24,7 +24,6 @@
         },
         "updater": {
             "active": true,
-            "dialog": true,
             "endpoints": [
                 "https://app.gitbutler.com/releases/nightly/{{target}}-{{arch}}/{{current_version}}"
             ],
