@@ -86,7 +86,7 @@
 			<Lane
 				on:dragstart={(e) => {
 					if (!e.dataTransfer) return;
-					e.dataTransfer.setData(dzType, id);
+					e.dataTransfer.setData(dzType, branch.id);
 					dragged = e.currentTarget;
 					priorPosition = Array.from(dropZone.children).indexOf(dragged);
 				}}

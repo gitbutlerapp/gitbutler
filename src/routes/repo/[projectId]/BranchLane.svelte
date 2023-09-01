@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as toasts from '$lib/toasts';
 	import { userStore } from '$lib/stores/user';
-	import type { BaseBranch, Branch, Commit, File } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
 	import { Button, Link, Tooltip } from '$lib/components';
