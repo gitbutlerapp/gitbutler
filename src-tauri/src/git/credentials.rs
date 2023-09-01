@@ -31,13 +31,15 @@ pub fn for_key(key: &keys::PrivateKey) -> Vec<CredentialsCallback<'_>> {
 }
 
 fn from_keypath<'a>(key_path: std::path::PathBuf) -> CredentialsCallback<'a> {
-    Box::new(move |_url, _username_from_url, _allowed_types| {
+    Box::new(move |url, _username_from_url, _allowed_types| {
+        tracing::info!("authenticating with {} using {}", url, key_path.display());
         git2::Cred::ssh_key("git", None, &key_path, None)
     })
 }
 
 fn from_key(key: &keys::PrivateKey) -> CredentialsCallback<'_> {
-    Box::new(|_url, _username_from_url, _allowed_types| {
+    Box::new(|url, _username_from_url, _allowed_types| {
+        tracing::info!("authenticating with {} using gitbutler's key", url);
         git2::Cred::ssh_key_from_memory("git", None, &key.to_string(), None)
     })
 }
