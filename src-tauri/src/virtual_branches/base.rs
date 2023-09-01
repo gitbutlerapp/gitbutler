@@ -462,7 +462,7 @@ pub fn target_to_base_branch(
         .collect::<Result<Vec<_>>>()?;
 
     let base = super::BaseBranch {
-        branch_name: target.branch.branch().to_string(),
+        branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),
         remote_name: target.branch.remote().to_string(),
         remote_url: target.remote_url.clone(),
         base_sha: target.sha.to_string(),
