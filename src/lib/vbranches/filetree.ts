@@ -49,3 +49,17 @@ export function filesToFileTree(files: File[]): TreeNode {
 	sortChildren(acc);
 	return acc;
 }
+
+function fileTreeToList(node: TreeNode): File[] {
+	const list: File[] = [];
+	if (node.file) list.push(node.file);
+	node.children.forEach((child) => {
+		list.push(...fileTreeToList(child));
+	});
+	return list;
+}
+
+// Sorts a file list the same way it is sorted in a file tree
+export function sortLikeFileTree(files: File[]): File[] {
+	return fileTreeToList(filesToFileTree(files));
+}
