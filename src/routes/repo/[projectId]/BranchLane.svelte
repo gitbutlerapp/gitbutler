@@ -467,7 +467,7 @@
 						{#if branch.files.length > 0}
 							<div
 								class="flex flex-shrink flex-col gap-y-2"
-								transition:slide={{ duration: readonly ? 0 : 250, axis: 'x' }}
+								transition:slide={{ duration: readonly ? 0 : 250 }}
 							>
 								<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
 								{#each sortLikeFileTree(branch.files) as file (file.id)}
