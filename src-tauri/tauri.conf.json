@@ -11,29 +11,26 @@
     },
     "tauri": {
         "allowlist": {
-            "all": false,
             "fs": {
-                "all": false,
                 "readFile": true,
                 "scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
             },
             "shell": {
-                "all": false,
                 "open": "^((https://)|(http://)|(mailto:)|(vscode://)).+"
             },
             "dialog": {
-                "all": false,
                 "open": true
             },
             "protocol": {
-                "all": false,
                 "asset": true,
                 "assetScope": [
                     "$APPCACHE/images/*"
                 ]
             },
+            "process": {
+                "relaunch": true
+            },
             "window": {
-                "all": false,
                 "startDragging": true
             },
             "path": {
