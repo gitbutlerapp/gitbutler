@@ -76,6 +76,7 @@
 	let rsViewport: HTMLElement;
 	let laneWidth: number;
 	let deleteBranchModal: Modal;
+	let applyConflictedModal: Modal;
 
 	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
@@ -200,6 +201,14 @@
 		props: { allExpanded, allCollapsed, order: branch?.order, branchController }
 	});
 
+	function toggleBranch(branch: Branch) {
+		if (!branch.baseCurrent) {
+			applyConflictedModal.show(branch);
+		} else {
+			branchController.applyBranch(branch.id);
+		}
+	}
+
 	onMount(() => {
 		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branch.id) ?? $userSettings.defaultLaneWidth;
@@ -319,9 +328,7 @@
 									height="small"
 									kind="outlined"
 									color="purple"
-									on:click={() => {
-										if (branch.id) branchController.applyBranch(branch.id);
-									}}
+									on:click={() => toggleBranch(branch)}
 								>
 									<span class="purple"> Apply </span>
 								</Button>
@@ -651,6 +658,24 @@
 			}}
 		>
 			Delete
+		</Button>
+	</svelte:fragment>
+</Modal>
+
+<Modal width="small" bind:this={applyConflictedModal}>
+	<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
+	<p>Applying this branch will introduce merge conflicts.</p>
+	<svelte:fragment slot="controls" let:item let:close>
+		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			height="small"
+			color="purple"
+			on:click={() => {
+				branchController.applyBranch(item.id);
+				close();
+			}}
+		>
+			Update
 		</Button>
 	</svelte:fragment>
 </Modal>

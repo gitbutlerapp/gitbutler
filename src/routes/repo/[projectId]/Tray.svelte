@@ -21,6 +21,7 @@
 	import IconButton from '$lib/components/IconButton.svelte';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
+	import { slide } from 'svelte/transition';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
@@ -114,6 +115,14 @@
 			added: comitted.added + uncomitted.added,
 			removed: comitted.removed + uncomitted.removed
 		};
+	}
+
+	function toggleBranch(branch: Branch) {
+		if (!branch.baseCurrent) {
+			applyConflictedModal.show(branch);
+		} else {
+			branchController.applyBranch(branch.id);
+		}
 	}
 </script>
 
@@ -235,6 +244,7 @@
 							tabindex="0"
 							on:click={() => select(branch, i)}
 							on:keypress|capture={() => select(branch, i)}
+							transition:slide={{ duration: 250 }}
 							class="group border-b border-light-200 p-2 pr-0 last:border-b dark:border-dark-600"
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
@@ -287,7 +297,7 @@
 										title="apply branch"
 										on:click={() => {
 											peekTrayExpanded = false;
-											branchController.applyBranch(branch.id);
+											toggleBranch(branch);
 										}}
 									>
 										Apply
