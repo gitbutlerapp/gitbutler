@@ -109,7 +109,7 @@
 					<h3 class="text-xl font-medium">You are up to date</h3>
 					<p class="text-light-700 dark:text-dark-200">
 						This means that your working directory looks exactly like your base branch. There isn't
-						anything locally that is not in your production code.
+						anything locally that is not in your production code!
 					</p>
 					<p class="text-light-700 dark:text-dark-200">
 						If you start editing files in your working directory, a new virtual branch will
