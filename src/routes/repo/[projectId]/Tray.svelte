@@ -21,12 +21,16 @@
 	import IconDelete from '$lib/icons/IconDelete.svelte';
 	import IconAdd from '$lib/icons/IconAdd.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
+	import type { getCloudApiClient } from '$lib/api/cloud/api';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
 	export let baseBranchStore: Readable<BaseBranch | undefined>;
 	export let branchController: BranchController;
 	export let peekTransitionsDisabled = false;
+	export let projectId: string;
+	export let cloud: ReturnType<typeof getCloudApiClient>;
+	export let peekTrayExpanded = false;
 
 	$: branchesState = vbranchStore?.state;
 	$: remoteBranchesState = remoteBranchStore?.state;
@@ -48,7 +52,6 @@
 
 	let selectedItem: Readable<Branch | BranchData | BaseBranch | undefined> | undefined;
 	let overlayOffsetTop = 0;
-	let peekTrayExpanded = false;
 	let fetching = false;
 
 	function select(detail: Branch | BranchData | BaseBranch | undefined, i: number): void {
@@ -58,7 +61,7 @@
 		}
 		if (detail instanceof Branch) {
 			selectedItem = derived(vbranchStore, (branches) =>
-				branches?.find((branch) => branch.id == detail.id)
+				branches?.filter((b) => !b.active).find((branch) => branch.id == detail.id)
 			);
 			const element = vbContents.children[i] as HTMLDivElement;
 			overlayOffsetTop = element.offsetTop + vbViewport.offsetTop - vbViewport.scrollTop;
@@ -124,6 +127,8 @@
 	fullHeight={true}
 	bind:expanded={peekTrayExpanded}
 	disabled={peekTransitionsDisabled}
+	{cloud}
+	{projectId}
 />
 <div
 	class="z-30 flex w-80 shrink-0 flex-col border-r border-light-200 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
@@ -286,7 +291,7 @@
 									/>
 									<IconButton
 										icon={IconAdd}
-										class="scale-90 p-0"
+										class="scale-90 p-0 text-purple-500 hover:text-purple-600 "
 										title="apply branch"
 										on:click={() => {
 											peekTrayExpanded = false;
