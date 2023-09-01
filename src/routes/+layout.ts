@@ -4,6 +4,7 @@ import { projectsStore } from '$lib/api/ipc/projects';
 import Posthog from '$lib/posthog';
 import Sentry from '$lib/sentry';
 import lscache from 'lscache';
+import { newUpdateStore } from '$lib/updater';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
@@ -16,5 +17,6 @@ export const load: LayoutLoad = ({ fetch: realFetch }: { fetch: typeof fetch }) 
 	projects: projectsStore,
 	cloud: getCloudApiClient({ fetch: realFetch }),
 	posthog: Posthog(),
-	sentry: Sentry()
+	sentry: Sentry(),
+	update: newUpdateStore()
 });

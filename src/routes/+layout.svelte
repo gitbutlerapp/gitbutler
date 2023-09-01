@@ -20,11 +20,40 @@
 	import ShareIssueModal from './ShareIssueModal.svelte';
 	import { SETTINGS_CONTEXT, loadUserSettings } from '$lib/userSettings';
 	import { initTheme } from '$lib/theme';
+	import { install as installUpdate } from '$lib/updater';
+	import { relaunch } from '@tauri-apps/api/process';
+	import { onUpdaterEvent } from '@tauri-apps/api/updater';
 
 	export let data: LayoutData;
-	const { posthog, projects, sentry, cloud } = data;
+	const { posthog, projects, sentry, cloud, update } = data;
 
 	const user = userStore;
+
+	let updateStatus: {
+		error?: string;
+		status: 'PENDING' | 'DOWNLOADED' | 'ERROR' | 'DONE' | 'UPTODATE';
+	};
+	onMount(() => {
+		const unsubscribe = onUpdaterEvent((status) => {
+			updateStatus = status;
+			if (updateStatus.error) {
+				toasts.error(updateStatus.error);
+			}
+		});
+		return () => unsubscribe.then((unsubscribe) => unsubscribe());
+	});
+
+	let updateTimer: ReturnType<typeof setInterval>;
+	onMount(() => {
+		update.load();
+		const tenMinutes = 1000 * 60 * 10;
+		updateTimer = setInterval(() => {
+			update.reload?.();
+		}, tenMinutes);
+		return () => {
+			() => clearInterval(updateTimer);
+		};
+	});
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -133,10 +162,28 @@
 					{/if}
 				</div>
 
-				<div class="flex items-center gap-1">
-					<Tooltip label="Send feedback">
-						<IconEmail class="h-4 w-4" on:click={() => events.emit('openSendIssueModal')} />
-					</Tooltip>
+				<div class="flex gap-2">
+					{#if $update?.enabled && $update?.shouldUpdate}
+						<div class="flex items-center gap-1">
+							{#if !updateStatus}
+								<Link on:click={() => installUpdate()}>
+									version {$update.version} available
+								</Link>
+							{:else if updateStatus.status === 'PENDING'}
+								<Link>downloading update...</Link>
+							{:else if updateStatus.status === 'DOWNLOADED'}
+								<Link>installing update...</Link>
+							{:else if updateStatus.status === 'DONE'}
+								<Link on:click={() => relaunch()}>restart to update</Link>
+							{/if}
+						</div>
+					{/if}
+
+					<div class="flex items-center gap-1">
+						<Tooltip label="Send feedback">
+							<IconEmail class="h-4 w-4" on:click={() => events.emit('openSendIssueModal')} />
+						</Tooltip>
+					</div>
 				</div>
 			</div>
 		</div>
