@@ -18,10 +18,9 @@
 	import Button from '$lib/components/Button/Button.svelte';
 	import Modal from '$lib/components/Modal/Modal.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
-	import IconDelete from '$lib/icons/IconDelete.svelte';
-	import IconAdd from '$lib/icons/IconAdd.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
+	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
@@ -48,7 +47,6 @@
 	let rbContents: HTMLElement;
 	let rbSection: HTMLElement;
 	let baseContents: HTMLElement;
-	let deleteBranchModal: Modal;
 
 	let selectedItem: Readable<Branch | BranchData | BaseBranch | undefined> | undefined;
 	let overlayOffsetTop = 0;
@@ -281,23 +279,19 @@
 									</div>
 								</div>
 								<div
-									class="w-0 shrink-0 self-center overflow-hidden whitespace-nowrap transition-width group-hover:w-12 group-focus:w-12"
+									class="shrink-0 self-center overflow-hidden whitespace-nowrap px-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100"
 								>
 									<IconButton
-										icon={IconDelete}
-										class="scale-90 p-0"
-										title="delete branch"
-										on:click={() => deleteBranchModal.show(branch)}
-									/>
-									<IconButton
-										icon={IconAdd}
-										class="scale-90 p-0 text-purple-500 hover:text-purple-600 "
+										icon={IconChevronRightSmall}
+										class="flex gap-x-2 p-0 text-sm font-semibold text-light-500 hover:text-light-800 dark:text-dark-300 dark:hover:text-dark-50"
 										title="apply branch"
 										on:click={() => {
 											peekTrayExpanded = false;
 											branchController.applyBranch(branch.id);
 										}}
-									/>
+									>
+										Apply
+									</IconButton>
 								</div>
 							</div>
 						</div>
@@ -460,28 +454,6 @@
 			}}
 		>
 			Update
-		</Button>
-	</svelte:fragment>
-</Modal>
-
-<!-- Delete branch confirmation modal -->
-
-<Modal width="small" bind:this={deleteBranchModal} let:item>
-	<svelte:fragment slot="title">Delete branch</svelte:fragment>
-	<div>
-		Deleting <code>{item.name}</code> cannot be undone.
-	</div>
-	<svelte:fragment slot="controls" let:close let:item>
-		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
-		<Button
-			height="small"
-			color="destructive"
-			on:click={() => {
-				branchController.deleteBranch(item.id);
-				close();
-			}}
-		>
-			Delete
 		</Button>
 	</svelte:fragment>
 </Modal>

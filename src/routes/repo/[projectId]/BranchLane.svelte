@@ -4,7 +4,7 @@
 	import type { BaseBranch, Branch, File } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
 	import { IconAISparkles } from '$lib/icons';
-	import { Button, Link, Tooltip } from '$lib/components';
+	import { Button, Link, Modal, Tooltip } from '$lib/components';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { getExpandedWithCacheFallback, setExpandedWithCache } from './cache';
@@ -28,6 +28,7 @@
 	import FileTreeTabPanel from './FileTreeTabPanel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
+	import IconBackspace from '$lib/icons/IconBackspace.svelte';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -74,6 +75,7 @@
 	let contents: Element;
 	let rsViewport: HTMLElement;
 	let laneWidth: number;
+	let deleteBranchModal: Modal;
 
 	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
@@ -281,9 +283,9 @@
 							on:click={(e) => e.currentTarget.select()}
 						/>
 					</div>
-					{#if !readonly}
-						{#if branch.files.length > 0}
-							<div transition:fade={{ duration: 150 }}>
+					<div class="flex" transition:fade={{ duration: 150 }}>
+						{#if !readonly}
+							{#if branch.files.length > 0}
 								<Button
 									class="w-20"
 									height="small"
@@ -300,33 +302,38 @@
 										{/if}
 									</span>
 								</Button>
-							</div>
-						{/if}
-						<button
-							class="scale-90 px-2 py-2 text-light-600 hover:text-light-800"
-							title="Stash this branch"
-							on:click={() => {
-								if (branch.id) branchController.unapplyBranch(branch.id);
-							}}
-						>
-							<IconCloseSmall />
-						</button>
-					{/if}
-					{#if readonly && branch.mergeable}
-						<div transition:fade={{ duration: 150 }}>
-							<Button
-								class="w-20"
-								height="small"
-								kind="outlined"
-								color="purple"
+							{/if}
+							<button
+								class="scale-90 px-2 py-1 text-light-600 hover:text-light-800"
+								title="Stash this branch"
 								on:click={() => {
-									if (branch.id) branchController.applyBranch(branch.id);
+									if (branch.id) branchController.unapplyBranch(branch.id);
 								}}
 							>
-								<span class="purple"> Apply </span>
-							</Button>
-						</div>
-					{/if}
+								<IconCloseSmall />
+							</button>
+						{:else}
+							{#if branch.mergeable}
+								<Button
+									class="w-20"
+									height="small"
+									kind="outlined"
+									color="purple"
+									on:click={() => {
+										if (branch.id) branchController.applyBranch(branch.id);
+									}}
+								>
+									<span class="purple"> Apply </span>
+								</Button>
+							{/if}
+							<IconButton
+								icon={IconBackspace}
+								class="px-2 py-1 align-middle "
+								title="delete branch"
+								on:click={() => deleteBranchModal.show(branch)}
+							/>
+						{/if}
+					</div>
 				</div>
 
 				{#if commitDialogShown}
@@ -625,3 +632,25 @@
 		/>
 	{/if}
 </div>
+
+<!-- Delete branch confirmation modal -->
+
+<Modal width="small" bind:this={deleteBranchModal} let:item>
+	<svelte:fragment slot="title">Delete branch</svelte:fragment>
+	<div>
+		Deleting <code>{item.name}</code> cannot be undone.
+	</div>
+	<svelte:fragment slot="controls" let:close let:item>
+		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			height="small"
+			color="destructive"
+			on:click={() => {
+				branchController.deleteBranch(item.id);
+				close();
+			}}
+		>
+			Delete
+		</Button>
+	</svelte:fragment>
+</Modal>

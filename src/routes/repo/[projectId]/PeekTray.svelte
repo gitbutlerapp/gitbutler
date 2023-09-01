@@ -57,7 +57,7 @@
 	style:width={`${$userSettings.peekTrayWidth}px`}
 	style:translate={`${offsetLeft}px`}
 	style:transition-property={!disabled ? (expanded ? 'top,translate' : 'translate') : 'none'}
-	class="absolute z-30 flex shrink-0 overflow-visible bg-white text-light-800 duration-300 ease-in-out dark:bg-dark-800 dark:text-dark-100"
+	class="absolute z-30 flex shrink-0 overflow-visible bg-white text-light-800 outline-none duration-300 ease-in-out dark:bg-dark-800 dark:text-dark-100"
 	on:click|stopPropagation
 	on:keydown|stopPropagation
 	role="menu"
