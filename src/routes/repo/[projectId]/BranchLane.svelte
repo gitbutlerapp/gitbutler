@@ -29,6 +29,7 @@
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import IconBackspace from '$lib/icons/IconBackspace.svelte';
+	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -468,7 +469,8 @@
 								class="flex flex-shrink flex-col gap-y-2"
 								transition:slide={{ duration: readonly ? 0 : 250, axis: 'x' }}
 							>
-								{#each branch.files as file (file.id)}
+								<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
+								{#each sortLikeFileTree(branch.files) as file (file.id)}
 									<FileCard
 										expanded={file.expanded}
 										conflicted={file.conflicted}
