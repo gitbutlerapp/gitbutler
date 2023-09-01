@@ -2,7 +2,6 @@
 	import Button from '$lib/components/Button/Button.svelte';
 	import Modal from '$lib/components/Modal';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
-	import IconDelete from '$lib/icons/IconDelete.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
@@ -14,7 +13,6 @@
 	export let base: BaseBranch | undefined;
 
 	let applyConflictedModal: Modal;
-	let deleteBranchModal: Modal;
 
 	$: notesRows = branch ? Math.min(12, Math.max(2, branch.notes.split('\n').length)) : 2;
 
