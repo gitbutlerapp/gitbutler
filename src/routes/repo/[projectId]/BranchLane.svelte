@@ -249,7 +249,6 @@
 			.join('\n');
 		branchController.updateBranchOwnership(branch.id, (data + '\n' + ownership).trim());
 	}}
-	on:dblclick={() => (maximized = !maximized)}
 >
 	<div
 		bind:this={rsViewport}
