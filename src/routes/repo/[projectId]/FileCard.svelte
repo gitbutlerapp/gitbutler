@@ -29,6 +29,7 @@
 	export let projectPath: string;
 	export let expanded: boolean | undefined;
 	export let branchController: BranchController;
+	export let readonly = false;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const dispatch = createEventDispatcher<{
@@ -82,7 +83,7 @@
 
 <div
 	id={`file-${file.id}`}
-	draggable={!isFileLocked}
+	draggable={!isFileLocked && !readonly}
 	use:dzTrigger={{ type: dzType }}
 	on:dragstart={(e) => e.dataTransfer?.setData('text/hunk', getAllHunksOwnership())}
 	role="group"
@@ -175,7 +176,7 @@
 							class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 bg-white dark:border-dark-400 dark:bg-dark-900"
 						>
 							<div
-								draggable={!section.hunk.locked}
+								draggable={!section.hunk.locked && !readonly}
 								tabindex="0"
 								role="cell"
 								use:dzTrigger={{ type: dzType }}

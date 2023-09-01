@@ -4,17 +4,20 @@
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, Branch, BranchData } from '$lib/vbranches/types';
 	import { getContext } from 'svelte';
-	import VirtualBranchPeek from './VirtualBranchPeek.svelte';
 	import type { Readable } from '@square/svelte-store';
 	import BaseBranchPeek from './BaseBranchPeek.svelte';
 	import RemoteBranchPeek from './RemoteBranchPeek.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
+	import Lane from './BranchLane.svelte';
+	import type { getCloudApiClient } from '$lib/api/cloud/api';
 
 	export let item: Readable<BranchData | Branch | BaseBranch | undefined> | undefined;
+	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let base: BaseBranch | undefined;
 	export let branchController: BranchController;
 	export let expanded: boolean;
 	export let offsetTop: number;
+	export let projectId: string;
 	export let fullHeight = false;
 	export let disabled = false;
 
@@ -53,8 +56,8 @@
 	style:top={fullHeight ? 0 : `${offsetTop}px`}
 	style:width={`${$userSettings.peekTrayWidth}px`}
 	style:translate={`${offsetLeft}px`}
-	style:transition-property={!disabled ? (expanded ? 'top,translate,height' : 'translate') : 'none'}
-	class="absolute z-30 flex shrink-0 overflow-visible bg-white text-light-800 duration-200 ease-in-out dark:bg-dark-800 dark:text-dark-100"
+	style:transition-property={!disabled ? (expanded ? 'top,translate' : 'translate') : 'none'}
+	class="absolute z-30 flex shrink-0 overflow-visible bg-white text-light-800 duration-300 ease-in-out dark:bg-dark-800 dark:text-dark-100"
 	on:click|stopPropagation
 	on:keydown|stopPropagation
 	role="menu"
@@ -68,7 +71,17 @@
 			{#if $item instanceof BranchData}
 				<RemoteBranchPeek {branchController} {base} branch={$item} />
 			{:else if $item instanceof Branch}
-				<VirtualBranchPeek {branchController} {base} branch={$item} />
+				<Lane
+					branch={$item}
+					{branchController}
+					{base}
+					{cloud}
+					{projectId}
+					maximized={true}
+					cloudEnabled={false}
+					projectPath=""
+					readonly={true}
+				/>
 			{:else if $item instanceof BaseBranch}
 				<BaseBranchPeek base={$item} {branchController} />
 			{:else}

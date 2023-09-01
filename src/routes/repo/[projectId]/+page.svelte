@@ -67,6 +67,7 @@
 	let targetChoice: string | undefined;
 	let deltasUnsubscribe: (() => void) | undefined;
 	let trayViewport: HTMLElement;
+	let peekTrayExpanded: boolean;
 
 	// Used to prevent peek tray from showing while reducing tray size
 	let peekTransitionsDisabled = false;
@@ -104,6 +105,9 @@
 					{baseBranchStore}
 					{branchController}
 					{peekTransitionsDisabled}
+					bind:peekTrayExpanded
+					{cloud}
+					{projectId}
 				/>
 			</div>
 			<Resizer
@@ -144,7 +148,8 @@
 					</div>
 				{/if}
 				<div
-					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-none bg-light-300 dark:bg-dark-1100"
+					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-none bg-light-300 duration-300 dark:bg-dark-1100"
+					style:opacity={peekTrayExpanded ? '0.5' : undefined}
 				>
 					<Board
 						branches={$branchesWithContent}

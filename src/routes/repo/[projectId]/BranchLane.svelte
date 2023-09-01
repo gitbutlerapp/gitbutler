@@ -48,12 +48,14 @@
 	});
 
 	export let branch: Branch;
+	export let readonly = false;
 	export let projectPath: string;
 	export let projectId: string;
 	export let base: BaseBranch | undefined;
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
+	export let maximized = false;
 
 	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -65,7 +67,6 @@
 	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
 
 	let allExpanded: boolean | undefined;
-	let maximized = false;
 	let isPushing = false;
 	let meatballButton: HTMLDivElement;
 	let textAreaInput: HTMLTextAreaElement;
@@ -212,8 +213,8 @@
 
 <div
 	class="flex h-full shrink-0 snap-center"
-	style:width={`${laneWidth}px`}
-	draggable="true"
+	style:width={maximized ? '100%' : `${laneWidth}px`}
+	draggable={!readonly}
 	role="group"
 	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
 	on:dragstart
@@ -242,57 +243,90 @@
 		bind:this={rsViewport}
 		class="flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-light-400 bg-light-150 dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
 	>
-		<div
-			class="flex bg-light-200 text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100"
-		>
+		<div class="flex text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100">
 			<div class="flex flex-grow flex-col border-b border-light-400 dark:border-dark-600">
-				<div class="flex w-full items-center py-1 pl-1.5">
-					<div bind:this={meatballButton}>
-						<IconButton
-							icon={IconKebabMenu}
-							title=""
-							class="flex h-6 w-3 flex-grow-0 scale-90 items-center justify-center"
-							on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
-						/>
+				{#if !branch.mergeable}
+					<!-- use of relative is for tooltip rendering -->
+					<div class="bg-red-500 px-2 py-0.5 text-center font-bold dark:bg-red-700">
+						<Tooltip label="Canflicts with changes in your working directory, cannot be applied">
+							<span class="text-white">cannot be applied</span>
+						</Tooltip>
 					</div>
+				{:else if !branch.baseCurrent}
+					<div class="bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600">
+						<Tooltip label="Will introduce merge conflicts if applied">
+							<span class="">will cause merge conflicts</span>
+						</Tooltip>
+					</div>
+				{/if}
+				<div class="flex w-full items-center py-1 pl-1.5">
+					{#if !readonly}
+						<div bind:this={meatballButton}>
+							<IconButton
+								icon={IconKebabMenu}
+								title=""
+								class="flex h-6 w-3 flex-grow-0 scale-90 items-center justify-center"
+								on:click={() => popupMenu.openByElement(meatballButton, branch.id)}
+							/>
+						</div>
+					{/if}
 					<div class="flex-grow pr-2">
 						<input
 							type="text"
 							bind:value={branch.name}
 							on:change={handleBranchNameChange}
 							title={branch.name}
-							class="w-full truncate rounded border border-transparent bg-light-200 px-1 font-mono font-bold text-light-800 hover:border-light-400 dark:bg-dark-800 dark:text-dark-100 dark:hover:border-dark-600"
+							class="w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold text-light-800 hover:border-light-400 dark:text-dark-100 dark:hover:border-dark-600"
 							on:dblclick|stopPropagation
 							on:click={(e) => e.currentTarget.select()}
 						/>
 					</div>
-					<div class:invisible={branch.files.length == 0} transition:fade={{ duration: 150 }}>
-						<Button
-							class="w-20"
-							height="small"
-							kind="outlined"
-							color="purple"
-							disabled={branch.files.length == 0}
-							on:click={() => (commitDialogShown = !commitDialogShown)}
+					{#if !readonly}
+						{#if branch.files.length > 0}
+							<div transition:fade={{ duration: 150 }}>
+								<Button
+									class="w-20"
+									height="small"
+									kind="outlined"
+									color="purple"
+									disabled={branch.files.length == 0}
+									on:click={() => (commitDialogShown = !commitDialogShown)}
+								>
+									<span class="purple">
+										{#if !commitDialogShown}
+											Commit
+										{:else}
+											Cancel
+										{/if}
+									</span>
+								</Button>
+							</div>
+						{/if}
+						<button
+							class="scale-90 px-2 py-2 text-light-600 hover:text-light-800"
+							title="Stash this branch"
+							on:click={() => {
+								if (branch.id) branchController.unapplyBranch(branch.id);
+							}}
 						>
-							<span class="purple">
-								{#if !commitDialogShown}
-									Commit
-								{:else}
-									Cancel
-								{/if}
-							</span>
-						</Button>
-					</div>
-					<button
-						class="scale-90 px-2 py-2 text-light-600 hover:text-light-800"
-						title="Stash this branch"
-						on:click={() => {
-							if (branch.id) branchController.unapplyBranch(branch.id);
-						}}
-					>
-						<IconCloseSmall />
-					</button>
+							<IconCloseSmall />
+						</button>
+					{/if}
+					{#if readonly && branch.mergeable}
+						<div transition:fade={{ duration: 150 }}>
+							<Button
+								class="w-20"
+								height="small"
+								kind="outlined"
+								color="purple"
+								on:click={() => {
+									if (branch.id) branchController.applyBranch(branch.id);
+								}}
+							>
+								<span class="purple"> Apply </span>
+							</Button>
+						</div>
+					{/if}
 				</div>
 
 				{#if commitDialogShown}
@@ -389,7 +423,7 @@
 						name: 'notes',
 						displayName: 'Notes',
 						component: NotesTabPanel,
-						props: { notes: branch.notes, branch: branch.id, branchController }
+						props: { notes: branch.notes, branchId: branch.id, branchController }
 					}
 				]}
 			/>
@@ -416,7 +450,10 @@
 							Drop here to add to virtual branch
 						</div>
 						{#if branch.files.length > 0}
-							<div class="flex flex-shrink flex-col gap-y-2" transition:slide={{ duration: 150 }}>
+							<div
+								class="flex flex-shrink flex-col gap-y-2"
+								transition:slide={{ duration: readonly ? 0 : 250, axis: 'x' }}
+							>
 								{#each branch.files as file (file.id)}
 									<FileCard
 										expanded={file.expanded}
@@ -426,6 +463,7 @@
 										{projectId}
 										{projectPath}
 										{branchController}
+										{readonly}
 										on:expanded={(e) => {
 											setExpandedWithCache(file, e.detail);
 											expandFromCache();
@@ -441,10 +479,12 @@
 									data-dnd-ignore
 								>
 									<p>Nothing on this branch yet.</p>
-									<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
-									<p class="px-12 text-light-600">
-										Get some work done, then throw some files my way!
-									</p>
+									{#if !readonly}
+										<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
+										<p class="px-12 text-light-600">
+											Get some work done, then throw some files my way!
+										</p>
+									{/if}
 								</div>
 							{:else}
 								<!-- attention: these markers have custom css at the bottom of thise file -->
@@ -572,14 +612,16 @@
 			<Scrollbar {viewport} {contents} width="0.4rem" />
 		</div>
 	</div>
-	<Resizer
-		minWidth={180}
-		viewport={rsViewport}
-		direction="horizontal"
-		class="z-30"
-		on:width={(e) => {
-			laneWidth = e.detail;
-			lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
-		}}
-	/>
+	{#if !maximized}
+		<Resizer
+			minWidth={180}
+			viewport={rsViewport}
+			direction="horizontal"
+			class="z-30"
+			on:width={(e) => {
+				laneWidth = e.detail;
+				lscache.set(laneWidthKey + branch.id, e.detail, 7 * 1440); // 7 day ttl
+			}}
+		/>
+	{/if}
 </div>
