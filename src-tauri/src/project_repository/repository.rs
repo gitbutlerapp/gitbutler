@@ -504,11 +504,10 @@ impl<'repository> Repository<'repository> {
                     tracing::info!("{}: fetched {}", self.project.id, remote_name);
                     return Ok(());
                 }
-                Err(git::Error::Auth(e)) => {
-                    tracing::info!("{}: fetch failed: {:#}", self.project.id, e);
+                Err(e) => {
+                    tracing::error!("{}: fetch failed: {:#}", self.project.id, e);
                     continue;
                 }
-                Err(e) => return Err(Error::Other(e.into())),
             }
         }
 
