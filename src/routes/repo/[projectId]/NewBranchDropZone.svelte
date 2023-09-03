@@ -17,13 +17,12 @@
 		branchController.createBranch({ ownership });
 	}}
 >
-	<button
+	<div
 		id="new-branch-dz"
-		class="call-to-action h-full w-96 shrink-0 items-center justify-center border-2 border-dashed border-light-600 text-center text-light-600 opacity-0 transition-all duration-200 hover:border-light-700 hover:text-light-800 group-hover:opacity-100 dark:border-dark-300 dark:text-dark-200 hover:dark:border-light-400 hover:dark:text-dark-100"
-		on:click={() => branchController.createBranch({})}
+		class="call-to-action inline-flex h-full w-96 shrink-0 items-center justify-center border-2 border-dashed border-light-600 text-center text-light-600 opacity-0 transition-all duration-200 hover:border-light-700 hover:text-light-800 group-hover:opacity-100 dark:border-dark-300 dark:text-dark-200 hover:dark:border-light-400 hover:dark:text-dark-100"
 	>
-		Click to create new branch
-	</button>
+		<button on:click={() => branchController.createBranch({})}> Click to create new branch </button>
+	</div>
 	<div
 		class="new-dz-marker hidden h-full w-96 shrink-0 items-center justify-center border-2 border-dashed border-light-600 text-center text-light-600 transition-all duration-200 hover:border-light-700 hover:text-light-800 dark:border-dark-300 dark:text-dark-200 hover:dark:border-light-400 hover:dark:text-dark-100"
 	>
