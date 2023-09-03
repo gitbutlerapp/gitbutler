@@ -19,14 +19,16 @@
 >
 	<div
 		id="new-branch-dz"
-		class="call-to-action inline-flex h-full w-96 shrink-0 items-center justify-center border-2 border-dashed border-light-600 text-center text-light-600 opacity-0 transition-all duration-200 hover:border-light-700 hover:text-light-800 group-hover:opacity-100 dark:border-dark-300 dark:text-dark-200 hover:dark:border-light-400 hover:dark:text-dark-100"
+		class="call-to-action flex h-full w-96 shrink-0 items-start justify-center text-center text-light-600 opacity-0 transition-all duration-100 group-hover:opacity-100 dark:text-dark-200 hover:dark:text-dark-100"
 	>
-		<button on:click={() => branchController.createBranch({})}> Click to create new branch </button>
+		<button class="p-2 hover:text-light-700" on:click={() => branchController.createBranch({})}>
+			New virtual branch
+		</button>
 	</div>
 	<div
-		class="new-dz-marker hidden h-full w-96 shrink-0 items-center justify-center border-2 border-dashed border-light-600 text-center text-light-600 transition-all duration-200 hover:border-light-700 hover:text-light-800 dark:border-dark-300 dark:text-dark-200 hover:dark:border-light-400 hover:dark:text-dark-100"
+		class="new-dz-marker hidden h-full w-96 shrink-0 items-center justify-center border-2 border-dashed border-light-500 text-center text-light-600 dark:border-dark-600 dark:text-dark-200 dark:hover:border-dark-600 dark:hover:text-dark-100"
 	>
-		Drop here to create branch
+		New branch
 	</div>
 </div>
 
@@ -37,14 +39,14 @@
 	:global(.new-dz-active .new-dz-marker) {
 		@apply flex;
 	}
-	:global(.new-dz-hover .new-dz-marker) {
-		@apply border-light-700 text-light-800;
-	}
 	/**
 	 * We can't sue dark:[className] because of css isolation, and we can't use :hover
 	 * on the element since such events don't seem to trigger on drag. This is a hacky
 	 * solution and you're welcome to improve it.
 	 */
+	:global(.new-dz-hover .new-dz-marker) {
+		@apply border-light-600 text-light-700;
+	}
 	:global(.dark .new-dz-hover .new-dz-marker) {
 		@apply border-dark-200 text-dark-100;
 	}
