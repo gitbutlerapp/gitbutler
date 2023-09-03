@@ -169,17 +169,17 @@
 			</div>
 			<div class="flex">
 				<Tooltip label="Fetch from upstream">
-					<button
-						class="h-5 w-5 items-center justify-center hover:bg-light-150 dark:hover:bg-dark-700"
-						on:click|stopPropagation={() => {
+					<IconButton
+						class="items-center justify-center align-top hover:bg-light-150 dark:hover:bg-dark-700"
+						on:click={() => {
 							fetching = true;
 							branchController.fetchFromTarget().finally(() => (fetching = false));
 						}}
 					>
 						<div class:animate-spin={fetching}>
-							<IconRefresh class="h-4 w-4" />
+							<IconRefresh class="h-5 w-5" />
 						</div>
-					</button>
+					</IconButton>
 				</Tooltip>
 			</div>
 		</div>
@@ -207,13 +207,13 @@
 	>
 		<div class="font-bold">Stashed branches</div>
 		<div class="flex h-4 w-4 justify-around">
-			<button class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
+			<IconButton class="h-full w-full" on:click={() => (yourBranchesOpen = !yourBranchesOpen)}>
 				{#if yourBranchesOpen}
 					<IconTriangleUp />
 				{:else}
 					<IconTriangleDown />
 				{/if}
-			</button>
+			</IconButton>
 		</div>
 	</div>
 	<div
@@ -245,7 +245,7 @@
 							on:click={() => select(branch, i)}
 							on:keypress|capture={() => select(branch, i)}
 							transition:slide={{ duration: 250 }}
-							class="group border-b border-light-200 p-2 pr-0 last:border-b dark:border-dark-600"
+							class="group border-b border-light-200 p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2 dark:border-dark-600"
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
 						>
@@ -382,7 +382,7 @@
 							on:click={() => select(branch, i)}
 							on:keypress={() => select(branch, i)}
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
-							class="flex flex-col justify-between gap-1 border-b border-light-200 px-2 py-1 pt-2 last:border-b dark:border-dark-600"
+							class="flex flex-col justify-between gap-1 border-b border-light-200 px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b focus:outline-2 dark:border-dark-600"
 						>
 							<div class="flex flex-row items-center gap-x-2 pr-1">
 								<div class="text-light-600 dark:text-dark-200">

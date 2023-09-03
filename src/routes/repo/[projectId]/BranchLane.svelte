@@ -291,7 +291,7 @@
 							on:click={(e) => e.currentTarget.select()}
 						/>
 					</div>
-					<div class="flex" transition:fade={{ duration: 150 }}>
+					<div class="flex gap-x-1 px-1" transition:fade={{ duration: 150 }}>
 						{#if !readonly}
 							{#if branch.files.length > 0}
 								<Button
@@ -312,7 +312,7 @@
 								</Button>
 							{/if}
 							<button
-								class="scale-90 px-2 py-1 text-light-600 hover:text-light-800"
+								class="scale-90 px-1 py-1 text-light-600 hover:text-light-800"
 								title="Stash this branch"
 								on:click={() => {
 									if (branch.id) branchController.unapplyBranch(branch.id);
@@ -334,7 +334,7 @@
 							{/if}
 							<IconButton
 								icon={IconBackspace}
-								class="px-2 py-1 align-middle "
+								class="px-1 py-1 align-middle "
 								title="delete branch"
 								on:click={() => deleteBranchModal.show(branch)}
 							/>
