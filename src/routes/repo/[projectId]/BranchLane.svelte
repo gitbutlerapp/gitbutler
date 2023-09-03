@@ -444,9 +444,9 @@
 		<div class="relative flex flex-grow overflow-y-hidden">
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div
-				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-light-50/75 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-dark-900/75 dark:outline-dark-300"
+				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
 			>
-				<div class="hover-text invisible font-semibold">Drop here to move hunk/file</div>
+				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
 			<div
 				bind:this={viewport}
@@ -691,8 +691,7 @@
 		@apply visible;
 	}
 	:global(.lane-dz-hover .lane-dz-marker) {
-		/* TODO: Why doesn't hover:outline-light-800 work on the element? */
-		@apply text-light-800 outline-light-700;
+		@apply text-light-700 outline-light-600;
 	}
 	:global(.dark .lane-dz-hover .lane-dz-marker) {
 		@apply text-dark-100 outline-dark-200;

@@ -122,6 +122,9 @@
 					>
 						Learn more
 					</Link>
+					<button class="p-2" on:click={() => branchController.createBranch({})}>
+						New virtual branch
+					</button>
 				</div>
 			</div>
 		{:else}
