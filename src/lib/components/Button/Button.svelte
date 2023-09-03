@@ -27,7 +27,7 @@
 </script>
 
 <button
-	class={color + ' ' + classes}
+	class={color + ' ' + classes + ' button'}
 	class:small={height === 'small'}
 	class:full-width={width === 'full-width'}
 	class:pointer-events-none={loading}

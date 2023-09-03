@@ -145,11 +145,8 @@ button.active {
 	@apply bg-light-300 dark:bg-dark-600;
 }
 
-button {
-	@apply relative inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded py-2 text-base font-medium leading-5 transition;
-}
-button:focus {
-	@apply outline-none;
+.button {
+	@apply relative inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded py-2 text-base font-medium leading-5 outline-blue-200 transition focus:outline-2 dark:outline-blue-500;
 }
 
 .disabled {
