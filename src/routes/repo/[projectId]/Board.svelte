@@ -49,7 +49,7 @@
 		id="branch-lanes"
 		class="flex flex-shrink flex-grow items-start bg-light-300 dark:bg-dark-1100"
 		role="group"
-		use:dzHighlight={{ type: dzType }}
+		use:dzHighlight={{ type: dzType, active: 'board-dz-active', hover: 'board-dz-hover' }}
 		on:dragover={(e) => {
 			const children = [...e.currentTarget.children];
 			dropPosition = 0;

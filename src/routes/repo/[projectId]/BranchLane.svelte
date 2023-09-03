@@ -79,7 +79,6 @@
 	let deleteBranchModal: Modal;
 	let applyConflictedModal: Modal;
 
-	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
 	const laneWidthKey = 'laneWidth:';
 
@@ -228,7 +227,7 @@
 	style:width={maximized ? '100%' : `${laneWidth}px`}
 	draggable={!readonly}
 	role="group"
-	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
+	use:dzHighlight={{ type: dzType, hover: 'lane-dz-hover', active: 'lane-dz-active' }}
 	on:dragstart
 	on:dragend
 	on:drop|stopPropagation={(e) => {
@@ -443,6 +442,12 @@
 			/>
 		{/if}
 		<div class="relative flex flex-grow overflow-y-hidden">
+			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
+			<div
+				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-light-50/75 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-dark-900/75 dark:outline-dark-300"
+			>
+				<div class="hover-text invisible font-semibold">Drop here to move hunk/file</div>
+			</div>
 			<div
 				bind:this={viewport}
 				class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8"
@@ -460,9 +465,6 @@
 					{/if}
 
 					<div class="flex flex-col py-2">
-						<div class="drop-zone-marker hidden border p-6 text-center">
-							Drop here to add to virtual branch
-						</div>
 						{#if branch.files.length > 0}
 							<div
 								class="flex flex-shrink flex-col gap-y-2"
@@ -680,3 +682,19 @@
 		</Button>
 	</svelte:fragment>
 </Modal>
+
+<style lang="postcss">
+	:global(.lane-dz-active .lane-dz-marker) {
+		@apply flex;
+	}
+	:global(.lane-dz-hover .hover-text) {
+		@apply visible;
+	}
+	:global(.lane-dz-hover .lane-dz-marker) {
+		/* TODO: Why doesn't hover:outline-light-800 work on the element? */
+		@apply text-light-800 outline-light-700;
+	}
+	:global(.dark .lane-dz-hover .lane-dz-marker) {
+		@apply text-dark-100 outline-dark-200;
+	}
+</style>

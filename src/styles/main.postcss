@@ -347,23 +347,13 @@ input[type='checkbox'].large {
 	height: 1.25rem;
 }
 
-/* drag & drop */
-
+/**
+ * Prevents elements within drop-zones from firing mouse events, making
+ * it much easier to manage in/out/over/leave events since they fire less
+ * frequently.
+ */
 .drop-zone-hover * {
 	@apply pointer-events-none;
-}
-.drop-zone-marker {
-	@apply border-green-450 bg-green-200 dark:bg-green-470;
-}
-.drop-zone-active.drop-zone-hover .drop-zone-marker {
-	@apply border-green-500 bg-green-300 dark:bg-green-460;
-}
-.drop-zone-active .no-changes,
-.drop-zone-active .call-to-action {
-	@apply hidden;
-}
-.drop-zone-active .drop-zone-marker {
-	@apply block;
 }
 
 /* scrollbars */
