@@ -293,7 +293,7 @@
 								>
 									<IconButton
 										icon={IconChevronRightSmall}
-										class="flex gap-x-2 p-0 text-sm font-semibold text-light-500 hover:text-light-800 dark:text-dark-300 dark:hover:text-dark-50"
+										class="flex items-center gap-x-2 p-0 text-sm font-semibold text-light-500 hover:text-light-800 dark:text-dark-300 dark:hover:text-dark-50"
 										title="apply branch"
 										on:click={() => {
 											peekTrayExpanded = false;
