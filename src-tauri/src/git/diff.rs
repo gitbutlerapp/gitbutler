@@ -32,7 +32,6 @@ pub fn workdir(
     opts: &Options,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     let commit = repository
-        .git_repository
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
@@ -45,10 +44,9 @@ pub fn workdir(
         .show_untracked_content(true)
         .context_lines(opts.context_lines);
 
-    let repo = &repository.git_repository;
-    let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
+    let diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
 
-    hunks_by_filepath(repo, &diff)
+    hunks_by_filepath(repository, &diff)
 }
 
 pub fn trees(
@@ -63,14 +61,13 @@ pub fn trees(
         .show_binary(true)
         .show_untracked_content(true);
 
-    let repo = &repository.git_repository;
-    let diff = repo.diff_tree_to_tree(Some(old_tree), Some(new_tree), None)?;
+    let diff = repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), None)?;
 
-    hunks_by_filepath(repo, &diff)
+    hunks_by_filepath(repository, &diff)
 }
 
 fn hunks_by_filepath(
-    repo: &git::Repository,
+    repository: &Repository,
     diff: &git2::Diff,
 ) -> Result<HashMap<path::PathBuf, Vec<Hunk>>> {
     // find all the hunks
@@ -150,8 +147,8 @@ fn hunks_by_filepath(
                 // save the file_path to the odb
                 if !delta.new_file().id().is_zero() {
                     // the binary file wasnt deleted
-                    let full_path = repo.workdir().unwrap().join(file_path);
-                    repo.blob_path(full_path.as_path()).unwrap();
+                    let full_path = repository.workdir().unwrap().join(file_path);
+                    repository.blob_path(full_path.as_path()).unwrap();
                 }
                 current_diff.push_str(&format!("{}", delta.new_file().id()));
                 current_binary = true;
