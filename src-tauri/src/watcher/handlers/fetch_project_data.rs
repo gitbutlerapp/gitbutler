@@ -80,7 +80,6 @@ impl HandlerInner {
         .context("failed to open repository")?;
 
         let default_target = gb_repo.default_target()?.context("target not set")?;
-        let key = self.keys_controller.get_or_create()?;
 
         // mark fetching
         self.project_storage
@@ -99,6 +98,19 @@ impl HandlerInner {
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 
+        let key = match &project.preferred_key {
+            projects::AuthKey::Generated => {
+                let private_key = self.keys_controller.get_or_create()?;
+                keys::Key::Generated(Box::new(private_key))
+            }
+            projects::AuthKey::Local {
+                private_key_path,
+                passphrase,
+            } => keys::Key::Local {
+                private_key_path: private_key_path.clone(),
+                passphrase: passphrase.clone(),
+            },
+        };
         let project_repository = project_repository::Repository::open(&project)?;
 
         let fetch_result =

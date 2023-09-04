@@ -268,10 +268,22 @@ impl App {
             Err(e) => Err(e).context("failed to read default target"),
         }?;
 
-        let key = self
-            .keys_controller
-            .get_or_create()
-            .map_err(|e| Error::Other(e.into()))?;
+        let key = match &project.preferred_key {
+            projects::AuthKey::Local {
+                private_key_path,
+                passphrase,
+            } => keys::Key::Local {
+                private_key_path: private_key_path.clone(),
+                passphrase: passphrase.clone(),
+            },
+            projects::AuthKey::Generated => {
+                let key = self
+                    .keys_controller
+                    .get_or_create()
+                    .map_err(|e| Error::Other(e.into()))?;
+                keys::Key::Generated(Box::new(key))
+            }
+        };
 
         project_repository
             .fetch(default_target.branch.remote(), &key)

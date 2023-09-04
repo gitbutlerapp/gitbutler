@@ -41,6 +41,7 @@ pub struct UpdateRequest {
     pub api: Option<project::ApiProject>,
     pub project_data_last_fetched: Option<project::FetchResult>,
     pub gitbutler_data_last_fetched: Option<project::FetchResult>,
+    pub preferred_key: Option<project::AuthKey>,
 }
 
 impl Storage {
@@ -90,6 +91,10 @@ impl Storage {
 
         if let Some(api) = &update_request.api {
             project.api = Some(api.clone());
+        }
+
+        if let Some(preferred_key) = &update_request.preferred_key {
+            project.preferred_key = preferred_key.clone();
         }
 
         if let Some(project_data_last_fetched) = update_request.project_data_last_fetched.as_ref() {

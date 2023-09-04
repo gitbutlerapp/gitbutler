@@ -1,8 +1,16 @@
-use std::{fmt, str::FromStr};
+use std::{fmt, path, str::FromStr};
 
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use ssh_key;
+
+pub enum Key {
+    Generated(Box<PrivateKey>),
+    Local {
+        private_key_path: path::PathBuf,
+        passphrase: Option<String>,
+    },
+}
 
 #[derive(Debug)]
 pub struct PrivateKey(ssh_key::PrivateKey);

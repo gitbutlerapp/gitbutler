@@ -1,10 +1,21 @@
-use std::time;
+use std::{path, time};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::git;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AuthKey {
+    #[default]
+    Generated,
+    Local {
+        private_key_path: path::PathBuf,
+        passphrase: Option<String>,
+    },
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ApiProject {
@@ -77,6 +88,8 @@ pub struct Project {
     pub title: String,
     pub description: Option<String>,
     pub path: String,
+    #[serde(default)]
+    pub preferred_key: AuthKey,
     pub api: Option<ApiProject>,
     #[serde(default)]
     pub project_data_last_fetched: Option<FetchResult>,

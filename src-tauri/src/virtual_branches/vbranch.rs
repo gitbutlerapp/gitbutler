@@ -14,7 +14,7 @@ use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
     git::{self, diff},
-    keys::PrivateKey,
+    keys::Key,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions,
 };
@@ -1893,7 +1893,7 @@ pub fn push(
     project_repository: &project_repository::Repository,
     gb_repository: &gb_repository::Repository,
     branch_id: &str,
-    key: &PrivateKey,
+    key: &Key,
 ) -> Result<(), PushError> {
     let current_session = gb_repository
         .get_or_create_current_session()

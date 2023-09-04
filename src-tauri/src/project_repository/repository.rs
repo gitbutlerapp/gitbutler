@@ -37,6 +37,10 @@ impl<'repository> Repository<'repository> {
         })
     }
 
+    pub fn project(&self) -> &projects::Project {
+        self.project
+    }
+
     pub fn get_head(&self) -> Result<git::Reference, git::Error> {
         let head = self.git_repository.head()?;
         Ok(head)
@@ -408,7 +412,7 @@ impl<'repository> Repository<'repository> {
         &self,
         head: &git::Oid,
         branch: &git::RemoteBranchName,
-        key: &keys::PrivateKey,
+        key: &keys::Key,
     ) -> Result<(), Error> {
         let mut remote = self
             .get_remote(branch.remote())
@@ -446,7 +450,7 @@ impl<'repository> Repository<'repository> {
         Err(Error::AuthError)
     }
 
-    pub fn fetch(&self, remote_name: &str, key: &keys::PrivateKey) -> Result<(), Error> {
+    pub fn fetch(&self, remote_name: &str, key: &keys::Key) -> Result<(), Error> {
         let mut remote = self
             .get_remote(remote_name)
             .context("failed to get remote")
