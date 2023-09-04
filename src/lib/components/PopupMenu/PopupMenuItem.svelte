@@ -7,7 +7,7 @@
 	on:click|preventDefault
 	{disabled}
 	{title}
-	class="justify-left w-full px-3 py-0.5 no-underline enabled:hover:bg-light-100 disabled:text-light-600 enabled:dark:hover:bg-dark-800"
+	class="w-full px-3 py-0.5 text-left no-underline enabled:hover:bg-light-100 disabled:text-light-600 enabled:dark:hover:bg-dark-800"
 >
 	<slot />
 </button>
