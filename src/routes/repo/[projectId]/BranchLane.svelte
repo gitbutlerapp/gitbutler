@@ -29,6 +29,7 @@
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import IconButton from '$lib/components/IconButton.svelte';
 	import IconBackspace from '$lib/icons/IconBackspace.svelte';
+	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -76,8 +77,8 @@
 	let rsViewport: HTMLElement;
 	let laneWidth: number;
 	let deleteBranchModal: Modal;
+	let applyConflictedModal: Modal;
 
-	const hoverClass = 'drop-zone-hover';
 	const dzType = 'text/hunk';
 	const laneWidthKey = 'laneWidth:';
 
@@ -200,6 +201,14 @@
 		props: { allExpanded, allCollapsed, order: branch?.order, branchController }
 	});
 
+	function toggleBranch(branch: Branch) {
+		if (!branch.baseCurrent) {
+			applyConflictedModal.show(branch);
+		} else {
+			branchController.applyBranch(branch.id);
+		}
+	}
+
 	onMount(() => {
 		expandFromCache();
 		laneWidth = lscache.get(laneWidthKey + branch.id) ?? $userSettings.defaultLaneWidth;
@@ -218,7 +227,7 @@
 	style:width={maximized ? '100%' : `${laneWidth}px`}
 	draggable={!readonly}
 	role="group"
-	use:dzHighlight={{ type: dzType, hover: hoverClass, active: 'drop-zone-active' }}
+	use:dzHighlight={{ type: dzType, hover: 'lane-dz-hover', active: 'lane-dz-active' }}
 	on:dragstart
 	on:dragend
 	on:drop|stopPropagation={(e) => {
@@ -239,7 +248,6 @@
 			.join('\n');
 		branchController.updateBranchOwnership(branch.id, (data + '\n' + ownership).trim());
 	}}
-	on:dblclick={() => (maximized = !maximized)}
 >
 	<div
 		bind:this={rsViewport}
@@ -283,7 +291,7 @@
 							on:click={(e) => e.currentTarget.select()}
 						/>
 					</div>
-					<div class="flex" transition:fade={{ duration: 150 }}>
+					<div class="flex gap-x-1 px-1" transition:fade={{ duration: 150 }}>
 						{#if !readonly}
 							{#if branch.files.length > 0}
 								<Button
@@ -304,7 +312,7 @@
 								</Button>
 							{/if}
 							<button
-								class="scale-90 px-2 py-1 text-light-600 hover:text-light-800"
+								class="scale-90 px-1 py-1 text-light-600 hover:text-light-800"
 								title="Stash this branch"
 								on:click={() => {
 									if (branch.id) branchController.unapplyBranch(branch.id);
@@ -319,16 +327,14 @@
 									height="small"
 									kind="outlined"
 									color="purple"
-									on:click={() => {
-										if (branch.id) branchController.applyBranch(branch.id);
-									}}
+									on:click={() => toggleBranch(branch)}
 								>
 									<span class="purple"> Apply </span>
 								</Button>
 							{/if}
 							<IconButton
 								icon={IconBackspace}
-								class="px-2 py-1 align-middle "
+								class="px-1 py-1 align-middle "
 								title="delete branch"
 								on:click={() => deleteBranchModal.show(branch)}
 							/>
@@ -436,6 +442,12 @@
 			/>
 		{/if}
 		<div class="relative flex flex-grow overflow-y-hidden">
+			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
+			<div
+				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+			>
+				<div class="hover-text invisible font-semibold">Move here</div>
+			</div>
 			<div
 				bind:this={viewport}
 				class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll pb-8"
@@ -453,15 +465,13 @@
 					{/if}
 
 					<div class="flex flex-col py-2">
-						<div class="drop-zone-marker hidden border p-6 text-center">
-							Drop here to add to virtual branch
-						</div>
 						{#if branch.files.length > 0}
 							<div
 								class="flex flex-shrink flex-col gap-y-2"
-								transition:slide={{ duration: readonly ? 0 : 250, axis: 'x' }}
+								transition:slide={{ duration: readonly ? 0 : 250 }}
 							>
-								{#each branch.files as file (file.id)}
+								<!-- TODO: This is an experiment in file sorting. Accept or reject! -->
+								{#each sortLikeFileTree(branch.files) as file (file.id)}
 									<FileCard
 										expanded={file.expanded}
 										conflicted={file.conflicted}
@@ -654,3 +664,36 @@
 		</Button>
 	</svelte:fragment>
 </Modal>
+
+<Modal width="small" bind:this={applyConflictedModal}>
+	<svelte:fragment slot="title">Merge conflicts</svelte:fragment>
+	<p>Applying this branch will introduce merge conflicts.</p>
+	<svelte:fragment slot="controls" let:item let:close>
+		<Button height="small" kind="outlined" on:click={close}>Cancel</Button>
+		<Button
+			height="small"
+			color="purple"
+			on:click={() => {
+				branchController.applyBranch(item.id);
+				close();
+			}}
+		>
+			Update
+		</Button>
+	</svelte:fragment>
+</Modal>
+
+<style lang="postcss">
+	:global(.lane-dz-active .lane-dz-marker) {
+		@apply flex;
+	}
+	:global(.lane-dz-hover .hover-text) {
+		@apply visible;
+	}
+	:global(.lane-dz-hover .lane-dz-marker) {
+		@apply text-light-700 outline-light-600;
+	}
+	:global(.dark .lane-dz-hover .lane-dz-marker) {
+		@apply text-dark-100 outline-dark-200;
+	}
+</style>

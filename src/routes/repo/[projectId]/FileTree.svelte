@@ -3,6 +3,8 @@
 </script>
 
 <script lang="ts">
+	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
+
 	import IconChevronDownSmall from '$lib/icons/IconChevronDownSmall.svelte';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import IconFile from '$lib/icons/IconFile.svelte';
@@ -46,7 +48,7 @@
 				<IconFile class="h-4 w-4" />
 			</div>
 			<div
-				class="flex-grow truncate"
+				class="truncate"
 				class:text-red-500={status == 'D'}
 				class:dark:text-red-400={status == 'D'}
 				class:text-green-700={status == 'A'}
@@ -55,6 +57,9 @@
 				class:dark:text-orange-400={status == 'M'}
 			>
 				{node.name}
+			</div>
+			<div class="flex-grow truncate text-xs font-light text-light-600">
+				<TimeAgo date={node.file.modifiedAt} addSuffix={false} />
 			</div>
 			<div class="flex gap-1 font-mono text-xs font-bold">
 				<span class="text-green-500">

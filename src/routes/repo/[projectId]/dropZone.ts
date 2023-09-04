@@ -1,4 +1,5 @@
 const zoneMap = new Map<string, Set<HTMLElement>>();
+const optionsMap = new Map<HTMLElement, DzOptions>();
 
 export interface DzOptions {
 	type: string;
@@ -12,16 +13,18 @@ const defaultOptions: DzOptions = {
 	type: 'default'
 };
 
-function inactivateZones(zones: Set<HTMLElement>, cssClass: string) {
+function inactivateZones(zones: Set<HTMLElement>) {
 	zones?.forEach((zone) => {
-		zone.classList.remove(cssClass);
+		const opts = optionsMap.get(zone);
+		opts && zone.classList.remove(opts.active);
 	});
 }
 
-function activateZones(zones: Set<HTMLElement>, activeZone: HTMLElement, cssClass: string) {
+function activateZones(zones: Set<HTMLElement>, activeZone: HTMLElement) {
 	zones?.forEach((zone) => {
 		if (zone !== activeZone && !isChildOf(activeZone, zone)) {
-			zone.classList.add(cssClass);
+			const opts = optionsMap.get(zone);
+			opts && zone.classList.add(opts.active);
 		}
 	});
 }
@@ -72,7 +75,7 @@ export function dzTrigger(node: HTMLElement, opts: Partial<DzOptions> | undefine
 		node.style.opacity = '0.6';
 
 		e.dataTransfer?.setDragImage(clone, e.offsetX + 30, e.offsetY + 30); // Adds the padding
-		activateZones(zones, node, options.active);
+		activateZones(zones, node);
 		e.stopPropagation();
 	}
 
@@ -81,7 +84,7 @@ export function dzTrigger(node: HTMLElement, opts: Partial<DzOptions> | undefine
 		clone.remove(); // Remove temporary ghost element
 
 		e.stopPropagation();
-		inactivateZones(zones, options.active);
+		inactivateZones(zones);
 	}
 
 	node.addEventListener('dragstart', handleDragStart);
@@ -99,12 +102,25 @@ export function dzHighlight(node: HTMLElement, opts: Partial<DzOptions> | undefi
 	const options = { ...defaultOptions, ...opts };
 	const zones = getZones(options.type);
 	zones.add(node);
+	optionsMap.set(node, options);
+
+	function setHover(value: boolean) {
+		if (value) {
+			// We do this so we can set pointer-events-none on all dropzones from main css file,
+			// without it onMouseLeave fires every time a child container is left.
+			node.classList.add(defaultOptions.hover);
+			node.classList.add(options.hover);
+		} else {
+			node.classList.remove(defaultOptions.hover);
+			node.classList.remove(options.hover);
+		}
+	}
 
 	function handleDragEnter(e: DragEvent) {
 		if (!e.dataTransfer?.types.includes(options.type)) {
 			return;
 		}
-		node.classList.add(options.hover);
+		setHover(true);
 		e.stopPropagation();
 	}
 
@@ -113,14 +129,14 @@ export function dzHighlight(node: HTMLElement, opts: Partial<DzOptions> | undefi
 			return;
 		}
 		if (!isChildOf(e.target, node)) {
-			node.classList.remove(options.hover);
+			setHover(false);
 		}
 		e.stopPropagation();
 	}
 
 	function handleDragEnd(e: DragEvent) {
-		node.classList.remove(options.hover);
-		inactivateZones(zones, options.active);
+		setHover(false);
+		inactivateZones(zones);
 		e.stopPropagation();
 	}
 
@@ -128,8 +144,8 @@ export function dzHighlight(node: HTMLElement, opts: Partial<DzOptions> | undefi
 		if (!e.dataTransfer?.types.includes(options.type)) {
 			return;
 		}
-		node.classList.remove(options.hover);
-		inactivateZones(zones, options.active);
+		setHover(false);
+		inactivateZones(zones);
 	}
 
 	function handleDragOver(e: DragEvent) {
@@ -144,6 +160,7 @@ export function dzHighlight(node: HTMLElement, opts: Partial<DzOptions> | undefi
 	node.addEventListener('dragleave', handleDragLeave);
 	node.addEventListener('dragover', handleDragOver);
 	node.addEventListener('drop', handleDrop);
+	node.classList.add('drop-zone');
 
 	return {
 		destroy() {
