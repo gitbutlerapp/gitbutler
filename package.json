@@ -33,7 +33,7 @@
 		"@codemirror/lang-xml": "^6.0.2",
 		"@codemirror/language": "^6.9.0",
 		"@codemirror/state": "^6.2.1",
-		"@codemirror/view": "^6.16.0",
+		"@codemirror/view": "^6.17.1",
 		"@histoire/plugin-svelte": "^0.16.5",
 		"@lezer/common": "^1.0.4",
 		"@lezer/highlight": "^1.1.6",
