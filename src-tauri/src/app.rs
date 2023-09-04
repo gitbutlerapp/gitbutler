@@ -6,8 +6,10 @@ use tauri::{AppHandle, Manager};
 use tokio::task;
 
 use crate::{
-    bookmarks, deltas, files, gb_repository, git, keys,
-    project_repository::{self, activity, conflicts, diff},
+    bookmarks, deltas, files, gb_repository,
+    git::{self, diff},
+    keys,
+    project_repository::{self, activity, conflicts},
     projects, pty, reader, search, sessions, users,
     virtual_branches::{self, target},
     watcher,
@@ -347,7 +349,7 @@ impl App {
             .context("failed to open project repository")?;
 
         let diff = diff::workdir(
-            &project_repository,
+            &project_repository.git_repository,
             &project_repository.get_head()?.peel_to_commit()?.id(),
             &diff::Options { context_lines },
         )
@@ -371,14 +373,18 @@ impl App {
         let parent = commit.parent(0).context("failed to get parent commit")?;
         let commit_tree = commit.tree().context("failed to get commit tree")?;
         let parent_tree = parent.tree().context("failed to get parent tree")?;
-        let diff = diff::trees(&project_repository, &parent_tree, &commit_tree)?;
+        let diff = diff::trees(
+            &project_repository.git_repository,
+            &parent_tree,
+            &commit_tree,
+        )?;
 
         let diff = Self::diff_hunks_to_string(diff);
         Ok(diff)
     }
 
     fn diff_hunks_to_string(
-        diff: HashMap<path::PathBuf, Vec<project_repository::diff::Hunk>>,
+        diff: HashMap<path::PathBuf, Vec<diff::Hunk>>,
     ) -> HashMap<path::PathBuf, String> {
         diff.into_iter()
             .map(|(file_path, hunks)| {

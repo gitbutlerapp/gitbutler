@@ -12,9 +12,10 @@ use uuid::Uuid;
 
 use crate::{
     dedup::{dedup, dedup_fmt},
-    gb_repository, git,
+    gb_repository,
+    git::{self, diff},
     keys::PrivateKey,
-    project_repository::{self, conflicts, diff, LogUntil},
+    project_repository::{self, conflicts, LogUntil},
     reader, sessions,
 };
 
@@ -783,7 +784,7 @@ pub fn list_virtual_branches(
             let vtree_tree = project_repository.git_repository.find_tree(vtree)?;
 
             // do a diff between branch.head and the tree we _would_ commit
-            let diff = diff::trees(project_repository, &tree_old, &vtree_tree)
+            let diff = diff::trees(&project_repository.git_repository, &tree_old, &vtree_tree)
                 .context("failed to diff trees")?;
 
             let non_commited_hunks_by_filepath =
@@ -968,7 +969,11 @@ fn list_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff = diff::trees(project_repository, &parent_tree, &commit_tree)?;
+    let diff = diff::trees(
+        &project_repository.git_repository,
+        &parent_tree,
+        &commit_tree,
+    )?;
     let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
     Ok(hunks_to_files(
         project_repository,
@@ -1394,7 +1399,11 @@ fn get_non_applied_status(
                     .tree()
                     .context("failed to find target tree")?;
 
-                let diff = diff::trees(project_repository, &target_tree, &branch_tree)?;
+                let diff = diff::trees(
+                    &project_repository.git_repository,
+                    &target_tree,
+                    &branch_tree,
+                )?;
                 let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
                 Ok((
                     branch,
@@ -1422,7 +1431,7 @@ fn get_applied_status(
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
     let diff = diff::workdir(
-        project_repository,
+        &project_repository.git_repository,
         &default_target.sha,
         &diff::Options::default(),
     )

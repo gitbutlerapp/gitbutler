@@ -4,7 +4,8 @@ use anyhow::{bail, Context, Result};
 use uuid::Uuid;
 
 use crate::{
-    gb_repository, git,
+    gb_repository,
+    git::{self, diff},
     project_repository::{self, LogUntil},
     reader, sessions,
 };
@@ -573,7 +574,7 @@ pub fn create_virtual_branch_from_branch(
     }
 
     // do a diff between the head of this branch and the target base
-    let diff = project_repository::diff::trees(project_repository, &merge_tree, &tree)
+    let diff = diff::trees(&project_repository.git_repository, &merge_tree, &tree)
         .context("failed to diff trees")?;
     let hunks_by_filepath = super::hunks_by_filepath(project_repository, &diff);
 
