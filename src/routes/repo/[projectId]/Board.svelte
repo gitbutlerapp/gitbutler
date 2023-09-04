@@ -5,8 +5,10 @@
 	import { dzHighlight } from './dropZone';
 	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
-	import { Link } from '$lib/components';
 	import type { LoadState } from '@square/svelte-store';
+	import { open } from '@tauri-apps/api/shell';
+	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
+	import { rectToClientRect } from 'svelte-floating-ui/core';
 
 	export let projectId: string;
 	export let projectPath: string;
@@ -103,9 +105,9 @@
 
 		{#if !activeBranches || activeBranches.length == 0}
 			<div
-				class="m-auto mx-20 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
+				class="m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
 			>
-				<div class="inline-flex w-96 flex-col items-center gap-y-4">
+				<div class="inline-flex w-[35rem] flex-col items-center gap-y-4">
 					<h3 class="text-xl font-medium">You are up to date</h3>
 					<p class="text-light-700 dark:text-dark-200">
 						This means that your working directory looks exactly like your base branch. There isn't
@@ -115,16 +117,50 @@
 						If you start editing files in your working directory, a new virtual branch will
 						automatically be created and you can manage it here.
 					</p>
-					<Link
-						target="_blank"
-						rel="noreferrer"
-						href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
-					>
-						Learn more
-					</Link>
-					<button class="p-2" on:click={() => branchController.createBranch({})}>
-						New virtual branch
-					</button>
+					<div class="flex w-full">
+						<div class="w-1/2">
+							<h3 class="mb-2 text-xl font-medium">Start</h3>
+							<div class="flex flex-col gap-1 text-light-700 dark:text-dark-200">
+								<a
+									class="inline-flex items-center gap-2 hover:text-light-800 dark:hover:text-dark-100"
+									target="_blank"
+									rel="noreferrer"
+									href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+								>
+									<IconFile class="h-4 w-4" />
+									GitButler Docs
+								</a>
+								<div
+									class="inline-flex items-center gap-2 hover:text-light-800 dark:hover:text-dark-100"
+									role="button"
+									tabindex="0"
+									on:keypress={() => open(`vscode://file${projectPath}/`)}
+									on:click={() => open(`vscode://file${projectPath}/`)}
+								>
+									<IconTerminal class="h-4 w-4" />
+									Open in VSCode
+								</div>
+							</div>
+						</div>
+						<div class="w-1/2">
+							<h3 class="mb-2 text-xl font-medium">Recent</h3>
+							{#each (base?.recentCommits || []).slice(0, 4) as commit}
+								<div class="w-full truncate">
+									<a
+										class="inline-flex items-center gap-2 text-light-700 hover:text-light-800 dark:text-dark-200 hover:dark:text-dark-100
+										 "
+										href={base?.commitUrl(commit.id)}
+										target="_blank"
+										rel="noreferrer"
+										title="Open in browser"
+									>
+										<IconExternalLink class="h-4 w-4" />
+										{commit.description}
+									</a>
+								</div>
+							{/each}
+						</div>
+					</div>
 				</div>
 			</div>
 		{:else}
