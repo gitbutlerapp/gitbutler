@@ -152,7 +152,10 @@
 							<div class="flex flex-row items-center space-x-2">
 								{#if $project?.api?.sync}
 									<div class="h-2 w-2 rounded-full bg-green-700" />
-									<span>synced</span>
+									<span>online</span>
+								{:else}
+									<div class="h-2 w-2 rounded-full bg-red-700" />
+									<span class="text-light-600 dark:text-dark-200">offline</span>
 								{/if}
 							</div>
 						</Link>

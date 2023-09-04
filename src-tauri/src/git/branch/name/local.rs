@@ -66,18 +66,19 @@ impl TryFrom<&git::Branch<'_>> for Name {
     type Error = Error;
 
     fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        let branch = String::from_utf8(value.refname_bytes().to_vec()).map_err(Error::Utf8)?;
+        let branch_name = String::from_utf8(value.refname_bytes().to_vec()).map_err(Error::Utf8)?;
         if value.is_remote() {
-            Err(Error::NotLocal(branch))
+            Err(Error::NotLocal(branch_name))
         } else {
+            let branch: Self = branch_name.parse()?;
             match value.upstream() {
                 Ok(upstream) => Ok(Self {
-                    branch,
                     remote: Some(RemoteName::try_from(&upstream)?),
+                    ..branch
                 }),
                 Err(git::Error::NotFound(_)) => Ok(Self {
-                    branch,
                     remote: None,
+                    ..branch
                 }),
                 Err(error) => Err(error.into()),
             }
