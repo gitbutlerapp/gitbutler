@@ -166,6 +166,11 @@
 					{#if $update?.enabled && $update?.shouldUpdate}
 						<div class="flex items-center gap-1">
 							{#if !updateStatus}
+								<div
+									class="mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white"
+								>
+									1
+								</div>
 								<Link on:click={() => installUpdate()}>
 									version {$update.version} available
 								</Link>
