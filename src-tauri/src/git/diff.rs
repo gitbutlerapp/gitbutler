@@ -111,17 +111,14 @@ fn hunks_by_filepath(
             return true;
         };
 
-        let is_path_changed = if current_file_path.is_none() {
-            false
-        } else {
-            !file_path.eq(current_file_path.as_ref().unwrap())
-        };
-
-        let is_hunk_changed = if current_hunk_id.is_none() {
-            false
-        } else {
-            !hunk_id.eq(current_hunk_id.as_ref().unwrap())
-        };
+        let is_path_changed = current_file_path
+            .as_ref()
+            .map(|p| !file_path.eq(p))
+            .unwrap_or(false);
+        let is_hunk_changed = current_hunk_id
+            .as_ref()
+            .map(|h| !hunk_id.eq(h))
+            .unwrap_or(false);
 
         if is_hunk_changed || is_path_changed {
             let file_path = current_file_path.as_ref().unwrap().to_path_buf();
@@ -144,10 +141,10 @@ fn hunks_by_filepath(
         // is this a binary patch or a hunk?
         match line.origin() {
             'B' => {
+                let full_path = repository.workdir().unwrap().join(file_path);
                 // save the file_path to the odb
-                if !delta.new_file().id().is_zero() {
+                if !delta.new_file().id().is_zero() && full_path.exists() {
                     // the binary file wasnt deleted
-                    let full_path = repository.workdir().unwrap().join(file_path);
                     repository.blob_path(full_path.as_path()).unwrap();
                 }
                 current_diff.push_str(&format!("{}", delta.new_file().id()));
