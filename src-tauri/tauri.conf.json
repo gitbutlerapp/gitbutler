@@ -33,7 +33,7 @@
             "window": {
                 "startDragging": true,
                 "maximize" :true,
-                "unmaximize" :true,
+                "unmaximize" :true
             },
             "path": {
                 "all": true
