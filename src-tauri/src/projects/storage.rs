@@ -41,6 +41,7 @@ pub struct UpdateRequest {
     pub api: Option<project::ApiProject>,
     pub project_data_last_fetched: Option<project::FetchResult>,
     pub gitbutler_data_last_fetched: Option<project::FetchResult>,
+    pub preferred_key: Option<project::AuthKey>,
 }
 
 impl Storage {
@@ -92,6 +93,10 @@ impl Storage {
             project.api = Some(api.clone());
         }
 
+        if let Some(preferred_key) = &update_request.preferred_key {
+            project.preferred_key = preferred_key.clone();
+        }
+
         if let Some(project_data_last_fetched) = update_request.project_data_last_fetched.as_ref() {
             project.project_data_last_fetched = Some(project_data_last_fetched.clone());
         }
@@ -103,7 +108,7 @@ impl Storage {
         }
 
         self.storage
-            .write(PROJECTS_FILE, &serde_json::to_string(&projects)?)?;
+            .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
 
         Ok(projects
             .iter()
@@ -117,7 +122,7 @@ impl Storage {
         if let Some(index) = projects.iter().position(|p| p.id == id) {
             projects.remove(index);
             self.storage
-                .write(PROJECTS_FILE, &serde_json::to_string(&projects)?)?;
+                .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
         }
         Ok(())
     }
@@ -125,7 +130,7 @@ impl Storage {
     pub fn add_project(&self, project: &project::Project) -> Result<()> {
         let mut projects = self.list_projects()?;
         projects.push(project.clone());
-        let projects = serde_json::to_string(&projects)?;
+        let projects = serde_json::to_string_pretty(&projects)?;
         self.storage.write(PROJECTS_FILE, &projects)?;
         Ok(())
     }

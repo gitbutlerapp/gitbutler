@@ -253,12 +253,25 @@ impl Controller {
         project_id: &str,
         branch_id: &str,
     ) -> Result<(), Error> {
-        let private_key = self
-            .keys_storage
-            .get_or_create()
-            .context("failed to get or create private key")?;
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
+                let private_key = match &project_repository.project().preferred_key {
+                    projects::AuthKey::Local {
+                        private_key_path,
+                        passphrase,
+                    } => keys::Key::Local {
+                        private_key_path: private_key_path.clone(),
+                        passphrase: passphrase.clone(),
+                    },
+                    projects::AuthKey::Generated => {
+                        let private_key = self
+                            .keys_storage
+                            .get_or_create()
+                            .context("failed to get or create private key")?;
+                        keys::Key::Generated(Box::new(private_key))
+                    }
+                };
+
                 super::push(project_repository, gb_repository, branch_id, &private_key).map_err(
                     |e| match e {
                         super::PushError::Repository(e) => Error::PushError(e),
