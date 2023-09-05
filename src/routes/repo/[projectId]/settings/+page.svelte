@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import CloudForm from './CloudForm.svelte';
 	import DetailsForm from './DetailsForm.svelte';
+	import KeysForm from './KeysForm.svelte';
 	import * as projects from '$lib/api/ipc/projects';
 	import { projectsStore } from '$lib/api/ipc/projects';
 	import type { PageData } from './$types';
@@ -30,6 +31,8 @@
 			.then(() => toasts.success('Project deleted'))
 			.finally(() => (isDeleting = false));
 
+	const onKeysUpdated = (e: { detail: { preferred_key: projects.Key } }) =>
+		project.update({ ...e.detail });
 	const onCloudUpdated = (e: { detail: projects.Project }) => project.update({ ...e.detail });
 	const onDetailsUpdated = async (e: { detail: projects.Project }) => {
 		const api =
@@ -55,6 +58,7 @@
 		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 		<CloudForm project={$project} on:updated={onCloudUpdated} />
 		<DetailsForm project={$project} on:updated={onDetailsUpdated} />
+		<KeysForm project={$project} on:updated={onKeysUpdated} />
 
 		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
 		<div class="flex gap-x-4">

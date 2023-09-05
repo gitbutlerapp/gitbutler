@@ -108,7 +108,7 @@ impl Storage {
         }
 
         self.storage
-            .write(PROJECTS_FILE, &serde_json::to_string(&projects)?)?;
+            .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
 
         Ok(projects
             .iter()
@@ -122,7 +122,7 @@ impl Storage {
         if let Some(index) = projects.iter().position(|p| p.id == id) {
             projects.remove(index);
             self.storage
-                .write(PROJECTS_FILE, &serde_json::to_string(&projects)?)?;
+                .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
         }
         Ok(())
     }
@@ -130,7 +130,7 @@ impl Storage {
     pub fn add_project(&self, project: &project::Project) -> Result<()> {
         let mut projects = self.list_projects()?;
         projects.push(project.clone());
-        let projects = serde_json::to_string(&projects)?;
+        let projects = serde_json::to_string_pretty(&projects)?;
         self.storage.write(PROJECTS_FILE, &projects)?;
         Ok(())
     }

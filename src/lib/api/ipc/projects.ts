@@ -2,12 +2,19 @@ import { invoke } from '$lib/ipc';
 import type { Project as CloudProject } from '$lib/api/cloud';
 import { asyncWritable, derived } from '@square/svelte-store';
 
+export type Key =
+	| 'generated'
+	| {
+			local: { private_key_path: string; passphrase?: string };
+	  };
+
 export type Project = {
 	id: string;
 	title: string;
 	description?: string;
 	path: string;
 	api?: CloudProject & { sync: boolean };
+	preferred_key: Key;
 };
 
 export function list() {
@@ -41,7 +48,7 @@ const store = asyncWritable([], list);
 export function getProjectStore({ id }: { id: string }) {
 	return {
 		...derived(store, (projects) => projects?.find((p) => p.id === id)),
-		update: (params: Partial<Pick<Project, 'title' | 'description' | 'api'>>) =>
+		update: (params: Partial<Pick<Project, 'title' | 'description' | 'api' | 'preferred_key'>>) =>
 			update({
 				project: {
 					id,

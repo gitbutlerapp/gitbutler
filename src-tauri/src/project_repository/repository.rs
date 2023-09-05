@@ -439,7 +439,7 @@ impl<'repository> Repository<'repository> {
                     tracing::info!("{}: git push succeeded", self.project.id);
                     return Ok(());
                 }
-                Err(git::Error::Auth(e)) => {
+                Err(git::Error::AuthenticationFailed(e)) => {
                     tracing::info!("{}: git push failed: {:#}", self.project.id, e);
                     continue;
                 }

@@ -3,16 +3,21 @@ pub enum Error {
     #[error("not found: {0}")]
     NotFound(Box<dyn std::error::Error + Send + Sync>),
     #[error("authentication failed")]
-    Auth(Box<dyn std::error::Error + Send + Sync>),
+    AuthenticationFailed(Box<dyn std::error::Error + Send + Sync>),
+    #[error("ssh key error: {0}")]
+    SshKeyError(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl From<git2::Error> for Error {
     fn from(err: git2::Error) -> Self {
+        if err.class() == git2::ErrorClass::Ssh && err.code() == git2::ErrorCode::GenericError {
+            return Error::SshKeyError(err.into());
+        }
         match err.code() {
             git2::ErrorCode::NotFound => Error::NotFound(err.into()),
-            git2::ErrorCode::Auth => Error::Auth(err.into()),
+            git2::ErrorCode::Auth => Error::AuthenticationFailed(err.into()),
             _ => Error::Other(err.into()),
         }
     }
