@@ -1,5 +1,7 @@
 use std::env;
 
+use resolve_path::PathResolveExt;
+
 use crate::keys;
 
 pub type CredentialsCallback<'a> = Box<
@@ -43,17 +45,15 @@ pub fn for_key(key: &keys::Key) -> Vec<CredentialsCallback<'_>> {
     credentials
 }
 
-fn from_keypath<'a>(
-    key_path: std::path::PathBuf,
-    passphrase: Option<&'a str>,
-) -> CredentialsCallback<'a> {
+fn from_keypath(key_path: std::path::PathBuf, passphrase: Option<&str>) -> CredentialsCallback {
     Box::new(move |url, _username_from_url, _allowed_types| {
+        let key_path = key_path.resolve();
         tracing::info!("authenticating with {} using {}", url, key_path.display());
         git2::Cred::ssh_key("git", None, &key_path, passphrase)
     })
 }
 
-fn from_key(key: &keys::PrivateKey) -> CredentialsCallback<'_> {
+fn from_key(key: &keys::PrivateKey) -> CredentialsCallback {
     Box::new(|url, _username_from_url, _allowed_types| {
         tracing::info!("authenticating with {} using gitbutler's key", url);
         git2::Cred::ssh_key_from_memory("git", None, &key.to_string(), None)
