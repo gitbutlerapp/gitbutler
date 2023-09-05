@@ -31,7 +31,9 @@
                 "relaunch": true
             },
             "window": {
-                "startDragging": true
+                "startDragging": true,
+                "maximize" :true,
+                "unmaximize" :true,
             },
             "path": {
                 "all": true
