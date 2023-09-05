@@ -4,10 +4,10 @@ use anyhow::{anyhow, Context, Result};
 
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
-    hash: Option<String>,
-    timestamp_ms: Option<u128>,
-    start: usize,
-    end: usize,
+    pub hash: Option<String>,
+    pub timestamp_ms: Option<u128>,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl PartialEq for Hunk {

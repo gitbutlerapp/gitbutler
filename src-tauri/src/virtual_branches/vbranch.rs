@@ -1404,15 +1404,36 @@ fn get_non_applied_status(
                     &target_tree,
                     &branch_tree,
                 )?;
+                let timestamp_by_hash = branch
+                    .ownership
+                    .files
+                    .iter()
+                    .flat_map(|file| {
+                        file.hunks
+                            .iter()
+                            .filter_map(|hunk| match (hunk.hash.as_ref(), hunk.timestam_ms()) {
+                                (Some(hash), Some(timestamp_ms)) => Some((hash, timestamp_ms)),
+                                _ => None,
+                            })
+                            .collect::<HashMap<_, _>>()
+                    })
+                    .collect::<HashMap<_, _>>();
                 let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
-                Ok((
-                    branch,
-                    hunks_by_filepath
-                        .values()
-                        .flatten()
-                        .cloned()
-                        .collect::<Vec<_>>(),
-                ))
+                let hunks_by_filepath = hunks_by_filepath
+                    .values()
+                    .flatten()
+                    .map(|hunk| {
+                        let modified_at = timestamp_by_hash
+                            .get(&hunk.hash)
+                            .cloned()
+                            .unwrap_or(hunk.modified_at);
+                        VirtualBranchHunk {
+                            modified_at,
+                            ..hunk.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                Ok((branch, hunks_by_filepath))
             },
         )
         .collect::<Result<Vec<_>>>()?;
