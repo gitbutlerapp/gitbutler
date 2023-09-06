@@ -15,4 +15,4 @@ colored = "2.0.0"
 clap = { version = "4.0", features = ["derive"] }
 dialoguer = "0.10.4"
 anyhow = "1.0.71"
-git-butler-tauri = { path = "../src-tauri" }
+gitbutler = { path = "../tauri" }

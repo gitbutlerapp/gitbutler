@@ -3,7 +3,7 @@
         "beforeDevCommand": "pnpm dev",
         "beforeBuildCommand": "pnpm build",
         "devPath": "http://localhost:1420",
-        "distDir": "../build",
+        "distDir": "../ui/build",
         "withGlobalTauri": false
     },
     "package": {

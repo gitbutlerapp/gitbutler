@@ -68,7 +68,6 @@ jobs:
 
             - run: cargo fmt --check
               if: ${{ steps.init.outputs.backend == 'true' }}
-              working-directory: src-tauri
 
 
     story:
@@ -108,8 +107,6 @@ jobs:
             - name: Cache rust dependencies
               if: ${{ steps.init.outputs.backend == 'true' }}
               uses: Swatinem/rust-cache@v2
-              with:
-                workspaces: src-tauri
             
             - run: sudo apt-get update
               if: ${{ steps.init.outputs.backend == 'true' && runner.os == 'Linux' }}
@@ -130,9 +127,7 @@ jobs:
 
             - run: cargo clippy --all-features
               if: ${{ steps.init.outputs.backend == 'true' }}
-              working-directory: src-tauri
 
             - name: Test rust
               if: ${{ steps.init.outputs.backend == 'true' }}
-              working-directory: src-tauri
               run: cargo test --locked

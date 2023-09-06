@@ -8,7 +8,7 @@ use futures::future::join_all;
 use tauri::{generate_context, Manager};
 use tracing::instrument;
 
-use git_butler_tauri::*;
+use gitbutler::*;
 
 use crate::{error::Error, git, project_repository::activity};
 

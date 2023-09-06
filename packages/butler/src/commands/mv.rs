@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Args;
 use dialoguer::{console::Term, theme::ColorfulTheme, MultiSelect, Select};
 
-use git_butler_tauri::{reader, sessions, virtual_branches};
+use gitbutler::{reader, sessions, virtual_branches};
 
 use crate::app::App;
 
@@ -74,7 +74,7 @@ impl super::RunCommand for Move {
         ownership.put(
             &selected_files
                 .join("\n")
-                .try_into()
+                .parse()
                 .context("failed to convert to ownership")?,
         );
 
