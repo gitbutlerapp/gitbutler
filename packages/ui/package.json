@@ -86,7 +86,7 @@
 		"tailwindcss": "^3.3.3",
 		"tauri-plugin-log-api": "git+https://git@github.com/tauri-apps/tauri-plugin-log.git",
 		"tauri-plugin-websocket-api": "git+https://git@github.com/tauri-apps/tauri-plugin-websocket.git",
-		"tinykeys": "^1.4.0",
+		"tinykeys": "^2.1.0",
 		"tslib": "^2.6.2",
 		"typescript": "^5.2.2",
 		"vite": "^4.4.9",
