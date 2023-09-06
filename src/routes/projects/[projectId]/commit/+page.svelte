@@ -102,7 +102,6 @@
 		commit({
 			projectId: $page.params.projectId,
 			message: description.length > 0 ? `${summary}\n\n${description}` : summary,
-			push: false
 		})
 			.then(() => {
 				success('Commit created');

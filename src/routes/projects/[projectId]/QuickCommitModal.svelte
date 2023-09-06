@@ -73,7 +73,6 @@
 		commit({
 			projectId: project.id,
 			message: description.length > 0 ? `${summary}\n\n${description}` : summary,
-			push: false
 		})
 			.then(() => {
 				toasts.success('Commit created');
