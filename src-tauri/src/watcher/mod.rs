@@ -50,7 +50,7 @@ impl Watchers {
                 if let Err(e) = c_watcher.run(&project_path, &project_id).await {
                     tracing::error!("watcher error: {:#}", e);
                 }
-                tracing::info!("watcher stopped");
+                tracing::debug!("watcher stopped");
             })?;
 
         self.watchers
@@ -188,7 +188,7 @@ impl WatcherInner {
                                         e
                                     );
                                 } else {
-                                    tracing::info!(
+                                    tracing::debug!(
                                         "{}: sent response event: {}",
                                         project_id,
                                         event

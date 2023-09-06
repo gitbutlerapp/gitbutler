@@ -11,6 +11,7 @@ pub struct FileLock {
 }
 
 impl FileLock {
+    #[instrument(level = "debug")]
     pub fn lock(path: PathBuf) -> FileLock {
         let mut options = OpenOptions::new();
         options.create_new(true);
@@ -51,7 +52,6 @@ impl FileLock {
 }
 
 impl Drop for FileLock {
-    #[instrument(skip_all)]
     fn drop(&mut self) {
         std::fs::remove_file(&self.path).expect("failed to delete lock file");
     }

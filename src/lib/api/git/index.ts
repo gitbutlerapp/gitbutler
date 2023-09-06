@@ -2,7 +2,7 @@ export type { Activity } from './activities';
 
 import { invoke } from '$lib/ipc';
 
-export function commit(params: { projectId: string; message: string; push: boolean }) {
+export function commit(params: { projectId: string; message: string }) {
 	return invoke<boolean>('git_commit', params);
 }
 

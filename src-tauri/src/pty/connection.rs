@@ -112,7 +112,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                 match pty_reader.read(tail) {
                     Ok(0) => {
                         // EOF
-                        tracing::info!("0 bytes read from pty. EOF.");
+                        tracing::debug!("0 bytes read from pty. EOF.");
                         if let Err(e) = ws_sender
                             .send(tokio_tungstenite::tungstenite::Message::Close(None))
                             .await
@@ -153,7 +153,7 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                 }
             }
 
-            tracing::info!("PTY child process killed.");
+            tracing::debug!("PTY child process killed.");
         });
     });
 
@@ -180,9 +180,9 @@ pub async fn accept_connection(app: app::App, stream: net::TcpStream) -> Result<
                 }
             }
             Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => {
-                tracing::info!("Closing the websocket connection...");
+                tracing::debug!("Closing the websocket connection...");
 
-                tracing::info!("Killing PTY child process...");
+                tracing::debug!("Killing PTY child process...");
                 pty_child_process
                     .kill()
                     .with_context(|| "failed to kill pty child process".to_string())?;

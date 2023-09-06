@@ -13,7 +13,7 @@ use git_butler_tauri::*;
 use crate::{error::Error, git, project_repository::activity};
 
 #[tauri::command(async)]
-#[instrument(name = "get_project_archive_path", skip(handle))]
+#[instrument(skip(handle))]
 async fn get_project_archive_path(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -29,7 +29,7 @@ async fn get_project_archive_path(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "get_project_data_archive_path", skip(handle))]
+#[instrument(skip(handle))]
 async fn get_project_data_archive_path(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -47,7 +47,7 @@ async fn get_project_data_archive_path(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "get_logs_archive_path", skip(handle))]
+#[instrument(skip(handle))]
 async fn get_logs_archive_path(handle: tauri::AppHandle) -> Result<String, Error> {
     let zipper = handle.state::<zip::Zipper>();
     let zipped_logs = zipper.zip(handle.path_resolver().app_log_dir().unwrap())?;
@@ -55,7 +55,7 @@ async fn get_logs_archive_path(handle: tauri::AppHandle) -> Result<String, Error
 }
 
 #[tauri::command(async)]
-#[instrument(name = "search", skip(handle))]
+#[instrument(skip(handle))]
 async fn search(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -83,7 +83,7 @@ async fn search(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "list_sessions", skip(handle))]
+#[instrument(skip(handle))]
 async fn list_sessions(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -97,7 +97,7 @@ async fn list_sessions(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "get_user", skip(handle))]
+#[instrument(skip(handle))]
 async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error> {
     let app = handle.state::<app::App>();
     let proxy = handle.state::<assets::Proxy>();
@@ -125,7 +125,7 @@ async fn get_user(handle: tauri::AppHandle) -> Result<Option<users::User>, Error
 }
 
 #[tauri::command(async)]
-#[instrument(name = "set_user", skip(handle))]
+#[instrument(skip(handle))]
 async fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
@@ -137,7 +137,7 @@ async fn set_user(handle: tauri::AppHandle, user: users::User) -> Result<(), Err
 }
 
 #[tauri::command(async)]
-#[instrument(name = "delete_user", skip(handle))]
+#[instrument(skip(handle))]
 async fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
@@ -149,7 +149,7 @@ async fn delete_user(handle: tauri::AppHandle) -> Result<(), Error> {
 }
 
 #[tauri::command(async)]
-#[instrument(name = "update_project", skip(handle))]
+#[instrument(skip(handle))]
 async fn update_project(
     handle: tauri::AppHandle,
     project: projects::UpdateRequest,
@@ -167,7 +167,7 @@ async fn update_project(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "add_project", skip(handle))]
+#[instrument(skip(handle))]
 async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::Project, Error> {
     let app = handle.state::<app::App>();
     let project = app.add_project(path)?;
@@ -175,7 +175,7 @@ async fn add_project(handle: tauri::AppHandle, path: &str) -> Result<projects::P
 }
 
 #[tauri::command(async)]
-#[instrument(name = "get_project", skip(handle))]
+#[instrument(skip(handle))]
 async fn get_project(
     handle: tauri::AppHandle,
     id: &str,
@@ -186,7 +186,7 @@ async fn get_project(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "list_projects", skip(handle))]
+#[instrument(skip(handle))]
 async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
     let app = handle.state::<app::App>();
 
@@ -196,7 +196,7 @@ async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project
 }
 
 #[tauri::command(async)]
-#[instrument(name = "delete_project", skip(handle))]
+#[instrument(skip(handle))]
 async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
 
@@ -207,7 +207,7 @@ async fn delete_project(handle: tauri::AppHandle, id: &str) -> Result<(), Error>
 }
 
 #[tauri::command(async)]
-#[instrument(name = "list_session_files", skip(handle))]
+#[instrument(skip(handle))]
 async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -227,7 +227,7 @@ async fn list_session_files(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "list_deltas", skip(handle))]
+#[instrument(skip(handle))]
 async fn list_deltas(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -247,7 +247,7 @@ async fn list_deltas(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_activity", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_activity(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -261,7 +261,7 @@ async fn git_activity(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_status", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_status(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -274,7 +274,7 @@ async fn git_status(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_wd_diff", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_wd_diff(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -288,7 +288,7 @@ async fn git_wd_diff(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_commit_diff", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_commit_diff(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -307,7 +307,7 @@ async fn git_commit_diff(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_match_paths", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_match_paths(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -326,7 +326,7 @@ async fn git_match_paths(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_branches", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_branches(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -339,7 +339,7 @@ async fn git_branches(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_remote_branches", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -355,7 +355,7 @@ async fn git_remote_branches(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_remote_branches_data", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_remote_branches_data(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -409,7 +409,7 @@ async fn git_remote_branches_data(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_head", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, Error> {
     let app = handle.state::<app::App>();
     let head = app
@@ -419,7 +419,7 @@ async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, 
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_switch_branch", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_switch_branch(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -435,7 +435,7 @@ async fn git_switch_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_stage", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_stage(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -448,7 +448,7 @@ async fn git_stage(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_unstage", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_unstage(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -461,21 +461,20 @@ async fn git_unstage(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_commit", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_commit(
     handle: tauri::AppHandle,
     project_id: &str,
     message: &str,
-    push: bool,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    app.git_commit(project_id, message, push)
+    app.git_commit(project_id, message)
         .with_context(|| format!("failed to commit for project {}", project_id))?;
     Ok(())
 }
 
 #[tauri::command(async)]
-#[instrument(name = "delete_all_data", skip(handle))]
+#[instrument(skip(handle))]
 async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.delete_all_data().context("failed to delete all data")?;
@@ -483,7 +482,7 @@ async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
 }
 
 #[tauri::command(async)]
-#[instrument(name = "upsert_bookmark", skip(handle))]
+#[instrument(skip(handle))]
 async fn upsert_bookmark(
     handle: tauri::AppHandle,
     project_id: String,
@@ -512,7 +511,7 @@ async fn upsert_bookmark(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "list_bookmarks", skip(handle))]
+#[instrument(skip(handle))]
 async fn list_bookmarks(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -526,7 +525,7 @@ async fn list_bookmarks(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "fetch_from_target", skip(handle))]
+#[instrument(skip(handle))]
 async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.fetch_from_target(project_id)?;
@@ -534,7 +533,7 @@ async fn fetch_from_target(handle: tauri::AppHandle, project_id: &str) -> Result
 }
 
 #[tauri::command(async)]
-#[instrument(name = "mark_resolved", skip(handle))]
+#[instrument(skip(handle))]
 async fn mark_resolved(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -546,7 +545,7 @@ async fn mark_resolved(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_set_config", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_set_config(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -559,7 +558,7 @@ async fn git_set_config(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_get_config", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_get_config(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -571,7 +570,7 @@ async fn git_get_config(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_set_global_config", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_set_global_config(
     handle: tauri::AppHandle,
     key: &str,
@@ -583,7 +582,7 @@ async fn git_set_global_config(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "git_get_global_config", skip(handle))]
+#[instrument(skip(handle))]
 async fn git_get_global_config(
     handle: tauri::AppHandle,
     key: &str,
@@ -621,7 +620,7 @@ async fn main() {
                 let item_handle = app_handle.tray_handle().get_item(&id);
                 match id.as_str() {
                     "quit" => {
-                        tracing::info!("App exited");
+                        tracing::info!("Quitting app");
                         app_handle.exit(0);
                     }
                     "toggle" => match get_window(app_handle) {
@@ -783,29 +782,33 @@ fn get_window(handle: &tauri::AppHandle) -> Option<tauri::Window> {
 
 #[cfg(not(target_os = "macos"))]
 fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
-    tracing::info!("Creating window");
     let app_title = handle.package_info().name.clone();
-    tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
-        .resizable(true)
-        .title(app_title)
-        .disable_file_drop_handler()
-        .min_inner_size(600.0, 300.0)
-        .inner_size(800.0, 600.0)
-        .build()
+    let window =
+        tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
+            .resizable(true)
+            .title(app_title)
+            .disable_file_drop_handler()
+            .min_inner_size(600.0, 300.0)
+            .inner_size(800.0, 600.0)
+            .build()?;
+    tracing::info!("app window created");
+    Ok(window)
 }
 
 #[cfg(target_os = "macos")]
 fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
-    tracing::info!("Creating window");
-    tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
-        .resizable(true)
-        .title(handle.package_info().name.clone())
-        .min_inner_size(1024.0, 600.0)
-        .inner_size(1024.0, 600.0)
-        .hidden_title(true)
-        .disable_file_drop_handler()
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .build()
+    let window =
+        tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
+            .resizable(true)
+            .title(handle.package_info().name.clone())
+            .min_inner_size(1024.0, 600.0)
+            .inner_size(1024.0, 600.0)
+            .hidden_title(true)
+            .disable_file_drop_handler()
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .build()?;
+    tracing::info!("window created");
+    Ok(window)
 }
 
 fn set_toggle_menu_hide(handle: &tauri::AppHandle) -> tauri::Result<()> {

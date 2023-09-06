@@ -36,25 +36,35 @@ impl Dispatcher {
 
         let (notify_tx, mut notify_rx) = channel(1);
         let mut watcher = RecommendedWatcher::new(
-            move |res: notify::Result<notify::Event>| match res {
-                Ok(event) => {
-                    if !is_interesting_kind(&event.kind) {
-                        return;
+            {
+                let project_id = project_id.to_string();
+                move |res: notify::Result<notify::Event>| match res {
+                    Ok(event) => {
+                        if !is_interesting_kind(&event.kind) {
+                            return;
+                        }
+                        for path in event
+                            .paths
+                            .into_iter()
+                            .filter(|file| is_interesting_file(&repo, file))
+                        {
+                            block_on(async {
+                                tracing::info!(
+                                    "{}: file change detected: {}",
+                                    project_id,
+                                    path.display()
+                                );
+                                if let Err(error) = notify_tx.send(path).await {
+                                    tracing::error!(
+                                        "failed to send file change event: {:#}",
+                                        error
+                                    );
+                                }
+                            });
+                        }
                     }
-                    for path in event
-                        .paths
-                        .into_iter()
-                        .filter(|file| is_interesting_file(&repo, file))
-                    {
-                        block_on(async {
-                            tracing::warn!("detected file change event: {}", path.display());
-                            if let Err(error) = notify_tx.send(path).await {
-                                tracing::error!("failed to send file change event: {:#}", error);
-                            }
-                        });
-                    }
+                    Err(error) => tracing::error!("file watcher error: {:#}", error),
                 }
-                Err(error) => tracing::error!("file watcher error: {:#}", error),
             },
             Config::default(),
         )?;
@@ -64,7 +74,7 @@ impl Dispatcher {
             .with_context(|| format!("failed to watch project path: {}", path.display()))?;
         self.watcher.lock().unwrap().replace(watcher);
 
-        tracing::info!("{}: file watcher started", project_id);
+        tracing::debug!("{}: file watcher started", project_id);
 
         let (tx, rx) = channel(1);
         let project_id = project_id.to_string();
@@ -104,7 +114,7 @@ impl Dispatcher {
                             }
                         }
                     }
-                    tracing::info!("{}: file watcher stopped", project_id);
+                    tracing::debug!("{}: file watcher stopped", project_id);
                 }
             })?;
 

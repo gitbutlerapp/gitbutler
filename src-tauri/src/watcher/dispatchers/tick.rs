@@ -39,7 +39,7 @@ impl Dispatcher {
             .spawn({
                 let project_id = project_id.to_string();
                 async move {
-                    tracing::info!("{}: ticker started", project_id);
+                    tracing::debug!("{}: ticker started", project_id);
                     loop {
                         ticker.tick().await;
                         if self.cancellation_token.is_cancelled() {
@@ -55,7 +55,7 @@ impl Dispatcher {
                             tracing::error!("{}: failed to send tick: {}", project_id, e);
                         }
                     }
-                    tracing::info!("{}: ticker stopped", project_id);
+                    tracing::debug!("{}: ticker stopped", project_id);
                 }
             })?;
 

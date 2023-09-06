@@ -18,11 +18,14 @@ pub fn init(app_handle: &AppHandle) {
     let format_for_humans = tracing_subscriber::fmt::format()
         .with_file(true)
         .with_line_number(true)
-        .with_thread_ids(true)
         .with_target(false)
         .compact();
 
-    let filter_for_humans = LevelFilter::DEBUG;
+    let log_level_filter = if cfg!(feature = "debug") {
+        LevelFilter::DEBUG
+    } else {
+        LevelFilter::INFO
+    };
 
     let subscriber = tracing_subscriber::registry()
         .with(
@@ -38,15 +41,15 @@ pub fn init(app_handle: &AppHandle) {
             // subscriber that writes spans to stdout
             tracing_subscriber::fmt::layer()
                 .event_format(format_for_humans.clone())
-                .with_filter(filter_for_humans),
+                .with_span_events(FmtSpan::CLOSE)
+                .with_filter(log_level_filter),
         )
         .with(
             // subscriber that writes spans to a file
             tracing_subscriber::fmt::layer()
                 .event_format(format_for_humans)
                 .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-                .with_writer(file_writer)
-                .with_filter(filter_for_humans),
+                .with_writer(file_writer),
         );
 
     set_global_default(subscriber).expect("failed to set subscriber");

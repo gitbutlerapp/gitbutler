@@ -47,7 +47,7 @@ impl TryFrom<&AppHandle> for Handler {
 }
 
 impl Handler {
-    #[instrument(name = "handle", skip(self), fields(event = %event))]
+    #[instrument(skip(self), fields(event = %event), level = "debug")]
     pub fn handle(&self, event: &events::Event) -> Result<Vec<events::Event>> {
         match event {
             events::Event::ProjectFileChange(project_id, path) => self

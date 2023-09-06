@@ -5,7 +5,7 @@
 [see here](https://tauri.app/v1/guides/getting-started/prerequisites)
 for the list of software required to build / develope the app.
 
-## Setup
+### Setup
 
 Then, make sure to install app dependencies:
 
@@ -13,14 +13,18 @@ Then, make sure to install app dependencies:
 $ pnpm install
 ```
 
-## Develop
-
-### Running the app
+### Run the app
 
 Now you should be able to run the app in development mode:
 
 ```bash
 $ pnpm tauri dev
+```
+
+By default it will not print debug logs to console. If you want debug logs, use `debug` feature:
+
+```bash
+$ pnpm tauri dev --features debug
 ```
 
 ### Run Stories
@@ -33,14 +37,14 @@ $ pnpm story:dev
 
 ### Lint & format
 
-Frontend:
+Javascript:
 
 ```bash
 $ pnpm lint
 $ pnpm format
 ```
 
-Backend:
+Rust:
 
 ```bash
 $ cd ./src-tauri
