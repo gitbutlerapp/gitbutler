@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
 
-use git_butler_tauri::{reader, sessions, virtual_branches};
+use gitbutler::{reader, sessions, virtual_branches};
 
 use crate::app::App;
 
@@ -15,7 +15,10 @@ impl super::RunCommand for Info {
 
         // just print information for the project
         println!("path: {}", app.path().yellow());
-        println!("data_dir: {}", app.local_data_dir().yellow());
+        println!(
+            "data_dir: {}",
+            app.local_data_dir().display().to_string().yellow()
+        );
 
         // find the project in project storage that matches the cwd
         println!("{}", "project:".to_string().red());

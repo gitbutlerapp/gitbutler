@@ -1,5 +1,5 @@
 [package]
-name = "git-butler-tauri"
+name = "gitbutler"
 version = "0.0.0"
 description = "A Tauri App"
 authors = ["you"]
@@ -61,6 +61,7 @@ backoff = "0.4.0"
 byteorder = "1.4.3"
 num_cpus = "1.16.0"
 resolve-path = "0.1.0"
+posthog-rs = "0.2.2"
 
 [features]
 # by default Tauri runs in production mode
@@ -74,8 +75,3 @@ devtools = ["tauri/devtools"]
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
 
-# https://tauri.app/v1/guides/building/app-size/#rust-build-time-optimizations
-[profile.release]
-codegen-units = 1 # Compile crates one after another so the compiler can optimize better
-lto = true        # Enables link to optimizations
-opt-level = "s"   # Optimize for binary size

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Args;
 
-use git_butler_tauri::{sessions, virtual_branches};
+use gitbutler::{sessions, virtual_branches};
 
 use crate::app::App;
 

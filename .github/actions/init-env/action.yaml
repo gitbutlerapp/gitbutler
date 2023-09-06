@@ -3,8 +3,8 @@ description: Determine what kind of change has taken place
 inputs:
   runs-on:
     description: |
-        Filter by project type, must be named filter from step `changes`
-    default: 'all'
+      Filter by project type, must be named filter from step `changes`
+    default: "all"
 outputs:
   frontend:
     description: "Change affects front end"
@@ -13,7 +13,7 @@ outputs:
     description: "Change affects back end"
     value: ${{ steps.backend.outputs.value }}
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Getting changes
       id: changes
@@ -21,16 +21,14 @@ runs:
       with:
         filters: |
           backend:
-            - 'src-tauri/**'
-            - 'butler/**'
+            - 'packages/tauri/**'
+            - 'packages/butler/**'
+            - 'Cargo.lock'
           frontend:
-            - 'src/**'
+            - 'packages/ui/**'
             - '.github/**'
             - 'package.json'
-            - '*.config.*'
-            - 'tsconfig.json'
-            - '.npmrc'
-            - '.env.*'
+            - 'pnpm-lock.yaml'
 
     - id: frontend
       run: echo "value=${{ steps.changes.outputs.frontend}}" >> $GITHUB_OUTPUT
@@ -51,7 +49,7 @@ runs:
       name: Setup node
       if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
       with:
-        node-version: '18'
+        node-version: "18"
         cache: pnpm
 
     - name: Get pnpm store directory

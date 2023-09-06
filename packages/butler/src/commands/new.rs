@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Input};
 
-use git_butler_tauri::virtual_branches;
+use gitbutler::virtual_branches;
 
 use crate::app::App;
 
