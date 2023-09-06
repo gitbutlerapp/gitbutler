@@ -10,6 +10,7 @@ pub struct FileLock {
 }
 
 impl FileLock {
+    #[instrument(level = "debug")]
     pub fn lock(path: PathBuf) -> FileLock {
         loop {
             // Create lockfile, or open pre-existing one
@@ -33,7 +34,6 @@ impl FileLock {
 }
 
 impl Drop for FileLock {
-    #[instrument(skip_all)]
     fn drop(&mut self) {
         // Removing the file isn't strictly necessary, but reduces confusion.
         _ = std::fs::remove_file(&self.path);

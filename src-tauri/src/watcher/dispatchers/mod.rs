@@ -80,7 +80,7 @@ impl Dispatcher {
                     }
                 }
             }
-            tracing::info!("{}: dispatcher stopped", project_id);
+            tracing::debug!("{}: dispatcher stopped", project_id);
         })?;
 
         Ok(rx)

@@ -7,7 +7,7 @@ use crate::{error::Error, git};
 use super::controller::Controller;
 
 #[tauri::command(async)]
-#[instrument(name = "commit_virtual_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn commit_virtual_branch(
     handle: AppHandle,
     project_id: &str,
@@ -22,7 +22,7 @@ pub async fn commit_virtual_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "list_virtual_branches", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn list_virtual_branches(
     handle: AppHandle,
     project_id: &str,
@@ -35,7 +35,7 @@ pub async fn list_virtual_branches(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "create_virtual_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn create_virtual_branch(
     handle: AppHandle,
     project_id: &str,
@@ -49,7 +49,7 @@ pub async fn create_virtual_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "create_virtual_branch_from_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn create_virtual_branch_from_branch(
     handle: AppHandle,
     project_id: &str,
@@ -63,7 +63,7 @@ pub async fn create_virtual_branch_from_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "get_base_branch_data", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn get_base_branch_data(
     handle: AppHandle,
     project_id: &str,
@@ -76,7 +76,7 @@ pub async fn get_base_branch_data(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "set_base_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn set_base_branch(
     handle: AppHandle,
     project_id: &str,
@@ -93,7 +93,7 @@ pub async fn set_base_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "update_base_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn update_base_branch(handle: AppHandle, project_id: &str) -> Result<(), Error> {
     handle
         .state::<Controller>()
@@ -103,7 +103,7 @@ pub async fn update_base_branch(handle: AppHandle, project_id: &str) -> Result<(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "update_virtual_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn update_virtual_branch(
     handle: AppHandle,
     project_id: &str,
@@ -117,7 +117,7 @@ pub async fn update_virtual_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "delete_virtual_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn delete_virtual_branch(
     handle: AppHandle,
     project_id: &str,
@@ -131,7 +131,7 @@ pub async fn delete_virtual_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "apply_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn apply_branch(handle: AppHandle, project_id: &str, branch: &str) -> Result<(), Error> {
     handle
         .state::<Controller>()
@@ -141,7 +141,7 @@ pub async fn apply_branch(handle: AppHandle, project_id: &str, branch: &str) -> 
 }
 
 #[tauri::command(async)]
-#[instrument(name = "unapply_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn unapply_branch(
     handle: AppHandle,
     project_id: &str,
@@ -155,7 +155,7 @@ pub async fn unapply_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(name = "push_virtual_branch", skip(handle))]
+#[instrument(skip(handle))]
 pub async fn push_virtual_branch(
     handle: AppHandle,
     project_id: &str,

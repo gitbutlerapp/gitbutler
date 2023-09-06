@@ -538,11 +538,11 @@ impl App {
         project_repository.git_unstage_files(paths)
     }
 
-    pub fn git_commit(&self, project_id: &str, message: &str, push: bool) -> Result<()> {
+    pub fn git_commit(&self, project_id: &str, message: &str) -> Result<()> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
-        project_repository.git_commit(message, push)
+        project_repository.git_commit(message)
     }
 
     pub fn search(&self, query: &search::Query) -> Result<search::Results> {

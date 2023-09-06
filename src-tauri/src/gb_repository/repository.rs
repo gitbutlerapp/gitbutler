@@ -165,7 +165,7 @@ impl Repository {
 
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
-            tracing::info!(
+            tracing::debug!(
                 "{}: pulling reference '{}': {:?}",
                 self.project_id,
                 refname,
@@ -174,7 +174,7 @@ impl Repository {
             Result::Ok(())
         });
         callbacks.push_transfer_progress(move |one, two, three| {
-            tracing::info!(
+            tracing::debug!(
                 "{}: transferred {}/{}/{} objects",
                 self.project_id,
                 one,
@@ -211,7 +211,7 @@ impl Repository {
         // Set the remote's callbacks
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
-            tracing::info!(
+            tracing::debug!(
                 "{}: pushing reference '{}': {:?}",
                 self.project_id,
                 refname,
@@ -220,7 +220,7 @@ impl Repository {
             Result::Ok(())
         });
         callbacks.push_transfer_progress(move |one, two, three| {
-            tracing::info!(
+            tracing::debug!(
                 "{}: transferred {}/{}/{} objects",
                 self.project_id,
                 one,
@@ -322,8 +322,6 @@ impl Repository {
         &self,
         project_repository: &project_repository::Repository,
     ) -> Result<sessions::Session> {
-        tracing::info!("{}: creating new session", self.project_id);
-
         let now_ms = time::SystemTime::now()
             .duration_since(time::UNIX_EPOCH)
             .unwrap()
@@ -354,6 +352,8 @@ impl Repository {
         sessions::Writer::new(self)
             .write(&session)
             .context("failed to write session")?;
+
+        tracing::info!("{}: created new session {}", self.project_id, session.id);
 
         Ok(session)
     }
@@ -575,7 +575,7 @@ impl Repository {
         let reference = repo.find_reference(&refname);
         match reference {
             Err(git::Error::NotFound(_)) => {
-                tracing::warn!(
+                tracing::debug!(
                     "{}: reference {} not found, no migration",
                     project.id,
                     refname
@@ -621,7 +621,6 @@ impl Repository {
                         }
                     };
 
-                    tracing::warn!("{}: migrated commit {}", project.id, id);
                     migrated = true
                 }
 

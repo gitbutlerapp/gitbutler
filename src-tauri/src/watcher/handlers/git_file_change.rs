@@ -39,20 +39,13 @@ impl Handler {
             .with_context(|| "failed to open project repository for project")?;
 
         match path.as_ref().to_str().unwrap() {
-            "FETCH_HEAD" => {
-                tracing::info!("{}: git fetch", project.id);
-                Ok(vec![events::Event::Emit(app_events::Event::git_fetch(
-                    &project.id,
-                ))])
-            }
-            "logs/HEAD" => {
-                tracing::info!("{}: git activity", project.id);
-                Ok(vec![events::Event::Emit(app_events::Event::git_activity(
-                    &project.id,
-                ))])
-            }
+            "FETCH_HEAD" => Ok(vec![events::Event::Emit(app_events::Event::git_fetch(
+                &project.id,
+            ))]),
+            "logs/HEAD" => Ok(vec![events::Event::Emit(app_events::Event::git_activity(
+                &project.id,
+            ))]),
             "HEAD" => {
-                tracing::info!("{}: git head changed", project.id);
                 let head_ref = project_repository.get_head()?;
                 if let Some(head) = head_ref.name() {
                     Ok(vec![events::Event::Emit(app_events::Event::git_head(
@@ -63,12 +56,9 @@ impl Handler {
                     Ok(vec![])
                 }
             }
-            "index" => {
-                tracing::info!("{}: git index changed", project.id);
-                Ok(vec![events::Event::Emit(app_events::Event::git_index(
-                    &project.id,
-                ))])
-            }
+            "index" => Ok(vec![events::Event::Emit(app_events::Event::git_index(
+                &project.id,
+            ))]),
             _ => Ok(vec![]),
         }
     }
