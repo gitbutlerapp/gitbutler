@@ -49,7 +49,7 @@ refinery = { version = "0.8", features = [ "rusqlite" ] }
 sha1 = "0.10.5"
 tokio-util = "0.7.8"
 diffy = "0.3.0"
-url = "2.4.0"
+url = "2.4.1"
 ssh-key = { version = "0.6.1", features = [ "alloc", "ed25519" ] }
 rand = "0.8.5"
 tracing = "0.1.37"
