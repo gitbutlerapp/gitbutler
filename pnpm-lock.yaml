@@ -1,5 +1,9 @@
 lockfileVersion: '6.0'
 
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
 importers:
 
   .:
@@ -75,7 +79,7 @@ importers:
         version: 7.64.0(@sveltejs/kit@1.23.0)(svelte@4.2.0)
       '@square/svelte-store':
         specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git
-        version: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0)
+        version: git@github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0)
       '@sveltejs/adapter-static':
         specifier: ^2.0.3
         version: 2.0.3(@sveltejs/kit@1.23.0)
@@ -188,8 +192,8 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0
       svelte-check:
-        specifier: ^3.5.0
-        version: 3.5.0(postcss-load-config@4.0.1)(postcss@8.4.28)(svelte@4.2.0)
+        specifier: ^3.5.1
+        version: 3.5.1(postcss-load-config@4.0.1)(postcss@8.4.28)(svelte@4.2.0)
       svelte-floating-ui:
         specifier: ^1.5.3
         version: 1.5.3
@@ -210,10 +214,10 @@ importers:
         version: 3.3.3
       tauri-plugin-log-api:
         specifier: git+https://git@github.com/tauri-apps/tauri-plugin-log.git
-        version: github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab
+        version: git@github.com+tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab
       tauri-plugin-websocket-api:
         specifier: git+https://git@github.com/tauri-apps/tauri-plugin-websocket.git
-        version: github.com/tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef
+        version: git@github.com+tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef
       tinykeys:
         specifier: ^1.4.0
         version: 1.4.0
@@ -4708,8 +4712,8 @@ packages:
     engines: {node: '>= 0.4'}
     dev: true
 
-  /svelte-check@3.5.0(postcss-load-config@4.0.1)(postcss@8.4.28)(svelte@4.2.0):
-    resolution: {integrity: sha512-KHujbn4k17xKYLmtCwv0sKKM7uiHTYcQvXnvrCcNU6a7hcszh99zFTIoiu/Sp/ewAw5aJmillJ1Cs8gKLmcX4A==}
+  /svelte-check@3.5.1(postcss-load-config@4.0.1)(postcss@8.4.28)(svelte@4.2.0):
+    resolution: {integrity: sha512-+Zb4iHxAhdUtcUg/WJPRjlS1RJalIsWAe9Mz6G1zyznSs7dDkT7VUBdXc3q7Iwg49O/VrZgyJRvOJkjuBfKjFA==}
     hasBin: true
     peerDependencies:
       svelte: ^3.55.0 || ^4.0.0-next.0 || ^4.0.0
@@ -5536,9 +5540,9 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0):
-    resolution: {commit: 4cf861db334188389186a6f41ddfc1ba157b4ffd, repo: https://git@github.com/gitbutlerapp/svelte-store.git, type: git}
-    id: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
+  git@github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0):
+    resolution: {commit: 4cf861db334188389186a6f41ddfc1ba157b4ffd, repo: git@github.com:gitbutlerapp/svelte-store.git, type: git}
+    id: git@github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
     name: '@square/svelte-store'
     version: 1.0.17
     peerDependencies:
@@ -5548,16 +5552,16 @@ packages:
       svelte: 4.2.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab:
-    resolution: {commit: 9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab, repo: https://git@github.com/tauri-apps/tauri-plugin-log.git, type: git}
+  git@github.com+tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab:
+    resolution: {commit: 9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab, repo: git@github.com:tauri-apps/tauri-plugin-log.git, type: git}
     name: tauri-plugin-log-api
     version: 0.0.0
     dependencies:
       '@tauri-apps/api': 1.4.0
     dev: true
 
-  github.com/tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef:
-    resolution: {commit: c085eb80347e66433570322b8c62028b804dfeef, repo: https://git@github.com/tauri-apps/tauri-plugin-websocket.git, type: git}
+  git@github.com+tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef:
+    resolution: {commit: c085eb80347e66433570322b8c62028b804dfeef, repo: git@github.com:tauri-apps/tauri-plugin-websocket.git, type: git}
     name: tauri-plugin-websocket-api
     version: 0.0.0
     dependencies:
