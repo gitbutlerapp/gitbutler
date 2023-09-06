@@ -1,3 +1,4 @@
+mod analytics_handler;
 mod fetch_gitbutler_data;
 mod fetch_project_data;
 mod flush_session;
@@ -25,6 +26,7 @@ pub struct Handler {
     fetch_gitbutler_handler: fetch_gitbutler_data::Handler,
     push_gitbutler_handler: push_gitbutler_data::Handler,
     index_handler: index_handler::Handler,
+    analytics_handler: analytics_handler::Handler,
 
     events_sender: app_events::Sender,
 }
@@ -42,6 +44,7 @@ impl TryFrom<&AppHandle> for Handler {
             fetch_project_handler: fetch_project_data::Handler::try_from(value)?,
             fetch_gitbutler_handler: fetch_gitbutler_data::Handler::try_from(value)?,
             index_handler: index_handler::Handler::try_from(value)?,
+            analytics_handler: analytics_handler::Handler::try_from(value)?,
         })
     }
 }
@@ -146,6 +149,11 @@ impl Handler {
                     .context("failed to send event")?;
                 Ok(vec![])
             }
+
+            events::Event::Analytics(event) => self
+                .analytics_handler
+                .handle(event)
+                .context("failed to handle analytics event"),
         }
     }
 }

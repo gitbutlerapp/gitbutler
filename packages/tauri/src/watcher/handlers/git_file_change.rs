@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use tauri::AppHandle;
 
-use crate::{events as app_events, project_repository, projects};
+use crate::{analytics, events as app_events, project_repository, projects};
 
 use super::events;
 
@@ -46,12 +46,18 @@ impl Handler {
                 &project.id,
             ))]),
             "HEAD" => {
-                let head_ref = project_repository.get_head()?;
+                let head_ref = project_repository
+                    .get_head()
+                    .context("failed to get head")?;
+                let head_ref_name = head_ref.name().context("failed to get head name")?;
                 if let Some(head) = head_ref.name() {
-                    Ok(vec![events::Event::Emit(app_events::Event::git_head(
-                        &project.id,
-                        head,
-                    ))])
+                    Ok(vec![
+                        events::Event::Analytics(analytics::Event::HeadChange {
+                            project_id: project.id.clone(),
+                            reference_name: head_ref_name.to_string(),
+                        }),
+                        events::Event::Emit(app_events::Event::git_head(&project.id, head)),
+                    ])
                 } else {
                     Ok(vec![])
                 }

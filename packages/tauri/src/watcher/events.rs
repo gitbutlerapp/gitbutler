@@ -1,6 +1,6 @@
 use std::{fmt::Display, path, time};
 
-use crate::{bookmarks, deltas, events, sessions};
+use crate::{analytics, bookmarks, deltas, events, sessions};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event {
@@ -23,11 +23,13 @@ pub enum Event {
     IndexAll(String),
 
     Emit(events::Event),
+    Analytics(analytics::Event),
 }
 
 impl Event {
     pub fn project_id(&self) -> &str {
         match self {
+            Event::Analytics(event) => event.project_id(),
             Event::Emit(event) => event.project_id(),
             Event::IndexAll(project_id) => project_id,
             Event::Tick(project_id, _) => project_id,
@@ -48,6 +50,7 @@ impl Event {
 impl Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Event::Analytics(event) => write!(f, "Analytics({:?})", event),
             Event::Emit(event) => write!(f, "Emit({})", event.name()),
             Event::IndexAll(project_id) => write!(f, "IndexAll({})", project_id),
             Event::Tick(project_id, ts) => write!(
