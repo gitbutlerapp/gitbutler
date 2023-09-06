@@ -72,7 +72,7 @@
 		await stageAll();
 		commit({
 			projectId: project.id,
-			message: description.length > 0 ? `${summary}\n\n${description}` : summary,
+			message: description.length > 0 ? `${summary}\n\n${description}` : summary
 		})
 			.then(() => {
 				toasts.success('Commit created');
