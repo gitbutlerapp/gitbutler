@@ -49,7 +49,11 @@ impl Dispatcher {
                             .filter(|file| is_interesting_file(&repo, file))
                         {
                             block_on(async {
-                                tracing::info!("{}: file change detected: {}", project_id, path.display());
+                                tracing::info!(
+                                    "{}: file change detected: {}",
+                                    project_id,
+                                    path.display()
+                                );
                                 if let Err(error) = notify_tx.send(path).await {
                                     tracing::error!(
                                         "failed to send file change event: {:#}",
