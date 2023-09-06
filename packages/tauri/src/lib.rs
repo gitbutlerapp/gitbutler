@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod app;
 pub mod assets;
 pub mod bookmarks;

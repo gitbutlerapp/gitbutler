@@ -62,6 +62,8 @@ byteorder = "1.4.3"
 num_cpus = "1.16.0"
 resolve-path = "0.1.0"
 posthog-rs = "0.2.2"
+chrono = "0.4.29"
+async-trait = "0.1.73"
 
 [features]
 # by default Tauri runs in production mode

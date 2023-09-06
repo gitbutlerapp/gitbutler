@@ -659,6 +659,18 @@ async fn main() {
 
             tracing::info!("Starting app");
 
+            let analytics_cfg = if cfg!(debug_assertions) {
+                analytics::Config {
+                    posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
+                }
+            } else {
+                analytics::Config {
+                    posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
+                }
+            };
+            let analytics_client = analytics::Client::new(&app_handle, analytics_cfg);
+            tauri_app.manage(analytics_client);
+
             let watchers =
                 watcher::Watchers::try_from(&app_handle).expect("failed to initialize watchers");
             tauri_app.manage(watchers);
