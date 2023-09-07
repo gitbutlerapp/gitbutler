@@ -72,8 +72,14 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
-                super::commit(gb_repository, project_repository, branch, message, ownership)
-                    .map_err(Error::Other)
+                super::commit(
+                    gb_repository,
+                    project_repository,
+                    branch,
+                    message,
+                    ownership,
+                )
+                .map_err(Error::Other)
             })
         })
         .await

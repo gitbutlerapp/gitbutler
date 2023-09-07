@@ -4,7 +4,7 @@ use tracing::instrument;
 
 use crate::{error::Error, git};
 
-use super::{controller::Controller, branch::Ownership};
+use super::{branch::Ownership, controller::Controller};
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
