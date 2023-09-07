@@ -60,6 +60,7 @@ impl super::RunCommand for Commit {
             &app.project_repository(),
             &commit_branch,
             &message,
+            None,
         )
         .context("failed to commit")?;
 
