@@ -250,15 +250,18 @@ elif [ "$OS" = "linux" ]; then
 	APPIMAGE="$(find $BUNDLE_DIR/appimage -name \*.AppImage)"
 	APPIMAGE_UPDATER="$(find $BUNDLE_DIR/appimage -name \*.AppImage.tar.gz)"
 	APPIMAGE_UPDATER_SIG="$(find $BUNDLE_DIR/appimage -name \*.AppImage.tar.gz.sig)"
+	DEB="$(find $BUNDLE_DIR/deb -name \*.deb)"
 
 	cp "$APPIMAGE" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER_SIG" "$RELEASE_DIR"
+	cp "$DEB" "$RELEASE_DIR"
 
 	info "built:"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE")"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER")"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER_SIG")"
+	info "  - $RELEASE_DIR/$(basename "$DEB")"
 fi
 
 info "done! bye!"
