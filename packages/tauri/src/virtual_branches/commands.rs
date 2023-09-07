@@ -4,7 +4,7 @@ use tracing::instrument;
 
 use crate::{error::Error, git};
 
-use super::controller::Controller;
+use super::{branch::Ownership, controller::Controller};
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
@@ -13,10 +13,11 @@ pub async fn commit_virtual_branch(
     project_id: &str,
     branch: &str,
     message: &str,
+    ownership: Option<Ownership>,
 ) -> Result<(), Error> {
     handle
         .state::<Controller>()
-        .create_commit(project_id, branch, message)
+        .create_commit(project_id, branch, message, ownership.as_ref())
         .await
         .map_err(Into::into)
 }

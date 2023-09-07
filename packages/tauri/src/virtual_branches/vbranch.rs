@@ -4,7 +4,7 @@ use std::{
     path, time, vec,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 
@@ -1818,6 +1818,7 @@ pub fn commit(
     project_repository: &project_repository::Repository,
     branch_id: &str,
     message: &str,
+    ownership: Option<&branch::Ownership>,
 ) -> Result<()> {
     if conflicts::is_conflicting(project_repository, None)? {
         bail!("cannot commit, project is in a conflicted state");
@@ -1832,70 +1833,99 @@ pub fn commit(
     let statuses = get_status_by_branch(gb_repository, project_repository)
         .context("failed to get status by branch")?;
 
-    match statuses.iter().find(|(branch, _)| branch.id == branch_id) {
-        None => bail!("branch {} not found", branch_id),
-        Some((branch, files)) => {
-            let tree_oid = write_tree(project_repository, &default_target, files)?;
+    let (branch, files) = statuses
+        .iter()
+        .find(|(branch, _)| branch.id == branch_id)
+        .ok_or_else(|| anyhow!("branch {} not found", branch_id))?;
 
-            let git_repository = &project_repository.git_repository;
-            let parent_commit = git_repository
-                .find_commit(branch.head)
-                .context(format!("failed to find commit {:?}", branch.head))?;
-            let tree = git_repository
-                .find_tree(tree_oid)
-                .context(format!("failed to find tree {:?}", tree_oid))?;
-
-            // now write a commit, using a merge parent if it exists
-            let (author, committer) = gb_repository
-                .git_signatures()
-                .context("failed to get git signatures")?;
-            let extra_merge_parent = conflicts::merge_parent(project_repository)
-                .context("failed to get merge parent")?;
-
-            let commit_oid = match extra_merge_parent {
-                Some(merge_parent) => {
-                    let merge_parent = git_repository
-                        .find_commit(merge_parent)
-                        .context(format!("failed to find merge parent {:?}", merge_parent))?;
-                    let commit_oid = git_repository
-                        .commit(
-                            None,
-                            &author,
-                            &committer,
-                            message,
-                            &tree,
-                            &[&parent_commit, &merge_parent],
-                        )
-                        .context("failed to commit")?;
-                    conflicts::clear(project_repository).context("failed to clear conflicts")?;
-                    commit_oid
+    let tree_oid = if let Some(ownership) = ownership {
+        let files = files
+            .iter()
+            .filter_map(|file| {
+                let hunks = file
+                    .hunks
+                    .iter()
+                    .filter(|hunk| {
+                        ownership
+                            .files
+                            .iter()
+                            .find(|f| f.file_path == file.path)
+                            .map(|f| {
+                                f.hunks
+                                    .iter()
+                                    .any(|h| h.start == hunk.start && h.end == hunk.end)
+                            })
+                            .unwrap_or(false)
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if hunks.is_empty() {
+                    None
+                } else {
+                    Some(VirtualBranchFile {
+                        hunks,
+                        ..file.clone()
+                    })
                 }
-                None => git_repository.commit(
+            })
+            .collect::<Vec<_>>();
+        write_tree(project_repository, &default_target, &files)?
+    } else {
+        write_tree(project_repository, &default_target, files)?
+    };
+
+    let git_repository = &project_repository.git_repository;
+    let parent_commit = git_repository
+        .find_commit(branch.head)
+        .context(format!("failed to find commit {:?}", branch.head))?;
+    let tree = git_repository
+        .find_tree(tree_oid)
+        .context(format!("failed to find tree {:?}", tree_oid))?;
+
+    // now write a commit, using a merge parent if it exists
+    let (author, committer) = gb_repository
+        .git_signatures()
+        .context("failed to get git signatures")?;
+    let extra_merge_parent =
+        conflicts::merge_parent(project_repository).context("failed to get merge parent")?;
+
+    let commit_oid = match extra_merge_parent {
+        Some(merge_parent) => {
+            let merge_parent = git_repository
+                .find_commit(merge_parent)
+                .context(format!("failed to find merge parent {:?}", merge_parent))?;
+            let commit_oid = git_repository
+                .commit(
                     None,
                     &author,
                     &committer,
                     message,
                     &tree,
-                    &[&parent_commit],
-                )?,
-            };
-
-            // update the virtual branch head
-            let writer = branch::Writer::new(gb_repository);
-            writer
-                .write(&Branch {
-                    tree: tree_oid,
-                    head: commit_oid,
-                    ..branch.clone()
-                })
-                .context("failed to write branch")?;
-
-            super::integration::update_gitbutler_integration(gb_repository, project_repository)
-                .context("failed to update gitbutler integration")?;
-
-            Ok(())
+                    &[&parent_commit, &merge_parent],
+                )
+                .context("failed to commit")?;
+            conflicts::clear(project_repository).context("failed to clear conflicts")?;
+            commit_oid
         }
-    }
+        None => {
+            git_repository.commit(None, &author, &committer, message, &tree, &[&parent_commit])?
+        }
+    };
+
+    // update the virtual branch head
+    let writer = branch::Writer::new(gb_repository);
+    writer
+        .write(&Branch {
+            tree: tree_oid,
+            head: commit_oid,
+            ..branch.clone()
+        })
+        .context("failed to write branch")?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+        .context("failed to update gitbutler integration")?;
+
+    Ok(())
 }
 
 pub fn name_to_branch(name: &str) -> String {

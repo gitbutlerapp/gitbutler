@@ -11,6 +11,8 @@ use crate::{
     projects, users, watcher,
 };
 
+use super::branch::Ownership;
+
 pub struct Controller {
     local_data_dir: path::PathBuf,
     semaphores: Arc<tokio::sync::Mutex<HashMap<String, Semaphore>>>,
@@ -66,11 +68,18 @@ impl Controller {
         project_id: &str,
         branch: &str,
         message: &str,
+        ownership: Option<&Ownership>,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
-                super::commit(gb_repository, project_repository, branch, message)
-                    .map_err(Error::Other)
+                super::commit(
+                    gb_repository,
+                    project_repository,
+                    branch,
+                    message,
+                    ownership,
+                )
+                .map_err(Error::Other)
             })
         })
         .await
