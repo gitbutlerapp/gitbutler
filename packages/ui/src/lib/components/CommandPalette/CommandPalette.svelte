@@ -1,5 +1,5 @@
 <script lang="ts">
-	import tinykeys from 'tinykeys';
+	import { tinykeys } from 'tinykeys';
 	import type { Project } from '$lib/api/ipc/projects';
 	import { derived, readable, writable, type Readable } from '@square/svelte-store';
 	import listAvailableCommands, { Action, type Group } from './commands';
