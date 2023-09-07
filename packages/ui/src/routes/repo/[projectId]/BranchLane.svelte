@@ -243,10 +243,7 @@
 			// don't allow dropping hunk to the line where it already is
 			return;
 		}
-		const ownership = branch.files
-			.map((file) => file.id + ':' + file.hunks.map((hunk) => hunk.id).join(','))
-			.join('\n');
-		branchController.updateBranchOwnership(branch.id, (data + '\n' + ownership).trim());
+		branchController.updateBranchOwnership(branch.id, (data + '\n' + branch.ownership).trim());
 	}}
 >
 	<div
