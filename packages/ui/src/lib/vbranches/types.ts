@@ -59,6 +59,7 @@ export class Branch {
 	upstream?: string;
 	conflicted!: boolean;
 	baseCurrent!: boolean;
+	ownership!: string;
 }
 
 export class Commit {

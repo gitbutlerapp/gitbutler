@@ -46,6 +46,7 @@ pub struct VirtualBranch {
     pub order: usize,     // the order in which this branch should be displayed in the UI
     pub upstream: Option<git::RemoteBranchName>, // the name of the upstream branch this branch this pushes to
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
+    pub ownership: Ownership,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -952,6 +953,7 @@ pub fn list_virtual_branches(
             upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
+            ownership: branch.ownership.clone(),
         };
         branches.push(branch);
     }
