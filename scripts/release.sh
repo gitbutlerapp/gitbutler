@@ -233,6 +233,8 @@ BUNDLE_DIR=$(readlink -f "$PWD/../target/release/bundle")
 RELEASE_DIR="$DIST/$OS/$ARCH"
 mkdir -p "$RELEASE_DIR"
 
+find $RELEASE_DIR -type f
+
 if [ "$OS" = "macos" ]; then
 	MACOS_DMG="$(find "$BUNDLE_DIR/dmg" -depth 1 -type f -name "*.dmg")"
 	MACOS_UPDATER="$(find "$BUNDLE_DIR/macos" -depth 1 -type f -name "*.tar.gz")"
