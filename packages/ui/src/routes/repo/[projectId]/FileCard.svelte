@@ -91,7 +91,7 @@
 	class:opacity-80={isFileLocked}
 >
 	<div
-		class="border-light-300 bg-light-50 text-light-900 dark:border-dark-500 dark:bg-dark-800 dark:text-light-300 flex w-full flex-col justify-center gap-2 border-b border-t py-1"
+		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-300 bg-light-50 py-1 text-light-900 dark:border-dark-500 dark:bg-dark-800 dark:text-light-300"
 	>
 		<div
 			class="flex cursor-default pl-2"
@@ -103,7 +103,7 @@
 			}}
 		>
 			<div
-				class="text-light-800 dark:text-dark-100 flex-grow overflow-hidden text-ellipsis whitespace-nowrap"
+				class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
 				title={file.path}
 			>
 				<img
@@ -133,7 +133,7 @@
 				on:keypress={() => (expanded = !expanded)}
 				role="button"
 				tabindex="0"
-				class="text-light-600 dark:text-dark-200 flex-grow-0 cursor-pointer px-3 py-2"
+				class="flex-grow-0 cursor-pointer px-3 py-2 text-light-600 dark:text-dark-200"
 			>
 				{#if !file.binary}
 					{#if expanded}
@@ -166,14 +166,14 @@
 						{#if $userSettings.aiSummariesEnabled}
 							{#await summarizeHunk(section.hunk.diff) then description}
 								<div
-									class="text-light-700 dark:text-dark-200 truncate whitespace-normal pb-1 pl-1 pt-2"
+									class="truncate whitespace-normal pb-1 pl-1 pt-2 text-light-700 dark:text-dark-200"
 								>
 									{description}
 								</div>
 							{/await}
 						{/if}
 						<div
-							class="border-light-400 dark:border-dark-400 dark:bg-dark-900 my-1 flex w-full flex-col overflow-hidden rounded border bg-white"
+							class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 bg-white dark:border-dark-400 dark:bg-dark-900"
 						>
 							<div
 								draggable={!section.hunk.locked && !readonly}
@@ -188,7 +188,7 @@
 								class="changed-hunk"
 								class:opacity-60={section.hunk.locked && !isFileLocked}
 							>
-								<div class="dark:bg-dark-900 w-full overflow-hidden bg-white">
+								<div class="w-full overflow-hidden bg-white dark:bg-dark-900">
 									{#each section.subSections as subsection, sidx}
 										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 											<RenderedLine
@@ -207,14 +207,14 @@
 										{/each}
 										{#if !subsection.expanded}
 											<div
-												class="border-light-200 dark:border-dark-400 flex w-full"
+												class="flex w-full border-light-200 dark:border-dark-400"
 												class:border-t={sidx == section.subSections.length - 1 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 												class:border-b={sidx == 0 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="border-light-200 bg-light-25 text-light-500 hover:bg-light-700 dark:border-dark-400 dark:bg-dark-500 dark:text-light-600 dark:hover:bg-dark-400 border-r text-center hover:text-white dark:hover:text-black"
+													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:border-dark-400 dark:bg-dark-500 dark:text-light-600 dark:hover:bg-dark-400 dark:hover:text-black"
 													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
 												>
 													<button
@@ -235,7 +235,7 @@
 														{/if}
 													</button>
 												</div>
-												<div class="dark:bg-dark-900 flex-grow bg-white" />
+												<div class="flex-grow bg-white dark:bg-dark-900" />
 											</div>
 										{/if}
 									{/each}
@@ -245,7 +245,7 @@
 					{:else}
 						{#if section.expanded}
 							<div
-								class="border-light-200 dark:border-dark-400 dark:bg-dark-900 my-1 flex w-full flex-col overflow-hidden rounded border bg-white"
+								class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
 								role="group"
 								on:dblclick
 							>
@@ -267,7 +267,7 @@
 						{#if !section.expanded}
 							<div style:width={`calc(${2 * minWidth}rem - 1px)`} class="flex justify-center">
 								<button
-									class="text-light-600 hover:text-light-700 dark:text-dark-200 dark:hover:text-dark-100 px-2 py-1.5 text-sm"
+									class="px-2 py-1.5 text-sm text-light-600 hover:text-light-700 dark:text-dark-200 dark:hover:text-dark-100"
 									on:click={() => {
 										if ('expanded' in section) {
 											section.expanded = true;

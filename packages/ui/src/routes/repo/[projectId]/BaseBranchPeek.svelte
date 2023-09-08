@@ -23,11 +23,11 @@
 <div class="relative h-full max-h-full">
 	<div
 		bind:this={viewport}
-		class="hide-native-scrollbar dark:bg-dark-900 flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
+		class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
 	>
 		<div bind:this={contents} class="flex flex-col gap-y-4 p-4">
-			<h1 class="text-light-700 dark:text-dark-100 font-bold">Upstream</h1>
-			<div class="text-light-700 dark:text-dark-200 rounded-sm text-sm">
+			<h1 class="font-bold text-light-700 dark:text-dark-100">Upstream</h1>
+			<div class="rounded-sm text-sm text-light-700 dark:text-dark-200">
 				There {multiple ? 'are' : 'is'}
 				{base.upstreamCommits.length} unmerged upstream
 				{multiple ? 'commits' : 'commit'}
@@ -67,11 +67,11 @@
 					</div>
 				</div>
 				<div
-					class="via-light-500 dark:via-dark-400 h-px w-full border-none bg-gradient-to-r from-transparent to-transparent"
+					class="h-px w-full border-none bg-gradient-to-r from-transparent via-light-500 to-transparent dark:via-dark-400"
 				/>
 			{/if}
 			<Tooltip label="This is the current base for your virtual branches.">
-				<h1 class="text-light-700 dark:text-dark-100 font-bold">Local</h1>
+				<h1 class="font-bold text-light-700 dark:text-dark-100">Local</h1>
 			</Tooltip>
 			<div class="flex flex-col gap-y-2">
 				{#each base.recentCommits as commit}

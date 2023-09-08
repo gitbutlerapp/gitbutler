@@ -53,7 +53,7 @@
 					</Tooltip>
 				</div>
 			{:else}
-				<div class="bg-light-600 dark:bg-dark-300 inline-block rounded-lg px-2 py-0.5 font-bold">
+				<div class="inline-block rounded-lg bg-light-600 px-2 py-0.5 font-bold dark:bg-dark-300">
 					<span class="text-white">not applied</span>
 				</div>
 			{/if}
@@ -66,7 +66,7 @@
 				bind:value={branch.notes}
 				on:change={handleUpdateNotes}
 				name="commit-description"
-				class="quick-commit-input outline-none-important border-light-200 text-light-900 dark:border-dark-200 dark:text-dark-100 w-full resize-none rounded border bg-transparent p-2"
+				class="quick-commit-input outline-none-important w-full resize-none rounded border border-light-200 bg-transparent p-2 text-light-900 dark:border-dark-200 dark:text-dark-100"
 				placeholder="Branch notes (optional)"
 				rows={notesRows}
 			/>
