@@ -49,7 +49,8 @@ pub fn init(app_handle: &AppHandle) {
             tracing_subscriber::fmt::layer()
                 .event_format(format_for_humans)
                 .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-                .with_writer(file_writer),
+                .with_writer(file_writer)
+                .with_filter(log_level_filter),
         );
 
     set_global_default(subscriber).expect("failed to set subscriber");
