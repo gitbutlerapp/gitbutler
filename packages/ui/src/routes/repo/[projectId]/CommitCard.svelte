@@ -1,31 +1,80 @@
 <script lang="ts">
-	import { open } from '@tauri-apps/api/shell';
 	import type { Commit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
+	import { getCommitDiff } from '$lib/api/git/diffs';
+	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
+	import type { File, Hunk } from '$lib/vbranches/types';
+	import RenderedLine from './RenderedLine.svelte';
+	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
+	import { Button, Modal } from '$lib/components';
 
 	export let commit: Commit;
 	export let isIntegrated = false;
 	export let url: string | undefined = undefined;
+	export let projectId: string;
+
+	let previewCommitModal: Modal;
+	let minWidth = 2;
+	let fileSections: Map<string, (HunkSection | ContentSection)[]> = new Map();
+
+	function parseDiff(diff: string, filepath: string): (HunkSection | ContentSection)[] {
+		let hunkDiffs = diff.split(/(@@.*@@)/).filter((s) => s.trim() !== '');
+
+		hunkDiffs = hunkDiffs.reduce(function (result: string[], value, index, array) {
+			if (index % 2 === 0) result.push(array.slice(index, index + 2).join());
+			return result;
+		}, []);
+		const mockDate = new Date();
+
+		let hunks: Hunk[] = hunkDiffs.map((diff) => {
+			return {
+				id: '',
+				diff: diff,
+				modifiedAt: mockDate,
+				filePath: filepath,
+				locked: false
+			};
+		});
+
+		let file: File = {
+			id: '',
+			path: filepath,
+			hunks: hunks,
+			expanded: true,
+			conflicted: false,
+			binary: false,
+			modifiedAt: mockDate,
+			content: '',
+			getSummary: () => {
+				return { status: '', added: 0, removed: 0 };
+			}
+		};
+		return parseFileSections(file);
+	}
 </script>
 
 <div
-	class="w-full truncate rounded border border-light-400 bg-light-50 p-2 text-left dark:border-dark-600 dark:bg-dark-900"
+	class="border-light-400 bg-light-50 dark:border-dark-600 dark:bg-dark-900 w-full truncate rounded border p-2 text-left"
 >
 	<div class="mb-1 flex justify-between">
 		<div class="truncate">
 			{#if url}
-				<!-- on:click required when there is a stopPropagation on a parent -->
-				<a
-					href={url}
+				<button
 					on:click={() => {
-						if (url) open(url);
+						getCommitDiff({ projectId: projectId, commitId: commit.id }).then((result) => {
+							let entries = Object.entries(result);
+
+							entries.forEach(([filepath, diff]) => {
+								fileSections.set(filepath, parseDiff(diff, filepath));
+							});
+							previewCommitModal.show();
+						});
 					}}
-					target="_blank"
-					title="Open in browser"
 				>
 					{commit.description}
-				</a>
+				</button>
 			{:else}
 				{commit.description}
 			{/if}
@@ -39,7 +88,7 @@
 		{/if}
 	</div>
 
-	<div class="flex space-x-1 text-sm text-light-700">
+	<div class="text-light-700 flex space-x-1 text-sm">
 		<img
 			class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
 			title="Gravatar for {commit.author.email}"
@@ -55,3 +104,87 @@
 		</div>
 	</div>
 </div>
+
+<Modal width="large" bind:this={previewCommitModal}>
+	<div class="flex w-full flex-col gap-4">
+		{#each fileSections.entries() as [filepath, sections]}
+			<div>
+				<div
+					class="text-light-800 dark:text-dark-100 flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap px-2 font-bold"
+					title={filepath}
+				>
+					<img
+						src={getVSIFileIcon(filepath)}
+						alt="js"
+						width="13"
+						style="width: 0.8125rem"
+						class="mr-1 inline"
+					/>
+
+					{filepath}
+				</div>
+				<div class="hunk-change-container flex flex-col rounded px-2">
+					{#each sections as section}
+						{#if 'hunk' in section}
+							<div
+								class="border-light-400 dark:border-dark-400 dark:bg-dark-900 my-1 flex w-full flex-col overflow-hidden rounded border bg-white"
+							>
+								<div class="dark:bg-dark-900 w-full overflow-hidden bg-white">
+									{#each section.subSections as subsection, sidx}
+										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
+											<RenderedLine
+												{line}
+												{minWidth}
+												sectionType={subsection.sectionType}
+												filePath={filepath}
+											/>
+										{/each}
+										{#if !subsection.expanded}
+											<div
+												class="border-light-200 dark:border-dark-400 flex w-full"
+												class:border-t={sidx == section.subSections.length - 1 ||
+													(sidx > 0 && sidx < section.subSections.length - 1)}
+												class:border-b={sidx == 0 ||
+													(sidx > 0 && sidx < section.subSections.length - 1)}
+											>
+												<div
+													class="border-light-200 bg-light-25 text-light-500 hover:bg-light-700 dark:border-dark-400 dark:bg-dark-500 dark:text-light-600 dark:hover:bg-dark-400 border-r text-center hover:text-white dark:hover:text-black"
+													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
+												>
+													<button
+														class="flex justify-center py-0.5 text-sm"
+														style:width={`calc(${2 * minWidth}rem - 1px)`}
+														on:click={() => {
+															if ('expanded' in subsection) {
+																subsection.expanded = true;
+															}
+														}}
+													>
+														{#if sidx == 0}
+															<IconExpandUp />
+														{:else if sidx == section.subSections.length - 1}
+															<IconExpandDown />
+														{:else}
+															<IconExpandUpDown />
+														{/if}
+													</button>
+												</div>
+												<div class="dark:bg-dark-900 flex-grow bg-white" />
+											</div>
+										{/if}
+									{/each}
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			</div>
+		{/each}
+	</div>
+
+	<svelte:fragment slot="controls">
+		<div class="px-4">
+			<Button color="purple" on:click={() => previewCommitModal.close()}>Close</Button>
+		</div>
+	</svelte:fragment>
+</Modal>

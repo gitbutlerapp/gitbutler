@@ -29,7 +29,11 @@
 		{#if branch.commits && branch.commits.length > 0}
 			<div class="flex w-full flex-col gap-y-2">
 				{#each branch.commits as commit}
-					<CommitCard {commit} url={base?.commitUrl(commit.id)} />
+					<CommitCard
+						{commit}
+						url={base?.commitUrl(commit.id)}
+						projectId={branchController.projectId}
+					/>
 				{/each}
 			</div>
 		{/if}

@@ -248,10 +248,10 @@
 >
 	<div
 		bind:this={rsViewport}
-		class="flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-light-400 bg-light-150 dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
+		class="border-light-400 bg-light-150 dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r"
 	>
-		<div class="flex text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100">
-			<div class="flex flex-grow flex-col border-b border-light-400 dark:border-dark-600">
+		<div class="text-light-900 dark:bg-dark-800 dark:text-dark-100 flex dark:font-normal">
+			<div class="border-light-400 dark:border-dark-600 flex flex-grow flex-col border-b">
 				{#if !branch.mergeable}
 					<!-- use of relative is for tooltip rendering -->
 					<div class="bg-red-500 px-2 py-0.5 text-center font-bold dark:bg-red-700">
@@ -283,7 +283,7 @@
 							bind:value={branch.name}
 							on:change={handleBranchNameChange}
 							title={branch.name}
-							class="w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold text-light-800 hover:border-light-400 dark:text-dark-100 dark:hover:border-dark-600"
+							class="text-light-800 hover:border-light-400 dark:text-dark-100 dark:hover:border-dark-600 w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold"
 							on:dblclick|stopPropagation
 							on:click={(e) => e.currentTarget.select()}
 						/>
@@ -309,7 +309,7 @@
 								</Button>
 							{/if}
 							<button
-								class="scale-90 px-1 py-1 text-light-600 hover:text-light-800"
+								class="text-light-600 hover:text-light-800 scale-90 px-1 py-1"
 								title="Stash this branch"
 								on:click={() => {
 									if (branch.id) branchController.unapplyBranch(branch.id);
@@ -341,7 +341,7 @@
 
 				{#if commitDialogShown}
 					<div
-						class="flex w-full flex-col border-t border-light-400 bg-light-200 dark:border-dark-400 dark:bg-dark-800"
+						class="border-light-400 bg-light-200 dark:border-dark-400 dark:bg-dark-800 flex w-full flex-col border-t"
 						transition:slide={{ duration: 150 }}
 					>
 						{#if annotateCommits}
@@ -361,7 +361,7 @@
 								bind:this={textAreaInput}
 								bind:value={commitMessage}
 								on:dblclick|stopPropagation
-								class="flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+								class="text-dark-700 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono outline-none focus:border-purple-600 focus:ring-0"
 								placeholder="Your commit message here"
 								rows={messageRows}
 								required
@@ -441,7 +441,7 @@
 		<div class="relative flex flex-grow overflow-y-hidden">
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div
-				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+				class="lane-dz-marker outline-light-600 dark:outline-dark-300 absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 dark:bg-blue-900/60"
 			>
 				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
@@ -489,13 +489,13 @@
 						{#if branch.files.length == 0}
 							{#if branch.commits.length == 0}
 								<div
-									class="no-changes space-y-6 rounded p-8 text-center text-light-700 dark:border-zinc-700"
+									class="no-changes text-light-700 space-y-6 rounded p-8 text-center dark:border-zinc-700"
 									data-dnd-ignore
 								>
 									<p>Nothing on this branch yet.</p>
 									{#if !readonly}
-										<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
-										<p class="px-12 text-light-600">
+										<IconNewBadge class="dark:text-dark-400 mx-auto mt-4 h-16 w-16 text-blue-400" />
+										<p class="text-light-600 px-12">
 											Get some work done, then throw some files my way!
 										</p>
 									{/if}
@@ -503,7 +503,7 @@
 							{:else}
 								<!-- attention: these markers have custom css at the bottom of thise file -->
 								<div
-									class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
+									class="no-changes text-light-700 rounded text-center font-mono dark:border-zinc-700"
 									data-dnd-ignore
 								>
 									No uncommitted changes on this branch
@@ -513,7 +513,7 @@
 					</div>
 					{#if localCommits.length > 0 || remoteCommits.length > 0}
 						<div
-							class="flex w-full flex-grow flex-col gap-2 border-t border-light-400 dark:border-dark-500"
+							class="border-light-400 dark:border-dark-500 flex w-full flex-grow flex-col gap-2 border-t"
 						>
 							{#if localCommits.length > 0}
 								<div
@@ -522,17 +522,17 @@
 									transition:slide={{ duration: 150 }}
 								>
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+										class="dark:form-dark-600 from-light-400 via-light-500 dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b via-90%"
 										style={remoteCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
 									/>
 
 									<div class="relative flex flex-col gap-2">
 										<div
-											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+											class="dark:form-dark-600 from-light-400 via-light-400 dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r via-10%"
 										/>
 										<div class="ml-10 mr-2 flex items-center py-2">
 											<div
-												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
+												class="text-dark-300 dark:text-light-300 ml-2 flex-grow font-mono text-sm font-bold"
 											>
 												local
 											</div>
@@ -558,10 +558,14 @@
 											>
 												<div class="ml-[0.4rem] mr-1.5">
 													<div
-														class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
+														class="border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000 h-3 w-3 rounded-full border-2"
 													/>
 												</div>
-												<CommitCard {commit} isIntegrated={commit.isRemote} />
+												<CommitCard
+													{commit}
+													isIntegrated={commit.isRemote}
+													projectId={branchController.projectId}
+												/>
 											</div>
 										{/each}
 									</div>
@@ -570,14 +574,14 @@
 							{#if remoteCommits.length > 0}
 								<div class="relative flex-grow">
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem]
-						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+										class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400
+						dark:via-dark-400 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b via-90%"
 										style="height: calc(100% - 1rem);"
 									/>
 
 									<div class="relative flex flex-grow flex-col gap-2">
 										<div
-											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+											class="dark:form-dark-600 from-light-600 via-light-600 dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r via-10%"
 										/>
 
 										<div
@@ -604,7 +608,7 @@
 											>
 												<div class="ml-[0.4rem] mr-1.5">
 													<div
-														class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+														class="border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400 h-3 w-3 rounded-full border-2"
 														class:bg-light-500={commit.isRemote}
 														class:dark:bg-dark-500={commit.isRemote}
 													/>
@@ -613,6 +617,7 @@
 													{commit}
 													url={base?.commitUrl(commit.id)}
 													isIntegrated={commit.isIntegrated}
+													projectId={branchController.projectId}
 												/>
 											</div>
 										{/each}
