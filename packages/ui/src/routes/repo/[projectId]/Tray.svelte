@@ -91,7 +91,7 @@
 
 	function sumBranchLinesAddedRemoved(branch: Branch) {
 		const comitted = computedAddedRemoved(...branch.commits.flatMap((c) => c.files));
-		const uncomitted = computedAddedRemoved(...branch.files)
+		const uncomitted = computedAddedRemoved(...branch.files);
 
 		return {
 			added: comitted.added + uncomitted.added,
