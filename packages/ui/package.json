@@ -72,7 +72,7 @@
 		"postcss": "^8.4.28",
 		"postcss-load-config": "^4.0.1",
 		"posthog-js": "^1.77.2",
-		"prettier": "^2.8.8",
+		"prettier": "^3.0.3",
 		"prettier-plugin-svelte": "^2.10.1",
 		"prettier-plugin-tailwindcss": "^0.3.0",
 		"reflect-metadata": "^0.1.13",
