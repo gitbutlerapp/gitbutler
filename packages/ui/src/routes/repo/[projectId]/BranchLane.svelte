@@ -28,6 +28,7 @@
 	import IconBackspace from '$lib/icons/IconBackspace.svelte';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import CommitDialog from './CommitDialog.svelte';
+	import { writable } from 'svelte/store';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -158,6 +159,9 @@
 			}
 		});
 	});
+
+	const selectedFileIds = writable(branch.files.map((f) => f.id));
+	$: selectedFileIds.set(branch.files.map((f) => f.id));
 </script>
 
 <div
@@ -285,6 +289,7 @@
 						{branch}
 						{cloudEnabled}
 						{cloud}
+                        selectedFileIds={$selectedFileIds}
 						user={$user}
 					/>
 				{/if}
@@ -298,7 +303,11 @@
 						name: 'files',
 						displayName: 'Changed files (' + branch.files.length + ')',
 						component: FileTreeTabPanel,
-						props: { files: branch.files }
+						props: {
+							files: branch.files,
+							selectedFileIds,
+							withCheckboxes: commitDialogShown
+						}
 					},
 					{
 						name: 'notes',

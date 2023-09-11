@@ -28,9 +28,9 @@ export class BranchController {
 		}
 	}
 
-	async commitBranch(branch: string, message: string) {
+	async commitBranch(params: { branch: string; message: string; ownership?: string }) {
 		try {
-			await invoke<void>('commit_virtual_branch', { projectId: this.projectId, branch, message });
+			await invoke<void>('commit_virtual_branch', { projectId: this.projectId, ...params });
 			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to commit branch');

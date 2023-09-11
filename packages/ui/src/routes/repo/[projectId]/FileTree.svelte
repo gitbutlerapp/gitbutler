@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+	import { Checkbox } from '$lib/components';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 
 	import IconChevronDownSmall from '$lib/icons/IconChevronDownSmall.svelte';
@@ -10,12 +11,65 @@
 	import IconFile from '$lib/icons/IconFile.svelte';
 	import IconFolder from '$lib/icons/IconFolder.svelte';
 	import type { TreeNode } from '$lib/vbranches/filetree';
+	import { createEventDispatcher } from 'svelte';
 
 	let className = '';
 	export { className as class };
 	export let expanded = true;
 	export let node: TreeNode;
 	export let isRoot = false;
+	export let selectedFileIds: string[];
+	export let withCheckboxes: boolean;
+
+	const dispatch = createEventDispatcher<{
+		checked: { fileId: string };
+		unchecked: { fileId: string };
+	}>();
+
+	function isNodeChecked(selectedFileIds: string[], node: TreeNode): boolean {
+		if (node.file) {
+			return selectedFileIds.includes(node.file.id);
+		}
+		return node.children.every((child) => isNodeChecked(selectedFileIds, child));
+	}
+
+	$: isChecked = isNodeChecked(selectedFileIds, node);
+
+	function isNodeIndeterminate(selectedFileIds: string[], node: TreeNode): boolean {
+		if (node.file) return false;
+		if (node.children.length === 0) return false;
+
+		const isFirstNodeChecked = isNodeChecked(selectedFileIds, node.children[0]);
+		const isFirstNodeIndeterminate = isNodeIndeterminate(selectedFileIds, node.children[0]);
+		for (const child of node.children) {
+			if (isFirstNodeChecked !== isNodeChecked(selectedFileIds, child)) {
+				return true;
+			}
+			if (isFirstNodeIndeterminate !== isNodeIndeterminate(selectedFileIds, child)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	$: isIndeterminate = isNodeIndeterminate(selectedFileIds, node);
+
+	function idWithChildren(node: TreeNode): string[] {
+		if (node.file) {
+			return [node.file.id];
+		}
+		return node.children.flatMap(idWithChildren);
+	}
+
+	function onCheckboxChange() {
+		idWithChildren(node).forEach((id) => {
+			if (isChecked) {
+				dispatch('unchecked', { fileId: id });
+			} else {
+				dispatch('checked', { fileId: id });
+			}
+		});
+	}
 
 	function toggle() {
 		expanded = !expanded;
@@ -28,7 +82,13 @@
 		<ul id={`fileTree-${fileTreeId++}`}>
 			{#each node.children as childNode}
 				<li>
-					<svelte:self node={childNode} />
+					<svelte:self
+						node={childNode}
+						{selectedFileIds}
+						{withCheckboxes}
+						on:checked
+						on:unchecked
+					/>
 				</li>
 			{/each}
 		</ul>
@@ -69,6 +129,9 @@
 					-{removed}
 				</span>
 			</div>
+			{#if withCheckboxes}
+				<Checkbox checked={isChecked} on:change={onCheckboxChange} />
+			{/if}
 		</button>
 	{:else if node.children.length > 0}
 		<!-- Node is a folder -->
@@ -86,6 +149,13 @@
 			<div class="flex-grow truncate pl-2">
 				{node.name}
 			</div>
+			{#if withCheckboxes}
+				<Checkbox
+					checked={isChecked}
+					indeterminate={isIndeterminate}
+					on:change={onCheckboxChange}
+				/>
+			{/if}
 		</button>
 		<!-- We assume a folder cannot be empty -->
 		{#if expanded}
@@ -98,7 +168,14 @@
 				<ul class="w-full overflow-hidden">
 					{#each node.children as childNode}
 						<li>
-							<svelte:self node={childNode} expanded={true} />
+							<svelte:self
+								node={childNode}
+								expanded={true}
+								{selectedFileIds}
+								{withCheckboxes}
+								on:checked
+								on:unchecked
+							/>
 						</li>
 					{/each}
 				</ul>
