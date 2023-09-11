@@ -22,6 +22,7 @@
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import { slide } from 'svelte/transition';
+	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
@@ -89,27 +90,8 @@
 	}
 
 	function sumBranchLinesAddedRemoved(branch: Branch) {
-		const comitted = branch.commits
-			.flatMap((c) => c.files)
-			.flatMap((f) => f.hunks)
-			.map((h) => h.diff.split('\n'))
-			.reduce(
-				(acc, lines) => ({
-					added: acc.added + lines.filter((l) => l.startsWith('+')).length,
-					removed: acc.removed + lines.filter((l) => l.startsWith('-')).length
-				}),
-				{ added: 0, removed: 0 }
-			);
-		const uncomitted = branch.files
-			.flatMap((f) => f.hunks)
-			.map((h) => h.diff.split('\n'))
-			.reduce(
-				(acc, lines) => ({
-					added: acc.added + lines.filter((l) => l.startsWith('+')).length,
-					removed: acc.removed + lines.filter((l) => l.startsWith('-')).length
-				}),
-				{ added: 0, removed: 0 }
-			);
+		const comitted = computedAddedRemoved(...branch.commits.flatMap((c) => c.files));
+		const uncomitted = computedAddedRemoved(...branch.files)
 
 		return {
 			added: comitted.added + uncomitted.added,
