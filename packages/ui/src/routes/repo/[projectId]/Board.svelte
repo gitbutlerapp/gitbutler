@@ -8,7 +8,6 @@
 	import type { LoadState } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
-	import { rectToClientRect } from 'svelte-floating-ui/core';
 
 	export let projectId: string;
 	export let projectPath: string;
@@ -49,7 +48,7 @@
 	<div
 		bind:this={dropZone}
 		id="branch-lanes"
-		class="flex flex-shrink flex-grow items-start bg-light-300 dark:bg-dark-1100"
+		class="bg-light-300 dark:bg-dark-1100 flex flex-shrink flex-grow items-start"
 		role="group"
 		use:dzHighlight={{ type: dzType, active: 'board-dz-active', hover: 'board-dz-hover' }}
 		on:dragover={(e) => {
@@ -105,7 +104,7 @@
 
 		{#if !activeBranches || activeBranches.length == 0}
 			<div
-				class="m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
+				class="border-light-400 bg-light-200 dark:border-dark-500 dark:bg-dark-1000 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border p-8"
 			>
 				<div class="inline-flex w-[35rem] flex-col items-center gap-y-4">
 					<h3 class="text-xl font-medium">You are up to date</h3>
@@ -120,9 +119,9 @@
 					<div class="flex w-full">
 						<div class="w-1/2">
 							<h3 class="mb-2 text-xl font-medium">Start</h3>
-							<div class="flex flex-col gap-1 text-light-700 dark:text-dark-200">
+							<div class="text-light-700 dark:text-dark-200 flex flex-col gap-1">
 								<a
-									class="inline-flex items-center gap-2 hover:text-light-800 dark:hover:text-dark-100"
+									class="hover:text-light-800 dark:hover:text-dark-100 inline-flex items-center gap-2"
 									target="_blank"
 									rel="noreferrer"
 									href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
@@ -131,7 +130,7 @@
 									GitButler Docs
 								</a>
 								<div
-									class="inline-flex items-center gap-2 hover:text-light-800 dark:hover:text-dark-100"
+									class="hover:text-light-800 dark:hover:text-dark-100 inline-flex items-center gap-2"
 									role="button"
 									tabindex="0"
 									on:keypress={() => open(`vscode://file${projectPath}/`)}
@@ -147,7 +146,7 @@
 							{#each (base?.recentCommits || []).slice(0, 4) as commit}
 								<div class="w-full truncate">
 									<a
-										class="inline-flex items-center gap-2 text-light-700 hover:text-light-800 dark:text-dark-200 hover:dark:text-dark-100
+										class="text-light-700 hover:text-light-800 dark:text-dark-200 hover:dark:text-dark-100 inline-flex items-center gap-2
 										 "
 										href={base?.commitUrl(commit.id)}
 										target="_blank"
