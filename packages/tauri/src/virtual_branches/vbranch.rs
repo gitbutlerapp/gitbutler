@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    env,
     os::unix::fs::PermissionsExt,
     path, time, vec,
 };
@@ -10,11 +11,13 @@ use serde::Serialize;
 
 use uuid::Uuid;
 
+use ssh_key::{HashAlg, LineEnding, PrivateKey, SshSig};
+
 use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
-    git::{self, diff},
-    keys::Key,
+    git::{self, credentials, diff, Commit, Oid, Repository, Tree},
+    keys,
     project_repository::{self, conflicts, LogUntil},
     reader, sessions,
 };
@@ -1814,6 +1817,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 }
 
 pub fn commit(
+    keys_storage: Option<&keys::Storage>,
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &str,
@@ -1907,9 +1911,15 @@ pub fn commit(
             conflicts::clear(project_repository).context("failed to clear conflicts")?;
             commit_oid
         }
-        None => {
-            git_repository.commit(None, &author, &committer, message, &tree, &[&parent_commit])?
-        }
+        None => commit_maybe_sign(
+            keys_storage,
+            project_repository,
+            &author,
+            &committer,
+            message,
+            &tree,
+            &[&parent_commit],
+        )?,
     };
 
     // update the virtual branch head
@@ -1926,6 +1936,56 @@ pub fn commit(
         .context("failed to update gitbutler integration")?;
 
     Ok(())
+}
+
+fn commit_maybe_sign(
+    keys_storage: Option<&keys::Storage>,
+    project_repostory: &project_repository::Repository,
+    author: &git2::Signature,
+    committer: &git2::Signature,
+    message: &str,
+    tree: &Tree,
+    parents: &[&Commit],
+) -> Result<Oid> {
+    // check if we want to sign the commit
+    let repo = &project_repostory.git_repository;
+    let config = repo.config()?;
+    let value = config
+        .get_string("gitbutler.signCommits")
+        .unwrap_or("false".to_string());
+    if value == "true" {
+        dbg!("signing the commit");
+
+        if let Some(keys_storage) = keys_storage {
+            if let Ok(key) = keys_storage.get_or_create() {
+                dbg!(&key);
+
+                let buf = repo
+                    .commit_create_buffer(author, committer, message, tree, parents)
+                    .context("failed to commit")?;
+                let commit_content = std::str::from_utf8(&buf).unwrap();
+
+                let sig = SshSig::sign(
+                    &key.private_ssh_key(),
+                    "git",
+                    HashAlg::Sha512,
+                    commit_content.as_bytes(),
+                )
+                .unwrap();
+                dbg!(sig.to_pem(LineEnding::default()).unwrap());
+                let signature = sig.to_pem(LineEnding::default()).unwrap();
+
+                let oid = repo.commit_signed(commit_content, &signature)?;
+                return Ok(oid);
+            }
+        }
+    }
+
+    // don't sign the commit
+    let oid = repo
+        .commit(None, &author, &committer, message, &tree, parents)
+        .context("failed to commit")?;
+    Ok(oid)
 }
 
 pub fn name_to_branch(name: &str) -> String {
@@ -1946,7 +2006,7 @@ pub fn push(
     project_repository: &project_repository::Repository,
     gb_repository: &gb_repository::Repository,
     branch_id: &str,
-    key: &Key,
+    key: &keys::Key,
 ) -> Result<(), PushError> {
     let current_session = gb_repository
         .get_or_create_current_session()

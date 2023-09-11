@@ -73,6 +73,7 @@ impl Controller {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
                 super::commit(
+                    Some(&self.keys_storage.clone()),
                     gb_repository,
                     project_repository,
                     branch,

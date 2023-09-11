@@ -60,6 +60,10 @@ impl<'repo> Commit<'repo> {
     pub fn committer(&self) -> git2::Signature<'_> {
         self.commit.committer()
     }
+
+    pub fn raw_header(&self) -> Option<&str> {
+        self.commit.raw_header()
+    }
 }
 
 pub struct AnnotatedCommit<'repo> {

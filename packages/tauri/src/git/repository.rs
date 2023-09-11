@@ -215,6 +215,31 @@ impl Repository {
             .map_err(Into::into)
     }
 
+    pub fn commit_create_buffer(
+        &self,
+        author: &git2::Signature<'_>,
+        committer: &git2::Signature<'_>,
+        message: &str,
+        tree: &Tree<'_>,
+        parents: &[&Commit<'_>],
+    ) -> Result<git2::Buf> {
+        let parents: Vec<&git2::Commit> = parents
+            .iter()
+            .map(|c| c.to_owned().into())
+            .collect::<Vec<_>>();
+        let buf = self
+            .0
+            .commit_create_buffer(author, committer, message, tree.into(), &parents)?;
+        Ok(buf)
+    }
+
+    pub fn commit_signed(&self, commit_content: &str, signature: &str) -> Result<Oid> {
+        self.0
+            .commit_signed(commit_content, signature, None)
+            .map(Into::into)
+            .map_err(Into::into)
+    }
+
     pub fn config(&self) -> Result<git2::Config> {
         self.0.config().map_err(Into::into)
     }

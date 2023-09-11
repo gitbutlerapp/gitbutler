@@ -56,6 +56,7 @@ impl super::RunCommand for Commit {
             .context("failed to get commit message")?;
 
         virtual_branches::commit(
+            None,
             app.gb_repository(),
             &app.project_repository(),
             &commit_branch,

@@ -20,6 +20,10 @@ impl PrivateKey {
         Self::default()
     }
 
+    pub fn private_ssh_key(&self) -> ssh_key::PrivateKey {
+        self.0.clone()
+    }
+
     pub fn public_key(&self) -> PublicKey {
         PublicKey::from(self)
     }
