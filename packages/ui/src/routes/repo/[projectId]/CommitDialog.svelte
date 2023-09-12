@@ -29,7 +29,7 @@
 			return f.id + ':' + f.hunks.map((h) => h.id).join(',');
 		})
 		.join('\n');
-    $: console.log(ownership)
+	$: console.log(ownership);
 
 	function commit() {
 		branchController.commitBranch({ branch: branch.id, message: commitMessage, ownership });

@@ -289,7 +289,7 @@
 						{branch}
 						{cloudEnabled}
 						{cloud}
-                        selectedFileIds={$selectedFileIds}
+						selectedFileIds={$selectedFileIds}
 						user={$user}
 					/>
 				{/if}
