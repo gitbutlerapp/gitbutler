@@ -18,8 +18,8 @@
 	export let expanded = true;
 	export let node: TreeNode;
 	export let isRoot = false;
-	export let selectedFileIds: string[];
-	export let withCheckboxes: boolean;
+	export let selectedFileIds: string[] = [];
+	export let withCheckboxes: boolean = false;
 
 	const dispatch = createEventDispatcher<{
 		checked: { fileId: string };
