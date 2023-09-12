@@ -2503,7 +2503,7 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
 }
 
 #[test]
-fn test_partial_commit() -> Result<()> {
+fn test_commit_same_file_twice() -> Result<()> {
     let TestDeps {
         repository,
         project,
@@ -2525,17 +2525,16 @@ fn test_partial_commit() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    // create a change with two hunks
     std::fs::write(
             std::path::Path::new(&project.path).join(file_path),
-            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\npatch2\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nmiddle\nline11\nline12\npatch3\n",
+            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
         )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
-    assert_eq!(branch.files[0].hunks.len(), 3);
+    assert_eq!(branch.files[0].hunks.len(), 1);
     assert_eq!(branch.commits.len(), 0);
 
     // commit
@@ -2543,25 +2542,103 @@ fn test_partial_commit() -> Result<()> {
         &gb_repo,
         &project_repository,
         &branch1_id,
-        "partial commit",
-        Some(&"test.txt:17-24".parse::<Ownership>().unwrap()),
+        "first commit to test.txt",
+        None,
     )?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+
+    assert_eq!(branch.files.len(), 0, "no files expected");
+
+    assert_eq!(branch.commits.len(), 1, "file should have been commited");
+    assert_eq!(branch.commits[0].files.len(), 1, "hunks expected");
+    assert_eq!(
+        branch.commits[0].files[0].hunks.len(),
+        1,
+        "one hunk should have been commited"
+    );
+
+    // add second patch
+
+    std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
+        )?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+
+    assert_eq!(branch.files.len(), 1, "one file should be changed");
+    assert_eq!(branch.commits.len(), 1, "commit is still there");
+
+    commit(
+        &gb_repo,
+        &project_repository,
+        &branch1_id,
+        "second commit to test.txt",
+        None,
+    )?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+
+    assert_eq!(
+        branch.files.len(),
+        0,
+        "all changes should have been commited"
+    );
+
+    assert_eq!(branch.commits.len(), 2, "two commits expected");
+    assert_eq!(branch.commits[0].files.len(), 1);
+    assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
+    assert_eq!(branch.commits[1].files.len(), 1);
+    assert_eq!(branch.commits[1].files[0].hunks.len(), 1);
+
+    Ok(())
+}
+
+#[test]
+fn test_commit_partial_by_hunk() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
+        )?;
+    test_utils::commit_all(&repository);
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
+    let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    std::fs::write(
+            std::path::Path::new(&project.path).join(file_path),
+            "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
+        )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.files[0].hunks.len(), 2);
+    assert_eq!(branch.commits.len(), 0);
 
-    assert_eq!(branch.commits.len(), 1);
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
-
+    // commit
     commit(
         &gb_repo,
         &project_repository,
         &branch1_id,
-        "partial commit 2",
+        "first commit to test.txt",
         Some(&"test.txt:1-6".parse::<Ownership>().unwrap()),
     )?;
 
@@ -2570,7 +2647,22 @@ fn test_partial_commit() -> Result<()> {
 
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.files[0].hunks.len(), 1);
+    assert_eq!(branch.commits.len(), 1);
+    assert_eq!(branch.commits[0].files.len(), 1);
+    assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
 
+    commit(
+        &gb_repo,
+        &project_repository,
+        &branch1_id,
+        "second commit to test.txt",
+        Some(&"test.txt:16-22".parse::<Ownership>().unwrap()),
+    )?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+
+    assert_eq!(branch.files.len(), 0);
     assert_eq!(branch.commits.len(), 2);
     assert_eq!(branch.commits[0].files.len(), 1);
     assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
@@ -2581,7 +2673,7 @@ fn test_partial_commit() -> Result<()> {
 }
 
 #[test]
-fn test_commit_partial() -> Result<()> {
+fn test_commit_partial_by_file() -> Result<()> {
     let TestDeps {
         repository,
         project,
