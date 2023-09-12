@@ -2557,6 +2557,26 @@ fn test_partial_commit() -> Result<()> {
     assert_eq!(branch.commits[0].files.len(), 1);
     assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
 
+    commit(
+        &gb_repo,
+        &project_repository,
+        &branch1_id,
+        "partial commit 2",
+        Some(&"test.txt:1-6".parse::<Ownership>().unwrap()),
+    )?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+
+    assert_eq!(branch.files.len(), 1);
+    assert_eq!(branch.files[0].hunks.len(), 1);
+
+    assert_eq!(branch.commits.len(), 2);
+    assert_eq!(branch.commits[0].files.len(), 1);
+    assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
+    assert_eq!(branch.commits[1].files.len(), 1);
+    assert_eq!(branch.commits[1].files[0].hunks.len(), 1);
+
     Ok(())
 }
 
