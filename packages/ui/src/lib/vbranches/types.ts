@@ -13,6 +13,8 @@ export class Hunk {
 	modifiedAt!: Date;
 	filePath!: string;
 	locked!: boolean;
+
+	selected!: boolean;
 }
 
 export class File {

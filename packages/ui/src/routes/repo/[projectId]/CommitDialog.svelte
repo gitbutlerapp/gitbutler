@@ -16,20 +16,12 @@
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | null;
-	export let selectedFileIds: string[];
+	export let ownership: string;
 
 	const dispatch = createEventDispatcher<{ close: null }>();
 
 	let commitMessage: string;
 	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
-
-	$: ownership = branch.files
-		.filter((f) => selectedFileIds.includes(f.id))
-		.map((f) => {
-			return f.id + ':' + f.hunks.map((h) => h.id).join(',');
-		})
-		.join('\n');
-	$: console.log(ownership);
 
 	function commit() {
 		branchController.commitBranch({ branch: branch.id, message: commitMessage, ownership });

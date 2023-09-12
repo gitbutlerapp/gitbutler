@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import { createEventDispatcher } from 'svelte';
-	import type { File } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
+	import type { File, Hunk } from '$lib/vbranches/types';
 	import RenderedLine from './RenderedLine.svelte';
 	import {
 		IconTriangleUp,
@@ -30,6 +31,8 @@
 	export let expanded: boolean | undefined;
 	export let branchController: BranchController;
 	export let readonly = false;
+	export let selectable = false;
+	export let selectedOwnership: Writable<string>;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const dispatch = createEventDispatcher<{
@@ -72,6 +75,8 @@
 
 	$: minWidth = getGutterMinWidth(maxLineNumber);
 
+	$: console.log(file);
+
 	function getAllHunksOwnership(): string {
 		return file.id + ':' + file.hunks.map((h) => h.id).join(',');
 	}
@@ -79,6 +84,47 @@
 	$: isFileLocked = sections
 		.filter((section): section is HunkSection => section instanceof HunkSection)
 		.some((section) => section.hunk.locked);
+
+	function isHunkSelected(ownership: string, hunk: Hunk): boolean {
+		return ownership.split('\n').some((ownership) => {
+			const [fileId, hunkIds] = ownership.split(':');
+			if (fileId !== file.id) return false;
+			return hunkIds.split(',').some((hunkId) => hunkId === hunk.id);
+		});
+	}
+
+	function addHunk(ownership: string, hunk: Hunk): string {
+		return ownership
+			.split('\n')
+			.map((fileOwnership) => {
+				const [fileId, hunkIds] = fileOwnership.split(':');
+				if (fileId !== file.id) return fileOwnership;
+				return `${fileId}:${hunkIds},${hunk.id}`;
+			})
+			.join('\n');
+	}
+
+	function removeHunk(ownership: string, hunk: Hunk): string {
+		return ownership
+			.split('\n')
+			.map((fileOwnership) => {
+				const [fileId, hunkIds] = fileOwnership.split(':');
+				if (fileId !== file.id) return fileOwnership;
+				return `${fileId}:${hunkIds
+					.split(',')
+					.filter((hunkId) => hunkId !== hunk.id)
+					.join(',')}`;
+			})
+			.join('\n');
+	}
+
+	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
+		if (isSelected) {
+			selectedOwnership.update((ownership) => addHunk(ownership, hunk));
+		} else {
+			selectedOwnership.update((ownership) => removeHunk(ownership, hunk));
+		}
+	}
 </script>
 
 <div
@@ -194,6 +240,9 @@
 											<RenderedLine
 												{line}
 												{minWidth}
+												selected={isHunkSelected($selectedOwnership, section.hunk)}
+												on:selected={(e) => onHunkSelected(section.hunk, e.detail)}
+												{selectable}
 												sectionType={subsection.sectionType}
 												filePath={file.path}
 												on:contextmenu={(e) =>

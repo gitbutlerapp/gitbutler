@@ -28,7 +28,7 @@
 	import IconBackspace from '$lib/icons/IconBackspace.svelte';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import CommitDialog from './CommitDialog.svelte';
-	import { writable } from 'svelte/store';
+	import { derived, writable } from 'svelte/store';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -162,6 +162,20 @@
 
 	const selectedFileIds = writable(branch.files.map((f) => f.id));
 	$: selectedFileIds.set(branch.files.map((f) => f.id));
+
+	const selectedOwnership = writable('');
+	selectedFileIds.subscribe((selectedFileIds) => {
+		selectedOwnership.set(
+			branch.files
+				.filter((f) => selectedFileIds.includes(f.id))
+				.map((f) => {
+					return f.id + ':' + f.hunks.map((h) => h.id).join(',');
+				})
+				.join('\n')
+		);
+	});
+
+    $: console.log($selectedOwnership);
 </script>
 
 <div
@@ -289,7 +303,7 @@
 						{branch}
 						{cloudEnabled}
 						{cloud}
-						selectedFileIds={$selectedFileIds}
+						ownership={$selectedOwnership}
 						user={$user}
 					/>
 				{/if}
@@ -352,11 +366,13 @@
 									<FileCard
 										expanded={file.expanded}
 										conflicted={file.conflicted}
+										{selectedOwnership}
 										{file}
 										{dzType}
 										{projectId}
 										{projectPath}
 										{branchController}
+										selectable={commitDialogShown}
 										{readonly}
 										on:expanded={(e) => {
 											setExpandedWithCache(file, e.detail);
