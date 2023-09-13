@@ -120,7 +120,7 @@
 	{projectId}
 />
 <div
-	class="bg-color-5 z-30 flex w-80 shrink-0 flex-col border-r border-light-200 dark:border-dark-600"
+	class="bg-color-5 border-color-4 z-30 flex w-80 shrink-0 flex-col border-r"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 	role="menu"
 	on:click|stopPropagation
@@ -185,7 +185,7 @@
 	</div>
 	<!-- Your branches -->
 	<div
-		class="bg-color-4 flex items-center justify-between border-b border-t border-light-300 px-2 py-1 pr-1 dark:border-dark-600"
+		class="bg-color-4 border-color-5 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	>
 		<div class="font-bold">Stashed branches</div>
 		<div class="flex h-4 w-4 justify-around">
@@ -227,7 +227,7 @@
 							on:click={() => select(branch, i)}
 							on:keypress|capture={() => select(branch, i)}
 							transition:slide={{ duration: 250 }}
-							class="group border-b border-light-200 p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2 dark:border-dark-600"
+							class="border-color-4 group border-b p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2"
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
 						>
@@ -307,7 +307,7 @@
 
 	<!-- Remote branches -->
 	<div
-		class="bg-color-4 flex items-center justify-between border-b border-t border-light-300 px-2 py-1 pr-1 dark:border-dark-600"
+		class="bg-color-4 border-color-5 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	>
 		<div class="flex flex-row place-items-center space-x-2">
 			<div class="text-color-2 font-bold">Remote Branches</div>
@@ -330,7 +330,11 @@
 		</div>
 	</div>
 
-	<div bind:this={rbSection} use:accordion={remoteBranchesOpen} class="relative flex-grow">
+	<div
+		bind:this={rbSection}
+		use:accordion={remoteBranchesOpen}
+		class="border-color-5 relative flex-grow border-b"
+	>
 		<div
 			bind:this={rbViewport}
 			on:scroll={onScroll}
@@ -362,7 +366,7 @@
 							on:click={() => select(branch, i)}
 							on:keypress={() => select(branch, i)}
 							class:bg-color-4={$selectedItem == branch && peekTrayExpanded}
-							class="flex flex-col justify-between gap-1 border-b border-light-200 px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b focus:outline-2 dark:border-dark-600"
+							class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b focus:outline-2"
 						>
 							<div class="flex flex-row items-center gap-x-2 pr-1">
 								<div class="text-color-3">

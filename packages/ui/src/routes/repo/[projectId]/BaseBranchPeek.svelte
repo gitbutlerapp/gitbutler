@@ -23,7 +23,7 @@
 <div class="relative h-full max-h-full">
 	<div
 		bind:this={viewport}
-		class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
+		class="hide-native-scrollbar bg-color-3 flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 	>
 		<div bind:this={contents} class="flex flex-col gap-y-4 p-4">
 			<h1 class="font-bold text-light-700 dark:text-dark-100">Upstream</h1>

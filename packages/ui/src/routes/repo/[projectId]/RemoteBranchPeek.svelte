@@ -15,7 +15,7 @@
 			<p class="truncate text-lg font-bold" title="remote branch">
 				{branch.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '')}
 			</p>
-			<p class="text-light-700 dark:text-dark-200" title="upstream target">
+			<p class="text-3" title="upstream target">
 				{branch.upstream?.replace('refs/remotes/', '') || ''}
 			</p>
 		</div>

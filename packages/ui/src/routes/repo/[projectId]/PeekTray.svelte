@@ -57,7 +57,7 @@
 	style:width={`${$userSettings.peekTrayWidth}px`}
 	style:translate={`${offsetLeft}px`}
 	style:transition-property={!disabled ? (expanded ? 'top,translate' : 'translate') : 'none'}
-	class="absolute z-30 flex shrink-0 overflow-visible bg-white text-light-800 outline-none duration-300 ease-in-out dark:bg-dark-800 dark:text-dark-100"
+	class="bg-color-5 text-color-1 absolute z-30 flex shrink-0 overflow-visible outline-none duration-300 ease-in-out"
 	on:click|stopPropagation
 	on:keydown|stopPropagation
 	role="menu"
@@ -89,7 +89,7 @@
 			{/if}
 		</div>
 		<div
-			class="bg-color-4 hover:bg-color-5 flex w-4 cursor-pointer items-center text-light-600"
+			class="bg-color-4 hover:bg-color-5 text-color-4 flex w-4 cursor-pointer items-center"
 			role="button"
 			tabindex="0"
 			on:click={toggleExpanded}

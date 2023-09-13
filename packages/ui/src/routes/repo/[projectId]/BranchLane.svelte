@@ -192,10 +192,10 @@
 >
 	<div
 		bind:this={rsViewport}
-		class="bg-color-3 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-light-400 dark:border-dark-600"
+		class="bg-color-3 border-color-4 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r"
 	>
 		<div class="flex">
-			<div class="flex flex-grow flex-col border-b border-light-400 dark:border-dark-600">
+			<div class="bg-color-4 border-color-4 flex flex-grow flex-col border-b">
 				{#if !branch.mergeable}
 					<!-- use of relative is for tooltip rendering -->
 					<div class="bg-red-500 px-2 py-0.5 text-center font-bold dark:bg-red-700">
@@ -227,7 +227,7 @@
 							bind:value={branch.name}
 							on:change={handleBranchNameChange}
 							title={branch.name}
-							class="w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold hover:border-light-400 dark:hover:border-dark-600"
+							class="text-color-3 hover:text-color-2 focus:text-color-2 hover:border-color-4 w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold"
 							on:dblclick|stopPropagation
 							on:click={(e) => e.currentTarget.select()}
 						/>
@@ -373,30 +373,25 @@
 						{#if branch.files.length == 0}
 							{#if branch.commits.length == 0}
 								<div
-									class="no-changes text-color-3 space-y-6 rounded p-8 text-center dark:border-zinc-700"
+									class="no-changes text-color-3 space-y-6 rounded p-8 text-center"
 									data-dnd-ignore
 								>
 									<p>Nothing on this branch yet.</p>
 									{#if !readonly}
-										<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
+										<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400" />
 										<p class="px-12">Get some work done, then throw some files my way!</p>
 									{/if}
 								</div>
 							{:else}
 								<!-- attention: these markers have custom css at the bottom of thise file -->
-								<div
-									class="no-changes text-color-3 rounded text-center font-mono dark:border-zinc-700"
-									data-dnd-ignore
-								>
+								<div class="no-changes text-color-3 rounded text-center font-mono" data-dnd-ignore>
 									No uncommitted changes on this branch
 								</div>
 							{/if}
 						{/if}
 					</div>
 					{#if localCommits.length > 0 || remoteCommits.length > 0}
-						<div
-							class="flex w-full flex-grow flex-col gap-2 border-t border-light-400 dark:border-dark-500"
-						>
+						<div class="flex w-full flex-grow flex-col gap-2">
 							{#if localCommits.length > 0}
 								<div
 									class="relative"
@@ -405,7 +400,7 @@
 								>
 									<div
 										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
-										style={remoteCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
+										style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
 									/>
 
 									<div class="relative flex flex-col gap-2">
@@ -439,9 +434,7 @@
 												animate:flip
 											>
 												<div class="ml-[0.4rem] mr-1.5">
-													<div
-														class="h-3 w-3 rounded-full border-2 border-light-500 bg-light-200 dark:border-dark-600 dark:bg-dark-1000"
-													/>
+													<div class="border-color-4 h-3 w-3 rounded-full border-2" />
 												</div>
 												<CommitCard
 													{commit}
@@ -456,8 +449,7 @@
 							{#if remoteCommits.length > 0}
 								<div class="relative flex-grow">
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem]
-						w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 										style="height: calc(100% - 1rem);"
 									/>
 
@@ -573,11 +565,5 @@
 	}
 	:global(.lane-dz-hover .hover-text) {
 		@apply visible;
-	}
-	:global(.lane-dz-hover .lane-dz-marker) {
-		@apply text-light-700 outline-light-600;
-	}
-	:global(.dark .lane-dz-hover .lane-dz-marker) {
-		@apply text-dark-100 outline-dark-200;
 	}
 </style>
