@@ -92,22 +92,12 @@ impl Handler {
                 .context("failed to handle flush session event"),
 
             events::Event::SessionFile((project_id, session_id, file_path, contents)) => {
-                let mut events = self
-                    .index_handler
-                    .index_file(
-                        project_id,
-                        session_id,
-                        file_path.to_str().unwrap(),
-                        contents,
-                    )
-                    .context("failed to index file")?;
-                events.push(events::Event::Emit(app_events::Event::file(
+                Ok(vec![events::Event::Emit(app_events::Event::file(
                     project_id,
                     session_id,
                     &file_path.display().to_string(),
                     contents,
-                )));
-                Ok(events)
+                ))])
             }
 
             events::Event::Session(project_id, session) => self

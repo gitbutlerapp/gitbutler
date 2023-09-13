@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 use tokio::task;
 
 use crate::{
-    bookmarks, deltas, files, gb_repository,
+    bookmarks, deltas, gb_repository,
     git::{self, diff},
     keys,
     project_repository::{self, activity, conflicts},
@@ -24,7 +24,6 @@ pub struct App {
     searcher: search::Searcher,
     watchers: watcher::Watchers,
     sessions_database: sessions::Database,
-    files_database: files::Database,
     deltas_database: deltas::Database,
     bookmarks_database: bookmarks::Database,
 }
@@ -55,7 +54,6 @@ impl TryFrom<&AppHandle> for App {
             watchers: value.state::<watcher::Watchers>().inner().clone(),
             sessions_database: sessions::Database::try_from(value)?,
             deltas_database: deltas::Database::try_from(value)?,
-            files_database: files::Database::try_from(value)?,
             bookmarks_database: bookmarks::Database::try_from(value)?,
         })
     }
@@ -242,8 +240,19 @@ impl App {
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, String>> {
-        self.files_database
-            .list_by_project_id_session_id(project_id, session_id, paths)
+        let session = self
+            .sessions_database
+            .get_by_project_id_id(project_id, session_id)
+            .context("failed to get session")?
+            .context("session not found")?;
+        let gb_repo = self
+            .gb_repository(project_id)
+            .context("failed to open repository")?;
+        let session_reader =
+            sessions::Reader::open(&gb_repo, &session).context("failed to open session reader")?;
+        session_reader
+            .files(paths)
+            .context("failed to read session files")
     }
 
     pub fn mark_resolved(&self, project_id: &str, path: &str) -> Result<()> {

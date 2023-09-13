@@ -4,8 +4,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    bookmarks, deltas, events as app_events, files, gb_repository, projects, search, sessions,
-    users,
+    bookmarks, deltas, events as app_events, gb_repository, projects, search, sessions, users,
 };
 
 use super::events;
@@ -16,7 +15,6 @@ pub struct Handler {
     project_store: projects::Storage,
     user_store: users::Storage,
     deltas_searcher: search::Searcher,
-    files_database: files::Database,
     sessions_database: sessions::Database,
     deltas_database: deltas::Database,
     bookmarks_database: bookmarks::Database,
@@ -35,7 +33,6 @@ impl TryFrom<&AppHandle> for Handler {
             project_store: projects::Storage::try_from(value)?,
             user_store: users::Storage::try_from(value)?,
             deltas_searcher: value.state::<search::Searcher>().inner().clone(),
-            files_database: files::Database::try_from(value)?,
             sessions_database: sessions::Database::try_from(value)?,
             deltas_database: deltas::Database::try_from(value)?,
             bookmarks_database: bookmarks::Database::try_from(value)?,
@@ -54,19 +51,6 @@ impl Handler {
         self.deltas_database
             .insert(project_id, session_id, file_path, deltas)
             .context("failed to insert deltas into database")?;
-        Ok(vec![])
-    }
-
-    pub fn index_file(
-        &self,
-        project_id: &str,
-        session_id: &str,
-        file_path: &str,
-        content: &str,
-    ) -> Result<Vec<events::Event>> {
-        self.files_database
-            .insert(project_id, session_id, file_path, content)
-            .context("failed to insert file into database")?;
         Ok(vec![])
     }
 
@@ -144,14 +128,6 @@ impl Handler {
         let mut events: Vec<events::Event> = vec![events::Event::Emit(app_events::Event::session(
             project_id, session,
         ))];
-
-        for (file_path, content) in session_reader
-            .files(None)
-            .context("could not list files for session")?
-        {
-            let file_events = self.index_file(project_id, &session.id, &file_path, &content)?;
-            events.extend(file_events);
-        }
 
         let deltas_reader = deltas::Reader::new(&session_reader);
         for (file_path, deltas) in deltas_reader

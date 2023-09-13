@@ -79,6 +79,31 @@ impl Database {
         })
     }
 
+    pub fn get_by_project_id_id(
+        &self,
+        project_id: &str,
+        id: &str,
+    ) -> Result<Option<session::Session>> {
+        self.database.transaction(|tx| {
+            let mut stmt = get_by_project_id_id_stmt(tx)
+                .context("Failed to prepare get_by_project_id_id statement")?;
+            let mut rows = stmt
+                .query(rusqlite::named_params! {
+                    ":project_id": project_id,
+                    ":id": id,
+                })
+                .context("Failed to execute get_by_project_id_id statement")?;
+            if let Some(row) = rows
+                .next()
+                .context("Failed to iterate over get_by_project_id_id results")?
+            {
+                Ok(Some(parse_row(row)?))
+            } else {
+                Ok(None)
+            }
+        })
+    }
+
     pub fn get_by_id(&self, id: &str) -> Result<Option<session::Session>> {
         self.database.transaction(|tx| {
             let mut stmt = get_by_id_stmt(tx).context("Failed to prepare get_by_id statement")?;
@@ -125,6 +150,14 @@ fn list_by_project_id_stmt<'conn>(
 ) -> Result<rusqlite::CachedStatement<'conn>> {
     Ok(tx.prepare_cached(
         "SELECT `id`, `project_id`, `hash`, `branch`, `commit`, `start_timestamp_ms`, `last_timestamp_ms` FROM `sessions` WHERE `project_id` = :project_id ORDER BY `start_timestamp_ms` DESC",
+    )?)
+}
+
+fn get_by_project_id_id_stmt<'conn>(
+    tx: &'conn rusqlite::Transaction,
+) -> Result<rusqlite::CachedStatement<'conn>> {
+    Ok(tx.prepare_cached(
+        "SELECT `id`, `project_id`, `hash`, `branch`, `commit`, `start_timestamp_ms`, `last_timestamp_ms` FROM `sessions` WHERE `project_id` = :project_id AND `id` = :id",
     )?)
 }
 
