@@ -7,7 +7,6 @@ pub mod dedup;
 pub mod deltas;
 pub mod error;
 pub mod events;
-pub mod files;
 pub mod fs;
 pub mod gb_repository;
 pub mod git;
