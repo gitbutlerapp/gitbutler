@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { IconExternalLink } from '../../icons';
+	import { open } from '@tauri-apps/api/shell';
 
 	let classes = '';
 	export { classes as class };
@@ -19,21 +20,23 @@
 	$: isExternal = href?.startsWith('http');
 </script>
 
-<a
-	{href}
-	{target}
-	{rel}
-	class="link flex items-center {role} {classes}"
-	bind:this={element}
-	class:disabled
-	on:click
->
-	<div class="flex-grow truncate">
-		<slot />
-	</div>
-	<div class="shrink-0">
-		{#if isExternal}
-			<IconExternalLink class="h-4 w-4" />
-		{/if}
-	</div>
-</a>
+{#if href}
+	<a
+		{href}
+		{target}
+		{rel}
+		class="link flex items-center {role} {classes}"
+		bind:this={element}
+		class:disabled
+		on:click={() => href && open(href)}
+	>
+		<div class="flex-grow truncate">
+			<slot />
+		</div>
+		<div class="shrink-0">
+			{#if isExternal}
+				<IconExternalLink class="h-4 w-4" />
+			{/if}
+		</div>
+	</a>
+{/if}
