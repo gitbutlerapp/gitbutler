@@ -182,7 +182,10 @@ export function languageFromFilename(filename: string): LanguageSupport | null {
 }
 
 export class CodeHighlighter {
-	constructor(readonly code: string, readonly tree: Tree) {}
+	constructor(
+		readonly code: string,
+		readonly tree: Tree
+	) {}
 
 	highlight(token: (text: string, style: string) => void): void {
 		this.highlightRange(0, this.code.length, token);
