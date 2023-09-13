@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import { createEventDispatcher } from 'svelte';
-	import type { File } from '$lib/vbranches/types';
+	import type { File, Hunk } from '$lib/vbranches/types';
+	import type { Ownership } from '$lib/vbranches/ownership';
+	import type { Writable } from 'svelte/store';
 	import RenderedLine from './RenderedLine.svelte';
 	import {
 		IconTriangleUp,
@@ -30,6 +32,8 @@
 	export let expanded: boolean | undefined;
 	export let branchController: BranchController;
 	export let readonly = false;
+	export let selectable = false;
+	export let selectedOwnership: Writable<Ownership>;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const dispatch = createEventDispatcher<{
@@ -79,6 +83,14 @@
 	$: isFileLocked = sections
 		.filter((section): section is HunkSection => section instanceof HunkSection)
 		.some((section) => section.hunk.locked);
+
+	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
+		if (isSelected) {
+			selectedOwnership.update((ownership) => ownership.addHunk(hunk.filePath, hunk.id));
+		} else {
+			selectedOwnership.update((ownership) => ownership.removeHunk(hunk.filePath, hunk.id));
+		}
+	}
 </script>
 
 <div
@@ -190,10 +202,14 @@
 							>
 								<div class="w-full overflow-hidden bg-white dark:bg-dark-900">
 									{#each section.subSections as subsection, sidx}
+										{@const hunk = section.hunk}
 										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 											<RenderedLine
 												{line}
 												{minWidth}
+												selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
+												on:selected={(e) => onHunkSelected(hunk, e.detail)}
+												{selectable}
 												sectionType={subsection.sectionType}
 												filePath={file.path}
 												on:contextmenu={(e) =>

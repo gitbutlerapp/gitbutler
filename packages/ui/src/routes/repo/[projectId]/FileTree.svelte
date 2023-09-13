@@ -3,20 +3,79 @@
 </script>
 
 <script lang="ts">
+	import { Checkbox } from '$lib/components';
+	import { writable } from 'svelte/store';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
-
 	import IconChevronDownSmall from '$lib/icons/IconChevronDownSmall.svelte';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import IconFile from '$lib/icons/IconFile.svelte';
 	import IconFolder from '$lib/icons/IconFolder.svelte';
 	import { computeFileStatus, computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import type { TreeNode } from '$lib/vbranches/filetree';
+	import { Ownership } from '$lib/vbranches/ownership';
 
 	let className = '';
 	export { className as class };
 	export let expanded = true;
 	export let node: TreeNode;
 	export let isRoot = false;
+	export let withCheckboxes: boolean = false;
+	export let selectedOwnership = writable(Ownership.default());
+
+	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
+		if (node.file) {
+			const fileId = node.file.id;
+			return node.file.hunks.some((hunk) => selectedOwnership.containsHunk(fileId, hunk.id));
+		} else {
+			return node.children.every((child) => isNodeChecked(selectedOwnership, child));
+		}
+	}
+
+	$: isChecked = isNodeChecked($selectedOwnership, node);
+
+	function isNodeIndeterminate(selectedOwnership: Ownership, node: TreeNode): boolean {
+		if (node.file) {
+			const fileId = node.file.id;
+			const numSelected = node.file.hunks.filter(
+				(hunk) => !selectedOwnership.containsHunk(fileId, hunk.id)
+			).length;
+			return numSelected !== node.file.hunks.length && numSelected !== 0;
+		}
+		if (node.children.length === 0) return false;
+
+		const isFirstNodeChecked = isNodeChecked(selectedOwnership, node.children[0]);
+		const isFirstNodeIndeterminate = isNodeIndeterminate(selectedOwnership, node.children[0]);
+		for (const child of node.children) {
+			if (isFirstNodeChecked !== isNodeChecked(selectedOwnership, child)) {
+				return true;
+			}
+			if (isFirstNodeIndeterminate !== isNodeIndeterminate(selectedOwnership, child)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	$: isIndeterminate = isNodeIndeterminate($selectedOwnership, node);
+
+	function idWithChildren(node: TreeNode): [string, string[]][] {
+		if (node.file) {
+			return [[node.file.id, node.file.hunks.map((h) => h.id)]];
+		}
+		return node.children.flatMap(idWithChildren);
+	}
+
+	function onCheckboxChange() {
+		idWithChildren(node).forEach(([fileId, hunkIds]) =>
+			hunkIds.forEach((hunkId) => {
+				if (isChecked) {
+					selectedOwnership.update((ownership) => ownership.removeHunk(fileId, hunkId));
+				} else {
+					selectedOwnership.update((ownership) => ownership.addHunk(fileId, hunkId));
+				}
+			})
+		);
+	}
 
 	function toggle() {
 		expanded = !expanded;
@@ -29,7 +88,13 @@
 		<ul id={`fileTree-${fileTreeId++}`}>
 			{#each node.children as childNode}
 				<li>
-					<svelte:self node={childNode} />
+					<svelte:self
+						node={childNode}
+						{selectedOwnership}
+						{withCheckboxes}
+						on:checked
+						on:unchecked
+					/>
 				</li>
 			{/each}
 		</ul>
@@ -71,6 +136,13 @@
 					-{removed}
 				</span>
 			</div>
+			{#if withCheckboxes}
+				<Checkbox
+					checked={isChecked}
+					indeterminate={isIndeterminate}
+					on:change={onCheckboxChange}
+				/>
+			{/if}
 		</button>
 	{:else if node.children.length > 0}
 		<!-- Node is a folder -->
@@ -88,6 +160,13 @@
 			<div class="flex-grow truncate pl-2">
 				{node.name}
 			</div>
+			{#if withCheckboxes}
+				<Checkbox
+					checked={isChecked}
+					indeterminate={isIndeterminate}
+					on:change={onCheckboxChange}
+				/>
+			{/if}
 		</button>
 		<!-- We assume a folder cannot be empty -->
 		{#if expanded}
@@ -100,7 +179,14 @@
 				<ul class="w-full overflow-hidden">
 					{#each node.children as childNode}
 						<li>
-							<svelte:self node={childNode} expanded={true} />
+							<svelte:self
+								node={childNode}
+								expanded={true}
+								{selectedOwnership}
+								{withCheckboxes}
+								on:checked
+								on:unchecked
+							/>
 						</li>
 					{/each}
 				</ul>

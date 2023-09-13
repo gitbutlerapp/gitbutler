@@ -2,11 +2,16 @@
 	import { SectionType } from './fileSections';
 	import type { Line } from './fileSections';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
+	import { createEventDispatcher } from 'svelte';
 
 	export let line: Line;
 	export let sectionType: SectionType;
 	export let filePath: string;
 	export let minWidth = 1.75;
+	export let selectable: boolean = false;
+	export let selected: boolean = true;
+
+	const dispatch = createEventDispatcher<{ selected: boolean }>();
 
 	function toTokens(codeString: string): string[] {
 		function sanitize(text: string) {
@@ -26,6 +31,11 @@
 		});
 		return tokens;
 	}
+
+	$: bgColor =
+		selectable && selected
+			? 'bg-blue-400 border-blue-500 text-white dark:border-blue-700 dark:bg-blue-800'
+			: 'bg-light-50 border-light-300 dark:bg-dark-700 dark:border-dark-400';
 </script>
 
 <div
@@ -33,18 +43,22 @@
 	role="group"
 	on:contextmenu|preventDefault
 >
-	<div
-		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-0.5 text-right text-xs text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+	<button
+		disabled={!selectable}
+		on:click={() => dispatch('selected', !selected)}
+		class="shrink-0 select-none border-r px-0.5 text-right text-xs text-light-600 dark:text-light-300 {bgColor}"
 		style:min-width={minWidth + 'rem'}
 	>
 		{line.beforeLineNumber || ''}
-	</div>
-	<div
-		class="shrink-0 select-none border-r border-light-400 bg-light-50 px-0.5 text-right text-xs text-light-600 dark:border-dark-400 dark:bg-dark-700 dark:text-light-300"
+	</button>
+	<button
+		disabled={!selectable}
+		on:click={() => dispatch('selected', !selected)}
+		class="shrink-0 select-none border-r px-0.5 text-right text-xs text-light-600 dark:text-light-300 {bgColor}"
 		style:min-width={minWidth + 'rem'}
 	>
 		{line.afterLineNumber || ''}
-	</div>
+	</button>
 	<div
 		class="flex-grow overflow-hidden whitespace-pre pl-0.5"
 		class:diff-line-deletion={sectionType === SectionType.RemovedLines}

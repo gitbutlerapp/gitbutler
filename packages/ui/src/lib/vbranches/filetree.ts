@@ -10,6 +10,7 @@ export interface TreeNode {
 	name: string;
 	file?: File;
 	children: TreeNode[];
+	parent?: TreeNode;
 }
 
 function createNode(acc: TreeNode, pathParts: string[]) {
@@ -18,7 +19,7 @@ function createNode(acc: TreeNode, pathParts: string[]) {
 	const node = acc.children?.find((f) => f.name == pathParts[0]);
 	if (node) return createNode(node, pathParts.slice(1));
 
-	const newDir = { name: pathParts[0], children: [] };
+	const newDir = { name: pathParts[0], children: [], parent: acc };
 	acc.children.push(newDir);
 
 	return createNode(newDir, pathParts.slice(1));

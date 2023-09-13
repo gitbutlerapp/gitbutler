@@ -2,6 +2,7 @@
 	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import { Button, Link, Modal, Tooltip } from '$lib/components';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
@@ -28,6 +29,8 @@
 	import IconBackspace from '$lib/icons/IconBackspace.svelte';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import CommitDialog from './CommitDialog.svelte';
+	import { writable } from 'svelte/store';
+	import { showReportDialog } from '@sentry/sveltekit';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -158,6 +161,9 @@
 			}
 		});
 	});
+
+	const selectedOwnership = writable(Ownership.fromBranch(branch));
+	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
 </script>
 
 <div
@@ -285,6 +291,7 @@
 						{branch}
 						{cloudEnabled}
 						{cloud}
+						ownership={$selectedOwnership}
 						user={$user}
 					/>
 				{/if}
@@ -298,7 +305,11 @@
 						name: 'files',
 						displayName: 'Changed files (' + branch.files.length + ')',
 						component: FileTreeTabPanel,
-						props: { files: branch.files }
+						props: {
+							files: branch.files,
+							selectedOwnership,
+							withCheckboxes: commitDialogShown
+						}
 					},
 					{
 						name: 'notes',
@@ -343,11 +354,13 @@
 									<FileCard
 										expanded={file.expanded}
 										conflicted={file.conflicted}
+										{selectedOwnership}
 										{file}
 										{dzType}
 										{projectId}
 										{projectPath}
 										{branchController}
+										selectable={commitDialogShown}
 										{readonly}
 										on:expanded={(e) => {
 											setExpandedWithCache(file, e.detail);
