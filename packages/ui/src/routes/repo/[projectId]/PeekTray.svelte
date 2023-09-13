@@ -89,7 +89,7 @@
 			{/if}
 		</div>
 		<div
-			class="flex w-4 cursor-pointer items-center bg-light-50 text-light-600 hover:bg-light-150 dark:bg-dark-700 dark:hover:bg-dark-600"
+			class="bg-color-4 hover:bg-color-5 flex w-4 cursor-pointer items-center text-light-600"
 			role="button"
 			tabindex="0"
 			on:click={toggleExpanded}

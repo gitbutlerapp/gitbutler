@@ -148,7 +148,7 @@
 					</div>
 				{/if}
 				<div
-					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-none bg-light-300 duration-300 dark:bg-dark-1100"
+					class="lane-scroll flex flex-grow gap-1 overflow-x-auto overflow-y-hidden overscroll-none transition-opacity duration-300"
 					style:opacity={peekTrayExpanded ? '0.5' : undefined}
 				>
 					<Board
@@ -169,7 +169,7 @@
 	{:else}
 		<div class="m-auto text-light-700 dark:text-dark-100">
 			{#if $vbrachesState.error.code === Code.InvalidHead}
-				<div class="space-y-2 rounded-md bg-light-400 p-4 dark:bg-dark-700">
+				<div class="space-y-2 rounded-md p-4">
 					<h2 class="text-lg font-semibold">
 						Looks like you've switched from gitbutler/integration
 					</h2>
@@ -204,7 +204,7 @@
 	<div class="grid h-full w-full grid-cols-2 items-center justify-items-stretch">
 		<div
 			id="vb-data"
-			class="flex h-full flex-col justify-center gap-y-4 self-center bg-light-400 p-12 text-lg dark:bg-dark-700"
+			class="bg-color-2 flex h-full flex-col justify-center gap-y-4 self-center p-12 text-lg"
 		>
 			<div class="font-bold">Set your Base Branch</div>
 			<p class="text-light-700 dark:text-dark-100">

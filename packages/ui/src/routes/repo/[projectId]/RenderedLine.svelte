@@ -54,7 +54,7 @@
 	<button
 		disabled={!selectable}
 		on:click={() => dispatch('selected', !selected)}
-		class="shrink-0 select-none border-r px-0.5 text-right text-xs text-light-600 dark:text-light-300 {bgColor}"
+		class="text-color-4 shrink-0 select-none border-r border-light-400 px-0.5 text-right text-xs dark:border-dark-400 {bgColor}"
 		style:min-width={minWidth + 'rem'}
 	>
 		{line.afterLineNumber || ''}
