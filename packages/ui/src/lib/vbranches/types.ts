@@ -28,21 +28,6 @@ export class File {
 	conflicted!: boolean;
 	content!: string;
 	binary!: boolean;
-
-	getSummary() {
-		const { added, removed } = this.hunks
-			.map((h) => h.diff.split('\n'))
-			.reduce(
-				(acc, lines) => ({
-					added: acc.added + lines.filter((l) => l.startsWith('+')).length,
-					removed: acc.removed + lines.filter((l) => l.startsWith('-')).length
-				}),
-				{ added: 0, removed: 0 }
-			);
-		const contentLineCount = this.content?.trim().split('\n').length;
-		const status = added == contentLineCount ? 'A' : removed == contentLineCount ? 'D' : 'M';
-		return { status, added, removed };
-	}
 }
 
 export class Branch {

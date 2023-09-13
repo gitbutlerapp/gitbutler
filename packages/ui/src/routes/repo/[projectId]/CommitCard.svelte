@@ -46,10 +46,7 @@
 			conflicted: false,
 			binary: false,
 			modifiedAt: mockDate,
-			content: '',
-			getSummary: () => {
-				return { status: '', added: 0, removed: 0 };
-			}
+			content: ''
 		};
 		return parseFileSections(file);
 	}

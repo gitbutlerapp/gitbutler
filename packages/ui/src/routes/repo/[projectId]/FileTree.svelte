@@ -10,6 +10,7 @@
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import IconFile from '$lib/icons/IconFile.svelte';
 	import IconFolder from '$lib/icons/IconFolder.svelte';
+	import { computeFileStatus, computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import type { TreeNode } from '$lib/vbranches/filetree';
 	import type { Ownership } from '$lib/vbranches/ownership';
 
@@ -98,7 +99,8 @@
 			{/each}
 		</ul>
 	{:else if node.file}
-		{@const { status, added, removed } = node.file.getSummary()}
+		{@const { added, removed } = computedAddedRemoved(node.file)}
+		{@const status = computeFileStatus(node.file)}
 		<!-- Node is a file -->
 		<button
 			class="flex w-full items-center gap-x-2 py-0 text-left"
