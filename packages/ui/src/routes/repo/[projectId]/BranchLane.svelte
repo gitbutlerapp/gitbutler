@@ -192,9 +192,9 @@
 >
 	<div
 		bind:this={rsViewport}
-		class="flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-light-400 bg-light-150 dark:border-dark-600 dark:bg-dark-1000 dark:text-dark-100"
+		class="bg-color-3 flex flex-grow cursor-default flex-col overflow-x-hidden border-l border-r border-light-400 dark:border-dark-600"
 	>
-		<div class="flex text-light-900 dark:bg-dark-800 dark:font-normal dark:text-dark-100">
+		<div class="flex">
 			<div class="flex flex-grow flex-col border-b border-light-400 dark:border-dark-600">
 				{#if !branch.mergeable}
 					<!-- use of relative is for tooltip rendering -->
@@ -227,7 +227,7 @@
 							bind:value={branch.name}
 							on:change={handleBranchNameChange}
 							title={branch.name}
-							class="w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold text-light-800 hover:border-light-400 dark:text-dark-100 dark:hover:border-dark-600"
+							class="w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold hover:border-light-400 dark:hover:border-dark-600"
 							on:dblclick|stopPropagation
 							on:click={(e) => e.currentTarget.select()}
 						/>
@@ -253,7 +253,7 @@
 								</Button>
 							{/if}
 							<button
-								class="scale-90 px-1 py-1 text-light-600 hover:text-light-800"
+								class="text-color-4 hover:text-color-2 scale-90 px-1 py-1"
 								title="Stash this branch"
 								on:click={() => {
 									if (branch.id) branchController.unapplyBranch(branch.id);
@@ -373,21 +373,19 @@
 						{#if branch.files.length == 0}
 							{#if branch.commits.length == 0}
 								<div
-									class="no-changes space-y-6 rounded p-8 text-center text-light-700 dark:border-zinc-700"
+									class="no-changes text-color-3 space-y-6 rounded p-8 text-center dark:border-zinc-700"
 									data-dnd-ignore
 								>
 									<p>Nothing on this branch yet.</p>
 									{#if !readonly}
 										<IconNewBadge class="mx-auto mt-4 h-16 w-16 text-blue-400 dark:text-dark-400" />
-										<p class="px-12 text-light-600">
-											Get some work done, then throw some files my way!
-										</p>
+										<p class="px-12">Get some work done, then throw some files my way!</p>
 									{/if}
 								</div>
 							{:else}
 								<!-- attention: these markers have custom css at the bottom of thise file -->
 								<div
-									class="no-changes rounded text-center font-mono text-light-700 dark:border-zinc-700"
+									class="no-changes text-color-3 rounded text-center font-mono dark:border-zinc-700"
 									data-dnd-ignore
 								>
 									No uncommitted changes on this branch

@@ -49,7 +49,7 @@
 	<div
 		bind:this={dropZone}
 		id="branch-lanes"
-		class="flex flex-shrink flex-grow items-start bg-light-300 dark:bg-dark-1100"
+		class="bg-color-1 flex flex-shrink flex-grow items-start"
 		role="group"
 		use:dzHighlight={{ type: dzType, active: 'board-dz-active', hover: 'board-dz-hover' }}
 		on:dragover={(e) => {
@@ -105,24 +105,24 @@
 
 		{#if !activeBranches || activeBranches.length == 0}
 			<div
-				class="m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
+				class="text-color-2 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
 			>
 				<div class="inline-flex w-[35rem] flex-col items-center gap-y-4">
 					<h3 class="text-xl font-medium">You are up to date</h3>
-					<p class="text-light-700 dark:text-dark-200">
+					<p class="text-color-3">
 						This means that your working directory looks exactly like your base branch. There isn't
 						anything locally that is not in your production code!
 					</p>
-					<p class="text-light-700 dark:text-dark-200">
+					<p class="text-color-3">
 						If you start editing files in your working directory, a new virtual branch will
 						automatically be created and you can manage it here.
 					</p>
 					<div class="flex w-full">
 						<div class="w-1/2">
 							<h3 class="mb-2 text-xl font-medium">Start</h3>
-							<div class="flex flex-col gap-1 text-light-700 dark:text-dark-200">
+							<div class="text-color-3 flex flex-col gap-1">
 								<a
-									class="inline-flex items-center gap-2 hover:text-light-800 dark:hover:text-dark-100"
+									class="hover:text-color-1 inline-flex items-center gap-2"
 									target="_blank"
 									rel="noreferrer"
 									href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
@@ -145,10 +145,9 @@
 						<div class="w-1/2">
 							<h3 class="mb-2 text-xl font-medium">Recent</h3>
 							{#each (base?.recentCommits || []).slice(0, 4) as commit}
-								<div class="w-full truncate">
+								<div class="text-color-3 w-full truncate">
 									<a
-										class="inline-flex items-center gap-2 text-light-700 hover:text-light-800 dark:text-dark-200 hover:dark:text-dark-100
-										 "
+										class="hover:text-color-2 inline-flex items-center gap-2"
 										href={base?.commitUrl(commit.id)}
 										target="_blank"
 										rel="noreferrer"

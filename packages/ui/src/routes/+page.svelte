@@ -11,7 +11,7 @@
 {#await projects.load()}
 	Loading...
 {:then}
-	<div class="flex h-full w-full flex-col bg-light-200 p-8 dark:bg-dark-1000">
+	<div class="bg-color-2 flex h-full w-full flex-col p-8">
 		<div class="mb-8 flex flex-row justify-between">
 			<div class="text-light-900 dark:text-dark-100">
 				<h1 class="mb-2 text-2xl">Your projects</h1>
@@ -66,7 +66,7 @@
 			<div class="flex flex-wrap gap-4">
 				{#each $projects as project}
 					<a
-						class="w-96 overflow-hidden rounded-lg bg-white text-light-900 shadow dark:border dark:border-dark-600 dark:bg-dark-900 dark:text-light-200"
+						class="bg-color-5 w-96 overflow-hidden rounded-lg text-light-900 shadow dark:border dark:border-dark-600 dark:text-light-200"
 						href="/repo/{project.id}/"
 					>
 						<div class="p-4">
@@ -79,7 +79,7 @@
 						</div>
 
 						<div
-							class="flex flex-row items-center gap-x-2 bg-light-100 px-4 py-2 text-light-900 dark:bg-dark-600 dark:text-dark-100"
+							class="bg-color-4 flex flex-row items-center gap-x-2 px-4 py-2 text-light-900 dark:text-dark-100"
 						>
 							{#if project.api}
 								<div class="h-2 w-2 rounded-full bg-green-600" />
