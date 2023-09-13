@@ -85,10 +85,7 @@
 	}
 </script>
 
-<div
-	class="flex w-full flex-col border-t border-light-400 bg-light-200 dark:border-dark-400 dark:bg-dark-800"
-	transition:slide={{ duration: 150 }}
->
+<div class="bg-color-3 flex w-full flex-col" transition:slide={{ duration: 150 }}>
 	{#if annotateCommits}
 		<div class="bg-blue-400 p-2 text-sm text-white">
 			GitButler will be the committer of this commit.
@@ -104,7 +101,7 @@
 		<textarea
 			bind:value={commitMessage}
 			on:dblclick|stopPropagation
-			class="flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-white bg-white p-2 font-mono text-dark-700 outline-none focus:border-purple-600 focus:ring-0 dark:border-dark-500 dark:bg-dark-700 dark:text-light-400"
+			class="text-color-2 bg-color-5 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-transparent p-2 font-mono outline-none focus:border-purple-600 focus:ring-0 dark:focus:border-purple-600"
 			placeholder="Your commit message here"
 			rows={messageRows}
 			required
@@ -124,7 +121,7 @@
 					loading={isGeneratingCommigMessage}
 					on:click={() => generateCommitMessage(branch.files)}
 				>
-					<span class="text-light-700">Generate message</span>
+					<span class="text-4">Generate message</span>
 				</Button>
 			{:else}
 				<Tooltip

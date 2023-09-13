@@ -381,6 +381,12 @@ input[type='checkbox'].large {
 	--text-color-2: #555555;
 	--text-color-3: #777777;
 	--text-color-4: #999999;
+
+	--border-color-5: #fafafa;
+	--border-color-4: #eaeaea;
+	--border-color-3: #c4c4c7;
+	--border-color-2: #adadae;
+	--border-color-1: #949498;
 }
 
 :root.dark {
@@ -394,9 +400,15 @@ input[type='checkbox'].large {
 	--text-color-2: #eeeeee;
 	--text-color-3: #aaaaaa;
 	--text-color-4: #888888;
+
+	--border-color-1: #d4d4d8;
+	--border-color-2: #a1a1aa;
+	--border-color-3: #71717a;
+	--border-color-4: #585858;
+	--border-color-5: #484848;
 }
 
-@layer utilities {
+@layer base {
 	/* Background colors */
 	.bg-color-1 {
 		background-color: var(--background-1);
@@ -427,4 +439,34 @@ input[type='checkbox'].large {
 	.text-color-4 {
 		color: var(--text-color-4);
 	}
+
+	/* Border colors */
+
+	.border-color-1 {
+		border-color: var(--border-color-1);
+	}
+	.border-color-2 {
+		border-color: var(--border-color-2);
+	}
+	.border-color-3 {
+		border-color: var(--border-color-3);
+	}
+	.border-color-4 {
+		border-color: var(--border-color-4);
+	}
+	.border-color-5 {
+		border-color: var(--border-color-5);
+	}
+}
+
+/**
+ * When using native drag & drop :hover events do not work, and per-component styles
+ * are processed independently by svelte/postcss, so we don't have access to the colors
+ * from there.
+ */
+.new-dz-hover .new-dz-marker {
+	@apply border-color-2 text-color-2;
+}
+.lane-dz-hover .lane-dz-marker {
+	@apply text-color-3 outline-light-600;
 }

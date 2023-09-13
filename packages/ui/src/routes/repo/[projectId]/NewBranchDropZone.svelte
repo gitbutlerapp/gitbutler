@@ -29,7 +29,7 @@
 		</button>
 	</div>
 	<div
-		class="new-dz-marker text-color-3 hidden h-full w-96 shrink-0 items-center justify-center border-2 border-dashed border-light-500 text-center dark:border-dark-600 dark:hover:border-dark-600"
+		class="new-dz-marker text-color-3 border-color-3 hidden h-full w-96 shrink-0 items-center justify-center border-2 border-dashed text-center"
 	>
 		New branch
 	</div>
@@ -47,10 +47,4 @@
 	 * on the element since such events don't seem to trigger on drag. This is a hacky
 	 * solution and you're welcome to improve it.
 	 */
-	:global(.new-dz-hover .new-dz-marker) {
-		@apply border-light-600;
-	}
-	:global(.dark .new-dz-hover .new-dz-marker) {
-		@apply border-dark-200;
-	}
 </style>

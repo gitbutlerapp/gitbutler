@@ -41,8 +41,8 @@
 	}
 </script>
 
-<div class="border-b border-t border-light-300 bg-light-50 dark:border-dark-500 dark:bg-dark-800">
-	<div class="text-color-3 flex w-full border-b border-light-200 dark:border-dark-500">
+<div class="bg-color-4">
+	<div class="text-color-3 border-color-4 flex w-full border-b">
 		{#each items as item}
 			<button
 				class:text-color-1={activeTabValue == item.name}

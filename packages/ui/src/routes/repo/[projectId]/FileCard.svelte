@@ -103,7 +103,7 @@
 	class:opacity-80={isFileLocked}
 >
 	<div
-		class="bg-color-5 flex w-full flex-col justify-center gap-2 border-b border-t border-light-300 py-1 dark:border-dark-500"
+		class="bg-color-5 border-color-4 flex w-full flex-col justify-center gap-2 border-b border-t py-1"
 	>
 		<div
 			class="flex cursor-default pl-2"
@@ -183,7 +183,7 @@
 							{/await}
 						{/if}
 						<div
-							class="bg-6 my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 dark:border-dark-400"
+							class="bg-6 border-color-3 my-1 flex w-full flex-col overflow-hidden rounded border"
 						>
 							<div
 								draggable={!section.hunk.locked && !readonly}
@@ -221,14 +221,14 @@
 										{/each}
 										{#if !subsection.expanded}
 											<div
-												class="flex w-full border-light-200 dark:border-dark-400"
+												class="border-color-3 flex w-full"
 												class:border-t={sidx == section.subSections.length - 1 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 												class:border-b={sidx == 0 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="bg-color-4 text-color-4 hover:text-color-2 border-r border-light-200 text-center dark:border-dark-400"
+													class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
 													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
 												>
 													<button
@@ -259,7 +259,7 @@
 					{:else}
 						{#if section.expanded}
 							<div
-								class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
+								class="border-color-3 bg-color-5 my-1 flex w-full flex-col overflow-hidden rounded border"
 								role="group"
 								on:dblclick
 							>
