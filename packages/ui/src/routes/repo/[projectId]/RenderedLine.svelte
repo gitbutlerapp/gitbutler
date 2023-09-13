@@ -8,8 +8,8 @@
 	export let sectionType: SectionType;
 	export let filePath: string;
 	export let minWidth = 1.75;
-	export let selectable = true;
-	export let selected = false;
+	export let selectable: boolean = false;
+	export let selected: boolean = true;
 
 	const dispatch = createEventDispatcher<{ selected: boolean }>();
 
@@ -34,7 +34,7 @@
 
 	$: bgColor =
 		selectable && selected
-			? 'bg-blue-600 border-blue-700 dark:border-blue-700 dark:bg-blue-800'
+			? 'bg-blue-400 border-blue-500 text-white dark:border-blue-700 dark:bg-blue-800'
 			: 'bg-light-50 border-light-300 dark:bg-dark-700 dark:border-dark-400';
 </script>
 

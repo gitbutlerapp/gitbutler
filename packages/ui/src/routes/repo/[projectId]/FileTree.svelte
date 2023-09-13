@@ -4,71 +4,76 @@
 
 <script lang="ts">
 	import { Checkbox } from '$lib/components';
+	import type { Writable } from 'svelte/store';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
-
 	import IconChevronDownSmall from '$lib/icons/IconChevronDownSmall.svelte';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import IconFile from '$lib/icons/IconFile.svelte';
 	import IconFolder from '$lib/icons/IconFolder.svelte';
 	import type { TreeNode } from '$lib/vbranches/filetree';
-	import { createEventDispatcher } from 'svelte';
+	import type { Ownership } from '$lib/vbranches/ownership';
 
 	let className = '';
 	export { className as class };
 	export let expanded = true;
 	export let node: TreeNode;
 	export let isRoot = false;
-	export let selectedFileIds: string[] = [];
 	export let withCheckboxes: boolean = false;
+	export let selectedOwnership: Writable<Ownership>;
 
-	const dispatch = createEventDispatcher<{
-		checked: { fileId: string };
-		unchecked: { fileId: string };
-	}>();
-
-	function isNodeChecked(selectedFileIds: string[], node: TreeNode): boolean {
+	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {
-			return selectedFileIds.includes(node.file.id);
+			const fileId = node.file.id;
+			return node.file.hunks.some((hunk) => selectedOwnership.containsHunk(fileId, hunk.id));
+		} else {
+			return node.children.every((child) => isNodeChecked(selectedOwnership, child));
 		}
-		return node.children.every((child) => isNodeChecked(selectedFileIds, child));
 	}
 
-	$: isChecked = isNodeChecked(selectedFileIds, node);
+	$: isChecked = isNodeChecked($selectedOwnership, node);
 
-	function isNodeIndeterminate(selectedFileIds: string[], node: TreeNode): boolean {
-		if (node.file) return false;
+	function isNodeIndeterminate(selectedOwnership: Ownership, node: TreeNode): boolean {
+		if (node.file) {
+			const fileId = node.file.id;
+			const numSelected = node.file.hunks.filter(
+				(hunk) => !selectedOwnership.containsHunk(fileId, hunk.id)
+			).length;
+			return numSelected !== node.file.hunks.length && numSelected !== 0;
+		}
 		if (node.children.length === 0) return false;
 
-		const isFirstNodeChecked = isNodeChecked(selectedFileIds, node.children[0]);
-		const isFirstNodeIndeterminate = isNodeIndeterminate(selectedFileIds, node.children[0]);
+		const isFirstNodeChecked = isNodeChecked(selectedOwnership, node.children[0]);
+		const isFirstNodeIndeterminate = isNodeIndeterminate(selectedOwnership, node.children[0]);
 		for (const child of node.children) {
-			if (isFirstNodeChecked !== isNodeChecked(selectedFileIds, child)) {
+			if (isFirstNodeChecked !== isNodeChecked(selectedOwnership, child)) {
 				return true;
 			}
-			if (isFirstNodeIndeterminate !== isNodeIndeterminate(selectedFileIds, child)) {
+			if (isFirstNodeIndeterminate !== isNodeIndeterminate(selectedOwnership, child)) {
 				return true;
 			}
 		}
 		return false;
 	}
 
-	$: isIndeterminate = isNodeIndeterminate(selectedFileIds, node);
+	$: isIndeterminate = isNodeIndeterminate($selectedOwnership, node);
 
-	function idWithChildren(node: TreeNode): string[] {
+	function idWithChildren(node: TreeNode): [string, string[]][] {
 		if (node.file) {
-			return [node.file.id];
+			return [[node.file.id, node.file.hunks.map((h) => h.id)]];
 		}
 		return node.children.flatMap(idWithChildren);
 	}
 
 	function onCheckboxChange() {
-		idWithChildren(node).forEach((id) => {
-			if (isChecked) {
-				dispatch('unchecked', { fileId: id });
-			} else {
-				dispatch('checked', { fileId: id });
-			}
-		});
+		idWithChildren(node).forEach(([fileId, hunkIds]) =>
+			hunkIds.forEach((hunkId) => {
+				if (isChecked) {
+					selectedOwnership.update((ownership) => ownership.removeHunk(fileId, hunkId));
+				} else {
+					selectedOwnership.update((ownership) => ownership.addHunk(fileId, hunkId));
+				}
+			})
+		);
 	}
 
 	function toggle() {
@@ -84,7 +89,7 @@
 				<li>
 					<svelte:self
 						node={childNode}
-						{selectedFileIds}
+						{selectedOwnership}
 						{withCheckboxes}
 						on:checked
 						on:unchecked
@@ -130,7 +135,11 @@
 				</span>
 			</div>
 			{#if withCheckboxes}
-				<Checkbox checked={isChecked} on:change={onCheckboxChange} />
+				<Checkbox
+					checked={isChecked}
+					indeterminate={isIndeterminate}
+					on:change={onCheckboxChange}
+				/>
 			{/if}
 		</button>
 	{:else if node.children.length > 0}
@@ -171,7 +180,7 @@
 							<svelte:self
 								node={childNode}
 								expanded={true}
-								{selectedFileIds}
+								{selectedOwnership}
 								{withCheckboxes}
 								on:checked
 								on:unchecked

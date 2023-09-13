@@ -9,6 +9,7 @@
 	import { Button, Tooltip } from '$lib/components';
 	import { IconAISparkles } from '$lib/icons';
 	import { createEventDispatcher } from 'svelte';
+	import type { Ownership } from '$lib/vbranches/ownership';
 
 	export let projectId: string;
 	export let branchController: BranchController;
@@ -16,7 +17,7 @@
 	export let cloudEnabled: boolean;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let user: User | null;
-	export let ownership: string;
+	export let ownership: Ownership;
 
 	const dispatch = createEventDispatcher<{ close: null }>();
 
@@ -24,7 +25,11 @@
 	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
 
 	function commit() {
-		branchController.commitBranch({ branch: branch.id, message: commitMessage, ownership });
+		branchController.commitBranch({
+			branch: branch.id,
+			message: commitMessage,
+			ownership: ownership.toString()
+		});
 	}
 
 	export function git_get_config(params: { key: string }) {

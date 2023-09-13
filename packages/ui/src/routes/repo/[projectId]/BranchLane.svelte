@@ -2,6 +2,7 @@
 	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { getContext, onMount } from 'svelte';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import { Button, Link, Modal, Tooltip } from '$lib/components';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
 	import CommitCard from './CommitCard.svelte';
@@ -28,7 +29,8 @@
 	import IconBackspace from '$lib/icons/IconBackspace.svelte';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import CommitDialog from './CommitDialog.svelte';
-	import { derived, writable } from 'svelte/store';
+	import { writable } from 'svelte/store';
+	import { showReportDialog } from '@sentry/sveltekit';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -160,22 +162,9 @@
 		});
 	});
 
-	const selectedFileIds = writable(branch.files.map((f) => f.id));
-	$: selectedFileIds.set(branch.files.map((f) => f.id));
-
-	const selectedOwnership = writable('');
-	selectedFileIds.subscribe((selectedFileIds) => {
-		selectedOwnership.set(
-			branch.files
-				.filter((f) => selectedFileIds.includes(f.id))
-				.map((f) => {
-					return f.id + ':' + f.hunks.map((h) => h.id).join(',');
-				})
-				.join('\n')
-		);
-	});
-
-    $: console.log($selectedOwnership);
+	const selectedOwnership = writable(new Ownership(branch));
+	$: if (commitDialogShown) selectedOwnership.set(new Ownership(branch));
+	$: console.log('ownership', $selectedOwnership.toString());
 </script>
 
 <div
@@ -319,7 +308,7 @@
 						component: FileTreeTabPanel,
 						props: {
 							files: branch.files,
-							selectedFileIds,
+							selectedOwnership,
 							withCheckboxes: commitDialogShown
 						}
 					},
