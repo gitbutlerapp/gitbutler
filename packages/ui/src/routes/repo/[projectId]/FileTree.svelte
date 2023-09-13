@@ -4,7 +4,7 @@
 
 <script lang="ts">
 	import { Checkbox } from '$lib/components';
-	import type { Writable } from 'svelte/store';
+	import { writable } from 'svelte/store';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 	import IconChevronDownSmall from '$lib/icons/IconChevronDownSmall.svelte';
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
@@ -12,7 +12,7 @@
 	import IconFolder from '$lib/icons/IconFolder.svelte';
 	import { computeFileStatus, computedAddedRemoved } from '$lib/vbranches/fileStatus';
 	import type { TreeNode } from '$lib/vbranches/filetree';
-	import type { Ownership } from '$lib/vbranches/ownership';
+	import { Ownership } from '$lib/vbranches/ownership';
 
 	let className = '';
 	export { className as class };
@@ -20,7 +20,7 @@
 	export let node: TreeNode;
 	export let isRoot = false;
 	export let withCheckboxes: boolean = false;
-	export let selectedOwnership: Writable<Ownership>;
+	export let selectedOwnership = writable(Ownership.default());
 
 	function isNodeChecked(selectedOwnership: Ownership, node: TreeNode): boolean {
 		if (node.file) {

@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { Type, Transform } from 'class-transformer';
 import type { Readable, WritableLoadable } from '@square/svelte-store';
 import type { LoadState, VisitedMap } from '@square/svelte-store/lib/async-stores/types';
-import { max } from 'date-fns';
 
 export class Hunk {
 	id!: string;
@@ -13,8 +12,6 @@ export class Hunk {
 	modifiedAt!: Date;
 	filePath!: string;
 	locked!: boolean;
-
-	selected!: boolean;
 }
 
 export class File {

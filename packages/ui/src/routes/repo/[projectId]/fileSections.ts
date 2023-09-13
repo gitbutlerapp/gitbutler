@@ -71,7 +71,6 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 		hunk: hunk,
 		header: header,
 		subSections: [],
-		selected: hunk.selected,
 		hasConflictMarkers:
 			hunk.diff.includes('<<<<<<<') &&
 			hunk.diff.includes('=======') &&

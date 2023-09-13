@@ -202,15 +202,13 @@
 							>
 								<div class="w-full overflow-hidden bg-white dark:bg-dark-900">
 									{#each section.subSections as subsection, sidx}
+										{@const hunk = section.hunk}
 										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 											<RenderedLine
 												{line}
 												{minWidth}
-												selected={$selectedOwnership.containsHunk(
-													section.hunk.filePath,
-													section.hunk.id
-												)}
-												on:selected={(e) => onHunkSelected(section.hunk, e.detail)}
+												selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
+												on:selected={(e) => onHunkSelected(hunk, e.detail)}
 												{selectable}
 												sectionType={subsection.sectionType}
 												filePath={file.path}

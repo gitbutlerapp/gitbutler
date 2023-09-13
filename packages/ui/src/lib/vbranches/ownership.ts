@@ -3,8 +3,12 @@ import type { Branch } from './types';
 export class Ownership {
 	files: Map<string, Set<string>>;
 
-	constructor(branch: Branch) {
-		this.files = branch.files.reduce((acc, file) => {
+	static default() {
+		return new Ownership(new Map());
+	}
+
+	static fromBranch(branch: Branch) {
+		const files = branch.files.reduce((acc, file) => {
 			if (acc.has(file.id)) {
 				const existing = acc.get(file.id);
 				file.hunks.forEach((hunk) => existing.add(hunk.id));
@@ -19,6 +23,11 @@ export class Ownership {
 			}
 			return acc;
 		}, new Map());
+		return new Ownership(files);
+	}
+
+	constructor(files: Map<string, Set<string>>) {
+		this.files = files;
 	}
 
 	removeHunk(fileId: string, hunkId: string) {

@@ -34,6 +34,7 @@
 				diff: diff,
 				modifiedAt: mockDate,
 				filePath: filepath,
+				selected: false,
 				locked: false
 			};
 		});

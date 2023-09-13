@@ -162,9 +162,8 @@
 		});
 	});
 
-	const selectedOwnership = writable(new Ownership(branch));
-	$: if (commitDialogShown) selectedOwnership.set(new Ownership(branch));
-	$: console.log('ownership', $selectedOwnership.toString());
+	const selectedOwnership = writable(Ownership.fromBranch(branch));
+	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
 </script>
 
 <div
