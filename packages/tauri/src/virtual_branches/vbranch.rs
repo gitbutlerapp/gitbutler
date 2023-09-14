@@ -8,7 +8,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 
-use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -946,7 +945,6 @@ fn calculate_non_commited_files(
     Ok(vfiles)
 }
 
-#[instrument(skip_all)]
 fn list_commit_files(
     project_repository: &project_repository::Repository,
     commit: &git::Commit,
@@ -973,7 +971,6 @@ fn list_commit_files(
     ))
 }
 
-#[instrument(skip_all)]
 pub fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
     target: &target::Target,
@@ -2017,7 +2014,6 @@ pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<(
     Ok(())
 }
 
-#[instrument(skip_all)]
 fn is_commit_integrated(
     project_repository: &project_repository::Repository,
     target: &target::Target,
