@@ -4,13 +4,12 @@ on: [push]
 jobs:
   changes:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
     outputs:
       butler: ${{ steps.filter.outputs.butler }}
       tauri: ${{ steps.filter.outputs.backend }}
       ui: ${{ steps.filter.outputs.frontend }}
     steps:
+      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
         id: filter
         with:
