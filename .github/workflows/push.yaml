@@ -5,133 +5,40 @@ jobs:
   lint-frontend:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - uses: ./.github/actions/init-env
-        id: init
-        with:
-          runs-on: frontend
-
-      - name: Lint frontend
-        if: steps.init.outputs.frontend == 'true'
-        run: pnpm lint
+      - run: pnpm lint
 
   check-frontend:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - uses: ./.github/actions/init-env
-        id: init
-        with:
-          runs-on: frontend
-
-      - name: check frontend
-        if: steps.init.outputs.frontend == 'true'
-        run: pnpm check
+      - uses: ./.github/actions/init
+      - run: pnpm check
 
   unittest-frontend:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - uses: ./.github/actions/init-env
-        id: init
-        with:
-          runs-on: frontend
-
-      - name: check frontend
-        if: steps.init.outputs.frontend == 'true'
-        run: pnpm test
+      - uses: ./.github/actions/init
+      - run: pnpm test
 
   lint-rust:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - uses: ./.github/actions/init-env
-        id: init
-        with:
-          runs-on: backend
-
-      - name: Install latest stable rust
-        if: steps.init.outputs.backend == 'true'
-        uses: actions-rs/toolchain@v1
-        with:
-          override: true
-          toolchain: stable
-          components: rustfmt
-
+      - uses: ./.github/actions/init
       - run: cargo fmt --check
-        if: steps.init.outputs.backend == 'true'
-
       - run: cargo install cargo-sort
-        if: steps.init.outputs.backend == 'true'
-
       - run: cargo sort --check --workspace
 
   story:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - uses: ./.github/actions/init-env
-        id: init
-        with:
-          runs-on: frontend
-
-      - name: Build storybook
-        if: steps.init.outputs.frontend == 'true'
-        run: pnpm story:build
+      - uses: ./.github/actions/init
+      - run: pnpm story:build
 
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - uses: ./.github/actions/init-env
-        id: init
-        with:
-          runs-on: backend
-
-      - name: Install latest stable rust
-        if: steps.init.outputs.backend == 'true'
-        uses: actions-rs/toolchain@v1
-        with:
-          override: true
-          toolchain: stable
-          components: rustfmt, clippy
-
-      - name: Cache rust dependencies
-        if: steps.init.outputs.backend == 'true'
-        uses: Swatinem/rust-cache@v2
-
-      - run: sudo apt-get update
-        if: steps.init.outputs.backend == 'true' && runner.os == 'Linux'
-      - name: Install system dependencies
-        uses: daaku/gh-action-apt-install@v4
-        if: steps.init.outputs.backend == 'true' && runner.os == 'Linux'
-        with:
-          # https://tauri.app/v1/guides/getting-started/prerequisites#setting-up-linux
-          packages: libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-
-      - name: Build frontend
-        if: steps.init.outputs.backend == 'true'
-        run: pnpm build
-
-      - name: Install clippy
-        if: steps.init.outputs.backend == 'true'
-        run: rustup component add clippy
-
+      - uses: ./.github/actions/init-env-tauri
+      - uses: ./.github/actions/init-env-ui
+      - run: pnpm build
       - run: cargo clippy --all-features
-        if: steps.init.outputs.backend == 'true'
-
-      - name: Test rust
-        if: steps.init.outputs.backend == 'true'
-        run: cargo test --locked
+      - run: cargo test --locked

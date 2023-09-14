@@ -1,0 +1,40 @@
+name: init-ui
+description: prepare runner for ui related tasks
+runs:
+  using: "composite"
+  steps:
+    - uses: pnpm/action-setup@v2
+      name: Install pnpm
+      with:
+        version: 8.6
+        run_install: false
+
+    - uses: actions/setup-node@v3
+      name: Setup node
+      with:
+        node-version: "18"
+        cache: pnpm
+
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo 'STORE_PATH=$(pnpm store path --silent)' >> $GITHUB_ENV
+
+    - uses: actions/cache@v3
+      name: Setup pnpm cache
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Git config
+      shell: bash
+      run: |
+        # This seems the only reliable way of forcing https for forked packages
+        git config --global url."https://".insteadOf git://
+        git config --global url."https://github.com/".insteadOf git@github.com:
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install

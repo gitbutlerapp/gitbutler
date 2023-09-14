@@ -1,81 +1,26 @@
 name: prepare
 description: Determine what kind of change has taken place
-inputs:
-  runs-on:
-    description: |
-      Filter by project type, must be named filter from step `changes`
-    default: "all"
-outputs:
-  frontend:
-    description: "Change affects front end"
-    value: ${{ steps.frontend.outputs.value }}
-  backend:
-    description: "Change affects back end"
-    value: ${{ steps.backend.outputs.value }}
 runs:
   using: "composite"
   steps:
-    - name: Getting changes
-      id: changes
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - id: changes
       uses: dorny/paths-filter@v2
       with:
         filters: |
-          backend:
+          tauri:
             - 'packages/tauri/**'
             - 'packages/butler/**'
             - 'Cargo.lock'
-          frontend:
+          ui:
             - 'packages/ui/**'
-            - '.github/**'
             - 'package.json'
             - 'pnpm-lock.yaml'
 
-    - id: frontend
-      run: echo "value=${{ steps.changes.outputs.frontend}}" >> $GITHUB_OUTPUT
-      shell: bash
+    - uses: ./.github/actions/init-env-ui
+      if: steps.changes.outputs.ui == 'true'
 
-    - id: backend
-      run: echo "value=${{ steps.changes.outputs.backend}}" >> $GITHUB_OUTPUT
-      shell: bash
-
-    - uses: pnpm/action-setup@v2
-      name: Install pnpm
-      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
-      with:
-        version: 8.6
-        run_install: false
-
-    - uses: actions/setup-node@v3
-      name: Setup node
-      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
-      with:
-        node-version: "18"
-        cache: pnpm
-
-    - name: Get pnpm store directory
-      shell: bash
-      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
-      run: |
-        echo 'STORE_PATH=$(pnpm store path --silent)' >> $GITHUB_ENV
-
-    - uses: actions/cache@v3
-      name: Setup pnpm cache
-      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
-      with:
-        path: ${{ env.STORE_PATH }}
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
-
-    - name: Git config
-      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
-      shell: bash
-      run: |
-        # This seems the only reliable way of forcing https for forked packages
-        git config --global url."https://".insteadOf git://
-        git config --global url."https://github.com/".insteadOf git@github.com:
-
-    - name: Install dependencies
-      if: ${{ inputs.runs-on == 'all' || steps.changes.outputs[inputs.runs-on] == 'true' }}
-      shell: bash
-      run: pnpm install
+    - uses: ./.github/actions/init-env-tauri
+      if: steps.changes.outputs.tauri == 'true'
