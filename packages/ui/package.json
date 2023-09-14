@@ -34,7 +34,7 @@
 		"@codemirror/language": "^6.9.0",
 		"@codemirror/state": "^6.2.1",
 		"@codemirror/view": "^6.18.0",
-		"@histoire/plugin-svelte": "^0.16.5",
+		"@histoire/plugin-svelte": "^0.17.0",
 		"@lezer/common": "^1.0.4",
 		"@lezer/highlight": "^1.1.6",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
