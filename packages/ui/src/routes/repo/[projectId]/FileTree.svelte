@@ -125,7 +125,7 @@
 			>
 				{node.name}
 			</div>
-			<div class="flex-grow truncate text-xs font-light text-light-600">
+			<div class="text-color-4 flex-grow truncate text-xs font-light">
 				<TimeAgo date={node.file.modifiedAt} addSuffix={false} />
 			</div>
 			<div class="flex gap-1 font-mono text-xs font-bold">
@@ -149,9 +149,9 @@
 		<button class="flex w-full items-center py-0 text-left" class:expanded on:click={toggle}>
 			<div class="w-3 shrink-0 text-center">
 				{#if expanded}
-					<IconChevronDownSmall class="scale-90 text-light-600 dark:text-dark-200" />
+					<IconChevronDownSmall class="text-color-4 scale-90" />
 				{:else}
-					<IconChevronRightSmall class="scale-90 text-light-600 dark:text-dark-200" />
+					<IconChevronRightSmall class="text-color-4 scale-90" />
 				{/if}
 			</div>
 			<div class="w-4 shrink-0 pl-1 text-center">
@@ -173,7 +173,7 @@
 			<div class="flex">
 				<div class="flex">
 					<div class="w-3 shrink-0 text-center">
-						<div class="inline-block h-full w-px bg-light-200 dark:bg-dark-400" />
+						<div class="bg-color-3 inline-block h-full w-px" />
 					</div>
 				</div>
 				<ul class="w-full overflow-hidden">

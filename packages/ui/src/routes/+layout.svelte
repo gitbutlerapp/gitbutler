@@ -113,7 +113,7 @@
 <div class="flex h-full flex-col">
 	<header
 		data-tauri-drag-region
-		class="flex h-8 flex-shrink-0 flex-row items-center gap-x-6 border-b border-light-300 bg-white text-light-900 dark:border-dark-500 dark:bg-dark-900 dark:text-dark-100"
+		class="bg-color-3 flex h-8 flex-shrink-0 flex-row items-center gap-x-6 border-b border-light-300 dark:border-dark-500"
 		style="z-index: 9999;"
 	>
 		<div class="breadcrumb-project-container ml-[80px]">
@@ -143,7 +143,7 @@
 	<ShareIssueModal bind:this={shareIssueModal} user={$user} {cloud} />
 	<footer class="w-full text-sm font-medium text-light-700 dark:text-dark-100">
 		<div
-			class="flex h-[1.375rem] flex-shrink-0 select-none items-center border-t border-light-300 bg-white dark:border-dark-500 dark:bg-dark-900"
+			class="bg-color-3 flex h-[1.375rem] flex-shrink-0 select-none items-center border-t border-light-300 dark:border-dark-500"
 		>
 			<div class="mx-4 flex w-full flex-row items-center justify-between space-x-2 pb-[1px]">
 				<div>

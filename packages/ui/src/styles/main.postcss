@@ -21,7 +21,7 @@ textarea {
 
 .input,
 .textarea {
-	@apply border border-light-500 bg-white p-1 text-light-900 dark:border-dark-400 dark:bg-dark-600 dark:text-dark-100;
+	@apply text-color-2 border border-light-500 bg-white p-1 dark:border-dark-400 dark:bg-dark-600;
 	@apply focus:ring-2 focus:ring-purple-600;
 }
 
@@ -35,7 +35,9 @@ textarea {
 	-webkit-appearance: none;
 	outline: 0;
 	outline-offset: 0;
-	box-shadow: rgb(255, 255, 255) 0px 0px 0px 0px, rgba(37, 99, 235, 0) 0px 0px 0px 2px,
+	box-shadow:
+		rgb(255, 255, 255) 0px 0px 0px 0px,
+		rgba(37, 99, 235, 0) 0px 0px 0px 2px,
 		rgba(0, 0, 0, 0) 0px 0px 0px 0px;
 }
 .outline-none-important::before {
@@ -43,7 +45,9 @@ textarea {
 	-webkit-appearance: none;
 	outline: 0;
 	outline-offset: 0;
-	box-shadow: rgb(255, 255, 255) 0px 0px 0px 0px, rgba(37, 99, 235, 0) 0px 0px 0px 2px,
+	box-shadow:
+		rgb(255, 255, 255) 0px 0px 0px 0px,
+		rgba(37, 99, 235, 0) 0px 0px 0px 2px,
 		rgba(0, 0, 0, 0) 0px 0px 0px 0px;
 }
 
@@ -101,14 +105,6 @@ textarea {
 	-webkit-box-shadow: inset 0 0 1px rgba(255, 255255, 255, 0.3);
 }
 
-/* CARD STYLING */
-.card {
-	@apply rounded border-[0.5px] border-gb-700 bg-card-default shadow;
-	/* background-image: url("http://api.thumbr.it/whitenoise-361x370.png?background=212121ff&noise=4d4d4d&density=40&opacity=100"); */
-	/* background-opacity: 0.1; */
-	/* background-image: url(data:image/png;base64,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);  */
-}
-
 /* link */
 .link {
 	@apply relative flex w-fit cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded text-base font-medium hover:underline hover:ease-in;
@@ -146,7 +142,7 @@ button.active {
 }
 
 .button {
-	@apply relative inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded py-2 text-base font-medium leading-5 outline-blue-200 transition focus:outline-2 dark:outline-blue-500;
+	@apply relative inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded py-2 text-base font-medium leading-5 outline-blue-200 transition-none focus:outline-2 dark:outline-blue-500;
 }
 
 .disabled {
@@ -370,4 +366,107 @@ input[type='checkbox'].large {
 
 .collapsed {
 	height: 0 !important;
+}
+
+/* Themes */
+
+:root {
+	--background-1: #dddddd;
+	--background-2: #eaeaeb;
+	--background-3: #f4f4f5;
+	--background-4: #f9f9f8;
+	--background-5: #ffffff;
+
+	--text-color-1: #333333;
+	--text-color-2: #555555;
+	--text-color-3: #777777;
+	--text-color-4: #999999;
+
+	--border-color-5: #fafafa;
+	--border-color-4: #eaeaea;
+	--border-color-3: #c4c4c7;
+	--border-color-2: #adadae;
+	--border-color-1: #949498;
+}
+
+:root.dark {
+	--background-1: #181818;
+	--background-2: #212121;
+	--background-3: #313131;
+	--background-4: #373737;
+	--background-5: #414141;
+
+	--text-color-1: #ffffff;
+	--text-color-2: #eeeeee;
+	--text-color-3: #aaaaaa;
+	--text-color-4: #888888;
+
+	--border-color-1: #d4d4d8;
+	--border-color-2: #a1a1aa;
+	--border-color-3: #71717a;
+	--border-color-4: #585858;
+	--border-color-5: #484848;
+}
+
+@layer base {
+	/* Background colors */
+	.bg-color-1 {
+		background-color: var(--background-1);
+	}
+	.bg-color-2 {
+		background-color: var(--background-2);
+	}
+	.bg-color-3 {
+		background-color: var(--background-3);
+	}
+	.bg-color-4 {
+		background-color: var(--background-4);
+	}
+	.bg-color-5 {
+		background-color: var(--background-5);
+	}
+
+	/* Text colors */
+	.text-color-1 {
+		color: var(--text-color-1);
+	}
+	.text-color-2 {
+		color: var(--text-color-2);
+	}
+	.text-color-3 {
+		color: var(--text-color-3);
+	}
+	.text-color-4 {
+		color: var(--text-color-4);
+	}
+
+	/* Border colors */
+
+	.border-color-1 {
+		border-color: var(--border-color-1);
+	}
+	.border-color-2 {
+		border-color: var(--border-color-2);
+	}
+	.border-color-3 {
+		border-color: var(--border-color-3);
+	}
+	.border-color-4 {
+		border-color: var(--border-color-4);
+	}
+	.border-color-5 {
+		border-color: var(--border-color-5);
+	}
+}
+
+/**
+ * When using native drag & drop :hover events do not work, and per-component styles
+ * are processed independently by svelte/postcss, so we don't have access to the colors
+ * from there.
+ */
+.new-dz-hover .new-dz-marker {
+	@apply border-color-2 text-color-2;
+}
+.lane-dz-hover .lane-dz-marker {
+	@apply text-color-3 outline-light-600;
 }

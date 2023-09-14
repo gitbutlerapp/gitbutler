@@ -41,14 +41,11 @@
 	}
 </script>
 
-<div class="border-b border-t border-light-300 bg-light-50 dark:border-dark-500 dark:bg-dark-800">
-	<div
-		class="flex w-full border-b border-light-200 text-light-700 dark:border-dark-500 dark:text-dark-200"
-	>
+<div class="bg-color-4">
+	<div class="text-color-3 border-color-4 flex w-full border-b">
 		{#each items as item}
 			<button
-				class:text-light-800={activeTabValue == item.name}
-				class:dark:text-white={activeTabValue == item.name}
+				class:text-color-1={activeTabValue == item.name}
 				class="-mb-px rounded-none p-2 font-medium"
 				on:click={() => {
 					if (activeTabValue == item.name && expanded) {
@@ -65,7 +62,7 @@
 		{/each}
 		<div class="flex-grow" />
 		<button
-			class="flex items-center gap-x-4 py-0 text-light-600"
+			class="text-color-3 hover:text-color-2 flex items-center gap-x-4 py-0"
 			on:click|stopPropagation={() => {
 				setTreeExpanded(!expanded);
 			}}

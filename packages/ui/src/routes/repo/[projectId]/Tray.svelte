@@ -120,7 +120,7 @@
 	{projectId}
 />
 <div
-	class="z-30 flex w-80 shrink-0 flex-col border-r border-light-200 bg-white text-light-800 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-100"
+	class="bg-color-5 border-color-4 z-30 flex w-80 shrink-0 flex-col border-r"
 	style:width={$userSettings.trayWidth ? `${$userSettings.trayWidth}px` : null}
 	role="menu"
 	on:click|stopPropagation
@@ -185,7 +185,7 @@
 	</div>
 	<!-- Your branches -->
 	<div
-		class="flex items-center justify-between border-b border-t border-light-300 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
+		class="bg-color-4 border-color-5 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	>
 		<div class="font-bold">Stashed branches</div>
 		<div class="flex h-4 w-4 justify-around">
@@ -206,7 +206,7 @@
 		<div
 			bind:this={vbViewport}
 			on:scroll={onScroll}
-			class="hide-native-scrollbar flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
+			class="hide-native-scrollbar flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 		>
 			<div bind:this={vbContents}>
 				{#if $branchesState?.isLoading}
@@ -214,9 +214,9 @@
 				{:else if $branchesState?.isError}
 					<div class="px-2 py-1">Something went wrong!</div>
 				{:else if !$vbranchStore || $vbranchStore.length == 0}
-					<div class="p-2 text-light-700">You currently have no virtual branches</div>
+					<div class="text-color-2 p-2">You currently have no virtual branches</div>
 				{:else if $vbranchStore.filter((b) => !b.active).length == 0}
-					<div class="p-2 text-light-700">You have no stashed branches</div>
+					<div class="text-color-2 p-2">You have no stashed branches</div>
 				{:else}
 					{#each $vbranchStore.filter((b) => !b.active) as branch, i (branch.id)}
 						{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
@@ -227,20 +227,18 @@
 							on:click={() => select(branch, i)}
 							on:keypress|capture={() => select(branch, i)}
 							transition:slide={{ duration: 250 }}
-							class="group border-b border-light-200 p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2 dark:border-dark-600"
+							class="border-color-4 group border-b p-2 pr-0 -outline-offset-2 outline-blue-200 last:border-b focus-within:outline-2"
 							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
 							class:dark:bg-zinc-700={$selectedItem == branch && peekTrayExpanded}
 						>
 							<div class="relative flex max-w-full flex-row">
 								<div class="flex flex-shrink flex-grow flex-col gap-y-2 overflow-hidden">
-									<div class="flex-grow truncate text-black dark:text-white">
+									<div class="text-color-2 flex-grow truncate">
 										{branch.name}
 									</div>
-									<div
-										class="flex shrink-0 items-baseline gap-x-2 text-sm text-light-700 dark:text-dark-300"
-									>
+									<div class="flex shrink-0 items-baseline gap-x-2 text-sm">
 										{#if latestModifiedAt}
-											<span><TimeAgo date={latestModifiedAt} /></span>
+											<span class="text-color-4"><TimeAgo date={latestModifiedAt} /></span>
 										{/if}
 										<div class="flex gap-1 font-mono text-sm font-bold">
 											<span class="font-mono text-green-500">
@@ -275,7 +273,7 @@
 								>
 									<IconButton
 										icon={IconChevronRightSmall}
-										class="flex items-center gap-x-2 p-0 text-sm font-semibold text-light-500 hover:text-light-800 dark:text-dark-300 dark:hover:text-dark-50"
+										class="text-color-4 hover:text-color-3 flex items-center gap-x-2 p-0 text-sm font-semibold"
 										title="apply branch"
 										on:click={() => {
 											peekTrayExpanded = false;
@@ -309,16 +307,16 @@
 
 	<!-- Remote branches -->
 	<div
-		class="flex items-center justify-between border-b border-t border-light-300 bg-light-100 px-2 py-1 pr-1 dark:border-dark-600 dark:bg-dark-800"
+		class="bg-color-4 border-color-5 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	>
 		<div class="flex flex-row place-items-center space-x-2">
-			<div class="font-bold">Remote Branches</div>
+			<div class="text-color-2 font-bold">Remote Branches</div>
 			<a
 				target="_blank"
 				rel="noreferrer"
 				href="https://docs.gitbutler.com/features/virtual-branches/remote-branches"
 			>
-				<IconHelp class="h-3 w-3 text-light-600" />
+				<IconHelp class="text-color-3 h-3 w-3" />
 			</a>
 		</div>
 		<div class="flex h-4 w-4 justify-around">
@@ -332,11 +330,15 @@
 		</div>
 	</div>
 
-	<div bind:this={rbSection} use:accordion={remoteBranchesOpen} class="relative flex-grow">
+	<div
+		bind:this={rbSection}
+		use:accordion={remoteBranchesOpen}
+		class="border-color-5 relative flex-grow border-b"
+	>
 		<div
 			bind:this={rbViewport}
 			on:scroll={onScroll}
-			class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none dark:bg-dark-900"
+			class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 		>
 			<div bind:this={rbContents}>
 				{#if $remoteBranchesState?.isLoading}
@@ -345,7 +347,7 @@
 					<div class="px-2 py-1">Something went wrong</div>
 				{:else if !$remoteBranchStore || $remoteBranchStore.length == 0}
 					<div class="p-4">
-						<p class="mb-2 text-light-700">
+						<p class="text-color-3 mb-2">
 							There are no local or remote Git branches that can be imported as virtual branches
 						</p>
 						<Link
@@ -363,11 +365,11 @@
 							tabindex="0"
 							on:click={() => select(branch, i)}
 							on:keypress={() => select(branch, i)}
-							class:bg-light-50={$selectedItem == branch && peekTrayExpanded}
-							class="flex flex-col justify-between gap-1 border-b border-light-200 px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b focus:outline-2 dark:border-dark-600"
+							class:bg-color-4={$selectedItem == branch && peekTrayExpanded}
+							class="border-color-4 flex flex-col justify-between gap-1 border-b px-2 py-1 pt-2 -outline-offset-2 outline-blue-200 last:border-b focus:outline-2"
 						>
 							<div class="flex flex-row items-center gap-x-2 pr-1">
-								<div class="text-light-600 dark:text-dark-200">
+								<div class="text-color-3">
 									{#if branch.name.match('refs/remotes')}
 										<Tooltip
 											label="This is a remote branch that you don't have a virtual branch tracking yet"
@@ -380,27 +382,23 @@
 										</Tooltip>
 									{/if}
 								</div>
-								<div class="flex-grow truncate text-black dark:text-white" title={branch.name}>
+								<div class="text-color-2 flex-grow truncate" title={branch.name}>
 									{branch.name
 										.replace('refs/remotes/', '')
 										.replace('origin/', '')
 										.replace('refs/heads/', '')}
 								</div>
 							</div>
-							<div
-								class="flex flex-row justify-between space-x-2 rounded p-1 pr-1 text-light-700 dark:text-dark-200"
-							>
-								<div class="flex-grow-0 text-sm">
+							<div class="flex flex-row justify-between space-x-2 rounded p-1 pr-1">
+								<div class="text-color-4 flex-grow-0 text-sm">
 									<TimeAgo date={branch.lastCommitTs} />
 								</div>
 								<div class="flex flex-grow-0 flex-row space-x-2">
 									<Tooltip
 										label="This branch has {branch.ahead} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
 									>
-										<div
-											class="rounded-lg bg-light-100 px-2 text-sm dark:bg-dark-700 dark:text-dark-200"
-										>
-											{branch.ahead}/{branch.behind}
+										<div class="bg-color-3 text-color-3 rounded-lg px-2 text-sm">
+											{branch.ahead} / {branch.behind}
 										</div>
 									</Tooltip>
 									{#if !branch.mergeable}

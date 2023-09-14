@@ -18,15 +18,18 @@
 	);
 
 	$: deltasByDate = derived(sessionDeltas, (sessionDeltas) =>
-		sessionDeltas.reduce((acc, sessionDelta) => {
-			Object.entries(sessionDelta).forEach(([filepath, deltas]) => {
-				const date = startOfDay(new Date(deltas[0].timestampMs)).toString();
-				if (!acc[date]) acc[date] = {};
-				if (!acc[date][filepath]) acc[date][filepath] = [];
-				acc[date][filepath].push(...deltas);
-			});
-			return acc;
-		}, {} as Record<string, Record<string, Delta[]>>)
+		sessionDeltas.reduce(
+			(acc, sessionDelta) => {
+				Object.entries(sessionDelta).forEach(([filepath, deltas]) => {
+					const date = startOfDay(new Date(deltas[0].timestampMs)).toString();
+					if (!acc[date]) acc[date] = {};
+					if (!acc[date][filepath]) acc[date][filepath] = [];
+					acc[date][filepath].push(...deltas);
+				});
+				return acc;
+			},
+			{} as Record<string, Record<string, Delta[]>>
+		)
 	);
 
 	$: buckets = derived(sessionDeltas, (sessionDeltas) => {

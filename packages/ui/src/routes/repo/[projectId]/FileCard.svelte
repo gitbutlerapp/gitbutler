@@ -49,7 +49,7 @@
 		const parts = filepath.split('/');
 		if (parts.length == 0) return '';
 		return (
-			'<span class="font-bold text-light-800 dark:text-dark-50 mr-1">' +
+			'<span class="font-semibold text-color-2 mr-1">' +
 			parts[parts.length - 1] +
 			'</span>/' +
 			parts.slice(0, -1).join('/')
@@ -103,7 +103,7 @@
 	class:opacity-80={isFileLocked}
 >
 	<div
-		class="flex w-full flex-col justify-center gap-2 border-b border-t border-light-300 bg-light-50 py-1 text-light-900 dark:border-dark-500 dark:bg-dark-800 dark:text-light-300"
+		class="bg-color-5 border-color-4 flex w-full flex-col justify-center gap-2 border-b border-t py-1"
 	>
 		<div
 			class="flex cursor-default pl-2"
@@ -115,7 +115,7 @@
 			}}
 		>
 			<div
-				class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap text-light-800 dark:text-dark-100"
+				class="text-color-4 flex-grow overflow-hidden text-ellipsis whitespace-nowrap transition-none"
 				title={file.path}
 			>
 				<img
@@ -145,7 +145,7 @@
 				on:keypress={() => (expanded = !expanded)}
 				role="button"
 				tabindex="0"
-				class="flex-grow-0 cursor-pointer px-3 py-2 text-light-600 dark:text-dark-200"
+				class="text-color-4 hover:text-color-3 flex-grow-0 cursor-pointer px-3 py-2"
 			>
 				{#if !file.binary}
 					{#if expanded}
@@ -177,15 +177,13 @@
 					{#if 'hunk' in section}
 						{#if $userSettings.aiSummariesEnabled}
 							{#await summarizeHunk(section.hunk.diff) then description}
-								<div
-									class="truncate whitespace-normal pb-1 pl-1 pt-2 text-light-700 dark:text-dark-200"
-								>
+								<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
 									{description}
 								</div>
 							{/await}
 						{/if}
 						<div
-							class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 bg-white dark:border-dark-400 dark:bg-dark-900"
+							class="bg-6 border-color-3 my-1 flex w-full flex-col overflow-hidden rounded border"
 						>
 							<div
 								draggable={!section.hunk.locked && !readonly}
@@ -200,7 +198,7 @@
 								class="changed-hunk"
 								class:opacity-60={section.hunk.locked && !isFileLocked}
 							>
-								<div class="w-full overflow-hidden bg-white dark:bg-dark-900">
+								<div class="bg-6 w-full overflow-hidden">
 									{#each section.subSections as subsection, sidx}
 										{@const hunk = section.hunk}
 										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
@@ -223,14 +221,14 @@
 										{/each}
 										{#if !subsection.expanded}
 											<div
-												class="flex w-full border-light-200 dark:border-dark-400"
+												class="border-color-3 flex w-full"
 												class:border-t={sidx == section.subSections.length - 1 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 												class:border-b={sidx == 0 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:border-dark-400 dark:bg-dark-500 dark:text-light-600 dark:hover:bg-dark-400 dark:hover:text-black"
+													class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
 													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
 												>
 													<button
@@ -251,7 +249,7 @@
 														{/if}
 													</button>
 												</div>
-												<div class="flex-grow bg-white dark:bg-dark-900" />
+												<div class="bg-color-4 flex-grow" />
 											</div>
 										{/if}
 									{/each}
@@ -261,7 +259,7 @@
 					{:else}
 						{#if section.expanded}
 							<div
-								class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-200 bg-white dark:border-dark-400 dark:bg-dark-900"
+								class="border-color-3 bg-color-5 my-1 flex w-full flex-col overflow-hidden rounded border"
 								role="group"
 								on:dblclick
 							>
@@ -283,7 +281,7 @@
 						{#if !section.expanded}
 							<div style:width={`calc(${2 * minWidth}rem - 1px)`} class="flex justify-center">
 								<button
-									class="px-2 py-1.5 text-sm text-light-600 hover:text-light-700 dark:text-dark-200 dark:hover:text-dark-100"
+									class="text-color-4 hover:text-color-3 px-2 py-1.5 text-sm"
 									on:click={() => {
 										if ('expanded' in section) {
 											section.expanded = true;

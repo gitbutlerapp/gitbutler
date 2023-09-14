@@ -18,6 +18,6 @@
 	bind:value={notes}
 	on:change={handleUpdateNotes}
 	name="notes"
-	class="outline-none-important h-full w-full resize-none bg-transparent p-2 align-top text-light-900 dark:text-dark-100"
+	class="outline-none-important text-color-2 h-full w-full resize-none bg-transparent p-2 align-top"
 	placeholder="Branch notes (optional)"
 />

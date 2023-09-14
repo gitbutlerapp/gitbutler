@@ -52,9 +52,7 @@
 	}
 </script>
 
-<div
-	class="w-full truncate rounded border border-light-400 bg-light-50 p-2 text-left dark:border-dark-600 dark:bg-dark-900"
->
+<div class="text-color-2 bg-color-5 border-color-4 w-full truncate rounded border p-2 text-left">
 	<div class="mb-1 flex justify-between">
 		<div class="truncate">
 			{#if url}
@@ -85,7 +83,7 @@
 		{/if}
 	</div>
 
-	<div class="flex space-x-1 text-sm text-light-700">
+	<div class="text-color-3 flex space-x-1 text-sm">
 		<img
 			class="relative inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
 			title="Gravatar for {commit.author.email}"
@@ -107,7 +105,7 @@
 		{#each fileSections.entries() as [filepath, sections]}
 			<div>
 				<div
-					class="flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap px-2 font-bold text-light-800 dark:text-dark-100"
+					class="text-color-3 flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap px-2 font-bold"
 					title={filepath}
 				>
 					<img
@@ -120,13 +118,11 @@
 
 					{filepath}
 				</div>
-				<div class="hunk-change-container flex flex-col rounded px-2">
+				<div class="flex flex-col rounded px-2">
 					{#each sections as section}
 						{#if 'hunk' in section}
-							<div
-								class="my-1 flex w-full flex-col overflow-hidden rounded border border-light-400 bg-white dark:border-dark-400 dark:bg-dark-900"
-							>
-								<div class="w-full overflow-hidden bg-white dark:bg-dark-900">
+							<div class="border-color-4 my-1 flex w-full flex-col overflow-hidden rounded">
+								<div class="w-full overflow-hidden">
 									{#each section.subSections as subsection, sidx}
 										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 											<RenderedLine
@@ -138,14 +134,14 @@
 										{/each}
 										{#if !subsection.expanded}
 											<div
-												class="flex w-full border-light-200 dark:border-dark-400"
+												class="border-color-4 flex w-full"
 												class:border-t={sidx == section.subSections.length - 1 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 												class:border-b={sidx == 0 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 											>
 												<div
-													class="border-r border-light-200 bg-light-25 text-center text-light-500 hover:bg-light-700 hover:text-white dark:border-dark-400 dark:bg-dark-500 dark:text-light-600 dark:hover:bg-dark-400 dark:hover:text-black"
+													class="bg-color-4 text-color-4 hover:text-color-2 border-color-4 border-r text-center"
 													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
 												>
 													<button
@@ -166,7 +162,7 @@
 														{/if}
 													</button>
 												</div>
-												<div class="flex-grow bg-white dark:bg-dark-900" />
+												<div class="bg-color-4 flex-grow" />
 											</div>
 										{/if}
 									{/each}
