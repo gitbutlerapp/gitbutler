@@ -120,7 +120,7 @@
 			.finally(() => (isDeleting = false));
 </script>
 
-<div class="mx-auto h-fit w-full max-w-xl bg-light-200 py-10 dark:bg-dark-900">
+<div class="mx-auto h-fit w-full max-w-xl py-10">
 	<div class="flex flex-col gap-y-8">
 		<div class="flex w-full justify-between">
 			<h2 class="text-2xl font-medium">GitButler Settings</h2>
