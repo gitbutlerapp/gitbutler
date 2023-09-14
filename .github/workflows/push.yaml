@@ -19,7 +19,7 @@ jobs:
               - 'Cargo.lock'
               - 'Cargo.toml'
             node:
-              - 'packages/node/**'
+              - 'packages/ui/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
 
