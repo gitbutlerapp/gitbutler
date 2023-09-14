@@ -239,11 +239,13 @@ fn parse_row(row: &rusqlite::Row) -> Result<Bookmark> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_utils;
+
     use super::*;
 
     #[test]
     fn list_by_project_id_all() -> Result<()> {
-        let db = database::Database::memory()?;
+        let db = database::Database::try_from(&test_utils::temp_dir().join("test.db"))?;
         let database = Database::from(db);
 
         let bookmark = Bookmark {
@@ -266,7 +268,7 @@ mod tests {
 
     #[test]
     fn list_by_project_id_range() -> Result<()> {
-        let db = database::Database::memory()?;
+        let db = database::Database::try_from(&test_utils::temp_dir().join("test.db"))?;
         let database = Database::from(db);
 
         let bookmark_one = Bookmark {
@@ -300,7 +302,7 @@ mod tests {
 
     #[test]
     fn update() -> Result<()> {
-        let db = database::Database::memory()?;
+        let db = database::Database::try_from(&test_utils::temp_dir().join("test.db"))?;
         let database = Database::from(db);
 
         let bookmark = Bookmark {

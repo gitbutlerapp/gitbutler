@@ -2,7 +2,12 @@ use std::{fs, path};
 
 use tempfile::tempdir;
 
-use crate::git;
+use crate::{database, git};
+
+pub fn test_database() -> database::Database {
+    let path = temp_dir().join("test.db");
+    database::Database::try_from(&path).unwrap()
+}
 
 pub fn temp_dir() -> path::PathBuf {
     let path = tempdir().unwrap().path().to_path_buf();

@@ -27,6 +27,8 @@ md5 = "0.7.0"
 notify = { version = "6.0.1" }
 num_cpus = "1.16.0"
 posthog-rs = "0.2.2"
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.22.0"
 rand = "0.8.5"
 refinery = { version = "0.8", features = [ "rusqlite" ] }
 reqwest = "0.11.14"
