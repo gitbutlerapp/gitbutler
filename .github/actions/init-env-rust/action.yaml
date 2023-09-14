@@ -1,0 +1,32 @@
+name: init-rust
+description: prepare runner for rust related tasks
+runs:
+  using: "composite"
+  steps:
+    - name: Install latest stable rust
+      uses: actions-rs/toolchain@v1
+      with:
+        override: true
+        toolchain: stable
+        components: rustfmt, clippy
+
+    - name: Cache rust dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update
+
+    - name: uninstall homebrew
+      # github's linux runner has homebrew installed which messes up with pkg-config.
+      if: runner.os == 'Linux' && runner.arch == 'X64'
+      shell: bash
+      run: NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
+
+    - name: install linux dependencies
+      # self hosted Linux ARM64 runner (in berlin) has this baked in
+      if: runner.os == 'Linux' && runner.arch != 'ARM64'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev

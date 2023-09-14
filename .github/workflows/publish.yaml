@@ -1,164 +1,105 @@
 name: "Publish"
 on:
-    workflow_run:
-      workflows: ["Nightly build"]
-      types:
-        - completed
+  workflow_run:
+    workflows: ["Nightly build"]
+    types:
+      - completed
 
-    workflow_dispatch:
-        inputs:
-            channel:
-                type: choice
-                required: true
-                description: channel
-                options:
-                  - release
-                  - nightly
-            bump:
-                type: choice
-                required: true
-                description: update type
-                options:
-                    - undefined
-                    - patch
-                    - minor
-                    - major
+  workflow_dispatch:
+    inputs:
+      channel:
+        type: choice
+        required: true
+        description: channel
+        options:
+          - release
+          - nightly
+      bump:
+        type: choice
+        required: true
+        description: update type
+        options:
+          - undefined
+          - patch
+          - minor
+          - major
 
 jobs:
-    publish-tauri:
-        strategy:
-            fail-fast: false
-            matrix:
-                platform:
-                    - macos-latest
-                    - [self-hosted, macOS, ARM64] # mac studio in berlin
-                    - ubuntu-20.04
-                    # uncomment when this is solved: https://github.com/tauri-apps/tauri/issues/4174
-                    # - [self-hosted, Linux, ARM64] # mac studio in berlin
+  publish-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - macos-latest
+          - [self-hosted, macOS, ARM64] # mac studio in berlin
+          - ubuntu-20.04
+          # uncomment when this is solved: https://github.com/tauri-apps/tauri/issues/4174
+          # - [self-hosted, Linux, ARM64] # mac studio in berlin
 
-        runs-on: ${{ matrix.platform }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
+      - uses: ./.github/actions/init-env-node
 
-            - name: Setup node
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 18
+      - name: Set nightly params
+        if: ${{!!github.event.workflow_run }}
+        run: |
+          echo "channel=nightly" >> $GITHUB_ENV
+          echo "bump=patch" >> $GITHUB_ENV
 
-            - name: Install pnpm
-              uses: pnpm/action-setup@v2
-              with:
-                  version: 7.x.x
-                  run_install: false
+      - name: Use input params
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_ENV
+          echo "bump=${{ github.event.inputs.bump }}" >> $GITHUB_ENV
 
-            - name: Git config
-              shell: bash
-              run: |
-                # This seems the only reliable way of forcing https for forked packages
-                git config --global url."https://".insteadOf git://
-                git config --global url."https://github.com/".insteadOf git@github.com:
-            
-            - name: Get pnpm store directory
-              id: pnpm-cache
-              shell: bash
-              run: |
-                echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      - name: Set env variable with version
+        run: |
+          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
+          NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
+          echo "version=$NEXT_VERSION" >> $GITHUB_ENV
 
-            - uses: actions/cache@v3
-              # do not cache pnpm on our runners (internet in berlin is very slow)
-              if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'ubuntu-20.04'
-              name: Setup pnpm cache
-              with:
-                path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-                key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-                restore-keys: |
-                  ${{ runner.os }}-pnpm-store-
+      - name: import gpg key
+        if: runner.os == 'Linux'
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.APPIMAGE_PRIVATE_KEY }}
+          passphrase: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
 
-            - name: Install pnpm dependencies
-              run: pnpm install
+      - name: Build binary
+        run: |
+          ./scripts/release.sh \
+            --sign \
+            --channel                    "${{ env.channel }}" \
+            --dist                       "./release" \
+            --version                    "${{ env.version }}" \
+            --tauri-private-key          "${{ secrets.TAURI_PRIVATE_KEY }}"  \
+            --tauri-key-password         "${{ secrets.TAURI_KEY_PASSWORD }}" \
+            --apple-certificate          "${{ secrets.APPLE_CERTIFICATE }}" \
+            --apple-certificate-password "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" \
+            --apple-signing-identity     "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+            --apple-id                   "${{ secrets.APPLE_ID }}" \
+            --apple-password             "${{ secrets.APPLE_PASSWORD }}" \
+            --appimage-key-id            "${{ secrets.APPIMAGE_KEY_ID }}" \
+            --appimage-key-passphrase    "${{ secrets.APPIMAGE_KEY_PASSPHRASE }}"
 
-            - name: Install latest stable rust
-              uses: actions-rs/toolchain@v1
-              with:
-                toolchain: stable
-                override: true
+      - uses: shallwefootball/s3-upload-action@master
+        name: Upload To S3
+        id: S3
+        with:
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+          aws_bucket: "releases.gitbutler.com"
+          source_dir: "release/"
+          destination_dir: "releases/${{ env.channel }}/${{ env.version }}-${{ github.run_number }}"
 
-            - name: Cache rust dependencies
-              # do not cache rust on our runners (internet in berlin is very slow)
-              if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'ubuntu-20.04'
-              uses: Swatinem/rust-cache@v2
-              with:
-                workspaces: src-tauri
-
-            - name: Set nightly params
-              if: ${{ !!github.event.workflow_run }}
-              run: |
-                echo "channel=nightly" >> $GITHUB_ENV
-                echo "bump=patch" >> $GITHUB_ENV
-
-            - name: Use input params
-              if: ${{ !github.event.workflow_run }}
-              run: |
-                echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_ENV
-                echo "bump=${{ github.event.inputs.bump }}" >> $GITHUB_ENV
-
-            - name: Set env variable with version
-              run: |
-                  CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
-                  NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
-                  echo "version=$NEXT_VERSION" >> $GITHUB_ENV
-
-              # github's linux runner has homebrew installed which messes up with pkg-config.
-            - name: uninstall homebrew
-              run: NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
-              if: runner.os == 'Linux' && runner.arch == 'X64'
-            - name: install linux dependencies
-              run: |
-                sudo apt-get update
-                sudo apt-get install libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-              # self hosted Linux ARM64 runner (in berlin) has this baked in
-              if: runner.os == 'Linux' && runner.arch != 'ARM64'
-            - name: import gpg key
-              if: runner.os == 'Linux'
-              uses: crazy-max/ghaction-import-gpg@v5
-              with:
-                  gpg_private_key: ${{ secrets.APPIMAGE_PRIVATE_KEY }}
-                  passphrase: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
-
-            - name: Build binary
-              run: |
-                  ./scripts/release.sh \
-                    --sign \
-                    --channel                    "${{ env.channel }}" \
-                    --dist                       "./release" \
-                    --version                    "${{ env.version }}" \
-                    --tauri-private-key          "${{ secrets.TAURI_PRIVATE_KEY }}"  \
-                    --tauri-key-password         "${{ secrets.TAURI_KEY_PASSWORD }}" \
-                    --apple-certificate          "${{ secrets.APPLE_CERTIFICATE }}" \
-                    --apple-certificate-password "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" \
-                    --apple-signing-identity     "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
-                    --apple-id                   "${{ secrets.APPLE_ID }}" \
-                    --apple-password             "${{ secrets.APPLE_PASSWORD }}" \
-                    --appimage-key-id            "${{ secrets.APPIMAGE_KEY_ID }}" \
-                    --appimage-key-passphrase    "${{ secrets.APPIMAGE_KEY_PASSPHRASE }}"
-
-            - uses: shallwefootball/s3-upload-action@master
-              name: Upload To S3
-              id: S3
-              with:
-                  aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                  aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
-                  aws_bucket: "releases.gitbutler.com"
-                  source_dir: "release/"
-                  destination_dir: "releases/${{ env.channel }}/${{ env.version }}-${{ github.run_number }}"
-
-            # tell our server to update with the version number
-            - name: Tell our server to update
-              run: |
-                  curl 'https://app.gitbutler.com/api/releases' \
-                    --fail \
-                    --request POST \
-                    --header 'Content-Type: application/json' \
-                    --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
-                    --data '{"channel":"${{ env.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
+      # tell our server to update with the version number
+      - name: Tell our server to update
+        run: |
+          curl 'https://app.gitbutler.com/api/releases' \
+            --fail \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
+            --data '{"channel":"${{ env.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'

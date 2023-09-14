@@ -9,10 +9,10 @@ edition = "2021"
 rust-version = "1.57"
 
 [dependencies]
-git2 = { version = "0.17.2", features = ["vendored-openssl", "vendored-libgit2"] }
-dirs = "5.0.1"
-colored = "2.0.0"
-clap = { version = "4.0", features = ["derive"] }
-dialoguer = "0.10.4"
 anyhow = "1.0.71"
+clap = { version = "4.0", features = ["derive"] }
+colored = "2.0.0"
+dialoguer = "0.10.4"
+dirs = "5.0.1"
+git2 = { version = "0.17.2", features = ["vendored-openssl", "vendored-libgit2"] }
 gitbutler = { path = "../tauri" }

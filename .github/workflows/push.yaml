@@ -2,132 +2,82 @@ name: "Test"
 on: [push]
 
 jobs:
-    lint-frontend:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      node: ${{ steps.filter.outputs.node }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'packages/tauri/**'
+              - 'packages/butler/**'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+            node:
+              - 'packages/node/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
 
-            - uses: ./.github/actions/init-env
-              id: init
-              with:
-                runs-on: frontend
+  lint-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm lint
 
-            - name: Lint frontend
-              if: ${{ steps.init.outputs.frontend == 'true' }}
-              run: pnpm lint
+  check-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm check
 
-    check-frontend:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  unittest-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm test
 
-            - uses: ./.github/actions/init-env
-              id: init
-              with:
-                runs-on: frontend
+  lint-rust:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
+      - run: cargo fmt --check
+      - run: cargo install cargo-sort
+      - run: cargo sort --check --workspace
 
-            - name: check frontend
-              if: ${{ steps.init.outputs.frontend == 'true' }}
-              run: pnpm check
+  story:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm story:build
 
-    unittest-frontend:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - uses: ./.github/actions/init-env
-              id: init
-              with:
-                runs-on: frontend
-
-            - name: check frontend
-              if: ${{ steps.init.outputs.frontend == 'true' }}
-              run: pnpm test
-
-    lint-rust:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - uses: ./.github/actions/init-env
-              id: init
-              with:
-                runs-on: backend
-
-            - name: Install latest stable rust
-              if: ${{ steps.init.outputs.backend == 'true' }}
-              uses: actions-rs/toolchain@v1
-              with:
-                override: true
-                toolchain: stable
-                components: rustfmt
-
-            - run: cargo fmt --check
-              if: ${{ steps.init.outputs.backend == 'true' }}
-
-
-    story:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - uses: ./.github/actions/init-env
-              id: init
-              with:
-                runs-on: frontend
-
-            - name: Build storybook
-              if: ${{ steps.init.outputs.frontend == 'true' }}
-              run: pnpm story:build
-
-    test:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - uses: ./.github/actions/init-env
-              id: init
-              with:
-                runs-on: backend
-
-            - name: Install latest stable rust
-              if: ${{ steps.init.outputs.backend == 'true' }}
-              uses: actions-rs/toolchain@v1
-              with:
-                override: true
-                toolchain: stable
-                components: rustfmt, clippy
-
-            - name: Cache rust dependencies
-              if: ${{ steps.init.outputs.backend == 'true' }}
-              uses: Swatinem/rust-cache@v2
-            
-            - run: sudo apt-get update
-              if: ${{ steps.init.outputs.backend == 'true' && runner.os == 'Linux' }}
-            - name: Install system dependencies
-              uses: daaku/gh-action-apt-install@v4
-              if: ${{ steps.init.outputs.backend == 'true' && runner.os == 'Linux' }}
-              with:
-                  # https://tauri.app/v1/guides/getting-started/prerequisites#setting-up-linux
-                  packages: libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-
-            - name: Build frontend
-              if: ${{ steps.init.outputs.backend == 'true' }}
-              run: pnpm build
-
-            - name: Install clippy
-              if: ${{ steps.init.outputs.backend == 'true' }}
-              run: rustup component add clippy
-
-            - run: cargo clippy --all-features
-              if: ${{ steps.init.outputs.backend == 'true' }}
-
-            - name: Test rust
-              if: ${{ steps.init.outputs.backend == 'true' }}
-              run: cargo test --locked
+  test:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm build
+      - run: cargo clippy --all-features
+      - run: cargo test --locked
