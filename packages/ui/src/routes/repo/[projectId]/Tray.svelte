@@ -185,7 +185,7 @@
 	</div>
 	<!-- Your branches -->
 	<div
-		class="bg-color-4 border-color-5 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
+		class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	>
 		<div class="font-bold">Stashed branches</div>
 		<div class="flex h-4 w-4 justify-around">
@@ -307,7 +307,7 @@
 
 	<!-- Remote branches -->
 	<div
-		class="bg-color-4 border-color-5 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
+		class="bg-color-4 border-color-4 flex items-center justify-between border-b border-t px-2 py-1 pr-1"
 	>
 		<div class="flex flex-row place-items-center space-x-2">
 			<div class="text-color-2 font-bold">Remote Branches</div>
