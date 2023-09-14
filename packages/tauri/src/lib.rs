@@ -15,7 +15,6 @@ pub mod lock;
 pub mod logs;
 pub mod project_repository;
 pub mod projects;
-pub mod pty;
 pub mod reader;
 pub mod search;
 pub mod sessions;

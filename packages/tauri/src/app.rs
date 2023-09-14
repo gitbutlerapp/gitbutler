@@ -3,14 +3,13 @@ use std::{collections::HashMap, ops, path, time};
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use tauri::{AppHandle, Manager};
-use tokio::task;
 
 use crate::{
     bookmarks, deltas, gb_repository,
     git::{self, diff},
     keys,
     project_repository::{self, activity, conflicts},
-    projects, pty, reader, search, sessions, users,
+    projects, reader, search, sessions, users,
     virtual_branches::{self, target},
     watcher,
 };
@@ -60,17 +59,6 @@ impl TryFrom<&AppHandle> for App {
 }
 
 impl App {
-    pub fn start_pty_server(&self) -> Result<()> {
-        let self_ = self.clone();
-        task::Builder::new().name("pty-server").spawn(async move {
-            let port = if cfg!(debug_assertions) { 7702 } else { 7703 };
-            if let Err(e) = pty::start_server(port, self_).await {
-                tracing::error!("failed to start pty server: {:#}", e);
-            }
-        })?;
-        Ok(())
-    }
-
     pub fn init_project(&self, project: &projects::Project) -> Result<()> {
         block_on(async move {
             self.watchers
@@ -556,26 +544,6 @@ impl App {
 
     pub fn search(&self, query: &search::Query) -> Result<search::Results> {
         self.searcher.search(query)
-    }
-
-    pub fn record_pty(&self, project_id: &str, typ: pty::Type, bytes: &[u8]) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-        let pty_writer = pty::Writer::new(&gb_repository)?;
-
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-
-        let record = pty::Record {
-            timestamp,
-            typ,
-            bytes: bytes.to_vec(),
-        };
-
-        pty_writer.write(&record).context("failed to append pty")?;
-
-        Ok(())
     }
 
     pub fn delete_all_data(&self) -> Result<()> {
