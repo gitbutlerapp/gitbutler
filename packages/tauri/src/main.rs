@@ -704,16 +704,12 @@ async fn main() {
                 sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
             }
 
-            app.start_pty_server()
-                .context("failed to start pty server")?;
-
             app.init().context("failed to init app")?;
 
             app_handle.manage(app);
 
             Ok(())
         })
-        .plugin(tauri_plugin_websocket::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             add_project,
