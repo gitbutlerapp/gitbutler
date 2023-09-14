@@ -84,18 +84,10 @@
 		"svelte-outclick": "^3.6.2",
 		"svelte-resize-observer": "^2.0.0",
 		"tailwindcss": "^3.3.3",
-		"tauri-plugin-log-api": "git+https://git@github.com/tauri-apps/tauri-plugin-log.git",
-		"tauri-plugin-websocket-api": "git+https://git@github.com/tauri-apps/tauri-plugin-websocket.git",
 		"tinykeys": "^2.1.0",
 		"tslib": "^2.6.2",
 		"typescript": "^5.2.2",
 		"vite": "^4.4.9",
-		"vitest": "^0.34.3",
-		"xterm": "^5.2.1",
-		"xterm-addon-canvas": "^0.4.0",
-		"xterm-addon-fit": "^0.7.0",
-		"xterm-addon-ligatures": "^0.6.0",
-		"xterm-addon-unicode11": "^0.5.0",
-		"xterm-addon-webgl": "^0.15.0"
+		"vitest": "^0.34.3"
 	}
 }

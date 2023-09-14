@@ -5,7 +5,6 @@ import {
 	IconGitCommit,
 	IconFile,
 	IconFeedback,
-	IconTerminal,
 	IconSettings,
 	IconDiscord,
 	IconSearch,
@@ -146,14 +145,6 @@ const navigateGroup = ({ project, input }: { project?: Project; input: string })
 							href: `/projects/${project.id}/commit/`
 						},
 						icon: IconGitCommit
-					},
-					{
-						title: 'Terminal',
-						hotkey: 'Meta+T',
-						action: {
-							href: `/projects/${project.id}/terminal/`
-						},
-						icon: IconTerminal
 					},
 					{
 						title: 'Project settings',
