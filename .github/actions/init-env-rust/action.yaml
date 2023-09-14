@@ -1,5 +1,5 @@
-name: init-ui
-description: prepare runner for ui related tasks
+name: init-rust
+description: prepare runner for rust related tasks
 runs:
   using: "composite"
   steps:

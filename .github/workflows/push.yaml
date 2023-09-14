@@ -5,93 +5,79 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      butler: ${{ steps.filter.outputs.butler }}
-      tauri: ${{ steps.filter.outputs.backend }}
-      ui: ${{ steps.filter.outputs.frontend }}
+      rust: ${{ steps.filter.outputs.rust }}
+      node: ${{ steps.filter.outputs.node }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
         id: filter
         with:
           filters: |
-            butler:
+            rust:
+              - 'packages/tauri/**'
               - 'packages/butler/**'
               - 'Cargo.lock'
               - 'Cargo.toml'
-            tauri:
-              - 'packages/tauri/**'
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-            ui:
-              - 'packages/ui/**'
+            node:
+              - 'packages/node/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
 
-  lint-ui:
+  lint-node:
     needs: changes
-    if: ${{ needs.changes.outputs.ui == 'true' }}
+    if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-ui
+      - uses: ./.github/actions/init-env-node
       - run: pnpm lint
 
-  check-ui:
+  check-node:
     needs: changes
-    if: ${{ needs.changes.outputs.ui == 'true' }}
+    if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-ui
+      - uses: ./.github/actions/init-env-node
       - run: pnpm check
 
-  unittest-ui:
+  unittest-node:
     needs: changes
-    if: ${{ needs.changes.outputs.ui == 'true' }}
+    if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-ui
+      - uses: ./.github/actions/init-env-node
       - run: pnpm test
 
-  lint-tauri:
+  lint-rust:
     needs: changes
-    if: ${{ needs.changes.outputs.tauri == 'true' }}
+    if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-tauri
-      - run: cargo fmt --package gitbutler --check
+      - uses: ./.github/actions/init-env-rust
+      - run: cargo fmt --check
       - run: cargo install cargo-sort
-      - run: cargo sort --package gitbutler --check --workspace
-
-  lint-butler:
-    needs: changes
-    if: ${{ needs.changes.outputs.butler == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-tauri
-      - run: cargo fmt --package butler --check
-      - run: cargo install cargo-sort
-      - run: cargo sort --package butler --check --workspace
+      - run: cargo sort --check --workspace
 
   story:
     needs: changes
-    if: ${{ needs.changes.outputs.ui == 'true' }}
+    if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-ui
+      - uses: ./.github/actions/init-env-node
       - run: pnpm story:build
 
   test:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
-    if: ${{ needs.changes.outputs.tauri == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-tauri
-      - uses: ./.github/actions/init-env-ui
+      - uses: ./.github/actions/init-env-rust
+      - uses: ./.github/actions/init-env-node
       - run: pnpm build
       - run: cargo clippy --all-features
       - run: cargo test --locked

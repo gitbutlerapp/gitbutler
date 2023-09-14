@@ -1,5 +1,5 @@
-name: init-ui
-description: prepare runner for ui related tasks
+name: init-node
+description: prepare runner for node related tasks
 runs:
   using: "composite"
   steps:
