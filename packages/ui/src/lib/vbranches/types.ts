@@ -76,6 +76,10 @@ export class BranchData {
 	@Type(() => Commit)
 	commits!: Commit[];
 
+	ahead(): number {
+		return this.commits.length;
+	}
+
 	lastCommitTs(): Date | undefined {
 		return this.commits.at(0)?.createdAt;
 	}

@@ -395,11 +395,10 @@
 								</div>
 								<div class="flex flex-grow-0 flex-row space-x-2">
 									<Tooltip
-										label="This branch has {branch.commits
-											.length} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
+										label="This branch has {branch.ahead()} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
 									>
 										<div class="bg-color-3 text-color-3 rounded-lg px-2 text-sm">
-											{branch.commits.length} / {branch.behind}
+											{branch.ahead()} / {branch.behind}
 										</div>
 									</Tooltip>
 									{#if !branch.mergeable}
