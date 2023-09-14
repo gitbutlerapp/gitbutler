@@ -2,37 +2,84 @@ name: "Test"
 on: [push]
 
 jobs:
-  lint-frontend:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      butler: ${{ steps.filter.outputs.butler }}
+      tauri: ${{ steps.filter.outputs.backend }}
+      ui: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            butler:
+              - 'packages/butler/**'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+            tauri:
+              - 'packages/tauri/**'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+            ui:
+              - 'packages/ui/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+
+  lint-ui:
+    needs: changes
+    if: ${{ needs.changes.outputs.ui == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-ui
       - run: pnpm lint
 
-  check-frontend:
+  check-ui:
+    needs: changes
+    if: ${{ needs.changes.outputs.ui == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-ui
       - run: pnpm check
 
-  unittest-frontend:
+  unittest-ui:
+    needs: changes
+    if: ${{ needs.changes.outputs.ui == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-ui
       - run: pnpm test
 
-  lint-rust:
+  lint-tauri:
+    needs: changes
+    if: ${{ needs.changes.outputs.tauri == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-tauri
-      - run: cargo fmt --check
+      - run: cargo fmt --package gitbutler --check
       - run: cargo install cargo-sort
-      - run: cargo sort --check --workspace
+      - run: cargo sort --package gitbutler --check --workspace
+
+  lint-butler:
+    needs: changes
+    if: ${{ needs.changes.outputs.butler == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-tauri
+      - run: cargo fmt --package butler --check
+      - run: cargo install cargo-sort
+      - run: cargo sort --package butler --check --workspace
 
   story:
+    needs: changes
+    if: ${{ needs.changes.outputs.ui == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +88,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    if: ${{ needs.changes.outputs.tauri == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-tauri
