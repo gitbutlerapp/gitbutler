@@ -69,18 +69,28 @@ export class Author {
 export class BranchData {
 	sha!: string;
 	name!: string;
-	@Transform((obj) => new Date(obj.value * 1000))
-	lastCommitTs!: Date;
-	@Transform((obj) => new Date(obj.value * 1000))
-	firstCommitTs!: Date;
-	ahead!: number;
 	behind!: number;
 	upstream?: string;
-	authors!: Author[];
 	mergeable!: boolean;
 	mergeConflicts!: string[];
 	@Type(() => Commit)
 	commits!: Commit[];
+
+	ahead(): number {
+		return this.commits.length;
+	}
+
+	lastCommitTs(): Date | undefined {
+		return this.commits.at(0)?.createdAt;
+	}
+
+	authors(): Author[] {
+		const allAuthors = this.commits.map((commit) => commit.author);
+		const uniqueAuthors = allAuthors.filter(
+			(author, index) => allAuthors.findIndex((a) => a.email == author.email) == index
+		);
+		return uniqueAuthors;
+	}
 }
 
 export class BaseBranch {

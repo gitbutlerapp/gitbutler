@@ -391,14 +391,14 @@
 							</div>
 							<div class="flex flex-row justify-between space-x-2 rounded p-1 pr-1">
 								<div class="text-color-4 flex-grow-0 text-sm">
-									<TimeAgo date={branch.lastCommitTs} />
+									<TimeAgo date={branch.lastCommitTs()} />
 								</div>
 								<div class="flex flex-grow-0 flex-row space-x-2">
 									<Tooltip
-										label="This branch has {branch.ahead} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
+										label="This branch has {branch.ahead()} commits not on your base branch and your base has {branch.behind} commits not on this branch yet"
 									>
 										<div class="bg-color-3 text-color-3 rounded-lg px-2 text-sm">
-											{branch.ahead} / {branch.behind}
+											{branch.ahead()} / {branch.behind}
 										</div>
 									</Tooltip>
 									{#if !branch.mergeable}
@@ -408,7 +408,7 @@
 								<div
 									class="isolate flex flex-grow justify-end -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"
 								>
-									{#each branch.authors as author}
+									{#each branch.authors() as author}
 										<img
 											class="relative z-30 inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-black"
 											title="Gravatar for {author.email}"
