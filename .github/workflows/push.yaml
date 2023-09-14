@@ -5,24 +5,28 @@ jobs:
   lint-frontend:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env
       - run: pnpm lint
 
   check-frontend:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/init
       - run: pnpm check
 
   unittest-frontend:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/init
       - run: pnpm test
 
   lint-rust:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/init
       - run: cargo fmt --check
       - run: cargo install cargo-sort
@@ -31,12 +35,14 @@ jobs:
   story:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/init
       - run: pnpm story:build
 
   test:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-tauri
       - uses: ./.github/actions/init-env-ui
       - run: pnpm build

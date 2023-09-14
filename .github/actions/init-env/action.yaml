@@ -3,9 +3,6 @@ description: Determine what kind of change has taken place
 runs:
   using: "composite"
   steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
     - id: changes
       uses: dorny/paths-filter@v2
       with:

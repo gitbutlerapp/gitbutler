@@ -38,6 +38,7 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-tauri
       - uses: ./.github/actions/init-env-ui
 
