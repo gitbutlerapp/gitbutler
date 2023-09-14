@@ -6,28 +6,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env
+      - uses: ./.github/actions/init-env-ui
       - run: pnpm lint
 
   check-frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init
+      - uses: ./.github/actions/init-env-ui
       - run: pnpm check
 
   unittest-frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init
+      - uses: ./.github/actions/init-env-ui
       - run: pnpm test
 
   lint-rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init
+      - uses: ./.github/actions/init-env-tauri
       - run: cargo fmt --check
       - run: cargo install cargo-sort
       - run: cargo sort --check --workspace
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init
+      - uses: ./.github/actions/init-env-ui
       - run: pnpm story:build
 
   test:
