@@ -63,8 +63,8 @@ importers:
         specifier: ^6.18.0
         version: 6.18.0
       '@histoire/plugin-svelte':
-        specifier: ^0.16.5
-        version: 0.16.5(histoire@0.16.5)(svelte@4.2.0)(vite@4.4.9)
+        specifier: ^0.17.0
+        version: 0.17.0(histoire@0.16.5)(svelte@4.2.0)(vite@4.4.9)
       '@lezer/common':
         specifier: ^1.0.4
         version: 1.0.4
@@ -79,7 +79,7 @@ importers:
         version: 7.64.0(@sveltejs/kit@1.24.1)(svelte@4.2.0)
       '@square/svelte-store':
         specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git
-        version: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0)
+        version: git@github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0)
       '@sveltejs/adapter-static':
         specifier: ^2.0.3
         version: 2.0.3(@sveltejs/kit@1.24.1)
@@ -762,15 +762,31 @@ packages:
       - vite
     dev: true
 
-  /@histoire/plugin-svelte@0.16.5(histoire@0.16.5)(svelte@4.2.0)(vite@4.4.9):
-    resolution: {integrity: sha512-TEPCJw/SprSjiOiXK5hKvI1goidmuHU5qrOflZfcFikU50xqvnt0IqpwoHz4zXsUsxqlOySfvEqUASLaHjc2AA==}
+  /@histoire/controls@0.17.0(vite@4.4.9):
+    resolution: {integrity: sha512-zdZB4kLthWIZxe/GxUdYM18y7lXiF13g8BMomE9d/YudY1KFkfmMKSbrNlDyM9yKiTd6ycSRJIWEXlxOSuyNrw==}
+    dependencies:
+      '@codemirror/commands': 6.2.5
+      '@codemirror/lang-json': 6.0.1
+      '@codemirror/language': 6.9.0
+      '@codemirror/lint': 6.4.1
+      '@codemirror/state': 6.2.1
+      '@codemirror/theme-one-dark': 6.1.2
+      '@codemirror/view': 6.18.0
+      '@histoire/shared': 0.17.0(vite@4.4.9)
+      '@histoire/vendors': 0.17.0
+    transitivePeerDependencies:
+      - vite
+    dev: true
+
+  /@histoire/plugin-svelte@0.17.0(histoire@0.16.5)(svelte@4.2.0)(vite@4.4.9):
+    resolution: {integrity: sha512-c6WtAaty4vGlv4CS2sPruubnHF4C61eaO1erzlNMkUFMYqpLQ5M5+R3L6UdanJGZVM3Q43OqK6rU/kcAQAyYTA==}
     peerDependencies:
-      histoire: ^0.16.5
+      histoire: ^0.17.0
       svelte: ^3.0.0 || ^4.0.0
     dependencies:
-      '@histoire/controls': 0.16.5(vite@4.4.9)
-      '@histoire/shared': 0.16.5(vite@4.4.9)
-      '@histoire/vendors': 0.16.5
+      '@histoire/controls': 0.17.0(vite@4.4.9)
+      '@histoire/shared': 0.17.0(vite@4.4.9)
+      '@histoire/vendors': 0.17.0
       change-case: 4.1.2
       globby: 13.2.2
       histoire: 0.16.5(vite@4.4.9)
@@ -795,8 +811,26 @@ packages:
       vite: 4.4.9(@types/node@20.5.9)
     dev: true
 
+  /@histoire/shared@0.17.0(vite@4.4.9):
+    resolution: {integrity: sha512-itdEqD+V+WNkCqhSsgoSRuoHeXBH3/bNjY98vHz/89prKeqEVMGbBbGPUpgm1IpKEYrNcLhfDAREJHnwsKxKCg==}
+    peerDependencies:
+      vite: ^2.9.0 || ^3.0.0 || ^4.0.0
+    dependencies:
+      '@histoire/vendors': 0.17.0
+      '@types/fs-extra': 9.0.13
+      '@types/markdown-it': 12.2.3
+      chokidar: 3.5.3
+      pathe: 0.2.0
+      picocolors: 1.0.0
+      vite: 4.4.9(@types/node@20.5.9)
+    dev: true
+
   /@histoire/vendors@0.16.5:
     resolution: {integrity: sha512-25a90vugBz3KH3VzuddxuKeAjBQ1+osXQy2QICQO0kUXAtGHNj4u8T4iG5AgQD9CQXf6dc5+pnPoFZADHlW9VQ==}
+    dev: true
+
+  /@histoire/vendors@0.17.0:
+    resolution: {integrity: sha512-HI2hkai3p5+gAoWZAGWoAdDLlu0ujfYtGhykGChTQyKAroocizRG21l/2w71cN1K+oigbAccqtxP8BkpqX74cQ==}
     dev: true
 
   /@humanwhocodes/config-array@0.11.11:
@@ -5455,9 +5489,9 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/4cf861db334188389186a6f41ddfc1ba157b4ffd}
-    id: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
+  git@github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0):
+    resolution: {commit: 4cf861db334188389186a6f41ddfc1ba157b4ffd, repo: git@github.com:gitbutlerapp/svelte-store.git, type: git}
+    id: git@github.com+gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
     name: '@square/svelte-store'
     version: 1.0.17
     peerDependencies:
