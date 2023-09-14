@@ -8,6 +8,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use diffy::{apply_bytes, Patch};
 use serde::Serialize;
 
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -125,12 +126,8 @@ pub struct VirtualBranchHunk {
 pub struct RemoteBranch {
     pub sha: String,
     pub name: String,
-    pub last_commit_ts: u128,
-    pub first_commit_ts: u128,
-    pub ahead: u32,
     pub behind: u32,
     pub upstream: Option<git::RemoteBranchName>,
-    pub authors: Vec<Author>,
     pub mergeable: bool,
     pub merge_conflicts: Vec<String>,
     pub commits: Vec<VirtualBranchCommit>,
@@ -595,14 +592,6 @@ pub fn list_remote_branches(
                     .context("failed to get ahead commits")?;
                 let count_ahead = ahead.len();
 
-                let min_time = ahead.iter().map(|commit| commit.time().seconds()).min();
-                let max_time = ahead.iter().map(|commit| commit.time().seconds()).max();
-                let authors = ahead
-                    .iter()
-                    .map(|commit| commit.author())
-                    .map(Author::from)
-                    .collect::<HashSet<_>>();
-
                 let upstream = branch
                     .upstream()
                     .ok()
@@ -620,19 +609,7 @@ pub fn list_remote_branches(
                             sha: branch_oid.to_string(),
                             name: branch_name.to_string(),
                             upstream,
-                            last_commit_ts: max_time
-                                .unwrap_or(0)
-                                .try_into()
-                                .context("failed to convert i64 to u128")?,
-                            first_commit_ts: min_time
-                                .unwrap_or(0)
-                                .try_into()
-                                .context("failed to convert i64 to u128")?,
-                            ahead: count_ahead
-                                .try_into()
-                                .context("failed to convert usize to u32")?,
                             behind: count_behind,
-                            authors: authors.into_iter().collect(),
                             mergeable,
                             merge_conflicts,
                             commits: ahead
@@ -655,12 +632,8 @@ pub fn list_remote_branches(
                 branches.push(RemoteBranch {
                     sha: "".to_string(),
                     name: branch_name.to_string(),
-                    last_commit_ts: 0,
-                    first_commit_ts: 0,
-                    ahead: 0,
                     behind: 0,
                     upstream: None,
-                    authors: vec![],
                     mergeable: false,
                     merge_conflicts: vec![],
                     commits: vec![],
@@ -973,6 +946,7 @@ fn calculate_non_commited_files(
     Ok(vfiles)
 }
 
+#[instrument(skip_all)]
 fn list_commit_files(
     project_repository: &project_repository::Repository,
     commit: &git::Commit,
@@ -999,6 +973,7 @@ fn list_commit_files(
     ))
 }
 
+#[instrument(skip_all)]
 pub fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
     target: &target::Target,
@@ -2042,6 +2017,7 @@ pub fn mark_all_unapplied(gb_repository: &gb_repository::Repository) -> Result<(
     Ok(())
 }
 
+#[instrument(skip_all)]
 fn is_commit_integrated(
     project_repository: &project_repository::Repository,
     target: &target::Target,

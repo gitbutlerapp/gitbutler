@@ -8,7 +8,7 @@ use futures::future::join_all;
 use tauri::{generate_context, Manager};
 use tracing::instrument;
 
-use gitbutler::*;
+use gitbutler::{virtual_branches::VirtualBranchCommit, *};
 
 use crate::{error::Error, git, project_repository::activity};
 
@@ -372,26 +372,29 @@ async fn git_remote_branches_data(
                 let proxy = handle.state::<assets::Proxy>();
                 async move {
                     virtual_branches::RemoteBranch {
-                        authors: join_all(
+                        commits: join_all(
                             branch
-                                .authors
+                                .commits
                                 .into_iter()
-                                .map(|author| {
+                                .map(|commit| {
                                     let proxy = proxy.clone();
                                     async move {
-                                        virtual_branches::Author {
-                                            gravatar_url: proxy
-                                                .proxy(&author.gravatar_url)
-                                                .await
-                                                .unwrap_or_else(|e| {
-                                                    tracing::error!(
-                                                        "failed to proxy gravatar url {}: {:#}",
-                                                        author.gravatar_url,
-                                                        e
-                                                    );
-                                                    author.gravatar_url
-                                                }),
-                                            ..author
+                                        VirtualBranchCommit {
+                                            author: virtual_branches::Author {
+                                                gravatar_url: proxy
+                                                    .proxy(&commit.author.gravatar_url)
+                                                    .await
+                                                    .unwrap_or_else(|e| {
+                                                        tracing::error!(
+                                                            "failed to proxy gravatar url {}: {:#}",
+                                                            commit.author.gravatar_url,
+                                                            e
+                                                        );
+                                                        commit.author.gravatar_url.clone()
+                                                    }),
+                                                ..commit.author.clone()
+                                            },
+                                            ..commit.clone()
                                         }
                                     }
                                 })
