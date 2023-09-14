@@ -79,7 +79,7 @@
 
 <Modal bind:this={modal} title="Share with GitButler team for review" on:close={onClose}>
 	<div class="flex flex-col gap-4">
-		<p>
+		<p class="text-color-3">
 			If you are having trouble, please share your project and logs with the Gitbutler team. We will
 			review it for you and help identify how we can help resolve the issue.
 		</p>
@@ -98,7 +98,7 @@
 		{/if}
 
 		<div class="flex flex-col gap-1">
-			<label for="comments" class="text-xl font-semibold">Comments</label>
+			<label for="comments">Comments</label>
 
 			<textarea
 				placeholder="Provide any steps necessary to reproduce the problem."
@@ -114,7 +114,7 @@
 
 		<div class="flex flex-col gap-1">
 			<span class="text-xl font-semibold"> Share logs </span>
-			<span class="text-sm text-text-subdued">
+			<span class="text-color-3 text-sm">
 				We personally ensure all information you share with us will be reviewed internally only and
 				discarded post-resolution
 			</span>

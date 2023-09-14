@@ -13,11 +13,9 @@
 {:then}
 	<div class="bg-color-2 flex h-full w-full flex-col p-8">
 		<div class="mb-8 flex flex-row justify-between">
-			<div class="text-light-900 dark:text-dark-100">
+			<div class="text-color-2">
 				<h1 class="mb-2 text-2xl">Your projects</h1>
-				<p class="text-lg text-light-700 dark:text-dark-200">
-					All the projects tracked by GitButler
-				</p>
+				<p class="text-color-3 text-lg">All the projects tracked by GitButler</p>
 			</div>
 			{#if $projects.length > 0}
 				<div class="self-start">
@@ -33,7 +31,7 @@
 		</div>
 		{#if $projects.length == 0}
 			<div
-				class="mx-auto flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
+				class="border-color-3 bg-color-2 mx-auto flex w-full flex-grow items-center justify-center rounded-lg border p-8"
 			>
 				<div class="inline-flex w-96 flex-col items-center gap-y-4 text-center">
 					<svg
@@ -66,21 +64,19 @@
 			<div class="flex flex-wrap gap-4">
 				{#each $projects as project}
 					<a
-						class="bg-color-5 w-96 overflow-hidden rounded-lg text-light-900 shadow dark:border dark:border-dark-600 dark:text-light-200"
+						class="bg-color-5 text-color-2 dark:border-color-5 w-96 overflow-hidden rounded-lg shadow dark:border dark:shadow-none"
 						href="/repo/{project.id}/"
 					>
-						<div class="p-4">
-							<h1 class="text-lg text-light-900 dark:text-dark-100">
+						<div class="text-color-2 p-4">
+							<h1 class="text-lg">
 								{project.title}
 							</h1>
-							<p class="text-light-700 dark:text-dark-200">
+							<p>
 								{project.path}
 							</p>
 						</div>
 
-						<div
-							class="bg-color-4 flex flex-row items-center gap-x-2 px-4 py-2 text-light-900 dark:text-dark-100"
-						>
+						<div class="bg-color-4 flex flex-row items-center gap-x-2 px-4 py-2">
 							{#if project.api}
 								<div class="h-2 w-2 rounded-full bg-green-600" />
 								<div>Backed-up</div>
