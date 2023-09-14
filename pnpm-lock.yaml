@@ -212,12 +212,6 @@ importers:
       tailwindcss:
         specifier: ^3.3.3
         version: 3.3.3
-      tauri-plugin-log-api:
-        specifier: git+https://git@github.com/tauri-apps/tauri-plugin-log.git
-        version: github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab
-      tauri-plugin-websocket-api:
-        specifier: git+https://git@github.com/tauri-apps/tauri-plugin-websocket.git
-        version: github.com/tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef
       tinykeys:
         specifier: ^2.1.0
         version: 2.1.0
@@ -233,24 +227,6 @@ importers:
       vitest:
         specifier: ^0.34.3
         version: 0.34.3
-      xterm:
-        specifier: ^5.2.1
-        version: 5.2.1
-      xterm-addon-canvas:
-        specifier: ^0.4.0
-        version: 0.4.0(xterm@5.2.1)
-      xterm-addon-fit:
-        specifier: ^0.7.0
-        version: 0.7.0(xterm@5.2.1)
-      xterm-addon-ligatures:
-        specifier: ^0.6.0
-        version: 0.6.0(xterm@5.2.1)
-      xterm-addon-unicode11:
-        specifier: ^0.5.0
-        version: 0.5.0(xterm@5.2.1)
-      xterm-addon-webgl:
-        specifier: ^0.15.0
-        version: 0.15.0(xterm@5.2.1)
 
 packages:
 
@@ -2866,23 +2842,6 @@ packages:
     resolution: {integrity: sha512-W7cHV7Hrwjid6lWmy0IhsWDFQboWSng25U3VVywpHOTJnnAZNPScog67G+cVpeX9f7yDD21ih0WDrMMT+JoaYg==}
     dev: true
 
-  /font-finder@1.1.0:
-    resolution: {integrity: sha512-wpCL2uIbi6GurJbU7ZlQ3nGd61Ho+dSU6U83/xJT5UPFfN35EeCW/rOtS+5k+IuEZu2SYmHzDIPL9eA5tSYRAw==}
-    engines: {node: '>8.0.0'}
-    dependencies:
-      get-system-fonts: 2.0.2
-      promise-stream-reader: 1.0.1
-    dev: true
-
-  /font-ligatures@1.4.1:
-    resolution: {integrity: sha512-7W6zlfyhvCqShZ5ReUWqmSd9vBaUudW0Hxis+tqUjtHhsPU+L3Grf8mcZAtCiXHTzorhwdRTId2WeH/88gdFkw==}
-    engines: {node: '>8.0.0'}
-    dependencies:
-      font-finder: 1.1.0
-      lru-cache: 6.0.0
-      opentype.js: 0.8.0
-    dev: true
-
   /for-each@0.3.3:
     resolution: {integrity: sha512-jqYfLp7mo9vIyQf8ykW2v7A+2N4QjeCeI5+Dz9XraiO1ign81wjiH7Fb9vSOWvQfNtmSa4H2RoQTrrXivdUZmw==}
     dependencies:
@@ -2960,11 +2919,6 @@ packages:
     dependencies:
       call-bind: 1.0.2
       get-intrinsic: 1.2.1
-    dev: true
-
-  /get-system-fonts@2.0.2:
-    resolution: {integrity: sha512-zzlgaYnHMIEgHRrfC7x0Qp0Ylhw/sHpM6MHXeVBTYIsvGf5GpbnClB+Q6rAPdn+0gd2oZZIo6Tj3EaWrt4VhDQ==}
-    engines: {node: '>8.0.0'}
     dev: true
 
   /get-tsconfig@4.7.0:
@@ -3964,13 +3918,6 @@ packages:
       wrappy: 1.0.2
     dev: true
 
-  /opentype.js@0.8.0:
-    resolution: {integrity: sha512-FQHR4oGP+a0m/f6yHoRpBOIbn/5ZWxKd4D/djHVJu8+KpBTYrJda0b7mLcgDEMWXE9xBCJm+qb0yv6FcvPjukg==}
-    hasBin: true
-    dependencies:
-      tiny-inflate: 1.0.3
-    dev: true
-
   /optionator@0.9.3:
     resolution: {integrity: sha512-JjCoypp+jKn1ttEFExxhetCKeJt9zhAgAve5FXHixTvFDW/5aEktX9bufBKLRRMdU7bNtpLfcGu94B3cdEJgjg==}
     engines: {node: '>= 0.8.0'}
@@ -4322,11 +4269,6 @@ packages:
   /progress@2.0.3:
     resolution: {integrity: sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA==}
     engines: {node: '>=0.4.0'}
-    dev: true
-
-  /promise-stream-reader@1.0.1:
-    resolution: {integrity: sha512-Tnxit5trUjBAqqZCGWwjyxhmgMN4hGrtpW3Oc/tRI4bpm/O2+ej72BB08l6JBnGQgVDGCLvHFGjGgQS6vzhwXg==}
-    engines: {node: '>8.0.0'}
     dev: true
 
   /proxy-from-env@1.1.0:
@@ -4965,10 +4907,6 @@ packages:
       globrex: 0.1.2
     dev: true
 
-  /tiny-inflate@1.0.3:
-    resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
-    dev: true
-
   /tinybench@2.5.0:
     resolution: {integrity: sha512-kRwSG8Zx4tjF9ZiyH4bhaebu+EDz1BOx9hOigYHlUW4xxI/wKIUQUqo018UlU4ar6ATPBsaMrdbKZ+tmPdohFA==}
     dev: true
@@ -5493,53 +5431,6 @@ packages:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
     dev: true
 
-  /xterm-addon-canvas@0.4.0(xterm@5.2.1):
-    resolution: {integrity: sha512-iTC8CdjX9+hGX7jiEuiDMXzHsY/FKJdVnbjep5xjRXNu7RKOk15xuecIkJ7HZORqMVPpr4DGS3jyd9XUoBuxqw==}
-    peerDependencies:
-      xterm: ^5.0.0
-    dependencies:
-      xterm: 5.2.1
-    dev: true
-
-  /xterm-addon-fit@0.7.0(xterm@5.2.1):
-    resolution: {integrity: sha512-tQgHGoHqRTgeROPnvmtEJywLKoC/V9eNs4bLLz7iyJr1aW/QFzRwfd3MGiJ6odJd9xEfxcW36/xRU47JkD5NKQ==}
-    peerDependencies:
-      xterm: ^5.0.0
-    dependencies:
-      xterm: 5.2.1
-    dev: true
-
-  /xterm-addon-ligatures@0.6.0(xterm@5.2.1):
-    resolution: {integrity: sha512-DxiYCXXYEpnwr8li4/QhG64exjrLX1nHBfNNfrQgx5e8Z9tK2SjWKpxI6PZEy++8+YdL1F7VjWI4aKOaDt2VVw==}
-    engines: {node: '>8.0.0'}
-    peerDependencies:
-      xterm: ^5.0.0
-    dependencies:
-      font-finder: 1.1.0
-      font-ligatures: 1.4.1
-      xterm: 5.2.1
-    dev: true
-
-  /xterm-addon-unicode11@0.5.0(xterm@5.2.1):
-    resolution: {integrity: sha512-Jm4/g4QiTxiKiTbYICQgC791ubhIZyoIwxAIgOW8z8HWFNY+lwk+dwaKEaEeGBfM48Vk8fklsUW9u/PlenYEBg==}
-    peerDependencies:
-      xterm: ^5.0.0
-    dependencies:
-      xterm: 5.2.1
-    dev: true
-
-  /xterm-addon-webgl@0.15.0(xterm@5.2.1):
-    resolution: {integrity: sha512-ZLcqogMFHr4g/YRhcCh3xE8tTklnyut/M+O/XhVsFBRB/YCvYhPdLQ5/AQk54V0wjWAQpa8CF3W8DVR9OqyMCg==}
-    peerDependencies:
-      xterm: ^5.0.0
-    dependencies:
-      xterm: 5.2.1
-    dev: true
-
-  /xterm@5.2.1:
-    resolution: {integrity: sha512-cs5Y1fFevgcdoh2hJROMVIWwoBHD80P1fIP79gopLHJIE4kTzzblanoivxTiQ4+92YM9IxS36H1q0MxIJXQBcA==}
-    dev: true
-
   /yallist@4.0.0:
     resolution: {integrity: sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==}
     dev: true
@@ -5574,20 +5465,4 @@ packages:
     dependencies:
       cookie-storage: 6.1.0
       svelte: 4.2.0
-    dev: true
-
-  github.com/tauri-apps/tauri-plugin-log/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/9075595196d5a66f8f3265d2aaf7e2ffeb4cb2ab}
-    name: tauri-plugin-log-api
-    version: 0.0.0
-    dependencies:
-      '@tauri-apps/api': 1.4.0
-    dev: true
-
-  github.com/tauri-apps/tauri-plugin-websocket/c085eb80347e66433570322b8c62028b804dfeef:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-websocket/tar.gz/c085eb80347e66433570322b8c62028b804dfeef}
-    name: tauri-plugin-websocket-api
-    version: 0.0.0
-    dependencies:
-      '@tauri-apps/api': 1.4.0
     dev: true
