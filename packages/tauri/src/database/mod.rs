@@ -1,11 +1,11 @@
-use std::{
-    fs, path,
-    sync::{Arc, Mutex},
-};
+use std::{fs, path, sync::Arc};
 
 use anyhow::{Context, Result};
 
-use rusqlite::{Connection, Transaction};
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
+use refinery::config::Config;
+use rusqlite::Transaction;
 use tauri::AppHandle;
 
 mod embedded {
@@ -15,7 +15,7 @@ mod embedded {
 
 #[derive(Clone)]
 pub struct Database {
-    conn: Arc<Mutex<Connection>>,
+    pool: Arc<Pool<SqliteConnectionManager>>,
 }
 
 impl TryFrom<&path::PathBuf> for Database {
@@ -40,28 +40,14 @@ impl TryFrom<&AppHandle> for Database {
 }
 
 impl Database {
-    #[cfg(test)]
-    pub fn memory() -> Result<Self> {
-        let mut conn = Connection::open_in_memory().context("Failed to open in memory database")?;
-        embedded::migrations::runner()
-            .run(&mut conn)
-            .map(|report| {
-                report
-                    .applied_migrations()
-                    .iter()
-                    .for_each(|m| tracing::info!("Applied migration: {}", m))
-            })
-            .context("Failed to run migrations")?;
-        Ok(Self {
-            conn: Arc::new(Mutex::new(conn)),
-        })
-    }
-
     fn open<P: AsRef<path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let mut conn = Connection::open(path).context("Failed to open database")?;
+        let manager = SqliteConnectionManager::file(path);
+        let pool = r2d2::Pool::new(manager)?;
+        let mut cfg =
+            Config::new(refinery::config::ConfigDbType::Sqlite).set_db_path(path.to_str().unwrap());
         embedded::migrations::runner()
-            .run(&mut conn)
+            .run(&mut cfg)
             .map(|report| {
                 report
                     .applied_migrations()
@@ -70,12 +56,12 @@ impl Database {
             })
             .context("Failed to run migrations")?;
         Ok(Self {
-            conn: Arc::new(Mutex::new(conn)),
+            pool: Arc::new(pool),
         })
     }
 
     pub fn transaction<T>(&self, f: impl FnOnce(&Transaction) -> Result<T>) -> Result<T> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.pool.get()?;
         let tx = conn.transaction().context("Failed to start transaction")?;
         let result = f(&tx)?;
         tx.commit().context("Failed to commit transaction")?;
@@ -85,10 +71,12 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_utils;
+
     use super::*;
     #[test]
     fn test_memory() {
-        let db = Database::memory().unwrap();
+        let db = Database::try_from(&test_utils::temp_dir().join("test.db")).unwrap();
         db.transaction(|tx| {
             tx.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)", [])
                 .unwrap();
