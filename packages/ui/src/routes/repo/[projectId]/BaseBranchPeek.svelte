@@ -58,11 +58,7 @@
 				<div class="flex h-full">
 					<div class="z-20 flex w-full flex-col gap-2">
 						{#each base.upstreamCommits as commit}
-							<CommitCard
-								{commit}
-								url={base.commitUrl(commit.id)}
-								projectId={branchController.projectId}
-							/>
+							<CommitCard {commit} />
 						{/each}
 					</div>
 				</div>
@@ -75,11 +71,7 @@
 			</Tooltip>
 			<div class="flex flex-col gap-y-2">
 				{#each base.recentCommits as commit}
-					<CommitCard
-						url={base.commitUrl(commit.id)}
-						{commit}
-						projectId={branchController.projectId}
-					/>
+					<CommitCard {commit} />
 				{/each}
 			</div>
 		</div>

@@ -30,7 +30,6 @@
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable } from 'svelte/store';
-	import { showReportDialog } from '@sentry/sveltekit';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -439,7 +438,6 @@
 												<CommitCard
 													{commit}
 													isIntegrated={commit.isRemote}
-													projectId={branchController.projectId}
 												/>
 											</div>
 										{/each}
@@ -489,9 +487,7 @@
 												</div>
 												<CommitCard
 													{commit}
-													url={base?.commitUrl(commit.id)}
 													isIntegrated={commit.isIntegrated}
-													projectId={branchController.projectId}
 												/>
 											</div>
 										{/each}

@@ -1,11 +1,10 @@
 <script lang="ts">
 	import Button from '$lib/components/Button/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
+	import type { RemoteBranch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
 
 	export let branch: RemoteBranch | undefined;
-	export let base: BaseBranch | undefined;
 	export let branchController: BranchController;
 </script>
 
@@ -29,11 +28,7 @@
 		{#if branch.commits && branch.commits.length > 0}
 			<div class="flex w-full flex-col gap-y-2">
 				{#each branch.commits as commit}
-					<CommitCard
-						{commit}
-						url={base?.commitUrl(commit.id)}
-						projectId={branchController.projectId}
-					/>
+					<CommitCard {commit} />
 				{/each}
 			</div>
 		{/if}
