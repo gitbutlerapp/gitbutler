@@ -41,7 +41,6 @@ pub struct VirtualBranch {
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
     pub mergeable: bool, // this branch will merge cleanly into the current working directory (only for unapplied branches)
-    pub merge_conflicts: Vec<String>, // if mergeable is false, this will contain a list of files that have merge conflicts (only for unapplied branches)
     pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
     pub order: usize,     // the order in which this branch should be displayed in the UI
     pub upstream: Option<git::RemoteBranchName>, // the name of the upstream branch this branch this pushes to
@@ -128,7 +127,6 @@ pub struct RemoteBranch {
     pub behind: u32,
     pub upstream: Option<git::RemoteBranchName>,
     pub mergeable: bool,
-    pub merge_conflicts: Vec<String>,
     pub commits: Vec<VirtualBranchCommit>,
 }
 
@@ -601,8 +599,9 @@ pub fn list_remote_branches(
                     if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
                         // determine if this tree is mergeable
                         let branch_tree = branch_commit.tree()?;
-                        let (mergeable, merge_conflicts) =
-                            check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)?;
+                        let mergeable = !repo
+                            .merge_trees(&base_tree, &branch_tree, &wd_tree)?
+                            .has_conflicts();
 
                         branches.push(RemoteBranch {
                             sha: branch_oid.to_string(),
@@ -610,7 +609,6 @@ pub fn list_remote_branches(
                             upstream,
                             behind: count_behind,
                             mergeable,
-                            merge_conflicts,
                             commits: ahead
                                 .into_iter()
                                 .map(|commit| {
@@ -634,7 +632,6 @@ pub fn list_remote_branches(
                     behind: 0,
                     upstream: None,
                     mergeable: false,
-                    merge_conflicts: vec![],
                     commits: vec![],
                 });
             }
@@ -668,36 +665,6 @@ fn find_base_tree<'a>(
         .tree()
         .context("failed to get base tree object")?;
     Ok(base_tree)
-}
-
-fn check_mergeable(
-    repo: &git::Repository,
-    base_tree: &git::Tree,
-    branch_tree: &git::Tree,
-    wd_tree: &git::Tree,
-) -> Result<(bool, Vec<String>)> {
-    let mut merge_conflicts = Vec::new();
-
-    let merge_index = repo
-        .merge_trees(base_tree, wd_tree, branch_tree)
-        .context("failed to merge trees")?;
-    let mergeable = !merge_index.has_conflicts();
-    if merge_index.has_conflicts() {
-        let conflicts = merge_index.conflicts()?;
-        for path in conflicts.flatten() {
-            if let Some(their) = path.their {
-                let path = std::str::from_utf8(&their.path)?.to_string();
-                merge_conflicts.push(path);
-            } else if let Some(ours) = path.our {
-                let path = std::str::from_utf8(&ours.path)?.to_string();
-                merge_conflicts.push(path);
-            } else if let Some(anc) = path.ancestor {
-                let path = std::str::from_utf8(&anc.path)?.to_string();
-                merge_conflicts.push(path);
-            }
-        }
-    }
-    Ok((mergeable, merge_conflicts))
 }
 
 pub fn list_virtual_branches(
@@ -776,7 +743,6 @@ pub fn list_virtual_branches(
 
         // if the branch is not applied, check to see if it's mergeable and up to date
         let mut mergeable = true;
-        let mut merge_conflicts = vec![];
         let mut base_current = true;
         if !branch.applied {
             // determine if this branch is up to date with the target/base
@@ -793,9 +759,9 @@ pub fn list_virtual_branches(
                     let branch_tree = repo
                         .find_tree(branch.tree)
                         .context("failed to find branch tree")?;
-                    (mergeable, merge_conflicts) =
-                        check_mergeable(repo, &base_tree, &branch_tree, &wd_tree)
-                            .context("failed to check mergeable")?;
+                    mergeable = !repo
+                        .merge_trees(&base_tree, &branch_tree, &wd_tree)?
+                        .has_conflicts();
                 } else {
                     // there is no common base
                     mergeable = false;
@@ -812,7 +778,6 @@ pub fn list_virtual_branches(
             order: branch.order,
             commits,
             mergeable,
-            merge_conflicts,
             upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,

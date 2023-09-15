@@ -2006,13 +2006,10 @@ fn test_detect_mergeable_branch() -> Result<()> {
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert!(!branch1.active);
     assert!(!branch1.mergeable);
-    assert_eq!(branch1.merge_conflicts.len(), 1);
-    assert_eq!(branch1.merge_conflicts.first().unwrap(), "test.txt");
 
     let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
     assert!(!branch2.active);
     assert!(branch2.mergeable);
-    assert_eq!(branch2.merge_conflicts.len(), 0);
 
     let remotes =
         list_remote_branches(&gb_repo, &project_repository).expect("failed to list remotes");
@@ -2021,7 +2018,6 @@ fn test_detect_mergeable_branch() -> Result<()> {
         .find(|b| b.name == "refs/remotes/origin/remote_branch")
         .unwrap();
     assert!(!remote1.mergeable);
-    assert_eq!(remote1.merge_conflicts.first().unwrap(), "test.txt");
     assert_eq!(remote1.commits.len(), 1);
 
     let remote2 = &remotes
@@ -2029,7 +2025,6 @@ fn test_detect_mergeable_branch() -> Result<()> {
         .find(|b| b.name == "refs/remotes/origin/remote_branch2")
         .unwrap();
     assert!(remote2.mergeable);
-    assert_eq!(remote2.merge_conflicts.len(), 0);
     assert_eq!(remote2.commits.len(), 2);
 
     Ok(())

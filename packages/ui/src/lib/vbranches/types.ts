@@ -38,7 +38,6 @@ export class Branch {
 	commits!: Commit[];
 	description!: string;
 	mergeable!: boolean;
-	mergeConflicts!: string[];
 	order!: number;
 	upstream?: string;
 	conflicted!: boolean;
@@ -72,7 +71,6 @@ export class BranchData {
 	behind!: number;
 	upstream?: string;
 	mergeable!: boolean;
-	mergeConflicts!: string[];
 	@Type(() => Commit)
 	commits!: Commit[];
 
