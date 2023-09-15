@@ -173,7 +173,7 @@ export function getCloudApiClient(
 		summarize: {
 			commit: (
 				token: string,
-				params: { diff: string; uid?: string, brief?: boolean, emoji?: boolean }
+				params: { diff: string; uid?: string; brief?: boolean; emoji?: boolean }
 			): Promise<{ message: string }> =>
 				fetch(getUrl('summarize/commit.json'), {
 					method: 'POST',
