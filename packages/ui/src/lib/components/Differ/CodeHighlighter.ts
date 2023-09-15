@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { HighlightStyle, type LanguageSupport } from '@codemirror/language';
+import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { tags, highlightTree } from '@lezer/highlight';
-import { NodeType, Tree } from '@lezer/common';
+import { NodeType, Tree, Parser } from '@lezer/common';
 import { javascript } from '@codemirror/lang-javascript';
 import { css } from '@codemirror/lang-css';
 import { html } from '@codemirror/lang-html';
@@ -19,6 +19,7 @@ import { wast } from '@codemirror/lang-wast';
 // import { svelte } from '@replit/codemirror-lang-svelte';
 import { vue } from '@codemirror/lang-vue';
 import { rust } from '@codemirror/lang-rust';
+import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 
 const t = tags;
 
@@ -54,10 +55,10 @@ export const highlightStyle: HighlightStyle = HighlightStyle.define([
 ]);
 
 export function create(code: string, filepath: string): CodeHighlighter {
-	const language = languageFromFilename(filepath);
+	const parser = parserFromFilename(filepath);
 	let tree: Tree;
-	if (language) {
-		tree = language.language.parser.parse(code);
+	if (parser) {
+		tree = parser.parse(code);
 	} else {
 		tree = new Tree(NodeType.none, [], [], code.length);
 	}
@@ -82,7 +83,7 @@ export function highlightNode(node: Element, mimeType: string): void {
 	});
 }
 
-export function languageFromFilename(filename: string): LanguageSupport | null {
+export function parserFromFilename(filename: string): Parser | null {
 	const ext = filename.split('.').pop();
 	switch (ext) {
 		case 'jsx':
@@ -91,50 +92,50 @@ export function languageFromFilename(filename: string): LanguageSupport | null {
 			// because there are simply too many existing applications and
 			// examples out there that use JSX within .js files, and we don't
 			// want to break them.
-			return javascript({ jsx: true });
+			return javascript({ jsx: true }).language.parser;
 		case 'ts':
-			return javascript({ typescript: true });
+			return javascript({ typescript: true }).language.parser;
 		case 'tsx':
-			return javascript({ typescript: true, jsx: true });
+			return javascript({ typescript: true, jsx: true }).language.parser;
 
 		case 'css':
-			return css();
+			return css().language.parser;
 
 		case 'html':
-			return html({ selfClosingTags: true });
+			return html({ selfClosingTags: true }).language.parser;
 
 		case 'xml':
-			return xml();
+			return xml().language.parser;
 
 		case 'wasm':
-			return wast();
+			return wast().language.parser;
 
 		case 'cpp':
 		case 'c++':
 		case 'hpp':
 		case 'h++':
-			return cpp();
+			return cpp().language.parser;
 
 		// case 'text/x-go':
 		//     return new LanguageSupport(await CodeMirror.go());
 
 		case 'java':
-			return java();
+			return java().language.parser;
 
 		// case 'text/x-kotlin':
 		//     return new LanguageSupport(await CodeMirror.kotlin());
 
 		case 'json':
-			return json();
+			return json().language.parser;
 
 		case 'php':
-			return php();
+			return php().language.parser;
 
 		case 'python':
-			return python();
+			return python().language.parser;
 
 		case 'md':
-			return markdown();
+			return markdown().language.parser;
 
 		// case 'text/x-sh':
 		//     return new LanguageSupport(await CodeMirror.shell());
@@ -168,13 +169,16 @@ export function languageFromFilename(filename: string): LanguageSupport | null {
 			// return svelte();
 
 			// highlighting svelte with js + jsx works much better than the above
-			return javascript({ typescript: true, jsx: true });
+			return javascript({ typescript: true, jsx: true }).language.parser;
 
 		case 'vue':
-			return vue();
+			return vue().language.parser;
 
 		case 'rs':
-			return rust();
+			return rust().language.parser;
+
+		case 'rb':
+			return StreamLanguage.define(ruby).parser;
 
 		default:
 			return null;
