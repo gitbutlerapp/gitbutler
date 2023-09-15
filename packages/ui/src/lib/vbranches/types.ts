@@ -99,7 +99,7 @@ export class RemoteBranch {
 	}
 
 	lastCommitTs(): Date | undefined {
-		return this.commits.at(0)?.createdAt
+		return this.commits.at(0)?.createdAt;
 	}
 
 	authors(): Author[] {
