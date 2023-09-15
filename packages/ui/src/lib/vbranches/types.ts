@@ -61,7 +61,7 @@ export class RemoteCommit {
 	id!: string;
 	author!: Author;
 	description!: string;
-	@Transform((obj) => new Date(obj.value))
+	@Transform((obj) => new Date(obj.value * 1000))
 	createdAt!: Date;
 	@Type(() => RemoteFile)
 	files!: RemoteFile[];
@@ -85,7 +85,6 @@ export class Author {
 	gravatarUrl!: URL;
 }
 
-// TODO: For consistency change Ts suffix to At, and return milliseconds from back end
 export class RemoteBranch {
 	sha!: string;
 	name!: string;
@@ -100,7 +99,7 @@ export class RemoteBranch {
 	}
 
 	lastCommitTs(): Date | undefined {
-		return this.commits.at(0)?.createdAt;
+		return this.commits.at(0)?.createdAt
 	}
 
 	authors(): Author[] {
