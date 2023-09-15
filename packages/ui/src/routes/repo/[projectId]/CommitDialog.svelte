@@ -7,7 +7,11 @@
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 	import type { User } from '$lib/api/cloud';
 	import { Button, Tooltip } from '$lib/components';
-	import { IconAISparkles } from '$lib/icons';
+	import { IconAISparkles, IconLoading, IconTriangleDown, IconTriangleUp } from '$lib/icons';
+	import {
+		projectCommitGenerationExtraConcise,
+		projectCommitGenerationUseEmojis
+	} from '$lib/config/config';
 	import { createEventDispatcher } from 'svelte';
 	import type { Ownership } from '$lib/vbranches/ownership';
 
@@ -22,7 +26,8 @@
 	const dispatch = createEventDispatcher<{ close: null }>();
 
 	let commitMessage: string;
-	$: messageRows = Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10);
+	$: messageRows =
+		Math.min(Math.max(commitMessage ? commitMessage.split('\n').length : 0, 1), 10) + 2;
 
 	function commit() {
 		branchController.commitBranch({
@@ -46,12 +51,8 @@
 	$: checkCommitsAnnotated();
 
 	let isGeneratingCommigMessage = false;
-	function trimNonLetters(input: string): string {
-		const regex = /^[^a-zA-Z]+|[^a-zA-Z]+$/g;
-		const trimmedString = input.replace(regex, '');
-		return trimmedString;
-	}
 	async function generateCommitMessage(files: File[]) {
+		expanded = false;
 		const diff = files
 			.map((f) => f.hunks)
 			.flat()
@@ -66,15 +67,15 @@
 		cloud.summarize
 			.commit(user.access_token, {
 				diff,
-				uid: projectId
+				uid: projectId,
+				brief: $commitGenerationExtraConcise,
+				emoji: $commitGenerationUseEmojis
 			})
 			.then(({ message }) => {
 				const firstNewLine = message.indexOf('\n');
 				const summary = firstNewLine > -1 ? message.slice(0, firstNewLine).trim() : message;
 				const description = firstNewLine > -1 ? message.slice(firstNewLine + 1).trim() : '';
-				commitMessage = trimNonLetters(
-					description.length > 0 ? `${summary}\n\n${description}` : summary
-				);
+				commitMessage = description.length > 0 ? `${summary}\n\n${description}` : summary;
 			})
 			.catch(() => {
 				toasts.error('Failed to generate commit message');
@@ -83,6 +84,9 @@
 				isGeneratingCommigMessage = false;
 			});
 	}
+	let expanded = false;
+	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
+	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
 </script>
 
 <div class="bg-color-3 flex w-full flex-col" transition:slide={{ duration: 150 }}>
@@ -108,21 +112,69 @@
 		/>
 	</div>
 	<div class="flex flex-grow justify-end gap-2 p-3 px-5">
-		<div>
+		<div class="relative flex flex-grow">
 			{#if cloudEnabled && user}
-				<Button
-					disabled={isGeneratingCommigMessage}
-					tabindex={-1}
-					kind="outlined"
-					class="text-light-500"
-					height="small"
-					id="generate-ai-message"
-					icon={IconAISparkles}
-					loading={isGeneratingCommigMessage}
-					on:click={() => generateCommitMessage(branch.files)}
+				<div
+					class="bg-color-3 border-color-3 absolute flex h-fit w-fit flex-col items-center whitespace-nowrap rounded border
+				"
 				>
-					<span class="text-4">Generate message</span>
-				</Button>
+					<div class="flex h-6 flex-row items-center justify-center font-medium leading-5">
+						<button
+							disabled={isGeneratingCommigMessage}
+							class="hover:bg-color-2 flex h-full items-center justify-center gap-1 rounded-l pl-1.5 pr-1"
+							on:click={() => generateCommitMessage(branch.files)}
+						>
+							{#if isGeneratingCommigMessage}
+								<IconLoading
+									class="text-color-4 h-4 w-4 animate-spin fill-purple-600 dark:fill-purple-200"
+								/>
+							{:else}
+								<IconAISparkles class="text-color-4 h-4 w-4"></IconAISparkles>
+							{/if}
+							<span>Generate message</span>
+						</button>
+						<button
+							id="close-button"
+							disabled={isGeneratingCommigMessage}
+							class="hover:bg-color-2 flex h-full items-center justify-center rounded-r pl-1 pr-1.5"
+							on:click={() => (expanded = !expanded)}
+						>
+							{#if expanded}
+								<IconTriangleUp></IconTriangleUp>
+							{:else}
+								<IconTriangleDown></IconTriangleDown>
+							{/if}
+						</button>
+					</div>
+					{#if expanded}
+						<div class="border-color-4 z-50 w-full border-t px-2 py-0.5">
+							<label class="flex items-center gap-1">
+								<input
+									type="checkbox"
+									bind:checked={$commitGenerationExtraConcise}
+									on:change={(e) => {
+										if (e.target instanceof HTMLInputElement) {
+											commitGenerationExtraConcise.set(e.target.checked);
+										}
+									}}
+								/>
+								Extra concise
+							</label>
+							<label class="flex items-center gap-1">
+								<input
+									type="checkbox"
+									bind:checked={$commitGenerationUseEmojis}
+									on:change={(e) => {
+										if (e.target instanceof HTMLInputElement) {
+											commitGenerationUseEmojis.set(e.target.checked);
+										}
+									}}
+								/>
+								Use emojis
+							</label>
+						</div>
+					{/if}
+				</div>
 			{:else}
 				<Tooltip
 					label="Summary generation requres that you are logged in and have cloud sync enabled for the project"
