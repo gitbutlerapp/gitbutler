@@ -57,6 +57,27 @@ export class Commit {
 	files!: File[];
 }
 
+export class RemoteCommit {
+	id!: string;
+	author!: Author;
+	description!: string;
+	@Transform((obj) => new Date(obj.value))
+	createdAt!: Date;
+	@Type(() => RemoteFile)
+	files!: RemoteFile[];
+}
+
+export class RemoteHunk {
+	diff!: string;
+}
+
+export class RemoteFile {
+	path!: string;
+	@Type(() => RemoteHunk)
+	hunks!: RemoteHunk[];
+	binary!: boolean;
+}
+
 export class Author {
 	email!: string;
 	name!: string;
@@ -65,14 +86,14 @@ export class Author {
 }
 
 // TODO: For consistency change Ts suffix to At, and return milliseconds from back end
-export class BranchData {
+export class RemoteBranch {
 	sha!: string;
 	name!: string;
 	behind!: number;
 	upstream?: string;
 	mergeable!: boolean;
-	@Type(() => Commit)
-	commits!: Commit[];
+	@Type(() => RemoteCommit)
+	commits!: RemoteCommit[];
 
 	ahead(): number {
 		return this.commits.length;
@@ -98,10 +119,10 @@ export class BaseBranch {
 	baseSha!: string;
 	currentSha!: string;
 	behind!: number;
-	@Type(() => Commit)
-	upstreamCommits!: Commit[];
-	@Type(() => Commit)
-	recentCommits!: Commit[];
+	@Type(() => RemoteCommit)
+	upstreamCommits!: RemoteCommit[];
+	@Type(() => RemoteCommit)
+	recentCommits!: RemoteCommit[];
 	fetchedAt!: Date;
 
 	get repoBaseUrl(): string {

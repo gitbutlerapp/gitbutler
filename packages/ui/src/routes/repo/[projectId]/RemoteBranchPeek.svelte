@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Button from '$lib/components/Button/Button.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, BranchData } from '$lib/vbranches/types';
+	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
 
-	export let branch: BranchData | undefined;
+	export let branch: RemoteBranch | undefined;
 	export let base: BaseBranch | undefined;
 	export let branchController: BranchController;
 </script>

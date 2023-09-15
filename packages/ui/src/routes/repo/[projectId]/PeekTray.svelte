@@ -2,7 +2,7 @@
 	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch, Branch, BranchData } from '$lib/vbranches/types';
+	import { BaseBranch, Branch, RemoteBranch } from '$lib/vbranches/types';
 	import { getContext } from 'svelte';
 	import type { Readable } from '@square/svelte-store';
 	import BaseBranchPeek from './BaseBranchPeek.svelte';
@@ -11,7 +11,7 @@
 	import Lane from './BranchLane.svelte';
 	import type { getCloudApiClient } from '$lib/api/cloud/api';
 
-	export let item: Readable<BranchData | Branch | BaseBranch | undefined> | undefined;
+	export let item: Readable<RemoteBranch | Branch | BaseBranch | undefined> | undefined;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let base: BaseBranch | undefined;
 	export let branchController: BranchController;
@@ -68,7 +68,7 @@
 			class="h-full max-h-full w-full flex-grow overflow-y-hidden"
 			style:width={`${$userSettings.peekTrayWidth}px`}
 		>
-			{#if $item instanceof BranchData}
+			{#if $item instanceof RemoteBranch}
 				<RemoteBranchPeek {branchController} {base} branch={$item} />
 			{:else if $item instanceof Branch}
 				<Lane

@@ -1,5 +1,5 @@
 import { asyncWritable, type Readable } from '@square/svelte-store';
-import { BaseBranch, Branch, BranchData, type WritableReloadable } from './types';
+import { BaseBranch, Branch, RemoteBranch, type WritableReloadable } from './types';
 import { plainToInstance } from 'class-transformer';
 import { invoke } from '$lib/ipc';
 import { isDelete, isInsert, type Delta } from '$lib/api/ipc/deltas';
@@ -36,13 +36,13 @@ export function getRemoteBranchStore(projectId: string, asyncStores: Readable<an
 		async () => getRemoteBranchesData({ projectId }),
 		async (newRemotes) => newRemotes,
 		{ reloadable: true, trackState: true }
-	) as WritableReloadable<BranchData[] | undefined>;
+	) as WritableReloadable<RemoteBranch[] | undefined>;
 }
 
 export function getBaseBranchStore(projectId: string, asyncStores: Readable<any>[]) {
 	return asyncWritable(
 		asyncStores,
-		async () => getBaseBranchData({ projectId }),
+		async () => getBaseBranch({ projectId }),
 		async (newBaseBranch) => newBaseBranch,
 		{ reloadable: true, trackState: true }
 	) as WritableReloadable<BaseBranch | undefined>;
@@ -56,11 +56,13 @@ export async function listVirtualBranches(params: { projectId: string }): Promis
 	return result;
 }
 
-export async function getRemoteBranchesData(params: { projectId: string }): Promise<BranchData[]> {
-	return plainToInstance(BranchData, await invoke<any[]>('git_remote_branches_data', params));
+export async function getRemoteBranchesData(params: {
+	projectId: string;
+}): Promise<RemoteBranch[]> {
+	return plainToInstance(RemoteBranch, await invoke<any[]>('git_remote_branches_data', params));
 }
 
-export async function getBaseBranchData(params: { projectId: string }): Promise<BaseBranch> {
+export async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch> {
 	const baseBranch = plainToInstance(BaseBranch, await invoke<any>('get_base_branch_data', params));
 	if (baseBranch) {
 		// The rust code performs a fetch when get_base_branch_data is invoked
