@@ -507,7 +507,7 @@
 	</div>
 	{#if !maximized}
 		<Resizer
-			minWidth={180}
+			minWidth={330}
 			viewport={rsViewport}
 			direction="horizontal"
 			class="z-30"

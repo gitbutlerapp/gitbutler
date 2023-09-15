@@ -9,3 +9,13 @@ export function projectMergeUpstreamWarningDismissed(projectId: string): Persist
 	const key = 'projectMergeUpstreamWarningDismissed_';
 	return persisted(false, key + projectId);
 }
+
+export function projectCommitGenerationExtraConcise(projectId: string): Persisted<boolean> {
+	const key = 'projectCommitGenerationExtraConcise_';
+	return persisted(false, key + projectId);
+}
+
+export function projectCommitGenerationUseEmojis(projectId: string): Persisted<boolean> {
+	const key = 'projectCommitGenerationUseEmojis_';
+	return persisted(false, key + projectId);
+}
