@@ -364,8 +364,8 @@ impl App {
         )
         .context("failed to diff")?;
 
-        let diff = 
-        diff.into_iter()
+        let diff = diff
+            .into_iter()
             .map(|(file_path, hunks)| {
                 (
                     file_path,
