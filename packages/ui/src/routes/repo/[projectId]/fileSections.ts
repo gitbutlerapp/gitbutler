@@ -1,4 +1,5 @@
-import type { File, Hunk } from '$lib/vbranches/types';
+import type { Hunk, RemoteFile, RemoteHunk } from '$lib/vbranches/types';
+import { File } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 
 export type Line = {
@@ -64,7 +65,7 @@ export function parseHunkHeader(header: string | undefined): HunkHeader {
 	return { beforeStart, beforeLength, afterStart, afterLength };
 }
 
-export function parseHunkSection(hunk: Hunk): HunkSection {
+export function parseHunkSection(hunk: Hunk | RemoteHunk): HunkSection {
 	const lines = hunk.diff.split('\n');
 	const header = parseHunkHeader(lines.shift());
 	const hunkSection = plainToInstance(HunkSection, {
@@ -138,15 +139,17 @@ export function parseHunkSection(hunk: Hunk): HunkSection {
 	return hunkSection;
 }
 
-export function parseFileSections(file: File): (ContentSection | HunkSection)[] {
+export function parseFileSections(file: File | RemoteFile): (ContentSection | HunkSection)[] {
 	const hunkSections = file.hunks
 		.map(parseHunkSection)
 		.filter((hunkSection) => hunkSection !== undefined)
 		.sort((a, b) => a.header.beforeStart - b.header.beforeStart);
 
-	if (!file.content) return hunkSections;
+	const content = file instanceof File ? file.content : undefined;
 
-	const lines = file.content.split('\n');
+	if (!content) return hunkSections;
+
+	const lines = content.split('\n');
 	const sections: (ContentSection | HunkSection)[] = [];
 
 	let currentBeforeLineNumber = 1;

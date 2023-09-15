@@ -11,10 +11,6 @@ const list = (params: { projectId: string; contextLines?: number }) =>
 
 const stores: Record<string, WritableLoadable<Record<string, string>>> = {};
 
-export function getCommitDiff(params: { projectId: string; commitId: string }) {
-	return invoke<Record<string, string>>('git_commit_diff', params);
-}
-
 export function getDiffsStore(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));

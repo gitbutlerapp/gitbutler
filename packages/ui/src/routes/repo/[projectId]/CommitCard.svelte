@@ -2,72 +2,28 @@
 	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
-	import { getCommitDiff } from '$lib/api/git/diffs';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
-	import type { File, Hunk } from '$lib/vbranches/types';
 	import RenderedLine from './RenderedLine.svelte';
 	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import { Button, Modal } from '$lib/components';
 
 	export let commit: Commit | RemoteCommit;
 	export let isIntegrated = false;
-	export let url: string | undefined = undefined;
-	export let projectId: string;
 
 	let previewCommitModal: Modal;
 	let minWidth = 2;
-	let fileSections: Map<string, (HunkSection | ContentSection)[]> = new Map();
 
-	function parseDiff(diff: string, filepath: string): (HunkSection | ContentSection)[] {
-		let hunkDiffs = diff.split(/(@@.*@@)/).filter((s) => s.trim() !== '');
-
-		hunkDiffs = hunkDiffs.reduce(function (result: string[], value, index, array) {
-			if (index % 2 === 0) result.push(array.slice(index, index + 2).join());
-			return result;
-		}, []);
-		const mockDate = new Date();
-
-		let hunks: Hunk[] = hunkDiffs.map((diff) => {
-			return {
-				id: '',
-				diff: diff,
-				modifiedAt: mockDate,
-				filePath: filepath,
-				locked: false
-			};
-		});
-
-		let file: File = {
-			id: '',
-			path: filepath,
-			hunks: hunks,
-			expanded: true,
-			conflicted: false,
-			binary: false,
-			modifiedAt: mockDate,
-			content: ''
-		};
-		return parseFileSections(file);
-	}
+	$: entries = commit.files.map(
+		(file) => [file.path, parseFileSections(file)] as [string, (ContentSection | HunkSection)[]]
+	);
 </script>
 
 <div class="text-color-2 bg-color-5 border-color-4 w-full truncate rounded border p-2 text-left">
 	<div class="mb-1 flex justify-between">
 		<div class="truncate">
-			{#if url}
-				<button
-					on:click={() => {
-						getCommitDiff({ projectId: projectId, commitId: commit.id }).then((result) => {
-							let entries = Object.entries(result);
-
-							entries.forEach(([filepath, diff]) => {
-								fileSections.set(filepath, parseDiff(diff, filepath));
-							});
-							previewCommitModal.show();
-						});
-					}}
-				>
+			{#if entries.length > 0}
+				<button on:click={() => previewCommitModal.show()}>
 					{commit.description}
 				</button>
 			{:else}
@@ -102,7 +58,7 @@
 
 <Modal width="large" bind:this={previewCommitModal}>
 	<div class="flex w-full flex-col gap-4">
-		{#each fileSections.entries() as [filepath, sections]}
+		{#each entries as [filepath, sections]}
 			<div>
 				<div
 					class="text-color-3 flex flex-grow items-center overflow-hidden text-ellipsis whitespace-nowrap px-2 font-bold"

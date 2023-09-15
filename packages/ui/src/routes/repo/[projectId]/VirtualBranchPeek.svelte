@@ -3,14 +3,13 @@
 	import Modal from '$lib/components/Modal';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import type { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, Branch } from '$lib/vbranches/types';
+	import type { Branch } from '$lib/vbranches/types';
 	import CommitCard from './CommitCard.svelte';
 	import { filesToFileTree } from '$lib/vbranches/filetree';
 	import FileTree from './FileTree.svelte';
 
 	export let branch: Branch | undefined;
 	export let branchController: BranchController;
-	export let base: BaseBranch | undefined;
 
 	let applyConflictedModal: Modal;
 
@@ -84,12 +83,7 @@
 				<p class="mb-2 w-full overflow-hidden font-semibold">Commits</p>
 				<div class="flex w-full flex-col gap-y-2">
 					{#each branch.commits as commit}
-						<CommitCard
-							{commit}
-							url={base?.commitUrl(commit.id)}
-							isIntegrated={commit.isIntegrated}
-							projectId={branchController.projectId}
-						/>
+						<CommitCard {commit} isIntegrated={commit.isIntegrated} />
 					{/each}
 				</div>
 			</div>
