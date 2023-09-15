@@ -214,18 +214,6 @@ impl<'repository> Repository<'repository> {
         Ok(files)
     }
 
-    pub fn git_branches(&self) -> Result<Vec<git::LocalBranchName>> {
-        self.git_repository
-            .branches(Some(git2::BranchType::Local))?
-            .flatten()
-            .map(|(branch, _)| branch)
-            .map(|branch| {
-                git::LocalBranchName::try_from(&branch)
-                    .context("failed to convert branch to local name")
-            })
-            .collect::<Result<Vec<_>>>()
-    }
-
     pub fn git_remote_branches(&self) -> Result<Vec<git::RemoteBranchName>> {
         self.git_repository
             .branches(Some(git2::BranchType::Remote))?
@@ -322,17 +310,6 @@ impl<'repository> Repository<'repository> {
     pub fn distance(&self, from: git::Oid, to: git::Oid) -> Result<u32> {
         let oids = self.l(from, LogUntil::Commit(to))?;
         Ok(oids.len().try_into()?)
-    }
-
-    pub fn git_switch_branch(&self, branch: &git::LocalBranchName) -> Result<()> {
-        let branch = self.git_repository.find_branch(&branch.clone().into())?;
-        self.git_repository
-            .set_head(branch.name().unwrap())
-            .context("failed to set head")?;
-        self.git_repository
-            .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))
-            .context("failed to checkout head")?;
-        Ok(())
     }
 
     pub fn git_stage_files<P: AsRef<std::path::Path>>(&self, paths: Vec<P>) -> Result<()> {

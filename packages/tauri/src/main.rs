@@ -327,19 +327,6 @@ async fn git_match_paths(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-async fn git_branches(
-    handle: tauri::AppHandle,
-    project_id: &str,
-) -> Result<Vec<git::LocalBranchName>, Error> {
-    let app = handle.state::<app::App>();
-    let branches = app
-        .git_branches(project_id)
-        .with_context(|| format!("failed to get git branches for project {}", project_id))?;
-    Ok(branches)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
 async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: &str,
@@ -419,22 +406,6 @@ async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, 
         .git_head(project_id)
         .with_context(|| format!("failed to get git head for project {}", project_id))?;
     Ok(head)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-async fn git_switch_branch(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    branch: &str,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    let branch_name = format!("refs/heads/{}", branch)
-        .parse()
-        .context("invalid branch name")?;
-    app.git_switch_branch(project_id, &branch_name)
-        .with_context(|| format!("failed to switch git branch for project {}", project_id))?;
-    Ok(())
 }
 
 #[tauri::command(async)]
@@ -545,31 +516,6 @@ async fn mark_resolved(
     let app = handle.state::<app::App>();
     app.mark_resolved(project_id, path)?;
     Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-async fn git_set_config(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    key: &str,
-    value: &str,
-) -> Result<String, Error> {
-    let app = handle.state::<app::App>();
-    let result = app.git_set_config(project_id, key, value)?;
-    Ok(result)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-async fn git_get_config(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    key: &str,
-) -> Result<Option<String>, Error> {
-    let app = handle.state::<app::App>();
-    let result = app.git_get_config(project_id, key)?;
-    Ok(result)
 }
 
 #[tauri::command(async)]
@@ -730,11 +676,9 @@ async fn main() {
             git_status,
             git_activity,
             git_match_paths,
-            git_branches,
             git_remote_branches,
             git_remote_branches_data,
             git_head,
-            git_switch_branch,
             git_commit,
             git_stage,
             git_unstage,
@@ -760,8 +704,6 @@ async fn main() {
             virtual_branches::commands::create_virtual_branch_from_branch,
             fetch_from_target,
             mark_resolved,
-            git_set_config,
-            git_get_config,
             git_set_global_config,
             git_get_global_config,
             keys::commands::get_public_key,

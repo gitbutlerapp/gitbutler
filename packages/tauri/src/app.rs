@@ -416,13 +416,6 @@ impl App {
         project_repository.git_match_paths(pattern)
     }
 
-    pub fn git_branches(&self, project_id: &str) -> Result<Vec<git::LocalBranchName>> {
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        project_repository.git_branches()
-    }
-
     pub fn git_remote_branches(&self, project_id: &str) -> Result<Vec<git::RemoteBranchName>> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
@@ -449,35 +442,6 @@ impl App {
         Ok(head.name().unwrap().to_string())
     }
 
-    pub fn git_set_config(&self, project_id: &str, key: &str, value: &str) -> Result<String> {
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        let repo = &project_repository.git_repository;
-        let mut config = repo.config()?;
-        config.open_level(git2::ConfigLevel::Local)?;
-        config.set_str(key, value)?;
-        Ok(value.to_string())
-    }
-
-    pub fn git_get_config(&self, project_id: &str, key: &str) -> Result<Option<String>> {
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        let repo = &project_repository.git_repository;
-        let config = repo.config()?;
-        let value = config.get_string(key);
-        match value {
-            Ok(value) => Ok(Some(value)),
-            Err(e) => {
-                if e.code() == git2::ErrorCode::NotFound {
-                    Ok(None)
-                } else {
-                    Err(e.into())
-                }
-            }
-        }
-    }
-
     pub fn git_set_global_config(&self, key: &str, value: &str) -> Result<String> {
         let mut config = git2::Config::open_default()?;
         config.set_str(key, value)?;
@@ -497,15 +461,6 @@ impl App {
                 }
             }
         }
-    }
-
-    pub fn git_switch_branch(&self, project_id: &str, branch: &git::LocalBranchName) -> Result<()> {
-        let project = self.gb_project(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .context("failed to open project repository")?;
-        let gb_repository = self.gb_repository(project_id)?;
-        gb_repository.flush().context("failed to flush session")?;
-        project_repository.git_switch_branch(branch)
     }
 
     pub fn git_gb_push(&self, project_id: &str) -> Result<()> {
