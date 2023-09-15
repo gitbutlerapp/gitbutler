@@ -1,12 +1,13 @@
 use std::{collections::HashMap, path};
 
 use anyhow::{Context, Result};
+use serde::Serialize;
 
 use crate::git;
 
 use super::Repository;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Hunk {
     pub old_start: usize,
     pub old_lines: usize,

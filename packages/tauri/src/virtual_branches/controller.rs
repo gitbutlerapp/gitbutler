@@ -349,7 +349,7 @@ impl Controller {
                     .recent_commits
                     .into_iter()
                     .map(|commit| async move {
-                        super::VirtualBranchCommit {
+                        super::RemoteCommit {
                             author: super::Author {
                                 gravatar_url: self
                                     .assets_proxy
@@ -373,7 +373,7 @@ impl Controller {
                     .upstream_commits
                     .into_iter()
                     .map(|commit| async move {
-                        super::VirtualBranchCommit {
+                        super::RemoteCommit {
                             author: super::Author {
                                 gravatar_url: self
                                     .assets_proxy

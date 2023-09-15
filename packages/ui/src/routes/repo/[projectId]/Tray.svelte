@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Link } from '$lib/components';
-	import { Branch, BaseBranch, BranchData } from '$lib/vbranches/types';
+	import { Branch, BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import { IconBranch, IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
@@ -25,7 +25,7 @@
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
-	export let remoteBranchStore: Loadable<BranchData[] | undefined>;
+	export let remoteBranchStore: Loadable<RemoteBranch[] | undefined>;
 	export let baseBranchStore: Readable<BaseBranch | undefined>;
 	export let branchController: BranchController;
 	export let peekTransitionsDisabled = false;
@@ -50,11 +50,11 @@
 	let rbSection: HTMLElement;
 	let baseContents: HTMLElement;
 
-	let selectedItem: Readable<Branch | BranchData | BaseBranch | undefined> | undefined;
+	let selectedItem: Readable<Branch | RemoteBranch | BaseBranch | undefined> | undefined;
 	let overlayOffsetTop = 0;
 	let fetching = false;
 
-	function select(detail: Branch | BranchData | BaseBranch | undefined, i: number): void {
+	function select(detail: Branch | RemoteBranch | BaseBranch | undefined, i: number): void {
 		if (peekTrayExpanded && selectedItem && detail == get(selectedItem)) {
 			peekTrayExpanded = false;
 			return;
@@ -65,7 +65,7 @@
 			);
 			const element = vbContents.children[i] as HTMLDivElement;
 			overlayOffsetTop = element.offsetTop + vbViewport.offsetTop - vbViewport.scrollTop;
-		} else if (detail instanceof BranchData) {
+		} else if (detail instanceof RemoteBranch) {
 			selectedItem = derived(remoteBranchStore, (branches) =>
 				branches?.find((remoteBranch) => remoteBranch.sha == detail.sha)
 			);

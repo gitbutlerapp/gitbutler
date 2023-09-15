@@ -8,7 +8,7 @@ use futures::future::join_all;
 use tauri::{generate_context, Manager};
 use tracing::instrument;
 
-use gitbutler::{virtual_branches::VirtualBranchCommit, *};
+use gitbutler::*;
 
 use crate::{error::Error, git, project_repository::activity};
 
@@ -366,7 +366,7 @@ async fn git_remote_branches_data(
                                 .map(|commit| {
                                     let proxy = proxy.clone();
                                     async move {
-                                        VirtualBranchCommit {
+                                        virtual_branches::RemoteCommit {
                                             author: virtual_branches::Author {
                                                 gravatar_url: proxy
                                                     .proxy(&commit.author.gravatar_url)

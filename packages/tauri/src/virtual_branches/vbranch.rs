@@ -64,7 +64,6 @@ pub struct VirtualBranchCommit {
     pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
-    // only present if is_remote is false
     pub files: Vec<VirtualBranchFile>,
     pub is_integrated: bool,
 }
@@ -85,6 +84,14 @@ pub struct VirtualBranchFile {
     pub hunks: Vec<VirtualBranchHunk>,
     pub modified_at: u128,
     pub conflicted: bool,
+    pub binary: bool,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteBranchFile {
+    pub path: path::PathBuf,
+    pub hunks: Vec<git::diff::Hunk>,
     pub binary: bool,
 }
 
@@ -110,6 +117,19 @@ pub struct VirtualBranchHunk {
     pub locked: bool,
 }
 
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteBranchHunk {
+    pub id: String,
+    pub diff: String,
+    pub modified_at: u128,
+    pub file_path: path::PathBuf,
+    pub hash: String,
+    pub start: usize,
+    pub end: usize,
+    pub binary: bool,
+}
+
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 //
@@ -127,7 +147,17 @@ pub struct RemoteBranch {
     pub behind: u32,
     pub upstream: Option<git::RemoteBranchName>,
     pub mergeable: bool,
-    pub commits: Vec<VirtualBranchCommit>,
+    pub commits: Vec<RemoteCommit>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteCommit {
+    pub id: String,
+    pub description: String,
+    pub created_at: u128,
+    pub author: Author,
+    pub files: Vec<RemoteBranchFile>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -139,8 +169,8 @@ pub struct BaseBranch {
     pub base_sha: String,
     pub current_sha: String,
     pub behind: u32,
-    pub upstream_commits: Vec<VirtualBranchCommit>,
-    pub recent_commits: Vec<VirtualBranchCommit>,
+    pub upstream_commits: Vec<RemoteCommit>,
+    pub recent_commits: Vec<RemoteCommit>,
 }
 
 #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
@@ -572,72 +602,89 @@ pub fn list_remote_branches(
 
     let mut branches: Vec<RemoteBranch> = Vec::new();
     for branch in &top_branches {
-        let branch_name = branch.refname().context("could not get branch name")?;
-        match branch.target() {
-            Some(branch_oid) => {
-                // get the branch ref
-                let branch_commit = repo
-                    .find_commit(branch_oid)
-                    .context("failed to find branch commit")?;
+        if let Some(branch_oid) = branch.target() {
+            let ahead = project_repository
+                .log(branch_oid, LogUntil::Commit(main_oid))
+                .context("failed to get ahead commits")?;
 
-                let count_behind = project_repository
-                    .distance(main_oid, branch_oid)
-                    .context("failed to get behind count")?;
-
-                let ahead = project_repository
-                    .log(branch_oid, LogUntil::Commit(main_oid))
-                    .context("failed to get ahead commits")?;
-                let count_ahead = ahead.len();
-
-                let upstream = branch
-                    .upstream()
-                    .ok()
-                    .map(|upstream_branch| git::RemoteBranchName::try_from(&upstream_branch))
-                    .transpose()?;
-
-                if count_ahead > 0 {
-                    if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
-                        // determine if this tree is mergeable
-                        let branch_tree = branch_commit.tree()?;
-                        let mergeable = !repo
-                            .merge_trees(&base_tree, &branch_tree, &wd_tree)?
-                            .has_conflicts();
-
-                        branches.push(RemoteBranch {
-                            sha: branch_oid.to_string(),
-                            name: branch_name.to_string(),
-                            upstream,
-                            behind: count_behind,
-                            mergeable,
-                            commits: ahead
-                                .into_iter()
-                                .map(|commit| {
-                                    commit_to_vbranch_commit(
-                                        project_repository,
-                                        &default_target,
-                                        &commit,
-                                        None,
-                                    )
-                                })
-                                .collect::<Result<Vec<_>>>()?,
-                        });
-                    };
-                }
+            if ahead.is_empty() {
+                continue;
             }
-            None => {
-                // this is a detached head
-                branches.push(RemoteBranch {
-                    sha: "".to_string(),
-                    name: branch_name.to_string(),
-                    behind: 0,
-                    upstream: None,
-                    mergeable: false,
-                    commits: vec![],
-                });
-            }
+
+            let branch_name = branch.refname().context("could not get branch name")?;
+            // get the branch ref
+            let branch_commit = repo
+                .find_commit(branch_oid)
+                .context("failed to find branch commit")?;
+
+            let count_behind = project_repository
+                .distance(main_oid, branch_oid)
+                .context("failed to get behind count")?;
+
+            let upstream = branch
+                .upstream()
+                .ok()
+                .map(|upstream_branch| git::RemoteBranchName::try_from(&upstream_branch))
+                .transpose()?;
+
+            let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
+            // determine if this tree is mergeable
+            let branch_tree = branch_commit.tree()?;
+            let mergeable = !repo
+                .merge_trees(&base_tree, &branch_tree, &wd_tree)?
+                .has_conflicts();
+
+            branches.push(RemoteBranch {
+                sha: branch_oid.to_string(),
+                name: branch_name.to_string(),
+                upstream,
+                behind: count_behind,
+                mergeable,
+                commits: ahead
+                    .into_iter()
+                    .map(|commit| commit_to_remote_commit(repo, &commit))
+                    .collect::<Result<Vec<_>>>()?,
+            });
         }
     }
     Ok(branches)
+}
+
+pub fn commit_to_remote_commit(
+    repository: &git::Repository,
+    commit: &git::Commit,
+) -> Result<RemoteCommit> {
+    Ok(RemoteCommit {
+        id: commit.id().to_string(),
+        description: commit.message().unwrap_or_default().to_string(),
+        created_at: commit.time().seconds().try_into().unwrap(),
+        author: commit.author().into(),
+        files: list_remote_commit_files(repository, commit)?,
+    })
+}
+
+fn list_remote_commit_files(
+    repository: &git::Repository,
+    commit: &git::Commit,
+) -> Result<Vec<RemoteBranchFile>> {
+    if commit.parent_count() == 0 {
+        return Ok(vec![]);
+    }
+    let parent = commit.parent(0).context("failed to get parent commit")?;
+    let commit_tree = commit.tree().context("failed to get commit tree")?;
+    let parent_tree = parent.tree().context("failed to get parent tree")?;
+    let diff = diff::trees(repository, &parent_tree, &commit_tree)?;
+
+    let files = diff
+        .into_iter()
+        .map(|(file_path, hunks)| RemoteBranchFile {
+            path: file_path.clone(),
+            hunks: hunks.clone(),
+            binary: hunks.iter().any(|h| h.binary),
+        })
+        .collect::<Vec<_>>();
+
+    Ok(files)
 }
 
 pub fn get_wd_tree(repo: &git::Repository) -> Result<git::Tree> {
@@ -819,7 +866,8 @@ fn calculate_non_commited_files(
     )
     .context("failed to diff trees")?;
 
-    let non_commited_hunks_by_filepath = super::hunks_by_filepath(project_repository, &diff);
+    let non_commited_hunks_by_filepath =
+        super::virtual_hunks_by_filepath(&project_repository.git_repository, &diff);
 
     let file_hunks = files
         .iter()
@@ -910,7 +958,7 @@ fn calculate_non_commited_files(
     Ok(vfiles)
 }
 
-fn list_commit_files(
+fn list_virtual_commit_files(
     project_repository: &project_repository::Repository,
     commit: &git::Commit,
 ) -> Result<Vec<VirtualBranchFile>> {
@@ -925,8 +973,8 @@ fn list_commit_files(
         &parent_tree,
         &commit_tree,
     )?;
-    let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
-    Ok(hunks_to_files(
+    let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.git_repository, &diff);
+    Ok(virtual_hunks_to_virtual_files(
         project_repository,
         &hunks_by_filepath
             .values()
@@ -952,11 +1000,8 @@ pub fn commit_to_vbranch_commit(
         None => true,
     };
 
-    let files = if is_remote {
-        vec![]
-    } else {
-        list_commit_files(repository, commit).context("failed to list commit files")?
-    };
+    let files =
+        list_virtual_commit_files(repository, commit).context("failed to list commit files")?;
 
     let is_integrated = is_commit_integrated(repository, target, commit)?;
 
@@ -1242,8 +1287,8 @@ fn diff_hash(diff: &str) -> String {
     format!("{:x}", md5::compute(addition))
 }
 
-pub fn hunks_by_filepath(
-    project_repository: &project_repository::Repository,
+pub fn virtual_hunks_by_filepath(
+    repository: &git::Repository,
     diff: &HashMap<path::PathBuf, Vec<diff::Hunk>>,
 ) -> HashMap<path::PathBuf, Vec<VirtualBranchHunk>> {
     let mut mtimes: HashMap<path::PathBuf, u128> = HashMap::new();
@@ -1253,7 +1298,7 @@ pub fn hunks_by_filepath(
                 .iter()
                 .map(|hunk| VirtualBranchHunk {
                     id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
-                    modified_at: get_mtime(&mut mtimes, &project_repository.path().join(file_path)),
+                    modified_at: get_mtime(&mut mtimes, &repository.path().join(file_path)),
                     file_path: file_path.clone(),
                     diff: hunk.diff.clone(),
                     start: hunk.new_start,
@@ -1369,7 +1414,8 @@ fn get_non_applied_status(
                             .collect::<HashMap<_, _>>()
                     })
                     .collect::<HashMap<_, _>>();
-                let hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
+                let hunks_by_filepath =
+                    virtual_hunks_by_filepath(&project_repository.git_repository, &diff);
                 let hunks_by_filepath = hunks_by_filepath
                     .values()
                     .flatten()
@@ -1409,7 +1455,8 @@ fn get_applied_status(
     )
     .context("failed to diff")?;
 
-    let mut hunks_by_filepath = hunks_by_filepath(project_repository, &diff);
+    let mut hunks_by_filepath =
+        virtual_hunks_by_filepath(&project_repository.git_repository, &diff);
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -1584,7 +1631,7 @@ fn get_applied_status(
     Ok(files_by_branch)
 }
 
-fn hunks_to_files(
+fn virtual_hunks_to_virtual_files(
     project_repository: &project_repository::Repository,
     hunks: &[VirtualBranchHunk],
 ) -> Vec<VirtualBranchFile> {
@@ -1619,7 +1666,7 @@ fn group_virtual_hunks(
     hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {
-            let mut files = hunks_to_files(project_repository, hunks);
+            let mut files = virtual_hunks_to_virtual_files(project_repository, hunks);
             files.sort_by(|a, b| {
                 branch
                     .ownership

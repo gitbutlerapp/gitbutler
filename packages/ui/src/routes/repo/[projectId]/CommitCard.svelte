@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Commit } from '$lib/vbranches/types';
+	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import { getCommitDiff } from '$lib/api/git/diffs';
@@ -10,7 +10,7 @@
 	import { IconExpandUpDown, IconExpandUp, IconExpandDown } from '$lib/icons';
 	import { Button, Modal } from '$lib/components';
 
-	export let commit: Commit;
+	export let commit: Commit | RemoteCommit;
 	export let isIntegrated = false;
 	export let url: string | undefined = undefined;
 	export let projectId: string;

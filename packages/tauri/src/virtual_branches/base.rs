@@ -451,7 +451,7 @@ pub fn target_to_base_branch(
         .log(oid, project_repository::LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
-        .map(|c| super::commit_to_vbranch_commit(project_repository, target, c, None))
+        .map(|commit| super::commit_to_remote_commit(&project_repository.git_repository, commit))
         .collect::<Result<Vec<_>>>()?;
 
     // get some recent commits
@@ -459,7 +459,7 @@ pub fn target_to_base_branch(
         .log(target.sha, LogUntil::Take(20))
         .context("failed to get recent commits")?
         .iter()
-        .map(|c| super::commit_to_vbranch_commit(project_repository, target, c, None))
+        .map(|commit| super::commit_to_remote_commit(&project_repository.git_repository, commit))
         .collect::<Result<Vec<_>>>()?;
 
     let base = super::BaseBranch {
@@ -576,7 +576,8 @@ pub fn create_virtual_branch_from_branch(
     // do a diff between the head of this branch and the target base
     let diff = diff::trees(&project_repository.git_repository, &merge_tree, &tree)
         .context("failed to diff trees")?;
-    let hunks_by_filepath = super::hunks_by_filepath(project_repository, &diff);
+    let hunks_by_filepath =
+        super::virtual_hunks_by_filepath(&project_repository.git_repository, &diff);
 
     // assign ownership to the branch
     for hunk in hunks_by_filepath.values().flatten() {

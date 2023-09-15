@@ -366,6 +366,7 @@ impl App {
         let diff = Self::diff_hunks_to_string(diff);
         Ok(diff)
     }
+
     pub fn git_commit_diff(
         &self,
         project_id: &str,
