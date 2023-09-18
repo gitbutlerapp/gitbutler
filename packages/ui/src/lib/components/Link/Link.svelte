@@ -11,10 +11,12 @@
 	export let disabled = false;
 	export let href: string | undefined = undefined;
 
-	let element: HTMLAnchorElement | HTMLButtonElement;
+	let element: HTMLAnchorElement | HTMLButtonElement | undefined;
 
 	onMount(() => {
-		element.ariaLabel = element.innerText?.trim();
+		if (element) {
+			element.ariaLabel = element.innerText?.trim();
+		}
 	});
 
 	$: isExternal = href?.startsWith('http');
