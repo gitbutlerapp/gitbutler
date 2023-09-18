@@ -11,7 +11,7 @@
 	let popupMenu: PopupMenu;
 
 	const dispatch = createEventDispatcher<{
-		action: 'expand' | 'collapse';
+		action: 'expand' | 'collapse' | 'generate-branch-name';
 	}>();
 
 	export function openByMouse(e: MouseEvent, item: any) {
@@ -35,6 +35,10 @@
 
 	<PopupMenuItem on:click={() => dispatch('action', 'collapse')} disabled={allCollapsed}
 		>Collapse all</PopupMenuItem
+	>
+
+	<PopupMenuItem on:click={() => dispatch('action', 'generate-branch-name')}
+		>Generate branch name</PopupMenuItem
 	>
 
 	<div class="mx-3">
