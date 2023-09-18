@@ -199,7 +199,11 @@ impl Controller {
         }
     }
 
-    pub async fn list_remote_commit_files(&self, project_id: &str, commit_oid: git::Oid) -> Result<Vec<RemoteBranchFile>, Error> {
+    pub async fn list_remote_commit_files(
+        &self,
+        project_id: &str,
+        commit_oid: git::Oid,
+    ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self
             .projects_storage
             .get_project(project_id)
@@ -209,8 +213,12 @@ impl Controller {
             .as_ref()
             .try_into()
             .context("failed to open project repository")?;
-        let commit = project_repository.git_repository.find_commit(commit_oid).context("failed to find commit")?;
-        super::list_remote_commit_files(&project_repository.git_repository, &commit).map_err(Error::Other)
+        let commit = project_repository
+            .git_repository
+            .find_commit(commit_oid)
+            .context("failed to find commit")?;
+        super::list_remote_commit_files(&project_repository.git_repository, &commit)
+            .map_err(Error::Other)
     }
 
     pub async fn set_base_branch(
