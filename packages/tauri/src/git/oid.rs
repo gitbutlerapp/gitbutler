@@ -1,8 +1,22 @@
 use std::{fmt, str::FromStr};
 
+use serde::Deserialize;
+
 #[derive(Debug, PartialEq, Copy, Clone, Hash, Eq)]
 pub struct Oid {
     oid: git2::Oid,
+}
+
+impl<'de> Deserialize<'de> for Oid {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        git2::Oid::from_str(&s)
+            .map_err(|e| serde::de::Error::custom(format!("invalid oid: {}", e)))
+            .map(Into::into)
+    }
 }
 
 impl fmt::Display for Oid {

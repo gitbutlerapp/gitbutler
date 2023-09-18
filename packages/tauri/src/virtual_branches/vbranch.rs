@@ -155,7 +155,6 @@ pub struct RemoteCommit {
     pub description: String,
     pub created_at: u128,
     pub author: Author,
-    pub files: Vec<RemoteBranchFile>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -623,7 +622,7 @@ pub fn list_remote_branches(
                 behind: count_behind,
                 commits: ahead
                     .into_iter()
-                    .map(|commit| commit_to_remote_commit(repo, &commit))
+                    .map(|commit| commit_to_remote_commit(&commit))
                     .collect::<Result<Vec<_>>>()?,
             });
         }
@@ -631,20 +630,16 @@ pub fn list_remote_branches(
     Ok(branches)
 }
 
-pub fn commit_to_remote_commit(
-    repository: &git::Repository,
-    commit: &git::Commit,
-) -> Result<RemoteCommit> {
+pub fn commit_to_remote_commit(commit: &git::Commit) -> Result<RemoteCommit> {
     Ok(RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message().unwrap_or_default().to_string(),
         created_at: commit.time().seconds().try_into().unwrap(),
         author: commit.author().into(),
-        files: list_remote_commit_files(repository, commit)?,
     })
 }
 
-fn list_remote_commit_files(
+pub fn list_remote_commit_files(
     repository: &git::Repository,
     commit: &git::Commit,
 ) -> Result<Vec<RemoteBranchFile>> {
