@@ -2092,8 +2092,9 @@ pub fn is_virtual_branch_mergeable(
     let branch = branch_reader
         .read(branch_id)
         .context("failed to read branch")?;
+
     if branch.applied {
-        bail!("branch {} is applied", branch.name);
+        return Ok(true);
     }
 
     let default_target = get_default_target(&current_session_reader)
