@@ -5,6 +5,7 @@
 	import CommitCard from './CommitCard.svelte';
 
 	export let branch: RemoteBranch | undefined;
+	export let projectId: string;
 	export let branchController: BranchController;
 </script>
 
@@ -28,7 +29,7 @@
 		{#if branch.commits && branch.commits.length > 0}
 			<div class="flex w-full flex-col gap-y-2">
 				{#each branch.commits as commit}
-					<CommitCard {commit} />
+					<CommitCard {commit} {projectId} />
 				{/each}
 			</div>
 		{/if}

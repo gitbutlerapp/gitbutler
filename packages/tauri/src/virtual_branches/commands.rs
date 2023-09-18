@@ -4,7 +4,7 @@ use tracing::instrument;
 
 use crate::{error::Error, git};
 
-use super::{branch::Ownership, controller::Controller};
+use super::{branch::Ownership, controller::Controller, RemoteBranchFile};
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
@@ -193,6 +193,20 @@ pub async fn can_apply_remote_branch(
     handle
         .state::<Controller>()
         .can_apply_remote_branch(project_id, &branch)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn list_remote_commit_files(
+    handle: AppHandle,
+    project_id: &str,
+    commit_oid: git::Oid,
+) -> Result<Vec<RemoteBranchFile>, Error> {
+    handle
+        .state::<Controller>()
+        .list_remote_commit_files(project_id, commit_oid)
         .await
         .map_err(Into::into)
 }

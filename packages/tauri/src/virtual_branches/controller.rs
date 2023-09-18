@@ -11,7 +11,7 @@ use crate::{
     projects, users, watcher,
 };
 
-use super::branch::Ownership;
+use super::{branch::Ownership, RemoteBranchFile};
 
 pub struct Controller {
     local_data_dir: path::PathBuf,
@@ -197,6 +197,20 @@ impl Controller {
         } else {
             Ok(None)
         }
+    }
+
+    pub async fn list_remote_commit_files(&self, project_id: &str, commit_oid: git::Oid) -> Result<Vec<RemoteBranchFile>, Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository: project_repository::Repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let commit = project_repository.git_repository.find_commit(commit_oid).context("failed to find commit")?;
+        super::list_remote_commit_files(&project_repository.git_repository, &commit).map_err(Error::Other)
     }
 
     pub async fn set_base_branch(

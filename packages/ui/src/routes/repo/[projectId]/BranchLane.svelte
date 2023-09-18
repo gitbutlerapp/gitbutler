@@ -439,7 +439,7 @@
 												<div class="ml-[0.4rem] mr-1.5">
 													<div class="border-color-4 h-3 w-3 rounded-full border-2" />
 												</div>
-												<CommitCard {commit} isIntegrated={commit.isRemote} />
+												<CommitCard {projectId} {commit} isIntegrated={commit.isRemote} />
 											</div>
 										{/each}
 									</div>
@@ -486,7 +486,7 @@
 														class:dark:bg-dark-500={commit.isRemote}
 													/>
 												</div>
-												<CommitCard {commit} isIntegrated={commit.isIntegrated} />
+												<CommitCard {projectId} {commit} isIntegrated={commit.isIntegrated} />
 											</div>
 										{/each}
 									</div>

@@ -69,7 +69,7 @@
 			style:width={`${$userSettings.peekTrayWidth}px`}
 		>
 			{#if $item instanceof RemoteBranch}
-				<RemoteBranchPeek {branchController} branch={$item} />
+				<RemoteBranchPeek {projectId} {branchController} branch={$item} />
 			{:else if $item instanceof Branch}
 				<Lane
 					branch={$item}
@@ -83,7 +83,7 @@
 					readonly={true}
 				/>
 			{:else if $item instanceof BaseBranch}
-				<BaseBranchPeek base={$item} {branchController} />
+				<BaseBranchPeek {projectId} base={$item} {branchController} />
 			{:else}
 				Unknown instance
 			{/if}

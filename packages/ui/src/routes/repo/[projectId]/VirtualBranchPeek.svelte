@@ -9,6 +9,7 @@
 	import FileTree from './FileTree.svelte';
 
 	export let branch: Branch | undefined;
+    export let projectId: string;
 	export let branchController: BranchController;
 
 	let applyConflictedModal: Modal;
@@ -87,7 +88,7 @@
 				<p class="mb-2 w-full overflow-hidden font-semibold">Commits</p>
 				<div class="flex w-full flex-col gap-y-2">
 					{#each branch.commits as commit}
-						<CommitCard {commit} isIntegrated={commit.isIntegrated} />
+						<CommitCard {commit} isIntegrated={commit.isIntegrated} {projectId} />
 					{/each}
 				</div>
 			</div>

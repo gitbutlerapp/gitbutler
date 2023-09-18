@@ -684,6 +684,7 @@ async fn main() {
             virtual_branches::commands::create_virtual_branch_from_branch,
             virtual_branches::commands::can_apply_virtual_branch,
             virtual_branches::commands::can_apply_remote_branch,
+            virtual_branches::commands::list_remote_commit_files,
             fetch_from_target,
             mark_resolved,
             git_set_global_config,

@@ -63,8 +63,6 @@ export class RemoteCommit {
 	description!: string;
 	@Transform((obj) => new Date(obj.value * 1000))
 	createdAt!: Date;
-	@Type(() => RemoteFile)
-	files!: RemoteFile[];
 }
 
 export class RemoteHunk {
