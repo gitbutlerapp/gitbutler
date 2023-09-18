@@ -23,6 +23,7 @@
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
+	import { invoke } from '$lib/ipc';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<RemoteBranch[] | undefined>;
@@ -53,6 +54,13 @@
 	let selectedItem: Readable<Branch | RemoteBranch | BaseBranch | undefined> | undefined;
 	let overlayOffsetTop = 0;
 	let fetching = false;
+
+	async function canApplyRemoteBranch(branchName: string) {
+		return await invoke<boolean>('can_apply_remote_branch', {
+			projectId,
+			branch: branchName
+		});
+	}
 
 	function select(detail: Branch | RemoteBranch | BaseBranch | undefined, i: number): void {
 		if (peekTrayExpanded && selectedItem && detail == get(selectedItem)) {
@@ -401,9 +409,11 @@
 											{branch.ahead()} / {branch.behind}
 										</div>
 									</Tooltip>
-									{#if !branch.mergeable}
-										<div class="font-bold text-red-500" title="Can't be merged">!</div>
-									{/if}
+									{#await canApplyRemoteBranch(branch.name) then isMergeable}
+										{#if !isMergeable}
+											<div class="font-bold text-red-500" title="Can't be merged">!</div>
+										{/if}
+									{/await}
 								</div>
 								<div
 									class="isolate flex flex-grow justify-end -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"

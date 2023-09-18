@@ -146,7 +146,6 @@ pub struct RemoteBranch {
     pub name: String,
     pub behind: u32,
     pub upstream: Option<git::RemoteBranchName>,
-    pub mergeable: bool,
     pub commits: Vec<RemoteCommit>,
 }
 
@@ -495,11 +494,6 @@ pub fn list_remote_branches(
     let repo = &project_repository.git_repository;
 
     let main_oid = default_target.sha;
-    let target_commit = repo
-        .find_commit(main_oid)
-        .context("failed to find target commit")?;
-
-    let wd_tree = project_repository.get_wd_tree()?;
 
     let virtual_branches_names = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
@@ -612,10 +606,6 @@ pub fn list_remote_branches(
             }
 
             let branch_name = branch.refname().context("could not get branch name")?;
-            // get the branch ref
-            let branch_commit = repo
-                .find_commit(branch_oid)
-                .context("failed to find branch commit")?;
 
             let count_behind = project_repository
                 .distance(main_oid, branch_oid)
@@ -627,19 +617,11 @@ pub fn list_remote_branches(
                 .map(|upstream_branch| git::RemoteBranchName::try_from(&upstream_branch))
                 .transpose()?;
 
-            let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
-            // determine if this tree is mergeable
-            let branch_tree = branch_commit.tree()?;
-            let mergeable = !repo
-                .merge_trees(&base_tree, &branch_tree, &wd_tree)?
-                .has_conflicts();
-
             branches.push(RemoteBranch {
                 sha: branch_oid.to_string(),
                 name: branch_name.to_string(),
                 upstream,
                 behind: count_behind,
-                mergeable,
                 commits: ahead
                     .into_iter()
                     .map(|commit| commit_to_remote_commit(repo, &commit))

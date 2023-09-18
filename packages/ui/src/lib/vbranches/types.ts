@@ -90,7 +90,6 @@ export class RemoteBranch {
 	name!: string;
 	behind!: number;
 	upstream?: string;
-	mergeable!: boolean;
 	@Type(() => RemoteCommit)
 	commits!: RemoteCommit[];
 
