@@ -103,6 +103,19 @@ const conflitMarkersHunk = `@@ -3,7 +3,11 @@
  
  	<body`;
 
+test('handle broken diffs', () => {
+	const balancedHunk = plainToInstance(Hunk, {
+		id: '1',
+		diff: 'not a real diff',
+		modifiedAt: new Date(2021, 1, 1),
+		filePath: 'foo.py',
+		locked: false
+	});
+	const hunkSection = parseHunkSection(balancedHunk);
+	expect(hunkSection).toBeDefined();
+	expect(hunkSection.subSections.length).toBe(0);
+});
+
 test('parses a balanced hunk section', () => {
 	const balancedHunk = plainToInstance(Hunk, {
 		id: '1',
