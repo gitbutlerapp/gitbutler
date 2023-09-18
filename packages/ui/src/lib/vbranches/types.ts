@@ -37,12 +37,12 @@ export class Branch {
 	@Type(() => Commit)
 	commits!: Commit[];
 	description!: string;
-	mergeable!: boolean;
 	order!: number;
 	upstream?: string;
 	conflicted!: boolean;
 	baseCurrent!: boolean;
 	ownership!: string;
+	isMergeable!: Promise<boolean>;
 }
 
 export class Commit {
@@ -92,6 +92,7 @@ export class RemoteBranch {
 	upstream?: string;
 	@Type(() => RemoteCommit)
 	commits!: RemoteCommit[];
+	isMergeable!: Promise<boolean>;
 
 	ahead(): number {
 		return this.commits.length;

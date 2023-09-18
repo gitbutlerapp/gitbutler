@@ -23,7 +23,6 @@
 	import IconChevronRightSmall from '$lib/icons/IconChevronRightSmall.svelte';
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
-	import { invoke } from '$lib/ipc';
 
 	export let vbranchStore: Loadable<Branch[] | undefined>;
 	export let remoteBranchStore: Loadable<RemoteBranch[] | undefined>;
@@ -54,13 +53,6 @@
 	let selectedItem: Readable<Branch | RemoteBranch | BaseBranch | undefined> | undefined;
 	let overlayOffsetTop = 0;
 	let fetching = false;
-
-	async function canApplyRemoteBranch(branchName: string) {
-		return await invoke<boolean>('can_apply_remote_branch', {
-			projectId,
-			branch: branchName
-		});
-	}
 
 	function select(detail: Branch | RemoteBranch | BaseBranch | undefined, i: number): void {
 		if (peekTrayExpanded && selectedItem && detail == get(selectedItem)) {
@@ -256,24 +248,26 @@
 												-{removed}
 											</span>
 										</div>
-										{#if !branch.active}
-											{#if !branch.baseCurrent}
-												<!-- branch will cause merge conflicts if applied -->
-												<Tooltip label="Will introduce merge conflicts if applied">
-													<span class="text-yellow-500">&#9679;</span>
-												</Tooltip>
-											{:else if !branch.mergeable}
-												<Tooltip
-													label="Canflicts with changes in your working directory, cannot be applied"
-												>
-													<span class="text-red-500">&#9679;</span>
-												</Tooltip>
-											{:else if branch.mergeable && (added > 0 || removed > 0)}
-												<Tooltip label="Can be applied cleanly">
-													<span class="text-green-500">&#9679;</span>
-												</Tooltip>
+										{#await branch.isMergeable then isMergeable}
+											{#if !branch.active}
+												{#if !branch.baseCurrent}
+													<!-- branch will cause merge conflicts if applied -->
+													<Tooltip label="Will introduce merge conflicts if applied">
+														<span class="text-yellow-500">&#9679;</span>
+													</Tooltip>
+												{:else if !isMergeable}
+													<Tooltip
+														label="Canflicts with changes in your working directory, cannot be applied"
+													>
+														<span class="text-red-500">&#9679;</span>
+													</Tooltip>
+												{:else if isMergeable && (added > 0 || removed > 0)}
+													<Tooltip label="Can be applied cleanly">
+														<span class="text-green-500">&#9679;</span>
+													</Tooltip>
+												{/if}
 											{/if}
-										{/if}
+										{/await}
 									</div>
 								</div>
 								<div
@@ -409,7 +403,7 @@
 											{branch.ahead()} / {branch.behind}
 										</div>
 									</Tooltip>
-									{#await canApplyRemoteBranch(branch.name) then isMergeable}
+									{#await branch.isMergeable then isMergeable}
 										{#if !isMergeable}
 											<div class="font-bold text-red-500" title="Can't be merged">!</div>
 										{/if}

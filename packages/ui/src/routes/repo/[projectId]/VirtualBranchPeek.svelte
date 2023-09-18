@@ -32,30 +32,34 @@
 			</p>
 		</div>
 		<div>
-			{#if branch.active}
-				<div class="inline-block rounded-lg bg-green-500 px-2 py-0.5 font-bold dark:bg-green-700">
-					<span class="text-white">applied</span>
-				</div>
-			{:else if !branch.mergeable}
-				<!-- use of relative is for tooltip rendering -->
-				<div
-					class="relative inline-block rounded-lg bg-red-500 px-2 py-0.5 font-bold dark:bg-red-700"
-				>
-					<Tooltip label="Canflicts with changes in your working directory, cannot be applied">
-						<span class="text-white">cannot be applied</span>
-					</Tooltip>
-				</div>
-			{:else if !branch.baseCurrent}
-				<div class="inline-block rounded-lg bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600">
-					<Tooltip label="Will introduce merge conflicts if applied">
-						<span class="">will cause merge conflicts</span>
-					</Tooltip>
-				</div>
-			{:else}
-				<div class="inline-block rounded-lg bg-light-600 px-2 py-0.5 font-bold dark:bg-dark-300">
-					<span class="text-white">not applied</span>
-				</div>
-			{/if}
+			{#await branch.isMergeable then isMergeable}
+				{#if branch.active}
+					<div class="inline-block rounded-lg bg-green-500 px-2 py-0.5 font-bold dark:bg-green-700">
+						<span class="text-white">applied</span>
+					</div>
+				{:else if !isMergeable}
+					<!-- use of relative is for tooltip rendering -->
+					<div
+						class="relative inline-block rounded-lg bg-red-500 px-2 py-0.5 font-bold dark:bg-red-700"
+					>
+						<Tooltip label="Canflicts with changes in your working directory, cannot be applied">
+							<span class="text-white">cannot be applied</span>
+						</Tooltip>
+					</div>
+				{:else if !branch.baseCurrent}
+					<div
+						class="inline-block rounded-lg bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600"
+					>
+						<Tooltip label="Will introduce merge conflicts if applied">
+							<span class="">will cause merge conflicts</span>
+						</Tooltip>
+					</div>
+				{:else}
+					<div class="inline-block rounded-lg bg-light-600 px-2 py-0.5 font-bold dark:bg-dark-300">
+						<span class="text-white">not applied</span>
+					</div>
+				{/if}
+			{/await}
 		</div>
 		<div class="w-full">
 			<textarea

@@ -40,7 +40,6 @@ pub struct VirtualBranch {
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
-    pub mergeable: bool, // this branch will merge cleanly into the current working directory (only for unapplied branches)
     pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
     pub order: usize,     // the order in which this branch should be displayed in the UI
     pub upstream: Option<git::RemoteBranchName>, // the name of the upstream branch this branch this pushes to
@@ -707,8 +706,6 @@ pub fn list_virtual_branches(
         None => return Ok(vec![]),
     };
 
-    let wd_tree = project_repository.get_wd_tree()?;
-
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
     for (branch, files) in &statuses {
         // check if head tree does not match target tree
@@ -717,10 +714,6 @@ pub fn list_virtual_branches(
             calculate_non_commited_files(project_repository, branch, &default_target, files)?;
 
         let repo = &project_repository.git_repository;
-
-        let branch_commit = repo
-            .find_commit(branch.head)
-            .context("failed to find branch commit")?;
 
         // see if we can identify some upstream
         let mut upstream_commit = None;
@@ -763,30 +756,12 @@ pub fn list_virtual_branches(
         }
 
         // if the branch is not applied, check to see if it's mergeable and up to date
-        let mut mergeable = true;
         let mut base_current = true;
         if !branch.applied {
             // determine if this branch is up to date with the target/base
             let merge_base = repo.merge_base(default_target.sha, branch.head)?;
             if merge_base != default_target.sha {
                 base_current = false;
-                mergeable = false;
-            } else {
-                let target_commit = repo
-                    .find_commit(default_target.sha)
-                    .context("failed to find target commit")?;
-                if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
-                    // determine if this tree is mergeable
-                    let branch_tree = repo
-                        .find_tree(branch.tree)
-                        .context("failed to find branch tree")?;
-                    mergeable = !repo
-                        .merge_trees(&base_tree, &branch_tree, &wd_tree)?
-                        .has_conflicts();
-                } else {
-                    // there is no common base
-                    mergeable = false;
-                };
             }
         }
 
@@ -798,7 +773,6 @@ pub fn list_virtual_branches(
             files: vfiles,
             order: branch.order,
             commits,
-            mergeable,
             upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,

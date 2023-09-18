@@ -52,6 +52,10 @@ export async function listVirtualBranches(params: { projectId: string }): Promis
 	const result = plainToInstance(Branch, await invoke<any[]>('list_virtual_branches', params));
 	result.forEach((branch) => {
 		branch.files.sort((a) => (a.conflicted ? -1 : 0));
+		branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
+			projectId: params.projectId,
+			branchId: branch.id
+		});
 	});
 	return result;
 }
@@ -59,7 +63,19 @@ export async function listVirtualBranches(params: { projectId: string }): Promis
 export async function getRemoteBranchesData(params: {
 	projectId: string;
 }): Promise<RemoteBranch[]> {
-	return plainToInstance(RemoteBranch, await invoke<any[]>('git_remote_branches_data', params));
+	const branches = plainToInstance(
+		RemoteBranch,
+		await invoke<any[]>('git_remote_branches_data', params)
+	);
+
+	branches.forEach((branch) => {
+		branch.isMergeable = invoke<boolean>('can_apply_remote_branch', {
+			projectId: params.projectId,
+			branch: branch.name
+		});
+	});
+
+	return branches;
 }
 
 export async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch> {
