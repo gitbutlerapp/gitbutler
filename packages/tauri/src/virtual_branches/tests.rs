@@ -1661,32 +1661,32 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     // 1. unapplied branch, uncommitted conflicts
     let branch = branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert!(!branch.active);
-    assert!(!branch.mergeable);
+    assert!(!is_virtual_branch_mergeable(&gb_repo, &project_repository, &branch.id).unwrap());
     assert!(!branch.base_current);
 
     // 2. unapplied branch, committed conflicts but not uncommitted
     let branch = branches.iter().find(|b| b.id == branch2_id).unwrap();
     assert!(!branch.active);
-    assert!(branch.mergeable);
+    assert!(is_virtual_branch_mergeable(&gb_repo, &project_repository, &branch.id).unwrap());
     assert!(branch.base_current);
     assert_eq!(branch.commits.len(), 2);
 
     // 3. unapplied branch, no conflicts
     let branch = branches.iter().find(|b| b.id == branch3_id).unwrap();
     assert!(!branch.active);
-    assert!(branch.mergeable);
+    assert!(is_virtual_branch_mergeable(&gb_repo, &project_repository, &branch.id).unwrap());
     assert!(branch.base_current);
 
     // 4. applied branch, uncommitted conflicts
     let branch = branches.iter().find(|b| b.id == branch4_id).unwrap();
     assert!(!branch.active);
-    assert!(!branch.mergeable);
+    assert!(!is_virtual_branch_mergeable(&gb_repo, &project_repository, &branch.id).unwrap());
     assert!(!branch.base_current);
 
     // 5. applied branch, committed conflicts but not uncommitted
     let branch = branches.iter().find(|b| b.id == branch5_id).unwrap();
     assert!(!branch.active); // cannot merge history into new target
-    assert!(!branch.mergeable);
+    assert!(!is_virtual_branch_mergeable(&gb_repo, &project_repository, &branch.id).unwrap());
     assert!(!branch.base_current);
 
     // 6. applied branch, no conflicts
@@ -2005,11 +2005,11 @@ fn test_detect_mergeable_branch() -> Result<()> {
 
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert!(!branch1.active);
-    assert!(!branch1.mergeable);
+    assert!(!is_virtual_branch_mergeable(&gb_repo, &project_repository, &branch1.id).unwrap());
 
     let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
     assert!(!branch2.active);
-    assert!(branch2.mergeable);
+    assert!(is_virtual_branch_mergeable(&gb_repo, &project_repository, &branch2.id).unwrap());
 
     let remotes =
         list_remote_branches(&gb_repo, &project_repository).expect("failed to list remotes");
@@ -2017,14 +2017,24 @@ fn test_detect_mergeable_branch() -> Result<()> {
         .iter()
         .find(|b| b.name == "refs/remotes/origin/remote_branch")
         .unwrap();
-    assert!(!remote1.mergeable);
+    assert!(!is_remote_branch_mergeable(
+        &gb_repo,
+        &project_repository,
+        &"refs/remotes/origin/remote_branch".parse().unwrap()
+    )
+    .unwrap());
     assert_eq!(remote1.commits.len(), 1);
 
     let remote2 = &remotes
         .iter()
         .find(|b| b.name == "refs/remotes/origin/remote_branch2")
         .unwrap();
-    assert!(remote2.mergeable);
+    assert!(is_remote_branch_mergeable(
+        &gb_repo,
+        &project_repository,
+        &"refs/remotes/origin/remote_branch2".parse().unwrap()
+    )
+    .unwrap());
     assert_eq!(remote2.commits.len(), 2);
 
     Ok(())
@@ -3293,7 +3303,11 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     assert_eq!(branches.len(), 1);
     let branch1 = &branches.iter().find(|b| &b.id == branch_id).unwrap();
-    assert!(!branch1.mergeable);
+    assert!(!is_virtual_branch_mergeable(
+        &gb_repo,
+        &project_repository,
+        &branch1.id
+    )?);
     assert!(!branch1.base_current);
 
     // apply branch which is now out of date and conflicting

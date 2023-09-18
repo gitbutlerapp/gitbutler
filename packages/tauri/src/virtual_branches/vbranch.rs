@@ -40,7 +40,6 @@ pub struct VirtualBranch {
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
     pub commits: Vec<VirtualBranchCommit>,
-    pub mergeable: bool, // this branch will merge cleanly into the current working directory (only for unapplied branches)
     pub conflicted: bool, // is this branch currently in a conflicted state (only for applied branches)
     pub order: usize,     // the order in which this branch should be displayed in the UI
     pub upstream: Option<git::RemoteBranchName>, // the name of the upstream branch this branch this pushes to
@@ -146,7 +145,6 @@ pub struct RemoteBranch {
     pub name: String,
     pub behind: u32,
     pub upstream: Option<git::RemoteBranchName>,
-    pub mergeable: bool,
     pub commits: Vec<RemoteCommit>,
 }
 
@@ -319,7 +317,7 @@ pub fn apply_branch(
         }
     }
 
-    let wd_tree = get_wd_tree(repo)?;
+    let wd_tree = project_repository.get_wd_tree()?;
 
     // check index for conflicts
     let mut merge_index = repo
@@ -495,11 +493,6 @@ pub fn list_remote_branches(
     let repo = &project_repository.git_repository;
 
     let main_oid = default_target.sha;
-    let target_commit = repo
-        .find_commit(main_oid)
-        .context("failed to find target commit")?;
-
-    let wd_tree = get_wd_tree(repo)?;
 
     let virtual_branches_names = Iterator::new(&current_session_reader)
         .context("failed to create branch iterator")?
@@ -612,10 +605,6 @@ pub fn list_remote_branches(
             }
 
             let branch_name = branch.refname().context("could not get branch name")?;
-            // get the branch ref
-            let branch_commit = repo
-                .find_commit(branch_oid)
-                .context("failed to find branch commit")?;
 
             let count_behind = project_repository
                 .distance(main_oid, branch_oid)
@@ -627,19 +616,11 @@ pub fn list_remote_branches(
                 .map(|upstream_branch| git::RemoteBranchName::try_from(&upstream_branch))
                 .transpose()?;
 
-            let base_tree = find_base_tree(repo, &branch_commit, &target_commit)?;
-            // determine if this tree is mergeable
-            let branch_tree = branch_commit.tree()?;
-            let mergeable = !repo
-                .merge_trees(&base_tree, &branch_tree, &wd_tree)?
-                .has_conflicts();
-
             branches.push(RemoteBranch {
                 sha: branch_oid.to_string(),
                 name: branch_name.to_string(),
                 upstream,
                 behind: count_behind,
-                mergeable,
                 commits: ahead
                     .into_iter()
                     .map(|commit| commit_to_remote_commit(repo, &commit))
@@ -687,14 +668,6 @@ fn list_remote_commit_files(
     Ok(files)
 }
 
-pub fn get_wd_tree(repo: &git::Repository) -> Result<git::Tree> {
-    let mut index = repo.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    let oid = index.write_tree()?;
-    let tree = repo.find_tree(oid)?;
-    Ok(tree)
-}
-
 fn find_base_tree<'a>(
     repo: &'a git::Repository,
     branch_commit: &'a git::Commit<'a>,
@@ -733,8 +706,6 @@ pub fn list_virtual_branches(
         None => return Ok(vec![]),
     };
 
-    let wd_tree = get_wd_tree(&project_repository.git_repository)?;
-
     let statuses = get_status_by_branch(gb_repository, project_repository)?;
     for (branch, files) in &statuses {
         // check if head tree does not match target tree
@@ -743,10 +714,6 @@ pub fn list_virtual_branches(
             calculate_non_commited_files(project_repository, branch, &default_target, files)?;
 
         let repo = &project_repository.git_repository;
-
-        let branch_commit = repo
-            .find_commit(branch.head)
-            .context("failed to find branch commit")?;
 
         // see if we can identify some upstream
         let mut upstream_commit = None;
@@ -789,30 +756,12 @@ pub fn list_virtual_branches(
         }
 
         // if the branch is not applied, check to see if it's mergeable and up to date
-        let mut mergeable = true;
         let mut base_current = true;
         if !branch.applied {
             // determine if this branch is up to date with the target/base
             let merge_base = repo.merge_base(default_target.sha, branch.head)?;
             if merge_base != default_target.sha {
                 base_current = false;
-                mergeable = false;
-            } else {
-                let target_commit = repo
-                    .find_commit(default_target.sha)
-                    .context("failed to find target commit")?;
-                if let Ok(base_tree) = find_base_tree(repo, &branch_commit, &target_commit) {
-                    // determine if this tree is mergeable
-                    let branch_tree = repo
-                        .find_tree(branch.tree)
-                        .context("failed to find branch tree")?;
-                    mergeable = !repo
-                        .merge_trees(&base_tree, &branch_tree, &wd_tree)?
-                        .has_conflicts();
-                } else {
-                    // there is no common base
-                    mergeable = false;
-                };
             }
         }
 
@@ -824,7 +773,6 @@ pub fn list_virtual_branches(
             files: vfiles,
             order: branch.order,
             commits,
-            mergeable,
             upstream: branch.upstream.clone(),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
@@ -2084,4 +2032,111 @@ fn is_commit_integrated(
     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
     // then the vbranch is fully merged
     Ok(merge_tree_oid == upstream_tree_oid)
+}
+
+pub fn is_remote_branch_mergeable(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_name: &git::BranchName,
+) -> Result<bool> {
+    // get the current target
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let default_target =
+        get_default_target(&current_session_reader)?.context("no default target set")?;
+
+    let target_commit = project_repository
+        .git_repository
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+
+    let branch = project_repository.git_repository.find_branch(branch_name)?;
+    let branch_oid = branch.target().context("detatched head")?;
+    let branch_commit = project_repository
+        .git_repository
+        .find_commit(branch_oid)
+        .context("failed to find branch commit")?;
+
+    let base_tree = find_base_tree(
+        &project_repository.git_repository,
+        &branch_commit,
+        &target_commit,
+    )?;
+
+    let wd_tree = project_repository.get_wd_tree()?;
+
+    let branch_tree = branch_commit.tree()?;
+    let mergeable = !project_repository
+        .git_repository
+        .merge_trees(&base_tree, &branch_tree, &wd_tree)?
+        .has_conflicts();
+
+    Ok(mergeable)
+}
+
+pub fn is_virtual_branch_mergeable(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+) -> Result<bool> {
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session reader")?;
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch = branch_reader
+        .read(branch_id)
+        .context("failed to read branch")?;
+    if branch.applied {
+        bail!("branch {} is applied", branch.name);
+    }
+
+    let default_target = get_default_target(&current_session_reader)
+        .context("failed to read default target")?
+        .context("no default target set")?;
+
+    // determine if this branch is up to date with the target/base
+    let merge_base = project_repository
+        .git_repository
+        .merge_base(default_target.sha, branch.head)?;
+
+    if merge_base != default_target.sha {
+        return Ok(false);
+    }
+
+    let branch_commit = project_repository
+        .git_repository
+        .find_commit(branch.head)
+        .context("failed to find branch commit")?;
+
+    let target_commit = project_repository
+        .git_repository
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+
+    let base_tree = find_base_tree(
+        &project_repository.git_repository,
+        &branch_commit,
+        &target_commit,
+    )?;
+
+    let wd_tree = project_repository.get_wd_tree()?;
+
+    // determine if this tree is mergeable
+    let branch_tree = project_repository
+        .git_repository
+        .find_tree(branch.tree)
+        .context("failed to find branch tree")?;
+
+    let is_mergeable = !project_repository
+        .git_repository
+        .merge_trees(&base_tree, &branch_tree, &wd_tree)?
+        .has_conflicts();
+
+    Ok(is_mergeable)
 }

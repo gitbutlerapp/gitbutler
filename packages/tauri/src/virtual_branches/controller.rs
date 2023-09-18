@@ -85,6 +85,44 @@ impl Controller {
         .await
     }
 
+    pub async fn can_apply_remote_branch(
+        &self,
+        project_id: &str,
+        branch_name: &git::BranchName,
+    ) -> Result<bool, Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+        super::is_remote_branch_mergeable(&gb_repository, &project_repository, branch_name)
+            .map_err(Error::Other)
+    }
+
+    pub async fn can_apply_virtual_branch(
+        &self,
+        project_id: &str,
+        branch_id: &str,
+    ) -> Result<bool, Error> {
+        let project = self
+            .projects_storage
+            .get_project(project_id)
+            .context("failed to get project")?
+            .context("project not found")?;
+        let project_repository = project
+            .as_ref()
+            .try_into()
+            .context("failed to open project repository")?;
+        let gb_repository = self.open_gb_repository(project_id)?;
+        super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
+            .map_err(Error::Other)
+    }
+
     pub async fn list_virtual_branches(
         &self,
         project_id: &str,

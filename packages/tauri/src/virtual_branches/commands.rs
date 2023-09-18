@@ -168,3 +168,31 @@ pub async fn push_virtual_branch(
         .await
         .map_err(Into::into)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn can_apply_virtual_branch(
+    handle: AppHandle,
+    project_id: &str,
+    branch_id: &str,
+) -> Result<bool, Error> {
+    handle
+        .state::<Controller>()
+        .can_apply_virtual_branch(project_id, branch_id)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
+pub async fn can_apply_remote_branch(
+    handle: AppHandle,
+    project_id: &str,
+    branch: git::BranchName,
+) -> Result<bool, Error> {
+    handle
+        .state::<Controller>()
+        .can_apply_remote_branch(project_id, &branch)
+        .await
+        .map_err(Into::into)
+}

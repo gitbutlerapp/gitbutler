@@ -195,20 +195,22 @@
 	>
 		<div class="flex">
 			<div class="bg-color-4 border-color-4 flex flex-grow flex-col border-b">
-				{#if !branch.mergeable}
-					<!-- use of relative is for tooltip rendering -->
-					<div class="bg-red-500 px-2 py-0.5 text-center font-bold dark:bg-red-700">
-						<Tooltip label="Canflicts with changes in your working directory, cannot be applied">
-							<span class="text-white">cannot be applied</span>
-						</Tooltip>
-					</div>
-				{:else if !branch.baseCurrent}
-					<div class="bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600">
-						<Tooltip label="Will introduce merge conflicts if applied">
-							<span class="">will cause merge conflicts</span>
-						</Tooltip>
-					</div>
-				{/if}
+				{#await branch.isMergeable then isMergeable}
+					{#if !isMergeable}
+						<!-- use of relative is for tooltip rendering -->
+						<div class="bg-red-500 px-2 py-0.5 text-center font-bold dark:bg-red-700">
+							<Tooltip label="Canflicts with changes in your working directory, cannot be applied">
+								<span class="text-white">cannot be applied</span>
+							</Tooltip>
+						</div>
+					{:else if !branch.baseCurrent}
+						<div class="bg-yellow-500 px-2 py-0.5 font-bold dark:bg-yellow-600">
+							<Tooltip label="Will introduce merge conflicts if applied">
+								<span class="">will cause merge conflicts</span>
+							</Tooltip>
+						</div>
+					{/if}
+				{/await}
 				<div class="flex w-full items-center py-1 pl-1.5">
 					{#if !readonly}
 						<div bind:this={meatballButton}>
@@ -261,17 +263,19 @@
 								<IconCloseSmall />
 							</button>
 						{:else}
-							{#if branch.mergeable}
-								<Button
-									class="w-20"
-									height="small"
-									kind="outlined"
-									color="purple"
-									on:click={() => toggleBranch(branch)}
-								>
-									<span class="purple"> Apply </span>
-								</Button>
-							{/if}
+							{#await branch.isMergeable then isMergeable}
+								{#if isMergeable}
+									<Button
+										class="w-20"
+										height="small"
+										kind="outlined"
+										color="purple"
+										on:click={() => toggleBranch(branch)}
+									>
+										<span class="purple"> Apply </span>
+									</Button>
+								{/if}
+							{/await}
 							<IconButton
 								icon={IconBackspace}
 								class="px-1 py-1 align-middle "
@@ -435,10 +439,7 @@
 												<div class="ml-[0.4rem] mr-1.5">
 													<div class="border-color-4 h-3 w-3 rounded-full border-2" />
 												</div>
-												<CommitCard
-													{commit}
-													isIntegrated={commit.isRemote}
-												/>
+												<CommitCard {commit} isIntegrated={commit.isRemote} />
 											</div>
 										{/each}
 									</div>
@@ -485,10 +486,7 @@
 														class:dark:bg-dark-500={commit.isRemote}
 													/>
 												</div>
-												<CommitCard
-													{commit}
-													isIntegrated={commit.isIntegrated}
-												/>
+												<CommitCard {commit} isIntegrated={commit.isIntegrated} />
 											</div>
 										{/each}
 									</div>

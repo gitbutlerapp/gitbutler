@@ -248,24 +248,26 @@
 												-{removed}
 											</span>
 										</div>
-										{#if !branch.active}
-											{#if !branch.baseCurrent}
-												<!-- branch will cause merge conflicts if applied -->
-												<Tooltip label="Will introduce merge conflicts if applied">
-													<span class="text-yellow-500">&#9679;</span>
-												</Tooltip>
-											{:else if !branch.mergeable}
-												<Tooltip
-													label="Canflicts with changes in your working directory, cannot be applied"
-												>
-													<span class="text-red-500">&#9679;</span>
-												</Tooltip>
-											{:else if branch.mergeable && (added > 0 || removed > 0)}
-												<Tooltip label="Can be applied cleanly">
-													<span class="text-green-500">&#9679;</span>
-												</Tooltip>
+										{#await branch.isMergeable then isMergeable}
+											{#if !branch.active}
+												{#if !branch.baseCurrent}
+													<!-- branch will cause merge conflicts if applied -->
+													<Tooltip label="Will introduce merge conflicts if applied">
+														<span class="text-yellow-500">&#9679;</span>
+													</Tooltip>
+												{:else if !isMergeable}
+													<Tooltip
+														label="Canflicts with changes in your working directory, cannot be applied"
+													>
+														<span class="text-red-500">&#9679;</span>
+													</Tooltip>
+												{:else if isMergeable && (added > 0 || removed > 0)}
+													<Tooltip label="Can be applied cleanly">
+														<span class="text-green-500">&#9679;</span>
+													</Tooltip>
+												{/if}
 											{/if}
-										{/if}
+										{/await}
 									</div>
 								</div>
 								<div
@@ -401,9 +403,11 @@
 											{branch.ahead()} / {branch.behind}
 										</div>
 									</Tooltip>
-									{#if !branch.mergeable}
-										<div class="font-bold text-red-500" title="Can't be merged">!</div>
-									{/if}
+									{#await branch.isMergeable then isMergeable}
+										{#if !isMergeable}
+											<div class="font-bold text-red-500" title="Can't be merged">!</div>
+										{/if}
+									{/await}
 								</div>
 								<div
 									class="isolate flex flex-grow justify-end -space-x-2 overflow-hidden transition duration-300 ease-in-out hover:space-x-1 hover:transition hover:ease-in"

@@ -409,7 +409,9 @@ pub fn update_base_branch(
 
     // ok, now all the problematic branches have been unapplied, so we can try to merge the upstream branch into our current working directory
     // first, get a new wd tree
-    let wd_tree = super::get_wd_tree(repo)?;
+    let wd_tree = project_repository
+        .get_wd_tree()
+        .context("failed to get wd tree")?;
 
     // and try to merge it
     let mut merge_index = repo
