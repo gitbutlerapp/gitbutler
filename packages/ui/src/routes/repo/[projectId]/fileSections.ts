@@ -59,7 +59,11 @@ export function parseHunkHeader(header: string | undefined): HunkHeader {
 	if (!header) {
 		return { beforeStart: 0, beforeLength: 0, afterStart: 0, afterLength: 0 };
 	}
-	const [before, after] = header.split('@@')[1].trim().split(' ');
+	const split = header.split('@@');
+	if (split.length < 2) {
+		return { beforeStart: 0, beforeLength: 0, afterStart: 0, afterLength: 0 };
+	}
+	const [before, after] = split[1].trim().split(' ');
 	const [beforeStart, beforeLength] = before.split(',').map((n) => Math.abs(parseInt(n, 10)));
 	const [afterStart, afterLength] = after.split(',').map((n) => Math.abs(parseInt(n, 10)));
 	return { beforeStart, beforeLength, afterStart, afterLength };
