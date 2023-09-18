@@ -70,7 +70,7 @@
 		"mm-jsr": "^3.0.2",
 		"nanoevents": "^8.0.0",
 		"nanoid": "^4.0.2",
-		"postcss": "^8.4.28",
+		"postcss": "^8.4.29",
 		"postcss-load-config": "^4.0.1",
 		"posthog-js": "^1.77.2",
 		"prettier": "^3.0.3",
