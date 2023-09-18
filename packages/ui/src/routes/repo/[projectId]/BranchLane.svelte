@@ -30,6 +30,7 @@
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import CommitDialog from './CommitDialog.svelte';
 	import { writable } from 'svelte/store';
+	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 
 	const [send, receive] = crossfade({
 		duration: (d) => Math.sqrt(d * 200),
@@ -134,6 +135,34 @@
 		commitDialogShown = false;
 	}
 
+	function generateBranchName() {
+		const diff = branch.files
+			.map((f) => f.hunks)
+			.flat()
+			.map((h) => h.diff)
+			.flat()
+			.join('\n')
+			.slice(0, 5000);
+
+		if ($user) {
+			cloud.summarize.branch($user.access_token, { diff }).then((result) => {
+				console.log(result);
+				if (result.message && result.message !== branch.name) {
+					branch.name = result.message;
+					handleBranchNameChange();
+				}
+			});
+		}
+	}
+
+	$: linesTouched = computedAddedRemoved(...branch.files);
+	$: if (
+		branch.name.toLowerCase().includes('virtual branch') &&
+		linesTouched.added + linesTouched.removed > 0
+	) {
+		generateBranchName();
+	}
+
 	// We have to create this manually for now.
 	// TODO: Use document.body.addEventListener to avoid having to use backdrop
 	let popupMenu = new BranchLanePopupMenu({
@@ -157,6 +186,8 @@
 				handleExpandAll();
 			} else if (e.detail == 'collapse') {
 				handleCollapseAll();
+			} else if (e.detail == 'generate-branch-name') {
+				generateBranchName();
 			}
 		});
 	});

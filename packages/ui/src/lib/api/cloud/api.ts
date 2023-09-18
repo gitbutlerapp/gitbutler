@@ -191,6 +191,15 @@ export function getCloudApiClient(
 						// 'X-Auth-Token': token
 					},
 					body: JSON.stringify(params)
+				}).then(parseResponseJSON),
+			branch: (token: string, params: { diff: string }): Promise<{ message: string }> =>
+				fetch(getUrl('summarize_branch_name/branch.json'), {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-Auth-Token': token
+					},
+					body: JSON.stringify(params)
 				}).then(parseResponseJSON)
 		},
 		chat: {
