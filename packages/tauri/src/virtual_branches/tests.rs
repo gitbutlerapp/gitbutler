@@ -157,8 +157,6 @@ fn test_signed_commit() -> Result<()> {
         keys_controller,
         ..
     } = new_test_deps()?;
-    dbg!(&project.path);
-
     let file_path = std::path::Path::new("test.txt");
     std::fs::write(
         std::path::Path::new(&project.path).join(file_path),
@@ -204,7 +202,8 @@ fn test_signed_commit() -> Result<()> {
     let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     let commit_obj = repository.find_commit(commit_id.parse().unwrap())?;
-    dbg!(&commit_obj.raw_header());
+    // check the raw_header contains the string "SSH SIGNATURE"
+    assert!(commit_obj.raw_header().unwrap().contains("SSH SIGNATURE"));
 
     Ok(())
 }

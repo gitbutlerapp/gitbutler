@@ -1526,15 +1526,30 @@ pub fn commit_signed(
     let repo = &project_repository.git_repository;
     let commit = repo.find_commit(branch.head)?;
 
-    let buf = repo
-        .commit_create_buffer(
-            &commit.author(),
-            &commit.committer(),
-            commit.message().unwrap(),
-            &commit.tree().unwrap(),
-            &[&commit.parent(0)?], // TODO: multiple parents
-        )
-        .context("failed to commit")?;
+    // this is ridiculous, but there will ever probably only be 2 parents and
+    // I can't otherwise figure out how to get a slice of Commit refs (:headbang:)
+    let buf: git2::Buf;
+    if commit.parent_count() > 1 {
+        buf = repo
+            .commit_create_buffer(
+                &commit.author(),
+                &commit.committer(),
+                commit.message().unwrap(),
+                &commit.tree().unwrap(),
+                &[&commit.parent(0)?, &commit.parent(1)?],
+            )
+            .context("failed to commit")?;
+    } else {
+        buf = repo
+            .commit_create_buffer(
+                &commit.author(),
+                &commit.committer(),
+                commit.message().unwrap(),
+                &commit.tree().unwrap(),
+                &[&commit.parent(0)?],
+            )
+            .context("failed to commit")?;
+    }
     let commit_content = std::str::from_utf8(&buf).unwrap();
 
     let signature = key.sign_bytes(commit_content.as_bytes());
@@ -1553,7 +1568,6 @@ pub fn commit_signed(
     super::integration::update_gitbutler_integration(gb_repository, project_repository)
         .context("failed to update gitbutler integration")?;
 
-    dbg!(&branch.head);
     Ok(())
 }
 
