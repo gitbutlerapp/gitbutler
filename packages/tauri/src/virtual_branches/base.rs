@@ -1,6 +1,7 @@
 use std::time;
 
 use anyhow::{bail, Context, Result};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
@@ -10,7 +11,20 @@ use crate::{
     reader, sessions,
 };
 
-use super::{branch, delete_branch, iterator, target};
+use super::{branch, delete_branch, iterator, target, RemoteCommit};
+
+#[derive(Debug, Serialize, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BaseBranch {
+    pub branch_name: String,
+    pub remote_name: String,
+    pub remote_url: String,
+    pub base_sha: String,
+    pub current_sha: String,
+    pub behind: u32,
+    pub upstream_commits: Vec<RemoteCommit>,
+    pub recent_commits: Vec<RemoteCommit>,
+}
 
 pub fn get_base_branch_data(
     gb_repository: &gb_repository::Repository,
