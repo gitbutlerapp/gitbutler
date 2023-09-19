@@ -251,7 +251,7 @@ fn verify_head_is_clean(
         )
         .context("failed to reset to integration commit")?;
 
-    let new_branch = super::vbranch::create_virtual_branch(
+    let new_branch = super::create_virtual_branch(
         gb_repository,
         &BranchCreateRequest {
             name: extra_commits
@@ -322,11 +322,11 @@ fn verify_head_is_set(
     {
         Some(GITBUTLER_INTEGRATION_REFERENCE) => Ok(()),
         None => {
-            super::vbranch::mark_all_unapplied(gb_repository).map_err(VerifyError::Other)?;
+            super::mark_all_unapplied(gb_repository).map_err(VerifyError::Other)?;
             Err(VerifyError::DetachedHead)
         }
         Some(head_name) => {
-            super::vbranch::mark_all_unapplied(gb_repository).map_err(VerifyError::Other)?;
+            super::mark_all_unapplied(gb_repository).map_err(VerifyError::Other)?;
             Err(VerifyError::InvalidHead(head_name.to_string()))
         }
     }
