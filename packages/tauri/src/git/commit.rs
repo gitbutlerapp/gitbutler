@@ -45,6 +45,15 @@ impl<'repo> Commit<'repo> {
         self.commit.parent(n).map(Into::into).map_err(Into::into)
     }
 
+    pub fn parents(&self) -> Result<Vec<Commit<'repo>>> {
+        // convert self.commit.parents() into a Vec<Commit>
+        let mut parents = Vec::new();
+        for parent in self.commit.parents() {
+            parents.push(parent.into());
+        }
+        Ok(parents)
+    }
+
     pub fn time(&self) -> git2::Time {
         self.commit.time()
     }
@@ -59,6 +68,10 @@ impl<'repo> Commit<'repo> {
 
     pub fn committer(&self) -> git2::Signature<'_> {
         self.commit.committer()
+    }
+
+    pub fn raw_header(&self) -> Option<&str> {
+        self.commit.raw_header()
     }
 }
 

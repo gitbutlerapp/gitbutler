@@ -72,14 +72,31 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
-                super::commit(
-                    gb_repository,
-                    project_repository,
-                    branch,
-                    message,
-                    ownership,
-                )
-                .map_err(Error::Other)
+                let repo = &project_repository.git_repository;
+                let config = repo.config().unwrap();
+                let value = config
+                    .get_string("gitbutler.signCommits")
+                    .unwrap_or("false".to_string());
+                if value == "true" {
+                    super::commit_signed(
+                        &self.keys_storage.get_or_create().unwrap(),
+                        gb_repository,
+                        project_repository,
+                        branch,
+                        message,
+                        ownership,
+                    )
+                    .map_err(Error::Other)
+                } else {
+                    super::commit(
+                        gb_repository,
+                        project_repository,
+                        branch,
+                        message,
+                        ownership,
+                    )
+                    .map_err(Error::Other)
+                }
             })
         })
         .await

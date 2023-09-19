@@ -90,6 +90,14 @@
 		});
 	};
 
+	const setSigningSetting = (value: boolean) => {
+		signCommits = value;
+		git_set_config({
+			key: 'gitbutler.signCommits',
+			value: value ? 'true' : 'false'
+		});
+	};
+
 	export function get_public_key() {
 		return invoke<string>('get_public_key');
 	}
@@ -100,9 +108,14 @@
 	});
 
 	$: annotateCommits = true;
+	$: signCommits = false;
 
 	git_get_config({ key: 'gitbutler.utmostDiscretion' }).then((value) => {
 		annotateCommits = value ? value === '0' : true;
+	});
+
+	git_get_config({ key: 'gitbutler.signCommits' }).then((value) => {
+		signCommits = value ? value === 'true' : true;
 	});
 
 	const onDeleteClicked = () =>
@@ -129,7 +142,7 @@
 				<Login />
 			{/if}
 		</div>
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
 
 		<div>
 			<h2 class="mb-2 text-lg font-medium">GitButler Cloud</h2>
@@ -211,14 +224,14 @@
 		{:else}
 			<Login />
 		{/if}
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Git Stuff</h2>
 		</div>
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Credit GitButler as the Committer</p>
-				<div class="space-y-2 pr-8 text-sm text-light-700 dark:text-dark-200">
+				<div class="text-light-700 dark:text-dark-200 space-y-2 pr-8 text-sm">
 					<div>
 						By default, everything in the GitButler client is free to use, but we credit ourselves
 						as the committer in your virtual branch commits. Community members and supporters of
@@ -243,7 +256,7 @@
 						class="peer sr-only"
 					/>
 					<div
-						class="peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 dark:border-gray-600 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-disabled:bg-zinc-300"
+						class="peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 peer-disabled:bg-zinc-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
 					/>
 				</label>
 			</div>
@@ -251,7 +264,7 @@
 
 		<div class="flex flex-col space-y-2">
 			<p>SSH Key</p>
-			<div class="pr-8 text-sm text-light-700 dark:text-dark-200">
+			<div class="text-light-700 dark:text-dark-200 pr-8 text-sm">
 				<div>
 					GitButler uses SSH keys to authenticate with your Git provider. Add the following public
 					key to your Git provider to enable GitButler to push code.
@@ -261,7 +274,7 @@
 				<input
 					bind:value={sshKey}
 					class="
-                        whitespece-pre w-full select-all rounded border border-light-200 bg-white p-2 font-mono dark:border-dark-400 dark:bg-dark-700"
+                        whitespece-pre border-light-200 dark:border-dark-400 dark:bg-dark-700 w-full select-all rounded border bg-white p-2 font-mono"
 				/>
 			</div>
 			<div class="flex flex-row justify-end space-x-2">
@@ -278,14 +291,46 @@
 			</div>
 		</div>
 
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div class="flex items-center">
+			<div class="flex-grow">
+				<p>Sign Commits with the above SSH Key</p>
+				<div class="text-light-700 dark:text-dark-200 space-y-2 pr-8 text-sm">
+					<div>
+						If you want GitButler to sign your commits with the SSH key we generated, then you can
+						add that key to GitHub as a signing key to have those commits verified.
+					</div>
+					<Link
+						target="_blank"
+						rel="noreferrer"
+						href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
+					>
+						Learn more
+					</Link>
+				</div>
+			</div>
+			<div>
+				<label class="relative inline-flex cursor-pointer items-center">
+					<input
+						type="checkbox"
+						checked={signCommits}
+						on:change={(e) => setSigningSetting(!!e.currentTarget?.checked)}
+						class="peer sr-only"
+					/>
+					<div
+						class="peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 peer-disabled:bg-zinc-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
+					/>
+				</label>
+			</div>
+		</div>
+
+		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Appearance</h2>
 		</div>
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Generate descriptions for code changes</p>
-				<p class="text-sm text-light-700 dark:text-dark-200">
+				<p class="text-light-700 dark:text-dark-200 text-sm">
 					GitButler Cloud will generate descriptions for code hunks in your virtual branches board.
 				</p>
 			</div>
@@ -302,7 +347,7 @@
 						class="peer sr-only"
 					/>
 					<div
-						class="peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 dark:border-gray-600 peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4"
+						class="peer h-6 w-11 rounded-full bg-gray-400 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
 					/>
 				</label>
 			</div>
@@ -310,14 +355,14 @@
 		<div class="flex items-center">
 			<div class="flex-grow">
 				<p>Interface theme</p>
-				<p class="text-sm text-light-700 dark:text-dark-200">
+				<p class="text-light-700 dark:text-dark-200 text-sm">
 					Select or customize your interface theme.
 				</p>
 			</div>
 			<div><ThemeSelector /></div>
 		</div>
 
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
 
 		<div>
 			<h2 class="mb-2 text-lg font-medium">Need help?</h2>
@@ -327,7 +372,7 @@
 				href="https://discord.gg/wDKZCPEjXC"
 				target="_blank"
 				rel="noreferrer"
-				class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+				class="border-light-200 dark:border-dark-400 dark:bg-dark-700 flex-1 rounded border bg-white p-4"
 			>
 				<p class="mb-2 font-medium">Join our Discorder</p>
 				<p class="text-light-700 dark:text-dark-200">
@@ -337,7 +382,7 @@
 			<a
 				href="mailto:hello@gitbutler.com?subject=Feedback or question!"
 				target="_blank"
-				class="flex-1 rounded border border-light-200 bg-white p-4 dark:border-dark-400 dark:bg-dark-700"
+				class="border-light-200 dark:border-dark-400 dark:bg-dark-700 flex-1 rounded border bg-white p-4"
 			>
 				<p class="mb-2 font-medium">Contact us</p>
 				<p class="text-light-700 dark:text-dark-200">
@@ -346,7 +391,7 @@
 			</a>
 		</div>
 
-		<div class="h-[0.0625rem] bg-light-400 dark:bg-dark-700" />
+		<div class="bg-light-400 dark:bg-dark-700 h-[0.0625rem]" />
 
 		<div class="flex flex-col gap-4">
 			<Button color="destructive" kind="outlined" on:click={() => deleteConfirmationModal.show()}>

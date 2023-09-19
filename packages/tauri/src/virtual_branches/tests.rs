@@ -11,7 +11,7 @@ use anyhow::{Context, Result};
 use git2::TreeWalkResult;
 
 use crate::{
-    gb_repository, git, project_repository, projects, reader, sessions, test_utils, users,
+    gb_repository, git, keys, project_repository, projects, reader, sessions, test_utils, users,
 };
 
 use super::branch::{Branch, BranchCreateRequest, Ownership};
@@ -24,6 +24,7 @@ pub struct TestDeps {
     gb_repo_path: path::PathBuf,
     user_store: users::Storage,
     project_store: projects::Storage,
+    keys_controller: keys::Storage,
 }
 
 fn new_test_deps() -> Result<TestDeps> {
@@ -33,6 +34,7 @@ fn new_test_deps() -> Result<TestDeps> {
     let local_data_dir = test_utils::temp_dir();
     let user_store = users::Storage::from(&local_data_dir);
     let project_store = projects::Storage::from(&local_data_dir);
+    let keys_controller = keys::Storage::from(&local_data_dir);
     project_store.add_project(&project)?;
     let gb_repo = gb_repository::Repository::open(
         gb_repo_path.clone(),
@@ -47,6 +49,7 @@ fn new_test_deps() -> Result<TestDeps> {
         gb_repo_path,
         user_store,
         project_store,
+        keys_controller,
     })
 }
 
@@ -139,6 +142,68 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 1);
+
+    Ok(())
+}
+
+#[test]
+fn test_signed_commit() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        keys_controller,
+        ..
+    } = new_test_deps()?;
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\n",
+    )?;
+    let file_path2 = std::path::Path::new("test2.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "line5\nline6\nline7\nline8\n",
+    )?;
+    test_utils::commit_all(&repository);
+
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
+    let branch1_id = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch")
+        .id;
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line0\nline1\nline2\nline3\nline4\n",
+    )?;
+
+    let mut config = repository
+        .config()
+        .with_context(|| "failed to get config")?;
+    config.set_str("gitbutler.signCommits", "true")?;
+
+    // commit
+    commit_signed(
+        &keys_controller.get_or_create()?,
+        &gb_repo,
+        &project_repository,
+        &branch1_id,
+        "test commit",
+        None,
+    )?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
+    let commit_id = &branches[0].commits[0].id;
+    let commit_obj = repository.find_commit(commit_id.parse().unwrap())?;
+    // check the raw_header contains the string "SSH SIGNATURE"
+    assert!(commit_obj.raw_header().unwrap().contains("SSH SIGNATURE"));
 
     Ok(())
 }

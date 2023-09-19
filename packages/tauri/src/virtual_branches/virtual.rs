@@ -14,7 +14,7 @@ use crate::{
     dedup::{dedup, dedup_fmt},
     gb_repository,
     git::{self, diff},
-    keys::Key,
+    keys::{self, Key},
     project_repository::{self, conflicts, LogUntil},
     reader, sessions,
 };
@@ -1497,6 +1497,77 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
             println!("    blob: BINARY");
         }
     }
+    Ok(())
+}
+
+pub fn commit_signed(
+    key: &keys::PrivateKey,
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    branch_id: &str,
+    message: &str,
+    ownership: Option<&branch::Ownership>,
+) -> Result<()> {
+    commit(
+        gb_repository,
+        project_repository,
+        branch_id,
+        message,
+        ownership,
+    )?;
+
+    // pull the commit and see if we can sign and replace it
+    let current_session = gb_repository.get_or_create_current_session()?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
+    let branch_reader = branch::Reader::new(&current_session_reader);
+    let branch = branch_reader.read(branch_id).unwrap();
+
+    // lookup the commit oid
+    let repo = &project_repository.git_repository;
+    let commit = repo.find_commit(branch.head)?;
+
+    // this is ridiculous, but there will ever probably only be 2 parents and
+    // I can't otherwise figure out how to get a slice of Commit refs (:headbang:)
+    let buf: git2::Buf;
+    if commit.parent_count() > 1 {
+        buf = repo
+            .commit_create_buffer(
+                &commit.author(),
+                &commit.committer(),
+                commit.message().unwrap(),
+                &commit.tree().unwrap(),
+                &[&commit.parent(0)?, &commit.parent(1)?],
+            )
+            .context("failed to commit")?;
+    } else {
+        buf = repo
+            .commit_create_buffer(
+                &commit.author(),
+                &commit.committer(),
+                commit.message().unwrap(),
+                &commit.tree().unwrap(),
+                &[&commit.parent(0)?],
+            )
+            .context("failed to commit")?;
+    }
+    let commit_content = std::str::from_utf8(&buf).unwrap();
+
+    let signature = key.sign_bytes(commit_content.as_bytes());
+
+    let oid = repo.commit_signed(commit_content, &signature)?;
+
+    // update the virtual branch head
+    let writer = branch::Writer::new(gb_repository);
+    writer
+        .write(&Branch {
+            head: oid,
+            ..branch.clone()
+        })
+        .context("failed to write branch")?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+        .context("failed to update gitbutler integration")?;
+
     Ok(())
 }
 

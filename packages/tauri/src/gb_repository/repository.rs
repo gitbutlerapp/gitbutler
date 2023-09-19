@@ -546,6 +546,13 @@ impl Repository {
         if no_commiter_mark.is_ok() && no_commiter_mark? == "1" {
             committer = author.clone();
         }
+
+        // if we're signing commits, don't set a different committer or it won't verify
+        let sign_commit_mark = config.get_string("gitbutler.signCommits");
+        if sign_commit_mark.is_ok() && sign_commit_mark? == "true" {
+            committer = author.clone();
+        }
+
         Ok((author, committer))
     }
 

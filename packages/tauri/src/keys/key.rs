@@ -1,5 +1,7 @@
 use std::{fmt, path, str::FromStr};
 
+use ssh_key::{HashAlg, LineEnding, SshSig};
+
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use ssh_key;
@@ -22,6 +24,12 @@ impl PrivateKey {
 
     pub fn public_key(&self) -> PublicKey {
         PublicKey::from(self)
+    }
+
+    pub fn sign_bytes(&self, bytes: &[u8]) -> String {
+        let sig = SshSig::sign(&self.0, "git", HashAlg::Sha512, bytes).unwrap();
+        let signature = sig.to_pem(LineEnding::default()).unwrap();
+        signature
     }
 }
 
