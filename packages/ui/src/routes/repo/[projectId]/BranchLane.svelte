@@ -158,7 +158,7 @@
 	$: linesTouched = computedAddedRemoved(...branch.files);
 	$: if (
 		branch.name.toLowerCase().includes('virtual branch') &&
-		linesTouched.added + linesTouched.removed > 0
+		linesTouched.added + linesTouched.removed > 4
 	) {
 		generateBranchName();
 	}
