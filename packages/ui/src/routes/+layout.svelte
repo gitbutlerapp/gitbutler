@@ -171,15 +171,15 @@
 								>
 									1
 								</div>
-								<Link on:click={() => installUpdate()}>
+								<button on:click={() => installUpdate()}>
 									version {$update.version} available
-								</Link>
+								</button>
 							{:else if updateStatus.status === 'PENDING'}
-								<Link>downloading update...</Link>
+								<span>downloading update...</span>
 							{:else if updateStatus.status === 'DOWNLOADED'}
-								<Link>installing update...</Link>
+								<span>installing update...</span>
 							{:else if updateStatus.status === 'DONE'}
-								<Link on:click={() => relaunch()}>restart to update</Link>
+								<button on:click={() => relaunch()}>restart to update</button>
 							{/if}
 						</div>
 					{/if}
