@@ -328,52 +328,6 @@ impl<'repository> Repository<'repository> {
         Ok(oids.len().try_into()?)
     }
 
-    pub fn git_stage_files<P: AsRef<std::path::Path>>(&self, paths: Vec<P>) -> Result<()> {
-        let mut index = self.git_repository.index()?;
-        for path in paths {
-            let path = path.as_ref();
-            // to "stage" a file means to:
-            // - remove it from the index if file is deleted
-            // - overwrite it in the index otherwise
-            if !std::path::Path::new(&self.project.path).join(path).exists() {
-                index.remove_path(path).with_context(|| {
-                    format!("failed to remove path {} from index", path.display())
-                })?;
-            } else {
-                index
-                    .add_path(path)
-                    .with_context(|| format!("failed to add path {} to index", path.display()))?;
-            }
-        }
-        index.write().with_context(|| "failed to write index")?;
-        Ok(())
-    }
-
-    pub fn git_unstage_files<P: AsRef<std::path::Path>>(&self, paths: Vec<P>) -> Result<()> {
-        let head_tree = self.git_repository.head()?.peel_to_tree()?;
-        let mut head_index = git::Index::new()?;
-        head_index.read_tree(&head_tree)?;
-        let mut index = self.git_repository.index()?;
-        for path in paths {
-            let path = path.as_ref();
-            // to "unstage" a file means to:
-            // - put head version of the file in the index if it exists
-            // - remove it from the index otherwise
-            let head_index_entry = head_index.get_path(path, 0);
-            if let Some(entry) = head_index_entry {
-                index
-                    .add(&entry)
-                    .with_context(|| format!("failed to add path {} to index", path.display()))?;
-            } else {
-                index.remove_path(path).with_context(|| {
-                    format!("failed to remove path {} from index", path.display())
-                })?;
-            }
-        }
-        index.write().with_context(|| "failed to write index")?;
-        Ok(())
-    }
-
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
     fn get_remote(&'repository self, name: &str) -> Result<git::Remote<'repository>> {

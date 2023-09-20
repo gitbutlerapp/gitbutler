@@ -391,45 +391,6 @@ async fn git_head(handle: tauri::AppHandle, project_id: &str) -> Result<String, 
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
-async fn git_stage(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    paths: Vec<&str>,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.git_stage_files(project_id, paths)
-        .with_context(|| format!("failed to stage file for project {}", project_id))?;
-    Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-async fn git_unstage(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    paths: Vec<&str>,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.git_unstage_files(project_id, paths)
-        .with_context(|| format!("failed to unstage file for project {}", project_id))?;
-    Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
-async fn git_commit(
-    handle: tauri::AppHandle,
-    project_id: &str,
-    message: &str,
-) -> Result<(), Error> {
-    let app = handle.state::<app::App>();
-    app.git_commit(project_id, message)
-        .with_context(|| format!("failed to commit for project {}", project_id))?;
-    Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(skip(handle))]
 async fn delete_all_data(handle: tauri::AppHandle) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     app.delete_all_data().context("failed to delete all data")?;
@@ -660,9 +621,6 @@ async fn main() {
             git_remote_branches,
             git_remote_branches_data,
             git_head,
-            git_commit,
-            git_stage,
-            git_unstage,
             git_wd_diff,
             delete_all_data,
             get_logs_archive_path,

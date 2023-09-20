@@ -5,7 +5,6 @@ type Events = {
 	openCommandPalette: () => void;
 	closeCommandPalette: () => void;
 	openNewProjectModal: () => void;
-	openQuickCommitModal: () => void;
 	openSendIssueModal: () => void;
 	openBookmarkModal: () => void;
 	createBookmark: (params: { projectId: string }) => void;

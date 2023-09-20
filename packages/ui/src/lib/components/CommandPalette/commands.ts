@@ -2,7 +2,6 @@ import type { Project } from '$lib/api/ipc/projects';
 import { matchFiles } from '$lib/api/git';
 import * as events from '$lib/events';
 import {
-	IconGitCommit,
 	IconFile,
 	IconFeedback,
 	IconSettings,
@@ -107,12 +106,6 @@ const commandsGroup = ({ project, input }: { project?: Project; input: string })
 		...(project
 			? [
 					{
-						title: 'Quick commits...',
-						hotkey: 'C',
-						action: () => events.emit('openQuickCommitModal'),
-						icon: IconGitCommit
-					},
-					{
 						title: 'Replay',
 						hotkey: 'Meta+R',
 						action: {
@@ -138,14 +131,6 @@ const navigateGroup = ({ project, input }: { project?: Project; input: string })
 	commands: [
 		...(project
 			? [
-					{
-						title: 'Commits',
-						hotkey: 'Meta+Shift+C',
-						action: {
-							href: `/projects/${project.id}/commit/`
-						},
-						icon: IconGitCommit
-					},
 					{
 						title: 'Project settings',
 						hotkey: 'Meta+Shift+,',
