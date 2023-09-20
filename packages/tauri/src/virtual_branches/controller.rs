@@ -269,6 +269,20 @@ impl Controller {
         Ok(target)
     }
 
+    pub async fn merge_virtual_branch_upstream(
+        &self,
+        project_id: &str,
+        branch: &str,
+    ) -> Result<(), Error> {
+        self.with_lock(project_id, || {
+            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+                super::merge_virtual_branch_upstream(gb_repository, project_repository, branch)
+                    .map_err(Error::Other)
+            })
+        })
+        .await
+    }
+
     pub async fn update_base_branch(&self, project_id: &str) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
