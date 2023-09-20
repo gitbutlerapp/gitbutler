@@ -182,7 +182,6 @@ impl Controller {
                 )
                 .map_err(Error::Other)?;
 
-
                 let signing_key = if project_repository
                     .config()
                     .sign_commits()
@@ -198,8 +197,13 @@ impl Controller {
                 };
 
                 // also apply the branch
-                super::apply_branch(gb_repository, project_repository, &branch.id, signing_key.as_ref())
-                    .map_err(Error::Other)?;
+                super::apply_branch(
+                    gb_repository,
+                    project_repository,
+                    &branch.id,
+                    signing_key.as_ref(),
+                )
+                .map_err(Error::Other)?;
                 Ok(branch.id)
             })
         })
@@ -338,8 +342,13 @@ impl Controller {
                 } else {
                     None
                 };
-                super::apply_branch(gb_repository, project_repository, branch_id, signing_key.as_ref())
-                    .map_err(Error::Other)
+                super::apply_branch(
+                    gb_repository,
+                    project_repository,
+                    branch_id,
+                    signing_key.as_ref(),
+                )
+                .map_err(Error::Other)
             })
         })
         .await

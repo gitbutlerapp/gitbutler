@@ -13,9 +13,9 @@ pub fn signatures<'a>(
     };
 
     let comitter = if config.user_real_comitter()? {
-        git::Signature::now("GitButler", "gitbutler@gitbutler.com")?
-    } else {
         author.clone()
+    } else {
+        git::Signature::now("GitButler", "gitbutler@gitbutler.com")?
     };
 
     Ok((author, comitter))

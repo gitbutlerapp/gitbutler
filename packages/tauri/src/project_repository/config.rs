@@ -27,7 +27,7 @@ impl Config<'_> {
         let no_comitter = self
             .git_repository
             .config()?
-            .get_string("gitbutler.noCommitter")
+            .get_string("gitbutler.utmostDiscretion")
             .unwrap_or(Some("0".to_string()))
             .unwrap_or("0".to_string());
         Ok(no_comitter == "1")
