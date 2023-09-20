@@ -1,8 +1,10 @@
-use std::path;
+use std::{path, str};
+
+use crate::keys;
 
 use super::{
-    AnnotatedCommit, Branch, BranchName, Commit, Index, Oid, Reference, Remote, Result, Tree,
-    TreeBuilder,
+    AnnotatedCommit, Branch, BranchName, Commit, Config, Index, Oid, Reference, Remote, Result,
+    Signature, Tree, TreeBuilder,
 };
 
 // wrapper around git2::Repository to get control over how it's used.
@@ -192,8 +194,8 @@ impl Repository {
     pub fn commit(
         &self,
         update_ref: Option<&str>,
-        author: &git2::Signature<'_>,
-        committer: &git2::Signature<'_>,
+        author: &Signature<'_>,
+        committer: &Signature<'_>,
         message: &str,
         tree: &Tree<'_>,
         parents: &[&Commit<'_>],
@@ -205,8 +207,8 @@ impl Repository {
         self.0
             .commit(
                 update_ref,
-                author,
-                committer,
+                author.into(),
+                committer.into(),
                 message,
                 tree.into(),
                 &parents,
@@ -215,33 +217,35 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn commit_create_buffer(
+    pub fn commit_signed(
         &self,
-        author: &git2::Signature<'_>,
-        committer: &git2::Signature<'_>,
+        author: &Signature<'_>,
         message: &str,
         tree: &Tree<'_>,
         parents: &[&Commit<'_>],
-    ) -> Result<git2::Buf> {
+        key: &keys::PrivateKey,
+    ) -> Result<Oid> {
         let parents: Vec<&git2::Commit> = parents
             .iter()
             .map(|c| c.to_owned().into())
             .collect::<Vec<_>>();
-        let buf = self
-            .0
-            .commit_create_buffer(author, committer, message, tree.into(), &parents)?;
-        Ok(buf)
-    }
-
-    pub fn commit_signed(&self, commit_content: &str, signature: &str) -> Result<Oid> {
+        let commit_buffer = self.0.commit_create_buffer(
+            author.into(),
+            author.into(),
+            message,
+            tree.into(),
+            &parents,
+        )?;
+        let commit_buffer = str::from_utf8(&commit_buffer).unwrap();
+        let signature = key.sign(commit_buffer.as_bytes())?;
         self.0
-            .commit_signed(commit_content, signature, None)
+            .commit_signed(commit_buffer, &signature, None)
             .map(Into::into)
             .map_err(Into::into)
     }
 
-    pub fn config(&self) -> Result<git2::Config> {
-        self.0.config().map_err(Into::into)
+    pub fn config(&self) -> Result<Config> {
+        self.0.config().map(Into::into).map_err(Into::into)
     }
 
     pub fn treebuilder<'repo>(&'repo self, tree: Option<&'repo Tree>) -> TreeBuilder<'repo> {

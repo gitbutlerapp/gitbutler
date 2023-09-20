@@ -17,6 +17,12 @@ pub enum Key {
 #[derive(Debug)]
 pub struct PrivateKey(ssh_key::PrivateKey);
 
+#[derive(Debug, thiserror::Error)]
+pub enum SignError {
+    #[error(transparent)]
+    Ssh(#[from] ssh_key::Error),
+}
+
 impl PrivateKey {
     pub fn generate() -> Self {
         Self::default()
@@ -26,10 +32,9 @@ impl PrivateKey {
         PublicKey::from(self)
     }
 
-    pub fn sign_bytes(&self, bytes: &[u8]) -> String {
-        let sig = SshSig::sign(&self.0, "git", HashAlg::Sha512, bytes).unwrap();
-        let signature = sig.to_pem(LineEnding::default()).unwrap();
-        signature
+    pub fn sign(&self, bytes: &[u8]) -> Result<String, SignError> {
+        let sig = SshSig::sign(&self.0, "git", HashAlg::Sha512, bytes)?;
+        sig.to_pem(LineEnding::default()).map_err(Into::into)
     }
 }
 

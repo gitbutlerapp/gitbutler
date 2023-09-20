@@ -137,7 +137,7 @@ pub fn update_gitbutler_integration(
     message.push_str("For more information about what we're doing here, check out our docs:\n");
     message.push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
 
-    let committer = git2::Signature::now(
+    let committer = git::Signature::now(
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
     )?;
