@@ -4,8 +4,7 @@
 	import { IconGitBranch } from '$lib/icons';
 	import { derived } from '@square/svelte-store';
 	import FileSummaries from './FileSummaries.svelte';
-	import { Button, Statuses, Tooltip } from '$lib/components';
-	import { goto } from '$app/navigation';
+	import { Statuses, Tooltip } from '$lib/components';
 	import Chat from './Chat.svelte';
 
 	export let data: PageData;
@@ -44,17 +43,6 @@
 						</span>
 					</div>
 				</Tooltip>
-				{#await statuses.load()}
-					<Button disabled color="purple">Commit changes</Button>
-				{:then}
-					<Button
-						disabled={Object.keys($statuses).length === 0}
-						color="purple"
-						on:click={() => goto(`/projects/${$project?.id}/commit`)}
-					>
-						Commit changes
-					</Button>
-				{/await}
 			</div>
 			{#await statuses.load() then}
 				<Statuses statuses={$statuses} />
