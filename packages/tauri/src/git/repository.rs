@@ -231,6 +231,8 @@ impl Repository {
             .collect::<Vec<_>>();
         let commit_buffer = self.0.commit_create_buffer(
             author.into(),
+            // author and committer must be the same
+            // for signed commits
             author.into(),
             message,
             tree.into(),
