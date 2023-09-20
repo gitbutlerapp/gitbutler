@@ -330,28 +330,24 @@ impl<'repository> Repository<'repository> {
 
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_remote(&'repository self, name: &str) -> Result<git::Remote<'repository>> {
+    fn get_remote(&'repository self, name: &str) -> Result<git::Remote<'repository>, Error> {
         let remote = self
             .git_repository
             .find_remote(name)
-            .context("failed to find remote")?;
+            .context("failed to find remote")
+            .map_err(Error::Other)?;
 
-        if let Some(url) = remote.url() {
-            if matches!(url_type(url), URLType::Ssh) {
-                return Ok(remote);
+        if let Ok(Some(url)) = remote.url() {
+            match url.as_ssh() {
+                Ok(ssh_url) => Ok(self
+                    .git_repository
+                    .remote_anonymous(ssh_url)
+                    .context("failed to get anonymous")
+                    .map_err(Error::Other)?),
+                Err(_) => Err(Error::NonSSHUrl(url.to_string())),
             }
-
-            let url = to_ssh_url(url);
-            if !matches!(url_type(&url), URLType::Ssh) {
-                return Err(Error::NonSSHUrl(url.to_string()).into());
-            }
-
-            Ok(self
-                .git_repository
-                .remote_anonymous(&url)
-                .context("failed to get anonymous")?)
         } else {
-            Err(Error::NoUrl.into())
+            Err(Error::NoUrl)
         }
     }
 
@@ -361,10 +357,7 @@ impl<'repository> Repository<'repository> {
         branch: &git::RemoteBranchName,
         key: &keys::Key,
     ) -> Result<(), Error> {
-        let mut remote = self
-            .get_remote(branch.remote())
-            .context("failed to get remote")
-            .map_err(Error::Other)?;
+        let mut remote = self.get_remote(branch.remote())?;
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
@@ -395,10 +388,7 @@ impl<'repository> Repository<'repository> {
     }
 
     pub fn fetch(&self, remote_name: &str, key: &keys::Key) -> Result<(), Error> {
-        let mut remote = self
-            .get_remote(remote_name)
-            .context("failed to get remote")
-            .map_err(Error::Other)?;
+        let mut remote = self.get_remote(remote_name)?;
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
@@ -537,43 +527,6 @@ impl From<git2::Status> for FileStatusType {
             FileStatusType::Other
         }
     }
-}
-
-enum URLType {
-    Ssh,
-    Https,
-    Unknown,
-}
-
-fn url_type(url: &str) -> URLType {
-    if url.starts_with("git@") {
-        URLType::Ssh
-    } else if url.starts_with("https://") {
-        URLType::Https
-    } else {
-        URLType::Unknown
-    }
-}
-
-fn to_ssh_url(url: &str) -> String {
-    if !url.starts_with("https://") {
-        return url.to_string();
-    }
-    let mut url = url.to_string();
-    url.replace_range(..8, "git@");
-    url.replace("https://", ":").replace(".com/", ".com:")
-}
-
-#[test]
-fn test_to_ssh_url() {
-    assert_eq!(
-        to_ssh_url("https://github.com/gitbutlerapp/gitbutler-client.git"),
-        "git@github.com:gitbutlerapp/gitbutler-client.git"
-    );
-    assert_eq!(
-        to_ssh_url("git@github.com:gitbutlerapp/gitbutler-client.git"),
-        "git@github.com:gitbutlerapp/gitbutler-client.git"
-    );
 }
 
 #[derive(Debug, thiserror::Error)]

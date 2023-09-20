@@ -290,9 +290,9 @@ impl Repository {
         self.0.statuses(options).map_err(Into::into)
     }
 
-    pub fn remote_anonymous(&self, url: &str) -> Result<Remote> {
+    pub fn remote_anonymous(&self, url: super::Url) -> Result<Remote> {
         self.0
-            .remote_anonymous(url)
+            .remote_anonymous(&url.to_string())
             .map(Into::into)
             .map_err(Into::into)
     }

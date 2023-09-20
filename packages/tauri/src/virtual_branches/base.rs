@@ -51,7 +51,7 @@ pub fn set_base_branch(
 
     let remote_name = repo.branch_remote_name(branch.refname().unwrap())?;
     let remote = repo.find_remote(&remote_name)?;
-    let remote_url = remote.url().unwrap();
+    let remote_url = remote.url()?.unwrap();
 
     // get a list of currently active virtual branches
 
