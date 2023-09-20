@@ -1428,6 +1428,111 @@ fn test_update_base_branch_no_commits_no_conflict() -> Result<()> {
 }
 
 #[test]
+fn test_merge_vbranch_upstream() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo_path,
+        user_store,
+        project_store,
+        ..
+    } = new_test_deps()?;
+
+    let gb_repo =
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    // create a commit and set the target
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\n",
+    )?;
+    test_utils::commit_all(&repository);
+    let target_oid = repository.head().unwrap().target().unwrap();
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\nupstream\n",
+    )?;
+    // add a commit to the target branch it's pointing to so there is something "upstream"
+    test_utils::commit_all(&repository);
+    let last_push = repository.head().unwrap().target().unwrap();
+
+    // coworker adds some work
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
+    )?;
+
+    test_utils::commit_all(&repository);
+    let coworker_work = repository.head().unwrap().target().unwrap();
+
+    //update repo ref refs/remotes/origin/master to up_target oid
+    repository.reference(
+        "refs/remotes/origin/master",
+        coworker_work,
+        true,
+        "update target",
+    )?;
+
+    // revert to our file
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\nupstream\n",
+    )?;
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+    target::Writer::new(&gb_repo).write_default(&target::Target {
+        branch: "refs/remotes/origin/master".parse().unwrap(),
+        remote_url: "origin".to_string(),
+        sha: target_oid,
+    })?;
+
+    // add some uncommitted work
+    let file_path2 = std::path::Path::new("test2.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "file2\n",
+    )?;
+
+    let remote_branch: git::RemoteBranchName = "refs/remotes/origin/master".parse().unwrap();
+    let branch_writer = branch::Writer::new(&gb_repo);
+    let mut branch = create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch");
+    branch.upstream = Some(remote_branch.clone());
+    branch.head = last_push;
+    branch_writer
+        .write(&branch)
+        .context("failed to write target branch after push")?;
+
+    // create the branch
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch1 = &branches[0];
+    assert_eq!(branch1.files.len(), 1);
+    assert_eq!(branch1.commits.len(), 1);
+    assert_eq!(branch1.upstream_commits.len(), 1);
+
+    merge_virtual_branch_upstream(&gb_repo, &project_repository, &branch1.id)?;
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    let branch1 = &branches[0];
+
+    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
+    assert_eq!(
+        "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
+        String::from_utf8(contents)?
+    );
+    let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path2))?;
+    assert_eq!("file2\n", String::from_utf8(contents)?);
+    assert_eq!(branch1.files.len(), 0);
+    assert_eq!(branch1.commits.len(), 3);
+    assert_eq!(branch1.upstream_commits.len(), 0);
+
+    Ok(())
+}
+
+#[test]
 fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     let TestDeps {
         repository,

@@ -858,10 +858,21 @@ pub fn merge_virtual_branch_upstream(
         return Ok(());
     }
 
-    // look up the target to figure out a merge base
-    let target = get_default_target(&current_session_reader)
-        .context("failed to get target")?
-        .context("no target found")?;
+    // if any other branches are applied, unapply them
+    let applied_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .filter(|b| b.id != branch_id)
+        .collect::<Vec<_>>();
+
+    // unapply all other branches
+    for other_branch in applied_branches {
+        unapply_branch(gb_repository, project_repository, &other_branch.id)
+            .context("failed to unapply branch")?;
+    }
 
     // get merge base from remote branch commit and target commit
     let merge_base = repo
@@ -877,14 +888,29 @@ pub fn merge_virtual_branch_upstream(
         .merge_trees(&merge_tree, &wd_tree, &remote_tree)
         .context("failed to merge trees")?;
 
-    // three scenarios:
-    // - clean merge, clean wd, upstream is a fast forward, just fast forward it
-    // - clean merge, upstream is not a fast forward, merge it
-    // - upstream is not a fast forward, and cannot be merged cleanly
-    //   - unapply all other branches, create the merge conflicts in the wd
-
     if merge_index.has_conflicts() {
-        bail!("cannot merge upstream, conflicts found");
+        // checkout the conflicts
+        let mut checkout_options = git2::build::CheckoutBuilder::new();
+        checkout_options
+            .allow_conflicts(true)
+            .conflict_style_merge(true)
+            .force();
+        repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+
+        // mark conflicts
+        let conflicts = merge_index.conflicts()?;
+        let mut merge_conflicts = Vec::new();
+        for path in conflicts.flatten() {
+            if let Some(ours) = path.our {
+                let path = std::str::from_utf8(&ours.path)?.to_string();
+                merge_conflicts.push(path);
+            }
+        }
+        conflicts::mark(
+            project_repository,
+            &merge_conflicts,
+            Some(upstream_commit.id()),
+        )?;
     } else {
         // get the merge tree oid from writing the index out
         let merge_tree_oid = merge_index
@@ -912,14 +938,13 @@ pub fn merge_virtual_branch_upstream(
         repo.checkout_tree(&merge_tree, Some(&mut checkout_options))?;
 
         // write the branch data
-        // TODO: update ownership?
         let branch_writer = branch::Writer::new(gb_repository);
         branch.head = new_branch_head;
         branch.tree = merge_tree_oid;
         branch_writer.write(&branch)?;
-
-        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
     }
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     Ok(())
 }
