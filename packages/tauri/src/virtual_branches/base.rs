@@ -223,7 +223,8 @@ pub fn update_base_branch(
         };
         let branch_tree = repo.find_tree(tree_oid)?;
 
-        let (author, committer) = gb_repository.git_signatures()?;
+        let user = gb_repository.user()?;
+        let (author, committer) = project_repository.git_signatures(user.as_ref())?;
 
         // check for conflicts with this tree
         let mut merge_index = repo
@@ -356,7 +357,8 @@ pub fn update_base_branch(
                                         break;
                                     }
                                     // try to commit this stage
-                                    let commit_result = rebase.commit(None, &committer, None);
+                                    let commit_result =
+                                        rebase.commit(None, &committer.clone().into(), None);
                                     match commit_result {
                                         Ok(commit_id) => {
                                             last_rebase_head = commit_id.into();
@@ -568,7 +570,8 @@ pub fn create_virtual_branch_from_branch(
         if merge_index.has_conflicts() {
             bail!("merge conflict");
         } else {
-            let (author, committer) = gb_repository.git_signatures()?;
+            let user = gb_repository.user()?;
+            let (author, committer) = project_repository.git_signatures(user.as_ref())?;
             let new_head_tree_oid = merge_index
                 .write_tree_to(repo)
                 .context("failed to write merge tree")?;

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::git;
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct User {
     pub id: u64,
@@ -22,5 +24,13 @@ impl From<User> for sentry::User {
             email: Some(val.email),
             ..Default::default()
         }
+    }
+}
+
+impl TryFrom<User> for git::Signature<'_> {
+    type Error = git::Error;
+
+    fn try_from(value: User) -> Result<Self, Self::Error> {
+        git::Signature::now(&value.name, &value.email)
     }
 }

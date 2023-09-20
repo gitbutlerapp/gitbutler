@@ -20,7 +20,7 @@ pub fn test_repository() -> git::Repository {
     let repository = git::Repository::init(path).expect("failed to init repository");
     let mut index = repository.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
-    let signature = git2::Signature::now("test", "test@email.com").unwrap();
+    let signature = git::Signature::now("test", "test@email.com").unwrap();
     repository
         .commit(
             Some("HEAD"),
@@ -41,7 +41,7 @@ pub fn commit_all(repository: &git::Repository) -> git::Oid {
         .expect("failed to add all");
     index.write().expect("failed to write index");
     let oid = index.write_tree().expect("failed to write tree");
-    let signature = git2::Signature::now("test", "test@email.com").unwrap();
+    let signature = git::Signature::now("test", "test@email.com").unwrap();
     let commit_oid = repository
         .commit(
             Some("HEAD"),

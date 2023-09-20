@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{git, keys, project_repository::activity, projects, reader};
+use crate::{git, keys, project_repository::activity, projects, reader, users};
 
 pub struct Repository<'repository> {
     pub git_repository: git::Repository,
@@ -26,6 +26,17 @@ impl<'project> TryFrom<&'project projects::Project> for Repository<'project> {
 impl<'repository> Repository<'repository> {
     pub fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
+    }
+
+    pub fn config(&self) -> super::Config {
+        super::Config::from(&self.git_repository)
+    }
+
+    pub fn git_signatures<'a>(
+        &self,
+        user: Option<&users::User>,
+    ) -> Result<(git::Signature<'a>, git::Signature<'a>)> {
+        super::signatures::signatures(self, user).context("failed to get signatures")
     }
 
     pub fn open(project: &'repository projects::Project) -> Result<Self> {
@@ -503,14 +514,16 @@ impl<'repository> Repository<'repository> {
             .with_context(|| "failed to get config")?;
         let name = config
             .get_string("user.name")
-            .with_context(|| "failed to get user.name")?;
+            .context("failed to get user.name")?
+            .context("name is not set")?;
         let email = config
             .get_string("user.email")
-            .with_context(|| "failed to get user.email")?;
+            .context("failed to get user.email")?
+            .context("email is not set")?;
 
         // Get the default signature for the repository
         let signature =
-            git2::Signature::now(&name, &email).with_context(|| "failed to get signature")?;
+            git::Signature::now(&name, &email).with_context(|| "failed to get signature")?;
 
         // Create the commit with current index
         let tree_id = self.git_repository.index()?.write_tree()?;
