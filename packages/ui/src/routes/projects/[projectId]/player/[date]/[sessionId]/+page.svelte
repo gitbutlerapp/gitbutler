@@ -42,7 +42,9 @@
 			deltas: derived(getDeltasStore({ projectId: projectId, sessionId: session.id }), (deltas) =>
 				Object.entries(deltas)
 					.filter(([path]) => (filter ? path === filter : true))
-					.flatMap(([path, deltas]) => deltas.map((delta) => [path, delta] as [string, Delta]))
+					.flatMap(([path, deltas]) =>
+						(deltas || []).map((delta) => [path, delta] as [string, Delta])
+					)
 					.sort((a, b) => a[1].timestampMs - b[1].timestampMs)
 			),
 			files: derived(getFilesStore({ projectId, sessionId: session.id }), (files) =>

@@ -13,8 +13,8 @@
 	export let isCurrent: boolean;
 	export let session: Session;
 	export let currentFilepath: string;
-	export let deltas: Record<string, Delta[]>;
-	export let files: Record<string, string>;
+	export let deltas: Partial<Record<string, Delta[]>>;
+	export let files: Partial<Record<string, string>>;
 
 	const applyDeltas = (text: string, deltas: Delta[]) => {
 		const operations = deltas.flatMap((delta) => delta.operations);
@@ -37,8 +37,10 @@
 	$: stats = Object.entries(deltas)
 		.map(([path, deltas]) => {
 			const doc = files[path] ?? '';
-			const left = deltas.length > 0 ? applyDeltas(doc, deltas.slice(0, deltas.length - 1)) : doc;
-			const right = deltas.length > 0 ? applyDeltas(left, deltas.slice(deltas.length - 1)) : left;
+			const left =
+				deltas && deltas.length > 0 ? applyDeltas(doc, deltas.slice(0, deltas.length - 1)) : doc;
+			const right =
+				deltas && deltas.length > 0 ? applyDeltas(left, deltas.slice(deltas.length - 1)) : left;
 			const diff = line(left.split('\n'), right.split('\n'));
 			const linesAdded = diff
 				.filter((d) => d[0] === 1)
@@ -56,7 +58,7 @@
 		if (bookmarks.isLoading) return [];
 		if (Loaded.isError(bookmarks)) return [];
 		const timestamps = Object.values(deltas ?? {}).flatMap((deltas) =>
-			deltas.map((d) => d.timestampMs)
+			(deltas || []).map((d) => d.timestampMs)
 		);
 		const start = Math.min(...timestamps);
 		const end = Math.max(...timestamps);

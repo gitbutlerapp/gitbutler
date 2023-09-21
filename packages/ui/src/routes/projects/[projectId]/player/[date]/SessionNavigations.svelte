@@ -12,7 +12,7 @@
 	import { format } from 'date-fns';
 
 	export let sessions: (Session & {
-		deltas: Readable<Record<string, Delta[]>>;
+		deltas: Readable<Partial<Record<string, Delta[]>>>;
 	})[];
 	export let currentSession: Session;
 

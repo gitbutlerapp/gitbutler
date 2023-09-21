@@ -2,10 +2,13 @@ import { writable, type Loadable, derived, Loaded } from 'svelte-loadable-store'
 import * as bookmarks from '$lib/api/ipc/bookmarks';
 import { get as getValue, type Readable } from '@square/svelte-store';
 
-const stores: Record<string, Readable<Loadable<bookmarks.Bookmark[]>>> = {};
+const stores: Partial<Record<string, Readable<Loadable<bookmarks.Bookmark[]>>>> = {};
 
-export function getBookmarksStore(params: { projectId: string }) {
-	if (params.projectId in stores) return stores[params.projectId];
+export function getBookmarksStore(params: {
+	projectId: string;
+}): Readable<Loadable<bookmarks.Bookmark[]>> {
+	const cached = stores[params.projectId];
+	if (cached) return cached;
 
 	const store = writable(bookmarks.list(params), (set) => {
 		const unsubscribe = bookmarks.subscribe(params, (bookmark) => {

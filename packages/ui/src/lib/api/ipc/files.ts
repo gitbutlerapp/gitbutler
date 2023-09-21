@@ -1,7 +1,7 @@
 import { invoke, listen } from '$lib/ipc';
 
 export async function list(params: { projectId: string; sessionId: string; paths?: string[] }) {
-	return invoke<Record<string, string>>('list_session_files', params);
+	return invoke<Partial<Record<string, string>>>('list_session_files', params);
 }
 
 export function subscribe(

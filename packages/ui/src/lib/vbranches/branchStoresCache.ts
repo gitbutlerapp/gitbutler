@@ -99,12 +99,12 @@ export async function withFileContent(
 		.map((branch) => branch.files)
 		.flat()
 		.map((file) => file.path);
-	const sessionFiles = await invoke<Record<string, string>>('list_session_files', {
+	const sessionFiles = await invoke<Partial<Record<string, string>>>('list_session_files', {
 		projectId: projectId,
 		sessionId: sessionId,
 		paths: filePaths
 	});
-	const sessionDeltas = await invoke<Record<string, Delta[]>>('list_deltas', {
+	const sessionDeltas = await invoke<Partial<Record<string, Delta[]>>>('list_deltas', {
 		projectId: projectId,
 		sessionId: sessionId,
 		paths: filePaths
@@ -112,7 +112,7 @@ export async function withFileContent(
 	const branchesWithContnent = branches.map((branch) => {
 		branch.files.map((file) => {
 			const contentAtSessionStart = sessionFiles[file.path] || '';
-			const ds = sessionDeltas[file.path];
+			const ds = sessionDeltas[file.path] || [];
 			file.content = applyDeltas(contentAtSessionStart, ds);
 		});
 		return branch;

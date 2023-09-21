@@ -5,8 +5,8 @@
 	import SessionCard from './SessionCard.svelte';
 
 	export let sessions: (Session & {
-		deltas: Readable<Record<string, Delta[]>>;
-		files: Readable<Record<string, string>>;
+		deltas: Readable<Partial<Record<string, Delta[]>>>;
+		files: Readable<Partial<Record<string, string>>>;
 	})[];
 	export let currentSession: Session | undefined;
 	export let currentFilepath: string;

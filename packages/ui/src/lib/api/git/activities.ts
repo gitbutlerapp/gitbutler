@@ -18,7 +18,7 @@ export function subscribe(
 	return listen(`project://${params.projectId}/git/activity`, () => callback(params));
 }
 
-const stores: Record<string, WritableLoadable<Activity[]>> = {};
+const stores: Partial<Record<string, WritableLoadable<Activity[]>>> = {};
 
 export function getActivitiesStore(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];

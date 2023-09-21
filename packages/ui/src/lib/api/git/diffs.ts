@@ -3,13 +3,15 @@ import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 import * as activities from './activities';
 import * as sessions from '../ipc/sessions';
 
-const list = (params: { projectId: string; contextLines?: number }) =>
-	invoke<Record<string, string>>('git_wd_diff', {
+type Diffs = Partial<Record<string, string>>;
+
+const list = (params: { projectId: string; contextLines?: number }): Promise<Diffs> =>
+	invoke('git_wd_diff', {
 		projectId: params.projectId,
 		contextLines: params.contextLines ?? 10000
 	});
 
-const stores: Record<string, WritableLoadable<Record<string, string>>> = {};
+const stores: Partial<Record<string, WritableLoadable<Diffs>>> = {};
 
 export function getDiffsStore(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
