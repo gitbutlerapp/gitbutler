@@ -39,6 +39,8 @@ export class Branch {
 	description!: string;
 	order!: number;
 	upstream?: string;
+	@Type(() => Commit)
+	upstreamCommits!: Commit[];
 	conflicted!: boolean;
 	baseCurrent!: boolean;
 	ownership!: string;

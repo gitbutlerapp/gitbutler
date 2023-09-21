@@ -65,6 +65,20 @@ pub async fn create_virtual_branch_from_branch(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
+pub async fn merge_virtual_branch_upstream(
+    handle: AppHandle,
+    project_id: &str,
+    branch: &str,
+) -> Result<(), Error> {
+    handle
+        .state::<Controller>()
+        .merge_virtual_branch_upstream(project_id, branch)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
 pub async fn get_base_branch_data(
     handle: AppHandle,
     project_id: &str,

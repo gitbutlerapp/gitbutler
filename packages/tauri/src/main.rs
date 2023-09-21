@@ -634,6 +634,7 @@ async fn main() {
             virtual_branches::commands::get_base_branch_data,
             virtual_branches::commands::set_base_branch,
             virtual_branches::commands::update_base_branch,
+            virtual_branches::commands::merge_virtual_branch_upstream,
             virtual_branches::commands::update_virtual_branch,
             virtual_branches::commands::delete_virtual_branch,
             virtual_branches::commands::apply_branch,

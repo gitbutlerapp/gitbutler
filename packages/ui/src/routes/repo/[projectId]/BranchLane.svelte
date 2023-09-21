@@ -59,6 +59,7 @@
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 	export let maximized = false;
+	export let branchCount = 1;
 
 	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -84,6 +85,11 @@
 			isPushing = true;
 			branchController.pushBranch(branch.id).finally(() => (isPushing = false));
 		}
+	}
+
+	function merge() {
+		console.log(`merge ${branch.id}`);
+		branchController.mergeUpstream(branch.id);
 	}
 
 	$: {
@@ -133,6 +139,12 @@
 
 	$: if (commitDialogShown && branch.files.length === 0) {
 		commitDialogShown = false;
+	}
+
+	let upstreamCommitsShown = false;
+
+	$: if (upstreamCommitsShown && branch.upstreamCommits.length === 0) {
+		upstreamCommitsShown = false;
 	}
 
 	function generateBranchName() {
@@ -191,6 +203,9 @@
 			}
 		});
 	});
+
+	console.log(branch);
+	console.log(remoteCommits);
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
@@ -329,6 +344,53 @@
 						user={$user}
 					/>
 				{/if}
+
+				{#if branch.upstreamCommits.length > 0 && !branch.conflicted}
+					<div class="bg-zinc-300 p-2 dark:bg-zinc-800">
+						<div class="flex flex-row justify-between">
+							<div class="p-1 text-purple-700">
+								{branch.upstreamCommits.length}
+								upstream {branch.upstreamCommits.length > 1 ? 'commits' : 'commit'}
+							</div>
+							<Button
+								class="w-20"
+								height="small"
+								kind="outlined"
+								color="purple"
+								on:click={() => (upstreamCommitsShown = !upstreamCommitsShown)}
+							>
+								<span class="purple">
+									{#if !upstreamCommitsShown}
+										View
+									{:else}
+										Cancel
+									{/if}
+								</span>
+							</Button>
+						</div>
+					</div>
+					{#if upstreamCommitsShown}
+						<div
+							class="border-light-400 bg-light-300 dark:border-dark-400 dark:bg-dark-800 flex w-full flex-col border-t p-2"
+							id="upstreamCommits"
+						>
+							<div class="bg-light-100">
+								{#each branch.upstreamCommits as commit}
+									<CommitCard {commit} {projectId} />
+								{/each}
+							</div>
+							<div class="flex justify-end p-2">
+								{#if branchCount > 1}
+									<div class="px-2 text-sm">
+										You have {branchCount} active branches. To merge upstream work, we will unapply all
+										other branches.
+									</div>
+								{/if}
+								<Button class="w-20" height="small" color="purple" on:click={merge}>Merge</Button>
+							</div>
+						</div>
+					{/if}
+				{/if}
 			</div>
 		</div>
 		{#if branch.files.length !== 0}
@@ -357,7 +419,7 @@
 		<div class="relative flex flex-grow overflow-y-hidden">
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div
-				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
+				class="lane-dz-marker outline-light-600 dark:outline-dark-300 absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 dark:bg-blue-900/60"
 			>
 				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
@@ -433,17 +495,17 @@
 									transition:slide={{ duration: 150 }}
 								>
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
+										class="dark:form-dark-600 from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b"
 										style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
 									/>
 
 									<div class="relative flex flex-col gap-2">
 										<div
-											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
+											class="dark:form-dark-600 from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r"
 										/>
 										<div class="ml-10 mr-2 flex items-center py-2">
 											<div
-												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
+												class="text-dark-300 dark:text-light-300 ml-2 flex-grow font-mono text-sm font-bold"
 											>
 												local
 											</div>
@@ -479,13 +541,13 @@
 							{#if remoteCommits.length > 0}
 								<div class="relative flex-grow">
 									<div
-										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+										class="dark:form-dark-600 from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b"
 										style="height: calc(100% - 1rem);"
 									/>
 
 									<div class="relative flex flex-grow flex-col gap-2">
 										<div
-											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+											class="dark:form-dark-600 from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r"
 										/>
 
 										<div
@@ -512,7 +574,7 @@
 											>
 												<div class="ml-[0.4rem] mr-1.5">
 													<div
-														class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+														class="border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400 h-3 w-3 rounded-full border-2"
 														class:bg-light-500={commit.isRemote}
 														class:dark:bg-dark-500={commit.isRemote}
 													/>
