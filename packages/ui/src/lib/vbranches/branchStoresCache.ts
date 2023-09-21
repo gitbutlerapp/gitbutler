@@ -111,7 +111,7 @@ export async function withFileContent(
 	});
 	const branchesWithContnent = branches.map((branch) => {
 		branch.files.map((file) => {
-			const contentAtSessionStart = sessionFiles[file.path];
+			const contentAtSessionStart = sessionFiles[file.path] || '';
 			const ds = sessionDeltas[file.path];
 			file.content = applyDeltas(contentAtSessionStart, ds);
 		});
