@@ -59,7 +59,7 @@
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 	export let maximized = false;
-	export let branchCount: number;
+	export let branchCount = 1;
 
 	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
