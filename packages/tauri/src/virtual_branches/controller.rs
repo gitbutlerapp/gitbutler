@@ -292,8 +292,26 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
-                super::merge_virtual_branch_upstream(gb_repository, project_repository, branch)
-                    .map_err(Error::Other)
+                let signing_key = if project_repository
+                    .config()
+                    .sign_commits()
+                    .context("failed to get sign commits option")?
+                {
+                    Some(
+                        self.keys_storage
+                            .get_or_create()
+                            .context("failed to get private key")?,
+                    )
+                } else {
+                    None
+                };
+                super::merge_virtual_branch_upstream(
+                    gb_repository,
+                    project_repository,
+                    branch,
+                    signing_key.as_ref(),
+                )
+                .map_err(Error::Other)
             })
         })
         .await

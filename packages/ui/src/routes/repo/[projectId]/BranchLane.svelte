@@ -59,6 +59,7 @@
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let branchController: BranchController;
 	export let maximized = false;
+	export let branchCount: number;
 
 	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -344,7 +345,7 @@
 					/>
 				{/if}
 
-				{#if branch.upstreamCommits.length > 0}
+				{#if branch.upstreamCommits.length > 0 && !branch.conflicted}
 					<div class="bg-zinc-300 p-2 dark:bg-zinc-800">
 						<div class="flex flex-row justify-between">
 							<div class="p-1 text-purple-700">
@@ -379,6 +380,12 @@
 								{/each}
 							</div>
 							<div class="flex justify-end p-2">
+								{#if branchCount > 1}
+									<div class="px-2 text-sm">
+										You have {branchCount} active branches. To merge upstream work, we will unapply all
+										other branches.
+									</div>
+								{/if}
 								<Button class="w-20" height="small" color="purple" on:click={merge}>Merge</Button>
 							</div>
 						</div>

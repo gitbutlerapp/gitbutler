@@ -1441,6 +1441,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
         gb_repo_path,
         user_store,
         project_store,
+        keys_controller,
         ..
     } = new_test_deps()?;
 
@@ -1519,7 +1520,12 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     assert_eq!(branch1.upstream_commits.len(), 1);
 
-    merge_virtual_branch_upstream(&gb_repo, &project_repository, &branch1.id)?;
+    merge_virtual_branch_upstream(
+        &gb_repo,
+        &project_repository,
+        &branch1.id,
+        Some(keys_controller.get_or_create()?).as_ref(),
+    )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches[0];
@@ -1534,6 +1540,11 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
     assert_eq!(branch1.files.len(), 0);
     assert_eq!(branch1.commits.len(), 3);
     assert_eq!(branch1.upstream_commits.len(), 0);
+
+    // make sure the last commit was signed
+    let last_id = &branch1.commits[0].id;
+    let last_commit = repository.find_commit(last_id.parse::<git::Oid>()?)?;
+    assert!(last_commit.raw_header().unwrap().contains("SSH SIGNATURE"));
 
     Ok(())
 }
@@ -1624,12 +1635,10 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     assert_eq!(branch1.upstream_commits.len(), 1);
 
-    merge_virtual_branch_upstream(&gb_repo, &project_repository, &branch1.id)?;
+    merge_virtual_branch_upstream(&gb_repo, &project_repository, &branch1.id, None)?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches[0];
-    dbg!(&branch1);
-
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
 
     assert_eq!(
@@ -1657,6 +1666,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         &project_repository,
         &branch1.id,
         "fix merge conflict",
+        None,
         None,
     )?;
 

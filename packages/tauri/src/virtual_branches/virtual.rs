@@ -824,6 +824,7 @@ pub fn merge_virtual_branch_upstream(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &str,
+    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<()> {
     if conflicts::is_conflicting(project_repository, None)? {
         bail!("cannot merge upstream, project is in a conflicted state");
@@ -929,20 +930,31 @@ pub fn merge_virtual_branch_upstream(
             .write_tree_to(repo)
             .context("failed to write tree")?;
 
-        let (author, committer) = gb_repository.git_signatures()?;
+        let user = gb_repository.user()?;
+        let (author, committer) = project_repository.git_signatures(user.as_ref())?;
+        let message = "merged from upstream";
 
         let head_commit = repo.find_commit(branch.head)?;
         let merge_tree = repo.find_tree(merge_tree_oid)?;
 
-        // commit the merge tree oid
-        let new_branch_head = repo.commit(
-            None,
-            &author,
-            &committer,
-            "merged from upstream",
-            &merge_tree,
-            &[&head_commit, &upstream_commit],
-        )?;
+        let new_branch_head = if let Some(key) = signing_key {
+            repo.commit_signed(
+                &author,
+                message,
+                &merge_tree,
+                &[&head_commit, &upstream_commit],
+                key,
+            )
+        } else {
+            repo.commit(
+                None,
+                &author,
+                &committer,
+                message,
+                &merge_tree,
+                &[&head_commit, &upstream_commit],
+            )
+        }?;
 
         // checkout the merge tree
         let mut checkout_options = git2::build::CheckoutBuilder::new();
