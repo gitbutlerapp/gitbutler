@@ -2,7 +2,8 @@
 	import { collapse } from '$lib/paths';
 	import { isStaged, isUnstaged, type Status } from '$lib/api/git/statuses';
 
-	export let statuses: Record<string, Status>;
+	export let statuses: Partial<Record<string, Status>>;
+	$: pairs = Object.entries(statuses) as [string, Status][];
 </script>
 
 <div>
@@ -23,7 +24,7 @@
 		<ul
 			class="rounded border border-yellow-400 bg-yellow-500 p-2 font-mono text-[12px] text-yellow-900"
 		>
-			{#each Object.entries(statuses) as [path, status]}
+			{#each pairs as [path, status]}
 				<li class="flex w-full gap-2">
 					<div class="flex w-[3ch] justify-between font-semibold">
 						<span>

@@ -18,14 +18,17 @@ export function isUnstaged(status: Status): status is { unstaged: FileStatus } {
 	return 'unstaged' in status && status.unstaged !== null;
 }
 
-export function list(params: { projectId: string }) {
-	return invoke<Record<string, Status>>('git_status', params);
+export function list(params: { projectId: string }): Promise<Statuses> {
+	return invoke('git_status', params);
 }
 
-const stores: Record<string, WritableLoadable<Record<string, Status>>> = {};
+type Statuses = Partial<Record<string, Status>>;
 
-export function getStatusStore(params: { projectId: string }) {
-	if (stores[params.projectId]) return stores[params.projectId];
+const stores: Partial<Record<string, WritableLoadable<Statuses>>> = {};
+
+export function getStatusStore(params: { projectId: string }): WritableLoadable<Statuses> {
+	const cached = stores[params.projectId];
+	if (cached) return cached;
 	const store = asyncWritable([], () => list(params));
 	sessions.subscribe(params, () => list(params).then(store.set));
 	activities.subscribe(params, () => list(params).then(store.set));

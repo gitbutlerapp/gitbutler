@@ -2,11 +2,17 @@ import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import * as files from '$lib/api/ipc/files';
 import { get, type Readable } from '@square/svelte-store';
 
-const stores: Record<string, Readable<Loadable<Record<string, string>>>> = {};
+type Files = Partial<Record<string, string>>;
 
-export function getFilesStore(params: { projectId: string; sessionId: string }) {
+const stores: Partial<Record<string, Readable<Loadable<Files>>>> = {};
+
+export function getFilesStore(params: {
+	projectId: string;
+	sessionId: string;
+}): Readable<Loadable<Files>> {
 	const key = `${params.projectId}/${params.sessionId}`;
-	if (key in stores) return stores[key];
+	const cached = stores[key];
+	if (cached) return cached;
 
 	const store = writable(files.list(params), (set) => {
 		const unsubscribe = files.subscribe(params, ({ filePath, contents }) => {
@@ -27,5 +33,5 @@ export function getFilesStore(params: { projectId: string; sessionId: string }) 
 		};
 	});
 	stores[key] = store;
-	return store as Readable<Loadable<Record<string, string>>>;
+	return store as Readable<Loadable<Files>>;
 }

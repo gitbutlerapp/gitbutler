@@ -3,7 +3,7 @@ import * as deltas from '$lib/api/ipc/deltas';
 import { get, type Writable } from '@square/svelte-store';
 import type { Delta } from '$lib/api/ipc/deltas';
 
-export interface DeltasStore extends Writable<Loadable<Record<string, Delta[]>>> {
+export interface DeltasStore extends Writable<Loadable<Partial<Record<string, Delta[]>>>> {
 	subscribeStream(sessionId: string): () => void;
 }
 
@@ -13,7 +13,7 @@ export function getDeltasStore(params: { projectId: string; sessionId: string })
 	return store;
 }
 export function getDeltasStore2(projectId: string): DeltasStore {
-	const store = writable<Record<string, Delta[]>>();
+	const store = writable<Partial<Record<string, Delta[]>>>();
 	const subscribe = (sessionId: string) => {
 		const combinedParams = { sessionId, projectId };
 		deltas.list(combinedParams).then((results) => {
@@ -30,14 +30,11 @@ export function getDeltasStore2(projectId: string): DeltasStore {
 					if (Loaded.isValue(result)) store.set(result);
 				});
 			} else {
-				oldValue;
 				store.set({
 					isLoading: false,
 					value: {
 						...oldValue.value,
-						[filePath]: oldValue.value[filePath]
-							? [...oldValue.value[filePath], ...newDeltas]
-							: newDeltas
+						[filePath]: [...(oldValue.value[filePath] || []), ...newDeltas]
 					}
 				});
 			}

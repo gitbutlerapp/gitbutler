@@ -14,10 +14,11 @@ export function subscribe(
 	);
 }
 
-const stores: Record<string, WritableLoadable<string>> = {};
+const stores: Partial<Record<string, WritableLoadable<string>>> = {};
 
-export function getHeadStore(params: { projectId: string }) {
-	if (stores[params.projectId]) return stores[params.projectId];
+export function getHeadStore(params: { projectId: string }): WritableLoadable<string> {
+	const cached = stores[params.projectId];
+	if (cached) return cached;
 	const store = asyncWritable([], () =>
 		get(params).then((head) => head.replace('refs/heads/', ''))
 	);

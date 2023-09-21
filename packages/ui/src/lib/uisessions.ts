@@ -3,7 +3,7 @@ import type { Session } from './api/ipc/sessions';
 
 export type UISession = {
 	session: Session;
-	deltas: Record<string, Delta[]>;
+	deltas: Partial<Record<string, Delta[]>>;
 	earliestDeltaTimestampMs: number;
 	latestDeltaTimestampMs: number;
 };

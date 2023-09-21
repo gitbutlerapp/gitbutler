@@ -15,8 +15,14 @@ export function isInsert(operation: Operation): operation is OperationInsert {
 
 export type Delta = { timestampMs: number; operations: Operation[] };
 
-export async function list(params: { projectId: string; sessionId: string; paths?: string[] }) {
-	return invoke<Record<string, Delta[]>>('list_deltas', params);
+type Deltas = Partial<Record<string, Delta[]>>;
+
+export async function list(params: {
+	projectId: string;
+	sessionId: string;
+	paths?: string[];
+}): Promise<Deltas> {
+	return invoke('list_deltas', params);
 }
 
 export function subscribe(

@@ -10,7 +10,7 @@
 	export let fullContext: boolean;
 	export let sessions: Session[];
 	export let deltas: Readable<Loadable<[string, Delta][][]>>;
-	export let files: Readable<Loadable<Record<string, string>[]>>;
+	export let files: Readable<Loadable<Partial<Record<string, string>>[]>>;
 	export let value: number;
 	export let frame: Frame | null = null;
 
