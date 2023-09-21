@@ -150,7 +150,7 @@ impl Repository {
 
         let remote = self
             .git_repository
-            .remote_anonymous(remote_url.as_str())
+            .remote_anonymous(remote_url.parse().unwrap())
             .with_context(|| {
                 format!(
                     "failed to create anonymous remote for {}",
@@ -195,12 +195,15 @@ impl Repository {
 
         remote
             .fetch(&["refs/heads/*:refs/remotes/*"], Some(&mut fetch_opts))
-            .with_context(|| format!("failed to pull from remote {}", remote.url().unwrap()))?;
+            .context(format!(
+                "failed to pull from remote {}",
+                remote.url()?.unwrap()
+            ))?;
 
         tracing::info!(
             "{}: fetched from {}",
             self.project_id,
-            remote.url().unwrap()
+            remote.url()?.unwrap()
         );
 
         Ok(true)
@@ -244,14 +247,12 @@ impl Repository {
         // Push to the remote
         remote
             .push(&[&remote_refspec], Some(&mut push_options))
-            .with_context(|| {
-                format!(
-                    "failed to push refs/heads/current to {}",
-                    remote.url().unwrap()
-                )
-            })?;
+            .context(format!(
+                "failed to push refs/heads/current to {}",
+                remote.url()?.unwrap()
+            ))?;
 
-        tracing::info!("{}: pushed to {}", self.project_id, remote.url().unwrap());
+        tracing::info!("{}: pushed to {}", self.project_id, remote.url()?.unwrap());
 
         Ok(())
     }

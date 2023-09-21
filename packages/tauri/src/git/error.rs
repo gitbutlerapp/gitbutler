@@ -10,6 +10,8 @@ pub enum Error {
     SshKeyError(Box<dyn std::error::Error + Send + Sync>),
     #[error("sign error: {0}")]
     SignError(Box<dyn std::error::Error + Send + Sync>),
+    #[error("remote url error: {0}")]
+    RemoteUrlError(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
@@ -30,6 +32,12 @@ impl From<git2::Error> for Error {
 impl From<keys::SignError> for Error {
     fn from(err: keys::SignError) -> Self {
         Error::SshKeyError(err.into())
+    }
+}
+
+impl From<super::url::ParseError> for Error {
+    fn from(err: super::url::ParseError) -> Self {
+        Error::RemoteUrlError(err.into())
     }
 }
 

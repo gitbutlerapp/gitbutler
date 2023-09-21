@@ -16,6 +16,7 @@ tauri-build = { version = "1.4", features = [] }
 anyhow = "1.0.72"
 async-trait = "0.1.73"
 backoff = "0.4.0"
+bstr = "1.6.2"
 byteorder = "1.4.3"
 chrono = "0.4.29"
 console-subscriber = "0.1.10"

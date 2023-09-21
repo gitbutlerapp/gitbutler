@@ -1,4 +1,6 @@
-use super::Result;
+use std::str::FromStr;
+
+use super::{Result, Url};
 
 pub struct Remote<'repo> {
     inner: git2::Remote<'repo>,
@@ -15,8 +17,12 @@ impl<'repo> Remote<'repo> {
         self.inner.name()
     }
 
-    pub fn url(&self) -> Option<&str> {
-        self.inner.url()
+    pub fn url(&self) -> Result<Option<Url>> {
+        self.inner
+            .url()
+            .map(FromStr::from_str)
+            .transpose()
+            .map_err(Into::into)
     }
 
     pub fn push(
