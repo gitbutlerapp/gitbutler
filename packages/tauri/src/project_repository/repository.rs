@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{git, keys, project_repository::activity, projects, reader};
+use crate::{git, keys, project_repository::activity, projects, reader, users};
 
 pub struct Repository<'repository> {
     pub git_repository: git::Repository,
@@ -26,6 +26,17 @@ impl<'project> TryFrom<&'project projects::Project> for Repository<'project> {
 impl<'repository> Repository<'repository> {
     pub fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
+    }
+
+    pub fn config(&self) -> super::Config {
+        super::Config::from(&self.git_repository)
+    }
+
+    pub fn git_signatures<'a>(
+        &self,
+        user: Option<&users::User>,
+    ) -> Result<(git::Signature<'a>, git::Signature<'a>)> {
+        super::signatures::signatures(self, user).context("failed to get signatures")
     }
 
     pub fn open(project: &'repository projects::Project) -> Result<Self> {
@@ -317,76 +328,26 @@ impl<'repository> Repository<'repository> {
         Ok(oids.len().try_into()?)
     }
 
-    pub fn git_stage_files<P: AsRef<std::path::Path>>(&self, paths: Vec<P>) -> Result<()> {
-        let mut index = self.git_repository.index()?;
-        for path in paths {
-            let path = path.as_ref();
-            // to "stage" a file means to:
-            // - remove it from the index if file is deleted
-            // - overwrite it in the index otherwise
-            if !std::path::Path::new(&self.project.path).join(path).exists() {
-                index.remove_path(path).with_context(|| {
-                    format!("failed to remove path {} from index", path.display())
-                })?;
-            } else {
-                index
-                    .add_path(path)
-                    .with_context(|| format!("failed to add path {} to index", path.display()))?;
-            }
-        }
-        index.write().with_context(|| "failed to write index")?;
-        Ok(())
-    }
-
-    pub fn git_unstage_files<P: AsRef<std::path::Path>>(&self, paths: Vec<P>) -> Result<()> {
-        let head_tree = self.git_repository.head()?.peel_to_tree()?;
-        let mut head_index = git::Index::new()?;
-        head_index.read_tree(&head_tree)?;
-        let mut index = self.git_repository.index()?;
-        for path in paths {
-            let path = path.as_ref();
-            // to "unstage" a file means to:
-            // - put head version of the file in the index if it exists
-            // - remove it from the index otherwise
-            let head_index_entry = head_index.get_path(path, 0);
-            if let Some(entry) = head_index_entry {
-                index
-                    .add(&entry)
-                    .with_context(|| format!("failed to add path {} to index", path.display()))?;
-            } else {
-                index.remove_path(path).with_context(|| {
-                    format!("failed to remove path {} from index", path.display())
-                })?;
-            }
-        }
-        index.write().with_context(|| "failed to write index")?;
-        Ok(())
-    }
-
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_remote(&'repository self, name: &str) -> Result<git::Remote<'repository>> {
+    fn get_remote(&'repository self, name: &str) -> Result<git::Remote<'repository>, Error> {
         let remote = self
             .git_repository
             .find_remote(name)
-            .context("failed to find remote")?;
+            .context("failed to find remote")
+            .map_err(Error::Other)?;
 
-        if let Some(url) = remote.url() {
-            if matches!(url_type(url), URLType::Ssh) {
-                return Ok(remote);
+        if let Ok(Some(url)) = remote.url() {
+            match url.as_ssh() {
+                Ok(ssh_url) => Ok(self
+                    .git_repository
+                    .remote_anonymous(ssh_url)
+                    .context("failed to get anonymous")
+                    .map_err(Error::Other)?),
+                Err(_) => Err(Error::NonSSHUrl(url.to_string())),
             }
-
-            let url = to_ssh_url(url);
-            if !matches!(url_type(&url), URLType::Ssh) {
-                return Err(Error::NonSSHUrl(url.to_string()).into());
-            }
-
-            Ok(self
-                .git_repository
-                .remote_anonymous(&url)
-                .context("failed to get anonymous")?)
         } else {
-            Err(Error::NoUrl.into())
+            Err(Error::NoUrl)
         }
     }
 
@@ -396,10 +357,7 @@ impl<'repository> Repository<'repository> {
         branch: &git::RemoteBranchName,
         key: &keys::Key,
     ) -> Result<(), Error> {
-        let mut remote = self
-            .get_remote(branch.remote())
-            .context("failed to get remote")
-            .map_err(Error::Other)?;
+        let mut remote = self.get_remote(branch.remote())?;
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
@@ -430,10 +388,7 @@ impl<'repository> Repository<'repository> {
     }
 
     pub fn fetch(&self, remote_name: &str, key: &keys::Key) -> Result<(), Error> {
-        let mut remote = self
-            .get_remote(remote_name)
-            .context("failed to get remote")
-            .map_err(Error::Other)?;
+        let mut remote = self.get_remote(remote_name)?;
 
         for credential_callback in git::credentials::for_key(key) {
             let mut remote_callbacks = git2::RemoteCallbacks::new();
@@ -503,14 +458,16 @@ impl<'repository> Repository<'repository> {
             .with_context(|| "failed to get config")?;
         let name = config
             .get_string("user.name")
-            .with_context(|| "failed to get user.name")?;
+            .context("failed to get user.name")?
+            .context("name is not set")?;
         let email = config
             .get_string("user.email")
-            .with_context(|| "failed to get user.email")?;
+            .context("failed to get user.email")?
+            .context("email is not set")?;
 
         // Get the default signature for the repository
         let signature =
-            git2::Signature::now(&name, &email).with_context(|| "failed to get signature")?;
+            git::Signature::now(&name, &email).with_context(|| "failed to get signature")?;
 
         // Create the commit with current index
         let tree_id = self.git_repository.index()?.write_tree()?;
@@ -570,43 +527,6 @@ impl From<git2::Status> for FileStatusType {
             FileStatusType::Other
         }
     }
-}
-
-enum URLType {
-    Ssh,
-    Https,
-    Unknown,
-}
-
-fn url_type(url: &str) -> URLType {
-    if url.starts_with("git@") {
-        URLType::Ssh
-    } else if url.starts_with("https://") {
-        URLType::Https
-    } else {
-        URLType::Unknown
-    }
-}
-
-fn to_ssh_url(url: &str) -> String {
-    if !url.starts_with("https://") {
-        return url.to_string();
-    }
-    let mut url = url.to_string();
-    url.replace_range(..8, "git@");
-    url.replace("https://", ":").replace(".com/", ".com:")
-}
-
-#[test]
-fn test_to_ssh_url() {
-    assert_eq!(
-        to_ssh_url("https://github.com/gitbutlerapp/gitbutler-client.git"),
-        "git@github.com:gitbutlerapp/gitbutler-client.git"
-    );
-    assert_eq!(
-        to_ssh_url("git@github.com:gitbutlerapp/gitbutler-client.git"),
-        "git@github.com:gitbutlerapp/gitbutler-client.git"
-    );
 }
 
 #[derive(Debug, thiserror::Error)]

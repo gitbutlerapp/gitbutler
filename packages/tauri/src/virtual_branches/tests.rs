@@ -124,6 +124,7 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
+        None,
     )?;
 
     // status (no files)
@@ -190,13 +191,13 @@ fn test_signed_commit() -> Result<()> {
     config.set_str("gitbutler.signCommits", "true")?;
 
     // commit
-    commit_signed(
-        &keys_controller.get_or_create()?,
+    commit(
         &gb_repo,
         &project_repository,
         &branch1_id,
         "test commit",
         None,
+        Some(keys_controller.get_or_create()?).as_ref(),
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
@@ -282,6 +283,7 @@ fn test_track_binary_files() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
+        None,
     )?;
 
     // status (no files)
@@ -308,6 +310,7 @@ fn test_track_binary_files() -> Result<()> {
         &project_repository,
         &branch1_id,
         "test commit",
+        None,
         None,
     )?;
 
@@ -1129,6 +1132,7 @@ fn test_update_base_branch_base() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
+        None,
     )?;
 
     std::fs::write(
@@ -1238,6 +1242,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
+        None,
     )?;
 
     // add something to the branch
@@ -1313,6 +1318,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
         &project_repository,
         &branch1_id,
         "test commit",
+        None,
         None,
     )?;
 
@@ -1411,7 +1417,7 @@ fn test_update_base_branch_no_commits_no_conflict() -> Result<()> {
     update_base_branch(&gb_repo, &project_repository)?;
 
     // this should bring back the branch, with the same file changes, but merged into the upstream work
-    apply_branch(&gb_repo, &project_repository, &branch1_id)?;
+    apply_branch(&gb_repo, &project_repository, &branch1_id, None)?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches[0];
@@ -1805,6 +1811,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &branch7_id,
         "integrated commit",
         None,
+        None,
     )?;
 
     unapply_branch(&gb_repo, &project_repository, &branch7_id)?;
@@ -1853,6 +1860,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &project_repository,
         &branch2_id,
         "commit conflicts",
+        None,
         None,
     )?;
     std::fs::write(
@@ -1911,6 +1919,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &project_repository,
         &branch5_id,
         "broken, but will fix",
+        None,
         None,
     )?;
     std::fs::write(
@@ -2079,7 +2088,7 @@ fn test_apply_unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(!branch.active);
 
-    apply_branch(&gb_repo, &project_repository, &branch1_id)?;
+    apply_branch(&gb_repo, &project_repository, &branch1_id, None)?;
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
@@ -2166,13 +2175,13 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         .join(file_path3)
         .exists());
 
-    apply_branch(&gb_repo, &project_repository, &branch2_id)?;
+    apply_branch(&gb_repo, &project_repository, &branch2_id, None)?;
     // check that file2 is gone
     assert!(!std::path::Path::new(&project.path)
         .join(file_path2)
         .exists());
 
-    apply_branch(&gb_repo, &project_repository, &branch3_id)?;
+    apply_branch(&gb_repo, &project_repository, &branch3_id, None)?;
     // check that file3 is back
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path3))?;
     assert_eq!("file3\n", String::from_utf8(contents)?);
@@ -2386,6 +2395,7 @@ fn test_detect_remote_commits() -> Result<()> {
         &branch1_id,
         "upstream commit 1",
         None,
+        None,
     )?;
 
     // create another commit to push upstream
@@ -2399,6 +2409,7 @@ fn test_detect_remote_commits() -> Result<()> {
         &project_repository,
         &branch1_id,
         "upstream commit 2",
+        None,
         None,
     )?;
 
@@ -2424,6 +2435,7 @@ fn test_detect_remote_commits() -> Result<()> {
         &project_repository,
         &branch1_id,
         "local commit",
+        None,
         None,
     )?;
 
@@ -2515,7 +2527,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
 
     // this should bring in the branch change
-    apply_branch(&gb_repo, &project_repository, &branch2_id)?;
+    apply_branch(&gb_repo, &project_repository, &branch2_id, None)?;
 
     // file should be the branch version now
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
@@ -2647,7 +2659,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path2))?;
     assert_eq!(contents, "file2\n");
 
-    apply_branch(&gb_repo, &project_repository, &branch1_id)?;
+    apply_branch(&gb_repo, &project_repository, &branch1_id, None)?;
 
     // the file2 has been updated
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
@@ -2781,12 +2793,14 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         &branch1_id,
         "integrated commit",
         None,
+        None,
     )?;
     commit(
         &gb_repo,
         &project_repository,
         &branch2_id,
         "non-integrated commit",
+        None,
         None,
     )?;
 
@@ -2852,6 +2866,7 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         &branch1_id,
         "first commit to test.txt",
         None,
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -2885,6 +2900,7 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         &project_repository,
         &branch1_id,
         "second commit to test.txt",
+        None,
         None,
     )?;
 
@@ -2948,6 +2964,7 @@ fn test_commit_same_file_twice() -> Result<()> {
         &branch1_id,
         "first commit to test.txt",
         None,
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -2981,6 +2998,7 @@ fn test_commit_same_file_twice() -> Result<()> {
         &project_repository,
         &branch1_id,
         "second commit to test.txt",
+        None,
         None,
     )?;
 
@@ -3044,6 +3062,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         &branch1_id,
         "first commit to test.txt",
         Some(&"test.txt:1-6".parse::<Ownership>().unwrap()),
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -3061,6 +3080,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         &branch1_id,
         "second commit to test.txt",
         Some(&"test.txt:16-22".parse::<Ownership>().unwrap()),
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -3122,6 +3142,7 @@ fn test_commit_partial_by_file() -> Result<()> {
         &project_repository,
         &branch1_id,
         "branch1 commit",
+        None,
         None,
     )?;
 
@@ -3195,6 +3216,7 @@ fn test_commit_add_and_delete_files() -> Result<()> {
         &project_repository,
         &branch1_id,
         "branch1 commit",
+        None,
         None,
     )?;
 
@@ -3270,6 +3292,7 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
         &project_repository,
         &branch1_id,
         "branch1 commit",
+        None,
         None,
     )?;
 
@@ -3476,7 +3499,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
 
     // apply branch which is now out of date
     // - it should merge the new target into it and update the wd and nothing is in files
-    apply_branch(&gb_repo, &project_repository, branch_id)?;
+    apply_branch(&gb_repo, &project_repository, branch_id, None)?;
 
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
     assert_eq!(contents, "line1\nline2\nline3\nline4\nupstream\n");
@@ -3617,7 +3640,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     assert!(!branch1.base_current);
 
     // apply branch which is now out of date and conflicting
-    apply_branch(&gb_repo, &project_repository, branch_id)?;
+    apply_branch(&gb_repo, &project_repository, branch_id, None)?;
 
     assert!(project_repository::conflicts::is_conflicting(
         &project_repository,
@@ -3638,6 +3661,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         &project_repository,
         branch_id,
         "resolve commit",
+        None,
         None,
     );
     assert!(result.is_err());
@@ -3663,6 +3687,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         &project_repository,
         branch_id,
         "resolve commit",
+        None,
         None,
     )?;
 
@@ -3739,7 +3764,7 @@ fn test_apply_conflicting_vbranch() -> Result<()> {
     )?;
 
     // apply branch which is now out of date and conflicting, which fails
-    let result = apply_branch(&gb_repo, &project_repository, branch_id);
+    let result = apply_branch(&gb_repo, &project_repository, branch_id, None);
     assert!(result.is_err());
 
     Ok(())

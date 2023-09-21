@@ -123,6 +123,10 @@ impl Repository {
         &self.project_id
     }
 
+    pub fn user(&self) -> Result<Option<users::User>> {
+        self.users_store.get()
+    }
+
     fn remote(&self) -> Result<Option<(git::Remote, String)>> {
         let user = self.users_store.get().context("failed to get user")?;
         let project = self
@@ -146,7 +150,7 @@ impl Repository {
 
         let remote = self
             .git_repository
-            .remote_anonymous(remote_url.as_str())
+            .remote_anonymous(remote_url.parse().unwrap())
             .with_context(|| {
                 format!(
                     "failed to create anonymous remote for {}",
@@ -191,12 +195,15 @@ impl Repository {
 
         remote
             .fetch(&["refs/heads/*:refs/remotes/*"], Some(&mut fetch_opts))
-            .with_context(|| format!("failed to pull from remote {}", remote.url().unwrap()))?;
+            .context(format!(
+                "failed to pull from remote {}",
+                remote.url()?.unwrap()
+            ))?;
 
         tracing::info!(
             "{}: fetched from {}",
             self.project_id,
-            remote.url().unwrap()
+            remote.url()?.unwrap()
         );
 
         Ok(true)
@@ -240,14 +247,12 @@ impl Repository {
         // Push to the remote
         remote
             .push(&[&remote_refspec], Some(&mut push_options))
-            .with_context(|| {
-                format!(
-                    "failed to push refs/heads/current to {}",
-                    remote.url().unwrap()
-                )
-            })?;
+            .context(format!(
+                "failed to push refs/heads/current to {}",
+                remote.url()?.unwrap()
+            ))?;
 
-        tracing::info!("{}: pushed to {}", self.project_id, remote.url().unwrap());
+        tracing::info!("{}: pushed to {}", self.project_id, remote.url()?.unwrap());
 
         Ok(())
     }
@@ -519,41 +524,6 @@ impl Repository {
             Err(reader::Error::NotFound) => Ok(None),
             Err(err) => Err(err.into()),
         }
-    }
-
-    pub fn git_signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
-        let user = self.users_store.get().context("failed to get user")?;
-        let mut committer = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?;
-
-        let mut author = match user {
-            None => committer.clone(),
-            Some(user) => git2::Signature::now(user.name.as_str(), user.email.as_str())?,
-        };
-
-        let config = self
-            .git_repository
-            .config()
-            .with_context(|| "failed to get config")?;
-
-        // if name and email are not errors, set author
-        let name = config.get_string("user.name");
-        let email = config.get_string("user.email");
-        if name.is_ok() && email.is_ok() {
-            author = git2::Signature::now(&name?, &email?)?;
-        }
-
-        let no_commiter_mark = config.get_string("gitbutler.utmostDiscretion");
-        if no_commiter_mark.is_ok() && no_commiter_mark? == "1" {
-            committer = author.clone();
-        }
-
-        // if we're signing commits, don't set a different committer or it won't verify
-        let sign_commit_mark = config.get_string("gitbutler.signCommits");
-        if sign_commit_mark.is_ok() && sign_commit_mark? == "true" {
-            committer = author.clone();
-        }
-
-        Ok((author, committer))
     }
 
     // migrate old data to the new format.
@@ -1075,10 +1045,10 @@ fn write_gb_commit(
     gb_repository: &Repository,
     user: &Option<users::User>,
 ) -> Result<git::Oid> {
-    let comitter = git2::Signature::now("gitbutler", "gitbutler@localhost")?;
+    let comitter = git::Signature::now("gitbutler", "gitbutler@localhost")?;
     let author = match user {
         None => comitter.clone(),
-        Some(user) => git2::Signature::now(user.name.as_str(), user.email.as_str())?,
+        Some(user) => git::Signature::now(user.name.as_str(), user.email.as_str())?,
     };
 
     match gb_repository

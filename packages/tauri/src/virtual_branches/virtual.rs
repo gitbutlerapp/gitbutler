@@ -117,8 +117,8 @@ pub struct Author {
     pub gravatar_url: url::Url,
 }
 
-impl From<git2::Signature<'_>> for Author {
-    fn from(value: git2::Signature) -> Self {
+impl From<git::Signature<'_>> for Author {
+    fn from(value: git::Signature) -> Self {
         let name = value.name().unwrap_or_default().to_string();
         let email = value.email().unwrap_or_default().to_string();
 
@@ -151,6 +151,7 @@ pub fn apply_branch(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &str,
+    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<()> {
     if conflicts::is_resolving(project_repository) {
         bail!("cannot apply a branch, project is in a conflicted state");
@@ -233,20 +234,31 @@ pub fn apply_branch(
                 .context("failed to find head commit")?;
 
             // commit our new upstream merge
-            let (author, committer) = gb_repository.git_signatures()?;
+            let user = gb_repository.user()?;
+            let (author, committer) = project_repository.git_signatures(user.as_ref())?;
             let message = "merge upstream";
             // write the merge commit
             let branch_tree_oid = merge_index.write_tree_to(repo)?;
             branch_tree = repo.find_tree(branch_tree_oid)?;
 
-            let new_branch_head = repo.commit(
-                None,
-                &author,
-                &committer,
-                message,
-                &branch_tree,
-                &[&head_commit, &target_commit],
-            )?;
+            let new_branch_head = if let Some(key) = signing_key {
+                repo.commit_signed(
+                    &author,
+                    message,
+                    &branch_tree,
+                    &[&head_commit, &target_commit],
+                    key,
+                )
+            } else {
+                repo.commit(
+                    None,
+                    &author,
+                    &committer,
+                    message,
+                    &branch_tree,
+                    &[&head_commit, &target_commit],
+                )
+            }?;
 
             // ok, update the virtual branch
             apply_branch.head = new_branch_head;
@@ -1651,83 +1663,13 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
     Ok(())
 }
 
-pub fn commit_signed(
-    key: &keys::PrivateKey,
-    gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository,
-    branch_id: &str,
-    message: &str,
-    ownership: Option<&branch::Ownership>,
-) -> Result<()> {
-    commit(
-        gb_repository,
-        project_repository,
-        branch_id,
-        message,
-        ownership,
-    )?;
-
-    // pull the commit and see if we can sign and replace it
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-    let branch_reader = branch::Reader::new(&current_session_reader);
-    let branch = branch_reader.read(branch_id).unwrap();
-
-    // lookup the commit oid
-    let repo = &project_repository.git_repository;
-    let commit = repo.find_commit(branch.head)?;
-
-    // this is ridiculous, but there will ever probably only be 2 parents and
-    // I can't otherwise figure out how to get a slice of Commit refs (:headbang:)
-    let buf: git2::Buf;
-    if commit.parent_count() > 1 {
-        buf = repo
-            .commit_create_buffer(
-                &commit.author(),
-                &commit.committer(),
-                commit.message().unwrap(),
-                &commit.tree().unwrap(),
-                &[&commit.parent(0)?, &commit.parent(1)?],
-            )
-            .context("failed to commit")?;
-    } else {
-        buf = repo
-            .commit_create_buffer(
-                &commit.author(),
-                &commit.committer(),
-                commit.message().unwrap(),
-                &commit.tree().unwrap(),
-                &[&commit.parent(0)?],
-            )
-            .context("failed to commit")?;
-    }
-    let commit_content = std::str::from_utf8(&buf).unwrap();
-
-    let signature = key.sign_bytes(commit_content.as_bytes());
-
-    let oid = repo.commit_signed(commit_content, &signature)?;
-
-    // update the virtual branch head
-    let writer = branch::Writer::new(gb_repository);
-    writer
-        .write(&Branch {
-            head: oid,
-            ..branch.clone()
-        })
-        .context("failed to write branch")?;
-
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)
-        .context("failed to update gitbutler integration")?;
-
-    Ok(())
-}
-
 pub fn commit(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &str,
     message: &str,
     ownership: Option<&branch::Ownership>,
+    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<()> {
     if conflicts::is_conflicting(project_repository, None)? {
         bail!("cannot commit, project is in a conflicted state");
@@ -1782,7 +1724,6 @@ pub fn commit(
             .collect::<Vec<_>>();
         write_tree_onto_commit(project_repository, branch.head, &files)?
     } else {
-        // write_tree(project_repository, &default_target, files)?
         write_tree_onto_commit(project_repository, branch.head, &files)?
     };
 
@@ -1795,9 +1736,8 @@ pub fn commit(
         .context(format!("failed to find tree {:?}", tree_oid))?;
 
     // now write a commit, using a merge parent if it exists
-    let (author, committer) = gb_repository
-        .git_signatures()
-        .context("failed to get git signatures")?;
+    let user = gb_repository.user()?;
+    let (author, committer) = project_repository.git_signatures(user.as_ref())?;
     let extra_merge_parent =
         conflicts::merge_parent(project_repository).context("failed to get merge parent")?;
 
@@ -1806,8 +1746,16 @@ pub fn commit(
             let merge_parent = git_repository
                 .find_commit(merge_parent)
                 .context(format!("failed to find merge parent {:?}", merge_parent))?;
-            let commit_oid = git_repository
-                .commit(
+            let commit_oid = if let Some(key) = signing_key {
+                git_repository.commit_signed(
+                    &author,
+                    message,
+                    &tree,
+                    &[&parent_commit, &merge_parent],
+                    key,
+                )
+            } else {
+                git_repository.commit(
                     None,
                     &author,
                     &committer,
@@ -1815,12 +1763,16 @@ pub fn commit(
                     &tree,
                     &[&parent_commit, &merge_parent],
                 )
-                .context("failed to commit")?;
+            }?;
             conflicts::clear(project_repository).context("failed to clear conflicts")?;
             commit_oid
         }
         None => {
-            git_repository.commit(None, &author, &committer, message, &tree, &[&parent_commit])?
+            if let Some(key) = signing_key {
+                git_repository.commit_signed(&author, message, &tree, &[&parent_commit], key)
+            } else {
+                git_repository.commit(None, &author, &committer, message, &tree, &[&parent_commit])
+            }?
         }
     };
 

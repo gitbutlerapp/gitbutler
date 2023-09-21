@@ -1,4 +1,4 @@
-use super::{Oid, Result, Tree};
+use super::{Oid, Result, Signature, Tree};
 
 pub struct Commit<'repo> {
     commit: git2::Commit<'repo>,
@@ -45,29 +45,20 @@ impl<'repo> Commit<'repo> {
         self.commit.parent(n).map(Into::into).map_err(Into::into)
     }
 
-    pub fn parents(&self) -> Result<Vec<Commit<'repo>>> {
-        // convert self.commit.parents() into a Vec<Commit>
-        let mut parents = Vec::new();
-        for parent in self.commit.parents() {
-            parents.push(parent.into());
-        }
-        Ok(parents)
-    }
-
     pub fn time(&self) -> git2::Time {
         self.commit.time()
     }
 
-    pub fn author(&self) -> git2::Signature<'_> {
-        self.commit.author()
+    pub fn author(&self) -> Signature<'_> {
+        self.commit.author().into()
     }
 
     pub fn message(&self) -> Option<&str> {
         self.commit.message()
     }
 
-    pub fn committer(&self) -> git2::Signature<'_> {
-        self.commit.committer()
+    pub fn committer(&self) -> Signature<'_> {
+        self.commit.committer().into()
     }
 
     pub fn raw_header(&self) -> Option<&str> {

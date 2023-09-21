@@ -1,3 +1,5 @@
+use crate::keys;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("not found: {0}")]
@@ -6,6 +8,10 @@ pub enum Error {
     AuthenticationFailed(Box<dyn std::error::Error + Send + Sync>),
     #[error("ssh key error: {0}")]
     SshKeyError(Box<dyn std::error::Error + Send + Sync>),
+    #[error("sign error: {0}")]
+    SignError(Box<dyn std::error::Error + Send + Sync>),
+    #[error("remote url error: {0}")]
+    RemoteUrlError(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
@@ -20,6 +26,18 @@ impl From<git2::Error> for Error {
             git2::ErrorCode::Auth => Error::AuthenticationFailed(err.into()),
             _ => Error::Other(err.into()),
         }
+    }
+}
+
+impl From<keys::SignError> for Error {
+    fn from(err: keys::SignError) -> Self {
+        Error::SshKeyError(err.into())
+    }
+}
+
+impl From<super::url::ParseError> for Error {
+    fn from(err: super::url::ParseError) -> Self {
+        Error::RemoteUrlError(err.into())
     }
 }
 

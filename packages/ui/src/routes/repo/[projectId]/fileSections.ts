@@ -35,6 +35,9 @@ export class HunkSection {
 		// 	);
 		// }
 		const lastSection = this.subSections[this.subSections.length - 1];
+		if (!lastSection) {
+			return 0;
+		}
 		return Math.max(
 			lastSection.lines[lastSection.lines.length - 1].afterLineNumber || 0,
 			lastSection.lines[lastSection.lines.length - 1].afterLineNumber || 0

@@ -61,6 +61,7 @@ impl super::RunCommand for Commit {
             &commit_branch,
             &message,
             None,
+            None,
         )
         .context("failed to commit")?;
 

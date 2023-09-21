@@ -72,31 +72,28 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
-                let repo = &project_repository.git_repository;
-                let config = repo.config().unwrap();
-                let value = config
-                    .get_string("gitbutler.signCommits")
-                    .unwrap_or("false".to_string());
-                if value == "true" {
-                    super::commit_signed(
-                        &self.keys_storage.get_or_create().unwrap(),
-                        gb_repository,
-                        project_repository,
-                        branch,
-                        message,
-                        ownership,
+                let signing_key = if project_repository
+                    .config()
+                    .sign_commits()
+                    .context("failed to get sign commits option")?
+                {
+                    Some(
+                        self.keys_storage
+                            .get_or_create()
+                            .context("failed to get private key")?,
                     )
-                    .map_err(Error::Other)
                 } else {
-                    super::commit(
-                        gb_repository,
-                        project_repository,
-                        branch,
-                        message,
-                        ownership,
-                    )
-                    .map_err(Error::Other)
-                }
+                    None
+                };
+                super::commit(
+                    gb_repository,
+                    project_repository,
+                    branch,
+                    message,
+                    ownership,
+                    signing_key.as_ref(),
+                )?;
+                Ok(())
             })
         })
         .await
@@ -185,9 +182,28 @@ impl Controller {
                 )
                 .map_err(Error::Other)?;
 
+                let signing_key = if project_repository
+                    .config()
+                    .sign_commits()
+                    .context("failed to get sign commits option")?
+                {
+                    Some(
+                        self.keys_storage
+                            .get_or_create()
+                            .context("failed to get private key")?,
+                    )
+                } else {
+                    None
+                };
+
                 // also apply the branch
-                super::apply_branch(gb_repository, project_repository, &branch.id)
-                    .map_err(Error::Other)?;
+                super::apply_branch(
+                    gb_repository,
+                    project_repository,
+                    &branch.id,
+                    signing_key.as_ref(),
+                )
+                .map_err(Error::Other)?;
                 Ok(branch.id)
             })
         })
@@ -327,8 +343,26 @@ impl Controller {
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
             self.with_verify_branch(project_id, |gb_repository, project_repository| {
-                super::apply_branch(gb_repository, project_repository, branch_id)
-                    .map_err(Error::Other)
+                let signing_key = if project_repository
+                    .config()
+                    .sign_commits()
+                    .context("failed to get sign commits option")?
+                {
+                    Some(
+                        self.keys_storage
+                            .get_or_create()
+                            .context("failed to get private key")?,
+                    )
+                } else {
+                    None
+                };
+                super::apply_branch(
+                    gb_repository,
+                    project_repository,
+                    branch_id,
+                    signing_key.as_ref(),
+                )
+                .map_err(Error::Other)
             })
         })
         .await
