@@ -125,7 +125,11 @@ export class BaseBranch {
 	fetchedAt!: Date;
 
 	get repoBaseUrl(): string {
-		return this.remoteUrl.replace(':', '/').replace('git@', 'https://').replace('.git', '');
+		if (this.remoteUrl.startsWith('http')) {
+			return this.remoteUrl.replace('.git', '');
+		} else {
+			return this.remoteUrl.replace(':', '/').replace('git@', 'https://').replace('.git', '');
+		}
 	}
 
 	commitUrl(commitId: string): string | undefined {
