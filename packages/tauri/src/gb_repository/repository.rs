@@ -27,6 +27,7 @@ pub struct Repository {
     project_store: projects::Storage,
     users_store: users::Storage,
     pub git_repository: git::Repository,
+    lock_file: std::fs::File,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -63,6 +64,10 @@ impl Repository {
         }
 
         let path = root.as_ref().join("projects").join(project_id.clone());
+        let lock_path = root
+            .as_ref()
+            .join("projects")
+            .join(format!("{}.lock", project_id));
         if path.exists() {
             let git_repository = git::Repository::open(path.clone())
                 .with_context(|| format!("{}: failed to open git repository", path.display()))?;
@@ -76,6 +81,7 @@ impl Repository {
                 git_repository,
                 project_store,
                 users_store,
+                lock_file: File::create(lock_path).context("failed to create lock file")?,
             })
         } else {
             let git_repository = git::Repository::init_opts(
@@ -96,6 +102,7 @@ impl Repository {
                 git_repository,
                 project_store,
                 users_store,
+                lock_file: File::create(lock_path).context("failed to create lock file")?,
             };
 
             if gb_repository
@@ -364,7 +371,7 @@ impl Repository {
     }
 
     pub fn lock(&self) -> lock::FileLock {
-        lock::FileLock::lock(self.git_repository.path().join("lock"))
+        lock::FileLock::lock(&self.lock_file)
     }
 
     pub fn get_or_create_current_session(&self) -> Result<sessions::Session> {
