@@ -1,21 +1,35 @@
-#[cfg(not(unix))]
-mod fallback;
+use std::fs::File;
 
-#[cfg(unix)]
-mod unix;
+use rustix::fs::FlockOperation;
+use tracing::instrument;
 
-#[cfg(not(unix))]
-pub type FileLock = fallback::FileLock;
+pub struct FileLock<'a>(&'a File);
 
-#[cfg(unix)]
-pub type FileLock = unix::FileLock;
+impl<'a> FileLock<'a> {
+    #[instrument(level = "debug")]
+    pub fn lock(file: &'a File) -> FileLock {
+        // Create lockfile, or open pre-existing one
+        // If the lock was already held, wait for it to be released
+        rustix::fs::flock(file, FlockOperation::LockExclusive).expect("failed to lock lockfile");
+        Self(file)
+    }
+}
+
+impl Drop for FileLock<'_> {
+    fn drop(&mut self) {
+        // Unblock any processes that tried to acquire the lock while we held it.
+        // They're responsible for creating and locking a new lockfile, since we
+        // just deleted this one.
+        _ = rustix::fs::flock(self.0, FlockOperation::Unlock);
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::max;
     use std::fs::OpenOptions;
     use std::thread;
     use std::time::Duration;
+    use std::{cmp::max, fs};
 
     use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
@@ -26,11 +40,12 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let lock_path = temp_dir.path().join("test.lock");
         assert!(!lock_path.exists());
+        let lock_file = fs::File::create(lock_path.clone()).unwrap();
         {
-            let _lock = FileLock::lock(lock_path.clone());
+            let _lock = FileLock::lock(&lock_file);
             assert!(lock_path.exists());
         }
-        assert!(!lock_path.exists());
+        assert!(lock_path.exists());
     }
 
     #[test]
@@ -48,9 +63,9 @@ mod tests {
         thread::scope(|s| {
             for _ in 0..num_threads {
                 let data_path = data_path.clone();
-                let lock_path = lock_path.clone();
+                let lock_file = fs::File::create(lock_path.clone()).unwrap();
                 s.spawn(move || {
-                    let _lock = FileLock::lock(lock_path);
+                    let _lock = FileLock::lock(&lock_file);
                     let mut data_file = OpenOptions::new()
                         .read(true)
                         .open(data_path.clone())
