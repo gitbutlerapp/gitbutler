@@ -627,13 +627,12 @@ fn build_wd_tree(
         .find_reference("refs/heads/current")
     {
         Result::Ok(reference) => {
-            let index = &mut git2::Index::new()?;
             // build the working directory tree from the current commit
             // and the session files
             let tree = reference.peel_to_tree()?;
             let wd_tree_entry = tree.get_name("wd").unwrap();
             let wd_tree = gb_repository.git_repository.find_tree(wd_tree_entry.id())?;
-            index.read_tree((&wd_tree).into())?;
+            let mut index = git::Index::try_from(wd_tree)?;
 
             let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
             let session_wd_files = session_wd_reader
@@ -664,15 +663,9 @@ fn build_wd_tree(
                 };
 
                 index
-                    .add(&git2::IndexEntry {
-                        ctime: git2::IndexTime::new(
-                            ctime.seconds().try_into()?,
-                            ctime.nanoseconds(),
-                        ),
-                        mtime: git2::IndexTime::new(
-                            mtime.seconds().try_into()?,
-                            mtime.nanoseconds(),
-                        ),
+                    .add(&git::IndexEntry {
+                        ctime,
+                        mtime,
                         dev: metadata.dev().try_into()?,
                         ino: metadata.ino().try_into()?,
                         mode: 33188,
@@ -682,18 +675,15 @@ fn build_wd_tree(
                         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
                         flags_extended: 0, // no extended flags
                         path: file_path.clone().into(),
-                        id: gb_repository
-                            .git_repository
-                            .blob(file_content.as_bytes())?
-                            .into(),
+                        id: gb_repository.git_repository.blob(file_content.as_bytes())?,
                     })
                     .with_context(|| format!("failed to add index entry for {}", file_path))?;
             }
 
             let wd_tree_oid = index
-                .write_tree_to((&gb_repository.git_repository).into())
+                .write_tree_to(&gb_repository.git_repository)
                 .context("failed to write wd tree")?;
-            Ok(wd_tree_oid.into())
+            Ok(wd_tree_oid)
         }
         Err(git::Error::NotFound(_)) => build_wd_tree_from_repo(gb_repository, project_repository)
             .context("failed to build wd index"),
