@@ -14,23 +14,30 @@ impl FromStr for FileOwnership {
     type Err = anyhow::Error;
 
     fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
-        let mut parts = value.split(':');
-        let file_path = parts.next().unwrap();
-        let ranges = match parts.next() {
-            Some(raw_ranges) => raw_ranges
+        let mut file_path_parts = vec![];
+        let mut ranges = vec![];
+        for part in value.split(':').rev() {
+            match part
                 .split(',')
                 .map(|h| h.parse())
-                .collect::<Result<Vec<Hunk>>>(),
-            None => Ok(vec![]),
+                .collect::<Result<Vec<Hunk>>>()
+            {
+                Ok(rr) => ranges.extend(rr),
+                Err(_) => {
+                    file_path_parts.insert(0, part);
+                }
+            }
         }
-        .context(format!("failed to parse ownership ranges: {}", value))?;
 
         if ranges.is_empty() {
             Err(anyhow::anyhow!("ownership ranges cannot be empty"))?
         } else {
             Ok(Self {
-                file_path: file_path.into(),
-                hunks: ranges,
+                file_path: file_path_parts
+                    .join(":")
+                    .parse()
+                    .context(format!("failed to parse file path from {}", value))?,
+                hunks: ranges.to_vec(),
             })
         }
     }
@@ -163,6 +170,16 @@ mod tests {
                 hunks: vec![(1..=2).into(), (4..=5).into()]
             }
         );
+    }
+
+    #[test]
+    fn parse_ownership_tricky_file_name() {
+        assert_eq!("file:name:1-2,4-5".parse::<FileOwnership>().unwrap(), {
+            FileOwnership {
+                file_path: "file:name".into(),
+                hunks: vec![(1..=2).into(), (4..=5).into()],
+            }
+        });
     }
 
     #[test]
