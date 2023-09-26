@@ -289,6 +289,125 @@ pub fn apply_branch(
     Ok(())
 }
 
+pub fn unapply_ownership(
+    gb_repository: &gb_repository::Repository,
+    project_repository: &project_repository::Repository,
+    ownership: &Ownership,
+) -> Result<()> {
+    if conflicts::is_resolving(project_repository) {
+        bail!("cannot unapply, project is in a conflicted state");
+    }
+    let current_session = gb_repository
+        .get_or_create_current_session()
+        .context("failed to get or create currnt session")?;
+    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
+        .context("failed to open current session")?;
+
+    let default_target = match get_default_target(&current_session_reader)
+        .context("failed to get default target")?
+    {
+        Some(target) => target,
+        None => return Ok(()),
+    };
+
+    let applied_branches = Iterator::new(&current_session_reader)
+        .context("failed to create branch iterator")?
+        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    let applied_statuses = get_applied_status(
+        gb_repository,
+        project_repository,
+        &default_target,
+        applied_branches,
+    )
+    .context("failed to get status by branch")?;
+
+    // remove the ownership from the applied branches, and write them out
+    let branch_writer = branch::Writer::new(gb_repository);
+    let applied_statuses = applied_statuses
+        .into_iter()
+        .map(|(branch, branch_files)| {
+            let mut branch = branch.clone();
+            let mut branch_files = branch_files.clone();
+            for file_ownership_to_take in &ownership.files {
+                let taken_file_ownerships = branch.ownership.take(file_ownership_to_take);
+                if taken_file_ownerships.is_empty() {
+                    continue;
+                } else {
+                    branch_writer.write(&branch)?;
+                    branch_files = branch_files
+                        .iter_mut()
+                        .filter_map(|file| {
+                            let hunks = file
+                                .hunks
+                                .clone()
+                                .into_iter()
+                                .filter(|hunk| {
+                                    !taken_file_ownerships.iter().any(|taken| {
+                                        taken.file_path == file.path
+                                            && taken.hunks.iter().any(|taken_hunk| {
+                                                taken_hunk.start == hunk.start
+                                                    && taken_hunk.end == hunk.end
+                                            })
+                                    })
+                                })
+                                .collect::<Vec<_>>();
+
+                            if hunks.is_empty() {
+                                None
+                            } else {
+                                Some(VirtualBranchFile {
+                                    hunks,
+                                    ..file.clone()
+                                })
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                };
+            }
+            Ok((branch, branch_files))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    dbg!(&applied_statuses);
+
+    let repo = &project_repository.git_repository;
+
+    let target_commit = repo
+        .find_commit(default_target.sha)
+        .context("failed to find target commit")?;
+
+    // ok, update the wd with the union of the rest of the branches
+    let base_tree = target_commit.tree()?;
+
+    // construst a new working directory tree, without the removed ownerships
+    let final_tree = applied_statuses.into_iter().fold(
+        target_commit.tree().context("failed to get target tree"),
+        |final_tree, status| {
+            let final_tree = final_tree?;
+            let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
+            let branch_tree = repo.find_tree(tree_oid)?;
+            let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
+            let final_tree_oid = result.write_tree_to(repo)?;
+            repo.find_tree(final_tree_oid)
+                .context("failed to find tree")
+        },
+    )?;
+
+    repo.checkout_tree(&final_tree)
+        .force()
+        .remove_untracked()
+        .checkout()?;
+
+    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+
+    Ok(())
+}
+
 // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
 pub fn unapply_branch(
     gb_repository: &gb_repository::Repository,

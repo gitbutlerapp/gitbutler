@@ -14,8 +14,8 @@ use crate::{
     gb_repository, git, keys, project_repository, projects, reader, sessions, test_utils, users,
 };
 
-use super::branch::{Branch, BranchCreateRequest, Ownership};
 use super::*;
+use branch::{Branch, BranchCreateRequest, Ownership};
 
 pub struct TestDeps {
     repository: git::Repository,
@@ -2022,6 +2022,72 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     // branch7 was integrated and deleted
     let branch7 = branch_reader.read(&branch7_id);
     assert!(branch7.is_err());
+
+    Ok(())
+}
+
+#[test]
+fn test_unapply_ownership() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    // create a commit and set the target
+    let file_path = std::path::Path::new("test.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\n",
+    )?;
+    test_utils::commit_all(&repository);
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\nbranch1\n",
+    )?;
+    let file_path2 = std::path::Path::new("test2.txt");
+    std::fs::write(
+        std::path::Path::new(&project.path).join(file_path2),
+        "line5\nline6\n",
+    )?;
+
+    create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch");
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    assert_eq!(branches.len(), 1);
+    assert_eq!(branches[0].files.len(), 2);
+    assert_eq!(branches[0].ownership.files.len(), 2);
+    assert_eq!(branches[0].files[0].hunks.len(), 1);
+    assert_eq!(branches[0].ownership.files[0].hunks.len(), 1);
+    assert_eq!(branches[0].files[1].hunks.len(), 1);
+    assert_eq!(branches[0].ownership.files[1].hunks.len(), 1);
+    assert!(std::path::Path::new(&project.path)
+        .join(file_path2)
+        .exists());
+
+    unapply_ownership(
+        &gb_repo,
+        &project_repository,
+        &"test2.txt:1-3".parse().unwrap(),
+    )
+    .unwrap();
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    assert_eq!(branches.len(), 1);
+    assert_eq!(branches[0].files.len(), 1);
+    assert_eq!(branches[0].ownership.files.len(), 1);
+    assert_eq!(branches[0].files[0].hunks.len(), 1);
+    assert_eq!(branches[0].ownership.files[0].hunks.len(), 1);
+
+    assert!(!std::path::Path::new(&project.path)
+        .join(file_path2)
+        .exists());
 
     Ok(())
 }
