@@ -2,10 +2,20 @@ use std::path;
 
 use filetime::FileTime;
 
-use super::{Oid, Repository, Result, Tree};
+use super::{Error, Oid, Repository, Result, Tree};
 
 pub struct Index {
     index: git2::Index,
+}
+
+impl TryFrom<Tree<'_>> for Index {
+    type Error = Error;
+
+    fn try_from(value: Tree) -> Result<Self> {
+        let mut empty_index = Self::new()?;
+        empty_index.read_tree(&value)?;
+        Ok(empty_index)
+    }
 }
 
 impl<'a> From<&'a mut Index> for &'a mut git2::Index {
