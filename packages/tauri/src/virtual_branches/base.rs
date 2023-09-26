@@ -439,9 +439,7 @@ pub fn update_base_branch(
     }
 
     // now we can try to merge the upstream branch into our current working directory
-    let mut checkout_options = git2::build::CheckoutBuilder::new();
-    checkout_options.force();
-    repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+    repo.checkout_index(&mut merge_index).force().checkout()?;
 
     // write new target oid
     let target_writer = target::Writer::new(gb_repository);

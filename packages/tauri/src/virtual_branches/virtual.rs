@@ -206,12 +206,11 @@ pub fn apply_branch(
             writer.write(&apply_branch)?;
 
             // checkout the conflicts
-            let mut checkout_options = git2::build::CheckoutBuilder::new();
-            checkout_options
-                .allow_conflicts(true)
-                .conflict_style_merge(true)
-                .force();
-            repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+            repo.checkout_index(&mut merge_index)
+                .allow_conflicts()
+                .conflict_style_merge()
+                .force()
+                .checkout()?;
 
             // mark conflicts
             let conflicts = merge_index.conflicts()?;
@@ -282,9 +281,7 @@ pub fn apply_branch(
         writer.write(&apply_branch)?;
 
         // checkout the merge index
-        let mut checkout_options = git2::build::CheckoutBuilder::new();
-        checkout_options.force();
-        repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+        repo.checkout_index(&mut merge_index).force().checkout()?;
     }
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -903,12 +900,11 @@ pub fn merge_virtual_branch_upstream(
 
     if merge_index.has_conflicts() {
         // checkout the conflicts
-        let mut checkout_options = git2::build::CheckoutBuilder::new();
-        checkout_options
-            .allow_conflicts(true)
-            .conflict_style_merge(true)
-            .force();
-        repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+        repo.checkout_index(&mut merge_index)
+            .allow_conflicts()
+            .conflict_style_merge()
+            .force()
+            .checkout()?;
 
         // mark conflicts
         let conflicts = merge_index.conflicts()?;

@@ -330,14 +330,12 @@ impl Repository {
         self.0.checkout_head(opts).map_err(Into::into)
     }
 
-    pub fn checkout_index(
-        &self,
-        index: Option<&mut Index>,
-        opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
-    ) -> Result<()> {
-        self.0
-            .checkout_index(index.map(Into::into), opts)
-            .map_err(Into::into)
+    pub fn checkout_index<'a>(&'a self, index: &'a mut Index) -> CheckoutIndexBuilder {
+        CheckoutIndexBuilder {
+            index: index.into(),
+            repo: &self.0,
+            checkout_builder: git2::build::CheckoutBuilder::new(),
+        }
     }
 
     pub fn checkout_tree<'a>(&'a self, tree: &'a Tree<'a>) -> CheckoutTreeBuidler {
@@ -406,6 +404,35 @@ impl CheckoutTreeBuidler<'_> {
     pub fn checkout(&mut self) -> Result<()> {
         self.repo
             .checkout_tree(self.tree.as_object(), Some(&mut self.checkout_builder))
+            .map_err(Into::into)
+    }
+}
+
+pub struct CheckoutIndexBuilder<'a> {
+    repo: &'a git2::Repository,
+    index: &'a mut git2::Index,
+    checkout_builder: git2::build::CheckoutBuilder<'a>,
+}
+
+impl CheckoutIndexBuilder<'_> {
+    pub fn force(&mut self) -> &mut Self {
+        self.checkout_builder.force();
+        self
+    }
+
+    pub fn allow_conflicts(&mut self) -> &mut Self {
+        self.checkout_builder.allow_conflicts(true);
+        self
+    }
+
+    pub fn conflict_style_merge(&mut self) -> &mut Self {
+        self.checkout_builder.conflict_style_merge(true);
+        self
+    }
+
+    pub fn checkout(&mut self) -> Result<()> {
+        self.repo
+            .checkout_index(Some(&mut self.index), Some(&mut self.checkout_builder))
             .map_err(Into::into)
     }
 }
