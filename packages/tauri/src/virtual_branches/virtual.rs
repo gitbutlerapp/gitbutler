@@ -206,12 +206,11 @@ pub fn apply_branch(
             writer.write(&apply_branch)?;
 
             // checkout the conflicts
-            let mut checkout_options = git2::build::CheckoutBuilder::new();
-            checkout_options
-                .allow_conflicts(true)
-                .conflict_style_merge(true)
-                .force();
-            repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+            repo.checkout_index(&mut merge_index)
+                .allow_conflicts()
+                .conflict_style_merge()
+                .force()
+                .checkout()?;
 
             // mark conflicts
             let conflicts = merge_index.conflicts()?;
@@ -282,9 +281,7 @@ pub fn apply_branch(
         writer.write(&apply_branch)?;
 
         // checkout the merge index
-        let mut checkout_options = git2::build::CheckoutBuilder::new();
-        checkout_options.force();
-        repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+        repo.checkout_index(&mut merge_index).force().checkout()?;
     }
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -346,12 +343,11 @@ pub fn unapply_branch(
         .find(|(s, _)| s.id == branch_id)
         .context("failed to find status for branch");
 
-    let target_commit = gb_repository
-        .git_repository
+    let repo = &project_repository.git_repository;
+
+    let target_commit = repo
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
-
-    let repo = &project_repository.git_repository;
 
     if let Ok((_, files)) = status {
         let tree = write_tree(project_repository, &default_target, files)?;
@@ -363,29 +359,30 @@ pub fn unapply_branch(
 
     // ok, update the wd with the union of the rest of the branches
     let base_tree = target_commit.tree()?;
-    let mut final_tree = target_commit.tree()?;
 
     // go through the other applied branches and merge them into the final tree
     // then check that out into the working directory
-    for (branch, files) in applied_statuses {
-        if branch.id != branch_id {
-            let tree_oid = write_tree(project_repository, &default_target, &files)?;
-            let branch_tree = repo.find_tree(tree_oid)?;
-            if let Ok(mut result) = repo.merge_trees(&base_tree, &final_tree, &branch_tree) {
+    let final_tree = applied_statuses
+        .into_iter()
+        .filter(|(branch, _)| branch.id != branch_id)
+        .fold(
+            target_commit.tree().context("failed to get target tree"),
+            |final_tree, status| {
+                let final_tree = final_tree?;
+                let tree_oid = write_tree(project_repository, &default_target, &status.1)?;
+                let branch_tree = repo.find_tree(tree_oid)?;
+                let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
                 let final_tree_oid = result.write_tree_to(repo)?;
-                final_tree = repo.find_tree(final_tree_oid)?;
-            }
-        }
-    }
-    // convert the final tree into an object
-    let final_tree_oid = final_tree.id();
-    let final_tree = repo.find_tree(final_tree_oid)?;
+                repo.find_tree(final_tree_oid)
+                    .context("failed to find tree")
+            },
+        )?;
 
     // checkout final_tree into the working directory
-    let mut checkout_options = git2::build::CheckoutBuilder::new();
-    checkout_options.force();
-    checkout_options.remove_untracked(true);
-    repo.checkout_tree(&final_tree, Some(&mut checkout_options))?;
+    repo.checkout_tree(&final_tree)
+        .force()
+        .remove_untracked()
+        .checkout()?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
@@ -903,12 +900,11 @@ pub fn merge_virtual_branch_upstream(
 
     if merge_index.has_conflicts() {
         // checkout the conflicts
-        let mut checkout_options = git2::build::CheckoutBuilder::new();
-        checkout_options
-            .allow_conflicts(true)
-            .conflict_style_merge(true)
-            .force();
-        repo.checkout_index(Some(&mut merge_index), Some(&mut checkout_options))?;
+        repo.checkout_index(&mut merge_index)
+            .allow_conflicts()
+            .conflict_style_merge()
+            .force()
+            .checkout()?;
 
         // mark conflicts
         let conflicts = merge_index.conflicts()?;
@@ -957,9 +953,7 @@ pub fn merge_virtual_branch_upstream(
         }?;
 
         // checkout the merge tree
-        let mut checkout_options = git2::build::CheckoutBuilder::new();
-        checkout_options.force();
-        repo.checkout_tree(&merge_tree, Some(&mut checkout_options))?;
+        repo.checkout_tree(&merge_tree).force().checkout()?;
 
         // write the branch data
         let branch_writer = branch::Writer::new(gb_repository);
