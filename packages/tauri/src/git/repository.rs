@@ -340,15 +340,12 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn checkout_tree(
-        &self,
-        tree: &Tree<'_>,
-        opts: Option<&mut git2::build::CheckoutBuilder<'_>>,
-    ) -> Result<()> {
-        let tree: &git2::Tree = tree.into();
-        self.0
-            .checkout_tree(tree.as_object(), opts)
-            .map_err(Into::into)
+    pub fn checkout_tree<'a>(&'a self, tree: &'a Tree<'a>) -> CheckoutTreeBuidler {
+        CheckoutTreeBuidler {
+            tree: tree.into(),
+            repo: &self.0,
+            checkout_builder: git2::build::CheckoutBuilder::new(),
+        }
     }
 
     pub fn set_head(&self, refname: &str) -> Result<()> {
@@ -385,6 +382,30 @@ impl Repository {
         self.0
             .references()
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
+            .map_err(Into::into)
+    }
+}
+
+pub struct CheckoutTreeBuidler<'a> {
+    repo: &'a git2::Repository,
+    tree: &'a git2::Tree<'a>,
+    checkout_builder: git2::build::CheckoutBuilder<'a>,
+}
+
+impl CheckoutTreeBuidler<'_> {
+    pub fn force(&mut self) -> &mut Self {
+        self.checkout_builder.force();
+        self
+    }
+
+    pub fn remove_untracked(&mut self) -> &mut Self {
+        self.checkout_builder.remove_untracked(true);
+        self
+    }
+
+    pub fn checkout(&mut self) -> Result<()> {
+        self.repo
+            .checkout_tree(self.tree.as_object(), Some(&mut self.checkout_builder))
             .map_err(Into::into)
     }
 }
