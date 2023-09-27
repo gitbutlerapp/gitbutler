@@ -2027,7 +2027,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
 }
 
 #[test]
-fn test_unapply_ownership() -> Result<()> {
+fn test_unapply_ownership_partial() -> Result<()> {
     let TestDeps {
         repository,
         project,
@@ -2050,6 +2050,52 @@ fn test_unapply_ownership() -> Result<()> {
         std::path::Path::new(&project.path).join(file_path),
         "line1\nline2\nline3\nline4\nbranch1\n",
     )?;
+
+    create_virtual_branch(&gb_repo, &BranchCreateRequest::default())
+        .expect("failed to create virtual branch");
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    assert_eq!(branches.len(), 1);
+    assert_eq!(branches[0].files.len(), 1);
+    assert_eq!(branches[0].ownership.files.len(), 1);
+    assert_eq!(branches[0].files[0].hunks.len(), 1);
+    assert_eq!(branches[0].ownership.files[0].hunks.len(), 1);
+    assert_eq!(
+        fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?,
+        "line1\nline2\nline3\nline4\nbranch1\n"
+    );
+
+    unapply_ownership(
+        &gb_repo,
+        &project_repository,
+        &"test.txt:2-6".parse().unwrap(),
+    )
+    .unwrap();
+
+    let branches = list_virtual_branches(&gb_repo, &project_repository)?;
+    assert_eq!(branches.len(), 1);
+    assert_eq!(branches[0].files.len(), 0);
+    assert_eq!(branches[0].ownership.files.len(), 0);
+    assert_eq!(
+        fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?,
+        "line1\nline2\nline3\nline4\n"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_unapply_ownership_full_file() -> Result<()> {
+    let TestDeps {
+        repository,
+        project,
+        gb_repo,
+        ..
+    } = new_test_deps()?;
+    let project_repository = project_repository::Repository::open(&project)?;
+
+    set_test_target(&gb_repo, &project_repository, &repository)?;
+
     let file_path2 = std::path::Path::new("test2.txt");
     std::fs::write(
         std::path::Path::new(&project.path).join(file_path2),
@@ -2061,12 +2107,10 @@ fn test_unapply_ownership() -> Result<()> {
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].files.len(), 2);
-    assert_eq!(branches[0].ownership.files.len(), 2);
+    assert_eq!(branches[0].files.len(), 1);
+    assert_eq!(branches[0].ownership.files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
     assert_eq!(branches[0].ownership.files[0].hunks.len(), 1);
-    assert_eq!(branches[0].files[1].hunks.len(), 1);
-    assert_eq!(branches[0].ownership.files[1].hunks.len(), 1);
     assert!(std::path::Path::new(&project.path)
         .join(file_path2)
         .exists());
@@ -2080,10 +2124,8 @@ fn test_unapply_ownership() -> Result<()> {
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].files.len(), 1);
-    assert_eq!(branches[0].ownership.files.len(), 1);
-    assert_eq!(branches[0].files[0].hunks.len(), 1);
-    assert_eq!(branches[0].ownership.files[0].hunks.len(), 1);
+    assert_eq!(branches[0].files.len(), 0);
+    assert_eq!(branches[0].ownership.files.len(), 0);
 
     assert!(!std::path::Path::new(&project.path)
         .join(file_path2)
