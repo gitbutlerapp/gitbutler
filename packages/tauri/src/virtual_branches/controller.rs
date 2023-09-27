@@ -386,6 +386,20 @@ impl Controller {
         .await
     }
 
+    pub async fn unapply_ownership(
+        &self,
+        project_id: &str,
+        ownership: &Ownership,
+    ) -> Result<(), Error> {
+        self.with_lock(project_id, || {
+            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+                super::unapply_ownership(gb_repository, project_repository, ownership)
+                    .map_err(Error::Other)
+            })
+        })
+        .await
+    }
+
     pub async fn unapply_virtual_branch(
         &self,
         project_id: &str,

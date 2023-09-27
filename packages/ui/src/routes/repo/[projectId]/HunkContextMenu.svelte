@@ -1,15 +1,16 @@
 <script lang="ts">
 	import PopupMenu from '$lib/components/PopupMenu/PopupMenu.svelte';
 	import PopupMenuItem from '$lib/components/PopupMenu/PopupMenuItem.svelte';
+	import type { BranchController } from '$lib/vbranches/branchController';
 	import type { File } from '$lib/vbranches/types';
 	import { open } from '@tauri-apps/api/shell';
 
 	export let file: File;
 	export let projectPath: string;
+	export let branchController: BranchController;
 	let popupMenu: PopupMenu;
 
 	export function openByMouse(e: MouseEvent, item: any) {
-		console.log(popupMenu);
 		popupMenu.openByMouse(e, item);
 	}
 </script>
@@ -19,12 +20,14 @@
 		on:click={() => {
 			if ('expanded' in item.section) {
 				item.section.expanded = false;
-				// sections = sections;
 			}
 		}}
 	>
 		Collapse
 	</PopupMenuItem>
+	{#if item.hunk !== undefined && !item.hunk.locked}
+		<PopupMenuItem on:click={() => branchController.unapplyHunk(item.hunk)}>Discard</PopupMenuItem>
+	{/if}
 	<PopupMenuItem
 		on:click={() => open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
 	>

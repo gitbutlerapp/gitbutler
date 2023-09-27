@@ -639,6 +639,7 @@ async fn main() {
             virtual_branches::commands::delete_virtual_branch,
             virtual_branches::commands::apply_branch,
             virtual_branches::commands::unapply_branch,
+            virtual_branches::commands::unapply_ownership,
             virtual_branches::commands::push_virtual_branch,
             virtual_branches::commands::create_virtual_branch_from_branch,
             virtual_branches::commands::can_apply_virtual_branch,
