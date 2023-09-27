@@ -171,6 +171,20 @@ pub async fn unapply_branch(
 
 #[tauri::command(async)]
 #[instrument(skip(handle))]
+pub async fn unapply_ownership(
+    handle: AppHandle,
+    project_id: &str,
+    ownership: Ownership,
+) -> Result<(), Error> {
+    handle
+        .state::<Controller>()
+        .unapply_ownership(project_id, &ownership)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle))]
 pub async fn push_virtual_branch(
     handle: AppHandle,
     project_id: &str,

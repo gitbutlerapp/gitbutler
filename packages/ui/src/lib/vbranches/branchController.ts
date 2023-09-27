@@ -1,4 +1,4 @@
-import type { Branch, RemoteBranch, BaseBranch, WritableReloadable } from './types';
+import type { Branch, RemoteBranch, BaseBranch, WritableReloadable, Hunk } from './types';
 import * as toasts from '$lib/toasts';
 import { invoke } from '$lib/ipc';
 
@@ -88,6 +88,16 @@ export class BranchController {
 			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to apply branch');
+		}
+	}
+
+	async unapplyHunk(hunk: Hunk) {
+		const ownership = `${hunk.filePath}:${hunk.id}`;
+		try {
+			await invoke<void>('unapply_ownership', { projectId: this.projectId, ownership });
+			await this.virtualBranchStore.reload();
+		} catch (err) {
+			toasts.error('Failed to unapply hunk');
 		}
 	}
 

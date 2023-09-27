@@ -42,7 +42,7 @@
 
 	let popupMenu = new HunkContextMenu({
 		target: document.body,
-		props: { projectPath, file }
+		props: { projectPath, file, branchController }
 	});
 
 	function boldenFilename(filepath: string): string {
@@ -212,6 +212,7 @@
 												filePath={file.path}
 												on:contextmenu={(e) =>
 													popupMenu.openByMouse(e, {
+														hunk,
 														section: subsection,
 														lineNumber: line.afterLineNumber
 															? line.afterLineNumber

@@ -373,8 +373,6 @@ pub fn unapply_ownership(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    dbg!(&applied_statuses);
-
     let repo = &project_repository.git_repository;
 
     let target_commit = repo
