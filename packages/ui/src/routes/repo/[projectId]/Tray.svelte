@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { Link } from '$lib/components';
-	import { Branch, BaseBranch, RemoteBranch } from '$lib/vbranches/types';
+	import {
+		Branch,
+		BaseBranch,
+		RemoteBranch,
+		type VirtualBranchStore,
+		type CustomStore
+	} from '$lib/vbranches/types';
 	import { IconBranch, IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
@@ -10,7 +16,7 @@
 	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import IconHelp from '$lib/icons/IconHelp.svelte';
-	import { derived, get, type Loadable, type Readable } from '@square/svelte-store';
+	import { derived, get, type Readable } from '@square/svelte-store';
 	import PeekTray from './PeekTray.svelte';
 	import IconRefresh from '$lib/icons/IconRefresh.svelte';
 	import IconGithub from '$lib/icons/IconGithub.svelte';
@@ -24,16 +30,16 @@
 	import { slide } from 'svelte/transition';
 	import { computedAddedRemoved } from '$lib/vbranches/fileStatus';
 
-	export let vbranchStore: Loadable<Branch[] | undefined>;
-	export let remoteBranchStore: Loadable<RemoteBranch[] | undefined>;
-	export let baseBranchStore: Readable<BaseBranch | undefined>;
+	export let branchesWithContentStore: CustomStore<Branch[] | undefined>;
+	export let remoteBranchStore: CustomStore<RemoteBranch[] | undefined>;
+	export let baseBranchStore: CustomStore<BaseBranch | undefined>;
 	export let branchController: BranchController;
 	export let peekTransitionsDisabled = false;
 	export let projectId: string;
 	export let cloud: ReturnType<typeof getCloudApiClient>;
 	export let peekTrayExpanded = false;
 
-	$: branchesState = vbranchStore?.state;
+	$: branchesState = branchesWithContentStore?.state;
 	$: remoteBranchesState = remoteBranchStore?.state;
 
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
@@ -209,16 +215,16 @@
 			class="hide-native-scrollbar flex h-full max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 		>
 			<div bind:this={vbContents}>
-				{#if $branchesState?.isLoading}
+				{#if $branchesState.isLoading}
 					<div class="px-2 py-1">Loading...</div>
-				{:else if $branchesState?.isError}
+				{:else if $branchesState.isError}
 					<div class="px-2 py-1">Something went wrong!</div>
-				{:else if !$vbranchStore || $vbranchStore.length == 0}
+				{:else if !$branchesWithContentStore || $branchesWithContentStore.length == 0}
 					<div class="text-color-2 p-2">You currently have no virtual branches</div>
-				{:else if $vbranchStore.filter((b) => !b.active).length == 0}
+				{:else if $branchesWithContentStore.filter((b) => !b.active).length == 0}
 					<div class="text-color-2 p-2">You have no stashed branches</div>
 				{:else}
-					{#each $vbranchStore.filter((b) => !b.active) as branch, i (branch.id)}
+					{#each $branchesWithContentStore.filter((b) => !b.active) as branch, i (branch.id)}
 						{@const { added, removed } = sumBranchLinesAddedRemoved(branch)}
 						{@const latestModifiedAt = branch.files.at(0)?.hunks.at(0)?.modifiedAt}
 						<div
@@ -343,9 +349,9 @@
 			class="hide-native-scrollbar flex max-h-full flex-grow flex-col overflow-y-scroll overscroll-none"
 		>
 			<div bind:this={rbContents}>
-				{#if $remoteBranchesState?.isLoading}
+				{#if $remoteBranchesState.isLoading}
 					<div class="px-2 py-1">loading...</div>
-				{:else if $remoteBranchesState?.isError}
+				{:else if $remoteBranchesState.isError}
 					<div class="px-2 py-1">Something went wrong</div>
 				{:else if !$remoteBranchStore || $remoteBranchStore.length == 0}
 					<div class="p-4">
