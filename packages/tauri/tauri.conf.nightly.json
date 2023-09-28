@@ -1,4 +1,7 @@
 {
+    "build": {
+        "beforeBuildCommand": "pnpm build:nightly"
+    },
     "package": {
         "productName": "GitButler Nightly"
     },

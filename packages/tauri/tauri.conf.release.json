@@ -1,4 +1,7 @@
 {
+    "build": {
+        "beforeBuildCommand": "pnpm build"
+    },
     "package": {
         "productName": "GitButler"
     },
