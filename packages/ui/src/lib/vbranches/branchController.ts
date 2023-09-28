@@ -1,13 +1,20 @@
-import type { Branch, RemoteBranch, BaseBranch, WritableReloadable, Hunk } from './types';
+import type {
+	Branch,
+	RemoteBranch,
+	BaseBranch,
+	CustomStore,
+	Hunk,
+	VirtualBranchStore
+} from './types';
 import * as toasts from '$lib/toasts';
 import { invoke } from '$lib/ipc';
 
 export class BranchController {
 	constructor(
 		readonly projectId: string,
-		readonly virtualBranchStore: WritableReloadable<Branch[] | undefined>,
-		readonly remoteBranchStore: WritableReloadable<RemoteBranch[] | undefined>,
-		readonly targetBranchStore: WritableReloadable<BaseBranch | undefined>
+		readonly virtualBranchStore: VirtualBranchStore<Branch>,
+		readonly remoteBranchStore: CustomStore<RemoteBranch[] | undefined>,
+		readonly targetBranchStore: CustomStore<BaseBranch | undefined>
 	) {}
 
 	async setTarget(branch: string) {
@@ -60,11 +67,11 @@ export class BranchController {
 
 	async updateBranchNotes(branchId: string, notes: string) {
 		try {
+			this.virtualBranchStore.updateById(branchId, (branch) => (branch.notes = notes));
 			await invoke<void>('update_virtual_branch', {
 				projectId: this.projectId,
 				branch: { id: branchId, notes }
 			});
-			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to update branch notes');
 		}
@@ -84,10 +91,12 @@ export class BranchController {
 
 	async applyBranch(branchId: string) {
 		try {
+			this.virtualBranchStore.updateById(branchId, (branch) => (branch.active = true));
 			await invoke<void>('apply_branch', { projectId: this.projectId, branch: branchId });
-			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to apply branch');
+		} finally {
+			await this.virtualBranchStore.reload();
 		}
 	}
 
@@ -103,10 +112,12 @@ export class BranchController {
 
 	async unapplyBranch(branchId: string) {
 		try {
+			this.virtualBranchStore.updateById(branchId, (branch) => (branch.active = false));
 			await invoke<void>('unapply_branch', { projectId: this.projectId, branch: branchId });
-			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to unapply branch');
+		} finally {
+			await this.virtualBranchStore.reload();
 		}
 	}
 
@@ -116,10 +127,10 @@ export class BranchController {
 				projectId: this.projectId,
 				branch: { id: branchId, ownership }
 			});
-			await this.virtualBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to update branch ownership');
 		}
+		await this.virtualBranchStore.reload();
 	}
 
 	async pushBranch(branchId: string) {
@@ -137,11 +148,13 @@ export class BranchController {
 
 	async deleteBranch(branchId: string) {
 		try {
+			await this.virtualBranchStore.update((branches) => branches?.filter((b) => b.id != branchId));
 			await invoke<void>('delete_virtual_branch', { projectId: this.projectId, branchId });
-			await this.virtualBranchStore.reload();
-			await this.remoteBranchStore.reload();
 		} catch (err) {
 			toasts.error('Failed to delete branch');
+		} finally {
+			await this.virtualBranchStore.reload();
+			await this.remoteBranchStore.reload();
 		}
 	}
 

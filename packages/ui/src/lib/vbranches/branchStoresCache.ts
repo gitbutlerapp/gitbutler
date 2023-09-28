@@ -1,17 +1,35 @@
 import { asyncWritable, type Readable } from '@square/svelte-store';
-import { BaseBranch, Branch, RemoteBranch, type WritableReloadable } from './types';
+import {
+	BaseBranch,
+	Branch,
+	RemoteBranch,
+	type CustomStore,
+	type VirtualBranchStore
+} from './types';
 import { plainToInstance } from 'class-transformer';
 import { invoke } from '$lib/ipc';
 import { isDelete, isInsert, type Delta } from '$lib/api/ipc/deltas';
 import type { Session } from '$lib/api/ipc/sessions';
+import { get } from 'svelte/store';
 
-export function getVirtualBranchStore(projectId: string, asyncStores: Readable<any>[]) {
-	return asyncWritable(
-		asyncStores,
-		async () => await listVirtualBranches({ projectId }),
-		async (newBranches) => newBranches,
-		{ reloadable: true, trackState: true }
-	) as WritableReloadable<Branch[] | undefined>;
+export function getVirtualBranchStore(
+	projectId: string,
+	asyncStores: Readable<any>[]
+): VirtualBranchStore<Branch> {
+	return {
+		...(asyncWritable(
+			asyncStores,
+			async () => await listVirtualBranches({ projectId }),
+			undefined,
+			{ reloadable: true, trackState: true }
+		) as CustomStore<Branch[] | undefined>),
+		updateById(id: string, updater: (value: Branch) => void): void {
+			const branches = get(this.store);
+			const branch = branches?.find((b) => b.id == id);
+			branch && updater(branch);
+			this.store.update((v) => v);
+		}
+	};
 }
 
 export function getWithContentStore(
@@ -27,7 +45,7 @@ export function getWithContentStore(
 		},
 		async (newBranches) => newBranches,
 		{ reloadable: true, trackState: true }
-	) as WritableReloadable<Branch[] | undefined>;
+	) as CustomStore<Branch[] | undefined>;
 }
 
 export function getRemoteBranchStore(projectId: string, asyncStores: Readable<any>[]) {
@@ -36,7 +54,7 @@ export function getRemoteBranchStore(projectId: string, asyncStores: Readable<an
 		async () => getRemoteBranchesData({ projectId }),
 		async (newRemotes) => newRemotes,
 		{ reloadable: true, trackState: true }
-	) as WritableReloadable<RemoteBranch[] | undefined>;
+	) as CustomStore<RemoteBranch[] | undefined>;
 }
 
 export function getBaseBranchStore(projectId: string, asyncStores: Readable<any>[]) {
@@ -45,7 +63,7 @@ export function getBaseBranchStore(projectId: string, asyncStores: Readable<any>
 		async () => getBaseBranch({ projectId }),
 		async (newBaseBranch) => newBaseBranch,
 		{ reloadable: true, trackState: true }
-	) as WritableReloadable<BaseBranch | undefined>;
+	) as CustomStore<BaseBranch | undefined>;
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
