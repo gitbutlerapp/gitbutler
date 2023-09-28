@@ -32,6 +32,20 @@ export class UserError extends Error {
 }
 
 export async function invoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
+	// This commented out code can be used to delay/reject an api call
+	// return new Promise<T>((resolve, reject) => {
+	// 	if (command.startsWith('apply')) {
+	// 		setTimeout(() => {
+	// 			reject('rejected');
+	// 		}, 2000);
+	// 	} else {
+	// 		resolve(invokeTauri<T>(command, params));
+	// 	}
+	// }).catch((reason) => {
+	// 	const userError = UserError.fromError(reason);
+	// 	console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError);
+	// 	throw userError;
+	// });
 	return (
 		invokeTauri<T>(command, params)
 			// .then((value) => {
