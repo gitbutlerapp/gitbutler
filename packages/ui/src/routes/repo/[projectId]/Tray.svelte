@@ -66,7 +66,7 @@
 			return;
 		}
 		if (detail instanceof Branch) {
-			selectedItem = derived(vbranchStore, (branches) =>
+			selectedItem = derived(branchesWithContentStore, (branches) =>
 				branches?.filter((b) => !b.active).find((branch) => branch.id == detail.id)
 			);
 			const element = vbContents.children[i] as HTMLDivElement;

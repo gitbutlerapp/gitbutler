@@ -100,7 +100,7 @@
 		<div class="relative flex w-full max-w-full" role="group" on:dragover|preventDefault>
 			<div bind:this={trayViewport} class="z-30 flex flex-shrink">
 				<Tray
-					vbranchStore={branchesWithContent}
+					branchesWithContentStore={branchesWithContent}
 					{remoteBranchStore}
 					{baseBranchStore}
 					{branchController}
