@@ -16,21 +16,23 @@
 </script>
 
 <PopupMenu bind:this={popupMenu} let:item>
-	<PopupMenuItem
-		on:click={() => {
-			if ('expanded' in item.section) {
+	{#if 'expanded' in item.section}
+		<PopupMenuItem
+			on:click={() => {
 				item.section.expanded = false;
-			}
-		}}
-	>
-		Collapse
-	</PopupMenuItem>
+			}}
+		>
+			Collapse
+		</PopupMenuItem>
+	{/if}
 	{#if item.hunk !== undefined && !item.hunk.locked}
 		<PopupMenuItem on:click={() => branchController.unapplyHunk(item.hunk)}>Discard</PopupMenuItem>
 	{/if}
-	<PopupMenuItem
-		on:click={() => open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
-	>
-		Open in Visual Studio Code
-	</PopupMenuItem>
+	{#if item.lineNumber}
+		<PopupMenuItem
+			on:click={() => open(`vscode://file${projectPath}/${file.path}:${item.lineNumber}`)}
+		>
+			Open in Visual Studio Code
+		</PopupMenuItem>
+	{/if}
 </PopupMenu>

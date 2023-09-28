@@ -222,11 +222,17 @@
 										{/each}
 										{#if !subsection.expanded}
 											<div
+												role="group"
 												class="border-color-3 flex w-full"
 												class:border-t={sidx == section.subSections.length - 1 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
 												class:border-b={sidx == 0 ||
 													(sidx > 0 && sidx < section.subSections.length - 1)}
+												on:contextmenu|preventDefault={(e) =>
+													popupMenu.openByMouse(e, {
+														section: section,
+														hunk
+													})}
 											>
 												<div
 													class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
