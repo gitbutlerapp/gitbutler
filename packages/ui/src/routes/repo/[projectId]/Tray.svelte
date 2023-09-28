@@ -1,12 +1,6 @@
 <script lang="ts">
 	import { Link } from '$lib/components';
-	import {
-		Branch,
-		BaseBranch,
-		RemoteBranch,
-		type VirtualBranchStore,
-		type CustomStore
-	} from '$lib/vbranches/types';
+	import { Branch, BaseBranch, RemoteBranch, type CustomStore } from '$lib/vbranches/types';
 	import { IconBranch, IconGitBranch, IconRemote } from '$lib/icons';
 	import { IconTriangleDown, IconTriangleUp } from '$lib/icons';
 	import { accordion } from './accordion';
