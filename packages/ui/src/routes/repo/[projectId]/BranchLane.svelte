@@ -64,8 +64,9 @@
 	const user = userStore;
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
-	$: remoteCommits = branch.commits.filter((c) => c.isRemote);
 	$: localCommits = branch.commits.filter((c) => !c.isRemote);
+	$: remoteCommits = branch.commits.filter((c) => c.isRemote && !c.isIntegrated);
+	$: integratedCommits = branch.commits.filter((c) => c.isIntegrated);
 
 	let allExpanded: boolean | undefined;
 	let isPushing = false;
@@ -127,7 +128,13 @@
 		branchController.updateBranchName(branch.id, branch.name);
 	}
 
-	function url(target: BaseBranch | undefined, upstreamBranchName: string) {
+	function baseUrl(target: BaseBranch | undefined) {
+		if (!target) return undefined;
+		const parts = target.branchName.split('/');
+		return `${target.repoBaseUrl}/commits/${parts[parts.length - 1]}`;
+	}
+
+	function branchUrl(target: BaseBranch | undefined, upstreamBranchName: string) {
 		if (!target) return undefined;
 		const baseBranchName = target.branchName.split('/')[1];
 		const parts = upstreamBranchName.split('/');
@@ -203,9 +210,6 @@
 			}
 		});
 	});
-
-	console.log(branch);
-	console.log(remoteCommits);
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));
 	$: if (commitDialogShown) selectedOwnership.set(Ownership.fromBranch(branch));
@@ -371,7 +375,7 @@
 					</div>
 					{#if upstreamCommitsShown}
 						<div
-							class="border-light-400 bg-light-300 dark:border-dark-400 dark:bg-dark-800 flex w-full flex-col border-t p-2"
+							class="flex w-full flex-col border-t border-light-400 bg-light-300 p-2 dark:border-dark-400 dark:bg-dark-800"
 							id="upstreamCommits"
 						>
 							<div class="bg-light-100">
@@ -419,7 +423,7 @@
 		<div class="relative flex flex-grow overflow-y-hidden">
 			<!-- TODO: Figure out why z-10 is necessary for expand up/down to not come out on top -->
 			<div
-				class="lane-dz-marker outline-light-600 dark:outline-dark-300 absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 dark:bg-blue-900/60"
+				class="lane-dz-marker absolute z-10 hidden h-full w-full items-center justify-center rounded bg-blue-100/70 outline-dashed outline-2 -outline-offset-8 outline-light-600 dark:bg-blue-900/60 dark:outline-dark-300"
 			>
 				<div class="hover-text invisible font-semibold">Move here</div>
 			</div>
@@ -495,17 +499,17 @@
 									transition:slide={{ duration: 150 }}
 								>
 									<div
-										class="dark:form-dark-600 from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b"
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-400 via-light-500 via-90% dark:from-dark-600 dark:via-dark-600"
 										style={localCommits.length == 0 ? 'height: calc();' : 'height: 100%;'}
 									/>
 
 									<div class="relative flex flex-col gap-2">
 										<div
-											class="dark:form-dark-600 from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r"
+											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-400 via-light-400 via-10% dark:from-dark-600 dark:via-dark-600"
 										/>
 										<div class="ml-10 mr-2 flex items-center py-2">
 											<div
-												class="text-dark-300 dark:text-light-300 ml-2 flex-grow font-mono text-sm font-bold"
+												class="ml-2 flex-grow font-mono text-sm font-bold text-dark-300 dark:text-light-300"
 											>
 												local
 											</div>
@@ -532,7 +536,7 @@
 												<div class="ml-[0.4rem] mr-1.5">
 													<div class="border-color-4 h-3 w-3 rounded-full border-2" />
 												</div>
-												<CommitCard {projectId} {commit} isIntegrated={commit.isRemote} />
+												<CommitCard {projectId} {commit} />
 											</div>
 										{/each}
 									</div>
@@ -541,13 +545,13 @@
 							{#if remoteCommits.length > 0}
 								<div class="relative flex-grow">
 									<div
-										class="dark:form-dark-600 from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b"
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
 										style="height: calc(100% - 1rem);"
 									/>
 
 									<div class="relative flex flex-grow flex-col gap-2">
 										<div
-											class="dark:form-dark-600 from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r"
+											class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
 										/>
 
 										<div
@@ -557,7 +561,7 @@
 												<Link
 													target="_blank"
 													rel="noreferrer"
-													href={url(base, branch.upstream)}
+													href={branchUrl(base, branch.upstream)}
 													class="inline-block max-w-full truncate text-sm font-bold"
 												>
 													{branch.upstream.split('refs/remotes/')[1]}
@@ -574,18 +578,63 @@
 											>
 												<div class="ml-[0.4rem] mr-1.5">
 													<div
-														class="border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400 h-3 w-3 rounded-full border-2"
+														class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
 														class:bg-light-500={commit.isRemote}
 														class:dark:bg-dark-500={commit.isRemote}
 													/>
 												</div>
-												<CommitCard {projectId} {commit} isIntegrated={commit.isIntegrated} />
+												<CommitCard {projectId} {commit} />
 											</div>
 										{/each}
 									</div>
 								</div>
 							{/if}
 						</div>
+						{#if integratedCommits.length > 0}
+							<div class="relative flex-grow">
+								<div
+									class="dark:form-dark-600 absolute top-4 ml-[0.75rem] w-px bg-gradient-to-b from-light-600 via-light-600 via-90% dark:from-dark-400 dark:via-dark-400"
+									style="height: calc(100% - 1rem);"
+								/>
+
+								<div class="relative flex flex-grow flex-col gap-2">
+									<div
+										class="dark:form-dark-600 absolute top-4 ml-[0.75rem] h-px w-6 bg-gradient-to-r from-light-600 via-light-600 via-10% dark:from-dark-400 dark:via-dark-400"
+									/>
+
+									<div
+										class="relative max-w-full flex-grow overflow-hidden py-2 pl-12 pr-2 font-mono text-sm"
+									>
+										<Link
+											target="_blank"
+											rel="noreferrer"
+											href={baseUrl(base)}
+											class="inline-block max-w-full truncate text-sm font-bold"
+										>
+											{base?.branchName}
+										</Link>
+									</div>
+
+									{#each integratedCommits as commit (commit.id)}
+										<div
+											class="flex w-full items-center pb-2 pr-1.5"
+											in:receive={{ key: commit.id }}
+											out:send={{ key: commit.id }}
+											animate:flip
+										>
+											<div class="ml-[0.4rem] mr-1.5">
+												<div
+													class="h-3 w-3 rounded-full border-2 border-light-600 bg-light-600 dark:border-dark-400 dark:bg-dark-400"
+													class:bg-light-500={commit.isRemote}
+													class:dark:bg-dark-500={commit.isRemote}
+												/>
+											</div>
+											<CommitCard {projectId} {commit} />
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					{/if}
 				</div>
 			</div>

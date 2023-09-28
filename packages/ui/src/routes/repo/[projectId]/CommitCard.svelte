@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { RemoteFile, type RemoteCommit } from '$lib/vbranches/types';
 	import TimeAgo from '$lib/components/TimeAgo/TimeAgo.svelte';
-	import Tooltip from '$lib/components/Tooltip/Tooltip.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
 	import RenderedLine from './RenderedLine.svelte';
@@ -12,7 +11,6 @@
 
 	export let commit: RemoteCommit;
 	export let projectId: string;
-	export let isIntegrated = false;
 
 	let previewCommitModal: Modal;
 	let minWidth = 2;
@@ -45,13 +43,6 @@
 				{commit.description}
 			</button>
 		</div>
-		{#if isIntegrated}
-			<div>
-				<Tooltip label="This commit is integrated into Trunk and will dissapear once you merge it.">
-					<i>integrated</i>
-				</Tooltip>
-			</div>
-		{/if}
 	</div>
 
 	<div class="text-color-3 flex space-x-1 text-sm">
