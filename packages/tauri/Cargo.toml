@@ -48,7 +48,7 @@ sha2 = "0.10.6"
 similar = { version = "2.2.1", features = ["unicode"] }
 ssh-key = { version = "0.6.1", features = [ "alloc", "ed25519" ] }
 tantivy = "0.20.2"
-tauri = { version = "1.4", features = [ "updater", "window-maximize", "window-unmaximize", "process-relaunch", "dialog-open", "fs-read-file", "path-all", "protocol-asset", "shell-open", "system-tray", "window-start-dragging"] }
+tauri = { version = "1.4", features = [ "window-maximize", "window-unmaximize", "process-relaunch", "dialog-open", "fs-read-file", "path-all", "protocol-asset", "shell-open", "system-tray", "window-start-dragging"] }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tempfile = "3.8"
 thiserror = "1.0.44"
