@@ -137,7 +137,6 @@ impl From<keys::Error> for Error {
 
 impl From<anyhow::Error> for Error {
     fn from(error: anyhow::Error) -> Self {
-        sentry_anyhow::capture_anyhow(&error);
         tracing::error!(?error);
         Error::Unknown
     }
