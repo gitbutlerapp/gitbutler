@@ -369,16 +369,16 @@ impl<'repository> Repository<'repository> {
             ) {
                 Ok(()) => {
                     tracing::info!(
-                        "{}: git pushed branch {} to {}:refs/heads/{}",
-                        self.project.id,
-                        branch.remote(),
-                        head,
-                        branch.branch()
+                        project_id = self.project.id,
+                        remote = %branch.remote(),
+                        %head,
+                        branch = branch.branch(),
+                        "pushed git branch"
                     );
                     return Ok(());
                 }
-                Err(e) => {
-                    tracing::error!("{}: git push failed: {:#}", self.project.id, e);
+                Err(error) => {
+                    tracing::error!(project_id = self.project.id, ?error, "git push failed",);
                     continue;
                 }
             }
@@ -396,19 +396,18 @@ impl<'repository> Repository<'repository> {
             remote_callbacks.push_update_reference(|refname, message| {
                 if let Some(msg) = message {
                     tracing::debug!(
-                        "{}: push update reference: {}: {}",
-                        self.project.id,
+                        project_id = self.project.id,
                         refname,
-                        msg
+                        msg,
+                        "push update reference",
                     );
                 }
                 Ok(())
             });
             remote_callbacks.push_negotiation(|proposals| {
                 tracing::debug!(
-                    "{}: push negotiation: {:?}",
-                    self.project.id,
-                    proposals
+                    project_id = self.project.id,
+                    proposals = proposals
                         .iter()
                         .map(|p| format!(
                             "src_refname: {}, dst_refname: {}",
@@ -416,14 +415,15 @@ impl<'repository> Repository<'repository> {
                             p.dst_refname().unwrap_or(&p.dst().to_string())
                         ))
                         .collect::<Vec<_>>()
-                        .join(", ")
+                        .join(", "),
+                    "push negotiation"
                 );
                 Ok(())
             });
             remote_callbacks.push_transfer_progress(|one, two, three| {
                 tracing::debug!(
-                    "{}: push transfer progress: {} {} {}",
-                    self.project.id,
+                    project_id = self.project.id,
+                    "push transfer progress: {}/{}/{}",
                     one,
                     two,
                     three
@@ -438,11 +438,11 @@ impl<'repository> Repository<'repository> {
 
             match remote.fetch(&[refspec], Some(&mut fetch_opts)) {
                 Ok(()) => {
-                    tracing::info!("{}: git fetched {}", self.project.id, &refspec);
+                    tracing::info!(project_id = self.project.id, %refspec, "git fetched");
                     return Ok(());
                 }
-                Err(e) => {
-                    tracing::error!("{}: fetch failed: {:#}", self.project.id, e);
+                Err(error) => {
+                    tracing::error!(project_id = self.project.id, ?error, "fetch failed");
                     continue;
                 }
             }
@@ -483,10 +483,10 @@ impl<'repository> Repository<'repository> {
         )?;
 
         tracing::info!(
-            "{}: created commit {} with message {}",
-            self.project.id,
-            commit_oid,
-            message
+            project_id = self.project.id,
+            %commit_oid,
+            message,
+            "created commit"
         );
 
         Ok(())

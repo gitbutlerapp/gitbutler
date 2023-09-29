@@ -109,7 +109,7 @@ impl Repository {
                 .migrate(&project)
                 .context("failed to migrate")?
             {
-                tracing::info!("{}: migrated", gb_repository.project_id);
+                tracing::info!(project_id = gb_repository.project_id, "repository migrated");
                 return Result::Ok(gb_repository);
             }
 
@@ -177,17 +177,17 @@ impl Repository {
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
             tracing::debug!(
-                "{}: pulling reference '{}': {:?}",
-                self.project_id,
+                project_id = self.project_id,
                 refname,
-                message
+                message,
+                "pulling reference"
             );
             Result::Ok(())
         });
         callbacks.push_transfer_progress(move |one, two, three| {
             tracing::debug!(
-                "{}: transferred {}/{}/{} objects",
-                self.project_id,
+                project_id = self.project_id,
+                "transferred {}/{}/{} objects",
                 one,
                 two,
                 three
@@ -208,9 +208,9 @@ impl Repository {
             ))?;
 
         tracing::info!(
-            "{}: fetched from {}",
-            self.project_id,
-            remote.url()?.unwrap()
+            project_id = self.project_id,
+            remote = %remote.url()?.unwrap(),
+            "gb repo fetched",
         );
 
         Ok(true)
@@ -226,17 +226,17 @@ impl Repository {
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(move |refname, message| {
             tracing::debug!(
-                "{}: pushing reference '{}': {:?}",
-                self.project_id,
+                project_id = self.project_id,
                 refname,
-                message
+                message,
+                "pushing reference"
             );
             Result::Ok(())
         });
         callbacks.push_transfer_progress(move |one, two, three| {
             tracing::debug!(
-                "{}: transferred {}/{}/{} objects",
-                self.project_id,
+                project_id = self.project_id,
+                "transferred {}/{}/{} objects",
                 one,
                 two,
                 three
@@ -259,7 +259,7 @@ impl Repository {
                 remote.url()?.unwrap()
             ))?;
 
-        tracing::info!("{}: pushed to {}", self.project_id, remote.url()?.unwrap());
+        tracing::info!(project_id = self.project_id, remote = %remote.url()?.unwrap(), "gb repository pushed");
 
         Ok(())
     }
@@ -365,7 +365,11 @@ impl Repository {
             .write(&session)
             .context("failed to write session")?;
 
-        tracing::info!("{}: created new session {}", self.project_id, session.id);
+        tracing::info!(
+            project_id = self.project_id,
+            session_id = session.id,
+            "created new session"
+        );
 
         Ok(session)
     }
@@ -476,10 +480,10 @@ impl Repository {
             write_gb_commit(tree_id, self, &user).context("failed to write gb commit")?;
 
         tracing::info!(
-            "{}: flushed session {} into commit {}",
-            self.project_id,
-            session.id,
-            commit_oid,
+            project_id = self.project_id,
+            session_id = session.id,
+            %commit_oid,
+            "flushed session"
         );
 
         std::fs::remove_dir_all(self.session_path())
@@ -560,9 +564,9 @@ impl Repository {
         match reference {
             Err(git::Error::NotFound(_)) => {
                 tracing::debug!(
-                    "{}: reference {} not found, no migration",
-                    project.id,
-                    refname
+                    project_id = project.id,
+                    refname,
+                    "reference not found, no migration"
                 );
                 Ok(false)
             }
@@ -651,12 +655,12 @@ fn build_wd_tree(
                     .context("failed to read file")
                 {
                     Result::Ok(content) => content,
-                    Err(e) => {
+                    Err(error) => {
                         tracing::error!(
-                            "{}: failed to read file {}: {:#}",
-                            gb_repository.project_id,
-                            abs_path.display(),
-                            e
+                            project_id = gb_repository.project_id,
+                            path = %abs_path.display(),
+                            ?error,
+                            "failed to read file"
                         );
                         continue;
                     }
@@ -820,9 +824,9 @@ fn add_wd_path(
     // TODO: size limit should be configurable
     let blob = if metadata.len() > 100_000_000 {
         tracing::warn!(
-            "{}: file too big: {}",
-            gb_repository.project_id,
-            file_path.display()
+            project_id = gb_repository.project_id,
+            path = %file_path.display(),
+            "file too big"
         );
 
         // get a sha256 hash of the file first

@@ -96,8 +96,8 @@ impl HandlerInner {
             .context("failed to get project")?
             .ok_or_else(|| anyhow::anyhow!("project not found"))?;
 
-        let fetch_result = if let Err(err) = gb_repo.fetch() {
-            tracing::error!("{}: failed to fetch gitbutler data: {:#}", project_id, err);
+        let fetch_result = if let Err(error) = gb_repo.fetch() {
+            tracing::error!(project_id, ?error, "failed to fetch gitbutler data");
             projects::FetchResult::Error {
                 attempt: project
                     .gitbutler_data_last_fetched
@@ -108,7 +108,7 @@ impl HandlerInner {
                         projects::FetchResult::Fetching { .. } => 0,
                     }),
                 timestamp_ms: now.duration_since(time::UNIX_EPOCH)?.as_millis(),
-                error: err.to_string(),
+                error: error.to_string(),
             }
         } else {
             projects::FetchResult::Fetched {

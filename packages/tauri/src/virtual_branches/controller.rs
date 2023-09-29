@@ -512,8 +512,8 @@ impl Controller {
                                     .assets_proxy
                                     .proxy(&commit.author.gravatar_url)
                                     .await
-                                    .unwrap_or_else(|e| {
-                                        tracing::error!("failed to proxy gravatar url: {:#}", e);
+                                    .unwrap_or_else(|error| {
+                                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
                                         commit.author.gravatar_url
                                     }),
                                 ..commit.author
@@ -536,8 +536,8 @@ impl Controller {
                                     .assets_proxy
                                     .proxy(&commit.author.gravatar_url)
                                     .await
-                                    .unwrap_or_else(|e| {
-                                        tracing::error!("failed to proxy gravatar url: {:#}", e);
+                                    .unwrap_or_else(|error| {
+                                        tracing::error!(gravatar_url = %commit.author.gravatar_url, ?error, "failed to proxy gravatar url");
                                         commit.author.gravatar_url
                                     }),
                                 ..commit.author

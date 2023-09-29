@@ -244,9 +244,9 @@ impl SearcherInner {
         self.reader.reload()?;
 
         tracing::debug!(
-            "{}: bookmark {} added to search",
-            bookmark.project_id,
-            bookmark.timestamp_ms
+            project_id = bookmark.project_id,
+            timestamp_ms = bookmark.timestamp_ms,
+            "bookmark added to search",
         );
 
         Ok(Some(doc))
@@ -282,9 +282,9 @@ impl SearcherInner {
             .set(repository.get_project_id(), &session.id, index::VERSION)?;
 
         tracing::debug!(
-            "{}: session added to search {}",
-            repository.get_project_id(),
-            session.id,
+            project_id = repository.get_project_id(),
+            session_id = session.id,
+            "session added to search",
         );
 
         Ok(())
