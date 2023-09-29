@@ -21,7 +21,6 @@ pub fn for_key(key: &keys::Key) -> Vec<CredentialsCallback<'_>> {
             ));
         }
         keys::Key::Generated(private_key) => {
-            credentials.push(from_key(private_key));
             if let Ok(home_path) = env::var("HOME") {
                 let home_path = std::path::Path::new(&home_path);
 
@@ -40,6 +39,7 @@ pub fn for_key(key: &keys::Key) -> Vec<CredentialsCallback<'_>> {
                     credentials.push(from_keypath(id_ecdsa_path.to_path_buf(), None));
                 }
             }
+            credentials.push(from_key(private_key));
         }
     }
     credentials
