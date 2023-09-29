@@ -1752,7 +1752,6 @@ dependencies = [
  "rusqlite",
  "rustix",
  "sentry",
- "sentry-anyhow",
  "sentry-rust-minidump",
  "sentry-tracing",
  "serde",
