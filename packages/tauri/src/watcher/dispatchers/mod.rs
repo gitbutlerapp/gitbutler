@@ -30,12 +30,12 @@ impl Dispatcher {
     }
 
     pub fn stop(&self) -> Result<()> {
-        if let Err(err) = self.tick_dispatcher.stop() {
-            tracing::error!("failed to stop ticker: {:#}", err);
+        if let Err(error) = self.tick_dispatcher.stop() {
+            tracing::error!(?error, "failed to stop ticker");
         }
 
-        if let Err(err) = self.file_change_dispatcher.stop() {
-            tracing::error!("failed to stop file change dispatcher: {:#}", err);
+        if let Err(error) = self.file_change_dispatcher.stop() {
+            tracing::error!(?error, "failed to stop file change dispatcher");
         }
         Ok(())
     }
@@ -62,26 +62,28 @@ impl Dispatcher {
 
         let (tx, rx) = channel(1);
         let project_id = project_id.to_owned();
-        task::Builder::new().name(&format!("{} dispatcher", project_id)).spawn(async move {
-            loop {
-                select! {
-                    _ = self.cancellation_token.cancelled() => {
-                        break;
-                    }
-                    Some(event) = tick_rx.recv() => {
-                        if let Err(e) = tx.send(event).await {
-                            tracing::error!("{}: failed to send tick: {}", project_id, e);
+        task::Builder::new()
+            .name(&format!("{} dispatcher", project_id))
+            .spawn(async move {
+                loop {
+                    select! {
+                        _ = self.cancellation_token.cancelled() => {
+                            break;
                         }
-                    }
-                    Some(event) = file_change_rx.recv() => {
-                        if let Err(e) = tx.send(event).await {
-                            tracing::error!("{}: failed to send file change: {}", project_id, e);
+                        Some(event) = tick_rx.recv() => {
+                            if let Err(error) = tx.send(event).await {
+                                tracing::error!(project_id, ?error,"failed to send tick");
+                            }
+                        }
+                        Some(event) = file_change_rx.recv() => {
+                            if let Err(error) = tx.send(event).await {
+                                tracing::error!( project_id, ?error,"failed to send file change");
+                            }
                         }
                     }
                 }
-            }
-            tracing::debug!("{}: dispatcher stopped", project_id);
-        })?;
+                tracing::debug!(project_id, "dispatcher stopped");
+            })?;
 
         Ok(rx)
     }

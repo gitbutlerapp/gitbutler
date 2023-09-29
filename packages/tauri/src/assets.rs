@@ -69,10 +69,11 @@ impl Proxy {
             return Ok(build_asset_url(&save_to.display().to_string()));
         }
 
-        tracing::debug!("Downloading image {}", src);
+        tracing::debug!(url = %src, "downloading image");
 
         let resp = reqwest::get(src.clone()).await?;
         if !resp.status().is_success() {
+            tracing::error!(url = %src, status = %resp.status(), "failed to download image");
             return Err(anyhow::anyhow!(
                 "Failed to download image {}: {}",
                 src,

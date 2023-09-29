@@ -52,7 +52,7 @@ impl Database {
                 report
                     .applied_migrations()
                     .iter()
-                    .for_each(|m| tracing::info!("Applied migration: {}", m))
+                    .for_each(|migration| tracing::info!(%migration, "migration applied"))
             })
             .context("Failed to run migrations")?;
         Ok(Self {

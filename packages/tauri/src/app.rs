@@ -79,8 +79,8 @@ impl App {
             .list_projects()
             .with_context(|| "failed to list projects")?
         {
-            if let Err(e) = self.init_project(&project) {
-                tracing::error!("failed to init project {}: {:#}", project.id, e);
+            if let Err(error) = self.init_project(&project) {
+                tracing::error!(project.id, ?error, "failed to init project");
             }
         }
         Ok(())
@@ -147,7 +147,7 @@ impl App {
         let updated = self.projects_storage.update_project(project)?;
 
         block_on(async move {
-            if let Err(err) = self
+            if let Err(error) = self
                 .watchers
                 .post(watcher::Event::FetchGitbutlerData(
                     project.id.clone(),
@@ -155,7 +155,7 @@ impl App {
                 ))
                 .await
             {
-                tracing::error!("{}: failed to fetch project: {:#}", &project.id, err);
+                tracing::error!(project_id = &project.id, ?error, "failed to fetch project");
             }
         });
 
@@ -187,19 +187,23 @@ impl App {
                 block_on({
                     let project_id = project.id.clone();
                     async move {
-                        if let Err(e) = self.watchers.stop(&project_id).await {
+                        if let Err(error) = self.watchers.stop(&project_id).await {
                             tracing::error!(
-                                "failed to stop watcher for project {}: {}",
                                 project_id,
-                                e
+                                ?error,
+                                "failed to stop watcher for project",
                             );
                         }
                     }
                 });
 
                 if let Some(gb_repository) = gb_repository {
-                    if let Err(e) = gb_repository.purge() {
-                        tracing::error!("failed to remove project dir {}: {}", project.id, e);
+                    if let Err(error) = gb_repository.purge() {
+                        tracing::error!(
+                            project_id = project.id,
+                            ?error,
+                            "failed to remove project dir"
+                        );
                     }
                 }
 
@@ -295,12 +299,12 @@ impl App {
         block_on({
             let bookmark = bookmark.clone();
             async move {
-                if let Err(err) = self
+                if let Err(error) = self
                     .watchers
                     .post(watcher::Event::Bookmark(bookmark.clone()))
                     .await
                 {
-                    tracing::error!("failed to send session event: {:#}", err);
+                    tracing::error!(?error, "failed to send session event");
                 }
             }
         });

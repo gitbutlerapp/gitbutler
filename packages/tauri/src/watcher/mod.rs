@@ -47,10 +47,10 @@ impl Watchers {
         task::Builder::new()
             .name(&format!("{} watcher", project_id))
             .spawn(async move {
-                if let Err(e) = c_watcher.run(&project_path, &project_id).await {
-                    tracing::error!("watcher error: {:#}", e);
+                if let Err(error) = c_watcher.run(&project_path, &project_id).await {
+                    tracing::error!(?error, project_id, "watcher error");
                 }
-                tracing::debug!("watcher stopped");
+                tracing::debug!(project_id, "watcher stopped");
             })?;
 
         self.watchers
@@ -173,25 +173,25 @@ impl WatcherInner {
                     let event = event.clone();
                     move || match handler.handle(&event) {
                         Err(error) => tracing::error!(
-                            "{}: failed to handle event {}: {:#}",
                             project_id,
-                            event,
-                            error
+                            %event,
+                            ?error,
+                            "failed to handle event",
                         ),
                         Ok(events) => {
                             for e in events {
-                                if let Err(e) = tx.send(e.clone()) {
+                                if let Err(error) = tx.send(e.clone()) {
                                     tracing::error!(
-                                        "{}: failed to post event {}: {:#}",
                                         project_id,
-                                        event,
-                                        e
+                                        %event,
+                                        ?error,
+                                        "failed to post event",
                                     );
                                 } else {
                                     tracing::debug!(
-                                        "{}: sent response event: {}",
                                         project_id,
-                                        event
+                                        %event,
+                                        "sent response event",
                                     );
                                 }
                             }
@@ -207,7 +207,7 @@ impl WatcherInner {
                 Some(event) = proxy_rx.recv() => handle_event(&event)?,
                 _ = self.cancellation_token.cancelled() => {
                     if let Err(error) = self.dispatcher.stop() {
-                        tracing::error!("{}: failed to stop dispatcher: {:#}", project_id, error);
+                        tracing::error!(project_id, %error, "failed to stop dispatcher");
                     }
                     break;
                 }

@@ -38,8 +38,8 @@ rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }
 rustix = "0.38"
 sentry = { version = "0.31", features = ["backtrace", "contexts", "panic", "transport", "anyhow", "debug-images", "reqwest", "native-tls" ] }
 sentry-anyhow = "0.31.0"
-sentry-debug-images = "0.31"
 sentry-rust-minidump = "0.6.4"
+sentry-tracing = "0.31.7"
 serde = { version = "1.0", features = ["derive"] }
 serde-jsonlines = "0.4.0"
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
