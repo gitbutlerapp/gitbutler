@@ -1709,6 +1709,12 @@ fn write_tree_onto_commit(
                 // it's a symlink, make the content the path of the link
                 let link_target = std::fs::read_link(&full_path)?;
 
+                // if the link target is inside the project repository, make it relative
+                let link_target = link_target
+                    .strip_prefix(project_repository.path())
+                    .unwrap_or(&link_target);
+
+                // bytes dance
                 let path_str = link_target.to_str().unwrap();
                 let bytes: &[u8] = path_str.as_bytes();
 
