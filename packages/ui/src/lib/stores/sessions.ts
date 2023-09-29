@@ -5,11 +5,7 @@ export interface SessionsStore extends Loadable<Session[]> {
 	subscribeStream(): () => void; // Consumer of store shall manage hsubscription
 }
 
-export function getSessionStore(params: { projectId: string }) {
-	return getSessionStore2(params.projectId);
-}
-
-export function getSessionStore2(projectId: string): SessionsStore {
+export function getSessionStore(projectId: string): SessionsStore {
 	const store = asyncWritable(
 		[],
 		async () => {

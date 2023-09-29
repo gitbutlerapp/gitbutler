@@ -14,7 +14,7 @@
 		getWithContentStore
 	} from '$lib/vbranches/branchStoresCache';
 	import { getHeadsStore } from '$lib/stores/head';
-	import { getSessionStore2 } from '$lib/stores/sessions';
+	import { getSessionStore } from '$lib/stores/sessions';
 	import { getDeltasStore2 } from '$lib/stores/deltas';
 	import { getFetchesStore } from '$lib/stores/fetches';
 	import { Code } from '$lib/ipc';
@@ -29,7 +29,7 @@
 	const fetchStore = getFetchesStore(projectId);
 	const deltasStore = getDeltasStore2(projectId);
 	const headStore = getHeadsStore(projectId);
-	const sessionsStore = getSessionStore2(projectId);
+	const sessionsStore = getSessionStore(projectId);
 	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore, headStore]);
 	const remoteBranchStore = getRemoteBranchStore(projectId, [
 		fetchStore,

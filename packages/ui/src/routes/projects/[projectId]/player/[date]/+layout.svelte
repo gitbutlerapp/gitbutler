@@ -23,7 +23,7 @@
 	const filter = derived(page, (page) => page.url.searchParams.get('file'));
 	const projectId = derived(page, (page) => page.params.projectId);
 
-	$: sessions = getSessionStore({ projectId: $page.params.projectId });
+	$: sessions = getSessionStore($page.params.projectId);
 	$: dateSessions = asyncDerived([sessions, page], async ([sessions, page]) =>
 		sessions
 			.filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date)

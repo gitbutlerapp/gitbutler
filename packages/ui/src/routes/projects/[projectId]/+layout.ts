@@ -15,7 +15,7 @@ export const load: LayoutLoad = async ({ params }) => {
 	return {
 		head: getHeadStore({ projectId: params.projectId }),
 		statuses: getStatusStore({ projectId: params.projectId }),
-		sessions: getSessionStore({ projectId: params.projectId }),
+		sessions: getSessionStore(params.projectId),
 		diffs: getDiffsStore({ projectId: params.projectId }),
 		project: project as Loadable<Project> & Pick<typeof project, 'update' | 'delete'>
 	};
