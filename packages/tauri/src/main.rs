@@ -483,192 +483,209 @@ async fn git_get_global_config(
     Ok(result)
 }
 
-#[tokio::main]
-async fn main() {
-    tauri::async_runtime::set(tokio::runtime::Handle::current());
-
+fn main() {
     let tauri_context = generate_context!();
 
     let _guard = sentry::init(("https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032", sentry::ClientOptions {
         release: Some(tauri_context.package_info().version.to_string().into()),
+        environment: Some(match tauri_context.package_info().name.as_str() {
+            "GitButler" => "production",
+            "GitButler Nightly" => "nightly",
+            "GitButler Dev" => "development",
+            _ => "unknown",
+        }.into()),
         attach_stacktrace: true,
         default_integrations: true,
         ..Default::default()
     }));
 
-    let app_title = tauri_context.package_info().name.clone();
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            tauri::async_runtime::set(tokio::runtime::Handle::current());
+            let app_title = tauri_context.package_info().name.clone();
 
-    let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
-    let hide = tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title));
-    let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
-    let tray = tauri::SystemTray::new().with_menu(tray_menu);
+            let quit = tauri::CustomMenuItem::new("quit".to_string(), "Quit");
+            let hide =
+                tauri::CustomMenuItem::new("toggle".to_string(), format!("Hide {}", app_title));
+            let tray_menu = tauri::SystemTrayMenu::new().add_item(hide).add_item(quit);
+            let tray = tauri::SystemTray::new().with_menu(tray_menu);
 
-    tauri::Builder::default()
-        .system_tray(tray)
-        .on_system_tray_event(|app_handle, event| {
-            if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
-                let app_title = app_handle.package_info().name.clone();
-                let item_handle = app_handle.tray_handle().get_item(&id);
-                match id.as_str() {
-                    "quit" => {
-                        tracing::info!("Quitting app");
-                        app_handle.exit(0);
-                    }
-                    "toggle" => match get_window(app_handle) {
-                        Some(window) => {
-                            if window.is_visible().unwrap() {
-                                hide_window(app_handle).expect("Failed to hide window");
-                            } else {
-                                show_window(app_handle).expect("Failed to show window");
+            tauri::Builder::default()
+                .system_tray(tray)
+                .on_system_tray_event(|app_handle, event| {
+                    if let tauri::SystemTrayEvent::MenuItemClick { id, .. } = event {
+                        let app_title = app_handle.package_info().name.clone();
+                        let item_handle = app_handle.tray_handle().get_item(&id);
+                        match id.as_str() {
+                            "quit" => {
+                                tracing::info!("Quitting app");
+                                app_handle.exit(0);
                             }
+                            "toggle" => match get_window(app_handle) {
+                                Some(window) => {
+                                    if window.is_visible().unwrap() {
+                                        hide_window(app_handle).expect("Failed to hide window");
+                                    } else {
+                                        show_window(app_handle).expect("Failed to show window");
+                                    }
+                                }
+                                None => {
+                                    create_window(app_handle).expect("Failed to create window");
+                                    item_handle
+                                        .set_title(format!("Hide {}", app_title))
+                                        .unwrap();
+                                }
+                            },
+                            _ => {}
                         }
-                        None => {
-                            create_window(app_handle).expect("Failed to create window");
-                            item_handle
-                                .set_title(format!("Hide {}", app_title))
-                                .unwrap();
+                    }
+                })
+                .on_window_event(|event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+                        hide_window(&event.window().app_handle()).expect("Failed to hide window");
+                        api.prevent_close();
+                    }
+                })
+                .setup(move |tauri_app| {
+                    let window =
+                        create_window(&tauri_app.handle()).expect("Failed to create window");
+                    #[cfg(debug_assertions)]
+                    window.open_devtools();
+
+                    let app_handle = tauri_app.handle();
+
+                    logs::init(&app_handle);
+
+                    tracing::info!("Starting app");
+
+                    let analytics_cfg = if cfg!(debug_assertions) {
+                        analytics::Config {
+                            posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
                         }
-                    },
+                    } else {
+                        analytics::Config {
+                            posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
+                        }
+                    };
+                    let analytics_client = analytics::Client::new(&app_handle, analytics_cfg);
+                    tauri_app.manage(analytics_client);
+
+                    let watchers = watcher::Watchers::try_from(&app_handle)
+                        .expect("failed to initialize watchers");
+                    tauri_app.manage(watchers);
+
+                    let zipper =
+                        zip::Zipper::try_from(&app_handle).expect("failed to initialize zipper");
+                    tauri_app.manage(zipper);
+
+                    let proxy =
+                        assets::Proxy::try_from(&app_handle).expect("failed to initialize proxy");
+                    tauri_app.manage(proxy);
+
+                    let database = database::Database::try_from(&app_handle)
+                        .expect("failed to initialize database");
+                    app_handle.manage(database);
+
+                    let storage = storage::Storage::try_from(&app_handle)
+                        .expect("failed to initialize storage");
+                    app_handle.manage(storage);
+
+                    let search = search::Searcher::try_from(&app_handle)
+                        .expect("failed to initialize search");
+                    app_handle.manage(search);
+
+                    let vbranch_contoller =
+                        virtual_branches::controller::Controller::try_from(&app_handle)
+                            .expect("failed to initialize virtual branches controller");
+                    app_handle.manage(vbranch_contoller);
+
+                    let app: app::App = app::App::try_from(&tauri_app.app_handle())
+                        .expect("failed to initialize app");
+
+                    if let Some(user) = app.get_user().context("failed to get user")? {
+                        sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
+                    }
+
+                    app.init().context("failed to init app")?;
+
+                    app_handle.manage(app);
+
+                    Ok(())
+                })
+                .plugin(tauri_plugin_window_state::Builder::default().build())
+                .invoke_handler(tauri::generate_handler![
+                    add_project,
+                    get_project,
+                    list_projects,
+                    delete_project,
+                    update_project,
+                    list_deltas,
+                    list_sessions,
+                    list_session_files,
+                    set_user,
+                    delete_user,
+                    get_user,
+                    search,
+                    git_status,
+                    git_activity,
+                    git_match_paths,
+                    git_remote_branches,
+                    git_remote_branches_data,
+                    git_head,
+                    git_wd_diff,
+                    delete_all_data,
+                    get_logs_archive_path,
+                    get_project_archive_path,
+                    get_project_data_archive_path,
+                    upsert_bookmark,
+                    list_bookmarks,
+                    virtual_branches::commands::list_virtual_branches,
+                    virtual_branches::commands::create_virtual_branch,
+                    virtual_branches::commands::commit_virtual_branch,
+                    virtual_branches::commands::get_base_branch_data,
+                    virtual_branches::commands::set_base_branch,
+                    virtual_branches::commands::update_base_branch,
+                    virtual_branches::commands::merge_virtual_branch_upstream,
+                    virtual_branches::commands::update_virtual_branch,
+                    virtual_branches::commands::delete_virtual_branch,
+                    virtual_branches::commands::apply_branch,
+                    virtual_branches::commands::unapply_branch,
+                    virtual_branches::commands::unapply_ownership,
+                    virtual_branches::commands::push_virtual_branch,
+                    virtual_branches::commands::create_virtual_branch_from_branch,
+                    virtual_branches::commands::can_apply_virtual_branch,
+                    virtual_branches::commands::can_apply_remote_branch,
+                    virtual_branches::commands::list_remote_commit_files,
+                    fetch_from_target,
+                    mark_resolved,
+                    git_set_global_config,
+                    git_get_global_config,
+                    keys::commands::get_public_key,
+                ])
+                .build(tauri_context)
+                .expect("Failed to build tauri app")
+                .run(|app_handle, event| match event {
+                    tauri::RunEvent::WindowEvent {
+                        event: tauri::WindowEvent::Focused(is_focused),
+                        ..
+                    } => {
+                        if is_focused {
+                            set_toggle_menu_hide(app_handle)
+                                .expect("Failed to set toggle menu hide");
+                        } else {
+                            set_toggle_menu_show(app_handle)
+                                .expect("Failed to set toggle menu show");
+                        }
+                    }
+                    tauri::RunEvent::ExitRequested { api, .. } => {
+                        hide_window(app_handle).expect("Failed to hide window");
+                        api.prevent_exit();
+                    }
                     _ => {}
-                }
-            }
-        })
-        .on_window_event(|event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
-                hide_window(&event.window().app_handle()).expect("Failed to hide window");
-                api.prevent_close();
-            }
-        })
-        .setup(move |tauri_app| {
-            let window = create_window(&tauri_app.handle()).expect("Failed to create window");
-            #[cfg(debug_assertions)]
-            window.open_devtools();
-
-            let app_handle = tauri_app.handle();
-
-            logs::init(&app_handle);
-
-            tracing::info!("Starting app");
-
-            let analytics_cfg = if cfg!(debug_assertions) {
-                analytics::Config {
-                    posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
-                }
-            } else {
-                analytics::Config {
-                    posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
-                }
-            };
-            let analytics_client = analytics::Client::new(&app_handle, analytics_cfg);
-            tauri_app.manage(analytics_client);
-
-            let watchers =
-                watcher::Watchers::try_from(&app_handle).expect("failed to initialize watchers");
-            tauri_app.manage(watchers);
-
-            let zipper = zip::Zipper::try_from(&app_handle).expect("failed to initialize zipper");
-            tauri_app.manage(zipper);
-
-            let proxy = assets::Proxy::try_from(&app_handle).expect("failed to initialize proxy");
-            tauri_app.manage(proxy);
-
-            let database =
-                database::Database::try_from(&app_handle).expect("failed to initialize database");
-            app_handle.manage(database);
-
-            let storage =
-                storage::Storage::try_from(&app_handle).expect("failed to initialize storage");
-            app_handle.manage(storage);
-
-            let search =
-                search::Searcher::try_from(&app_handle).expect("failed to initialize search");
-            app_handle.manage(search);
-
-            let vbranch_contoller = virtual_branches::controller::Controller::try_from(&app_handle)
-                .expect("failed to initialize virtual branches controller");
-            app_handle.manage(vbranch_contoller);
-
-            let app: app::App =
-                app::App::try_from(&tauri_app.app_handle()).expect("failed to initialize app");
-
-            if let Some(user) = app.get_user().context("failed to get user")? {
-                sentry::configure_scope(|scope| scope.set_user(Some(user.clone().into())))
-            }
-
-            app.init().context("failed to init app")?;
-
-            app_handle.manage(app);
-
-            Ok(())
-        })
-        .plugin(tauri_plugin_window_state::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![
-            add_project,
-            get_project,
-            list_projects,
-            delete_project,
-            update_project,
-            list_deltas,
-            list_sessions,
-            list_session_files,
-            set_user,
-            delete_user,
-            get_user,
-            search,
-            git_status,
-            git_activity,
-            git_match_paths,
-            git_remote_branches,
-            git_remote_branches_data,
-            git_head,
-            git_wd_diff,
-            delete_all_data,
-            get_logs_archive_path,
-            get_project_archive_path,
-            get_project_data_archive_path,
-            upsert_bookmark,
-            list_bookmarks,
-            virtual_branches::commands::list_virtual_branches,
-            virtual_branches::commands::create_virtual_branch,
-            virtual_branches::commands::commit_virtual_branch,
-            virtual_branches::commands::get_base_branch_data,
-            virtual_branches::commands::set_base_branch,
-            virtual_branches::commands::update_base_branch,
-            virtual_branches::commands::merge_virtual_branch_upstream,
-            virtual_branches::commands::update_virtual_branch,
-            virtual_branches::commands::delete_virtual_branch,
-            virtual_branches::commands::apply_branch,
-            virtual_branches::commands::unapply_branch,
-            virtual_branches::commands::unapply_ownership,
-            virtual_branches::commands::push_virtual_branch,
-            virtual_branches::commands::create_virtual_branch_from_branch,
-            virtual_branches::commands::can_apply_virtual_branch,
-            virtual_branches::commands::can_apply_remote_branch,
-            virtual_branches::commands::list_remote_commit_files,
-            fetch_from_target,
-            mark_resolved,
-            git_set_global_config,
-            git_get_global_config,
-            keys::commands::get_public_key,
-        ])
-        .build(tauri_context)
-        .expect("Failed to build tauri app")
-        .run(|app_handle, event| match event {
-            tauri::RunEvent::WindowEvent {
-                event: tauri::WindowEvent::Focused(is_focused),
-                ..
-            } => {
-                if is_focused {
-                    set_toggle_menu_hide(app_handle).expect("Failed to set toggle menu hide");
-                } else {
-                    set_toggle_menu_show(app_handle).expect("Failed to set toggle menu show");
-                }
-            }
-            tauri::RunEvent::ExitRequested { api, .. } => {
-                hide_window(app_handle).expect("Failed to hide window");
-                api.prevent_exit();
-            }
-            _ => {}
+                });
         });
 }
 

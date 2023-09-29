@@ -44,6 +44,7 @@ pub fn init(app_handle: &AppHandle) {
                 .with_span_events(FmtSpan::CLOSE)
                 .with_filter(log_level_filter),
         )
+        .with(sentry_tracing::layer())
         .with(
             // subscriber that writes spans to a file
             tracing_subscriber::fmt::layer()
