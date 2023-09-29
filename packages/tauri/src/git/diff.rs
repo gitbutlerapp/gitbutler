@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path};
+use std::{collections::HashMap, path, str};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -135,12 +135,15 @@ fn hunks_by_filepath(
         }
 
         match line.origin() {
-            '+' | '-' | ' ' => current_diff.push_str(&format!("{}", line.origin())),
-            _ => {}
-        }
-
-        // is this a binary patch or a hunk?
-        match line.origin() {
+            '+' | '-' | ' ' => {
+                current_diff.push_str(&format!("{}", line.origin()));
+                current_diff.push_str(
+                    str::from_utf8(line.content())
+                        .map_err(|error| tracing::error!(?error, ?file_path))
+                        .unwrap_or_default(),
+                );
+                current_binary = false;
+            }
             'B' => {
                 let full_path = repository.workdir().unwrap().join(file_path);
                 // save the file_path to the odb
@@ -152,8 +155,11 @@ fn hunks_by_filepath(
                 current_binary = true;
             }
             _ => {
-                current_diff.push_str(std::str::from_utf8(line.content()).unwrap());
-                current_binary = false;
+                current_diff.push_str(
+                    str::from_utf8(line.content())
+                        .map_err(|error| tracing::error!(?error, ?file_path))
+                        .unwrap_or_default(),
+                );
             }
         }
 
