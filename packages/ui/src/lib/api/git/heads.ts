@@ -15,7 +15,7 @@ export function subscribe(projectId: string, callback: (head: string) => Promise
 export function getHeadStore(projectId: string): WritableLoadable<string> {
 	return asyncWritable(
 		[],
-		() => getHead(projectId),
+		async () => await getHead(projectId),
 		undefined,
 		undefined,
 		(set) => {
