@@ -30,7 +30,7 @@
 		class="link flex items-center {role} {classes}"
 		bind:this={element}
 		class:disabled
-		on:click={() => href && open(href)}
+		on:click={() => href && isExternal && open(href)}
 	>
 		<div class="flex-grow truncate">
 			<slot />
