@@ -11,5 +11,5 @@ export function getHeadsStore(projectId: string): Loadable<string> {
 			const unsubscribe = subscribe(projectId, set);
 			return () => unsubscribe();
 		}
-	) as WritableLoadable<string>;
+	);
 }

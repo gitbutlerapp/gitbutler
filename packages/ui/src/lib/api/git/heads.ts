@@ -15,14 +15,11 @@ export function subscribe(projectId: string, callback: (head: string) => Promise
 export function getHeadStore(projectId: string): WritableLoadable<string> {
 	return asyncWritable(
 		[],
-		async () => {
-			const head = await getHead(projectId);
-			return head.replace('refs/heads/', '');
-		},
+		() => getHead(projectId),
 		undefined,
 		undefined,
 		(set) => {
-			const unsubscribe = subscribe(projectId, (head) => set(head));
+			const unsubscribe = subscribe(projectId, set);
 			return () => unsubscribe();
 		}
 	);

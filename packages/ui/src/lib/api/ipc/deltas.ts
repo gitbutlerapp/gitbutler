@@ -22,11 +22,12 @@ export async function list(params: {
 	sessionId: string;
 	paths?: string[];
 }): Promise<Deltas> {
-	return invoke('list_deltas', params);
+	return await invoke('list_deltas', params);
 }
 
 export function subscribe(
-	params: { projectId: string; sessionId: string },
+	projectId: string,
+	sessionId: string | undefined,
 	callback: (params: {
 		projectId: string;
 		sessionId: string;
@@ -34,9 +35,15 @@ export function subscribe(
 		deltas: Delta[];
 	}) => Promise<void> | void
 ) {
-	if (!params.sessionId) return () => {};
+	if (!sessionId) return () => {};
 	return listen<{ deltas: Delta[]; filePath: string }>(
-		`project://${params.projectId}/sessions/${params.sessionId}/deltas`,
-		(event) => callback({ ...params, ...event.payload })
+		`project://${projectId}/sessions/${sessionId}/deltas`,
+		(event) =>
+			callback({
+				projectId,
+				sessionId,
+				filePath: event.payload.filePath,
+				deltas: event.payload.deltas
+			})
 	);
 }
