@@ -81,8 +81,8 @@ importers:
         specifier: ^7.64.0
         version: 7.64.0(@sveltejs/kit@1.24.1)(svelte@4.2.0)
       '@square/svelte-store':
-        specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git
-        version: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0)
+        specifier: git+https://git@github.com/gitbutlerapp/svelte-store.git#5f54d113be638e5383965907333d50213dd4e05e
+        version: github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0)
       '@sveltejs/adapter-static':
         specifier: ^2.0.3
         version: 2.0.3(@sveltejs/kit@1.24.1)
@@ -5456,13 +5456,13 @@ packages:
     engines: {node: '>=12.20'}
     dev: true
 
-  github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd(svelte@4.2.0):
-    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/4cf861db334188389186a6f41ddfc1ba157b4ffd}
-    id: github.com/gitbutlerapp/svelte-store/4cf861db334188389186a6f41ddfc1ba157b4ffd
+  github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e(svelte@4.2.0):
+    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-store/tar.gz/5f54d113be638e5383965907333d50213dd4e05e}
+    id: github.com/gitbutlerapp/svelte-store/5f54d113be638e5383965907333d50213dd4e05e
     name: '@square/svelte-store'
     version: 1.0.17
     peerDependencies:
-      svelte: ^3.0.0
+      svelte: ^4.0.0
     dependencies:
       cookie-storage: 6.1.0
       svelte: 4.2.0
