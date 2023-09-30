@@ -14,8 +14,8 @@
 		getWithContentStore
 	} from '$lib/vbranches/branchStoresCache';
 	import { getHeadsStore } from '$lib/stores/head';
-	import { getSessionStore2 } from '$lib/stores/sessions';
-	import { getDeltasStore2 } from '$lib/stores/deltas';
+	import { getSessionStore } from '$lib/stores/sessions';
+	import { getDeltasStore } from '$lib/stores/deltas';
 	import { getFetchesStore } from '$lib/stores/fetches';
 	import { Code } from '$lib/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
@@ -27,9 +27,9 @@
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 
 	const fetchStore = getFetchesStore(projectId);
-	const deltasStore = getDeltasStore2(projectId);
+	const deltasStore = getDeltasStore(projectId);
 	const headStore = getHeadsStore(projectId);
-	const sessionsStore = getSessionStore2(projectId);
+	const sessionsStore = getSessionStore(projectId);
 	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore, headStore]);
 	const remoteBranchStore = getRemoteBranchStore(projectId, [
 		fetchStore,
@@ -44,10 +44,6 @@
 	]);
 	const branchesWithContent = getWithContentStore(projectId, sessionsStore, vbranchStore);
 
-	const fetchUnsubscribe = fetchStore.subscribeStream();
-	const gitHeadUnsubscribe = headStore.subscribeStream();
-	const sessionsUnsubscribe = sessionsStore.subscribeStream();
-
 	const vbrachesState = vbranchStore.state;
 	const branchesState = branchesWithContent.state;
 	const baseBranchesState = baseBranchStore.state;
@@ -61,21 +57,19 @@
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
 
-	$: sessionId = $sessionsStore?.at(-1)?.id;
-	$: updateDeltasStore(sessionId); // has to come before `getVirtualBranchStore`
+	$: sessionId = $sessionsStore?.at(0)?.id;
+	$: updateDeltasStore(sessionId);
 
 	let targetChoice: string | undefined;
-	let deltasUnsubscribe: (() => void) | undefined;
 	let trayViewport: HTMLElement;
 	let peekTrayExpanded: boolean;
 
 	// Used to prevent peek tray from showing while reducing tray size
 	let peekTransitionsDisabled = false;
 
-	// function exists to unsubscribe from delta store when session changes
+	// function exists to update the session id as it changes
 	function updateDeltasStore(sessionId: string | undefined) {
-		if (deltasUnsubscribe) deltasUnsubscribe();
-		deltasUnsubscribe = sessionId ? deltasStore.subscribeStream(sessionId) : undefined;
+		if (sessionId) deltasStore.setSessionId(sessionId);
 	}
 
 	function onSetTargetClick() {
@@ -84,13 +78,6 @@
 		}
 		branchController.setTarget(targetChoice);
 	}
-
-	onDestroy(() => {
-		sessionsUnsubscribe();
-		fetchUnsubscribe();
-		gitHeadUnsubscribe();
-		if (deltasUnsubscribe) deltasUnsubscribe();
-	});
 </script>
 
 {#if $baseBranchesState.isLoading}

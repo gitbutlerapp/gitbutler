@@ -13,9 +13,9 @@ export const load: LayoutLoad = async ({ params }) => {
 	const project = getProjectStore({ id: params.projectId });
 	if ((await project.load()) === undefined) throw error(404, new Error('Project not found'));
 	return {
-		head: getHeadStore({ projectId: params.projectId }),
+		head: getHeadStore(params.projectId),
 		statuses: getStatusStore({ projectId: params.projectId }),
-		sessions: getSessionStore({ projectId: params.projectId }),
+		sessions: getSessionStore(params.projectId),
 		diffs: getDiffsStore({ projectId: params.projectId }),
 		project: project as Loadable<Project> & Pick<typeof project, 'update' | 'delete'>
 	};

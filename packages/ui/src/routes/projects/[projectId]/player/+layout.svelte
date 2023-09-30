@@ -6,7 +6,7 @@
 	import { asyncDerived, type Readable } from '@square/svelte-store';
 	import type { Session } from '$lib/api/ipc/sessions';
 
-	const sessions = getSessionStore({ projectId: $page.params.projectId });
+	const sessions = getSessionStore($page.params.projectId);
 
 	$: fileFilter = $page.url.searchParams.get('file');
 

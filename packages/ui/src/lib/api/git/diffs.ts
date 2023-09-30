@@ -17,7 +17,7 @@ export function getDiffsStore(params: { projectId: string }) {
 	if (stores[params.projectId]) return stores[params.projectId];
 	const store = asyncWritable([], () => list(params));
 	activities.subscribe(params, ({ projectId }) => list({ projectId }).then(store.set));
-	sessions.subscribe(params, () => list(params).then(store.set));
+	sessions.subscribe(params.projectId, () => list(params).then(store.set));
 	stores[params.projectId] = store;
 	return store;
 }

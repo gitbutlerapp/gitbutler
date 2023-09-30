@@ -23,7 +23,7 @@
 	const filter = derived(page, (page) => page.url.searchParams.get('file'));
 	const projectId = derived(page, (page) => page.params.projectId);
 
-	$: sessions = getSessionStore({ projectId: $page.params.projectId });
+	$: sessions = getSessionStore($page.params.projectId);
 	$: dateSessions = asyncDerived([sessions, page], async ([sessions, page]) =>
 		sessions
 			.filter((session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === page.params.date)
@@ -35,12 +35,10 @@
 		async ([sessions, projectId, filter]) =>
 			sessions.map((session) => ({
 				...session,
-				deltas: asyncDerived(
-					getDeltasStore({ projectId: projectId, sessionId: session.id }),
-					async (deltas) =>
-						Object.fromEntries(
-							Object.entries(deltas).filter(([path]) => (filter ? path === filter : true))
-						)
+				deltas: asyncDerived(getDeltasStore(projectId, session.id), async (deltas) =>
+					Object.fromEntries(
+						Object.entries(deltas).filter(([path]) => (filter ? path === filter : true))
+					)
 				),
 				files: asyncDerived(
 					getFilesStore({ projectId: projectId, sessionId: session.id }),

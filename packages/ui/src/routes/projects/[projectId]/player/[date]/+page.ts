@@ -4,7 +4,7 @@ import type { PageLoad } from './$types';
 import { getSessionStore } from '$lib/stores/sessions';
 
 export const load: PageLoad = async ({ params, url }) => {
-	const sessions = getSessionStore({ projectId: params.projectId });
+	const sessions = getSessionStore(params.projectId);
 	const dateSessions = (await sessions.load()).filter(
 		(session) => format(session.meta.startTimestampMs, 'yyyy-MM-dd') === params.date
 	);

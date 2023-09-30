@@ -21,11 +21,15 @@ export function getVirtualBranchStore(
 			asyncStores,
 			async () => await listVirtualBranches({ projectId }),
 			undefined,
-			{ reloadable: true, trackState: true }
+			{ reloadable: true, trackState: true },
+			() => {
+				return () => {
+					console.log('vbranch store subscription eneded');
+				};
+			}
 		) as CustomStore<Branch[] | undefined>),
 		updateById(id: string, updater: (value: Branch) => void): void {
-			const branches = get(this.store);
-			const branch = branches?.find((b) => b.id == id);
+			const branch = get(this.store)?.find((b) => b.id == id);
 			branch && updater(branch);
 			this.store.update((v) => v);
 		}
@@ -40,7 +44,7 @@ export function getWithContentStore(
 	return asyncWritable(
 		[vbranchStore, sessionStore],
 		async ([branches, sessions]) => {
-			const lastSession = sessions.at(-1);
+			const lastSession = sessions.at(0);
 			return lastSession ? await withFileContent(projectId, lastSession.id, branches) : [];
 		},
 		async (newBranches) => newBranches,

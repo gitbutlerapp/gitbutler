@@ -4,7 +4,7 @@ import type { PageLoad } from './$types';
 import { getSessionStore } from '$lib/stores/sessions';
 
 export const load: PageLoad = async ({ url, params }) => {
-	const sessions = getSessionStore({ projectId: params.projectId });
+	const sessions = getSessionStore(params.projectId);
 	const latestDate = (await sessions.load())
 		.map((session) => session.meta.startTimestampMs)
 		.sort(compareDesc)
