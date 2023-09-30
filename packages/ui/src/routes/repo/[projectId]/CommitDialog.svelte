@@ -108,6 +108,9 @@
 			class="text-color-2 bg-color-5 flex-grow cursor-text resize-none overflow-x-auto overflow-y-auto border border-transparent p-2 font-mono outline-none focus:border-purple-600 focus:ring-0 dark:focus:border-purple-600"
 			placeholder="Your commit message here"
 			rows={messageRows}
+			autocomplete="off"
+			autocorrect="off"
+			spellcheck="true"
 			required
 		/>
 	</div>
