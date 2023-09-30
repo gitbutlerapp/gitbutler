@@ -93,6 +93,9 @@
 					type="email"
 					class="input"
 					bind:value={emailInputValue}
+					autocomplete="off"
+					autocorrect="off"
+					spellcheck="true"
 				/>
 			</div>
 		{/if}

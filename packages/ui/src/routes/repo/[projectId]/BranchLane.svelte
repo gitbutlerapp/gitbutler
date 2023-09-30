@@ -281,6 +281,9 @@
 							class="text-color-3 hover:text-color-2 focus:text-color-2 hover:border-color-4 w-full truncate rounded border border-transparent bg-transparent px-1 font-mono font-bold"
 							on:dblclick|stopPropagation
 							on:click={(e) => e.currentTarget.select()}
+							autocomplete="off"
+							autocorrect="off"
+							spellcheck="false"
 						/>
 					</div>
 					<div class="flex gap-x-1 px-1" transition:fade={{ duration: 150 }}>
