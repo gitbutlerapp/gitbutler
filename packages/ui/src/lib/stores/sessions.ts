@@ -4,11 +4,7 @@ import { asyncWritable, get, type Loadable, type WritableLoadable } from '@squar
 export function getSessionStore(projectId: string): Loadable<Session[]> {
 	const store = asyncWritable(
 		[],
-		async () => {
-			const sessions = await list(projectId);
-			console.log(sessions);
-			return sessions;
-		},
+		async () => await list(projectId),
 		async (data) => data,
 		{ trackState: true },
 		(set) => {
