@@ -21,12 +21,7 @@ export function getVirtualBranchStore(
 			asyncStores,
 			async () => await listVirtualBranches({ projectId }),
 			undefined,
-			{ reloadable: true, trackState: true },
-			() => {
-				return () => {
-					console.log('vbranch store subscription eneded');
-				};
-			}
+			{ reloadable: true, trackState: true }
 		) as CustomStore<Branch[] | undefined>),
 		updateById(id: string, updater: (value: Branch) => void): void {
 			const branch = get(this.store)?.find((b) => b.id == id);
