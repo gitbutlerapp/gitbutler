@@ -20,21 +20,17 @@ export type Session = {
 	};
 };
 
-export async function list(params: { projectId: string; earliestTimestampMs?: number }) {
-	return invoke<Omit<Session, 'projectId'>[]>('list_sessions', params).then((sessions) =>
-		sessions.map((s) => ({ ...s, projectId: params.projectId }))
+export async function list(projectId: string) {
+	return invoke<Omit<Session, 'projectId'>[]>('list_sessions', { projectId }).then((sessions) =>
+		sessions.map((s) => ({ ...s, projectId: projectId }))
 	);
 }
 
 export function subscribe(
-	params: { projectId: string },
-	callback: (params: {
-		projectId: string;
-		session: Omit<Session, 'projectId'>;
-	}) => Promise<void> | void
+	projectId: string,
+	callback: (session: Omit<Session, 'projectId'>) => void
 ) {
-	return listen<Omit<Session, 'projectId'>>(
-		`project://${params.projectId}/sessions`,
-		async (event) => callback({ ...params, session: event.payload })
+	return listen<Omit<Session, 'projectId'>>(`project://${projectId}/sessions`, async (event) =>
+		callback(event.payload)
 	);
 }

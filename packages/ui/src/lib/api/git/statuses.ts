@@ -30,7 +30,7 @@ export function getStatusStore(params: { projectId: string }): WritableLoadable<
 	const cached = stores[params.projectId];
 	if (cached) return cached;
 	const store = asyncWritable([], () => list(params));
-	sessions.subscribe(params, () => list(params).then(store.set));
+	sessions.subscribe(params.projectId, () => list(params).then(store.set));
 	activities.subscribe(params, () => list(params).then(store.set));
 	indexes.subscribe(params, () => list(params).then(store.set));
 	stores[params.projectId] = store;

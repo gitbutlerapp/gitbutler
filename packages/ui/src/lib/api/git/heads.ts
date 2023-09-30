@@ -1,28 +1,29 @@
 import { invoke, listen } from '$lib/ipc';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 
-export function get(params: { projectId: string }) {
-	return invoke<string>('git_head', params);
+export async function getHead(projectId: string) {
+	const head = await invoke<string>('git_head', { projectId });
+	return head.replace('refs/heads/', '');
 }
 
-export function subscribe(
-	params: { projectId: string },
-	callback: (params: { projectId: string; head: string }) => Promise<void> | void
-) {
-	return listen<{ head: string }>(`project://${params.projectId}/git/head`, (event) =>
-		callback({ ...params, ...event.payload })
+export function subscribe(projectId: string, callback: (head: string) => Promise<void> | void) {
+	return listen<{ head: string }>(`project://${projectId}/git/head`, (event) =>
+		callback(event.payload.head.replace('refs/heads/', ''))
 	);
 }
 
-const stores: Partial<Record<string, WritableLoadable<string>>> = {};
-
-export function getHeadStore(params: { projectId: string }): WritableLoadable<string> {
-	const cached = stores[params.projectId];
-	if (cached) return cached;
-	const store = asyncWritable([], () =>
-		get(params).then((head) => head.replace('refs/heads/', ''))
+export function getHeadStore(projectId: string): WritableLoadable<string> {
+	return asyncWritable(
+		[],
+		async () => {
+			const head = await getHead(projectId);
+			return head.replace('refs/heads/', '');
+		},
+		undefined,
+		undefined,
+		(set) => {
+			const unsubscribe = subscribe(projectId, (head) => set(head));
+			return () => unsubscribe();
+		}
 	);
-	subscribe(params, ({ head }) => store.set(head.replace('refs/heads/', '')));
-	stores[params.projectId] = store;
-	return store;
 }

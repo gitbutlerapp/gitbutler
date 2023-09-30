@@ -1,10 +1,5 @@
 import { listen } from '$lib/ipc';
 
-export function subscribe(
-	params: { projectId: string },
-	callback: (params: { projectId: string }) => Promise<void> | void
-) {
-	return listen<{ head: string }>(`project://${params.projectId}/git/fetch`, (event) =>
-		callback({ ...params, ...event.payload })
-	);
+export function subscribe(projectId: string, callback: () => Promise<void> | void) {
+	return listen<any>(`project://${projectId}/git/fetch`, callback);
 }
