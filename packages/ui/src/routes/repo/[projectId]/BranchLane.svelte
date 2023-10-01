@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { userStore } from '$lib/stores/user';
 	import type { BaseBranch, Branch } from '$lib/vbranches/types';
-	import { getContext, onMount } from 'svelte';
+	import { getContext, onDestroy, onMount } from 'svelte';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Button, Link, Modal, Tooltip } from '$lib/components';
 	import IconKebabMenu from '$lib/icons/IconKebabMenu.svelte';
@@ -207,6 +207,10 @@
 				generateBranchName();
 			}
 		});
+	});
+
+	onDestroy(() => {
+		popupMenu.$destroy();
 	});
 
 	const selectedOwnership = writable(Ownership.fromBranch(branch));

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ContentSection, HunkSection, parseFileSections } from './fileSections';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onDestroy } from 'svelte';
 	import type { File, Hunk } from '$lib/vbranches/types';
 	import type { Ownership } from '$lib/vbranches/ownership';
 	import type { Writable } from 'svelte/store';
@@ -91,6 +91,10 @@
 			selectedOwnership.update((ownership) => ownership.removeHunk(hunk.filePath, hunk.id));
 		}
 	}
+
+	onDestroy(() => {
+		popupMenu.$destroy();
+	});
 </script>
 
 <div
