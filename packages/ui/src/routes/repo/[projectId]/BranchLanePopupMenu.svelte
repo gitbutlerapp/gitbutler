@@ -15,11 +15,9 @@
 	}>();
 
 	export function openByMouse(e: MouseEvent, item: any) {
-		console.log(popupMenu);
 		popupMenu.openByMouse(e, item);
 	}
 	export function openByElement(elt: HTMLElement, item: any) {
-		console.log(popupMenu);
 		popupMenu.openByElement(elt, item);
 	}
 </script>

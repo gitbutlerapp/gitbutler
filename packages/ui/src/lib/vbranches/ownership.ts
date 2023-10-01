@@ -36,7 +36,6 @@ export class Ownership {
 			hunks.delete(hunkId);
 			if (hunks.size === 0) this.files.delete(fileId);
 		}
-		console.log('after remove', this.toString());
 		return this;
 	}
 

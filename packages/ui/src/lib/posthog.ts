@@ -20,7 +20,6 @@ export default async function (): Promise<PostHogClient> {
 				// noop
 			},
 			loaded: (instance) => {
-				console.log('Posthog loaded');
 				instance.register_for_session({
 					appName,
 					appVersion

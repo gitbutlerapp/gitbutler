@@ -103,7 +103,6 @@
 	class="z-30"
 	on:height={(e) => {
 		treeHeight = e.detail;
-		console.log(branchId);
 		lscache.set(treeHeightKey + branchId, e.detail, 7 * 1440); // 7 day ttl
 		userSettings.update((s) => ({ ...s, defaultTreeHeight: e.detail }));
 	}}
