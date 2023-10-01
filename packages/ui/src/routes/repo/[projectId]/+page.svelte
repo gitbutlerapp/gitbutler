@@ -4,7 +4,7 @@
 	import type { PageData } from './$types';
 	import { Button, Link } from '$lib/components';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { getContext, onDestroy } from 'svelte';
+	import { getContext } from 'svelte';
 	import { SETTINGS_CONTEXT, type SettingsStore } from '$lib/userSettings';
 	import { IconExternalLink } from '$lib/icons';
 	import {

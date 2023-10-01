@@ -1,4 +1,4 @@
-import { asyncWritable, isReloadable, writable } from '@square/svelte-store';
+import { asyncWritable, isReloadable } from '@square/svelte-store';
 import * as deltas from '$lib/api/ipc/deltas';
 import type { Delta } from '$lib/api/ipc/deltas';
 import type { Stores, Writable } from 'svelte/store';
