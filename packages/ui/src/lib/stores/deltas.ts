@@ -1,30 +1,30 @@
 import { asyncWritable, isReloadable } from '@square/svelte-store';
-import * as deltas from '$lib/api/ipc/deltas';
-import type { Delta } from '$lib/api/ipc/deltas';
+import { subscribeToDeltas, type Delta, listDeltas } from '$lib/api/ipc/deltas';
 import type { Stores, Writable } from 'svelte/store';
 
+/**
+ * We have a special situation here where we use deltas to know when to re-run
+ * list_virtual_branches, but session ids change so we need the ability to update
+ * the store rather than creating a new one. The delta store is passed as a dependent
+ * to the virtualBranchStore to which triggers a re-run of the load function.
+ */
 export function getDeltasStore(
 	projectId: string,
 	sessionId: string | undefined = undefined
 ): Writable<Partial<Record<string, Delta[]>>> & { setSessionId: (sid: string) => void } {
-	// We have a special situation here where we use deltas to know when to re-run
-	// list_virtual_branches. We therefore have to be able to update the store rather
-	// than creating a new one, the virtualBranchStore "depends" on the delta store.
-
 	let unsubscribe: () => void;
-
 	const store = asyncWritable<Stores, Partial<Record<string, Delta[]>>>(
 		[],
 		async () => {
 			if (!sessionId) return {};
 			if (unsubscribe) unsubscribe();
-			unsubscribe = deltas.subscribe(projectId, sessionId, ({ filePath, deltas: newDeltas }) => {
+			unsubscribe = subscribeToDeltas(projectId, sessionId, ({ filePath, deltas }) => {
 				store.update((storeValue) => {
-					storeValue[filePath] = [...(storeValue[filePath] || []), ...newDeltas];
+					storeValue[filePath] = [...(storeValue[filePath] || []), ...deltas];
 					return storeValue;
 				});
 			});
-			return await deltas.list({ projectId, sessionId });
+			return await listDeltas({ projectId, sessionId });
 		},
 		undefined,
 		{ reloadable: true },

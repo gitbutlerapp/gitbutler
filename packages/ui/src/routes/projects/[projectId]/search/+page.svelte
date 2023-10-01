@@ -30,7 +30,7 @@
 		const [doc, dd] = await Promise.all([
 			files.list({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? ''),
 			deltas
-				.list({ projectId, sessionId, paths: [filePath] })
+				.listDeltas({ projectId, sessionId, paths: [filePath] })
 				.then((r) => r[filePath] ?? [])
 				.then((d) => d.slice(0, index + 1))
 		]);

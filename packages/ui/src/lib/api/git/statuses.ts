@@ -2,7 +2,7 @@ import { invoke } from '$lib/ipc';
 import { asyncWritable, type WritableLoadable } from '@square/svelte-store';
 import * as indexes from './indexes';
 import * as activities from './activities';
-import * as sessions from '../ipc/sessions';
+import { subscribeToSessions } from '../ipc/sessions';
 
 type FileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'typeChange' | 'other';
 
@@ -30,7 +30,7 @@ export function getStatusStore(params: { projectId: string }): WritableLoadable<
 	const cached = stores[params.projectId];
 	if (cached) return cached;
 	const store = asyncWritable([], () => list(params));
-	sessions.subscribe(params.projectId, () => list(params).then(store.set));
+	subscribeToSessions(params.projectId, () => list(params).then(store.set));
 	activities.subscribe(params, () => list(params).then(store.set));
 	indexes.subscribe(params, () => list(params).then(store.set));
 	stores[params.projectId] = store;

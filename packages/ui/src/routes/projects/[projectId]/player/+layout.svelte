@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { getSessionStore } from '$lib/stores/sessions';
-	import * as deltas from '$lib/api/ipc/deltas';
+	import { listDeltas } from '$lib/api/ipc/deltas';
 	import { format } from 'date-fns';
 	import { asyncDerived, type Readable } from '@square/svelte-store';
 	import type { Session } from '$lib/api/ipc/sessions';
@@ -13,7 +13,7 @@
 	const dates = asyncDerived<Readable<Session[]>, string[]>(sessions, async (value) => {
 		const sessionDeltas = await Promise.all(
 			value.map((value) =>
-				deltas.list({
+				listDeltas({
 					projectId: $page.params.projectId,
 					sessionId: value.id,
 					paths: fileFilter ? [fileFilter] : undefined

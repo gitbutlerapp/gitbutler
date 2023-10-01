@@ -6,7 +6,7 @@ export async function getHead(projectId: string) {
 	return head.replace('refs/heads/', '');
 }
 
-export function subscribe(projectId: string, callback: (head: string) => Promise<void> | void) {
+export function subscribeToHead(projectId: string, callback: (head: string) => void) {
 	return listen<{ head: string }>(`project://${projectId}/git/head`, (event) =>
 		callback(event.payload.head.replace('refs/heads/', ''))
 	);
@@ -19,7 +19,7 @@ export function getHeadStore(projectId: string): WritableLoadable<string> {
 		undefined,
 		undefined,
 		(set) => {
-			const unsubscribe = subscribe(projectId, set);
+			const unsubscribe = subscribeToHead(projectId, set);
 			return () => unsubscribe();
 		}
 	);
