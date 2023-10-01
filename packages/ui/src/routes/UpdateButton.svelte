@@ -10,7 +10,6 @@
 	let installing = false;
 	const onUpdateClicked = async () => {
 		installing = true;
-		console.log(await getVersion());
 		await installUpdate()
 			.finally(() => {
 				installing = false;
@@ -18,7 +17,6 @@
 			.catch((e) => {
 				toasts.error(e.message);
 			});
-		console.log(await getVersion());
 	};
 </script>
 

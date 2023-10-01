@@ -36,9 +36,6 @@
 			}
 		}
 		ranges = mergeTouchingRanges(ranges);
-		if (ranges.length > 0) {
-			console.log({ ranges, line });
-		}
 		return ranges;
 	};
 
@@ -91,14 +88,6 @@
 
 				const isHighlighted = mark.some(([from, to]) => {
 					const is = isIntersecting([from, to], [tokenPos, tokenPos + text.length]);
-					if (is) {
-						console.log({
-							pos: [from, to],
-							tokenPos: [tokenPos, tokenPos + text.length],
-							text,
-							is
-						});
-					}
 					return is;
 				});
 				tokenPos += text.length;

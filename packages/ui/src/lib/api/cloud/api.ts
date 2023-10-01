@@ -74,10 +74,8 @@ const withRequestId: FetchMiddleware = (fetch) => async (url, options) => {
 };
 
 const withLog: FetchMiddleware = (fetch) => async (url, options) => {
-	console.log('fetch', url, options);
 	try {
 		const resp = await fetch(url, options);
-		console.log(resp);
 		return resp;
 	} catch (e: any) {
 		console.error('fetch', e);

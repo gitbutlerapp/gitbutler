@@ -89,7 +89,6 @@
 	}
 
 	function merge() {
-		console.log(`merge ${branch.id}`);
 		branchController.mergeUpstream(branch.id);
 	}
 
@@ -165,7 +164,6 @@
 
 		if ($user) {
 			cloud.summarize.branch($user.access_token, { diff }).then((result) => {
-				console.log(result);
 				if (result.message && result.message !== branch.name) {
 					branch.name = result.message;
 					handleBranchNameChange();
