@@ -8,7 +8,6 @@
 	import type { LoadState } from '@square/svelte-store';
 	import { open } from '@tauri-apps/api/shell';
 	import { IconFile, IconTerminal, IconExternalLink } from '$lib/icons';
-	import { rectToClientRect } from 'svelte-floating-ui/core';
 
 	export let projectId: string;
 	export let projectPath: string;
@@ -106,7 +105,7 @@
 
 		{#if !activeBranches || activeBranches.length == 0}
 			<div
-				class="text-color-2 border-light-400 bg-light-200 dark:border-dark-500 dark:bg-dark-1000 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border p-8"
+				class="text-color-2 m-auto mx-10 flex w-full flex-grow items-center justify-center rounded border border-light-400 bg-light-200 p-8 dark:border-dark-500 dark:bg-dark-1000"
 			>
 				<div class="inline-flex w-[35rem] flex-col items-center gap-y-4">
 					<h3 class="text-xl font-medium">You are up to date</h3>
@@ -132,7 +131,7 @@
 									GitButler Docs
 								</a>
 								<div
-									class="hover:text-light-800 dark:hover:text-dark-100 inline-flex items-center gap-2"
+									class="inline-flex items-center gap-2 hover:text-light-800 dark:hover:text-dark-100"
 									role="button"
 									tabindex="0"
 									on:keypress={() => open(`vscode://file${projectPath}/`)}

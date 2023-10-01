@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { Type, Transform } from 'class-transformer';
-import type { Readable, Updater, WritableLoadable } from '@square/svelte-store';
+import type { Readable, WritableLoadable } from '@square/svelte-store';
 import type { LoadState, VisitedMap } from '@square/svelte-store/lib/async-stores/types';
 
 export class Hunk {
