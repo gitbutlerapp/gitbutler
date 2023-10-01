@@ -17,7 +17,7 @@ export type Delta = { timestampMs: number; operations: Operation[] };
 
 type Deltas = Partial<Record<string, Delta[]>>;
 
-export async function list(params: {
+export async function listDeltas(params: {
 	projectId: string;
 	sessionId: string;
 	paths?: string[];
@@ -25,7 +25,7 @@ export async function list(params: {
 	return await invoke('list_deltas', params);
 }
 
-export function subscribe(
+export function subscribeToDeltas(
 	projectId: string,
 	sessionId: string | undefined,
 	callback: (params: {

@@ -20,13 +20,13 @@ export type Session = {
 	};
 };
 
-export async function list(projectId: string) {
+export async function listSessions(projectId: string) {
 	return invoke<Omit<Session, 'projectId'>[]>('list_sessions', { projectId }).then((sessions) =>
 		sessions.map((s) => ({ ...s, projectId: projectId }))
 	);
 }
 
-export function subscribe(
+export function subscribeToSessions(
 	projectId: string,
 	callback: (session: Omit<Session, 'projectId'>) => void
 ) {
