@@ -9,12 +9,15 @@ export function getSessionStore(projectId: string): Loadable<Session[]> {
 		{ trackState: true },
 		(set) => {
 			const unsubscribe = subscribeToSessions(projectId, (session) => {
-				const oldValue = get(store).filter((b) => b.id != session.id);
+				const oldValue = get(store)?.filter((b) => b.id != session.id);
 				const newValue = {
 					projectId,
 					...session
 				};
-				set([newValue, ...oldValue]);
+				// It's possible for a subscription event to happen before the store
+				// has finished loading, and the store value is undefined until then.
+				// TODO: But if that happens, the latest session gets overwritten?
+				set(oldValue ? [newValue, ...oldValue] : [newValue]);
 			});
 			return () => unsubscribe();
 		}
