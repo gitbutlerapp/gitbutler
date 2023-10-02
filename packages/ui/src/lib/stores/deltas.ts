@@ -29,7 +29,7 @@ export function getDeltasStore(
 		undefined,
 		{ reloadable: true },
 		() => {
-			return () => unsubscribe();
+			return () => unsubscribe && unsubscribe();
 		}
 	);
 
