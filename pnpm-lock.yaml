@@ -177,8 +177,8 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1(postcss@8.4.31)
       posthog-js:
-        specifier: ^1.77.2
-        version: 1.77.2
+        specifier: ^1.81.2
+        version: 1.81.2
       prettier:
         specifier: ^3.0.3
         version: 3.0.3
@@ -4175,8 +4175,8 @@ packages:
       source-map-js: 1.0.2
     dev: true
 
-  /posthog-js@1.77.2:
-    resolution: {integrity: sha512-I3l5GipPUFe6qd5/0Bgm8Ot4pF8ysWhNgeLWvk69myh58HREfXACgLSYMZBho6L9xC6OcFvQilpcH+Dj3Y2uIQ==}
+  /posthog-js@1.81.2:
+    resolution: {integrity: sha512-3QLdn7koy7n+nj23HAr/KbVYwOmQcCn0K/5zlaWazef8t4s5L8JgJSMkw96pDRuAYfYcUCr9yWLQDpDakPiIHQ==}
     dependencies:
       fflate: 0.4.8
     dev: true
