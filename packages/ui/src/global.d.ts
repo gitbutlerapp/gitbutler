@@ -1,9 +1,5 @@
-declare type Item = import('svelte-dnd-action').Item;
-declare type DndEvent<ItemType = Item> = import('svelte-dnd-action/typings').DndEvent<ItemType>;
-declare namespace svelte.JSX {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	interface HTMLAttributes<T> {
-		onconsider?: (event: CustomEvent<DndEvent<ItemType>> & { target: EventTarget & T }) => void;
-		onfinalize?: (event: CustomEvent<DndEvent<ItemType>> & { target: EventTarget & T }) => void;
-	}
+// Back end error comes with an error code
+// See: https://www.typescriptlang.org/docs/handbook/declaration-merging.html
+declare interface Error {
+	code: string;
 }

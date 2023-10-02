@@ -15,17 +15,17 @@ export enum Code {
 export class UserError extends Error {
 	code!: Code;
 
-	constructor(message: string, code: Code, cause: unknown) {
+	constructor(message: string, code: string, cause: unknown) {
 		super(message);
 
 		this.name = 'UserError';
 		this.cause = cause;
-		this.code = code;
+		this.code = <Code>code; // Enum is a string so coercion is ok
 	}
 
-	static fromError(error: any): UserError {
+	static fromError(error: Error): UserError {
 		const cause = error instanceof Error ? error : undefined;
-		const code = error.code ?? Code.Unknown;
+		const code = error.code ?? Code.Unknown.toString();
 		const message = error.message ?? 'Unknown error';
 		return new UserError(message, code, cause);
 	}
@@ -52,8 +52,8 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 			// 	console.debug(`ipc->${command}(${JSON.stringify(params)})`, value);
 			// 	return value;
 			// })
-			.catch((reason) => {
-				const userError = UserError.fromError(reason);
+			.catch((error) => {
+				const userError = UserError.fromError(error);
 				console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError);
 				throw userError;
 			})
