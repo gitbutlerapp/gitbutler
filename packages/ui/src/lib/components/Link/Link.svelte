@@ -27,12 +27,12 @@
 		{href}
 		{target}
 		{rel}
-		class="link flex items-center {role} {classes}"
+		class="link inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-medium hover:underline hover:ease-in {role} {classes}"
 		bind:this={element}
 		class:disabled
 		on:click={() => href && isExternal && open(href)}
 	>
-		<div class="flex-grow truncate">
+		<div class="truncate">
 			<slot />
 		</div>
 		<div class="shrink-0">

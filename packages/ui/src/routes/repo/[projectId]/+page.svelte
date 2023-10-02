@@ -20,6 +20,9 @@
 	import { Code } from '$lib/ipc';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
+	import IconButton from '$lib/components/IconButton.svelte';
+	import IconChevronLeft from '$lib/icons/IconChevronLeft.svelte';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 	let { projectId, remoteBranchNames, project, cloud } = data;
@@ -57,7 +60,7 @@
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(projectId);
 
-	$: sessionId = $sessionsStore?.at(0)?.id;
+	$: sessionId = $sessionsStore?.length > 0 ? $sessionsStore[0].id : undefined;
 	$: updateDeltasStore(sessionId);
 
 	let targetChoice: string | undefined;
@@ -68,8 +71,8 @@
 	let peekTransitionsDisabled = false;
 
 	// function exists to update the session id as it changes
-	function updateDeltasStore(sessionId: string | undefined) {
-		if (sessionId) deltasStore.setSessionId(sessionId);
+	function updateDeltasStore(sid: string | undefined) {
+		if (sid) deltasStore.setSessionId(sid);
 	}
 
 	function onSetTargetClick() {
@@ -154,9 +157,9 @@
 			</div>
 		</div>
 	{:else}
-		<div class="text-color-3 m-auto">
+		<div class="text-color-3 flex h-full w-full items-center justify-center">
 			{#if $vbrachesState.error.code === Code.InvalidHead}
-				<div class="space-y-2 rounded-md p-4">
+				<div class="flex max-w-xl flex-col justify-center gap-y-3 p-4 text-center">
 					<h2 class="text-lg font-semibold">
 						Looks like you've switched from gitbutler/integration
 					</h2>
@@ -183,7 +186,13 @@
 					</div>
 				</div>
 			{:else}
-				<p>{$vbrachesState.error.message}</p>
+				<div class="flex max-w-xl gap-x-2 p-4">
+					<IconButton icon={IconChevronLeft} on:click={() => goto('/')}></IconButton>
+					<div>
+						<h1 class="text-lg font-semibold">There was a problem loading this repo</h1>
+						<p>{$vbrachesState.error.message}</p>
+					</div>
+				</div>
 			{/if}
 		</div>
 	{/if}
