@@ -33,8 +33,8 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
       '@codemirror/lang-markdown':
-        specifier: ^6.2.0
-        version: 6.2.0
+        specifier: ^6.2.1
+        version: 6.2.1
       '@codemirror/lang-php':
         specifier: ^6.0.1
         version: 6.0.1
@@ -372,8 +372,8 @@ packages:
       '@lezer/json': 1.0.1
     dev: true
 
-  /@codemirror/lang-markdown@6.2.0:
-    resolution: {integrity: sha512-deKegEQVzfBAcLPqsJEa+IxotqPVwWZi90UOEvQbfa01NTAw8jNinrykuYPTULGUj+gha0ZG2HBsn4s5d64Qrg==}
+  /@codemirror/lang-markdown@6.2.1:
+    resolution: {integrity: sha512-Tpk1+CllQ/KU27AYixsxvtqqQS2xYfLEUiBEyyzO+Y9/0LfI2oB1qM2cMhy0D7oRnG0ZSAy9qcYniZc9VtlIxg==}
     dependencies:
       '@codemirror/autocomplete': 6.9.0(@codemirror/language@6.9.0)(@codemirror/state@6.2.1)(@codemirror/view@6.18.0)(@lezer/common@1.0.4)
       '@codemirror/lang-html': 6.4.6
