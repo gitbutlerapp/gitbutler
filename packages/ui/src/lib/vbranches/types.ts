@@ -25,6 +25,7 @@ export class File {
 	conflicted!: boolean;
 	content!: string;
 	binary!: boolean;
+	large!: boolean;
 }
 
 export class Branch {
