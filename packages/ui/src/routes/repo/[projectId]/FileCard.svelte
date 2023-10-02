@@ -56,15 +56,16 @@
 		);
 	}
 
+	let sections: (HunkSection | ContentSection)[] = [];
+
 	function parseFile(file: File) {
 		// When we toggle expansion status on sections we need to assign
 		// `sections = sections` to redraw, and why we do not use a reactive
 		// variable.
-		sections = parseFileSections(file);
+		if (!file.binary && !file.large) sections = parseFileSections(file);
 	}
 	$: parseFile(file);
 
-	let sections: (HunkSection | ContentSection)[] = [];
 	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
 
 	function getGutterMinWidth(max: number) {
@@ -151,12 +152,10 @@
 				tabindex="0"
 				class="text-color-4 hover:text-color-3 flex-grow-0 cursor-pointer px-3 py-2"
 			>
-				{#if !file.binary}
-					{#if expanded}
-						<IconTriangleUp />
-					{:else}
-						<IconTriangleDown />
-					{/if}
+				{#if expanded}
+					<IconTriangleUp />
+				{:else}
+					<IconTriangleDown />
 				{/if}
 			</div>
 		</div>
@@ -177,134 +176,140 @@
 				class="hunk-change-container flex flex-col rounded px-2"
 				transition:slide={{ duration: 150 }}
 			>
-				{#each sections as section}
-					{#if 'hunk' in section}
-						{#if $userSettings.aiSummariesEnabled}
-							{#await summarizeHunk(section.hunk.diff) then description}
-								<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
-									{description}
-								</div>
-							{/await}
-						{/if}
-						<div
-							class="bg-6 border-color-3 my-1 flex w-full flex-col overflow-hidden rounded border"
-						>
+				{#if file.binary}
+					Binary content not shown
+				{:else if file.large}
+					Diff too large to be shown
+				{:else}
+					{#each sections as section}
+						{#if 'hunk' in section}
+							{#if $userSettings.aiSummariesEnabled}
+								{#await summarizeHunk(section.hunk.diff) then description}
+									<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
+										{description}
+									</div>
+								{/await}
+							{/if}
 							<div
-								draggable={!section.hunk.locked && !readonly}
-								tabindex="0"
-								role="cell"
-								use:dzTrigger={{ type: dzType }}
-								on:dragstart={(e) => {
-									if ('hunk' in section)
-										e.dataTransfer?.setData('text/hunk', file.id + ':' + section.hunk.id);
-								}}
-								on:dblclick
-								class="changed-hunk"
-								class:opacity-60={section.hunk.locked && !isFileLocked}
+								class="bg-6 border-color-3 my-1 flex w-full flex-col overflow-hidden rounded border"
 							>
-								<div class="bg-6 w-full overflow-hidden">
-									{#each section.subSections as subsection, sidx}
-										{@const hunk = section.hunk}
-										{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-											<RenderedLine
-												{line}
-												{minWidth}
-												selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
-												on:selected={(e) => onHunkSelected(hunk, e.detail)}
-												{selectable}
-												sectionType={subsection.sectionType}
-												filePath={file.path}
-												on:contextmenu={(e) =>
-													popupMenu.openByMouse(e, {
-														hunk,
-														section: subsection,
-														lineNumber: line.afterLineNumber
-															? line.afterLineNumber
-															: line.beforeLineNumber
-													})}
-											/>
-										{/each}
-										{#if !subsection.expanded}
-											<div
-												role="group"
-												class="border-color-3 flex w-full"
-												class:border-t={sidx == section.subSections.length - 1 ||
-													(sidx > 0 && sidx < section.subSections.length - 1)}
-												class:border-b={sidx == 0 ||
-													(sidx > 0 && sidx < section.subSections.length - 1)}
-												on:contextmenu|preventDefault={(e) =>
-													popupMenu.openByMouse(e, {
-														section: section,
-														hunk
-													})}
-											>
+								<div
+									draggable={!section.hunk.locked && !readonly}
+									tabindex="0"
+									role="cell"
+									use:dzTrigger={{ type: dzType }}
+									on:dragstart={(e) => {
+										if ('hunk' in section)
+											e.dataTransfer?.setData('text/hunk', file.id + ':' + section.hunk.id);
+									}}
+									on:dblclick
+									class="changed-hunk"
+									class:opacity-60={section.hunk.locked && !isFileLocked}
+								>
+									<div class="bg-6 w-full overflow-hidden">
+										{#each section.subSections as subsection, sidx}
+											{@const hunk = section.hunk}
+											{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
+												<RenderedLine
+													{line}
+													{minWidth}
+													selected={$selectedOwnership.containsHunk(hunk.filePath, hunk.id)}
+													on:selected={(e) => onHunkSelected(hunk, e.detail)}
+													{selectable}
+													sectionType={subsection.sectionType}
+													filePath={file.path}
+													on:contextmenu={(e) =>
+														popupMenu.openByMouse(e, {
+															hunk,
+															section: subsection,
+															lineNumber: line.afterLineNumber
+																? line.afterLineNumber
+																: line.beforeLineNumber
+														})}
+												/>
+											{/each}
+											{#if !subsection.expanded}
 												<div
-													class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
-													style:min-width={`calc(${2 * minWidth}rem - 1px)`}
+													role="group"
+													class="border-color-3 flex w-full"
+													class:border-t={sidx == section.subSections.length - 1 ||
+														(sidx > 0 && sidx < section.subSections.length - 1)}
+													class:border-b={sidx == 0 ||
+														(sidx > 0 && sidx < section.subSections.length - 1)}
+													on:contextmenu|preventDefault={(e) =>
+														popupMenu.openByMouse(e, {
+															section: section,
+															hunk
+														})}
 												>
-													<button
-														class="flex justify-center py-0.5 text-sm"
-														style:width={`calc(${2 * minWidth}rem - 1px)`}
-														on:click={() => {
-															if ('expanded' in subsection) {
-																subsection.expanded = true;
-															}
-														}}
+													<div
+														class="bg-color-4 text-color-4 hover:text-color-2 border-color-3 border-r text-center"
+														style:min-width={`calc(${2 * minWidth}rem - 1px)`}
 													>
-														{#if sidx == 0}
-															<IconExpandUp />
-														{:else if sidx == section.subSections.length - 1}
-															<IconExpandDown />
-														{:else}
-															<IconExpandUpDown />
-														{/if}
-													</button>
+														<button
+															class="flex justify-center py-0.5 text-sm"
+															style:width={`calc(${2 * minWidth}rem - 1px)`}
+															on:click={() => {
+																if ('expanded' in subsection) {
+																	subsection.expanded = true;
+																}
+															}}
+														>
+															{#if sidx == 0}
+																<IconExpandUp />
+															{:else if sidx == section.subSections.length - 1}
+																<IconExpandDown />
+															{:else}
+																<IconExpandUpDown />
+															{/if}
+														</button>
+													</div>
+													<div class="bg-color-4 flex-grow" />
 												</div>
-												<div class="bg-color-4 flex-grow" />
-											</div>
-										{/if}
+											{/if}
+										{/each}
+									</div>
+								</div>
+							</div>
+						{:else}
+							{#if section.expanded}
+								<div
+									class="border-color-3 bg-color-5 my-1 flex w-full flex-col overflow-hidden rounded border"
+									role="group"
+									on:dblclick
+								>
+									{#each section.lines.slice(0, section.expanded ? section.lines.length : 0) as line}
+										<RenderedLine
+											{line}
+											{minWidth}
+											sectionType={section.sectionType}
+											filePath={file.path}
+											on:contextmenu={(e) =>
+												popupMenu.openByMouse(e, {
+													section: section,
+													lineNumber: line.afterLineNumber
+												})}
+										/>
 									{/each}
 								</div>
-							</div>
-						</div>
-					{:else}
-						{#if section.expanded}
-							<div
-								class="border-color-3 bg-color-5 my-1 flex w-full flex-col overflow-hidden rounded border"
-								role="group"
-								on:dblclick
-							>
-								{#each section.lines.slice(0, section.expanded ? section.lines.length : 0) as line}
-									<RenderedLine
-										{line}
-										{minWidth}
-										sectionType={section.sectionType}
-										filePath={file.path}
-										on:contextmenu={(e) =>
-											popupMenu.openByMouse(e, {
-												section: section,
-												lineNumber: line.afterLineNumber
-											})}
-									/>
-								{/each}
-							</div>
+							{/if}
+							{#if !section.expanded}
+								<div style:width={`calc(${2 * minWidth}rem - 1px)`} class="flex justify-center">
+									<button
+										class="text-color-4 hover:text-color-3 px-2 py-1.5 text-sm"
+										on:click={() => {
+											if ('expanded' in section) {
+												section.expanded = true;
+											}
+										}}
+									>
+										<IconExpandUpDownSlim />
+									</button>
+								</div>
+							{/if}
 						{/if}
-						{#if !section.expanded}
-							<div style:width={`calc(${2 * minWidth}rem - 1px)`} class="flex justify-center">
-								<button
-									class="text-color-4 hover:text-color-3 px-2 py-1.5 text-sm"
-									on:click={() => {
-										if ('expanded' in section) {
-											section.expanded = true;
-										}
-									}}
-								>
-									<IconExpandUpDownSlim />
-								</button>
-							</div>
-						{/if}
-					{/if}
-				{/each}
+					{/each}
+				{/if}
 			</div>
 		{/if}
 	</div>
