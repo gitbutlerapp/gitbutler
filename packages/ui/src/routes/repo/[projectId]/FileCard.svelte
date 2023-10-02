@@ -183,7 +183,7 @@
 				{:else}
 					{#each sections as section}
 						{#if 'hunk' in section}
-							{#if $userSettings.aiSummariesEnabled}
+							{#if $userSettings.aiSummariesEnabled && !file.binary}
 								{#await summarizeHunk(section.hunk.diff) then description}
 									<div class="text-color-3 truncate whitespace-normal pb-1 pl-1 pt-2">
 										{description}
