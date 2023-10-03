@@ -3,8 +3,8 @@ use std::{path, str};
 use crate::keys;
 
 use super::{
-    AnnotatedCommit, Branch, BranchName, Commit, Config, Index, Oid, Reference, Remote, Result,
-    Signature, Tree, TreeBuilder,
+    AnnotatedCommit, Blob, Branch, BranchName, Commit, Config, Index, Oid, Reference, Remote,
+    Result, Signature, Tree, TreeBuilder,
 };
 
 // wrapper around git2::Repository to get control over how it's used.
@@ -151,8 +151,11 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn find_blob(&self, id: Oid) -> Result<git2::Blob> {
-        self.0.find_blob(id.into()).map_err(Into::into)
+    pub fn find_blob(&self, id: Oid) -> Result<Blob> {
+        self.0
+            .find_blob(id.into())
+            .map(Into::into)
+            .map_err(Into::into)
     }
 
     pub fn revwalk(&self) -> Result<git2::Revwalk> {

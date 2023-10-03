@@ -1,6 +1,9 @@
 pub mod credentials;
 pub mod diff;
 
+mod blob;
+pub use blob::*;
+
 mod error;
 pub use error::*;
 
