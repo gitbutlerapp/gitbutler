@@ -62,7 +62,8 @@ pub fn trees(
         .show_binary(true)
         .show_untracked_content(true);
 
-    let diff = repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), None)?;
+    let diff =
+        repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
 
     hunks_by_filepath(repository, &diff)
 }
