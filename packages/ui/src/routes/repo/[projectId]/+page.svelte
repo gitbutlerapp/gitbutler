@@ -33,18 +33,15 @@
 	const deltasStore = getDeltasStore(projectId);
 	const headStore = getHeadsStore(projectId);
 	const sessionsStore = getSessionStore(projectId);
-	const baseBranchStore = getBaseBranchStore(projectId, [fetchStore, headStore]);
-	const remoteBranchStore = getRemoteBranchStore(projectId, [
-		fetchStore,
-		headStore,
-		baseBranchStore
-	]);
-	const vbranchStore = getVirtualBranchStore(projectId, [
+	const baseBranchStore = getBaseBranchStore(projectId, fetchStore, headStore);
+	const remoteBranchStore = getRemoteBranchStore(projectId, fetchStore, headStore, baseBranchStore);
+	const vbranchStore = getVirtualBranchStore(
+		projectId,
 		deltasStore,
 		sessionsStore,
 		headStore,
 		baseBranchStore
-	]);
+	);
 	const branchesWithContent = getWithContentStore(projectId, sessionsStore, vbranchStore);
 
 	const vbrachesState = vbranchStore.state;
