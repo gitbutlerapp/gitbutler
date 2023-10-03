@@ -48,12 +48,8 @@ impl Reader for DirReader {
         if !path.exists() {
             return Err(Error::NotFound);
         }
-        let metadata = std::fs::metadata(&path).map_err(Error::Io)?;
-        if metadata.len() > Content::MAX_SIZE as u64 {
-            return Ok(Content::Large);
-        }
-        let content = std::fs::read(&path).map_err(Error::Io)?;
-        Ok(content.as_slice().into())
+        let content = Content::try_from(&path).map_err(Error::Io)?;
+        Ok(content)
     }
 
     fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
@@ -118,10 +114,7 @@ impl Reader for CommitReader<'_> {
             Ok(blob) => blob,
             Err(_) => return Err(Error::NotFound),
         };
-        if blob.size() > Content::MAX_SIZE {
-            return Ok(Content::Large);
-        }
-        Ok(blob.content().into())
+        Ok(Content::from(&blob))
     }
 
     fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
@@ -243,6 +236,29 @@ impl From<&str> for Content {
             Content::Large
         } else {
             Content::UTF8(text.to_string())
+        }
+    }
+}
+
+impl TryFrom<&path::PathBuf> for Content {
+    type Error = std::io::Error;
+
+    fn try_from(value: &path::PathBuf) -> Result<Self, Self::Error> {
+        let metadata = std::fs::metadata(value)?;
+        if metadata.len() > Content::MAX_SIZE as u64 {
+            return Ok(Content::Large);
+        }
+        let content = std::fs::read(value)?;
+        Ok(content.as_slice().into())
+    }
+}
+
+impl From<&git::Blob<'_>> for Content {
+    fn from(value: &git::Blob) -> Self {
+        if value.size() > Content::MAX_SIZE {
+            Content::Large
+        } else {
+            value.content().into()
         }
     }
 }
