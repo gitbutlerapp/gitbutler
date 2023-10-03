@@ -14,7 +14,7 @@ use tantivy::{query::QueryParser, Term};
 use tantivy::{schema::IndexRecordOption, tokenizer};
 use tauri::AppHandle;
 
-use crate::{bookmarks, deltas, gb_repository, sessions};
+use crate::{bookmarks, deltas, gb_repository, reader, sessions};
 
 use super::{index, meta};
 
@@ -330,18 +330,20 @@ fn index_session(
         return Ok(());
     }
     let files = session_reader
-        .files(Some(deltas.keys().map(|k| k.as_str()).collect()))
-        .with_context(|| "could not list files for session")?;
+        .files(Some(deltas.keys().map(|s| s.to_path_buf()).collect()))
+        .context("could not list files for session")?;
     // index every file
     for (file_path, deltas) in deltas.into_iter() {
         // keep the state of the file after each delta operation
         // we need it to calculate diff for delete operations
         let mut file_text: Vec<char> = files
             .get(&file_path)
-            .map(|f| f.as_str())
-            .unwrap_or("")
-            .chars()
-            .collect();
+            .map(|content| match content {
+                reader::Content::UTF8(text) => text.chars().collect(),
+                _ => vec![],
+            })
+            .unwrap_or_default();
+
         // for every deltas for the file
         for (i, delta) in deltas.into_iter().enumerate() {
             index_delta(
@@ -393,7 +395,7 @@ fn index_delta(
     session_id: &str,
     project_id: &str,
     file_text: &mut Vec<char>,
-    file_path: &str,
+    file_path: &path::Path,
     i: usize,
     delta: &deltas::Delta,
 ) -> Result<()> {
@@ -417,9 +419,10 @@ fn index_delta(
     // for every operation in the delta
     for operation in &delta.operations {
         // don't forget to apply the operation to the file_text
-        operation
-            .apply(file_text)
-            .with_context(|| format!("Could not apply operation to file {}", file_path))?;
+        operation.apply(file_text).context(format!(
+            "Could not apply operation to file {}",
+            file_path.display()
+        ))?;
     }
 
     let old = &prev_file_text.iter().collect::<String>();
@@ -440,7 +443,7 @@ fn index_delta(
 
     doc.index = Some(i.try_into()?);
     doc.session_id = Some(session_id.to_string());
-    doc.file_path = Some(file_path.to_string());
+    doc.file_path = Some(file_path.display().to_string());
     doc.project_id = Some(project_id.to_string());
     doc.timestamp_ms = Some(delta.timestamp_ms.try_into()?);
     doc.diff = Some(changes);

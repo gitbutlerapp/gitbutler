@@ -96,7 +96,7 @@ impl Handler {
                     project_id,
                     session_id,
                     &file_path.display().to_string(),
-                    contents,
+                    contents.as_ref(),
                 ))])
             }
 
@@ -108,12 +108,7 @@ impl Handler {
             events::Event::SessionDelta((project_id, session_id, path, delta)) => {
                 let mut events = self
                     .index_handler
-                    .index_deltas(
-                        project_id,
-                        session_id,
-                        path.to_str().unwrap(),
-                        &vec![delta.clone()],
-                    )
+                    .index_deltas(project_id, session_id, path, &vec![delta.clone()])
                     .context("failed to index deltas")?;
 
                 events.push(events::Event::Emit(app_events::Event::deltas(

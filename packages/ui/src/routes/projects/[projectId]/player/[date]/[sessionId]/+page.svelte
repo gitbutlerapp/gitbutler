@@ -10,6 +10,7 @@
 	import Frame from './Frame.svelte';
 	import Info from './Info.svelte';
 	import type { Delta } from '$lib/api/ipc/deltas';
+	import { Contents } from '$lib/api/ipc/files';
 	import { getSessionStore } from '$lib/stores/sessions';
 	import { getDeltasStore } from '$lib/stores/deltas';
 	import { getFilesStore } from '$lib/stores/files';
@@ -49,7 +50,15 @@
 			),
 			files: derived(getFilesStore({ projectId, sessionId: session.id }), (files) =>
 				Object.fromEntries(
-					Object.entries(files).filter(([path]) => (filter ? path === filter : true))
+					Object.entries(files)
+						.filter(([path]) => (filter ? path === filter : true))
+						.map(([path, file]) => {
+							if (file) {
+								return [path, Contents.value(file)];
+							} else {
+								return [path, file];
+							}
+						})
 				)
 			)
 		}))

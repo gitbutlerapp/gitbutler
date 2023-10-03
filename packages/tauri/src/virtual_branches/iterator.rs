@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, path};
 
 use anyhow::Result;
 
@@ -14,9 +14,17 @@ pub struct BranchIterator<'iterator> {
 impl<'iterator> BranchIterator<'iterator> {
     pub fn new(reader: &'iterator dyn reader::Reader) -> Result<Self> {
         let ids_itarator = reader
-            .list_files("branches")?
+            .list_files(&path::PathBuf::from("branches"))?
             .into_iter()
-            .map(|file_path| file_path.split('/').next().unwrap().to_string())
+            .map(|file_path| {
+                file_path
+                    .display()
+                    .to_string()
+                    .split('/')
+                    .next()
+                    .unwrap()
+                    .to_string()
+            })
             .filter(|file_path| file_path != "selected")
             .filter(|file_path| file_path != "target");
         let unique_ids: HashSet<String> = ids_itarator.collect();

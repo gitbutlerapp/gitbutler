@@ -1,3 +1,5 @@
+use std::path;
+
 use anyhow::{Context, Result};
 use serde::Serialize;
 use thiserror::Error;
@@ -38,30 +40,39 @@ impl TryFrom<&dyn reader::Reader> for Session {
     type Error = SessionError;
 
     fn try_from(reader: &dyn reader::Reader) -> Result<Self, Self::Error> {
-        if !reader.exists("session/meta") {
+        if !reader.exists(path::Path::new("session/meta")) {
             return Err(SessionError::NoSession);
         }
 
-        let id = reader
-            .read_string("session/meta/id")
-            .with_context(|| "failed to read session id")
+        let id: String = reader
+            .read(path::Path::new("session/meta/id"))
+            .context("failed to read session id")
+            .map_err(SessionError::Err)?
+            .try_into()
+            .context("failed to parse session id")
             .map_err(SessionError::Err)?;
         let start_timestamp_ms = reader
-            .read_string("session/meta/start")
-            .with_context(|| "failed to read session start timestamp")
+            .read(path::Path::new("session/meta/start"))
+            .context("failed to read session start timestamp")
             .map_err(SessionError::Err)?
-            .parse::<u128>()
-            .with_context(|| "failed to parse session start timestamp")
+            .try_into()
+            .context("failed to parse session start timestamp")
             .map_err(SessionError::Err)?;
         let last_timestamp_ms = reader
-            .read_string("session/meta/last")
-            .with_context(|| "failed to read session last timestamp")
+            .read(path::Path::new("session/meta/last"))
+            .context("failed to read session last timestamp")
             .map_err(SessionError::Err)?
-            .parse::<u128>()
-            .with_context(|| "failed to parse session last timestamp")
+            .try_into()
+            .context("failed to parse session last timestamp")
             .map_err(SessionError::Err)?;
-        let branch = reader.read_string("session/meta/branch");
-        let commit = reader.read_string("session/meta/commit");
+        let branch = match reader.read(path::Path::new("session/meta/branch")) {
+            Ok(reader::Content::UTF8(branch)) => Some(branch.to_string()),
+            _ => None,
+        };
+        let commit = match reader.read(path::Path::new("session/meta/commit")) {
+            Ok(reader::Content::UTF8(commit)) => Some(commit.to_string()),
+            _ => None,
+        };
 
         Ok(Self {
             id,
@@ -69,16 +80,8 @@ impl TryFrom<&dyn reader::Reader> for Session {
             meta: Meta {
                 start_timestamp_ms,
                 last_timestamp_ms,
-                branch: if let Ok(branch) = branch {
-                    Some(branch)
-                } else {
-                    None
-                },
-                commit: if let Ok(commit) = commit {
-                    Some(commit)
-                } else {
-                    None
-                },
+                branch,
+                commit,
             },
         })
     }

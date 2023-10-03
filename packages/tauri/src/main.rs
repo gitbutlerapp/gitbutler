@@ -212,8 +212,8 @@ async fn list_session_files(
     handle: tauri::AppHandle,
     project_id: &str,
     session_id: &str,
-    paths: Option<Vec<&str>>,
-) -> Result<HashMap<String, String>, Error> {
+    paths: Option<Vec<path::PathBuf>>,
+) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
     let app = handle.state::<app::App>();
     let files = app
         .list_session_files(project_id, session_id, paths)

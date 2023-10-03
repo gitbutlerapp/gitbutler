@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
-use crate::{bookmarks, deltas, sessions};
+use crate::{bookmarks, deltas, reader, sessions};
 
 #[derive(Clone)]
 pub struct Sender {
@@ -74,7 +74,12 @@ impl Event {
         }
     }
 
-    pub fn file(project_id: &str, session_id: &str, file_path: &str, contents: &str) -> Self {
+    pub fn file(
+        project_id: &str,
+        session_id: &str,
+        file_path: &str,
+        contents: Option<&reader::Content>,
+    ) -> Self {
         Event {
             name: format!("project://{}/sessions/{}/files", project_id, session_id),
             payload: serde_json::json!({

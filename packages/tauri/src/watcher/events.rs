@@ -1,6 +1,6 @@
 use std::{fmt::Display, path, time};
 
-use crate::{analytics, bookmarks, deltas, events, sessions};
+use crate::{analytics, bookmarks, deltas, events, reader, sessions};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event {
@@ -16,7 +16,7 @@ pub enum Event {
     ProjectFileChange(String, path::PathBuf),
 
     Session(String, sessions::Session),
-    SessionFile((String, String, path::PathBuf, String)),
+    SessionFile((String, String, path::PathBuf, Option<reader::Content>)),
     SessionDelta((String, String, path::PathBuf, deltas::Delta)),
     Bookmark(bookmarks::Bookmark),
 

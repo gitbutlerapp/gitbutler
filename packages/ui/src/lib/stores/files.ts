@@ -2,7 +2,7 @@ import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import * as files from '$lib/api/ipc/files';
 import { get, type Readable } from '@square/svelte-store';
 
-type Files = Partial<Record<string, string>>;
+type Files = Partial<Record<string, files.Contents>>;
 
 const stores: Partial<Record<string, Readable<Loadable<Files>>>> = {};
 
@@ -24,7 +24,7 @@ export function getFilesStore(params: {
 			} else {
 				set({
 					...oldValue.value,
-					[filePath]: contents
+					[filePath]: contents || undefined
 				});
 			}
 		});
