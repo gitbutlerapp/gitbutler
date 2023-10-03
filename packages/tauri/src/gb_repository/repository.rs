@@ -25,7 +25,6 @@ use crate::{
 pub struct Repository {
     pub project_id: String,
     project_store: projects::Storage,
-    users_store: users::Storage,
     pub git_repository: git::Repository,
     lock_file: std::fs::File,
 }
@@ -47,7 +46,7 @@ impl Repository {
         root: P,
         project_id: &str,
         project_store: projects::Storage,
-        users_store: users::Storage,
+        user: Option<&users::User>,
     ) -> Result<Self, Error> {
         let project = project_store
             .get_project(project_id)
@@ -80,7 +79,6 @@ impl Repository {
                 project_id: project_id.to_string(),
                 git_repository,
                 project_store,
-                users_store,
                 lock_file: File::create(lock_path).context("failed to create lock file")?,
             })
         } else {
@@ -101,7 +99,6 @@ impl Repository {
                 project_id: project_id.to_string(),
                 git_repository,
                 project_store,
-                users_store,
                 lock_file: File::create(lock_path).context("failed to create lock file")?,
             };
 
@@ -119,7 +116,11 @@ impl Repository {
             drop(_lock);
 
             gb_repository
-                .flush_session(&project_repository::Repository::open(&project)?, &session)
+                .flush_session(
+                    &project_repository::Repository::open(&project)?,
+                    &session,
+                    user,
+                )
                 .context("failed to run initial flush")?;
 
             Result::Ok(gb_repository)
@@ -130,12 +131,7 @@ impl Repository {
         &self.project_id
     }
 
-    pub fn user(&self) -> Result<Option<users::User>> {
-        self.users_store.get()
-    }
-
-    fn remote(&self) -> Result<Option<(git::Remote, String)>> {
-        let user = self.users_store.get().context("failed to get user")?;
+    fn remote(&self, user: Option<&users::User>) -> Result<Option<(git::Remote, String)>> {
         let project = self
             .project_store
             .get_project(&self.project_id)
@@ -145,7 +141,7 @@ impl Repository {
 
         // only push if logged in
         let access_token = match user {
-            Some(user) => user.access_token,
+            Some(user) => user.access_token.clone(),
             None => return Ok(None),
         };
 
@@ -168,8 +164,8 @@ impl Repository {
         Ok(Some((remote, access_token)))
     }
 
-    pub fn fetch(&self) -> Result<bool> {
-        let (mut remote, access_token) = match self.remote()? {
+    pub fn fetch(&self, user: Option<&users::User>) -> Result<bool> {
+        let (mut remote, access_token) = match self.remote(user)? {
             Some((remote, access_token)) => (remote, access_token),
             None => return Ok(false),
         };
@@ -216,8 +212,8 @@ impl Repository {
         Ok(true)
     }
 
-    pub fn push(&self) -> Result<()> {
-        let (mut remote, access_token) = match self.remote()? {
+    pub fn push(&self, user: Option<&users::User>) -> Result<()> {
+        let (mut remote, access_token) = match self.remote(user)? {
             Some((remote, access_token)) => (remote, access_token),
             None => return Ok(()),
         };
@@ -406,7 +402,7 @@ impl Repository {
         }
     }
 
-    pub fn flush(&self) -> Result<Option<sessions::Session>> {
+    pub fn flush(&self, user: Option<&users::User>) -> Result<Option<sessions::Session>> {
         let current_session = self
             .get_current_session()
             .context("failed to get current session")?;
@@ -427,6 +423,7 @@ impl Repository {
         let current_session = self.flush_session(
             &project_repository::Repository::open(&project)?,
             &current_session,
+            user,
         )?;
         Ok(Some(current_session))
     }
@@ -435,6 +432,7 @@ impl Repository {
         &self,
         project_repository: &project_repository::Repository,
         session: &sessions::Session,
+        user: Option<&users::User>,
     ) -> Result<sessions::Session> {
         if session.hash.is_some() {
             return Ok(session.clone());
@@ -474,10 +472,8 @@ impl Repository {
 
         let tree_id = tree_builder.write().context("failed to write tree")?;
 
-        let user = self.users_store.get().context("failed to get user")?;
-
         let commit_oid =
-            write_gb_commit(tree_id, self, &user).context("failed to write gb commit")?;
+            write_gb_commit(tree_id, self, user).context("failed to write gb commit")?;
 
         tracing::info!(
             project_id = self.project_id,
@@ -1062,7 +1058,7 @@ fn add_file_to_index(
 fn write_gb_commit(
     tree_id: git::Oid,
     gb_repository: &Repository,
-    user: &Option<users::User>,
+    user: Option<&users::User>,
 ) -> Result<git::Oid> {
     let comitter = git::Signature::now("gitbutler", "gitbutler@localhost")?;
     let author = match user {

@@ -122,7 +122,7 @@ mod tests {
         let project_store = projects::Storage::from(&local_app_data);
         project_store.add_project(&project)?;
         let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
         let session = gb_repo.get_or_create_current_session()?;
         let session_reader = sessions::Reader::open(&gb_repo, &session)?;
@@ -144,7 +144,7 @@ mod tests {
         let project_store = projects::Storage::from(&local_app_data);
         project_store.add_project(&project)?;
         let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
         let target_writer = target::Writer::new(&gb_repo);
         target_writer.write_default(&test_target())?;

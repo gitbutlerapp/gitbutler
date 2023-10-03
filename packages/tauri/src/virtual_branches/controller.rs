@@ -71,7 +71,7 @@ impl Controller {
         ownership: Option<&Ownership>,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let signing_key = if project_repository
                     .config()
                     .sign_commits()
@@ -92,6 +92,7 @@ impl Controller {
                     message,
                     ownership,
                     signing_key.as_ref(),
+                    user
                 )?;
                 Ok(())
             })
@@ -113,7 +114,8 @@ impl Controller {
             .as_ref()
             .try_into()
             .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
+        let user = self.users_storage.get().context("failed to get user")?;
+        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
         super::is_remote_branch_mergeable(&gb_repository, &project_repository, branch_name)
             .map_err(Error::Other)
     }
@@ -132,7 +134,8 @@ impl Controller {
             .as_ref()
             .try_into()
             .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
+        let user = self.users_storage.get().context("failed to get user")?;
+        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
         super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
             .map_err(Error::Other)
     }
@@ -142,7 +145,7 @@ impl Controller {
         project_id: &str,
     ) -> Result<Vec<super::VirtualBranch>, Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::list_virtual_branches(gb_repository, project_repository)
                     .map_err(Error::Other)
             })
@@ -156,7 +159,7 @@ impl Controller {
         create: &super::branch::BranchCreateRequest,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 if conflicts::is_resolving(project_repository) {
                     return Err(Error::Conflicting);
                 }
@@ -173,12 +176,13 @@ impl Controller {
         branch: &git::BranchName,
     ) -> Result<String, Error> {
         self.with_lock::<Result<String, Error>>(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let branch = super::create_virtual_branch_from_branch(
                     gb_repository,
                     project_repository,
                     branch,
                     None,
+                    user
                 )
                 .map_err(Error::Other)?;
 
@@ -202,6 +206,7 @@ impl Controller {
                     project_repository,
                     &branch.id,
                     signing_key.as_ref(),
+                    user
                 )
                 .map_err(Error::Other)?;
                 Ok(branch.id)
@@ -223,7 +228,8 @@ impl Controller {
             .as_ref()
             .try_into()
             .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
+        let user = self.users_storage.get().context("failed to get user")?;
+        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
         let base_branch = super::get_base_branch_data(&gb_repository, &project_repository)?;
         if let Some(branch) = base_branch {
             Ok(Some(self.proxy_base_branch(branch).await))
@@ -269,8 +275,10 @@ impl Controller {
             .try_into()
             .context("failed to open project repository")?;
 
-        let gb_repository = self.open_gb_repository(project_id)?;
-        let target = super::set_base_branch(&gb_repository, &project_repository, target_branch)
+        let user = self.users_storage.get().context("failed to get user")?;
+
+        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
+        let target = super::set_base_branch(&gb_repository, &project_repository, user.as_ref(), target_branch)
             .map_err(Error::Other)?;
         let current_session = gb_repository.get_current_session()?;
 
@@ -291,7 +299,7 @@ impl Controller {
         branch: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let signing_key = if project_repository
                     .config()
                     .sign_commits()
@@ -310,6 +318,7 @@ impl Controller {
                     project_repository,
                     branch,
                     signing_key.as_ref(),
+                    user
                 )
                 .map_err(Error::Other)
             })
@@ -319,8 +328,8 @@ impl Controller {
 
     pub async fn update_base_branch(&self, project_id: &str) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
-                super::update_base_branch(gb_repository, project_repository).map_err(Error::Other)
+            self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+                super::update_base_branch(gb_repository, project_repository, user).map_err(Error::Other)
             })
         })
         .await
@@ -332,7 +341,7 @@ impl Controller {
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::update_branch(gb_repository, project_repository, branch_update)?;
                 Ok(())
             })
@@ -346,7 +355,7 @@ impl Controller {
         branch_id: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::delete_branch(gb_repository, project_repository, branch_id)?;
                 Ok(())
             })
@@ -360,7 +369,7 @@ impl Controller {
         branch_id: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
                 let signing_key = if project_repository
                     .config()
                     .sign_commits()
@@ -379,6 +388,7 @@ impl Controller {
                     project_repository,
                     branch_id,
                     signing_key.as_ref(),
+                    user
                 )
                 .map_err(Error::Other)
             })
@@ -392,7 +402,7 @@ impl Controller {
         ownership: &Ownership,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::unapply_ownership(gb_repository, project_repository, ownership)
                     .map_err(Error::Other)
             })
@@ -406,7 +416,7 @@ impl Controller {
         branch_id: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 super::unapply_branch(gb_repository, project_repository, branch_id)
                     .map_err(Error::Other)
             })
@@ -420,7 +430,7 @@ impl Controller {
         branch_id: &str,
     ) -> Result<(), Error> {
         self.with_lock(project_id, || {
-            self.with_verify_branch(project_id, |gb_repository, project_repository| {
+            self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
                 let private_key = match &project_repository.project().preferred_key {
                     projects::AuthKey::Local {
                         private_key_path,
@@ -455,6 +465,7 @@ impl Controller {
         action: impl FnOnce(
             &gb_repository::Repository,
             &project_repository::Repository,
+            Option<&users::User>,
         ) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let project = self
@@ -466,7 +477,8 @@ impl Controller {
             .as_ref()
             .try_into()
             .context("failed to open project repository")?;
-        let gb_repository = self.open_gb_repository(project_id)?;
+        let user = self.users_storage.get().context("failed to get user")?;
+        let gb_repository = self.open_gb_repository(project_id, user.as_ref())?;
         super::integration::verify_branch(&gb_repository, &project_repository).map_err(
             |e| match e {
                 super::integration::VerifyError::DetachedHead => Error::DetachedHead,
@@ -475,7 +487,7 @@ impl Controller {
                 e => Error::Other(anyhow::Error::from(e)),
             },
         )?;
-        action(&gb_repository, &project_repository)
+        action(&gb_repository, &project_repository, user.as_ref())
     }
 
     async fn with_lock<T>(&self, project_id: &str, action: impl FnOnce() -> T) -> T {
@@ -487,12 +499,12 @@ impl Controller {
         action()
     }
 
-    fn open_gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository, Error> {
+    fn open_gb_repository(&self, project_id: &str, user: Option<&users::User>) -> Result<gb_repository::Repository, Error> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
             self.projects_storage.clone(),
-            self.users_storage.clone(),
+            user,
         )
         .context("failed to open repository")
         .map_err(Error::Other)

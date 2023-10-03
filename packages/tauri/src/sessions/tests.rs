@@ -18,7 +18,7 @@ fn test_should_not_write_session_with_hash() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -46,7 +46,7 @@ fn test_should_write_full_session() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let session = sessions::Session {
         id: "session_id".to_string(),
@@ -95,7 +95,7 @@ fn test_should_write_partial_session() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let session = sessions::Session {
         id: "session_id".to_string(),

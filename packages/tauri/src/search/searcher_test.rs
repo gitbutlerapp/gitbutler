@@ -14,7 +14,7 @@ fn test_sorted_by_timestamp() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let index_path = test_utils::temp_dir();
 
@@ -32,7 +32,7 @@ fn test_sorted_by_timestamp() -> Result<()> {
             },
         ],
     )?;
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
 
     let searcher = super::Searcher::try_from(&index_path).unwrap();
 
@@ -64,7 +64,7 @@ fn search_by_bookmark_note() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let index_path = test_utils::temp_dir();
 
@@ -76,7 +76,7 @@ fn search_by_bookmark_note() -> Result<()> {
             timestamp_ms: 123456,
         }],
     )?;
-    let session = gb_repo.flush()?.unwrap();
+    let session = gb_repo.flush(None)?.unwrap();
 
     let searcher = super::Searcher::try_from(&index_path).unwrap();
 
@@ -160,7 +160,7 @@ fn search_by_full_match() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let index_path = test_utils::temp_dir();
 
@@ -172,7 +172,7 @@ fn search_by_full_match() -> Result<()> {
             timestamp_ms: 0,
         }],
     )?;
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
     let session = session.unwrap();
 
     let searcher = super::Searcher::try_from(&index_path).unwrap();
@@ -201,7 +201,7 @@ fn search_by_diff() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let index_path = test_utils::temp_dir();
 
@@ -219,7 +219,7 @@ fn search_by_diff() -> Result<()> {
             },
         ],
     )?;
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
     let session = session.unwrap();
 
     let searcher = super::Searcher::try_from(&index_path).unwrap();
@@ -320,7 +320,7 @@ fn test_delete_all() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let index_path = test_utils::temp_dir();
 
@@ -342,7 +342,7 @@ fn test_delete_all() -> Result<()> {
             },
         ],
     )?;
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
     let searcher = super::Searcher::try_from(&index_path).unwrap();
     searcher.index_session(&gb_repo, &session.unwrap())?;
 
@@ -369,7 +369,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let index_path = test_utils::temp_dir();
 
@@ -381,7 +381,7 @@ fn search_bookmark_by_phrase() -> Result<()> {
             timestamp_ms: 0,
         }],
     )?;
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
     let session = session.unwrap();
 
     let searcher = super::Searcher::try_from(&index_path).unwrap();
@@ -425,7 +425,7 @@ fn search_by_filename() -> Result<()> {
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_data_dir);
     let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let index_path = test_utils::temp_dir();
 
@@ -443,7 +443,7 @@ fn search_by_filename() -> Result<()> {
             },
         ],
     )?;
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
     let session = session.unwrap();
 
     let searcher = super::Searcher::try_from(&index_path).unwrap();

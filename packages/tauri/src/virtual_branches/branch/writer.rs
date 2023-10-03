@@ -158,7 +158,7 @@ mod tests {
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
         let branch = test_branch();
 
@@ -224,7 +224,7 @@ mod tests {
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
         let branch = test_branch();
 
@@ -246,7 +246,7 @@ mod tests {
         let project_store = projects::Storage::from(&local_data_dir);
         project_store.add_project(&project)?;
         let gb_repo =
-            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+            gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
         let branch = test_branch();
 

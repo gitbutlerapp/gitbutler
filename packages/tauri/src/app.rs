@@ -86,12 +86,12 @@ impl App {
         Ok(())
     }
 
-    fn gb_repository(&self, project_id: &str) -> Result<gb_repository::Repository> {
+    fn gb_repository(&self, project_id: &str, user: Option<&users::User>) -> Result<gb_repository::Repository> {
         gb_repository::Repository::open(
             self.local_data_dir.clone(),
             project_id,
             self.projects_storage.clone(),
-            self.users_storage.clone(),
+            user
         )
         .context("failed to open repository")
     }
@@ -177,7 +177,7 @@ impl App {
                     self.local_data_dir.clone(),
                     id,
                     self.projects_storage.clone(),
-                    self.users_storage.clone(),
+                    self.users_storage.get()?.as_ref(),
                 ) {
                     Ok(repo) => Ok(Some(repo)),
                     Err(gb_repository::Error::ProjectPathNotFound(_)) => Ok(None),
@@ -237,8 +237,9 @@ impl App {
             .get_by_project_id_id(project_id, session_id)
             .context("failed to get session")?
             .context("session not found")?;
+        let user = self.users_storage.get()?;
         let gb_repo = self
-            .gb_repository(project_id)
+            .gb_repository(project_id, user.as_ref())
             .context("failed to open repository")?;
         let session_reader =
             sessions::Reader::open(&gb_repo, &session).context("failed to open session reader")?;
@@ -259,7 +260,8 @@ impl App {
     pub fn fetch_from_target(&self, project_id: &str) -> Result<(), Error> {
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let gb_repo = self.gb_repository(project_id)?;
+        let user = self.users_storage.get()?;
+        let gb_repo = self.gb_repository(project_id, user.as_ref())?;
         let current_session = gb_repo.get_or_create_current_session()?;
         let current_session_reader = sessions::Reader::open(&gb_repo, &current_session)?;
         let target_reader = target::Reader::new(&current_session_reader);
@@ -292,7 +294,8 @@ impl App {
     }
 
     pub fn upsert_bookmark(&self, bookmark: &bookmarks::Bookmark) -> Result<()> {
-        let gb_repository = self.gb_repository(&bookmark.project_id)?;
+        let user = self.users_storage.get()?;
+        let gb_repository = self.gb_repository(&bookmark.project_id, user.as_ref())?;
         let writer = bookmarks::Writer::new(&gb_repository).context("failed to open writer")?;
         writer.write(bookmark).context("failed to write bookmark")?;
 
@@ -403,7 +406,8 @@ impl App {
         &self,
         project_id: &str,
     ) -> Result<Vec<virtual_branches::RemoteBranch>> {
-        let gb_repository = self.gb_repository(project_id)?;
+        let user = self.users_storage.get()?;
+        let gb_repository = self.gb_repository(project_id, user.as_ref())?;
         let project = self.gb_project(project_id)?;
         let project_repository = project_repository::Repository::open(&project)
             .context("failed to open project repository")?;
@@ -440,8 +444,9 @@ impl App {
     }
 
     pub fn git_gb_push(&self, project_id: &str) -> Result<()> {
-        let gb_repository = self.gb_repository(project_id)?;
-        gb_repository.push()
+        let user = self.users_storage.get()?;
+        let gb_repository = self.gb_repository(project_id, user.as_ref())?;
+        gb_repository.push(user.as_ref())
     }
 
     pub fn search(&self, query: &search::Query) -> Result<search::Results> {

@@ -96,11 +96,13 @@ impl Handler {
         let project_repository = project_repository::Repository::open(&project)
             .with_context(|| "failed to open project repository for project")?;
 
+        let user = self.user_store.get().context("failed to get user")?;
+
         let gb_repository = gb_repository::Repository::open(
             &self.local_data_dir,
             project_id,
             self.project_store.clone(),
-            self.user_store.clone(),
+            user.as_ref(),
         )
         .context("failed to open gb repository")?;
 
@@ -114,7 +116,7 @@ impl Handler {
                 .context("failed to get head")?;
             if session.meta.branch != project_head.name().map(|s| s.to_string()) {
                 gb_repository
-                    .flush_session(&project_repository, &session)
+                    .flush_session(&project_repository, &session, user.as_ref())
                     .context("failed to flush session")?;
             }
         }
@@ -269,7 +271,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None,
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -307,7 +309,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None,
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -334,7 +336,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None,
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -366,7 +368,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None,
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -406,7 +408,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None,
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -465,7 +467,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -516,7 +518,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None,
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -532,7 +534,7 @@ mod test {
 
             test_utils::commit_all(&repository);
             listener.handle(relative_file_path, &project.id)?;
-            assert!(gb_repo.flush()?.is_some());
+            assert!(gb_repo.flush(None)?.is_some());
         }
 
         // get all the created sessions
@@ -607,7 +609,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None,
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -622,7 +624,7 @@ mod test {
             )?;
 
             listener.handle(relative_file_path, &project.id)?;
-            assert!(gb_repo.flush()?.is_some());
+            assert!(gb_repo.flush(None)?.is_some());
         }
 
         // get all the created sessions
@@ -697,7 +699,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -763,7 +765,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -781,7 +783,7 @@ mod test {
         std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
         listener.handle(file_path, &project.id)?;
 
-        let flushed_session = gb_repo.flush().unwrap();
+        let flushed_session = gb_repo.flush(None).unwrap();
 
         // create a new session
         let session = gb_repo.get_or_create_current_session().unwrap();
@@ -826,7 +828,7 @@ mod test {
             local_data_dir.clone(),
             &project.id,
             project_store.clone(),
-            user_store.clone(),
+            None
         )?;
         let listener = Handler::from(&local_data_dir);
 
@@ -844,7 +846,7 @@ mod test {
         std::fs::write(project_repo.root().join(file_path), "hello world!").unwrap();
         listener.handle(file_path, &project.id).unwrap();
 
-        let flushed_session = gb_repo.flush().unwrap();
+        let flushed_session = gb_repo.flush(None).unwrap();
 
         // hard delete branches state from disk
         std::fs::remove_dir_all(gb_repo.root()).unwrap();

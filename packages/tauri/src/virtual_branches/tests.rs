@@ -40,7 +40,7 @@ fn new_test_deps() -> Result<TestDeps> {
         gb_repo_path.clone(),
         &project.id,
         project_store.clone(),
-        user_store.clone(),
+        None,
     )?;
     Ok(TestDeps {
         repository,
@@ -97,8 +97,7 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
@@ -123,6 +122,7 @@ fn test_commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         &project_repository,
         &branch1_id,
         "test commit",
+        None,
         None,
         None,
     )?;
@@ -170,8 +170,7 @@ fn test_signed_commit() -> Result<()> {
     )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     set_test_target(&gb_repo, &project_repository, &repository)?;
@@ -198,6 +197,7 @@ fn test_signed_commit() -> Result<()> {
         "test commit",
         None,
         Some(keys_controller.get_or_create()?).as_ref(),
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository).unwrap();
@@ -284,6 +284,7 @@ fn test_track_binary_files() -> Result<()> {
         "test commit",
         None,
         None,
+        None,
     )?;
 
     // status (no files)
@@ -310,6 +311,7 @@ fn test_track_binary_files() -> Result<()> {
         &project_repository,
         &branch1_id,
         "test commit",
+        None,
         None,
         None,
     )?;
@@ -699,8 +701,7 @@ fn test_updated_ownership_should_bubble_up() -> Result<()> {
     )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -811,8 +812,7 @@ fn test_move_hunks_multiple_sources() -> Result<()> {
     )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -923,8 +923,7 @@ fn test_move_hunks_partial_explicitly() -> Result<()> {
         )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let project_repository = project_repository::Repository::open(&project)?;
 
@@ -1016,8 +1015,7 @@ fn test_add_new_hunk_to_the_end() -> Result<()> {
         )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let project_repository = project_repository::Repository::open(&project)?;
 
@@ -1079,8 +1077,7 @@ fn test_update_base_branch_base() -> Result<()> {
     )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -1133,6 +1130,7 @@ fn test_update_base_branch_base() -> Result<()> {
         "test commit",
         None,
         None,
+        None,
     )?;
 
     std::fs::write(
@@ -1152,7 +1150,7 @@ fn test_update_base_branch_base() -> Result<()> {
     // update the target branch
     // this should leave the work on file2, but update the contents of file1
     // and the branch diff should only be on file2
-    update_base_branch(&gb_repo, &project_repository).unwrap();
+    update_base_branch(&gb_repo, &project_repository, None).unwrap();
 
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
     assert_eq!(
@@ -1193,8 +1191,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
     )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -1243,6 +1240,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
         "test commit",
         None,
         None,
+        None,
     )?;
 
     // add something to the branch
@@ -1253,7 +1251,7 @@ fn test_update_base_branch_detect_integrated_branches() -> Result<()> {
 
     // update the target branch
     // this should notice that the trees are the same after the merge, so it should unapply the branch
-    update_base_branch(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository, None)?;
 
     // integrated branch should be deleted
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -1281,8 +1279,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
     )?;
     test_utils::commit_all(&repository);
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     target::Writer::new(&gb_repo).write_default(&target::Target {
@@ -1320,6 +1317,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
         "test commit",
         None,
         None,
+        None,
     )?;
 
     // add some uncommitted work
@@ -1335,7 +1333,7 @@ fn test_update_base_branch_detect_integrated_branches_with_more_work() -> Result
 
     // update the target branch
     // this should notice that the trees are the same after the merge, but there are files on the branch, so do a merge and then leave the files there
-    update_base_branch(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository, None)?;
 
     // there should be a new vbranch created, but nothing is on it
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -1357,8 +1355,7 @@ fn test_update_base_branch_no_commits_no_conflict() -> Result<()> {
         ..
     } = new_test_deps()?;
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -1414,10 +1411,10 @@ fn test_update_base_branch_no_commits_no_conflict() -> Result<()> {
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
 
-    update_base_branch(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository, None)?;
 
     // this should bring back the branch, with the same file changes, but merged into the upstream work
-    apply_branch(&gb_repo, &project_repository, &branch1_id, None)?;
+    apply_branch(&gb_repo, &project_repository, &branch1_id, None, None)?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches[0];
@@ -1445,8 +1442,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
         ..
     } = new_test_deps()?;
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -1525,6 +1521,7 @@ fn test_merge_vbranch_upstream_clean() -> Result<()> {
         &project_repository,
         &branch1.id,
         Some(keys_controller.get_or_create()?).as_ref(),
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -1560,8 +1557,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         ..
     } = new_test_deps()?;
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
     let project_repository = project_repository::Repository::open(&project)?;
 
     // create a commit and set the target
@@ -1635,7 +1631,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     assert_eq!(branch1.upstream_commits.len(), 1);
 
-    merge_virtual_branch_upstream(&gb_repo, &project_repository, &branch1.id, None)?;
+    merge_virtual_branch_upstream(&gb_repo, &project_repository, &branch1.id, None, None)?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches[0];
@@ -1666,6 +1662,7 @@ fn test_merge_vbranch_upstream_conflict() -> Result<()> {
         &project_repository,
         &branch1.id,
         "fix merge conflict",
+        None,
         None,
         None,
     )?;
@@ -1822,6 +1819,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         "integrated commit",
         None,
         None,
+        None,
     )?;
 
     unapply_branch(&gb_repo, &project_repository, &branch7_id)?;
@@ -1870,6 +1868,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         &project_repository,
         &branch2_id,
         "commit conflicts",
+        None,
         None,
         None,
     )?;
@@ -1931,6 +1930,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
         "broken, but will fix",
         None,
         None,
+        None,
     )?;
     std::fs::write(
         std::path::Path::new(&project.path).join(file_path3),
@@ -1979,7 +1979,7 @@ fn test_update_target_with_conflicts_in_vbranches() -> Result<()> {
     )?;
 
     // update the target branch
-    update_base_branch(&gb_repo, &project_repository).unwrap();
+    update_base_branch(&gb_repo, &project_repository, None).unwrap();
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
 
@@ -2206,7 +2206,7 @@ fn test_apply_unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(!branch.active);
 
-    apply_branch(&gb_repo, &project_repository, &branch1_id, None)?;
+    apply_branch(&gb_repo, &project_repository, &branch1_id, None, None)?;
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
@@ -2293,13 +2293,13 @@ fn test_apply_unapply_added_deleted_files() -> Result<()> {
         .join(file_path3)
         .exists());
 
-    apply_branch(&gb_repo, &project_repository, &branch2_id, None)?;
+    apply_branch(&gb_repo, &project_repository, &branch2_id, None, None)?;
     // check that file2 is gone
     assert!(!std::path::Path::new(&project.path)
         .join(file_path2)
         .exists());
 
-    apply_branch(&gb_repo, &project_repository, &branch3_id, None)?;
+    apply_branch(&gb_repo, &project_repository, &branch3_id, None, None)?;
     // check that file3 is back
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path3))?;
     assert_eq!("file3\n", String::from_utf8(contents)?);
@@ -2514,6 +2514,7 @@ fn test_detect_remote_commits() -> Result<()> {
         "upstream commit 1",
         None,
         None,
+        None,
     )?;
 
     // create another commit to push upstream
@@ -2527,6 +2528,7 @@ fn test_detect_remote_commits() -> Result<()> {
         &project_repository,
         &branch1_id,
         "upstream commit 2",
+        None,
         None,
         None,
     )?;
@@ -2553,6 +2555,7 @@ fn test_detect_remote_commits() -> Result<()> {
         &project_repository,
         &branch1_id,
         "local commit",
+        None,
         None,
         None,
     )?;
@@ -2629,7 +2632,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
 
     // create a new virtual branch from the remote branch
     let branch2_id =
-        create_virtual_branch_from_branch(&gb_repo, &project_repository, &upstream, None)?.id;
+        create_virtual_branch_from_branch(&gb_repo, &project_repository, &upstream, None, None)?.id;
 
     // shouldn't be anything on either of our branches
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -2645,7 +2648,7 @@ fn test_create_vbranch_from_remote_branch() -> Result<()> {
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
 
     // this should bring in the branch change
-    apply_branch(&gb_repo, &project_repository, &branch2_id, None)?;
+    apply_branch(&gb_repo, &project_repository, &branch2_id, None, None)?;
 
     // file should be the branch version now
     let contents = std::fs::read(std::path::Path::new(&project.path).join(file_path))?;
@@ -2763,8 +2766,14 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
     )?;
 
     // create a new virtual branch from the remote branch
-    let branch1_id =
-        create_virtual_branch_from_branch(&gb_repo, &project_repository, &remote_branch, None)?.id;
+    let branch1_id = create_virtual_branch_from_branch(
+        &gb_repo,
+        &project_repository,
+        &remote_branch,
+        None,
+        None,
+    )?
+    .id;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
@@ -2777,7 +2786,7 @@ fn test_create_vbranch_from_behind_remote_branch() -> Result<()> {
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path2))?;
     assert_eq!(contents, "file2\n");
 
-    apply_branch(&gb_repo, &project_repository, &branch1_id, None)?;
+    apply_branch(&gb_repo, &project_repository, &branch1_id, None, None)?;
 
     // the file2 has been updated
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
@@ -2912,12 +2921,14 @@ fn test_upstream_integrated_vbranch() -> Result<()> {
         "integrated commit",
         None,
         None,
+        None,
     )?;
     commit(
         &gb_repo,
         &project_repository,
         &branch2_id,
         "non-integrated commit",
+        None,
         None,
         None,
     )?;
@@ -2985,6 +2996,7 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         "first commit to test.txt",
         None,
         None,
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -3018,6 +3030,7 @@ fn test_commit_same_hunk_twice() -> Result<()> {
         &project_repository,
         &branch1_id,
         "second commit to test.txt",
+        None,
         None,
         None,
     )?;
@@ -3083,6 +3096,7 @@ fn test_commit_same_file_twice() -> Result<()> {
         "first commit to test.txt",
         None,
         None,
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -3116,6 +3130,7 @@ fn test_commit_same_file_twice() -> Result<()> {
         &project_repository,
         &branch1_id,
         "second commit to test.txt",
+        None,
         None,
         None,
     )?;
@@ -3181,6 +3196,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         "first commit to test.txt",
         Some(&"test.txt:1-6".parse::<Ownership>().unwrap()),
         None,
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -3198,6 +3214,7 @@ fn test_commit_partial_by_hunk() -> Result<()> {
         &branch1_id,
         "second commit to test.txt",
         Some(&"test.txt:16-22".parse::<Ownership>().unwrap()),
+        None,
         None,
     )?;
 
@@ -3260,6 +3277,7 @@ fn test_commit_partial_by_file() -> Result<()> {
         &project_repository,
         &branch1_id,
         "branch1 commit",
+        None,
         None,
         None,
     )?;
@@ -3336,6 +3354,7 @@ fn test_commit_add_and_delete_files() -> Result<()> {
         "branch1 commit",
         None,
         None,
+        None,
     )?;
 
     let branches = list_virtual_branches(&gb_repo, &project_repository)?;
@@ -3410,6 +3429,7 @@ fn test_commit_executable_and_symlinks() -> Result<()> {
         &project_repository,
         &branch1_id,
         "branch1 commit",
+        None,
         None,
         None,
     )?;
@@ -3604,7 +3624,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
     assert_eq!(contents, "line1\nline2\nline3\nline4\n");
 
     // update target, this will update the wd and add an empty default branch
-    update_base_branch(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository, None)?;
 
     // updated the file
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
@@ -3617,7 +3637,7 @@ fn test_apply_out_of_date_vbranch() -> Result<()> {
 
     // apply branch which is now out of date
     // - it should merge the new target into it and update the wd and nothing is in files
-    apply_branch(&gb_repo, &project_repository, branch_id, None)?;
+    apply_branch(&gb_repo, &project_repository, branch_id, None, None)?;
 
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
     assert_eq!(contents, "line1\nline2\nline3\nline4\nupstream\n");
@@ -3739,7 +3759,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     assert_eq!(contents, "line1\nline2\nline3\nline4\n");
 
     // update target, this will update the wd and add an empty default branch
-    update_base_branch(&gb_repo, &project_repository)?;
+    update_base_branch(&gb_repo, &project_repository, None)?;
 
     // updated the file
     let contents = std::fs::read_to_string(std::path::Path::new(&project.path).join(file_path))?;
@@ -3758,7 +3778,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
     assert!(!branch1.base_current);
 
     // apply branch which is now out of date and conflicting
-    apply_branch(&gb_repo, &project_repository, branch_id, None)?;
+    apply_branch(&gb_repo, &project_repository, branch_id, None, None)?;
 
     assert!(project_repository::conflicts::is_conflicting(
         &project_repository,
@@ -3779,6 +3799,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         &project_repository,
         branch_id,
         "resolve commit",
+        None,
         None,
         None,
     );
@@ -3805,6 +3826,7 @@ fn test_apply_out_of_date_conflicting_vbranch() -> Result<()> {
         &project_repository,
         branch_id,
         "resolve commit",
+        None,
         None,
         None,
     )?;
@@ -3882,7 +3904,7 @@ fn test_apply_conflicting_vbranch() -> Result<()> {
     )?;
 
     // apply branch which is now out of date and conflicting, which fails
-    let result = apply_branch(&gb_repo, &project_repository, branch_id, None);
+    let result = apply_branch(&gb_repo, &project_repository, branch_id, None, None);
     assert!(result.is_err());
 
     Ok(())

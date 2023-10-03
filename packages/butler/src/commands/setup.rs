@@ -39,6 +39,7 @@ impl super::RunCommand for Setup {
                 set_base_branch(
                     app.gb_repository(),
                     &app.project_repository(),
+                    app.user(),
                     &items[index].branch().parse()?,
                 )
                 .context("failed to set target branch")?;

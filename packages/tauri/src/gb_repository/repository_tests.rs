@@ -19,8 +19,7 @@ fn test_get_current_session_writer_should_use_existing_session() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_app_data);
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let current_session_1 = gb_repo.get_or_create_current_session()?;
     let current_session_2 = gb_repo.get_or_create_current_session()?;
@@ -38,8 +37,7 @@ fn test_must_not_return_init_session() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_app_data);
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     assert!(gb_repo.get_current_session()?.is_none());
 
@@ -58,10 +56,9 @@ fn test_must_not_flush_without_current_session() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_app_data);
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
     assert!(session.is_none());
 
     let iter = gb_repo.get_sessions_iterator()?;
@@ -83,7 +80,7 @@ fn test_init_on_non_empty_repository() -> Result<()> {
     std::fs::write(repository.path().parent().unwrap().join("test.txt"), "test")?;
     test_utils::commit_all(&repository);
 
-    gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     Ok(())
 }
@@ -105,14 +102,13 @@ fn test_flush_on_existing_repository() -> Result<()> {
         gb_repo_path.clone(),
         &project.id,
         project_store.clone(),
-        user_store.clone(),
+        None,
     )?;
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     gb_repo.get_or_create_current_session()?;
-    gb_repo.flush()?;
+    gb_repo.flush(None)?;
 
     Ok(())
 }
@@ -126,12 +122,11 @@ fn test_must_flush_current_session() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_app_data);
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     gb_repo.get_or_create_current_session()?;
 
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
     assert!(session.is_some());
     let iter = gb_repo.get_sessions_iterator()?;
     assert_eq!(iter.count(), 1);
@@ -148,8 +143,7 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_app_data);
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let current_session = gb_repo.get_or_create_current_session()?;
     let writer = deltas::Writer::new(&gb_repo);
@@ -189,8 +183,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     project_store.add_project(&project)?;
     let user_store = users::Storage::from(&local_app_data);
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let writer = deltas::Writer::new(&gb_repo);
     writer.write(
@@ -200,7 +193,7 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
             timestamp_ms: 0,
         }],
     )?;
-    let session = gb_repo.flush()?;
+    let session = gb_repo.flush(None)?;
 
     let session_reader = sessions::Reader::open(&gb_repo, &session.unwrap())?;
     let deltas_reader = deltas::Reader::new(&session_reader);
@@ -237,8 +230,7 @@ fn test_list_files_from_current_session() -> Result<()> {
         "Hello World",
     )?;
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     let session = gb_repo.get_or_create_current_session()?;
 
@@ -270,11 +262,10 @@ fn test_list_files_from_flushed_session() -> Result<()> {
         "Hello World",
     )?;
 
-    let gb_repo =
-        gb_repository::Repository::open(gb_repo_path, &project.id, project_store, user_store)?;
+    let gb_repo = gb_repository::Repository::open(gb_repo_path, &project.id, project_store, None)?;
 
     gb_repo.get_or_create_current_session()?;
-    let session = gb_repo.flush()?.unwrap();
+    let session = gb_repo.flush(None)?.unwrap();
 
     let reader = sessions::Reader::open(&gb_repo, &session)?;
     let files = reader.files(None)?;
@@ -306,11 +297,11 @@ fn test_remote_syncronization() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
     let user_store = users::Storage::from(&local_app_data);
-    user_store.set(&users::User {
+    let user = users::User {
         name: "test".to_string(),
         email: "test@email.com".to_string(),
         ..Default::default()
-    })?;
+    };
 
     // create first local project, add files, deltas and flush a session
     let repository_one = test_utils::test_repository();
@@ -327,7 +318,7 @@ fn test_remote_syncronization() -> Result<()> {
         gb_repos_path.clone(),
         &project_one.id,
         project_store.clone(),
-        user_store.clone(),
+        Some(&user),
     )?;
     let writer = deltas::Writer::new(&gb_repo_one);
     writer.write(
@@ -337,8 +328,8 @@ fn test_remote_syncronization() -> Result<()> {
             timestamp_ms: 0,
         }],
     )?;
-    let session_one = gb_repo_one.flush()?.unwrap();
-    gb_repo_one.push().unwrap();
+    let session_one = gb_repo_one.flush(Some(&user))?.unwrap();
+    gb_repo_one.push(Some(&user)).unwrap();
 
     // create second local project, fetch it and make sure session is there
     let repository_two = test_utils::test_repository();
@@ -347,9 +338,13 @@ fn test_remote_syncronization() -> Result<()> {
         api: Some(api_project),
         ..project_two.clone()
     })?;
-    let gb_repo_two =
-        gb_repository::Repository::open(gb_repos_path, &project_two.id, project_store, user_store)?;
-    gb_repo_two.fetch()?;
+    let gb_repo_two = gb_repository::Repository::open(
+        gb_repos_path,
+        &project_two.id,
+        project_store,
+        Some(&user),
+    )?;
+    gb_repo_two.fetch(Some(&user))?;
     // now it should have the session from the first local project synced
     let sessions_two = gb_repo_two
         .get_sessions_iterator()?
@@ -397,11 +392,11 @@ fn test_remote_sync_order() -> Result<()> {
     let project_store = projects::Storage::from(&local_app_data);
     let gb_repos_path = tempdir()?.path().to_str().unwrap().to_string();
     let user_store = users::Storage::from(&local_app_data);
-    user_store.set(&users::User {
+    let user = users::User {
         name: "test".to_string(),
         email: "test@email.com".to_string(),
         ..Default::default()
-    })?;
+    };
 
     // create first project and repo
     let repository_one = test_utils::test_repository();
@@ -414,7 +409,7 @@ fn test_remote_sync_order() -> Result<()> {
         gb_repos_path.clone(),
         &project_one.id,
         project_store.clone(),
-        user_store.clone(),
+        Some(&user),
     )?;
 
     // create second project and repo
@@ -424,8 +419,12 @@ fn test_remote_sync_order() -> Result<()> {
         api: Some(api_project),
         ..project_two.clone()
     })?;
-    let gb_repo_two =
-        gb_repository::Repository::open(gb_repos_path, &project_two.id, project_store, user_store)?;
+    let gb_repo_two = gb_repository::Repository::open(
+        gb_repos_path,
+        &project_two.id,
+        project_store,
+        Some(&user),
+    )?;
 
     // create session in the first project
     gb_repo_one.get_or_create_current_session()?;
@@ -433,8 +432,8 @@ fn test_remote_sync_order() -> Result<()> {
         repository_one.path().parent().unwrap().join("test.txt"),
         "Hello World",
     )?;
-    let session_one_first = gb_repo_one.flush()?.unwrap();
-    gb_repo_one.push().unwrap();
+    let session_one_first = gb_repo_one.flush(Some(&user))?.unwrap();
+    gb_repo_one.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
@@ -444,8 +443,8 @@ fn test_remote_sync_order() -> Result<()> {
         repository_two.path().parent().unwrap().join("test2.txt"),
         "Hello World",
     )?;
-    let session_two_first = gb_repo_two.flush()?.unwrap();
-    gb_repo_two.push().unwrap();
+    let session_two_first = gb_repo_two.flush(Some(&user))?.unwrap();
+    gb_repo_two.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
@@ -455,8 +454,8 @@ fn test_remote_sync_order() -> Result<()> {
         repository_one.path().parent().unwrap().join("test.txt"),
         "Hello World again",
     )?;
-    let session_one_second = gb_repo_one.flush()?.unwrap();
-    gb_repo_one.push().unwrap();
+    let session_one_second = gb_repo_one.flush(Some(&user))?.unwrap();
+    gb_repo_one.push(Some(&user)).unwrap();
 
     thread::sleep(time::Duration::from_secs(1));
 
@@ -466,16 +465,16 @@ fn test_remote_sync_order() -> Result<()> {
         repository_two.path().parent().unwrap().join("test2.txt"),
         "Hello World again",
     )?;
-    let session_two_second = gb_repo_two.flush()?.unwrap();
-    gb_repo_two.push().unwrap();
+    let session_two_second = gb_repo_two.flush(Some(&user))?.unwrap();
+    gb_repo_two.push(Some(&user)).unwrap();
 
-    gb_repo_one.fetch()?;
+    gb_repo_one.fetch(Some(&user))?;
     let sessions_one = gb_repo_one
         .get_sessions_iterator()?
         .map(|s| s.unwrap())
         .collect::<Vec<_>>();
 
-    gb_repo_two.fetch()?;
+    gb_repo_two.fetch(Some(&user))?;
     let sessions_two = gb_repo_two
         .get_sessions_iterator()?
         .map(|s| s.unwrap())
