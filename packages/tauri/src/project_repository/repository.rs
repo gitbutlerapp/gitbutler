@@ -6,24 +6,24 @@ use walkdir::WalkDir;
 
 use crate::{git, keys, project_repository::activity, projects, reader, users};
 
-pub struct Repository<'repository> {
+pub struct Repository {
     pub git_repository: git::Repository,
-    project: &'repository projects::Project,
+    project: projects::Project,
 }
 
-impl<'project> TryFrom<&'project projects::Project> for Repository<'project> {
+impl TryFrom<&projects::Project> for Repository {
     type Error = git::Error;
 
-    fn try_from(project: &'project projects::Project) -> std::result::Result<Self, Self::Error> {
+    fn try_from(project: &projects::Project) -> std::result::Result<Self, Self::Error> {
         let git_repository = git::Repository::open(&project.path)?;
         Ok(Self {
             git_repository,
-            project,
+            project: project.clone(),
         })
     }
 }
 
-impl<'repository> Repository<'repository> {
+impl Repository {
     pub fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
     }
@@ -39,17 +39,13 @@ impl<'repository> Repository<'repository> {
         super::signatures::signatures(self, user).context("failed to get signatures")
     }
 
-    pub fn open(project: &'repository projects::Project) -> Result<Self> {
-        let git_repository = git::Repository::open(&project.path)
-            .with_context(|| format!("{}: failed to open git repository", project.path))?;
-        Ok(Self {
-            git_repository,
-            project,
-        })
+    pub fn open(project: &projects::Project) -> Result<Self> {
+        Self::try_from(project)
+            .with_context(|| format!("{}: failed to open git repository", project.path))
     }
 
     pub fn project(&self) -> &projects::Project {
-        self.project
+        &self.project
     }
 
     pub fn get_head(&self) -> Result<git::Reference, git::Error> {
@@ -330,7 +326,7 @@ impl<'repository> Repository<'repository> {
 
     // returns a remote and makes sure that the push url is an ssh url
     // if url is already ssh, or not set at all, then it returns the remote as is.
-    fn get_remote(&'repository self, name: &str) -> Result<git::Remote<'repository>, Error> {
+    fn get_remote(&self, name: &str) -> Result<git::Remote, Error> {
         let remote = self
             .git_repository
             .find_remote(name)

@@ -1288,7 +1288,7 @@ pub fn virtual_hunks_by_filepath(
 // list the virtual branches and their file statuses (statusi?)
 pub fn get_status_by_branch(
     gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository<'_>,
+    project_repository: &project_repository::Repository,
 ) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
     let current_session = gb_repository
         .get_or_create_current_session()
@@ -1345,7 +1345,7 @@ pub fn get_status_by_branch(
 //
 // ownerships are not taken into account here, as they are not relevant for non applied branches
 fn get_non_applied_status(
-    project_repository: &project_repository::Repository<'_>,
+    project_repository: &project_repository::Repository,
     default_target: &target::Target,
     virtual_branches: Vec<branch::Branch>,
 ) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
@@ -1416,7 +1416,7 @@ fn get_non_applied_status(
 // ownerships are updated if nessessary
 fn get_applied_status(
     gb_repository: &gb_repository::Repository,
-    project_repository: &project_repository::Repository<'_>,
+    project_repository: &project_repository::Repository,
     default_target: &target::Target,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<Vec<(branch::Branch, Vec<VirtualBranchFile>)>> {
