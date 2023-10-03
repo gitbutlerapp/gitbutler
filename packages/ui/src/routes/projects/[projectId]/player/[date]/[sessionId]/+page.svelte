@@ -10,7 +10,6 @@
 	import Frame from './Frame.svelte';
 	import Info from './Info.svelte';
 	import type { Delta } from '$lib/api/ipc/deltas';
-	import { Contents } from '$lib/api/ipc/files';
 	import { getSessionStore } from '$lib/stores/sessions';
 	import { getDeltasStore } from '$lib/stores/deltas';
 	import { getFilesStore } from '$lib/stores/files';
@@ -53,10 +52,10 @@
 					Object.entries(files)
 						.filter(([path]) => (filter ? path === filter : true))
 						.map(([path, file]) => {
-							if (file) {
-								return [path, Contents.value(file)];
+							if (file?.type === 'utf8') {
+								return [path, file.value];
 							} else {
-								return [path, file];
+								return [path, undefined];
 							}
 						})
 				)

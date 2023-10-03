@@ -2,7 +2,7 @@ import { writable, type Loadable, Loaded } from 'svelte-loadable-store';
 import * as files from '$lib/api/ipc/files';
 import { get, type Readable } from '@square/svelte-store';
 
-type Files = Partial<Record<string, files.Contents>>;
+type Files = Partial<Record<string, files.FileContent>>;
 
 const stores: Partial<Record<string, Readable<Loadable<Files>>>> = {};
 

@@ -30,8 +30,8 @@
 		const [doc, dd] = await Promise.all([
 			files.list({ projectId, sessionId, paths: [filePath] }).then((r) => {
 				const file = r[filePath];
-				if (file) {
-					return files.Contents.value(file) || '';
+				if (file?.type === 'utf8') {
+					return file.value;
 				} else {
 					return '';
 				}

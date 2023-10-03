@@ -11,7 +11,7 @@ import { invoke } from '$lib/ipc';
 import { isDelete, isInsert, type Delta } from '$lib/api/ipc/deltas';
 import type { Session } from '$lib/api/ipc/sessions';
 import { get } from 'svelte/store';
-import { Contents } from '$lib/api/ipc/files';
+import type { FileContent } from '$lib/api/ipc/files';
 
 export function getVirtualBranchStore(
 	projectId: string,
@@ -117,7 +117,7 @@ export async function withFileContent(
 		.map((branch) => branch.files)
 		.flat()
 		.map((file) => file.path);
-	const sessionFiles = await invoke<Partial<Record<string, Contents>>>('list_session_files', {
+	const sessionFiles = await invoke<Partial<Record<string, FileContent>>>('list_session_files', {
 		projectId: projectId,
 		sessionId: sessionId,
 		paths: filePaths
@@ -129,10 +129,13 @@ export async function withFileContent(
 	});
 	const branchesWithContnent = branches.map((branch) => {
 		branch.files.map((file) => {
-			const contentAtSessionStart =
-				Contents.value(sessionFiles[file.path] || { type: 'utf8', value: '' }) || '';
+			const contentAtSessionStart = sessionFiles[file.path];
 			const ds = sessionDeltas[file.path] || [];
-			file.content = applyDeltas(contentAtSessionStart, ds);
+			if (contentAtSessionStart?.type === 'utf8') {
+				file.content = applyDeltas(contentAtSessionStart.value, ds);
+			} else {
+				file.content = applyDeltas('', ds);
+			}
 		});
 		return branch;
 	});
