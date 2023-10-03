@@ -1,4 +1,4 @@
-use std::time;
+use std::{path, time};
 
 use anyhow::{anyhow, Context, Result};
 
@@ -28,9 +28,15 @@ impl<'writer> SessionWriter<'writer> {
 
         let reader = reader::DirReader::open(self.repository.root());
 
-        let current_session_id = reader.read_string("session/meta/id");
+        let current_session_id = if let Ok(reader::Content::UTF8(current_session_id)) =
+            reader.read(&path::PathBuf::from("session/meta/id"))
+        {
+            Some(current_session_id)
+        } else {
+            None
+        };
 
-        if current_session_id.is_ok() && !current_session_id.as_ref().unwrap().eq(&session.id) {
+        if current_session_id.is_some() && current_session_id.as_ref() != Some(&session.id) {
             return Err(anyhow!(
                 "{}: can not open writer for {} because a writer for {} is still open",
                 self.repository.project_id,
@@ -51,7 +57,7 @@ impl<'writer> SessionWriter<'writer> {
             )
             .context("failed to write last timestamp")?;
 
-        if current_session_id.is_ok() && current_session_id.as_ref().unwrap().eq(&session.id) {
+        if current_session_id.is_some() && current_session_id.as_ref() == Some(&session.id) {
             return Ok(());
         }
 

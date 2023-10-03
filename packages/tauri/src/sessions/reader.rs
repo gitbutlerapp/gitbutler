@@ -17,24 +17,20 @@ pub struct SessionReader<'reader> {
 }
 
 impl Reader for SessionReader<'_> {
-    fn read(&self, file_path: &str) -> Result<reader::Content, reader::Error> {
+    fn read(&self, file_path: &path::Path) -> Result<reader::Content, reader::Error> {
         self.reader.read(file_path)
     }
 
-    fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
+    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
         self.reader.list_files(dir_path)
     }
 
-    fn exists(&self, file_path: &str) -> bool {
-        self.reader.exists(file_path)
-    }
-
-    fn size(&self, file_path: &str) -> Result<usize> {
-        self.reader.size(file_path)
-    }
-
-    fn is_dir(&self, file_path: &str) -> bool {
+    fn is_dir(&self, file_path: &path::Path) -> bool {
         self.reader.is_dir(file_path)
+    }
+
+    fn exists(&self, file_path: &path::Path) -> bool {
+        self.reader.exists(file_path)
     }
 }
 
@@ -42,23 +38,19 @@ impl<'reader> SessionReader<'reader> {
     pub fn open(repository: &'reader gb_repository::Repository, session: &Session) -> Result<Self> {
         let wd_reader = reader::DirReader::open(repository.root());
 
-        let current_session_id = wd_reader.read_string(
-            repository
-                .session_path()
-                .join("meta")
-                .join("id")
-                .to_str()
-                .unwrap(),
-        );
-        if current_session_id.is_ok() && current_session_id.as_ref().unwrap() == &session.id {
-            let head_commit = repository.git_repository.head()?.peel_to_commit()?;
-            return Ok(SessionReader {
-                reader: Box::new(wd_reader),
-                previous_reader: CommitReader::from_commit(
-                    &repository.git_repository,
-                    &head_commit,
-                )?,
-            });
+        if let Ok(reader::Content::UTF8(current_session_id)) =
+            wd_reader.read(&repository.session_path().join("meta").join("id"))
+        {
+            if current_session_id == session.id {
+                let head_commit = repository.git_repository.head()?.peel_to_commit()?;
+                return Ok(SessionReader {
+                    reader: Box::new(wd_reader),
+                    previous_reader: CommitReader::from_commit(
+                        &repository.git_repository,
+                        &head_commit,
+                    )?,
+                });
+            }
         }
 
         let session_hash = if let Some(hash) = &session.hash {
@@ -89,8 +81,11 @@ impl<'reader> SessionReader<'reader> {
         })
     }
 
-    pub fn files(&self, paths: Option<Vec<&str>>) -> Result<HashMap<String, String>> {
-        let files = self.previous_reader.list_files("wd")?;
+    pub fn files(
+        &self,
+        paths: Option<Vec<path::PathBuf>>,
+    ) -> Result<HashMap<path::PathBuf, reader::Content>> {
+        let files = self.previous_reader.list_files(path::Path::new("wd"))?;
         let mut files_with_content = HashMap::new();
         for file_path in files {
             if let Some(paths) = paths.as_ref() {
@@ -98,12 +93,7 @@ impl<'reader> SessionReader<'reader> {
                     continue;
                 }
             }
-            match self.file(&file_path)? {
-                reader::Content::UTF8(content) => {
-                    files_with_content.insert(file_path.clone(), content);
-                }
-                reader::Content::Binary(_) => {}
-            }
+            files_with_content.insert(file_path.clone(), self.file(&file_path)?);
         }
 
         Ok(files_with_content)
@@ -112,6 +102,6 @@ impl<'reader> SessionReader<'reader> {
     pub fn file<P: AsRef<path::Path>>(&self, path: P) -> Result<reader::Content, reader::Error> {
         let path = path.as_ref();
         self.previous_reader
-            .read(std::path::Path::new("wd").join(path).to_str().unwrap())
+            .read(&std::path::Path::new("wd").join(path))
     }
 }

@@ -49,7 +49,15 @@
 			),
 			files: derived(getFilesStore({ projectId, sessionId: session.id }), (files) =>
 				Object.fromEntries(
-					Object.entries(files).filter(([path]) => (filter ? path === filter : true))
+					Object.entries(files)
+						.filter(([path]) => (filter ? path === filter : true))
+						.map(([path, file]) => {
+							if (file?.type === 'utf8') {
+								return [path, file.value];
+							} else {
+								return [path, undefined];
+							}
+						})
 				)
 			)
 		}))

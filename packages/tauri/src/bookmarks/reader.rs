@@ -1,3 +1,5 @@
+use std::path;
+
 use anyhow::Result;
 use serde_jsonlines::JsonLinesReader;
 
@@ -18,9 +20,12 @@ impl<'reader> BookmarksReader<'reader> {
     }
 
     pub fn read(&self) -> Result<Vec<Bookmark>> {
-        match self.session_reader.read_string("session/bookmarks.jsonl") {
-            Ok(content) => {
-                let iter = JsonLinesReader::new(content.as_bytes()).read_all();
+        match self
+            .session_reader
+            .read(&path::Path::new("session/bookmarks.jsonl").to_path_buf())
+        {
+            Ok(reader::Content::UTF8(content)) => {
+                let iter = JsonLinesReader::new(content.as_bytes()).read_all::<Bookmark>();
                 let mut bookmarks = vec![];
                 for result in iter {
                     if result.is_err() {
@@ -30,6 +35,7 @@ impl<'reader> BookmarksReader<'reader> {
                 }
                 Ok(bookmarks)
             }
+            Ok(_) => Err(anyhow::anyhow!("bookmarks.jsonl is not UTF8 encoded")),
             Err(reader::Error::NotFound) => Ok(vec![]),
             Err(err) => Err(err.into()),
         }

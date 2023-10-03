@@ -28,7 +28,14 @@
 		index
 	}: search.SearchResult) => {
 		const [doc, dd] = await Promise.all([
-			files.list({ projectId, sessionId, paths: [filePath] }).then((r) => r[filePath] ?? ''),
+			files.list({ projectId, sessionId, paths: [filePath] }).then((r) => {
+				const file = r[filePath];
+				if (file?.type === 'utf8') {
+					return file.value;
+				} else {
+					return '';
+				}
+			}),
 			deltas
 				.listDeltas({ projectId, sessionId, paths: [filePath] })
 				.then((r) => r[filePath] ?? [])

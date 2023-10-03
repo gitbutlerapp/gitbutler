@@ -35,6 +35,8 @@
 	export let selectable = false;
 	export let selectedOwnership: Writable<Ownership>;
 
+    $: console.log(file)
+
 	const userSettings = getContext<SettingsStore>(SETTINGS_CONTEXT);
 	const dispatch = createEventDispatcher<{
 		expanded: boolean;

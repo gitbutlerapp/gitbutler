@@ -1,3 +1,5 @@
+use std::path;
+
 use crate::reader::{self, SubReader};
 
 use super::Target;
@@ -12,7 +14,7 @@ impl<'reader> TargetReader<'reader> {
     }
 
     pub fn read_default(&self) -> Result<Target, reader::Error> {
-        if !self.reader.exists("branches/target") {
+        if !self.reader.exists(&path::PathBuf::from("branches/target")) {
             return Err(reader::Error::NotFound);
         }
 
@@ -21,7 +23,10 @@ impl<'reader> TargetReader<'reader> {
     }
 
     pub fn read(&self, id: &str) -> Result<Target, reader::Error> {
-        if !self.reader.exists(&format!("branches/{}/target", id)) {
+        if !self
+            .reader
+            .exists(&path::PathBuf::from(format!("branches/{}/target", id)))
+        {
             return self.read_default();
         }
 

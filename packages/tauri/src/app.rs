@@ -230,8 +230,8 @@ impl App {
         &self,
         project_id: &str,
         session_id: &str,
-        paths: Option<Vec<&str>>,
-    ) -> Result<HashMap<String, String>> {
+        paths: Option<Vec<path::PathBuf>>,
+    ) -> Result<HashMap<path::PathBuf, reader::Content>> {
         let session = self
             .sessions_database
             .get_by_project_id_id(project_id, session_id)

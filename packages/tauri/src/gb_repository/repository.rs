@@ -640,7 +640,7 @@ fn build_wd_tree(
 
             let session_wd_reader = reader::DirReader::open(gb_repository.session_wd_path());
             let session_wd_files = session_wd_reader
-                .list_files(".")
+                .list_files(&path::PathBuf::from("."))
                 .context("failed to read session wd files")?;
             for file_path in session_wd_files {
                 let abs_path = gb_repository.session_wd_path().join(&file_path);
@@ -651,10 +651,26 @@ fn build_wd_tree(
                 let ctime = FileTime::from_creation_time(&metadata).unwrap_or(mtime);
 
                 let file_content = match session_wd_reader
-                    .read_string(&file_path)
+                    .read(&file_path)
                     .context("failed to read file")
                 {
-                    Result::Ok(content) => content,
+                    Result::Ok(reader::Content::UTF8(content)) => content,
+                    Result::Ok(reader::Content::Large) => {
+                        tracing::error!(
+                            project_id = gb_repository.project_id,
+                            path = %abs_path.display(),
+                            "large file in session working directory"
+                        );
+                        continue;
+                    }
+                    Result::Ok(reader::Content::Binary) => {
+                        tracing::error!(
+                            project_id = gb_repository.project_id,
+                            path = %abs_path.display(),
+                            "binary file in session working directory"
+                        );
+                        continue;
+                    }
                     Err(error) => {
                         tracing::error!(
                             project_id = gb_repository.project_id,
@@ -678,10 +694,12 @@ fn build_wd_tree(
                         file_size: metadata.len().try_into().unwrap(),
                         flags: 10, // normal flags for normal file (for the curious: https://git-scm.com/docs/index-format)
                         flags_extended: 0, // no extended flags
-                        path: file_path.clone().into(),
+                        path: file_path.display().to_string().into(),
                         id: gb_repository.git_repository.blob(file_content.as_bytes())?,
                     })
-                    .with_context(|| format!("failed to add index entry for {}", file_path))?;
+                    .with_context(|| {
+                        format!("failed to add index entry for {}", file_path.display())
+                    })?;
             }
 
             let wd_tree_oid = index

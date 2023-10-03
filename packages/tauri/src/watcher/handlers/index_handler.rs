@@ -45,7 +45,7 @@ impl Handler {
         &self,
         project_id: &str,
         session_id: &str,
-        file_path: &str,
+        file_path: &path::Path,
         deltas: &Vec<deltas::Delta>,
     ) -> Result<Vec<events::Event>> {
         self.deltas_database

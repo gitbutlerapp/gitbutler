@@ -1,6 +1,6 @@
-use std::{thread, time};
+use std::{path, thread, time};
 
-use crate::{deltas, gb_repository, projects, sessions, test_utils, users};
+use crate::{deltas, gb_repository, projects, reader, sessions, test_utils, users};
 use anyhow::Result;
 use tempfile::tempdir;
 
@@ -166,9 +166,14 @@ fn test_list_deltas_from_current_session() -> Result<()> {
     let deltas = deltas_reader.read(None)?;
 
     assert_eq!(deltas.len(), 1);
-    assert_eq!(deltas.get("test.txt").unwrap()[0].operations.len(), 1);
     assert_eq!(
-        deltas.get("test.txt").unwrap()[0].operations[0],
+        deltas.get(&path::PathBuf::from("test.txt")).unwrap()[0]
+            .operations
+            .len(),
+        1
+    );
+    assert_eq!(
+        deltas.get(&path::PathBuf::from("test.txt")).unwrap()[0].operations[0],
         deltas::Operation::Insert((0, "Hello World".to_string()))
     );
 
@@ -202,9 +207,14 @@ fn test_list_deltas_from_flushed_session() -> Result<()> {
     let deltas = deltas_reader.read(None)?;
 
     assert_eq!(deltas.len(), 1);
-    assert_eq!(deltas.get("test.txt").unwrap()[0].operations.len(), 1);
     assert_eq!(
-        deltas.get("test.txt").unwrap()[0].operations[0],
+        deltas.get(&path::PathBuf::from("test.txt")).unwrap()[0]
+            .operations
+            .len(),
+        1
+    );
+    assert_eq!(
+        deltas.get(&path::PathBuf::from("test.txt")).unwrap()[0].operations[0],
         deltas::Operation::Insert((0, "Hello World".to_string()))
     );
 
@@ -236,7 +246,10 @@ fn test_list_files_from_current_session() -> Result<()> {
     let files = reader.files(None)?;
 
     assert_eq!(files.len(), 1);
-    assert_eq!(files.get("test.txt").unwrap(), "Hello World");
+    assert_eq!(
+        files.get(&path::PathBuf::from("test.txt")).unwrap(),
+        &reader::Content::UTF8("Hello World".to_string())
+    );
 
     Ok(())
 }
@@ -267,7 +280,10 @@ fn test_list_files_from_flushed_session() -> Result<()> {
     let files = reader.files(None)?;
 
     assert_eq!(files.len(), 1);
-    assert_eq!(files.get("test.txt").unwrap(), "Hello World");
+    assert_eq!(
+        files.get(&path::PathBuf::from("test.txt")).unwrap(),
+        &reader::Content::UTF8("Hello World".to_string())
+    );
 
     Ok(())
 }
@@ -348,9 +364,12 @@ fn test_remote_syncronization() -> Result<()> {
     let files = session_reader.files(None)?;
     assert_eq!(deltas.len(), 1);
     assert_eq!(files.len(), 1);
-    assert_eq!(files.get("test.txt").unwrap(), "Hello World");
     assert_eq!(
-        deltas.get("test.txt").unwrap(),
+        files.get(&path::PathBuf::from("test.txt")).unwrap(),
+        &reader::Content::UTF8("Hello World".to_string())
+    );
+    assert_eq!(
+        deltas.get(&path::PathBuf::from("test.txt")).unwrap(),
         &vec![deltas::Delta {
             operations: vec![deltas::Operation::Insert((0, "Hello World".to_string()))],
             timestamp_ms: 0,

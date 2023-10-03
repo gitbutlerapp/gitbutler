@@ -48,35 +48,18 @@ impl TryFrom<&AppHandle> for Handler {
 
 impl Handler {
     // Returns Some(file_content) or None if the file is ignored.
-    fn get_current_file_content(
+    fn get_current_file(
         &self,
         project_repository: &project_repository::Repository,
-        project_id: &str,
         path: &std::path::Path,
-    ) -> Result<Option<String>> {
-        if project_repository.is_path_ignored(path)? {
-            return Ok(None);
+    ) -> Result<reader::Content, reader::Error> {
+        if project_repository.is_path_ignored(path).unwrap_or(false) {
+            return Err(reader::Error::NotFound);
         }
 
         let reader = project_repository.get_wd_reader();
 
-        let path = path.to_str().unwrap();
-        if !reader.exists(path) {
-            return Ok(Some(String::new()));
-        }
-
-        if reader.size(path)? > 100_000 {
-            tracing::warn!(project_id, path, "ignoring large file");
-            return Ok(None);
-        }
-
-        match reader.read(path)? {
-            reader::Content::UTF8(content) => Ok(Some(content)),
-            reader::Content::Binary(_) => {
-                tracing::warn!(project_id, path, "ignoring non-utf8 file");
-                Ok(None)
-            }
-        }
+        reader.read(path)
     }
 
     // returns deltas for the file that are already part of the current session (if any)
@@ -138,27 +121,22 @@ impl Handler {
 
         let path = path.as_ref();
 
-        let current_wd_file_content = match self
-            .get_current_file_content(&project_repository, project_id, path)
-            .context("failed to get current file content")?
-        {
-            Some(content) => content,
-            None => return Ok(vec![]),
+        let current_wd_file_content = match self.get_current_file(&project_repository, path) {
+            Ok(content) => Some(content),
+            Err(reader::Error::NotFound) => None,
+            Err(err) => Err(err).context("failed to get file content")?,
         };
 
         let current_session = gb_repository
             .get_or_create_current_session()
             .context("failed to get or create current session")?;
+
         let current_session_reader = sessions::Reader::open(&gb_repository, &current_session)
             .context("failed to get session reader")?;
 
         let latest_file_content = match current_session_reader.file(path) {
-            Ok(reader::Content::UTF8(content)) => content,
-            Ok(reader::Content::Binary(_)) => {
-                tracing::warn!(project_id, path = %path.display(), "ignoring non-utf8 file");
-                return Ok(vec![]);
-            }
-            Err(reader::Error::NotFound) => "".to_string(),
+            Ok(content) => Some(content),
+            Err(reader::Error::NotFound) => None,
             Err(err) => Err(err).context("failed to get file content")?,
         };
 
@@ -167,13 +145,14 @@ impl Handler {
             .with_context(|| "failed to get current deltas")?;
 
         let mut text_doc = deltas::Document::new(
-            Some(&latest_file_content),
+            latest_file_content.as_ref(),
             current_deltas.unwrap_or_default(),
         )?;
 
         let new_delta = text_doc
-            .update(&current_wd_file_content)
+            .update(current_wd_file_content.as_ref())
             .context("failed to calculate new deltas")?;
+
         if new_delta.is_none() {
             tracing::debug!(project_id, path = %path.display(), "no new deltas, ignoring");
             return Ok(vec![]);
@@ -185,9 +164,12 @@ impl Handler {
         writer
             .write(path, &deltas)
             .with_context(|| "failed to write deltas")?;
-        writer
-            .write_wd_file(path, &current_wd_file_content)
-            .with_context(|| "failed to write file")?;
+
+        if let Some(reader::Content::UTF8(text)) = current_wd_file_content {
+            writer
+                .write_wd_file(path, &text)
+                .with_context(|| "failed to write file")?;
+        }
 
         Ok(vec![
             events::Event::SessionFile((
@@ -471,7 +453,7 @@ mod test {
     }
 
     #[test]
-    fn test_register_file_delted() -> Result<()> {
+    fn test_register_file_deleted() -> Result<()> {
         let repository = test_utils::test_repository();
         let project = projects::Project::try_from(&repository)?;
         let project_repo = project_repository::Repository::open(&project)?;
@@ -598,10 +580,10 @@ mod test {
                 assert_eq!(files.len(), 1);
             }
 
-            let base_file = files.get(&relative_file_path.to_str().unwrap().to_string());
+            let base_file = files.get(&relative_file_path.to_path_buf());
             let mut text: Vec<char> = match base_file {
-                Some(file) => file.chars().collect(),
-                None => vec![],
+                Some(reader::Content::UTF8(file)) => file.chars().collect(),
+                _ => vec![],
             };
 
             for operation in operations {
@@ -688,10 +670,10 @@ mod test {
                 assert_eq!(files.len(), 1);
             }
 
-            let base_file = files.get(&relative_file_path.to_str().unwrap().to_string());
+            let base_file = files.get(&relative_file_path.to_path_buf());
             let mut text: Vec<char> = match base_file {
-                Some(file) => file.chars().collect(),
-                None => vec![],
+                Some(reader::Content::UTF8(file)) => file.chars().collect(),
+                _ => vec![],
             };
 
             for operation in operations {
@@ -749,10 +731,10 @@ mod test {
         let reader = sessions::Reader::open(&gb_repo, &session).unwrap();
         let files = reader.files(None).unwrap();
 
-        let base_file = files.get(&relative_file_path.to_str().unwrap().to_string());
+        let base_file = files.get(&relative_file_path.to_path_buf());
         let mut text: Vec<char> = match base_file {
-            Some(file) => file.chars().collect(),
-            None => vec![],
+            Some(reader::Content::UTF8(file)) => file.chars().collect(),
+            _ => vec![],
         };
 
         for operation in operations {

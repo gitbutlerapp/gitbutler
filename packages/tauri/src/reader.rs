@@ -1,69 +1,25 @@
-use std::{path, str};
+use std::{num, path, str};
 
 use anyhow::{Context, Result};
+use serde::{ser::SerializeStruct, Serialize};
 
 use crate::{fs, git};
-
-#[derive(Debug, PartialEq)]
-pub enum Content {
-    UTF8(String),
-    Binary(Vec<u8>),
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("file not found")]
     NotFound,
     #[error("io error: {0}")]
-    IOError(std::io::Error),
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    From(#[from] FromError),
 }
 
 pub trait Reader {
-    fn read(&self, file_path: &str) -> Result<Content, Error>;
-    fn list_files(&self, dir_path: &str) -> Result<Vec<String>>;
-    fn exists(&self, file_path: &str) -> bool;
-    fn size(&self, file_path: &str) -> Result<usize>;
-    fn is_dir(&self, file_path: &str) -> bool;
-
-    fn read_usize(&self, file_path: &str) -> Result<usize, Error> {
-        let s = self.read_string(file_path)?;
-        s.parse::<usize>().map_err(|_| {
-            Error::IOError(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "file is not usize",
-            ))
-        })
-    }
-
-    fn read_string(&self, file_path: &str) -> Result<String, Error> {
-        match self.read(file_path)? {
-            Content::UTF8(s) => Ok(s),
-            Content::Binary(_) => Err(Error::IOError(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "file is not utf8",
-            ))),
-        }
-    }
-
-    fn read_u128(&self, file_path: &str) -> Result<u128, Error> {
-        let s = self.read_string(file_path)?;
-        s.parse::<u128>().map_err(|_| {
-            Error::IOError(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "file is not u128",
-            ))
-        })
-    }
-
-    fn read_bool(&self, file_path: &str) -> Result<bool, Error> {
-        let s = self.read_string(file_path)?;
-        s.parse::<bool>().map_err(|_| {
-            Error::IOError(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "file is not bool",
-            ))
-        })
-    }
+    fn read(&self, file_path: &path::Path) -> Result<Content, Error>;
+    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>>;
+    fn is_dir(&self, file_path: &path::Path) -> bool;
+    fn exists(&self, file_path: &path::Path) -> bool;
 }
 
 pub struct DirReader {
@@ -77,43 +33,32 @@ impl DirReader {
 }
 
 impl Reader for DirReader {
-    fn is_dir(&self, file_path: &str) -> bool {
+    fn is_dir(&self, file_path: &path::Path) -> bool {
         let path = self.root.join(file_path);
         path.exists() && path.is_dir()
     }
 
-    fn size(&self, file_path: &str) -> Result<usize> {
+    fn exists(&self, file_path: &path::Path) -> bool {
         let path = self.root.join(file_path);
-        if !path.exists() {
-            return Ok(0);
-        }
-        let metadata = std::fs::metadata(path)?;
-        Ok(metadata.len().try_into()?)
+        path.exists()
     }
 
-    fn read(&self, path: &str) -> Result<Content, Error> {
+    fn read(&self, path: &path::Path) -> Result<Content, Error> {
         let path = self.root.join(path);
         if !path.exists() {
             return Err(Error::NotFound);
         }
-        let content = std::fs::read(path).map_err(Error::IOError)?;
-        match String::from_utf8_lossy(&content).into_owned() {
-            s if s.as_bytes().eq(&content) => Ok(Content::UTF8(s)),
-            _ => Ok(Content::Binary(content)),
-        }
+        let content = Content::try_from(&path).map_err(Error::Io)?;
+        Ok(content)
     }
 
-    fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
-        let files: Vec<String> = fs::list_files(self.root.join(dir_path))?
-            .iter()
-            .map(|f| f.to_str().unwrap().to_string())
-            .filter(|f| !f.starts_with(".git"))
-            .collect();
-        Ok(files)
-    }
-
-    fn exists(&self, file_path: &str) -> bool {
-        std::path::Path::new(self.root.join(file_path).as_path()).exists()
+    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
+        fs::list_files(self.root.join(dir_path)).map(|files| {
+            files
+                .into_iter()
+                .filter(|f| !f.starts_with(".git"))
+                .collect::<Vec<_>>()
+        })
     }
 }
 
@@ -144,11 +89,11 @@ impl<'reader> CommitReader<'reader> {
 }
 
 impl Reader for CommitReader<'_> {
-    fn is_dir(&self, file_path: &str) -> bool {
+    fn is_dir(&self, file_path: &path::Path) -> bool {
         let entry = match self
             .tree
             .get_path(std::path::Path::new(file_path))
-            .with_context(|| format!("{}: tree entry not found", file_path))
+            .context(format!("{}: tree entry not found", file_path.display()))
         {
             Ok(entry) => entry,
             Err(_) => return false,
@@ -156,27 +101,11 @@ impl Reader for CommitReader<'_> {
         entry.kind() == Some(git2::ObjectType::Tree)
     }
 
-    fn size(&self, file_path: &str) -> Result<usize> {
-        let entry = match self
-            .tree
-            .get_path(std::path::Path::new(file_path))
-            .with_context(|| format!("{}: tree entry not found", file_path))
-        {
-            Ok(entry) => entry,
-            Err(_) => return Ok(0),
-        };
-        let blob = match self.repository.find_blob(entry.id()) {
-            Ok(blob) => blob,
-            Err(_) => return Ok(0),
-        };
-        Ok(blob.size())
-    }
-
-    fn read(&self, path: &str) -> Result<Content, Error> {
+    fn read(&self, path: &path::Path) -> Result<Content, Error> {
         let entry = match self
             .tree
             .get_path(std::path::Path::new(path))
-            .with_context(|| format!("{}: tree entry not found", path))
+            .context(format!("{}: tree entry not found", path.display()))
         {
             Ok(entry) => entry,
             Err(_) => return Err(Error::NotFound),
@@ -185,15 +114,11 @@ impl Reader for CommitReader<'_> {
             Ok(blob) => blob,
             Err(_) => return Err(Error::NotFound),
         };
-        let content = blob.content();
-        match String::from_utf8_lossy(content).into_owned() {
-            s if s.as_bytes().eq(content) => Ok(Content::UTF8(s)),
-            _ => Ok(Content::Binary(content.to_vec())),
-        }
+        Ok(Content::from(&blob))
     }
 
-    fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
-        let mut files: Vec<String> = Vec::new();
+    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
+        let mut files = vec![];
         let dir_path = std::path::Path::new(dir_path);
         self.tree
             .walk(git2::TreeWalkMode::PreOrder, |root, entry| {
@@ -210,14 +135,7 @@ impl Reader for CommitReader<'_> {
                     return git2::TreeWalkResult::Ok;
                 }
 
-                files.push(
-                    entry_path
-                        .strip_prefix(dir_path)
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string(),
-                );
+                files.push(entry_path.strip_prefix(dir_path).unwrap().to_path_buf());
 
                 git2::TreeWalkResult::Ok
             })
@@ -226,8 +144,8 @@ impl Reader for CommitReader<'_> {
         Ok(files)
     }
 
-    fn exists(&self, file_path: &str) -> bool {
-        self.tree.get_path(std::path::Path::new(file_path)).is_ok()
+    fn exists(&self, file_path: &path::Path) -> bool {
+        self.tree.get_path(file_path).is_ok()
     }
 }
 
@@ -246,28 +164,157 @@ impl<'reader> SubReader<'reader> {
 }
 
 impl Reader for SubReader<'_> {
-    fn is_dir(&self, file_path: &str) -> bool {
-        self.reader
-            .is_dir(self.prefix.join(file_path).to_str().unwrap())
+    fn is_dir(&self, file_path: &path::Path) -> bool {
+        self.reader.is_dir(&self.prefix.join(file_path))
     }
 
-    fn size(&self, file_path: &str) -> Result<usize> {
-        self.reader
-            .size(self.prefix.join(file_path).to_str().unwrap())
+    fn read(&self, path: &path::Path) -> Result<Content, Error> {
+        self.reader.read(&self.prefix.join(path))
     }
 
-    fn read(&self, path: &str) -> Result<Content, Error> {
-        self.reader.read(self.prefix.join(path).to_str().unwrap())
+    fn list_files(&self, dir_path: &path::Path) -> Result<Vec<path::PathBuf>> {
+        self.reader.list_files(&self.prefix.join(dir_path))
     }
 
-    fn list_files(&self, dir_path: &str) -> Result<Vec<String>> {
-        self.reader
-            .list_files(self.prefix.join(dir_path).to_str().unwrap())
+    fn exists(&self, file_path: &path::Path) -> bool {
+        self.reader.exists(&self.prefix.join(file_path))
     }
+}
 
-    fn exists(&self, file_path: &str) -> bool {
-        self.reader
-            .exists(self.prefix.join(file_path).to_str().unwrap())
+#[derive(Debug, thiserror::Error)]
+pub enum FromError {
+    #[error(transparent)]
+    ParseInt(#[from] num::ParseIntError),
+    #[error(transparent)]
+    ParseBool(#[from] str::ParseBoolError),
+    #[error("file is binary")]
+    Binary,
+    #[error("file too large")]
+    Large,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Content {
+    UTF8(String),
+    Binary,
+    Large,
+}
+
+impl Serialize for Content {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Content::UTF8(text) => {
+                let mut state = serializer.serialize_struct("Content", 2)?;
+                state.serialize_field("type", "utf8")?;
+                state.serialize_field("value", text)?;
+                state.end()
+            }
+            Content::Binary => {
+                let mut state = serializer.serialize_struct("Content", 1)?;
+                state.serialize_field("type", "binary")?;
+                state.end()
+            }
+            Content::Large => {
+                let mut state = serializer.serialize_struct("Content", 1)?;
+                state.serialize_field("type", "large")?;
+                state.end()
+            }
+        }
+    }
+}
+
+impl Content {
+    const MAX_SIZE: usize = 1024 * 1024 * 10; // 10 MB
+}
+
+impl From<&str> for Content {
+    fn from(text: &str) -> Self {
+        if text.len() > Self::MAX_SIZE {
+            Content::Large
+        } else {
+            Content::UTF8(text.to_string())
+        }
+    }
+}
+
+impl TryFrom<&path::PathBuf> for Content {
+    type Error = std::io::Error;
+
+    fn try_from(value: &path::PathBuf) -> Result<Self, Self::Error> {
+        let metadata = std::fs::metadata(value)?;
+        if metadata.len() > Content::MAX_SIZE as u64 {
+            return Ok(Content::Large);
+        }
+        let content = std::fs::read(value)?;
+        Ok(content.as_slice().into())
+    }
+}
+
+impl From<&git::Blob<'_>> for Content {
+    fn from(value: &git::Blob) -> Self {
+        if value.size() > Content::MAX_SIZE {
+            Content::Large
+        } else {
+            value.content().into()
+        }
+    }
+}
+
+impl From<&[u8]> for Content {
+    fn from(bytes: &[u8]) -> Self {
+        if bytes.len() > Self::MAX_SIZE {
+            Content::Large
+        } else {
+            match String::from_utf8(bytes.to_vec()) {
+                Err(_) => Content::Binary,
+                Ok(text) => Content::UTF8(text),
+            }
+        }
+    }
+}
+
+impl TryFrom<Content> for usize {
+    type Error = FromError;
+
+    fn try_from(content: Content) -> Result<Self, Self::Error> {
+        match content {
+            Content::UTF8(text) => text.parse().map_err(FromError::ParseInt),
+            Content::Binary => Err(FromError::Binary),
+            Content::Large => Err(FromError::Large),
+        }
+    }
+}
+
+impl TryFrom<Content> for String {
+    type Error = FromError;
+
+    fn try_from(content: Content) -> Result<Self, Self::Error> {
+        match content {
+            Content::UTF8(text) => Ok(text),
+            Content::Binary => Err(FromError::Binary),
+            Content::Large => Err(FromError::Large),
+        }
+    }
+}
+
+impl TryFrom<Content> for u128 {
+    type Error = FromError;
+
+    fn try_from(content: Content) -> Result<Self, Self::Error> {
+        let text: String = content.try_into()?;
+        text.parse().map_err(FromError::ParseInt)
+    }
+}
+
+impl TryFrom<Content> for bool {
+    type Error = FromError;
+
+    fn try_from(content: Content) -> Result<Self, Self::Error> {
+        let text: String = content.try_into()?;
+        text.parse().map_err(FromError::ParseBool)
     }
 }
 
@@ -285,10 +332,10 @@ mod tests {
         let reader = DirReader::open(dir.clone());
         std::fs::create_dir(dir.join("dir"))?;
         std::fs::write(dir.join("dir/test.txt"), "test")?;
-        assert!(reader.is_dir("."));
-        assert!(reader.is_dir("dir"));
-        assert!(!reader.is_dir("dir/test.txt"));
-        assert!(!reader.is_dir("404.txt"));
+        assert!(reader.is_dir(path::Path::new(".")));
+        assert!(reader.is_dir(path::Path::new("dir")));
+        assert!(!reader.is_dir(path::Path::new("dir/test.txt")));
+        assert!(!reader.is_dir(path::Path::new("404.txt")));
         Ok(())
     }
 
@@ -296,7 +343,7 @@ mod tests {
     fn test_directory_reader_read_file() -> Result<()> {
         let dir = test_utils::temp_dir();
 
-        let file_path = "test.txt";
+        let file_path = path::Path::new("test.txt");
         std::fs::write(dir.join(file_path), "test")?;
 
         let reader = DirReader::open(dir.to_path_buf());
@@ -317,9 +364,9 @@ mod tests {
         let oid = test_utils::commit_all(&repository);
 
         let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
-        assert!(reader.is_dir("dir"));
-        assert!(!reader.is_dir("dir/test.txt"));
-        assert!(!reader.is_dir("404.txt"));
+        assert!(reader.is_dir(path::Path::new("dir")));
+        assert!(!reader.is_dir(path::Path::new("dir/test.txt")));
+        assert!(!reader.is_dir(path::Path::new("404.txt")));
         Ok(())
     }
 
@@ -327,7 +374,7 @@ mod tests {
     fn test_commit_reader_read_file() -> Result<()> {
         let repository = test_utils::test_repository();
 
-        let file_path = "test.txt";
+        let file_path = path::Path::new("test.txt");
         std::fs::write(repository.path().parent().unwrap().join(file_path), "test")?;
 
         let oid = test_utils::commit_all(&repository);
@@ -349,9 +396,9 @@ mod tests {
         std::fs::write(dir.join("dir").join("test.txt"), "test")?;
 
         let reader = DirReader::open(dir.to_path_buf());
-        let files = reader.list_files("dir")?;
+        let files = reader.list_files(path::Path::new("dir"))?;
         assert_eq!(files.len(), 1);
-        assert!(files.contains(&"test.txt".to_string()));
+        assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
 
         Ok(())
     }
@@ -365,10 +412,10 @@ mod tests {
         std::fs::write(dir.join("dir").join("test.txt"), "test")?;
 
         let reader = DirReader::open(dir.to_path_buf());
-        let files = reader.list_files("")?;
+        let files = reader.list_files(path::Path::new(""))?;
         assert_eq!(files.len(), 2);
-        assert!(files.contains(&"test.txt".to_string()));
-        assert!(files.contains(&"dir/test.txt".to_string()));
+        assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
+        assert!(files.contains(&path::Path::new("dir/test.txt").to_path_buf()));
 
         Ok(())
     }
@@ -397,9 +444,9 @@ mod tests {
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
         let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
-        let files = reader.list_files("dir")?;
+        let files = reader.list_files(path::Path::new("dir"))?;
         assert_eq!(files.len(), 1);
-        assert!(files.contains(&"test.txt".to_string()));
+        assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
 
         Ok(())
     }
@@ -425,10 +472,10 @@ mod tests {
         std::fs::remove_dir_all(repository.path().parent().unwrap().join("dir"))?;
 
         let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
-        let files = reader.list_files("")?;
+        let files = reader.list_files(path::Path::new(""))?;
         assert_eq!(files.len(), 2);
-        assert!(files.contains(&"test.txt".to_string()));
-        assert!(files.contains(&"dir/test.txt".to_string()));
+        assert!(files.contains(&path::Path::new("test.txt").to_path_buf()));
+        assert!(files.contains(&path::Path::new("dir/test.txt").to_path_buf()));
 
         Ok(())
     }
@@ -440,8 +487,8 @@ mod tests {
         std::fs::write(dir.join("test.txt"), "test")?;
 
         let reader = DirReader::open(dir.to_path_buf());
-        assert!(reader.exists("test.txt"));
-        assert!(!reader.exists("test2.txt"));
+        assert!(reader.exists(path::Path::new("test.txt")));
+        assert!(!reader.exists(path::Path::new("test2.txt")));
 
         Ok(())
     }
@@ -457,9 +504,37 @@ mod tests {
         std::fs::remove_file(repository.path().parent().unwrap().join("test.txt"))?;
 
         let reader = CommitReader::from_commit(&repository, &repository.find_commit(oid)?)?;
-        assert!(reader.exists("test.txt"));
-        assert!(!reader.exists("test2.txt"));
+        assert!(reader.exists(path::Path::new("test.txt")));
+        assert!(!reader.exists(path::Path::new("test2.txt")));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_from_bytes() {
+        vec![
+            ("test".as_bytes(), Content::UTF8("test".to_string())),
+            (&[0, 159, 146, 150, 159, 146, 150], Content::Binary),
+        ]
+        .into_iter()
+        .for_each(|(bytes, expected)| {
+            assert_eq!(Content::from(bytes), expected);
+        });
+    }
+
+    #[test]
+    fn test_serialize_content() {
+        vec![
+            (
+                Content::UTF8("test".to_string()),
+                r#"{"type":"utf8","value":"test"}"#,
+            ),
+            (Content::Binary, r#"{"type":"binary"}"#),
+            (Content::Large, r#"{"type":"large"}"#),
+        ]
+        .into_iter()
+        .for_each(|(content, expected)| {
+            assert_eq!(serde_json::to_string(&content).unwrap(), expected);
+        });
     }
 }

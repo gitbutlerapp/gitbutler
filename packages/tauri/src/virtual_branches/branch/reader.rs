@@ -1,3 +1,5 @@
+use std::path;
+
 use crate::reader::{self, Reader, SubReader};
 
 use super::Branch;
@@ -16,7 +18,10 @@ impl<'reader> BranchReader<'reader> {
     }
 
     pub fn read(&self, id: &str) -> Result<Branch, reader::Error> {
-        if !self.reader.exists(&format!("branches/{}", id)) {
+        if !self
+            .reader
+            .exists(&path::PathBuf::from(format!("branches/{}", id)))
+        {
             return Err(reader::Error::NotFound);
         }
 
