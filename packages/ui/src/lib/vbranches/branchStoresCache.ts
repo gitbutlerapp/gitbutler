@@ -15,11 +15,14 @@ import type { FileContent } from '$lib/api/ipc/files';
 
 export function getVirtualBranchStore(
 	projectId: string,
-	asyncStores: Readable<any>[]
+	deltasStore: Readable<any>,
+	sessionStore: Readable<any>,
+	headStore: Readable<any>,
+	baseBranchStore: Readable<any>
 ): VirtualBranchStore<Branch> {
 	return {
 		...(asyncWritable(
-			asyncStores,
+			[deltasStore, sessionStore, headStore, baseBranchStore],
 			async () => await listVirtualBranches({ projectId }),
 			undefined,
 			{ reloadable: true, trackState: true }
@@ -48,18 +51,27 @@ export function getWithContentStore(
 	) as CustomStore<Branch[] | undefined>;
 }
 
-export function getRemoteBranchStore(projectId: string, asyncStores: Readable<any>[]) {
+export function getRemoteBranchStore(
+	projectId: string,
+	fetchStore: Readable<any>,
+	headStore: Readable<any>,
+	baseBranchStore: Readable<any>
+) {
 	return asyncWritable(
-		asyncStores,
+		[fetchStore, headStore, baseBranchStore],
 		async () => getRemoteBranchesData({ projectId }),
 		async (newRemotes) => newRemotes,
 		{ reloadable: true, trackState: true }
 	) as CustomStore<RemoteBranch[] | undefined>;
 }
 
-export function getBaseBranchStore(projectId: string, asyncStores: Readable<any>[]) {
+export function getBaseBranchStore(
+	projectId: string,
+	fetchStore: Readable<any>,
+	headStore: Readable<any>
+) {
 	return asyncWritable(
-		asyncStores,
+		[fetchStore, headStore],
 		async () => getBaseBranch({ projectId }),
 		async (newBaseBranch) => newBaseBranch,
 		{ reloadable: true, trackState: true }
