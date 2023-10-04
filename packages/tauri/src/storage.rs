@@ -1,5 +1,6 @@
 use std::{
     fs,
+    os::unix::prelude::PermissionsExt,
     path::{self, Path, PathBuf},
     sync::{Arc, RwLock},
 };
@@ -65,6 +66,13 @@ impl Storage {
             fs::create_dir_all(dir).map_err(Error::IO)?;
         }
         fs::write(file_path.clone(), content).map_err(Error::IO)?;
+
+        // Set the permissions to be user-only.
+        let metadata = fs::metadata(file_path.clone())?;
+        let mut permissions = metadata.permissions();
+        permissions.set_mode(0o600); // User read/write
+        fs::set_permissions(file_path.clone(), permissions)?;
+
         Ok(())
     }
 
